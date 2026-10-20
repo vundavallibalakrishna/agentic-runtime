@@ -4,10 +4,12 @@ import time
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+import orjson
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ar_common.errors import PayloadTooLargeError
 from ar_common.ids import new_id
+from ar_common.json_api import camelize
 from ar_common.logging import get_logger
 from ar_common.metrics import REQUESTS
 from ar_common.web.problems import problem_response
@@ -94,11 +96,125 @@ class BodyLimitMiddleware:
         await self.app(scope, receive_limited, send)
 
 
-def install_middleware(app: ASGIApp, settings: BaseServiceSettings) -> None:
-    """Attach middleware. ``app`` is a FastAPI instance."""
+class SecurityHeadersMiddleware:
+    """API response headers from spec 01 §4. Applied to every service."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.extend(
+                    (
+                        (b"x-content-type-options", b"nosniff"),
+                        (b"referrer-policy", b"strict-origin-when-cross-origin"),
+                        (b"cross-origin-resource-policy", b"same-origin"),
+                        (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'"),
+                        (b"strict-transport-security", b"max-age=31536000; includeSubDomains"),
+                    )
+                )
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_headers)
+
+
+class CamelJsonMiddleware:
+    """Rewrite JSON object keys to camelCase before the body reaches the client.
+
+    Runs outside the service stack so problem documents, pagination envelopes
+    and hand-built dict responses share one wire format. A second pass is safe.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        start: Message | None = None
+        chunks: list[bytes] = []
+
+        async def send_camel(message: Message) -> None:
+            nonlocal start
+            if message["type"] == "http.response.start":
+                if _json_content(message):
+                    start = message
+                    return
+                await send(message)
+                return
+            if message["type"] == "http.response.body" and start is not None:
+                chunks.append(bytes(message.get("body", b"")))
+                if message.get("more_body"):
+                    return
+                rewritten = _camel_body(b"".join(chunks))
+                headers = [
+                    (key, value)
+                    for key, value in list(start.get("headers", []))
+                    if key.lower() != b"content-length"
+                ]
+                headers.append((b"content-length", str(len(rewritten)).encode()))
+                start["headers"] = headers
+                await send(start)
+                await send({"type": "http.response.body", "body": rewritten})
+                return
+            await send(message)
+
+        await self.app(scope, receive, send_camel)
+
+
+def _json_content(message: Message) -> bool:
+    for key, value in message.get("headers", []):
+        if key.lower() == b"content-type" and b"json" in value.lower():
+            return True
+    return False
+
+
+def _camel_body(body: bytes) -> bytes:
+    if not body:
+        return body
+    try:
+        parsed = orjson.loads(body)
+    except orjson.JSONDecodeError:
+        return body
+    public = camelize(parsed)
+    if isinstance(public, dict) and isinstance(public.get("data"), list) and "items" not in public:
+        public["items"] = public.pop("data")
+        if "nextCursor" not in public:
+            public["nextCursor"] = None
+        if "hasMore" not in public:
+            public["hasMore"] = public.get("nextCursor") is not None
+    return orjson.dumps(public)
+
+
+def install_middleware(
+    app: ASGIApp,
+    settings: BaseServiceSettings,
+    inner: list[tuple[type, dict[str, object]]] | None = None,
+    *,
+    camel_json: bool = False,
+) -> None:
+    """Attach middleware. Later additions run further out.
+
+    ``inner`` is ordered outer-to-inner and is installed inside the body limit,
+    which matches spec 01 §4 for the API pipeline. ``camel_json`` rewrites public
+    JSON bodies for the product API. OpenAI-compatible services leave it off.
+    """
     stack = app
+    for middleware, kwargs in reversed(inner or []):
+        stack.add_middleware(middleware, **kwargs)  # type: ignore[attr-defined]
     stack.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_json_body_bytes)  # type: ignore[attr-defined]
+    stack.add_middleware(SecurityHeadersMiddleware)  # type: ignore[attr-defined]
     stack.add_middleware(RequestIdMiddleware, service_name=settings.service_name)  # type: ignore[attr-defined]
+    if camel_json:
+        stack.add_middleware(CamelJsonMiddleware)  # type: ignore[attr-defined]
 
 
 def _header(scope: Scope, name: bytes) -> str | None:

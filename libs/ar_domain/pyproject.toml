@@ -24,6 +24,10 @@ dependencies = [
     "langfuse==5.0.3",
     "hvac==2.4.0",
     "sqlglot==30.23.0",
+    "orjson==3.13.0",
+    "pydantic==2.14.1",
+    "httpx==0.28.1",
+    "cryptography==48.0.1",
 ]
 
 [project.optional-dependencies]

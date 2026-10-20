@@ -24,6 +24,10 @@ Webhook bodies use these camelCase names. The outbox columns stay `tenant_id` an
 | `tenant.suspended` | no | `tenant_id, reason` | identity |
 | `user.provisioned` | yes | `user_id, email, source` | identity (SCIM/login) |
 | `user.deprovisioned` | yes | `user_id` | identity |
+| `invitation.created` | yes | `invitation_id, email` | identity |
+| `role.changed` | yes | `principal_id, role_id` | identity |
+| `membership.changed` | yes | `principal_id, team_id` | identity |
+| `webhook.test` | yes | `webhook_id` | webhooks |
 | `agent.published` | yes | `agent_id, agent_version_id, version` | agents |
 | `agent.disabled` / `agent.enabled` | yes | `agent_id, reason` | agents |
 | `tool_server.review_requested` | no | `tool_server_id, tool_server_version_id, reason: new_version\|manifest_drift` | tools |

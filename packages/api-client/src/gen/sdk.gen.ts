@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { HealthzHealthzGetData, HealthzHealthzGetResponses, MetricsMetricsGetData, MetricsMetricsGetResponses, ReadyzReadyzGetData, ReadyzReadyzGetResponses } from './types.gen';
+import type { AcceptInvitationApiV1InvitationsTokenAcceptPostData, AcceptInvitationApiV1InvitationsTokenAcceptPostErrors, AcceptInvitationApiV1InvitationsTokenAcceptPostResponses, AddMemberApiV1TeamsTeamIdMembersPostData, AddMemberApiV1TeamsTeamIdMembersPostErrors, AddMemberApiV1TeamsTeamIdMembersPostResponses, CallbackApiV1AuthCallbackGetData, CallbackApiV1AuthCallbackGetErrors, CallbackApiV1AuthCallbackGetResponses, CreateApiKeyApiV1ApiKeysPostData, CreateApiKeyApiV1ApiKeysPostErrors, CreateApiKeyApiV1ApiKeysPostResponses, CreateAssignmentApiV1RoleAssignmentsPostData, CreateAssignmentApiV1RoleAssignmentsPostErrors, CreateAssignmentApiV1RoleAssignmentsPostResponses, CreateDomainApiV1TenantDomainsPostData, CreateDomainApiV1TenantDomainsPostErrors, CreateDomainApiV1TenantDomainsPostResponses, CreateGrantApiV1TenantSupportAccessPostData, CreateGrantApiV1TenantSupportAccessPostErrors, CreateGrantApiV1TenantSupportAccessPostResponses, CreateGroupApiV1GroupsPostData, CreateGroupApiV1GroupsPostErrors, CreateGroupApiV1GroupsPostResponses, CreateGroupScimV2GroupsPostData, CreateGroupScimV2GroupsPostErrors, CreateGroupScimV2GroupsPostResponses, CreateIdpApiV1IdentityProvidersPostData, CreateIdpApiV1IdentityProvidersPostErrors, CreateIdpApiV1IdentityProvidersPostResponses, CreateInvitationsApiV1InvitationsPostData, CreateInvitationsApiV1InvitationsPostErrors, CreateInvitationsApiV1InvitationsPostResponses, CreatePlanApiV1PlatformPlansPostData, CreatePlanApiV1PlatformPlansPostErrors, CreatePlanApiV1PlatformPlansPostResponses, CreateRoleApiV1RolesPostData, CreateRoleApiV1RolesPostErrors, CreateRoleApiV1RolesPostResponses, CreateSecretApiV1SecretsPostData, CreateSecretApiV1SecretsPostErrors, CreateSecretApiV1SecretsPostResponses, CreateServiceAccountApiV1ServiceAccountsPostData, CreateServiceAccountApiV1ServiceAccountsPostErrors, CreateServiceAccountApiV1ServiceAccountsPostResponses, CreateTeamApiV1TeamsPostData, CreateTeamApiV1TeamsPostErrors, CreateTeamApiV1TeamsPostResponses, CreateTenantApiV1PlatformTenantsPostData, CreateTenantApiV1PlatformTenantsPostErrors, CreateTenantApiV1PlatformTenantsPostResponses, CreateTokenApiV1ScimTokensPostData, CreateTokenApiV1ScimTokensPostResponses, CreateUserScimV2UsersPostData, CreateUserScimV2UsersPostErrors, CreateUserScimV2UsersPostResponses, CreateWebhookApiV1WebhooksPostData, CreateWebhookApiV1WebhooksPostErrors, CreateWebhookApiV1WebhooksPostResponses, DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteData, DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteErrors, DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteResponses, DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteData, DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteErrors, DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponses, DeleteDomainApiV1TenantDomainsDomainIdDeleteData, DeleteDomainApiV1TenantDomainsDomainIdDeleteErrors, DeleteDomainApiV1TenantDomainsDomainIdDeleteResponses, DeleteGroupApiV1GroupsGroupIdDeleteData, DeleteGroupApiV1GroupsGroupIdDeleteErrors, DeleteGroupApiV1GroupsGroupIdDeleteResponses, DeleteIdpApiV1IdentityProvidersIdpIdDeleteData, DeleteIdpApiV1IdentityProvidersIdpIdDeleteErrors, DeleteIdpApiV1IdentityProvidersIdpIdDeleteResponses, DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteData, DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteErrors, DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponses, DeleteRoleApiV1RolesRoleIdDeleteData, DeleteRoleApiV1RolesRoleIdDeleteErrors, DeleteRoleApiV1RolesRoleIdDeleteResponses, DeleteSecretApiV1SecretsSecretIdDeleteData, DeleteSecretApiV1SecretsSecretIdDeleteErrors, DeleteSecretApiV1SecretsSecretIdDeleteResponses, DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteData, DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteErrors, DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteResponses, DeleteTeamApiV1TeamsTeamIdDeleteData, DeleteTeamApiV1TeamsTeamIdDeleteErrors, DeleteTeamApiV1TeamsTeamIdDeleteResponses, DeleteTenantApiV1PlatformTenantsTenantIdDeletePostData, DeleteTenantApiV1PlatformTenantsTenantIdDeletePostErrors, DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses, DeleteTokenApiV1ScimTokensScimTokenIdDeleteData, DeleteTokenApiV1ScimTokensScimTokenIdDeleteErrors, DeleteTokenApiV1ScimTokensScimTokenIdDeleteResponses, DeleteUserScimV2UsersUserIdDeleteData, DeleteUserScimV2UsersUserIdDeleteErrors, DeleteUserScimV2UsersUserIdDeleteResponses, DeleteWebhookApiV1WebhooksWebhookIdDeleteData, DeleteWebhookApiV1WebhooksWebhookIdDeleteErrors, DeleteWebhookApiV1WebhooksWebhookIdDeleteResponses, DeliveriesApiV1WebhooksWebhookIdDeliveriesGetData, DeliveriesApiV1WebhooksWebhookIdDeliveriesGetErrors, DeliveriesApiV1WebhooksWebhookIdDeliveriesGetResponses, EventsApiV1NotificationsEventsGetData, EventsApiV1NotificationsEventsGetResponses, GetEventApiV1AuditEventsEventIdGetData, GetEventApiV1AuditEventsEventIdGetErrors, GetEventApiV1AuditEventsEventIdGetResponses, GetMeApiV1MeGetData, GetMeApiV1MeGetResponses, GetSecretApiV1SecretsSecretIdGetData, GetSecretApiV1SecretsSecretIdGetErrors, GetSecretApiV1SecretsSecretIdGetResponses, GetTeamApiV1TeamsTeamIdGetData, GetTeamApiV1TeamsTeamIdGetErrors, GetTeamApiV1TeamsTeamIdGetResponses, GetTenantApiV1PlatformTenantsTenantIdGetData, GetTenantApiV1PlatformTenantsTenantIdGetErrors, GetTenantApiV1PlatformTenantsTenantIdGetResponses, GetTenantApiV1TenantGetData, GetTenantApiV1TenantGetResponses, GetUserApiV1UsersUserIdGetData, GetUserApiV1UsersUserIdGetErrors, GetUserApiV1UsersUserIdGetResponses, GetUserScimV2UsersUserIdGetData, GetUserScimV2UsersUserIdGetErrors, GetUserScimV2UsersUserIdGetResponses, GetWebhookApiV1WebhooksWebhookIdGetData, GetWebhookApiV1WebhooksWebhookIdGetErrors, GetWebhookApiV1WebhooksWebhookIdGetResponses, HealthzHealthzGetData, HealthzHealthzGetResponses, JwksApiV1WellKnownJwksJsonGetData, JwksApiV1WellKnownJwksJsonGetResponses, ListApiKeysApiV1ApiKeysGetData, ListApiKeysApiV1ApiKeysGetErrors, ListApiKeysApiV1ApiKeysGetResponses, ListAssignmentsApiV1RoleAssignmentsGetData, ListAssignmentsApiV1RoleAssignmentsGetResponses, ListDomainsApiV1TenantDomainsGetData, ListDomainsApiV1TenantDomainsGetResponses, ListEventsApiV1AuditEventsGetData, ListEventsApiV1AuditEventsGetResponses, ListGrantsApiV1TenantSupportAccessGetData, ListGrantsApiV1TenantSupportAccessGetResponses, ListGroupsApiV1GroupsGetData, ListGroupsApiV1GroupsGetErrors, ListGroupsApiV1GroupsGetResponses, ListGroupsScimV2GroupsGetData, ListGroupsScimV2GroupsGetErrors, ListGroupsScimV2GroupsGetResponses, ListIdpsApiV1IdentityProvidersGetData, ListIdpsApiV1IdentityProvidersGetResponses, ListInvitationsApiV1InvitationsGetData, ListInvitationsApiV1InvitationsGetResponses, ListMembersApiV1GroupsGroupIdMembersGetData, ListMembersApiV1GroupsGroupIdMembersGetErrors, ListMembersApiV1GroupsGroupIdMembersGetResponses, ListNotificationsApiV1NotificationsGetData, ListNotificationsApiV1NotificationsGetResponses, ListPermissionsApiV1PermissionsGetData, ListPermissionsApiV1PermissionsGetResponses, ListPlansApiV1PlatformPlansGetData, ListPlansApiV1PlatformPlansGetResponses, ListRolesApiV1RolesGetData, ListRolesApiV1RolesGetResponses, ListSecretsApiV1SecretsGetData, ListSecretsApiV1SecretsGetResponses, ListServiceAccountsApiV1ServiceAccountsGetData, ListServiceAccountsApiV1ServiceAccountsGetResponses, ListTeamsApiV1TeamsGetData, ListTeamsApiV1TeamsGetResponses, ListTenantsApiV1PlatformTenantsGetData, ListTenantsApiV1PlatformTenantsGetResponses, ListTokensApiV1ScimTokensGetData, ListTokensApiV1ScimTokensGetResponses, ListUsersApiV1UsersGetData, ListUsersApiV1UsersGetErrors, ListUsersApiV1UsersGetResponses, ListUsersScimV2UsersGetData, ListUsersScimV2UsersGetErrors, ListUsersScimV2UsersGetResponses, ListWebhooksApiV1WebhooksGetData, ListWebhooksApiV1WebhooksGetResponses, LoginApiV1AuthLoginGetData, LoginApiV1AuthLoginGetErrors, LoginApiV1AuthLoginGetResponses, LogoutApiV1AuthLogoutPostData, LogoutApiV1AuthLogoutPostResponses, MarkReadApiV1NotificationsNotificationIdReadPostData, MarkReadApiV1NotificationsNotificationIdReadPostErrors, MarkReadApiV1NotificationsNotificationIdReadPostResponses, MetaApiV1MetaGetData, MetaApiV1MetaGetResponses, MetricsMetricsGetData, MetricsMetricsGetResponses, OpenapiDocumentApiV1OpenapiJsonGetData, OpenapiDocumentApiV1OpenapiJsonGetResponses, PatchGroupScimV2GroupsGroupIdPatchData, PatchGroupScimV2GroupsGroupIdPatchErrors, PatchGroupScimV2GroupsGroupIdPatchResponses, PatchIdpApiV1IdentityProvidersIdpIdPatchData, PatchIdpApiV1IdentityProvidersIdpIdPatchErrors, PatchIdpApiV1IdentityProvidersIdpIdPatchResponses, PatchMeApiV1MePatchData, PatchMeApiV1MePatchErrors, PatchMeApiV1MePatchResponses, PatchPlanApiV1PlatformPlansPlanIdPatchData, PatchPlanApiV1PlatformPlansPlanIdPatchErrors, PatchPlanApiV1PlatformPlansPlanIdPatchResponses, PatchRoleApiV1RolesRoleIdPatchData, PatchRoleApiV1RolesRoleIdPatchErrors, PatchRoleApiV1RolesRoleIdPatchResponses, PatchSecretApiV1SecretsSecretIdPatchData, PatchSecretApiV1SecretsSecretIdPatchErrors, PatchSecretApiV1SecretsSecretIdPatchResponses, PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchData, PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchErrors, PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchResponses, PatchTeamApiV1TeamsTeamIdPatchData, PatchTeamApiV1TeamsTeamIdPatchErrors, PatchTeamApiV1TeamsTeamIdPatchResponses, PatchTenantApiV1TenantPatchData, PatchTenantApiV1TenantPatchErrors, PatchTenantApiV1TenantPatchResponses, PatchUserApiV1UsersUserIdPatchData, PatchUserApiV1UsersUserIdPatchErrors, PatchUserApiV1UsersUserIdPatchResponses, PatchUserScimV2UsersUserIdPatchData, PatchUserScimV2UsersUserIdPatchErrors, PatchUserScimV2UsersUserIdPatchResponses, PatchWebhookApiV1WebhooksWebhookIdPatchData, PatchWebhookApiV1WebhooksWebhookIdPatchErrors, PatchWebhookApiV1WebhooksWebhookIdPatchResponses, PutMemberApiV1GroupsGroupIdMembersUserIdPutData, PutMemberApiV1GroupsGroupIdMembersUserIdPutErrors, PutMemberApiV1GroupsGroupIdMembersUserIdPutResponses, PutUserScimV2UsersUserIdPutData, PutUserScimV2UsersUserIdPutErrors, PutUserScimV2UsersUserIdPutResponses, ReadAllApiV1NotificationsReadAllPostData, ReadAllApiV1NotificationsReadAllPostResponses, ReadyzReadyzGetData, ReadyzReadyzGetResponses, RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostData, RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostErrors, RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponses, RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteData, RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteErrors, RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponses, ResourceTypesScimV2ResourceTypesGetData, ResourceTypesScimV2ResourceTypesGetResponses, ResumeApiV1PlatformTenantsTenantIdResumePostData, ResumeApiV1PlatformTenantsTenantIdResumePostErrors, ResumeApiV1PlatformTenantsTenantIdResumePostResponses, RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostData, RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostErrors, RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponses, RevokeInvitationApiV1InvitationsInvitationIdDeleteData, RevokeInvitationApiV1InvitationsInvitationIdDeleteErrors, RevokeInvitationApiV1InvitationsInvitationIdDeleteResponses, RotateApiV1WebhooksWebhookIdRotateSecretPostData, RotateApiV1WebhooksWebhookIdRotateSecretPostErrors, RotateApiV1WebhooksWebhookIdRotateSecretPostResponses, RotateCallbackApiV1TenantRunCallbackSecretRotatePostData, RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses, RotateSecretApiV1SecretsSecretIdRotatePostData, RotateSecretApiV1SecretsSecretIdRotatePostErrors, RotateSecretApiV1SecretsSecretIdRotatePostResponses, SchemaApiV1SchemasKindGetData, SchemaApiV1SchemasKindGetErrors, SchemaApiV1SchemasKindGetResponses, SchemasScimV2SchemasGetData, SchemasScimV2SchemasGetResponses, ServiceProviderConfigScimV2ServiceProviderConfigGetData, ServiceProviderConfigScimV2ServiceProviderConfigGetResponses, SessionApiV1AuthSessionGetData, SessionApiV1AuthSessionGetResponses, SignupApiV1SignupPostData, SignupApiV1SignupPostErrors, SignupApiV1SignupPostResponses, StepUpApiV1AuthStepUpPostData, StepUpApiV1AuthStepUpPostErrors, StepUpApiV1AuthStepUpPostResponses, SuspendApiV1PlatformTenantsTenantIdSuspendPostData, SuspendApiV1PlatformTenantsTenantIdSuspendPostErrors, SuspendApiV1PlatformTenantsTenantIdSuspendPostResponses, SwitchTenantApiV1AuthSwitchTenantPostData, SwitchTenantApiV1AuthSwitchTenantPostErrors, SwitchTenantApiV1AuthSwitchTenantPostResponses, TestWebhookApiV1WebhooksWebhookIdTestPostData, TestWebhookApiV1WebhooksWebhookIdTestPostErrors, TestWebhookApiV1WebhooksWebhookIdTestPostResponses, VerifyApiV1AuditEventsVerifyPostData, VerifyApiV1AuditEventsVerifyPostResponses, VerifyDomainApiV1TenantDomainsDomainIdVerifyPostData, VerifyDomainApiV1TenantDomainsDomainIdVerifyPostErrors, VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -32,3 +32,794 @@ export const readyzReadyzGet = <ThrowOnError extends boolean = false>(options?: 
  * Metrics
  */
 export const metricsMetricsGet = <ThrowOnError extends boolean = false>(options?: Options<MetricsMetricsGetData, ThrowOnError>): RequestResult<MetricsMetricsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<MetricsMetricsGetResponses, unknown, ThrowOnError>({ url: '/metrics', ...options });
+
+/**
+ * Meta
+ */
+export const metaApiV1MetaGet = <ThrowOnError extends boolean = false>(options?: Options<MetaApiV1MetaGetData, ThrowOnError>): RequestResult<MetaApiV1MetaGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<MetaApiV1MetaGetResponses, unknown, ThrowOnError>({ url: '/api/v1/meta', ...options });
+
+/**
+ * Schema
+ */
+export const schemaApiV1SchemasKindGet = <ThrowOnError extends boolean = false>(options: Options<SchemaApiV1SchemasKindGetData, ThrowOnError>): RequestResult<SchemaApiV1SchemasKindGetResponses, SchemaApiV1SchemasKindGetErrors, ThrowOnError> => (options.client ?? client).get<SchemaApiV1SchemasKindGetResponses, SchemaApiV1SchemasKindGetErrors, ThrowOnError>({ url: '/api/v1/schemas/{kind}', ...options });
+
+/**
+ * Openapi Document
+ */
+export const openapiDocumentApiV1OpenapiJsonGet = <ThrowOnError extends boolean = false>(options?: Options<OpenapiDocumentApiV1OpenapiJsonGetData, ThrowOnError>): RequestResult<OpenapiDocumentApiV1OpenapiJsonGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<OpenapiDocumentApiV1OpenapiJsonGetResponses, unknown, ThrowOnError>({ url: '/api/v1/openapi.json', ...options });
+
+/**
+ * Login
+ *
+ * Start the OIDC authorization-code flow.
+ */
+export const loginApiV1AuthLoginGet = <ThrowOnError extends boolean = false>(options?: Options<LoginApiV1AuthLoginGetData, ThrowOnError>): RequestResult<LoginApiV1AuthLoginGetResponses, LoginApiV1AuthLoginGetErrors, ThrowOnError> => (options?.client ?? client).get<LoginApiV1AuthLoginGetResponses, LoginApiV1AuthLoginGetErrors, ThrowOnError>({ url: '/api/v1/auth/login', ...options });
+
+/**
+ * Callback
+ *
+ * Finish login. Tests inject ``app.state.complete_login``.
+ */
+export const callbackApiV1AuthCallbackGet = <ThrowOnError extends boolean = false>(options?: Options<CallbackApiV1AuthCallbackGetData, ThrowOnError>): RequestResult<CallbackApiV1AuthCallbackGetResponses, CallbackApiV1AuthCallbackGetErrors, ThrowOnError> => (options?.client ?? client).get<CallbackApiV1AuthCallbackGetResponses, CallbackApiV1AuthCallbackGetErrors, ThrowOnError>({ url: '/api/v1/auth/callback', ...options });
+
+/**
+ * Logout
+ */
+export const logoutApiV1AuthLogoutPost = <ThrowOnError extends boolean = false>(options?: Options<LogoutApiV1AuthLogoutPostData, ThrowOnError>): RequestResult<LogoutApiV1AuthLogoutPostResponses, unknown, ThrowOnError> => (options?.client ?? client).post<LogoutApiV1AuthLogoutPostResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
+
+/**
+ * Session
+ */
+export const sessionApiV1AuthSessionGet = <ThrowOnError extends boolean = false>(options?: Options<SessionApiV1AuthSessionGetData, ThrowOnError>): RequestResult<SessionApiV1AuthSessionGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<SessionApiV1AuthSessionGetResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/session', ...options });
+
+/**
+ * Switch Tenant
+ */
+export const switchTenantApiV1AuthSwitchTenantPost = <ThrowOnError extends boolean = false>(options: Options<SwitchTenantApiV1AuthSwitchTenantPostData, ThrowOnError>): RequestResult<SwitchTenantApiV1AuthSwitchTenantPostResponses, SwitchTenantApiV1AuthSwitchTenantPostErrors, ThrowOnError> => (options.client ?? client).post<SwitchTenantApiV1AuthSwitchTenantPostResponses, SwitchTenantApiV1AuthSwitchTenantPostErrors, ThrowOnError>({
+    url: '/api/v1/auth/switch-tenant',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Step Up
+ */
+export const stepUpApiV1AuthStepUpPost = <ThrowOnError extends boolean = false>(options?: Options<StepUpApiV1AuthStepUpPostData, ThrowOnError>): RequestResult<StepUpApiV1AuthStepUpPostResponses, StepUpApiV1AuthStepUpPostErrors, ThrowOnError> => (options?.client ?? client).post<StepUpApiV1AuthStepUpPostResponses, StepUpApiV1AuthStepUpPostErrors, ThrowOnError>({
+    url: '/api/v1/auth/step-up',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+/**
+ * Jwks
+ *
+ * Public JWKS. Empty until an internal signing key is configured.
+ */
+export const jwksApiV1WellKnownJwksJsonGet = <ThrowOnError extends boolean = false>(options?: Options<JwksApiV1WellKnownJwksJsonGetData, ThrowOnError>): RequestResult<JwksApiV1WellKnownJwksJsonGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<JwksApiV1WellKnownJwksJsonGetResponses, unknown, ThrowOnError>({ url: '/api/v1/.well-known/jwks.json', ...options });
+
+/**
+ * Get Tenant
+ */
+export const getTenantApiV1TenantGet = <ThrowOnError extends boolean = false>(options?: Options<GetTenantApiV1TenantGetData, ThrowOnError>): RequestResult<GetTenantApiV1TenantGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetTenantApiV1TenantGetResponses, unknown, ThrowOnError>({ url: '/api/v1/tenant', ...options });
+
+/**
+ * Patch Tenant
+ */
+export const patchTenantApiV1TenantPatch = <ThrowOnError extends boolean = false>(options: Options<PatchTenantApiV1TenantPatchData, ThrowOnError>): RequestResult<PatchTenantApiV1TenantPatchResponses, PatchTenantApiV1TenantPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchTenantApiV1TenantPatchResponses, PatchTenantApiV1TenantPatchErrors, ThrowOnError>({
+    url: '/api/v1/tenant',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Me
+ */
+export const getMeApiV1MeGet = <ThrowOnError extends boolean = false>(options?: Options<GetMeApiV1MeGetData, ThrowOnError>): RequestResult<GetMeApiV1MeGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetMeApiV1MeGetResponses, unknown, ThrowOnError>({ url: '/api/v1/me', ...options });
+
+/**
+ * Patch Me
+ */
+export const patchMeApiV1MePatch = <ThrowOnError extends boolean = false>(options: Options<PatchMeApiV1MePatchData, ThrowOnError>): RequestResult<PatchMeApiV1MePatchResponses, PatchMeApiV1MePatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchMeApiV1MePatchResponses, PatchMeApiV1MePatchErrors, ThrowOnError>({
+    url: '/api/v1/me',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Users
+ */
+export const listUsersApiV1UsersGet = <ThrowOnError extends boolean = false>(options?: Options<ListUsersApiV1UsersGetData, ThrowOnError>): RequestResult<ListUsersApiV1UsersGetResponses, ListUsersApiV1UsersGetErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersApiV1UsersGetResponses, ListUsersApiV1UsersGetErrors, ThrowOnError>({ url: '/api/v1/users', ...options });
+
+/**
+ * Get User
+ */
+export const getUserApiV1UsersUserIdGet = <ThrowOnError extends boolean = false>(options: Options<GetUserApiV1UsersUserIdGetData, ThrowOnError>): RequestResult<GetUserApiV1UsersUserIdGetResponses, GetUserApiV1UsersUserIdGetErrors, ThrowOnError> => (options.client ?? client).get<GetUserApiV1UsersUserIdGetResponses, GetUserApiV1UsersUserIdGetErrors, ThrowOnError>({ url: '/api/v1/users/{user_id}', ...options });
+
+/**
+ * Patch User
+ */
+export const patchUserApiV1UsersUserIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchUserApiV1UsersUserIdPatchData, ThrowOnError>): RequestResult<PatchUserApiV1UsersUserIdPatchResponses, PatchUserApiV1UsersUserIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchUserApiV1UsersUserIdPatchResponses, PatchUserApiV1UsersUserIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/users/{user_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Invitations
+ */
+export const listInvitationsApiV1InvitationsGet = <ThrowOnError extends boolean = false>(options?: Options<ListInvitationsApiV1InvitationsGetData, ThrowOnError>): RequestResult<ListInvitationsApiV1InvitationsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListInvitationsApiV1InvitationsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/invitations', ...options });
+
+/**
+ * Create Invitations
+ */
+export const createInvitationsApiV1InvitationsPost = <ThrowOnError extends boolean = false>(options: Options<CreateInvitationsApiV1InvitationsPostData, ThrowOnError>): RequestResult<CreateInvitationsApiV1InvitationsPostResponses, CreateInvitationsApiV1InvitationsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateInvitationsApiV1InvitationsPostResponses, CreateInvitationsApiV1InvitationsPostErrors, ThrowOnError>({
+    url: '/api/v1/invitations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke Invitation
+ */
+export const revokeInvitationApiV1InvitationsInvitationIdDelete = <ThrowOnError extends boolean = false>(options: Options<RevokeInvitationApiV1InvitationsInvitationIdDeleteData, ThrowOnError>): RequestResult<RevokeInvitationApiV1InvitationsInvitationIdDeleteResponses, RevokeInvitationApiV1InvitationsInvitationIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInvitationApiV1InvitationsInvitationIdDeleteResponses, RevokeInvitationApiV1InvitationsInvitationIdDeleteErrors, ThrowOnError>({ url: '/api/v1/invitations/{invitation_id}', ...options });
+
+/**
+ * Accept Invitation
+ */
+export const acceptInvitationApiV1InvitationsTokenAcceptPost = <ThrowOnError extends boolean = false>(options: Options<AcceptInvitationApiV1InvitationsTokenAcceptPostData, ThrowOnError>): RequestResult<AcceptInvitationApiV1InvitationsTokenAcceptPostResponses, AcceptInvitationApiV1InvitationsTokenAcceptPostErrors, ThrowOnError> => (options.client ?? client).post<AcceptInvitationApiV1InvitationsTokenAcceptPostResponses, AcceptInvitationApiV1InvitationsTokenAcceptPostErrors, ThrowOnError>({ url: '/api/v1/invitations/{token}:accept', ...options });
+
+/**
+ * List Groups
+ */
+export const listGroupsApiV1GroupsGet = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsApiV1GroupsGetData, ThrowOnError>): RequestResult<ListGroupsApiV1GroupsGetResponses, ListGroupsApiV1GroupsGetErrors, ThrowOnError> => (options?.client ?? client).get<ListGroupsApiV1GroupsGetResponses, ListGroupsApiV1GroupsGetErrors, ThrowOnError>({ url: '/api/v1/groups', ...options });
+
+/**
+ * Create Group
+ */
+export const createGroupApiV1GroupsPost = <ThrowOnError extends boolean = false>(options: Options<CreateGroupApiV1GroupsPostData, ThrowOnError>): RequestResult<CreateGroupApiV1GroupsPostResponses, CreateGroupApiV1GroupsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateGroupApiV1GroupsPostResponses, CreateGroupApiV1GroupsPostErrors, ThrowOnError>({
+    url: '/api/v1/groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Group
+ */
+export const deleteGroupApiV1GroupsGroupIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteGroupApiV1GroupsGroupIdDeleteData, ThrowOnError>): RequestResult<DeleteGroupApiV1GroupsGroupIdDeleteResponses, DeleteGroupApiV1GroupsGroupIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteGroupApiV1GroupsGroupIdDeleteResponses, DeleteGroupApiV1GroupsGroupIdDeleteErrors, ThrowOnError>({ url: '/api/v1/groups/{group_id}', ...options });
+
+/**
+ * List Members
+ */
+export const listMembersApiV1GroupsGroupIdMembersGet = <ThrowOnError extends boolean = false>(options: Options<ListMembersApiV1GroupsGroupIdMembersGetData, ThrowOnError>): RequestResult<ListMembersApiV1GroupsGroupIdMembersGetResponses, ListMembersApiV1GroupsGroupIdMembersGetErrors, ThrowOnError> => (options.client ?? client).get<ListMembersApiV1GroupsGroupIdMembersGetResponses, ListMembersApiV1GroupsGroupIdMembersGetErrors, ThrowOnError>({ url: '/api/v1/groups/{group_id}/members', ...options });
+
+/**
+ * Delete Member
+ */
+export const deleteMemberApiV1GroupsGroupIdMembersUserIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteData, ThrowOnError>): RequestResult<DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponses, DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponses, DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteErrors, ThrowOnError>({ url: '/api/v1/groups/{group_id}/members/{user_id}', ...options });
+
+/**
+ * Put Member
+ */
+export const putMemberApiV1GroupsGroupIdMembersUserIdPut = <ThrowOnError extends boolean = false>(options: Options<PutMemberApiV1GroupsGroupIdMembersUserIdPutData, ThrowOnError>): RequestResult<PutMemberApiV1GroupsGroupIdMembersUserIdPutResponses, PutMemberApiV1GroupsGroupIdMembersUserIdPutErrors, ThrowOnError> => (options.client ?? client).put<PutMemberApiV1GroupsGroupIdMembersUserIdPutResponses, PutMemberApiV1GroupsGroupIdMembersUserIdPutErrors, ThrowOnError>({ url: '/api/v1/groups/{group_id}/members/{user_id}', ...options });
+
+/**
+ * List Teams
+ */
+export const listTeamsApiV1TeamsGet = <ThrowOnError extends boolean = false>(options?: Options<ListTeamsApiV1TeamsGetData, ThrowOnError>): RequestResult<ListTeamsApiV1TeamsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTeamsApiV1TeamsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/teams', ...options });
+
+/**
+ * Create Team
+ */
+export const createTeamApiV1TeamsPost = <ThrowOnError extends boolean = false>(options: Options<CreateTeamApiV1TeamsPostData, ThrowOnError>): RequestResult<CreateTeamApiV1TeamsPostResponses, CreateTeamApiV1TeamsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateTeamApiV1TeamsPostResponses, CreateTeamApiV1TeamsPostErrors, ThrowOnError>({
+    url: '/api/v1/teams',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Team
+ */
+export const deleteTeamApiV1TeamsTeamIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteTeamApiV1TeamsTeamIdDeleteData, ThrowOnError>): RequestResult<DeleteTeamApiV1TeamsTeamIdDeleteResponses, DeleteTeamApiV1TeamsTeamIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTeamApiV1TeamsTeamIdDeleteResponses, DeleteTeamApiV1TeamsTeamIdDeleteErrors, ThrowOnError>({ url: '/api/v1/teams/{team_id}', ...options });
+
+/**
+ * Get Team
+ */
+export const getTeamApiV1TeamsTeamIdGet = <ThrowOnError extends boolean = false>(options: Options<GetTeamApiV1TeamsTeamIdGetData, ThrowOnError>): RequestResult<GetTeamApiV1TeamsTeamIdGetResponses, GetTeamApiV1TeamsTeamIdGetErrors, ThrowOnError> => (options.client ?? client).get<GetTeamApiV1TeamsTeamIdGetResponses, GetTeamApiV1TeamsTeamIdGetErrors, ThrowOnError>({ url: '/api/v1/teams/{team_id}', ...options });
+
+/**
+ * Patch Team
+ */
+export const patchTeamApiV1TeamsTeamIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchTeamApiV1TeamsTeamIdPatchData, ThrowOnError>): RequestResult<PatchTeamApiV1TeamsTeamIdPatchResponses, PatchTeamApiV1TeamsTeamIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchTeamApiV1TeamsTeamIdPatchResponses, PatchTeamApiV1TeamsTeamIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/teams/{team_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Add Member
+ */
+export const addMemberApiV1TeamsTeamIdMembersPost = <ThrowOnError extends boolean = false>(options: Options<AddMemberApiV1TeamsTeamIdMembersPostData, ThrowOnError>): RequestResult<AddMemberApiV1TeamsTeamIdMembersPostResponses, AddMemberApiV1TeamsTeamIdMembersPostErrors, ThrowOnError> => (options.client ?? client).post<AddMemberApiV1TeamsTeamIdMembersPostResponses, AddMemberApiV1TeamsTeamIdMembersPostErrors, ThrowOnError>({
+    url: '/api/v1/teams/{team_id}/members',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Remove Member
+ */
+export const removeMemberApiV1TeamsTeamIdMembersUserIdDelete = <ThrowOnError extends boolean = false>(options: Options<RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteData, ThrowOnError>): RequestResult<RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponses, RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponses, RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteErrors, ThrowOnError>({ url: '/api/v1/teams/{team_id}/members/{user_id}', ...options });
+
+/**
+ * List Permissions
+ */
+export const listPermissionsApiV1PermissionsGet = <ThrowOnError extends boolean = false>(options?: Options<ListPermissionsApiV1PermissionsGetData, ThrowOnError>): RequestResult<ListPermissionsApiV1PermissionsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPermissionsApiV1PermissionsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/permissions', ...options });
+
+/**
+ * List Roles
+ */
+export const listRolesApiV1RolesGet = <ThrowOnError extends boolean = false>(options?: Options<ListRolesApiV1RolesGetData, ThrowOnError>): RequestResult<ListRolesApiV1RolesGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListRolesApiV1RolesGetResponses, unknown, ThrowOnError>({ url: '/api/v1/roles', ...options });
+
+/**
+ * Create Role
+ */
+export const createRoleApiV1RolesPost = <ThrowOnError extends boolean = false>(options: Options<CreateRoleApiV1RolesPostData, ThrowOnError>): RequestResult<CreateRoleApiV1RolesPostResponses, CreateRoleApiV1RolesPostErrors, ThrowOnError> => (options.client ?? client).post<CreateRoleApiV1RolesPostResponses, CreateRoleApiV1RolesPostErrors, ThrowOnError>({
+    url: '/api/v1/roles',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Role
+ */
+export const deleteRoleApiV1RolesRoleIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteRoleApiV1RolesRoleIdDeleteData, ThrowOnError>): RequestResult<DeleteRoleApiV1RolesRoleIdDeleteResponses, DeleteRoleApiV1RolesRoleIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRoleApiV1RolesRoleIdDeleteResponses, DeleteRoleApiV1RolesRoleIdDeleteErrors, ThrowOnError>({ url: '/api/v1/roles/{role_id}', ...options });
+
+/**
+ * Patch Role
+ */
+export const patchRoleApiV1RolesRoleIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchRoleApiV1RolesRoleIdPatchData, ThrowOnError>): RequestResult<PatchRoleApiV1RolesRoleIdPatchResponses, PatchRoleApiV1RolesRoleIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchRoleApiV1RolesRoleIdPatchResponses, PatchRoleApiV1RolesRoleIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/roles/{role_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Assignments
+ */
+export const listAssignmentsApiV1RoleAssignmentsGet = <ThrowOnError extends boolean = false>(options?: Options<ListAssignmentsApiV1RoleAssignmentsGetData, ThrowOnError>): RequestResult<ListAssignmentsApiV1RoleAssignmentsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListAssignmentsApiV1RoleAssignmentsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/role-assignments', ...options });
+
+/**
+ * Create Assignment
+ */
+export const createAssignmentApiV1RoleAssignmentsPost = <ThrowOnError extends boolean = false>(options: Options<CreateAssignmentApiV1RoleAssignmentsPostData, ThrowOnError>): RequestResult<CreateAssignmentApiV1RoleAssignmentsPostResponses, CreateAssignmentApiV1RoleAssignmentsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateAssignmentApiV1RoleAssignmentsPostResponses, CreateAssignmentApiV1RoleAssignmentsPostErrors, ThrowOnError>({
+    url: '/api/v1/role-assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Assignment
+ */
+export const deleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteData, ThrowOnError>): RequestResult<DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponses, DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponses, DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteErrors, ThrowOnError>({ url: '/api/v1/role-assignments/{assignment_id}', ...options });
+
+/**
+ * List Service Accounts
+ */
+export const listServiceAccountsApiV1ServiceAccountsGet = <ThrowOnError extends boolean = false>(options?: Options<ListServiceAccountsApiV1ServiceAccountsGetData, ThrowOnError>): RequestResult<ListServiceAccountsApiV1ServiceAccountsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListServiceAccountsApiV1ServiceAccountsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/service-accounts', ...options });
+
+/**
+ * Create Service Account
+ */
+export const createServiceAccountApiV1ServiceAccountsPost = <ThrowOnError extends boolean = false>(options: Options<CreateServiceAccountApiV1ServiceAccountsPostData, ThrowOnError>): RequestResult<CreateServiceAccountApiV1ServiceAccountsPostResponses, CreateServiceAccountApiV1ServiceAccountsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateServiceAccountApiV1ServiceAccountsPostResponses, CreateServiceAccountApiV1ServiceAccountsPostErrors, ThrowOnError>({
+    url: '/api/v1/service-accounts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Service Account
+ */
+export const deleteServiceAccountApiV1ServiceAccountsServiceAccountIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteData, ThrowOnError>): RequestResult<DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteResponses, DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteResponses, DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteErrors, ThrowOnError>({ url: '/api/v1/service-accounts/{service_account_id}', ...options });
+
+/**
+ * Patch Service Account
+ */
+export const patchServiceAccountApiV1ServiceAccountsServiceAccountIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchData, ThrowOnError>): RequestResult<PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchResponses, PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchResponses, PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/service-accounts/{service_account_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Api Keys
+ */
+export const listApiKeysApiV1ApiKeysGet = <ThrowOnError extends boolean = false>(options?: Options<ListApiKeysApiV1ApiKeysGetData, ThrowOnError>): RequestResult<ListApiKeysApiV1ApiKeysGetResponses, ListApiKeysApiV1ApiKeysGetErrors, ThrowOnError> => (options?.client ?? client).get<ListApiKeysApiV1ApiKeysGetResponses, ListApiKeysApiV1ApiKeysGetErrors, ThrowOnError>({ url: '/api/v1/api-keys', ...options });
+
+/**
+ * Create Api Key
+ */
+export const createApiKeyApiV1ApiKeysPost = <ThrowOnError extends boolean = false>(options: Options<CreateApiKeyApiV1ApiKeysPostData, ThrowOnError>): RequestResult<CreateApiKeyApiV1ApiKeysPostResponses, CreateApiKeyApiV1ApiKeysPostErrors, ThrowOnError> => (options.client ?? client).post<CreateApiKeyApiV1ApiKeysPostResponses, CreateApiKeyApiV1ApiKeysPostErrors, ThrowOnError>({
+    url: '/api/v1/api-keys',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Api Key
+ */
+export const deleteApiKeyApiV1ApiKeysApiKeyIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteData, ThrowOnError>): RequestResult<DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteResponses, DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteResponses, DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteErrors, ThrowOnError>({ url: '/api/v1/api-keys/{api_key_id}', ...options });
+
+/**
+ * List Events
+ */
+export const listEventsApiV1AuditEventsGet = <ThrowOnError extends boolean = false>(options?: Options<ListEventsApiV1AuditEventsGetData, ThrowOnError>): RequestResult<ListEventsApiV1AuditEventsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListEventsApiV1AuditEventsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/audit-events', ...options });
+
+/**
+ * Get Event
+ */
+export const getEventApiV1AuditEventsEventIdGet = <ThrowOnError extends boolean = false>(options: Options<GetEventApiV1AuditEventsEventIdGetData, ThrowOnError>): RequestResult<GetEventApiV1AuditEventsEventIdGetResponses, GetEventApiV1AuditEventsEventIdGetErrors, ThrowOnError> => (options.client ?? client).get<GetEventApiV1AuditEventsEventIdGetResponses, GetEventApiV1AuditEventsEventIdGetErrors, ThrowOnError>({ url: '/api/v1/audit-events/{event_id}', ...options });
+
+/**
+ * Verify
+ */
+export const verifyApiV1AuditEventsVerifyPost = <ThrowOnError extends boolean = false>(options?: Options<VerifyApiV1AuditEventsVerifyPostData, ThrowOnError>): RequestResult<VerifyApiV1AuditEventsVerifyPostResponses, unknown, ThrowOnError> => (options?.client ?? client).post<VerifyApiV1AuditEventsVerifyPostResponses, unknown, ThrowOnError>({ url: '/api/v1/audit-events:verify', ...options });
+
+/**
+ * List Secrets
+ */
+export const listSecretsApiV1SecretsGet = <ThrowOnError extends boolean = false>(options?: Options<ListSecretsApiV1SecretsGetData, ThrowOnError>): RequestResult<ListSecretsApiV1SecretsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListSecretsApiV1SecretsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/secrets', ...options });
+
+/**
+ * Create Secret
+ */
+export const createSecretApiV1SecretsPost = <ThrowOnError extends boolean = false>(options: Options<CreateSecretApiV1SecretsPostData, ThrowOnError>): RequestResult<CreateSecretApiV1SecretsPostResponses, CreateSecretApiV1SecretsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateSecretApiV1SecretsPostResponses, CreateSecretApiV1SecretsPostErrors, ThrowOnError>({
+    url: '/api/v1/secrets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Secret
+ */
+export const deleteSecretApiV1SecretsSecretIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteSecretApiV1SecretsSecretIdDeleteData, ThrowOnError>): RequestResult<DeleteSecretApiV1SecretsSecretIdDeleteResponses, DeleteSecretApiV1SecretsSecretIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSecretApiV1SecretsSecretIdDeleteResponses, DeleteSecretApiV1SecretsSecretIdDeleteErrors, ThrowOnError>({ url: '/api/v1/secrets/{secret_id}', ...options });
+
+/**
+ * Get Secret
+ */
+export const getSecretApiV1SecretsSecretIdGet = <ThrowOnError extends boolean = false>(options: Options<GetSecretApiV1SecretsSecretIdGetData, ThrowOnError>): RequestResult<GetSecretApiV1SecretsSecretIdGetResponses, GetSecretApiV1SecretsSecretIdGetErrors, ThrowOnError> => (options.client ?? client).get<GetSecretApiV1SecretsSecretIdGetResponses, GetSecretApiV1SecretsSecretIdGetErrors, ThrowOnError>({ url: '/api/v1/secrets/{secret_id}', ...options });
+
+/**
+ * Patch Secret
+ */
+export const patchSecretApiV1SecretsSecretIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchSecretApiV1SecretsSecretIdPatchData, ThrowOnError>): RequestResult<PatchSecretApiV1SecretsSecretIdPatchResponses, PatchSecretApiV1SecretsSecretIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchSecretApiV1SecretsSecretIdPatchResponses, PatchSecretApiV1SecretsSecretIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/secrets/{secret_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Rotate Secret
+ */
+export const rotateSecretApiV1SecretsSecretIdRotatePost = <ThrowOnError extends boolean = false>(options: Options<RotateSecretApiV1SecretsSecretIdRotatePostData, ThrowOnError>): RequestResult<RotateSecretApiV1SecretsSecretIdRotatePostResponses, RotateSecretApiV1SecretsSecretIdRotatePostErrors, ThrowOnError> => (options.client ?? client).post<RotateSecretApiV1SecretsSecretIdRotatePostResponses, RotateSecretApiV1SecretsSecretIdRotatePostErrors, ThrowOnError>({
+    url: '/api/v1/secrets/{secret_id}:rotate',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Domains
+ */
+export const listDomainsApiV1TenantDomainsGet = <ThrowOnError extends boolean = false>(options?: Options<ListDomainsApiV1TenantDomainsGetData, ThrowOnError>): RequestResult<ListDomainsApiV1TenantDomainsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListDomainsApiV1TenantDomainsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/tenant/domains', ...options });
+
+/**
+ * Create Domain
+ */
+export const createDomainApiV1TenantDomainsPost = <ThrowOnError extends boolean = false>(options: Options<CreateDomainApiV1TenantDomainsPostData, ThrowOnError>): RequestResult<CreateDomainApiV1TenantDomainsPostResponses, CreateDomainApiV1TenantDomainsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateDomainApiV1TenantDomainsPostResponses, CreateDomainApiV1TenantDomainsPostErrors, ThrowOnError>({
+    url: '/api/v1/tenant/domains',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Verify Domain
+ */
+export const verifyDomainApiV1TenantDomainsDomainIdVerifyPost = <ThrowOnError extends boolean = false>(options: Options<VerifyDomainApiV1TenantDomainsDomainIdVerifyPostData, ThrowOnError>): RequestResult<VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponses, VerifyDomainApiV1TenantDomainsDomainIdVerifyPostErrors, ThrowOnError> => (options.client ?? client).post<VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponses, VerifyDomainApiV1TenantDomainsDomainIdVerifyPostErrors, ThrowOnError>({ url: '/api/v1/tenant/domains/{domain_id}:verify', ...options });
+
+/**
+ * Delete Domain
+ */
+export const deleteDomainApiV1TenantDomainsDomainIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteDomainApiV1TenantDomainsDomainIdDeleteData, ThrowOnError>): RequestResult<DeleteDomainApiV1TenantDomainsDomainIdDeleteResponses, DeleteDomainApiV1TenantDomainsDomainIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteDomainApiV1TenantDomainsDomainIdDeleteResponses, DeleteDomainApiV1TenantDomainsDomainIdDeleteErrors, ThrowOnError>({ url: '/api/v1/tenant/domains/{domain_id}', ...options });
+
+/**
+ * List Idps
+ */
+export const listIdpsApiV1IdentityProvidersGet = <ThrowOnError extends boolean = false>(options?: Options<ListIdpsApiV1IdentityProvidersGetData, ThrowOnError>): RequestResult<ListIdpsApiV1IdentityProvidersGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListIdpsApiV1IdentityProvidersGetResponses, unknown, ThrowOnError>({ url: '/api/v1/identity-providers', ...options });
+
+/**
+ * Create Idp
+ */
+export const createIdpApiV1IdentityProvidersPost = <ThrowOnError extends boolean = false>(options: Options<CreateIdpApiV1IdentityProvidersPostData, ThrowOnError>): RequestResult<CreateIdpApiV1IdentityProvidersPostResponses, CreateIdpApiV1IdentityProvidersPostErrors, ThrowOnError> => (options.client ?? client).post<CreateIdpApiV1IdentityProvidersPostResponses, CreateIdpApiV1IdentityProvidersPostErrors, ThrowOnError>({
+    url: '/api/v1/identity-providers',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Idp
+ */
+export const deleteIdpApiV1IdentityProvidersIdpIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteIdpApiV1IdentityProvidersIdpIdDeleteData, ThrowOnError>): RequestResult<DeleteIdpApiV1IdentityProvidersIdpIdDeleteResponses, DeleteIdpApiV1IdentityProvidersIdpIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteIdpApiV1IdentityProvidersIdpIdDeleteResponses, DeleteIdpApiV1IdentityProvidersIdpIdDeleteErrors, ThrowOnError>({ url: '/api/v1/identity-providers/{idp_id}', ...options });
+
+/**
+ * Patch Idp
+ */
+export const patchIdpApiV1IdentityProvidersIdpIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchIdpApiV1IdentityProvidersIdpIdPatchData, ThrowOnError>): RequestResult<PatchIdpApiV1IdentityProvidersIdpIdPatchResponses, PatchIdpApiV1IdentityProvidersIdpIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchIdpApiV1IdentityProvidersIdpIdPatchResponses, PatchIdpApiV1IdentityProvidersIdpIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/identity-providers/{idp_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Service Provider Config
+ */
+export const serviceProviderConfigScimV2ServiceProviderConfigGet = <ThrowOnError extends boolean = false>(options?: Options<ServiceProviderConfigScimV2ServiceProviderConfigGetData, ThrowOnError>): RequestResult<ServiceProviderConfigScimV2ServiceProviderConfigGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ServiceProviderConfigScimV2ServiceProviderConfigGetResponses, unknown, ThrowOnError>({ url: '/scim/v2/ServiceProviderConfig', ...options });
+
+/**
+ * Schemas
+ */
+export const schemasScimV2SchemasGet = <ThrowOnError extends boolean = false>(options?: Options<SchemasScimV2SchemasGetData, ThrowOnError>): RequestResult<SchemasScimV2SchemasGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<SchemasScimV2SchemasGetResponses, unknown, ThrowOnError>({ url: '/scim/v2/Schemas', ...options });
+
+/**
+ * Resource Types
+ */
+export const resourceTypesScimV2ResourceTypesGet = <ThrowOnError extends boolean = false>(options?: Options<ResourceTypesScimV2ResourceTypesGetData, ThrowOnError>): RequestResult<ResourceTypesScimV2ResourceTypesGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ResourceTypesScimV2ResourceTypesGetResponses, unknown, ThrowOnError>({ url: '/scim/v2/ResourceTypes', ...options });
+
+/**
+ * List Users
+ */
+export const listUsersScimV2UsersGet = <ThrowOnError extends boolean = false>(options?: Options<ListUsersScimV2UsersGetData, ThrowOnError>): RequestResult<ListUsersScimV2UsersGetResponses, ListUsersScimV2UsersGetErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersScimV2UsersGetResponses, ListUsersScimV2UsersGetErrors, ThrowOnError>({ url: '/scim/v2/Users', ...options });
+
+/**
+ * Create User
+ */
+export const createUserScimV2UsersPost = <ThrowOnError extends boolean = false>(options: Options<CreateUserScimV2UsersPostData, ThrowOnError>): RequestResult<CreateUserScimV2UsersPostResponses, CreateUserScimV2UsersPostErrors, ThrowOnError> => (options.client ?? client).post<CreateUserScimV2UsersPostResponses, CreateUserScimV2UsersPostErrors, ThrowOnError>({
+    url: '/scim/v2/Users',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete User
+ */
+export const deleteUserScimV2UsersUserIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteUserScimV2UsersUserIdDeleteData, ThrowOnError>): RequestResult<DeleteUserScimV2UsersUserIdDeleteResponses, DeleteUserScimV2UsersUserIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteUserScimV2UsersUserIdDeleteResponses, DeleteUserScimV2UsersUserIdDeleteErrors, ThrowOnError>({ url: '/scim/v2/Users/{user_id}', ...options });
+
+/**
+ * Get User
+ */
+export const getUserScimV2UsersUserIdGet = <ThrowOnError extends boolean = false>(options: Options<GetUserScimV2UsersUserIdGetData, ThrowOnError>): RequestResult<GetUserScimV2UsersUserIdGetResponses, GetUserScimV2UsersUserIdGetErrors, ThrowOnError> => (options.client ?? client).get<GetUserScimV2UsersUserIdGetResponses, GetUserScimV2UsersUserIdGetErrors, ThrowOnError>({ url: '/scim/v2/Users/{user_id}', ...options });
+
+/**
+ * Patch User
+ */
+export const patchUserScimV2UsersUserIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchUserScimV2UsersUserIdPatchData, ThrowOnError>): RequestResult<PatchUserScimV2UsersUserIdPatchResponses, PatchUserScimV2UsersUserIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchUserScimV2UsersUserIdPatchResponses, PatchUserScimV2UsersUserIdPatchErrors, ThrowOnError>({
+    url: '/scim/v2/Users/{user_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Put User
+ */
+export const putUserScimV2UsersUserIdPut = <ThrowOnError extends boolean = false>(options: Options<PutUserScimV2UsersUserIdPutData, ThrowOnError>): RequestResult<PutUserScimV2UsersUserIdPutResponses, PutUserScimV2UsersUserIdPutErrors, ThrowOnError> => (options.client ?? client).put<PutUserScimV2UsersUserIdPutResponses, PutUserScimV2UsersUserIdPutErrors, ThrowOnError>({
+    url: '/scim/v2/Users/{user_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Groups
+ */
+export const listGroupsScimV2GroupsGet = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsScimV2GroupsGetData, ThrowOnError>): RequestResult<ListGroupsScimV2GroupsGetResponses, ListGroupsScimV2GroupsGetErrors, ThrowOnError> => (options?.client ?? client).get<ListGroupsScimV2GroupsGetResponses, ListGroupsScimV2GroupsGetErrors, ThrowOnError>({ url: '/scim/v2/Groups', ...options });
+
+/**
+ * Create Group
+ */
+export const createGroupScimV2GroupsPost = <ThrowOnError extends boolean = false>(options: Options<CreateGroupScimV2GroupsPostData, ThrowOnError>): RequestResult<CreateGroupScimV2GroupsPostResponses, CreateGroupScimV2GroupsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateGroupScimV2GroupsPostResponses, CreateGroupScimV2GroupsPostErrors, ThrowOnError>({
+    url: '/scim/v2/Groups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Patch Group
+ */
+export const patchGroupScimV2GroupsGroupIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchGroupScimV2GroupsGroupIdPatchData, ThrowOnError>): RequestResult<PatchGroupScimV2GroupsGroupIdPatchResponses, PatchGroupScimV2GroupsGroupIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchGroupScimV2GroupsGroupIdPatchResponses, PatchGroupScimV2GroupsGroupIdPatchErrors, ThrowOnError>({
+    url: '/scim/v2/Groups/{group_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Tokens
+ */
+export const listTokensApiV1ScimTokensGet = <ThrowOnError extends boolean = false>(options?: Options<ListTokensApiV1ScimTokensGetData, ThrowOnError>): RequestResult<ListTokensApiV1ScimTokensGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTokensApiV1ScimTokensGetResponses, unknown, ThrowOnError>({ url: '/api/v1/scim-tokens', ...options });
+
+/**
+ * Create Token
+ */
+export const createTokenApiV1ScimTokensPost = <ThrowOnError extends boolean = false>(options?: Options<CreateTokenApiV1ScimTokensPostData, ThrowOnError>): RequestResult<CreateTokenApiV1ScimTokensPostResponses, unknown, ThrowOnError> => (options?.client ?? client).post<CreateTokenApiV1ScimTokensPostResponses, unknown, ThrowOnError>({ url: '/api/v1/scim-tokens', ...options });
+
+/**
+ * Delete Token
+ */
+export const deleteTokenApiV1ScimTokensScimTokenIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteTokenApiV1ScimTokensScimTokenIdDeleteData, ThrowOnError>): RequestResult<DeleteTokenApiV1ScimTokensScimTokenIdDeleteResponses, DeleteTokenApiV1ScimTokensScimTokenIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTokenApiV1ScimTokensScimTokenIdDeleteResponses, DeleteTokenApiV1ScimTokensScimTokenIdDeleteErrors, ThrowOnError>({ url: '/api/v1/scim-tokens/{scim_token_id}', ...options });
+
+/**
+ * List Grants
+ */
+export const listGrantsApiV1TenantSupportAccessGet = <ThrowOnError extends boolean = false>(options?: Options<ListGrantsApiV1TenantSupportAccessGetData, ThrowOnError>): RequestResult<ListGrantsApiV1TenantSupportAccessGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListGrantsApiV1TenantSupportAccessGetResponses, unknown, ThrowOnError>({ url: '/api/v1/tenant/support-access', ...options });
+
+/**
+ * Create Grant
+ */
+export const createGrantApiV1TenantSupportAccessPost = <ThrowOnError extends boolean = false>(options: Options<CreateGrantApiV1TenantSupportAccessPostData, ThrowOnError>): RequestResult<CreateGrantApiV1TenantSupportAccessPostResponses, CreateGrantApiV1TenantSupportAccessPostErrors, ThrowOnError> => (options.client ?? client).post<CreateGrantApiV1TenantSupportAccessPostResponses, CreateGrantApiV1TenantSupportAccessPostErrors, ThrowOnError>({
+    url: '/api/v1/tenant/support-access',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke Grant
+ */
+export const revokeGrantApiV1TenantSupportAccessGrantIdRevokePost = <ThrowOnError extends boolean = false>(options: Options<RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostData, ThrowOnError>): RequestResult<RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponses, RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostErrors, ThrowOnError> => (options.client ?? client).post<RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponses, RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostErrors, ThrowOnError>({ url: '/api/v1/tenant/support-access/{grant_id}:revoke', ...options });
+
+/**
+ * Signup
+ */
+export const signupApiV1SignupPost = <ThrowOnError extends boolean = false>(options: Options<SignupApiV1SignupPostData, ThrowOnError>): RequestResult<SignupApiV1SignupPostResponses, SignupApiV1SignupPostErrors, ThrowOnError> => (options.client ?? client).post<SignupApiV1SignupPostResponses, SignupApiV1SignupPostErrors, ThrowOnError>({
+    url: '/api/v1/signup',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Tenants
+ */
+export const listTenantsApiV1PlatformTenantsGet = <ThrowOnError extends boolean = false>(options?: Options<ListTenantsApiV1PlatformTenantsGetData, ThrowOnError>): RequestResult<ListTenantsApiV1PlatformTenantsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListTenantsApiV1PlatformTenantsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/platform/tenants', ...options });
+
+/**
+ * Create Tenant
+ */
+export const createTenantApiV1PlatformTenantsPost = <ThrowOnError extends boolean = false>(options: Options<CreateTenantApiV1PlatformTenantsPostData, ThrowOnError>): RequestResult<CreateTenantApiV1PlatformTenantsPostResponses, CreateTenantApiV1PlatformTenantsPostErrors, ThrowOnError> => (options.client ?? client).post<CreateTenantApiV1PlatformTenantsPostResponses, CreateTenantApiV1PlatformTenantsPostErrors, ThrowOnError>({
+    url: '/api/v1/platform/tenants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Tenant
+ */
+export const getTenantApiV1PlatformTenantsTenantIdGet = <ThrowOnError extends boolean = false>(options: Options<GetTenantApiV1PlatformTenantsTenantIdGetData, ThrowOnError>): RequestResult<GetTenantApiV1PlatformTenantsTenantIdGetResponses, GetTenantApiV1PlatformTenantsTenantIdGetErrors, ThrowOnError> => (options.client ?? client).get<GetTenantApiV1PlatformTenantsTenantIdGetResponses, GetTenantApiV1PlatformTenantsTenantIdGetErrors, ThrowOnError>({ url: '/api/v1/platform/tenants/{tenant_id}', ...options });
+
+/**
+ * Suspend
+ */
+export const suspendApiV1PlatformTenantsTenantIdSuspendPost = <ThrowOnError extends boolean = false>(options: Options<SuspendApiV1PlatformTenantsTenantIdSuspendPostData, ThrowOnError>): RequestResult<SuspendApiV1PlatformTenantsTenantIdSuspendPostResponses, SuspendApiV1PlatformTenantsTenantIdSuspendPostErrors, ThrowOnError> => (options.client ?? client).post<SuspendApiV1PlatformTenantsTenantIdSuspendPostResponses, SuspendApiV1PlatformTenantsTenantIdSuspendPostErrors, ThrowOnError>({ url: '/api/v1/platform/tenants/{tenant_id}:suspend', ...options });
+
+/**
+ * Resume
+ */
+export const resumeApiV1PlatformTenantsTenantIdResumePost = <ThrowOnError extends boolean = false>(options: Options<ResumeApiV1PlatformTenantsTenantIdResumePostData, ThrowOnError>): RequestResult<ResumeApiV1PlatformTenantsTenantIdResumePostResponses, ResumeApiV1PlatformTenantsTenantIdResumePostErrors, ThrowOnError> => (options.client ?? client).post<ResumeApiV1PlatformTenantsTenantIdResumePostResponses, ResumeApiV1PlatformTenantsTenantIdResumePostErrors, ThrowOnError>({ url: '/api/v1/platform/tenants/{tenant_id}:resume', ...options });
+
+/**
+ * Delete Tenant
+ */
+export const deleteTenantApiV1PlatformTenantsTenantIdDeletePost = <ThrowOnError extends boolean = false>(options: Options<DeleteTenantApiV1PlatformTenantsTenantIdDeletePostData, ThrowOnError>): RequestResult<DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses, DeleteTenantApiV1PlatformTenantsTenantIdDeletePostErrors, ThrowOnError> => (options.client ?? client).post<DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses, DeleteTenantApiV1PlatformTenantsTenantIdDeletePostErrors, ThrowOnError>({
+    url: '/api/v1/platform/tenants/{tenant_id}:delete',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Plans
+ */
+export const listPlansApiV1PlatformPlansGet = <ThrowOnError extends boolean = false>(options?: Options<ListPlansApiV1PlatformPlansGetData, ThrowOnError>): RequestResult<ListPlansApiV1PlatformPlansGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPlansApiV1PlatformPlansGetResponses, unknown, ThrowOnError>({ url: '/api/v1/platform/plans', ...options });
+
+/**
+ * Create Plan
+ */
+export const createPlanApiV1PlatformPlansPost = <ThrowOnError extends boolean = false>(options: Options<CreatePlanApiV1PlatformPlansPostData, ThrowOnError>): RequestResult<CreatePlanApiV1PlatformPlansPostResponses, CreatePlanApiV1PlatformPlansPostErrors, ThrowOnError> => (options.client ?? client).post<CreatePlanApiV1PlatformPlansPostResponses, CreatePlanApiV1PlatformPlansPostErrors, ThrowOnError>({
+    url: '/api/v1/platform/plans',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Patch Plan
+ */
+export const patchPlanApiV1PlatformPlansPlanIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchPlanApiV1PlatformPlansPlanIdPatchData, ThrowOnError>): RequestResult<PatchPlanApiV1PlatformPlansPlanIdPatchResponses, PatchPlanApiV1PlatformPlansPlanIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchPlanApiV1PlatformPlansPlanIdPatchResponses, PatchPlanApiV1PlatformPlansPlanIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/platform/plans/{plan_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Notifications
+ */
+export const listNotificationsApiV1NotificationsGet = <ThrowOnError extends boolean = false>(options?: Options<ListNotificationsApiV1NotificationsGetData, ThrowOnError>): RequestResult<ListNotificationsApiV1NotificationsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListNotificationsApiV1NotificationsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/notifications', ...options });
+
+/**
+ * Mark Read
+ */
+export const markReadApiV1NotificationsNotificationIdReadPost = <ThrowOnError extends boolean = false>(options: Options<MarkReadApiV1NotificationsNotificationIdReadPostData, ThrowOnError>): RequestResult<MarkReadApiV1NotificationsNotificationIdReadPostResponses, MarkReadApiV1NotificationsNotificationIdReadPostErrors, ThrowOnError> => (options.client ?? client).post<MarkReadApiV1NotificationsNotificationIdReadPostResponses, MarkReadApiV1NotificationsNotificationIdReadPostErrors, ThrowOnError>({ url: '/api/v1/notifications/{notification_id}:read', ...options });
+
+/**
+ * Read All
+ */
+export const readAllApiV1NotificationsReadAllPost = <ThrowOnError extends boolean = false>(options?: Options<ReadAllApiV1NotificationsReadAllPostData, ThrowOnError>): RequestResult<ReadAllApiV1NotificationsReadAllPostResponses, unknown, ThrowOnError> => (options?.client ?? client).post<ReadAllApiV1NotificationsReadAllPostResponses, unknown, ThrowOnError>({ url: '/api/v1/notifications:read-all', ...options });
+
+/**
+ * Events
+ */
+export const eventsApiV1NotificationsEventsGet = <ThrowOnError extends boolean = false>(options?: Options<EventsApiV1NotificationsEventsGetData, ThrowOnError>): RequestResult<EventsApiV1NotificationsEventsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<EventsApiV1NotificationsEventsGetResponses, unknown, ThrowOnError>({ url: '/api/v1/notifications/events', ...options });
+
+/**
+ * List Webhooks
+ */
+export const listWebhooksApiV1WebhooksGet = <ThrowOnError extends boolean = false>(options?: Options<ListWebhooksApiV1WebhooksGetData, ThrowOnError>): RequestResult<ListWebhooksApiV1WebhooksGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListWebhooksApiV1WebhooksGetResponses, unknown, ThrowOnError>({ url: '/api/v1/webhooks', ...options });
+
+/**
+ * Create Webhook
+ */
+export const createWebhookApiV1WebhooksPost = <ThrowOnError extends boolean = false>(options: Options<CreateWebhookApiV1WebhooksPostData, ThrowOnError>): RequestResult<CreateWebhookApiV1WebhooksPostResponses, CreateWebhookApiV1WebhooksPostErrors, ThrowOnError> => (options.client ?? client).post<CreateWebhookApiV1WebhooksPostResponses, CreateWebhookApiV1WebhooksPostErrors, ThrowOnError>({
+    url: '/api/v1/webhooks',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Webhook
+ */
+export const deleteWebhookApiV1WebhooksWebhookIdDelete = <ThrowOnError extends boolean = false>(options: Options<DeleteWebhookApiV1WebhooksWebhookIdDeleteData, ThrowOnError>): RequestResult<DeleteWebhookApiV1WebhooksWebhookIdDeleteResponses, DeleteWebhookApiV1WebhooksWebhookIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWebhookApiV1WebhooksWebhookIdDeleteResponses, DeleteWebhookApiV1WebhooksWebhookIdDeleteErrors, ThrowOnError>({ url: '/api/v1/webhooks/{webhook_id}', ...options });
+
+/**
+ * Get Webhook
+ */
+export const getWebhookApiV1WebhooksWebhookIdGet = <ThrowOnError extends boolean = false>(options: Options<GetWebhookApiV1WebhooksWebhookIdGetData, ThrowOnError>): RequestResult<GetWebhookApiV1WebhooksWebhookIdGetResponses, GetWebhookApiV1WebhooksWebhookIdGetErrors, ThrowOnError> => (options.client ?? client).get<GetWebhookApiV1WebhooksWebhookIdGetResponses, GetWebhookApiV1WebhooksWebhookIdGetErrors, ThrowOnError>({ url: '/api/v1/webhooks/{webhook_id}', ...options });
+
+/**
+ * Patch Webhook
+ */
+export const patchWebhookApiV1WebhooksWebhookIdPatch = <ThrowOnError extends boolean = false>(options: Options<PatchWebhookApiV1WebhooksWebhookIdPatchData, ThrowOnError>): RequestResult<PatchWebhookApiV1WebhooksWebhookIdPatchResponses, PatchWebhookApiV1WebhooksWebhookIdPatchErrors, ThrowOnError> => (options.client ?? client).patch<PatchWebhookApiV1WebhooksWebhookIdPatchResponses, PatchWebhookApiV1WebhooksWebhookIdPatchErrors, ThrowOnError>({
+    url: '/api/v1/webhooks/{webhook_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Rotate
+ */
+export const rotateApiV1WebhooksWebhookIdRotateSecretPost = <ThrowOnError extends boolean = false>(options: Options<RotateApiV1WebhooksWebhookIdRotateSecretPostData, ThrowOnError>): RequestResult<RotateApiV1WebhooksWebhookIdRotateSecretPostResponses, RotateApiV1WebhooksWebhookIdRotateSecretPostErrors, ThrowOnError> => (options.client ?? client).post<RotateApiV1WebhooksWebhookIdRotateSecretPostResponses, RotateApiV1WebhooksWebhookIdRotateSecretPostErrors, ThrowOnError>({ url: '/api/v1/webhooks/{webhook_id}:rotate-secret', ...options });
+
+/**
+ * Test Webhook
+ */
+export const testWebhookApiV1WebhooksWebhookIdTestPost = <ThrowOnError extends boolean = false>(options: Options<TestWebhookApiV1WebhooksWebhookIdTestPostData, ThrowOnError>): RequestResult<TestWebhookApiV1WebhooksWebhookIdTestPostResponses, TestWebhookApiV1WebhooksWebhookIdTestPostErrors, ThrowOnError> => (options.client ?? client).post<TestWebhookApiV1WebhooksWebhookIdTestPostResponses, TestWebhookApiV1WebhooksWebhookIdTestPostErrors, ThrowOnError>({ url: '/api/v1/webhooks/{webhook_id}:test', ...options });
+
+/**
+ * Deliveries
+ */
+export const deliveriesApiV1WebhooksWebhookIdDeliveriesGet = <ThrowOnError extends boolean = false>(options: Options<DeliveriesApiV1WebhooksWebhookIdDeliveriesGetData, ThrowOnError>): RequestResult<DeliveriesApiV1WebhooksWebhookIdDeliveriesGetResponses, DeliveriesApiV1WebhooksWebhookIdDeliveriesGetErrors, ThrowOnError> => (options.client ?? client).get<DeliveriesApiV1WebhooksWebhookIdDeliveriesGetResponses, DeliveriesApiV1WebhooksWebhookIdDeliveriesGetErrors, ThrowOnError>({ url: '/api/v1/webhooks/{webhook_id}/deliveries', ...options });
+
+/**
+ * Redeliver
+ */
+export const redeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost = <ThrowOnError extends boolean = false>(options: Options<RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostData, ThrowOnError>): RequestResult<RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponses, RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostErrors, ThrowOnError> => (options.client ?? client).post<RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponses, RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostErrors, ThrowOnError>({ url: '/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}:redeliver', ...options });
+
+/**
+ * Rotate Callback
+ */
+export const rotateCallbackApiV1TenantRunCallbackSecretRotatePost = <ThrowOnError extends boolean = false>(options?: Options<RotateCallbackApiV1TenantRunCallbackSecretRotatePostData, ThrowOnError>): RequestResult<RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses, unknown, ThrowOnError> => (options?.client ?? client).post<RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses, unknown, ThrowOnError>({ url: '/api/v1/tenant/run-callback-secret:rotate', ...options });

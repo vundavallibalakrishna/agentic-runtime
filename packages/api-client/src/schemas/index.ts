@@ -1,6 +1,10 @@
 /* Generated from ar_contracts Pydantic models. Do not edit. */
 export type { RunEvent } from "./RunEvent";
 export { runEventSchema } from "./RunEvent.zod";
+export type { ProblemDetails } from "./ProblemDetails";
+export { problemDetailsSchema } from "./ProblemDetails.zod";
+export type { Page } from "./Page";
+export { pageSchema } from "./Page.zod";
 export type { AgentDefinition } from "./Agent";
 export { agentSchema } from "./Agent.zod";
 export type { ToolServerDefinition } from "./ToolServer";

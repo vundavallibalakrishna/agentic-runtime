@@ -16,6 +16,7 @@ import orjson
 from pydantic import TypeAdapter
 
 from ar_contracts import SCHEMA_MODELS
+from ar_contracts.json_api import Page, ProblemDetails
 from ar_contracts.stream import RunEvent
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,7 +29,7 @@ BANNER = (
 
 
 def _write_schema(name: str, model: object) -> tuple[str, dict[str, object]]:
-    schema = TypeAdapter(model).json_schema()
+    schema = TypeAdapter(model).json_schema(by_alias=True)
     path = SCHEMA_DIR / f"{name}.json"
     payload = orjson.dumps(schema, option=orjson.OPT_INDENT_2)
     path.write_bytes(payload + b"\n")
@@ -140,7 +141,12 @@ def _emit_zod(pnpm: str, name: str, schema: dict[str, object]) -> None:
 
 def main() -> None:
     SCHEMA_DIR.mkdir(parents=True, exist_ok=True)
-    models: list[tuple[str, object]] = [("RunEvent", RunEvent), *SCHEMA_MODELS.items()]
+    models: list[tuple[str, object]] = [
+        ("RunEvent", RunEvent),
+        ("ProblemDetails", ProblemDetails),
+        ("Page", Page),
+        *SCHEMA_MODELS.items(),
+    ]
     written = [_write_schema(name, model) for name, model in models]
     pnpm = _pnpm()
     lines = ["/* Generated from ar_contracts Pydantic models. Do not edit. */"]

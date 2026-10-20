@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "description": "Cursor page. Conventions §4, with camelCase keys.\n\nItems are JSON objects. A recursive ``JsonValue`` schema is too deep for the\ngenerated Zod client, and list endpoints return objects.",
+  "properties": {
+    "items": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Nextcursor"
+    },
+    "hasMore": {
+      "default": false,
+      "title": "Hasmore",
+      "type": "boolean"
+    }
+  },
+  "title": "Page",
+  "type": "object"
+}

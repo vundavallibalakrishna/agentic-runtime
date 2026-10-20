@@ -985,4 +985,7 @@ export interface Heartbeat {
   type: Type38;
   data: _Data;
 }
+/**
+ * Stream payload. Keys on the wire are camelCase.
+ */
 export interface _Data {}

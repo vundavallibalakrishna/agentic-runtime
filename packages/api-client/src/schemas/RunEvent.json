@@ -3349,6 +3349,7 @@
     },
     "_Data": {
       "additionalProperties": false,
+      "description": "Stream payload. Keys on the wire are camelCase.",
       "properties": {},
       "title": "_Data",
       "type": "object"
