@@ -1,81 +1,81 @@
 {
   "additionalProperties": false,
   "properties": {
-    "image_ref": {
-      "title": "Image Ref",
+    "imageRef": {
+      "title": "Imageref",
       "type": "string"
     },
-    "runtime_class": {
+    "runtimeClass": {
       "default": "gvisor",
       "enum": [
         "gvisor",
         "kata"
       ],
-      "title": "Runtime Class",
+      "title": "Runtimeclass",
       "type": "string"
     },
-    "cpu_millis": {
+    "cpuMillis": {
       "minimum": 1,
-      "title": "Cpu Millis",
+      "title": "Cpumillis",
       "type": "integer"
     },
-    "memory_mb": {
+    "memoryMb": {
       "minimum": 1,
-      "title": "Memory Mb",
+      "title": "Memorymb",
       "type": "integer"
     },
-    "disk_gb": {
+    "diskGb": {
       "minimum": 1,
-      "title": "Disk Gb",
+      "title": "Diskgb",
       "type": "integer"
     },
-    "allow_browser": {
+    "allowBrowser": {
       "default": false,
-      "title": "Allow Browser",
+      "title": "Allowbrowser",
       "type": "boolean"
     },
-    "egress_allowlist": {
+    "egressAllowlist": {
       "items": {
         "type": "string"
       },
-      "title": "Egress Allowlist",
+      "title": "Egressallowlist",
       "type": "array"
     },
-    "max_classification": {
+    "maxClassification": {
       "default": "internal",
-      "title": "Max Classification",
+      "title": "Maxclassification",
       "type": "string"
     },
-    "idle_suspend_s": {
+    "idleSuspendS": {
       "default": 900,
       "minimum": 1,
-      "title": "Idle Suspend S",
+      "title": "Idlesuspends",
       "type": "integer"
     },
-    "max_lifetime_s": {
+    "maxLifetimeS": {
       "default": 86400,
       "minimum": 1,
-      "title": "Max Lifetime S",
+      "title": "Maxlifetimes",
       "type": "integer"
     },
-    "exec_timeout_s": {
+    "execTimeoutS": {
       "default": 300,
       "minimum": 1,
-      "title": "Exec Timeout S",
+      "title": "Exectimeouts",
       "type": "integer"
     },
-    "retention_days": {
+    "retentionDays": {
       "default": 7,
       "minimum": 1,
-      "title": "Retention Days",
+      "title": "Retentiondays",
       "type": "integer"
     }
   },
   "required": [
-    "image_ref",
-    "cpu_millis",
-    "memory_mb",
-    "disk_gb"
+    "imageRef",
+    "cpuMillis",
+    "memoryMb",
+    "diskGb"
   ],
   "title": "SandboxTemplateDefinition",
   "type": "object"

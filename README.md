@@ -24,15 +24,17 @@ Exact versions: [docs/stack.md](docs/stack.md). Decisions: [ADRs](docs/02-archit
 | Folder | What it contains |
 |---|---|
 | [docs/00-overview](docs/00-overview/) | Vision and goals, glossary, personas, scope and non-goals, deployment modes |
-| [docs/01-prd](docs/01-prd/README.md) | 112 user stories with acceptance criteria across 14 product areas |
+| [docs/01-prd](docs/01-prd/README.md) | 125 user stories with acceptance criteria across 15 product areas |
 | [docs/02-architecture](docs/02-architecture/README.md) | System context, service decomposition, request flows, tenancy and isolation, ADRs |
-| [docs/03-specs](docs/03-specs/) | 20 component specifications (normative behaviour, endpoints, workflows, failure modes, tests) |
-| [docs/04-data](docs/04-data/) | Database schema (74 tables), ER diagrams, row-level security, migration plan |
+| [docs/03-specs](docs/03-specs/) | 21 component specifications (normative behaviour, endpoints, workflows, failure modes, tests) |
+| [docs/04-data](docs/04-data/) | Database schema (97 core tables), ER diagrams, row-level security, migration plan |
 | [docs/05-contracts](docs/05-contracts/) | API conventions and [catalogue](docs/05-contracts/api-catalogue.md), definition schemas, stream and domain events, internal APIs, MCP integration, connector SDK |
 | [docs/06-security](docs/06-security/) | Threat model, authentication and RBAC, secrets, prompt-injection defences, DPDP data protection, audit catalogue |
 | [docs/07-ops](docs/07-ops/) | Local development, environments and configuration, CI/CD, Helm/Kubernetes, scaling, backup/DR, runbooks |
 | [docs/08-quality](docs/08-quality/) | Python and TypeScript standards, testing strategy, evaluation strategy, performance budgets |
-| [docs/09-plan](docs/09-plan/README.md) | **The build plan**: 16 milestones, 130 ordered tasks with dependencies and acceptance criteria |
+| [docs/09-plan](docs/09-plan/README.md) | **The build plan**: 20 milestones, 172 ordered tasks with dependencies and acceptance criteria |
+| [docs/10-grc-pack](docs/10-grc-pack/README.md) | GRC solution pack (separate from core) |
+| [docs/grc-gap-analysis.md](docs/grc-gap-analysis.md) | Approved GRC fit and gap analysis |
 | [docs/open-questions.md](docs/open-questions.md) | Undecided points, each with the default to apply now |
 
 The original architecture document is kept alongside this repository as `docs/architecture/agentic-runtime-architecture.docx` / `.pdf` (reference only; this specification set supersedes it where they differ).

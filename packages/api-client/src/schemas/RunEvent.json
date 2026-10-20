@@ -12,17 +12,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -32,7 +32,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -51,9 +51,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -64,21 +64,21 @@
     "ArtifactCreatedData": {
       "additionalProperties": false,
       "properties": {
-        "file_id": {
+        "fileId": {
           "format": "uuid",
-          "title": "File Id",
+          "title": "Fileid",
           "type": "string"
         },
         "name": {
           "title": "Name",
           "type": "string"
         },
-        "mime_type": {
-          "title": "Mime Type",
+        "mimeType": {
+          "title": "Mimetype",
           "type": "string"
         },
-        "size_bytes": {
-          "title": "Size Bytes",
+        "sizeBytes": {
+          "title": "Sizebytes",
           "type": "integer"
         },
         "preview": {
@@ -95,10 +95,10 @@
         }
       },
       "required": [
-        "file_id",
+        "fileId",
         "name",
-        "mime_type",
-        "size_bytes"
+        "mimeType",
+        "sizeBytes"
       ],
       "title": "ArtifactCreatedData",
       "type": "object"
@@ -115,17 +115,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -135,7 +135,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -154,9 +154,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -167,14 +167,14 @@
     "BrowserScreenshotData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
-        "file_id": {
+        "fileId": {
           "format": "uuid",
-          "title": "File Id",
+          "title": "Fileid",
           "type": "string"
         },
         "url": {
@@ -187,8 +187,8 @@
         }
       },
       "required": [
-        "tool_call_id",
-        "file_id",
+        "toolCallId",
+        "fileId",
         "url",
         "title"
       ],
@@ -203,19 +203,19 @@
           "title": "Index",
           "type": "integer"
         },
-        "document_id": {
+        "documentId": {
           "format": "uuid",
-          "title": "Document Id",
+          "title": "Documentid",
           "type": "string"
         },
-        "chunk_id": {
+        "chunkId": {
           "format": "uuid",
-          "title": "Chunk Id",
+          "title": "Chunkid",
           "type": "string"
         },
-        "collection_id": {
+        "collectionId": {
           "format": "uuid",
-          "title": "Collection Id",
+          "title": "Collectionid",
           "type": "string"
         },
         "title": {
@@ -230,7 +230,7 @@
           "title": "Snippet",
           "type": "string"
         },
-        "page_from": {
+        "pageFrom": {
           "anyOf": [
             {
               "type": "integer"
@@ -240,9 +240,9 @@
             }
           ],
           "default": null,
-          "title": "Page From"
+          "title": "Pagefrom"
         },
-        "page_to": {
+        "pageTo": {
           "anyOf": [
             {
               "type": "integer"
@@ -252,9 +252,9 @@
             }
           ],
           "default": null,
-          "title": "Page To"
+          "title": "Pageto"
         },
-        "source_modified_at": {
+        "sourceModifiedAt": {
           "anyOf": [
             {
               "format": "date-time",
@@ -265,14 +265,14 @@
             }
           ],
           "default": null,
-          "title": "Source Modified At"
+          "title": "Sourcemodifiedat"
         }
       },
       "required": [
         "index",
-        "document_id",
-        "chunk_id",
-        "collection_id",
+        "documentId",
+        "chunkId",
+        "collectionId",
         "title",
         "uri",
         "snippet"
@@ -292,17 +292,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -312,7 +312,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -331,9 +331,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -344,9 +344,9 @@
     "CitationAddedData": {
       "additionalProperties": false,
       "properties": {
-        "message_id": {
+        "messageId": {
           "format": "uuid",
-          "title": "Message Id",
+          "title": "Messageid",
           "type": "string"
         },
         "citation": {
@@ -354,7 +354,7 @@
         }
       },
       "required": [
-        "message_id",
+        "messageId",
         "citation"
       ],
       "title": "CitationAddedData",
@@ -396,17 +396,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -416,7 +416,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -435,9 +435,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -448,18 +448,18 @@
     "ContextCompactedData": {
       "additionalProperties": false,
       "properties": {
-        "tokens_before": {
-          "title": "Tokens Before",
+        "tokensBefore": {
+          "title": "Tokensbefore",
           "type": "integer"
         },
-        "tokens_after": {
-          "title": "Tokens After",
+        "tokensAfter": {
+          "title": "Tokensafter",
           "type": "integer"
         }
       },
       "required": [
-        "tokens_before",
-        "tokens_after"
+        "tokensBefore",
+        "tokensAfter"
       ],
       "title": "ContextCompactedData",
       "type": "object"
@@ -472,25 +472,25 @@
           "title": "Type",
           "type": "string"
         },
-        "file_id": {
+        "fileId": {
           "format": "uuid",
-          "title": "File Id",
+          "title": "Fileid",
           "type": "string"
         },
         "name": {
           "title": "Name",
           "type": "string"
         },
-        "mime_type": {
-          "title": "Mime Type",
+        "mimeType": {
+          "title": "Mimetype",
           "type": "string"
         }
       },
       "required": [
         "type",
-        "file_id",
+        "fileId",
         "name",
-        "mime_type"
+        "mimeType"
       ],
       "title": "FilePart",
       "type": "object"
@@ -507,17 +507,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -527,7 +527,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -546,9 +546,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -564,9 +564,9 @@
           "title": "Type",
           "type": "string"
         },
-        "file_id": {
+        "fileId": {
           "format": "uuid",
-          "title": "File Id",
+          "title": "Fileid",
           "type": "string"
         },
         "alt": {
@@ -577,7 +577,7 @@
       },
       "required": [
         "type",
-        "file_id"
+        "fileId"
       ],
       "title": "ImagePart",
       "type": "object"
@@ -594,17 +594,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -614,7 +614,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -633,9 +633,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -646,39 +646,39 @@
     "InputRequiredData": {
       "additionalProperties": false,
       "properties": {
-        "request_id": {
+        "requestId": {
           "format": "uuid",
-          "title": "Request Id",
+          "title": "Requestid",
           "type": "string"
         },
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
         "message": {
           "title": "Message",
           "type": "string"
         },
-        "requested_schema": {
+        "requestedSchema": {
           "additionalProperties": {
             "type": "string"
           },
-          "title": "Requested Schema",
+          "title": "Requestedschema",
           "type": "object"
         },
-        "expires_at": {
+        "expiresAt": {
           "format": "date-time",
-          "title": "Expires At",
+          "title": "Expiresat",
           "type": "string"
         }
       },
       "required": [
-        "request_id",
-        "tool_call_id",
+        "requestId",
+        "toolCallId",
         "message",
-        "requested_schema",
-        "expires_at"
+        "requestedSchema",
+        "expiresAt"
       ],
       "title": "InputRequiredData",
       "type": "object"
@@ -695,17 +695,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -715,7 +715,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -734,9 +734,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -747,9 +747,9 @@
     "InputResolvedData": {
       "additionalProperties": false,
       "properties": {
-        "request_id": {
+        "requestId": {
           "format": "uuid",
-          "title": "Request Id",
+          "title": "Requestid",
           "type": "string"
         },
         "action": {
@@ -764,7 +764,7 @@
         }
       },
       "required": [
-        "request_id",
+        "requestId",
         "action"
       ],
       "title": "InputResolvedData",
@@ -782,17 +782,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -802,7 +802,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -821,9 +821,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -834,12 +834,12 @@
     "MemoryRecalledData": {
       "additionalProperties": false,
       "properties": {
-        "fact_ids": {
+        "factIds": {
           "items": {
             "format": "uuid",
             "type": "string"
           },
-          "title": "Fact Ids",
+          "title": "Factids",
           "type": "array"
         },
         "count": {
@@ -848,7 +848,7 @@
         }
       },
       "required": [
-        "fact_ids",
+        "factIds",
         "count"
       ],
       "title": "MemoryRecalledData",
@@ -866,17 +866,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -886,7 +886,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -905,9 +905,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -918,9 +918,9 @@
     "MemorySavedData": {
       "additionalProperties": false,
       "properties": {
-        "fact_id": {
+        "factId": {
           "format": "uuid",
-          "title": "Fact Id",
+          "title": "Factid",
           "type": "string"
         },
         "content": {
@@ -933,7 +933,7 @@
         }
       },
       "required": [
-        "fact_id",
+        "factId",
         "content",
         "scope"
       ],
@@ -952,17 +952,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -972,7 +972,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -991,9 +991,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1004,9 +1004,9 @@
     "MessageCompletedData": {
       "additionalProperties": false,
       "properties": {
-        "message_id": {
+        "messageId": {
           "format": "uuid",
-          "title": "Message Id",
+          "title": "Messageid",
           "type": "string"
         },
         "content": {
@@ -1046,25 +1046,25 @@
           "title": "Content",
           "type": "array"
         },
-        "tokens_in": {
-          "title": "Tokens In",
+        "tokensIn": {
+          "title": "Tokensin",
           "type": "integer"
         },
-        "tokens_out": {
-          "title": "Tokens Out",
+        "tokensOut": {
+          "title": "Tokensout",
           "type": "integer"
         },
-        "finish_reason": {
-          "title": "Finish Reason",
+        "finishReason": {
+          "title": "Finishreason",
           "type": "string"
         }
       },
       "required": [
-        "message_id",
+        "messageId",
         "content",
-        "tokens_in",
-        "tokens_out",
-        "finish_reason"
+        "tokensIn",
+        "tokensOut",
+        "finishReason"
       ],
       "title": "MessageCompletedData",
       "type": "object"
@@ -1081,17 +1081,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1101,7 +1101,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1120,9 +1120,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1133,9 +1133,9 @@
     "MessageDeltaData": {
       "additionalProperties": false,
       "properties": {
-        "message_id": {
+        "messageId": {
           "format": "uuid",
-          "title": "Message Id",
+          "title": "Messageid",
           "type": "string"
         },
         "text": {
@@ -1144,7 +1144,7 @@
         }
       },
       "required": [
-        "message_id",
+        "messageId",
         "text"
       ],
       "title": "MessageDeltaData",
@@ -1162,17 +1162,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1182,7 +1182,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1201,9 +1201,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1214,9 +1214,9 @@
     "MessageStartedData": {
       "additionalProperties": false,
       "properties": {
-        "message_id": {
+        "messageId": {
           "format": "uuid",
-          "title": "Message Id",
+          "title": "Messageid",
           "type": "string"
         },
         "role": {
@@ -1224,8 +1224,8 @@
           "title": "Role",
           "type": "string"
         },
-        "model_alias": {
-          "title": "Model Alias",
+        "modelAlias": {
+          "title": "Modelalias",
           "type": "string"
         },
         "reset": {
@@ -1235,9 +1235,9 @@
         }
       },
       "required": [
-        "message_id",
+        "messageId",
         "role",
-        "model_alias"
+        "modelAlias"
       ],
       "title": "MessageStartedData",
       "type": "object"
@@ -1284,17 +1284,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1304,7 +1304,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1323,9 +1323,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1362,17 +1362,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1382,7 +1382,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1401,9 +1401,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1415,44 +1415,44 @@
       "additionalProperties": false,
       "description": "Limits for one top-level run. Subagents draw from the same budget.",
       "properties": {
-        "max_steps": {
+        "maxSteps": {
           "minimum": 1,
-          "title": "Max Steps",
+          "title": "Maxsteps",
           "type": "integer"
         },
-        "max_tokens": {
+        "maxTokens": {
           "minimum": 1,
-          "title": "Max Tokens",
+          "title": "Maxtokens",
           "type": "integer"
         },
-        "max_cost_micros": {
+        "maxCostMicros": {
           "minimum": 0,
-          "title": "Max Cost Micros",
+          "title": "Maxcostmicros",
           "type": "integer"
         },
-        "max_wall_clock_s": {
+        "maxWallClockS": {
           "minimum": 1,
-          "title": "Max Wall Clock S",
+          "title": "Maxwallclocks",
           "type": "integer"
         },
-        "max_tool_calls": {
+        "maxToolCalls": {
           "minimum": 0,
-          "title": "Max Tool Calls",
+          "title": "Maxtoolcalls",
           "type": "integer"
         },
-        "max_parallel_tool_calls": {
+        "maxParallelToolCalls": {
           "minimum": 1,
-          "title": "Max Parallel Tool Calls",
+          "title": "Maxparalleltoolcalls",
           "type": "integer"
         }
       },
       "required": [
-        "max_steps",
-        "max_tokens",
-        "max_cost_micros",
-        "max_wall_clock_s",
-        "max_tool_calls",
-        "max_parallel_tool_calls"
+        "maxSteps",
+        "maxTokens",
+        "maxCostMicros",
+        "maxWallClockS",
+        "maxToolCalls",
+        "maxParallelToolCalls"
       ],
       "title": "RunBudget",
       "type": "object"
@@ -1469,17 +1469,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1489,7 +1489,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1508,9 +1508,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1555,17 +1555,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1575,7 +1575,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1594,9 +1594,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1638,17 +1638,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1658,7 +1658,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1677,9 +1677,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1690,9 +1690,9 @@
     "RunCompletedData": {
       "additionalProperties": false,
       "properties": {
-        "final_message_id": {
+        "finalMessageId": {
           "format": "uuid",
-          "title": "Final Message Id",
+          "title": "Finalmessageid",
           "type": "string"
         },
         "usage": {
@@ -1700,7 +1700,7 @@
         }
       },
       "required": [
-        "final_message_id",
+        "finalMessageId",
         "usage"
       ],
       "title": "RunCompletedData",
@@ -1742,17 +1742,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1762,7 +1762,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1781,9 +1781,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1820,17 +1820,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1840,7 +1840,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1859,9 +1859,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1872,31 +1872,31 @@
     "RunQueuedData": {
       "additionalProperties": false,
       "properties": {
-        "agent_id": {
+        "agentId": {
           "format": "uuid",
-          "title": "Agent Id",
+          "title": "Agentid",
           "type": "string"
         },
-        "agent_version_id": {
+        "agentVersionId": {
           "format": "uuid",
-          "title": "Agent Version Id",
+          "title": "Agentversionid",
           "type": "string"
         },
         "trigger": {
           "title": "Trigger",
           "type": "string"
         },
-        "input_message_id": {
+        "inputMessageId": {
           "format": "uuid",
-          "title": "Input Message Id",
+          "title": "Inputmessageid",
           "type": "string"
         }
       },
       "required": [
-        "agent_id",
-        "agent_version_id",
+        "agentId",
+        "agentVersionId",
         "trigger",
-        "input_message_id"
+        "inputMessageId"
       ],
       "title": "RunQueuedData",
       "type": "object"
@@ -1913,17 +1913,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1933,7 +1933,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -1952,9 +1952,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -1965,14 +1965,14 @@
     "RunStartedData": {
       "additionalProperties": false,
       "properties": {
-        "model_alias": {
-          "title": "Model Alias",
+        "modelAlias": {
+          "title": "Modelalias",
           "type": "string"
         },
         "budget": {
           "$ref": "#/$defs/RunBudget"
         },
-        "sandbox_id": {
+        "sandboxId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -1983,11 +1983,11 @@
             }
           ],
           "default": null,
-          "title": "Sandbox Id"
+          "title": "Sandboxid"
         }
       },
       "required": [
-        "model_alias",
+        "modelAlias",
         "budget"
       ],
       "title": "RunStartedData",
@@ -2005,17 +2005,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2025,7 +2025,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2044,9 +2044,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2089,44 +2089,44 @@
       "additionalProperties": false,
       "description": "Cumulative usage reported on run events.",
       "properties": {
-        "tokens_in": {
+        "tokensIn": {
           "default": 0,
-          "title": "Tokens In",
+          "title": "Tokensin",
           "type": "integer"
         },
-        "tokens_out": {
+        "tokensOut": {
           "default": 0,
-          "title": "Tokens Out",
+          "title": "Tokensout",
           "type": "integer"
         },
-        "cached_tokens": {
+        "cachedTokens": {
           "default": 0,
-          "title": "Cached Tokens",
+          "title": "Cachedtokens",
           "type": "integer"
         },
-        "model_calls": {
+        "modelCalls": {
           "default": 0,
-          "title": "Model Calls",
+          "title": "Modelcalls",
           "type": "integer"
         },
-        "tool_calls": {
+        "toolCalls": {
           "default": 0,
-          "title": "Tool Calls",
+          "title": "Toolcalls",
           "type": "integer"
         },
-        "cost_micros": {
+        "costMicros": {
           "default": 0,
-          "title": "Cost Micros",
+          "title": "Costmicros",
           "type": "integer"
         },
-        "sandbox_cpu_seconds": {
+        "sandboxCpuSeconds": {
           "default": 0,
-          "title": "Sandbox Cpu Seconds",
+          "title": "Sandboxcpuseconds",
           "type": "number"
         },
-        "elapsed_ms": {
+        "elapsedMs": {
           "default": 0,
-          "title": "Elapsed Ms",
+          "title": "Elapsedms",
           "type": "integer"
         }
       },
@@ -2145,17 +2145,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2165,7 +2165,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2184,9 +2184,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2206,17 +2206,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2226,7 +2226,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2245,9 +2245,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2258,9 +2258,9 @@
     "SandboxOutputData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
         "stream": {
@@ -2277,7 +2277,7 @@
         }
       },
       "required": [
-        "tool_call_id",
+        "toolCallId",
         "stream",
         "text"
       ],
@@ -2296,17 +2296,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2316,7 +2316,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2335,9 +2335,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2348,9 +2348,9 @@
     "SandboxStatusData": {
       "additionalProperties": false,
       "properties": {
-        "sandbox_id": {
+        "sandboxId": {
           "format": "uuid",
-          "title": "Sandbox Id",
+          "title": "Sandboxid",
           "type": "string"
         },
         "status": {
@@ -2359,7 +2359,7 @@
         }
       },
       "required": [
-        "sandbox_id",
+        "sandboxId",
         "status"
       ],
       "title": "SandboxStatusData",
@@ -2377,17 +2377,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2397,7 +2397,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2416,9 +2416,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2429,17 +2429,17 @@
     "SubagentCompletedData": {
       "additionalProperties": false,
       "properties": {
-        "child_run_id": {
+        "childRunId": {
           "format": "uuid",
-          "title": "Child Run Id",
+          "title": "Childrunid",
           "type": "string"
         },
         "status": {
           "title": "Status",
           "type": "string"
         },
-        "result_summary": {
-          "title": "Result Summary",
+        "resultSummary": {
+          "title": "Resultsummary",
           "type": "string"
         },
         "usage": {
@@ -2447,9 +2447,9 @@
         }
       },
       "required": [
-        "child_run_id",
+        "childRunId",
         "status",
-        "result_summary",
+        "resultSummary",
         "usage"
       ],
       "title": "SubagentCompletedData",
@@ -2467,17 +2467,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2487,7 +2487,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2506,9 +2506,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2519,30 +2519,30 @@
     "SubagentStartedData": {
       "additionalProperties": false,
       "properties": {
-        "child_run_id": {
+        "childRunId": {
           "format": "uuid",
-          "title": "Child Run Id",
+          "title": "Childrunid",
           "type": "string"
         },
-        "agent_id": {
+        "agentId": {
           "format": "uuid",
-          "title": "Agent Id",
+          "title": "Agentid",
           "type": "string"
         },
-        "agent_name": {
-          "title": "Agent Name",
+        "agentName": {
+          "title": "Agentname",
           "type": "string"
         },
-        "task_brief": {
-          "title": "Task Brief",
+        "taskBrief": {
+          "title": "Taskbrief",
           "type": "string"
         }
       },
       "required": [
-        "child_run_id",
-        "agent_id",
-        "agent_name",
-        "task_brief"
+        "childRunId",
+        "agentId",
+        "agentName",
+        "taskBrief"
       ],
       "title": "SubagentStartedData",
       "type": "object"
@@ -2579,17 +2579,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2599,7 +2599,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2618,9 +2618,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2631,14 +2631,14 @@
     "ToolCallApprovalRequiredData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
-        "approval_id": {
+        "approvalId": {
           "format": "uuid",
-          "title": "Approval Id",
+          "title": "Approvalid",
           "type": "string"
         },
         "preview": {
@@ -2648,22 +2648,22 @@
           "title": "Preview",
           "type": "object"
         },
-        "expires_at": {
+        "expiresAt": {
           "format": "date-time",
-          "title": "Expires At",
+          "title": "Expiresat",
           "type": "string"
         },
-        "approver_rule": {
-          "title": "Approver Rule",
+        "approverRule": {
+          "title": "Approverrule",
           "type": "string"
         }
       },
       "required": [
-        "tool_call_id",
-        "approval_id",
+        "toolCallId",
+        "approvalId",
         "preview",
-        "expires_at",
-        "approver_rule"
+        "expiresAt",
+        "approverRule"
       ],
       "title": "ToolCallApprovalRequiredData",
       "type": "object"
@@ -2680,17 +2680,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2700,7 +2700,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2719,9 +2719,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2732,14 +2732,14 @@
     "ToolCallApprovalResolvedData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
-        "approval_id": {
+        "approvalId": {
           "format": "uuid",
-          "title": "Approval Id",
+          "title": "Approvalid",
           "type": "string"
         },
         "decision": {
@@ -2752,7 +2752,7 @@
           "title": "Decision",
           "type": "string"
         },
-        "by_user_id": {
+        "byUserId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2763,12 +2763,12 @@
             }
           ],
           "default": null,
-          "title": "By User Id"
+          "title": "Byuserid"
         }
       },
       "required": [
-        "tool_call_id",
-        "approval_id",
+        "toolCallId",
+        "approvalId",
         "decision"
       ],
       "title": "ToolCallApprovalResolvedData",
@@ -2786,17 +2786,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2806,7 +2806,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2825,9 +2825,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2838,9 +2838,9 @@
     "ToolCallCompletedData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
         "status": {
@@ -2848,11 +2848,11 @@
           "title": "Status",
           "type": "string"
         },
-        "result_preview": {
-          "title": "Result Preview",
+        "resultPreview": {
+          "title": "Resultpreview",
           "type": "string"
         },
-        "result_file_id": {
+        "resultFileId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2863,18 +2863,18 @@
             }
           ],
           "default": null,
-          "title": "Result File Id"
+          "title": "Resultfileid"
         },
-        "latency_ms": {
-          "title": "Latency Ms",
+        "latencyMs": {
+          "title": "Latencyms",
           "type": "integer"
         }
       },
       "required": [
-        "tool_call_id",
+        "toolCallId",
         "status",
-        "result_preview",
-        "latency_ms"
+        "resultPreview",
+        "latencyMs"
       ],
       "title": "ToolCallCompletedData",
       "type": "object"
@@ -2891,17 +2891,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -2911,7 +2911,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -2930,9 +2930,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -2943,9 +2943,9 @@
     "ToolCallFailedData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
         "status": {
@@ -2966,7 +2966,7 @@
           "title": "Error",
           "type": "object"
         },
-        "policy_reasons": {
+        "policyReasons": {
           "anyOf": [
             {
               "items": {
@@ -2979,9 +2979,9 @@
             }
           ],
           "default": null,
-          "title": "Policy Reasons"
+          "title": "Policyreasons"
         },
-        "connect_url": {
+        "connectUrl": {
           "anyOf": [
             {
               "type": "string"
@@ -2991,11 +2991,11 @@
             }
           ],
           "default": null,
-          "title": "Connect Url"
+          "title": "Connecturl"
         }
       },
       "required": [
-        "tool_call_id",
+        "toolCallId",
         "status",
         "error"
       ],
@@ -3014,17 +3014,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -3034,7 +3034,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -3053,9 +3053,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -3066,9 +3066,9 @@
     "ToolCallProgressData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
         "message": {
@@ -3089,7 +3089,7 @@
         }
       },
       "required": [
-        "tool_call_id",
+        "toolCallId",
         "message"
       ],
       "title": "ToolCallProgressData",
@@ -3107,17 +3107,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -3127,7 +3127,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -3146,9 +3146,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"
@@ -3159,40 +3159,40 @@
     "ToolCallStartedData": {
       "additionalProperties": false,
       "properties": {
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
-        "model_call_id": {
+        "modelCallId": {
           "format": "uuid",
-          "title": "Model Call Id",
+          "title": "Modelcallid",
           "type": "string"
         },
-        "qualified_name": {
-          "title": "Qualified Name",
+        "qualifiedName": {
+          "title": "Qualifiedname",
           "type": "string"
         },
         "title": {
           "title": "Title",
           "type": "string"
         },
-        "risk_class": {
-          "title": "Risk Class",
+        "riskClass": {
+          "title": "Riskclass",
           "type": "string"
         },
-        "arguments_preview": {
-          "title": "Arguments Preview",
+        "argumentsPreview": {
+          "title": "Argumentspreview",
           "type": "string"
         }
       },
       "required": [
-        "tool_call_id",
-        "model_call_id",
-        "qualified_name",
+        "toolCallId",
+        "modelCallId",
+        "qualifiedName",
         "title",
-        "risk_class",
-        "arguments_preview"
+        "riskClass",
+        "argumentsPreview"
       ],
       "title": "ToolCallStartedData",
       "type": "object"
@@ -3205,24 +3205,24 @@
           "title": "Type",
           "type": "string"
         },
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
         "text": {
           "title": "Text",
           "type": "string"
         },
-        "is_error": {
+        "isError": {
           "default": false,
-          "title": "Is Error",
+          "title": "Iserror",
           "type": "boolean"
         }
       },
       "required": [
         "type",
-        "tool_call_id",
+        "toolCallId",
         "text"
       ],
       "title": "ToolResultPart",
@@ -3236,13 +3236,13 @@
           "title": "Type",
           "type": "string"
         },
-        "tool_call_id": {
+        "toolCallId": {
           "format": "uuid",
-          "title": "Tool Call Id",
+          "title": "Toolcallid",
           "type": "string"
         },
-        "qualified_name": {
-          "title": "Qualified Name",
+        "qualifiedName": {
+          "title": "Qualifiedname",
           "type": "string"
         },
         "arguments": {
@@ -3261,8 +3261,8 @@
       },
       "required": [
         "type",
-        "tool_call_id",
-        "qualified_name"
+        "toolCallId",
+        "qualifiedName"
       ],
       "title": "ToolUsePart",
       "type": "object"
@@ -3298,17 +3298,17 @@
           "title": "Seq",
           "type": "integer"
         },
-        "run_id": {
+        "runId": {
           "format": "uuid",
-          "title": "Run Id",
+          "title": "Runid",
           "type": "string"
         },
-        "root_run_id": {
+        "rootRunId": {
           "format": "uuid",
-          "title": "Root Run Id",
+          "title": "Rootrunid",
           "type": "string"
         },
-        "conversation_id": {
+        "conversationId": {
           "anyOf": [
             {
               "format": "uuid",
@@ -3318,7 +3318,7 @@
               "type": "null"
             }
           ],
-          "title": "Conversation Id"
+          "title": "Conversationid"
         },
         "ts": {
           "format": "date-time",
@@ -3337,9 +3337,9 @@
       "required": [
         "id",
         "seq",
-        "run_id",
-        "root_run_id",
-        "conversation_id",
+        "runId",
+        "rootRunId",
+        "conversationId",
         "ts",
         "type",
         "data"

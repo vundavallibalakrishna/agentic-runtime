@@ -20,23 +20,27 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | # | File | Name | Outcome (exit criteria) | Tasks |
 |---|---|---|---|---|
 | M0 | [M00-scaffold.md](M00-scaffold.md) | Scaffold & tooling | Monorepo builds, CI green, `make dev` brings up the local stack, fake-llm works, codegen pipeline in place | 12 |
-| M1 | [M01-foundation.md](M01-foundation.md) | Data, identity, tenancy, audit, events | Users log in via Keycloak; tenants, users, teams, roles, API keys, secrets, SSO/SCIM; RLS; audit chain; outbox; notifications/webhooks base; admin pages | 15 |
+| M1 | [M01-foundation.md](M01-foundation.md) | Data, identity, tenancy, audit, events | Users log in via Keycloak; tenants, users, teams, roles, API keys, secrets, SSO/SCIM; RLS; audit chain; outbox; notifications/webhooks base; admin pages | 16 |
 | M2 | [M02-first-chat.md](M02-first-chat.md) | Secrets, model gateway & first chat | A user chats with the default `assistant` agent with streaming over SSE through `model-gateway`; files upload; runs API; usage metered | 13 |
-| M3 | [M03-agent-builder.md](M03-agent-builder.md) | Agent builder & bundles | Builders create, validate, test, publish, roll back agents; bundles import/export; agent catalogue | 8 |
+| M3 | [M03-agent-builder.md](M03-agent-builder.md) | Agent builder & bundles | Builders create, validate, test, publish, roll back agents; bundles import/export; agent catalogue; natural-language builder; content packs | 10 |
 | M4 | [M04-tools-mcp.md](M04-tools-mcp.md) | Tools & MCP | Tool servers registered and reviewed; agents call remote MCP, OpenAPI and SQL tools through `mcp-gateway`; OAuth connections; built-ins (files, conversations, web, plan, tools.search) | 10 |
-| M5 | [M05-policy-approvals.md](M05-policy-approvals.md) | Policy & approvals | OPA decisions on every tool call; approvals in web; standing approvals; simulation | 7 |
+| M5 | [M05-policy-approvals.md](M05-policy-approvals.md) | Policy & approvals | OPA decisions on every tool call; approvals in web; standing approvals; simulation; output sign-off; segregation of duties | 9 |
 | M6 | [M06-sandboxes.md](M06-sandboxes.md) | Files, sandboxes & browser | Agents run code and browse in isolated sandboxes with egress control and produce artifacts | 9 |
-| M7 | [M07-knowledge.md](M07-knowledge.md) | Knowledge | Collections from uploads and connectors with ACL-aware hybrid retrieval (pgvector default behind a `RetrievalStore` port; optional Qdrant adapter) and citations | 10 |
+| M7 | [M07-knowledge.md](M07-knowledge.md) | Knowledge | Collections from uploads and connectors with ACL-aware hybrid retrieval (pgvector default behind a `RetrievalStore` port; optional Qdrant adapter) and citations; strict grounding | 11 |
 | M8 | [M08-memory-context.md](M08-memory-context.md) | Memory & context management | User/agent/team memory with extraction and review; context compaction | 5 |
 | M9 | [M09-subagents-skills.md](M09-subagents-skills.md) | Subagents & skills | Delegation to subagents as child workflows; versioned skills | 4 |
 | M10 | [M10-routines.md](M10-routines.md) | Routines | Scheduled, webhook, event and poll triggers with delivery | 5 |
 | M11 | [M11-channels.md](M11-channels.md) | Channels | Slack, Teams, email, OpenAI-compatible API, widget | 8 |
 | M12 | [M12-usage-quotas.md](M12-usage-quotas.md) | Usage, quotas & billing | Quotas and plan limits enforced; usage reports and dashboards | 4 |
-| M13 | [M13-observability-eval.md](M13-observability-eval.md) | Observability & evaluation | Traces, dashboards, alerts, run inspector; eval suites with publish gates | 6 |
-| M14 | [M14-security-compliance.md](M14-security-compliance.md) | Security hardening & compliance | Guardrails, PII redaction, retention, DPDP erasure/export, audit export, support access, pen-test fixes | 7 |
+| M13 | [M13-observability-eval.md](M13-observability-eval.md) | Observability & evaluation | Traces, dashboards, alerts, run inspector; eval suites with publish gates; run records (after M14-T08) | 7 |
+| M14 | [M14-security-compliance.md](M14-security-compliance.md) | Security hardening & compliance | Guardrails, PII redaction, retention, DPDP erasure/export, audit export, support access, pen-test fixes; immutable records, external participants, pack hooks | 13 |
 | M15 | [M15-deployment.md](M15-deployment.md) | Deployment | Helm chart, both deployment modes, DR drills, load tests at budget, release 1.0 | 7 |
+| M16 | [M16-grc-foundation.md](M16-grc-foundation.md) | GRC pack foundation | Pack schema, catalogues, crosswalks, evidence links, read tools, entity tree | 7 |
+| M17 | [M17-grc-connectors-ccm.md](M17-grc-connectors-ccm.md) | GRC connectors and CCM | Collectors and continuous control tests | 6 |
+| M18 | [M18-grc-workflows.md](M18-grc-workflows.md) | GRC workflows | Questionnaires, vendors, policies, risk, regulatory change, breach clocks, exceptions, ethics | 8 |
+| M19 | [M19-grc-audit-reporting.md](M19-grc-audit-reporting.md) | GRC audit and reporting | Auditor portal, access reviews, attestations, reports, inspections, DSAR, pack release | 8 |
 
-Total: **130 tasks**.
+Total: **172 tasks** across 20 milestones (M0–M19). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027).
 
 ## Dependency graph
 
@@ -62,7 +66,14 @@ flowchart LR
   M12 --> M14
   M13 --> M14
   M14 --> M15
+  M14 --> M16
+  M16 --> M17
+  M16 --> M18
+  M17 --> M19
+  M18 --> M19
 ```
+
+M16 does not wait for M15. M13-T07 is the one task that waits for a later milestone (M14-T08).
 
 The graph allows parallel work after M5 (M6/M7/M8 can proceed in parallel by different agents), but a single agent should simply follow the milestone order.
 

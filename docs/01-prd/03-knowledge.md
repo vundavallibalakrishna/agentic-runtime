@@ -47,3 +47,9 @@ As a **knowledge manager**, I want to see sync status, failures and re-index whe
 As a **member**, I want to attach files to a chat and ask about them without creating a collection.
 - Attached files are processed (`FileProcessWorkflow`) and readable by the agent only within that conversation (`files.list`/`files.read`), never by other users.
 - Spec: [spec 13](../03-specs/13-files-artifacts.md), spec 08 §9. Plan: M2-T07, M4-T05.
+
+### US-KN-09 · Strict grounding (P0)
+As a **member**, I want an agent that is not allowed to state a fact it cannot point at.
+- When `output.grounding` is `strict`, ungrounded factual sentences are removed. Citations may point at knowledge, a tool result, or an evidence item.
+- The Why panel shows the grounding report for that message.
+- Spec: [spec 07 §13](../03-specs/07-agent-runtime.md#13-strict-grounding). Plan: M7-T11.

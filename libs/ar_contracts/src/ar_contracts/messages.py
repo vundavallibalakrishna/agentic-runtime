@@ -4,11 +4,13 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
+
+from ar_contracts.api_model import ApiModel
 
 
-class _Part(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+class _Part(ApiModel):
+    model_config = ConfigDict(frozen=True)
 
 
 class TextPart(_Part):
@@ -36,10 +38,10 @@ class ToolUsePart(_Part):
     arguments: dict[str, object] | None = None
 
 
-class Citation(BaseModel):
+class Citation(ApiModel):
     """A knowledge citation attached to an assistant message."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(frozen=True)
 
     index: int
     document_id: uuid.UUID

@@ -43,6 +43,14 @@ Implementation: [spec 17 §1](../03-specs/17-audit-usage-metering.md#1-audit), t
 | Usage & quotas | `quota.created`, `quota.updated`, `quota.deleted`, `quota.exceeded` (F) |
 | Audit & retention | `audit.verified`, `audit.exported`, `audit.purged`, `retention.swept`, `erasure.completed` |
 | Evals | `eval_suite.created`, `eval_suite.updated`, `eval_suite.deleted`, `eval_run.started`, `eval_run.cancelled` |
+| Content packs | `pack.installed`, `pack.upgraded`, `pack.uninstalled`, `pack.signature_rejected` (F), `tenant_pack.enabled`, `tenant_pack.disabled` |
+| Reviews and SoD | `review_queue.created`, `review_queue.updated`, `review_queue.deleted`, `review_item.created`, `review_item.decided`, `review_item.expired`, `review_item.superseded`, `signoff.recorded`, `sod_constraint.created`, `sod_constraint.updated`, `sod_constraint.deleted`, `sod.violation_blocked` (F) |
+| Run records | `run_record.sealed`, `run_record.seal_failed` (F), `run_record.replayed`, `run_record.replay_diverged` |
+| Evidence and holds | `evidence.captured`, `evidence.accessed`, `evidence.verified`, `evidence.exported`, `evidence.disposed`, `legal_hold.created`, `legal_hold.released`, `retention_schedule.updated`, `disposition.certified` |
+| AI governance | `agent_card.published`, `agent_card.updated`, `ai_incident.created`, `ai_incident.updated`, `ai_governance.exported` |
+| Guests | `guest.invited`, `guest.login`, `guest.login_failed` (F), `guest.revoked`, `guest.grant_created`, `guest.grant_revoked`, `guest.access`, `guest.downloaded` |
+| Binders | `binder.created`, `binder.built`, `binder.downloaded` |
+| GRC pack | `grc.framework.imported`, `grc.control.updated`, `grc.mapping.confirmed`, `grc.mapping.rejected`, `grc.evidence.linked`, `grc.test_result.recorded`, `grc.finding.created`, `grc.finding.closed`, `grc.risk.proposed`, `grc.risk.accepted`, `grc.vendor.created`, `grc.assessment.completed`, `grc.policy.published`, `grc.policy.acknowledged`, `grc.obligation.updated`, `grc.regulatory_change.triaged`, `grc.incident.opened`, `grc.incident.notified`, `grc.campaign.started`, `grc.campaign_item.decided`, `grc.answer.approved`, `grc.pbc.updated`, `grc.entitlement.ingested`, `grc.report.exported`, `grc.entity.updated`, `grc.exception.signed`, `grc.ethics.opened`, `grc.inspection.opened`, `grc.dsar.fulfilled`, `grc.consent.recorded`, `grc.resilience.recorded` |
 
 `audit.event` is **not** an action: it is the outbox topic carrying each audit row to the SIEM webhook.
 

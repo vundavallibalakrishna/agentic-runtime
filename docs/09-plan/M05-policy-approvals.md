@@ -4,6 +4,8 @@ Goal: every tool call gets an OPA decision; risky calls pause the run until a hu
 
 Exit criteria: Playwright: agent proposes a W2 call → run shows "waiting for approval" → approver approves in `/approvals` → run resumes and the tool executes once; changing the arguments after approval is impossible (hash mismatch); a W3 approval requires step-up; a deny rule blocks a call with a model-readable reason.
 
+M5-T08 and M5-T09 are required for 1.0. They are not part of the Playwright scenario above.
+
 ---
 
 ### M5-T01 · Revision 0012 `policy_approvals` and policy service
@@ -61,3 +63,19 @@ Exit criteria: Playwright: agent proposes a W2 call → run shows "waiting for a
 - **Do:** Approvals inbox (tabs, filters, bulk reject), approval detail (agent, user, tool, risk, rendered preview, raw arguments, diff for edits, step-up prompt for W3), inline approval card in chat, standing approvals list/revoke, policy editor (form + YAML/Rego in Monaco, tests, simulate panel, version history, activate).
 - **Done when:** M5 exit-criteria Playwright scenario passes.
 - **Tests:** Vitest; Playwright scenario; axe.
+
+### M5-T08 · Output sign-off and review queues
+- **Depends on:** M5-T07
+- **Areas:** `ar_domain/approvals/{reviews.py,signoffs.py}`, `ar_api/routers/reviews.py`, migration `0021_reviews`, `apps/web/src/app/(app)/reviews/**`
+- **Spec:** [spec 09 §11](../03-specs/09-policy-approvals.md#11-reviews-and-sign-off), [schema §21](../04-data/schema.md#21-reviews-and-segregation-of-duties-ar_domainapprovals), [ADR-0025](../02-architecture/adr/ADR-0025-output-signoff.md), [spec 19 §10](../03-specs/19-web-app.md)
+- **Do:** Tables `review_queues`, `review_items`, `signoffs`. The ten review endpoints in spec 09 §11. Subjects `artifact`, `file`, `message`, `evidence_item`, `run_record`, `agent_card`, `binder`, `pack_record`. Bulk decide at most 100 items, each in its own transaction. Standing approvals are never consulted. Final level requires step-up when `tenants.settings.security.require_step_up_for_signoff` is true. Web pages `/reviews` and `/reviews/[id]`.
+- **Done when:** a content change supersedes the item and does not copy prior sign-offs; a hash mismatch on decide returns 409 `content_changed`; the preparer cannot sign.
+- **Tests:** integration per endpoint; bulk partial failure; step-up; Playwright queue to sign-off.
+
+### M5-T09 · Segregation of duties
+- **Depends on:** M5-T08
+- **Areas:** `ar_domain/approvals/sod.py`, `ar_api/routers/sod.py`, `services/mcp_gateway` policy deny path, migration `0022_sod_constraints`
+- **Spec:** [spec 09 §12](../03-specs/09-policy-approvals.md#12-segregation-of-duties), [schema §21](../04-data/schema.md#21-reviews-and-segregation-of-duties-ar_domainapprovals)
+- **Do:** Enforce the four platform invariants in spec 09 §12 on approvals and sign-offs. Table `sod_constraints` with `kind='conflicting_roles'` only. `POST /api/v1/policies:simulate` adds `sod`. The gateway denies with reason `sod_violation` and audits `sod.violation_blocked`. Endpoints under `/api/v1/sod-constraints` including `:check`.
+- **Done when:** the owner of an agent cannot sign that agent's message, artifact, run record or binder, and cannot approve that agent's tool call; a self-granted standing approval returns 422 `sod_self_approval`.
+- **Tests:** truth table for the four invariants; simulate returns `sod.violations` without changing the policy decision; gateway integration.

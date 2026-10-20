@@ -7,43 +7,43 @@
 
 export type Description = string;
 export type Agent = string;
-export type AgentVersion = string | null;
-export type RunAs = "owner" | "service_account";
-export type ServiceAccount = string | null;
+export type Agentversion = string | null;
+export type Runas = "owner" | "service_account";
+export type Serviceaccount = string | null;
 export type Instructions = string;
 export type Type = "schedule" | "webhook" | "channel_event" | "email" | "file_arrival" | "db_change" | "manual";
 export type Cron = string | null;
 export type Timezone = string | null;
-export type JitterS = number;
-export type CatchupWindowS = number;
-export type EventFilter = string | null;
+export type Jitters = number;
+export type Catchupwindows = number;
+export type Eventfilter = string | null;
 export type Type1 = "conversation" | "slack" | "teams" | "email" | "webhook" | "file";
 export type Integration = string | null;
 export type Channel = string | null;
-export type PreApproved = boolean;
+export type Preapproved = boolean;
 export type Delivery = DeliveryTarget[];
-export type MaxSteps = number;
-export type MaxTokens = number;
-export type MaxCostMicros = number;
-export type MaxWallClockS = number;
-export type MaxToolCalls = number;
-export type MaxParallelToolCalls = number;
-export type MaxRunsPerDay = number;
-export type ConcurrencyPolicy = "skip" | "buffer_one" | "allow";
+export type Maxsteps = number;
+export type Maxtokens = number;
+export type Maxcostmicros = number;
+export type Maxwallclocks = number;
+export type Maxtoolcalls = number;
+export type Maxparalleltoolcalls = number;
+export type Maxrunsperday = number;
+export type Concurrencypolicy = "skip" | "buffer_one" | "allow";
 
 export interface RoutineDefinition {
   description?: Description;
   agent: Agent;
-  agent_version?: AgentVersion;
-  run_as?: RunAs;
-  service_account?: ServiceAccount;
+  agentVersion?: Agentversion;
+  runAs?: Runas;
+  serviceAccount?: Serviceaccount;
   instructions: Instructions;
   trigger: RoutineTrigger;
-  event_filter?: EventFilter;
+  eventFilter?: Eventfilter;
   delivery?: Delivery;
   budget: RunBudget;
-  max_runs_per_day?: MaxRunsPerDay;
-  concurrency_policy?: ConcurrencyPolicy;
+  maxRunsPerDay?: Maxrunsperday;
+  concurrencyPolicy?: Concurrencypolicy;
 }
 /**
  * This interface was referenced by `RoutineDefinition`'s JSON-Schema
@@ -53,8 +53,8 @@ export interface RoutineTrigger {
   type: Type;
   cron?: Cron;
   timezone?: Timezone;
-  jitter_s?: JitterS;
-  catchup_window_s?: CatchupWindowS;
+  jitterS?: Jitters;
+  catchupWindowS?: Catchupwindows;
   config?: Config;
 }
 export interface Config {
@@ -68,7 +68,7 @@ export interface DeliveryTarget {
   type: Type1;
   integration?: Integration;
   channel?: Channel;
-  pre_approved?: PreApproved;
+  preApproved?: Preapproved;
   config?: Config1;
 }
 export interface Config1 {
@@ -81,10 +81,10 @@ export interface Config1 {
  * via the `definition` "RunBudget".
  */
 export interface RunBudget {
-  max_steps: MaxSteps;
-  max_tokens: MaxTokens;
-  max_cost_micros: MaxCostMicros;
-  max_wall_clock_s: MaxWallClockS;
-  max_tool_calls: MaxToolCalls;
-  max_parallel_tool_calls: MaxParallelToolCalls;
+  maxSteps: Maxsteps;
+  maxTokens: Maxtokens;
+  maxCostMicros: Maxcostmicros;
+  maxWallClockS: Maxwallclocks;
+  maxToolCalls: Maxtoolcalls;
+  maxParallelToolCalls: Maxparalleltoolcalls;
 }

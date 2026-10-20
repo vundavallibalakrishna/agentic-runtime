@@ -120,3 +120,46 @@ Agents per tenant: plan `max_agents` (default 200). Versions per agent: unlimite
 - Unit: resolver (semver range selection, `*` expansion, cycle detection, skill tool coverage), visibility predicate truth table, definition hash stability (property test: key order permutations produce same hash).
 - Integration: draft save with/without If-Match; publish supersedes previous; published version immutable (trigger raises on direct UPDATE); disable → new run 423; rollback re-resolves; bundle import idempotency (import twice → second run all `unchanged`); export → import round-trip equality.
 - E2E: builder creates agent from template, adds tool, publishes, chats in preview and in main chat.
+
+## 10. Content packs
+
+A content pack is a signed bundle with a stable pack id and a semver version ([definition-schema §11](../05-contracts/definition-schema.md#11-content-packs-and-assurance-fields), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md)). Install is idempotent on `(tenant_id, pack_id, version)`. The manifest is canonicalised (JCS) and its SHA-256 is `installed_packs.manifest_hash`. When `AR_PACK_SIGNATURE_REQUIRED` is true, the Ed25519 signature over that hash must verify against `AR_PACK_TRUSTED_KEYS`; failure audits `pack.signature_rejected` and returns 422 `pack_signature_invalid`. `AR_ENV=dev` defaults the flag to false.
+
+Upgrade requires the new version to be strictly greater (semver). Resources are imported with the bundle importer ([§3](#3-public-api) `bundles:import`) as new versions, never as silent overwrites of tenant-edited drafts: a resource the tenant has changed since install is reported `conflict` and skipped until the caller passes `accept_conflicts: true`. Pack Alembic upgrade runs first when the manifest has an `extension.schema` ([spec 21 §6](21-records-governance.md#6-pack-extension-points)). Uninstall sets `installed_packs.status='uninstalled'` and disables the tenant flag. Body `drop_schema: true` is refused without step-up, and refused with 409 `hold_active` when any legal hold covers a row in that schema. Default `drop_schema` is false.
+
+`installed_pack_resources` records `{kind, slug, resource_id}` written by the install so uninstall and upgrade can find them. Secrets are never in the manifest.
+
+#### GET /api/v1/content-packs
+`agents:read`. Items `InstalledPack {pack_id, version, status, installed_at, manifest_hash, signature_key_id}`.
+
+#### POST /api/v1/content-packs:install
+`packs:manage`. Body `{manifest: object, signature: string, key_id: string}` or multipart (`manifest.yaml` + `manifest.sig`). Response `InstalledPack` plus `import_results` from the bundle importer. Audit `pack.installed`.
+
+#### GET /api/v1/content-packs/{pack_id}
+`agents:read`. Adds `resources: [{kind, slug, resource_id}]`.
+
+#### POST /api/v1/content-packs/{pack_id}:upgrade
+`packs:manage`. Body `{manifest, signature, key_id, accept_conflicts?: false}`. Audit `pack.upgraded`.
+
+#### POST /api/v1/content-packs/{pack_id}:uninstall
+`packs:manage`. Body `{dropSchema?: false}`. Step-up when `dropSchema` is true. Audit `pack.uninstalled`.
+
+## 11. Natural-language builder
+
+The primary way to create an agent is a conversation with the built-in agent `builder` ([principles §2](../00-overview/principles.md#2-outstanding-ui-and-presentation), [spec 19 §5.1](19-web-app.md#51-natural-language-builder)). `POST /api/v1/agents:draft-from-description` remains the one-shot call the builder uses internally.
+
+`builder` is seeded in every tenant, `visibility=tenant`, not deletable, `channels.web=true`. Its tools are the registry read tools plus a single write tool `builder.propose_definition` (W1) whose argument is a bundle fragment: one `Agent` and any `Policy`, `Routine`, or `Skill` it needs. The tool does not publish and does not create rows. The runtime stores the fragment on the conversation as the current proposal.
+
+#### POST /api/v1/builder/sessions
+`agents:create`. Body `{instruction: string}`. Creates a conversation with `builder` and posts `instruction` as the first user message. Response `{sessionId, conversationId, runId}`.
+
+#### GET /api/v1/builder/sessions/{session_id}
+`agents:create` and the session owner. Response `{sessionId, messages, proposal: object | null, validation: {errors, warnings}}`. `proposal` is the latest camelCase bundle fragment.
+
+#### POST /api/v1/builder/sessions/{session_id}/messages
+`agents:create` and the owner. Body `{text: string}`. Starts another turn. The builder may replace the proposal. Response `{runId}`.
+
+#### POST /api/v1/builder/sessions/{session_id}:apply
+`agents:create` and the owner. Body `{mode: "create" | "update", agentId?: uuid}`. Writes a draft from `proposal` through the normal agent APIs. Does not publish. Response `{agentId, versionId}`. Audit `agent.created` or `agent.draft_saved`.
+
+The proposal is invalid until `:validate` would pass, except references the tenant does not have yet, which are warnings (`unknown_reference`) the preview lists as "you will need to connect this". Apply of a proposal with errors returns 422. Apply with only warnings is allowed. Refinement is another message, or the user opens the draft in the form or YAML editor, which loads the same definition.

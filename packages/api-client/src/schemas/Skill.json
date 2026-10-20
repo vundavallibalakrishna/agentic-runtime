@@ -36,15 +36,15 @@
       "title": "Visibility",
       "type": "string"
     },
-    "required_tools": {
+    "requiredTools": {
       "items": {
         "type": "string"
       },
-      "title": "Required Tools",
+      "title": "Requiredtools",
       "type": "array"
     },
-    "instructions_md": {
-      "title": "Instructions Md",
+    "instructionsMd": {
+      "title": "Instructionsmd",
       "type": "string"
     },
     "assets": {
@@ -57,7 +57,7 @@
   },
   "required": [
     "description",
-    "instructions_md"
+    "instructionsMd"
   ],
   "title": "SkillDefinition",
   "type": "object"

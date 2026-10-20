@@ -55,7 +55,7 @@ Exit criteria: `helm install` on a fresh kind cluster (single-tenant, `values-sm
 - **Tests:** nightly air-gapped kind install.
 
 ### M15-T07 · Release 1.0
-- **Depends on:** M15-T03, M15-T04, M15-T05, M15-T06, M7-T10
+- **Depends on:** M15-T03, M15-T04, M15-T05, M15-T06, M7-T10, M1-T16, M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08, M14-T09, M14-T10, M14-T11, M14-T12, M14-T13
 - **Areas:** `CHANGELOG.md`, `.github/workflows/release.yml`, `README.md`
 - **Spec:** [ci-cd §6](../07-ops/ci-cd.md#6-releases-and-upgrades), [AGENTS.md](../../AGENTS.md#definition-of-done)
 - **Do:** Release workflow (semver tag → images signed, chart packaged and pushed to OCI registry, SBOMs, release notes from conventional commits), final consistency check of docs vs implementation (`scripts/check_docs.py`), manual release checklist (real Slack/Teams workspace test, real IdP test, DR drill report, security verification log).

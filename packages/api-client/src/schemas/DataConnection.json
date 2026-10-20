@@ -7,51 +7,51 @@
       "title": "Engine",
       "type": "string"
     },
-    "dsn_secret": {
-      "title": "Dsn Secret",
+    "dsnSecret": {
+      "title": "Dsnsecret",
       "type": "string"
     },
-    "identity_mode": {
+    "identityMode": {
       "default": "service",
       "enum": [
         "service",
         "per_user_mapped",
         "passthrough"
       ],
-      "title": "Identity Mode",
+      "title": "Identitymode",
       "type": "string"
     },
-    "allowlist_schemas": {
+    "allowlistSchemas": {
       "items": {
         "type": "string"
       },
-      "title": "Allowlist Schemas",
+      "title": "Allowlistschemas",
       "type": "array"
     },
-    "allowlist_tables": {
+    "allowlistTables": {
       "items": {
         "type": "string"
       },
-      "title": "Allowlist Tables",
+      "title": "Allowlisttables",
       "type": "array"
     },
-    "columns_deny": {
+    "columnsDeny": {
       "items": {
         "type": "string"
       },
-      "title": "Columns Deny",
+      "title": "Columnsdeny",
       "type": "array"
     },
-    "row_limit": {
+    "rowLimit": {
       "default": 1000,
       "minimum": 1,
-      "title": "Row Limit",
+      "title": "Rowlimit",
       "type": "integer"
     },
-    "statement_timeout_s": {
+    "statementTimeoutS": {
       "default": 30,
       "minimum": 1,
-      "title": "Statement Timeout S",
+      "title": "Statementtimeouts",
       "type": "integer"
     },
     "classification": {
@@ -59,14 +59,14 @@
       "title": "Classification",
       "type": "string"
     },
-    "schema_notes": {
+    "schemaNotes": {
       "default": "",
-      "title": "Schema Notes",
+      "title": "Schemanotes",
       "type": "string"
     }
   },
   "required": [
-    "dsn_secret"
+    "dsnSecret"
   ],
   "title": "DataConnectionDefinition",
   "type": "object"

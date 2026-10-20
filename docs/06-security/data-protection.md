@@ -62,3 +62,7 @@ The platform serves employees; tenants must not onboard users under 18. No featu
 ## 7. Cross-border transfer
 
 No content leaves the deployment region: model calls go to operator-registered endpoints; web egress is allowlisted; telemetry backends are in-region. The operator documents the region per tenant (`data_residency`).
+
+## 8. Assurance records
+
+Evidence items, run records, sign-offs, agent cards and disposition certificates are personal-data-bearing only to the extent the captured bytes are. They follow the retention schedule in [spec 21 §2](../03-specs/21-records-governance.md#2-legal-hold-and-retention-schedules). Legal hold stops erasure and the retention sweep for covered rows; the erasure certificate lists what was kept. Guest email addresses are identity data of an external person, retained until the guest principal is revoked and the grant retention (365 days after `expires_at`) elapses, unless a hold covers the grant's audit events. Guest sessions store no conversation content because guests cannot chat in 1.0.

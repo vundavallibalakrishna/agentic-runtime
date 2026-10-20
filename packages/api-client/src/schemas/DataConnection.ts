@@ -6,25 +6,25 @@
  */
 
 export type Engine = "postgres";
-export type DsnSecret = string;
-export type IdentityMode = "service" | "per_user_mapped" | "passthrough";
-export type AllowlistSchemas = string[];
-export type AllowlistTables = string[];
-export type ColumnsDeny = string[];
-export type RowLimit = number;
-export type StatementTimeoutS = number;
+export type Dsnsecret = string;
+export type Identitymode = "service" | "per_user_mapped" | "passthrough";
+export type Allowlistschemas = string[];
+export type Allowlisttables = string[];
+export type Columnsdeny = string[];
+export type Rowlimit = number;
+export type Statementtimeouts = number;
 export type Classification = string;
-export type SchemaNotes = string;
+export type Schemanotes = string;
 
 export interface DataConnectionDefinition {
   engine?: Engine;
-  dsn_secret: DsnSecret;
-  identity_mode?: IdentityMode;
-  allowlist_schemas?: AllowlistSchemas;
-  allowlist_tables?: AllowlistTables;
-  columns_deny?: ColumnsDeny;
-  row_limit?: RowLimit;
-  statement_timeout_s?: StatementTimeoutS;
+  dsnSecret: Dsnsecret;
+  identityMode?: Identitymode;
+  allowlistSchemas?: Allowlistschemas;
+  allowlistTables?: Allowlisttables;
+  columnsDeny?: Columnsdeny;
+  rowLimit?: Rowlimit;
+  statementTimeoutS?: Statementtimeouts;
   classification?: Classification;
-  schema_notes?: SchemaNotes;
+  schemaNotes?: Schemanotes;
 }

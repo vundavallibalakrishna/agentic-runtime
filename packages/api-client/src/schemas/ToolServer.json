@@ -3,12 +3,12 @@
     "OpenApiSpec": {
       "additionalProperties": false,
       "properties": {
-        "spec_file": {
-          "title": "Spec File",
+        "specFile": {
+          "title": "Specfile",
           "type": "string"
         },
-        "base_url": {
-          "title": "Base Url",
+        "baseUrl": {
+          "title": "Baseurl",
           "type": "string"
         },
         "operations": {
@@ -20,8 +20,8 @@
         }
       },
       "required": [
-        "spec_file",
-        "base_url"
+        "specFile",
+        "baseUrl"
       ],
       "title": "OpenApiSpec",
       "type": "object"
@@ -50,13 +50,13 @@
     "SqlSpec": {
       "additionalProperties": false,
       "properties": {
-        "data_connection": {
-          "title": "Data Connection",
+        "dataConnection": {
+          "title": "Dataconnection",
           "type": "string"
         }
       },
       "required": [
-        "data_connection"
+        "dataConnection"
       ],
       "title": "SqlSpec",
       "type": "object"
@@ -76,7 +76,7 @@
           "title": "Mode",
           "type": "string"
         },
-        "credential_provider": {
+        "credentialProvider": {
           "anyOf": [
             {
               "type": "string"
@@ -86,7 +86,7 @@
             }
           ],
           "default": null,
-          "title": "Credential Provider"
+          "title": "Credentialprovider"
         },
         "secret": {
           "anyOf": [
@@ -107,7 +107,7 @@
     "ToolGovernance": {
       "additionalProperties": false,
       "properties": {
-        "risk_class": {
+        "riskClass": {
           "anyOf": [
             {
               "enum": [
@@ -123,9 +123,9 @@
             }
           ],
           "default": null,
-          "title": "Risk Class"
+          "title": "Riskclass"
         },
-        "data_classification": {
+        "dataClassification": {
           "anyOf": [
             {
               "type": "string"
@@ -135,9 +135,9 @@
             }
           ],
           "default": null,
-          "title": "Data Classification"
+          "title": "Dataclassification"
         },
-        "timeout_s": {
+        "timeoutS": {
           "anyOf": [
             {
               "type": "integer"
@@ -147,9 +147,9 @@
             }
           ],
           "default": null,
-          "title": "Timeout S"
+          "title": "Timeouts"
         },
-        "rate_limit_per_minute": {
+        "rateLimitPerMinute": {
           "anyOf": [
             {
               "type": "integer"
@@ -159,7 +159,7 @@
             }
           ],
           "default": null,
-          "title": "Rate Limit Per Minute"
+          "title": "Ratelimitperminute"
         }
       },
       "title": "ToolGovernance",
@@ -186,7 +186,7 @@
       "title": "Description",
       "type": "string"
     },
-    "remote_mcp": {
+    "remoteMcp": {
       "anyOf": [
         {
           "$ref": "#/$defs/RemoteMcp"
@@ -223,7 +223,7 @@
       "$ref": "#/$defs/ToolAuth",
       "default": {
         "mode": "none",
-        "credential_provider": null,
+        "credentialProvider": null,
         "secret": null
       }
     },
@@ -234,11 +234,11 @@
       "title": "Tools",
       "type": "object"
     },
-    "allowed_tools": {
+    "allowedTools": {
       "items": {
         "type": "string"
       },
-      "title": "Allowed Tools",
+      "title": "Allowedtools",
       "type": "array"
     }
   },

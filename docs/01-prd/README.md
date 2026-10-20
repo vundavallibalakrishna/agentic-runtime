@@ -1,6 +1,6 @@
 # Product requirements (PRD)
 
-User stories for the 14 product areas of v1. Personas: [personas](../00-overview/personas.md). Scope and non-goals: [scope](../00-overview/scope.md). Terms: [glossary](../00-overview/glossary.md).
+User stories for the product areas of v1, plus the records area. The GRC pack's stories are [10-grc-pack/prd](../10-grc-pack/prd.md). Personas: [personas](../00-overview/personas.md). Scope and non-goals: [scope](../00-overview/scope.md). Terms: [glossary](../00-overview/glossary.md).
 
 ## Format
 
@@ -10,20 +10,21 @@ Each story: **ID** (`US-<AREA>-<nn>`, stable, never renumbered), persona, story,
 
 | # | File | Area | Prefix | Stories |
 |---|---|---|---|---|
-| 01 | [01-agent-builder.md](01-agent-builder.md) | Agent builder | `US-AGT` | 10 |
+| 01 | [01-agent-builder.md](01-agent-builder.md) | Agent builder | `US-AGT` | 11 |
 | 02 | [02-tool-registry.md](02-tool-registry.md) | Tools & connectors | `US-TOOL` | 10 |
-| 03 | [03-knowledge.md](03-knowledge.md) | Knowledge | `US-KN` | 8 |
+| 03 | [03-knowledge.md](03-knowledge.md) | Knowledge | `US-KN` | 9 |
 | 04 | [04-chat.md](04-chat.md) | Chat | `US-CHAT` | 9 |
 | 05 | [05-runs-subagents.md](05-runs-subagents.md) | Runs & subagents | `US-RUN` | 8 |
 | 06 | [06-sandboxes.md](06-sandboxes.md) | Sandboxes & browser | `US-SBX` | 7 |
 | 07 | [07-memory.md](07-memory.md) | Memory | `US-MEM` | 6 |
 | 08 | [08-routines.md](08-routines.md) | Routines | `US-RTN` | 7 |
 | 09 | [09-skills.md](09-skills.md) | Skills | `US-SKL` | 5 |
-| 10 | [10-approvals.md](10-approvals.md) | Policies & approvals | `US-APR` | 8 |
+| 10 | [10-approvals.md](10-approvals.md) | Policies & approvals | `US-APR` | 10 |
 | 11 | [11-channels.md](11-channels.md) | Channels | `US-CH` | 8 |
 | 12 | [12-admin-tenancy-billing.md](12-admin-tenancy-billing.md) | Admin, tenancy, billing | `US-ADM` | 14 |
-| 13 | [13-observability.md](13-observability.md) | Observability | `US-OBS` | 6 |
-| 14 | [14-evaluation.md](14-evaluation.md) | Evaluation | `US-EVAL` | 6 |
+| 13 | [13-observability.md](13-observability.md) | Observability | `US-OBS` | 7 |
+| 14 | [14-evaluation.md](14-evaluation.md) | Evaluation | `US-EVAL` | 7 |
+| 15 | [15-records-governance.md](15-records-governance.md) | Records and assurance | `US-REC` | 7 |
 
 ## Cross-cutting acceptance criteria (apply to every story)
 

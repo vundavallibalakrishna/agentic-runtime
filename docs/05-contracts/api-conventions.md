@@ -25,7 +25,7 @@ Resolved into a `Principal` (`user` | `service_account`) with `tenant_id`, permi
 ## 3. Request conventions
 
 - JSON bodies, `Content-Type: application/json; charset=utf-8`. File uploads use presigned PUT URLs (see [spec 13](../03-specs/13-files-artifacts.md)), not multipart, except `POST /api/v1/files:upload` (≤ 25 MiB convenience path).
-- Field names are `snake_case`. Timestamps are RFC 3339 UTC strings with `Z`. IDs are UUID strings (v7).
+- Property names in public JSON are camelCase ([ADR-0026](../02-architecture/adr/ADR-0026-public-json-camel-case.md), [principles §1](../00-overview/principles.md#1-api-and-ui-casing)). Python attributes and database columns stay snake_case. A spec sentence that says `dry_run` means the Python attribute; the JSON name is `dryRun`. Models subclass `ApiModel`. Timestamps are RFC 3339 UTC strings with `Z`. IDs are UUID strings (v7).
 - Custom actions use the `:verb` suffix on the resource path (Google AIP-136 style): `POST /api/v1/agents/{agent_id}:publish`.
 - `PATCH` uses JSON Merge Patch semantics (RFC 7396) on the documented updatable fields only; unknown fields → 422.
 - Optimistic concurrency: resources with `etag` return an `ETag` header; `PATCH`/`PUT`/`DELETE` accept `If-Match`. Mismatch → `412 precondition_failed`. Required on agent drafts, policies and skills.
@@ -40,7 +40,7 @@ Cursor-based on all list endpoints:
 - Response envelope:
 
 ```json
-{ "items": [ ... ], "next_cursor": "eyJrIjpbIjIwMjYtMTAtMjBUMDk6MDA6MDBaIiwiMDE5Li4uIl19", "has_more": true }
+{ "items": [ ... ], "nextCursor": "eyJrIjpbIjIwMjYtMTAtMjBUMDk6MDA6MDBaIiwiMDE5Li4uIl19", "hasMore": true }
 ```
 
 - The cursor is base64url(JSON `{"k": [<sort key values>], "d": "asc|desc"}`) signed with HMAC (`AR_CURSOR_SECRET`) to prevent tampering; invalid cursor → `400 invalid_cursor`.
@@ -59,7 +59,7 @@ Cursor-based on all list endpoints:
   "code": "validation_failed",
   "detail": "definition.model.alias: unknown model alias 'reasonin'",
   "instance": "/api/v1/agents/0192.../versions/draft",
-  "request_id": "req_01J...",
+  "requestId": "req_01J...",
   "errors": [ { "loc": ["definition","model","alias"], "msg": "unknown model alias", "type": "unknown_reference" } ]
 }
 ```
@@ -99,7 +99,7 @@ Token-bucket per principal and per tenant in Valkey (`ar_common.ratelimit`). Def
 
 ## 7. Standard resource fields
 
-Every resource representation includes `id`, `created_at`, `updated_at` (if the table has it) and, where applicable, `etag` (hex of `sha256(id || updated_at)`), `created_by` (`{id, display_name}`).
+Every resource representation includes `id`, `createdAt`, `updatedAt` (if the table has it) and, where applicable, `etag` (hex of `sha256(id || updated_at)`), `createdBy` (`{id, displayName}`). The columns remain `created_at`, `updated_at`, `created_by`.
 
 ## 8. Streaming
 

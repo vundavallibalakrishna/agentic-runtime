@@ -13,6 +13,8 @@ Each persona maps to one or more system roles ([authn-authz §4](../06-security/
 | **Auditor / security** — "Anita, CISO office" | `auditor` | Review audit trail, verify chain integrity, export to SIEM, review policies and approvals | Audit, policies (read-only), observability |
 | **Developer / integrator** — "Kiran, internal app developer" | service account with API keys; `builder` for their agents | Call agents from apps via REST/OpenAI-compatible API, receive callbacks/webhooks, embed widget | API, webhooks, widget |
 | **Platform operator** — "Ops team" (SaaS operator or on-prem install owner) | Keycloak realm role `platform_admin` (SaaS) / Helm operator (on-prem) | Provision tenants, register model providers, monitor health and capacity, upgrade, back up | Platform admin pages, Grafana, Helm |
+| **External participant** — invited reviewer | guest principal (`external` or `partner`) | See only the records in the grant, for a limited time | Guest portal |
+| **Control owner** (GRC pack) | pack permissions such as `grc.controls:manage` | Keep controls, evidence and findings current | `/grc` when the pack is enabled |
 
 ## Persona-driven design constraints
 

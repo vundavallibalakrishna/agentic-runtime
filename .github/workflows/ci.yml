@@ -149,6 +149,7 @@ jobs:
       - run: uv run python scripts/check_env_catalogue.py
       - run: uv run python scripts/check_audit_catalogue.py
       - run: uv run python scripts/check_stack_pins.py
+      - run: uv run python scripts/check_public_camel_case.py
       - name: no placeholder markers
         run: |
           if grep -RInE --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=.git --exclude-dir=.next --exclude-dir=.turbo 'TO''DO|FIX''ME' .; then

@@ -2,7 +2,7 @@
 
 Goal: grounded answers. Knowledge managers create collections fed by uploads and connectors; the ingest pipeline parses, chunks, contextualises, embeds and indexes documents through the `RetrievalStore` port (default adapter: Postgres + pgvector with full-text hybrid search) with ACL principals; agents retrieve with hybrid search + rerank filtered by the acting user's principals and cite sources.
 
-Exit criteria: two users with different SharePoint permissions (stubbed Graph API) ask the same question; each gets answers citing only documents they can access; deleting a document at the source removes it from answers after the next sync; retrieval leak test and the `RetrievalStore` conformance suite pass for the pgvector adapter. The optional Qdrant adapter and backend migration (M7-T09, M7-T10) are not part of the M7 exit criteria; they must be done before M15-T07 (release).
+Exit criteria: two users with different SharePoint permissions (stubbed Graph API) ask the same question; each gets answers citing only documents they can access; deleting a document at the source removes it from answers after the next sync; retrieval leak test and the `RetrievalStore` conformance suite pass for the pgvector adapter. The optional Qdrant adapter and backend migration (M7-T09, M7-T10) are not part of the M7 exit criteria; they must be done before M15-T07 (release). M7-T11 is required for 1.0 and is not part of this exit scenario.
 
 ---
 
@@ -87,3 +87,11 @@ Exit criteria: two users with different SharePoint permissions (stubbed Graph AP
 - **Do:** `MigrateRetrievalStoreWorkflow` and `ReindexCollectionWorkflow(..., target_backend)` copy mode (export → join metadata → upsert at new `index_version`, catch-up pass, count + parity verification, atomic switch, delayed source cleanup after `AR_VECTOR_MIGRATION_RETAIN_HOURS`, rollback); CLI `python -m ar_ingest.cli migrate-store` with `--dry-run` and `--rollback`; audit `collection.store_migrated`.
 - **Done when:** a pgvector → qdrant → pgvector round trip on the M7 sample collections passes the parity check with zero downtime for `knowledge.search` (searches during the copy are served by the source).
 - **Tests:** Temporal tests (copy, verification failure → no switch, rollback within window); round trip in `conformance-qdrant`.
+
+### M7-T11 · Strict grounding mode
+- **Depends on:** M7-T07
+- **Areas:** `ar_runtime/grounding.py`, `ar_api/routers/messages.py`, `apps/web` citation Why panel
+- **Spec:** [spec 07 §13](../03-specs/07-agent-runtime.md#13-strict-grounding), [definition-schema §11.1](../05-contracts/definition-schema.md#111-agent-fields), [stream-events §7](../05-contracts/stream-events.md)
+- **Do:** `spec.output.grounding` is `off`, `preferred` or `strict` (default `off`). Strict mode removes ungrounded factual sentences, capped by `AR_GROUNDING_MAX_SENTENCES`. The assistant message gains a content part `{"type":"grounding","report": GroundingReport}`. Citation `source_kind` is `knowledge`, `tool_result` or `evidence_item`. Stream event `message.grounding_checked`. Endpoint `GET /api/v1/conversations/{conversation_id}/messages/{message_id}/grounding`.
+- **Done when:** a strict agent answer contains no factual sentence without a citation the user can open; preferred mode keeps the sentence and marks it ungrounded; off mode does not run the checker.
+- **Tests:** unit cases for the three modes; evidence-item citation; sentence cap.

@@ -7,12 +7,12 @@
 
 export type Kind = "slack" | "teams" | "email" | "widget";
 export type Secret = string;
-export type DefaultAgent = string;
+export type Defaultagent = string;
 
 export interface ChannelIntegrationDefinition {
   kind: Kind;
   secret: Secret;
-  default_agent: DefaultAgent;
+  defaultAgent: Defaultagent;
   config?: Config;
 }
 export interface Config {

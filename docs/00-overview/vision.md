@@ -6,6 +6,12 @@
 
 Employees want assistants that *do work*: query systems, analyse data, draft documents, file tickets, watch for events. Companies cannot send their data to third-party model APIs, cannot give an AI agent broader permissions than the person using it, and need every action to be reviewable. Building all of this per use case wastes effort and multiplies risk.
 
+## North star
+
+An enterprise AI assistant: a corporate assistant with its own computer. It runs entirely in the customer's environment, on the customer's models and data, and it can automate any work the customer is willing to entrust to a governed agent. The assistant plans, uses tools, keeps records, asks a person when the action is risky, and shows its work.
+
+The goals are **CLEAN CODE**, **CUSTOMISABLE**, **EXTENSIBLE**, **SIMPLE UI/UX**, **OUTSTANDING PRESENTATION**.
+
 ## Product in one paragraph
 
 Builders define **agents** (persona, instructions, model alias, tools, knowledge, memory, policies, skills, channels, sandbox) declaratively. Tool owners register **tools** (MCP servers, internal APIs, databases) once, with risk classes and review. Admins set **policies** and **approvals**. Employees chat with agents on the **web app**, in **Slack** or **Teams**, or through the **API**. Agents plan, call tools, run code in **sandboxes**, browse, produce **files**, recall **memory**, delegate to **subagents**, follow **skills** and run unattended **routines** on schedules and events. Everything is durable, audited, metered and evaluated.
@@ -33,4 +39,4 @@ Builders define **agents** (persona, instructions, model alias, tools, knowledge
 
 ## Related
 
-[glossary](glossary.md) · [personas](personas.md) · [scope](scope.md) · [PRD](../01-prd/README.md) · [plan](../09-plan/README.md)
+[principles](principles.md) · [glossary](glossary.md) · [personas](personas.md) · [scope](scope.md) · [PRD](../01-prd/README.md) · [plan](../09-plan/README.md)

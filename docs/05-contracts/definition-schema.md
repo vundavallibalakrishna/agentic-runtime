@@ -2,6 +2,8 @@
 
 Companies define their capabilities either in the web UI or as YAML/JSON **bundles** checked into Git and imported via the API/CLI. Both paths validate against the same Pydantic models in `ar_contracts.definitions` ([ADR-0018](../02-architecture/adr/ADR-0018-declarative-definitions.md)). JSON Schema files are exported by `make gen` to `libs/ar_contracts/schemas/*.schema.json` and served at `GET /api/v1/schemas/{kind}`.
 
+Public definition files use camelCase keys ([ADR-0026](../02-architecture/adr/ADR-0026-public-json-camel-case.md)). The models accept snake_case on input so a file written the old way still imports. Examples below use the public form. Python attributes remain snake_case (`owner_team` is the attribute; `ownerTeam` is the file key).
+
 ## 1. Bundle format
 
 ```yaml
@@ -19,7 +21,7 @@ spec:
       spec: { ...ToolServerDefinition... }
 ```
 
-Each resource can also be a standalone document (`kind: Agent`, `kind: Routine`, ...). Import (`POST /api/v1/bundles:import`, [spec 05](../03-specs/05-agent-registry.md)) is idempotent by `(kind, slug)` (routines and policies by `name`): it creates or creates-a-new-version, never deletes unless `prune: true`. `dry_run: true` returns the plan (create / new_version / unchanged / error per resource). Export (`GET /api/v1/bundles:export?kinds=Agent,Routine`) produces the same format with ids stripped and references expressed by slug/name.
+Each resource can also be a standalone document (`kind: Agent`, `kind: Routine`, ...). Import (`POST /api/v1/bundles:import`, [spec 05](../03-specs/05-agent-registry.md)) is idempotent by `(kind, slug)` (routines and policies by `name`): it creates or creates-a-new-version, never deletes unless `prune: true`. `dryRun: true` returns the plan (create / new_version / unchanged / error per resource). Export (`GET /api/v1/bundles:export?kinds=Agent,Routine`) produces the same format with ids stripped and references expressed by slug/name.
 
 References between resources always use **slugs/names**, resolved to ids at import/save time and stored as ids in `agent_version_bindings`.
 
@@ -36,75 +38,75 @@ metadata:
   name: Incident Analyst
   description: Summarises incidents, computes MTTR, files follow-up tickets.
   visibility: tenant            # private | team | tenant
-  owner_team: sre               # team slug (optional)
-  risk_tier: medium             # low | medium | high
+  ownerTeam: sre               # team slug (optional)
+  riskTier: medium             # low | medium | high
 spec:
   persona:
-    display_name: Incident Analyst
+    displayName: Incident Analyst
     greeting: "Hi! Ask me about incidents, MTTR or on-call load."
-    avatar_file: null           # file id (uploaded via files API)
+    avatarFile: null           # file id (uploaded via files API)
   instructions: |
     You help SRE teams analyse incidents. Always cite ticket keys.
     Use the sandbox for any calculation over more than 10 rows.
-  starter_prompts:
+  starterPrompts:
     - "Summarise last week's P1 incidents with an MTTR chart"
   model:
     alias: reasoning            # chat model alias for planning/tool use
-    fast_alias: fast            # used for titles, compaction, memory extraction, routing
-    vision_alias: vision        # optional; used when images are present
-    params: { temperature: 0.2, top_p: 0.95, max_output_tokens: 4096, reasoning_effort: medium }
-    degrade_to_fast: true       # after 2 failed model steps on alias, retry the step on fast_alias
+    fastAlias: fast            # used for titles, compaction, memory extraction, routing
+    visionAlias: vision        # optional; used when images are present
+    params: { temperature: 0.2, topP: 0.95, maxOutputTokens: 4096, reasoningEffort: medium }
+    degradeToFast: true       # after 2 failed model steps on alias, retry the step on fastAlias
   tools:
     - server: jira              # tool server slug (tenant or built-in)
       version: "^1"             # semver range on server version; resolved at publish
       include: [search_issues, get_issue, create_issue]   # or ["*"]
       overrides:
-        create_issue: { require_approval: always }        # tighten only: always | policy (default)
+        create_issue: { requireApproval: always }        # tighten only: always | policy (default)
         search_issues: { pinned: true }                   # always loaded when tool search is active
     - server: sandbox           # built-in
       include: ["*"]
     - server: knowledge         # built-in
       include: [search, get_document, list_collections]
-  tool_search: { mode: auto, top_k: 12 }   # auto: enabled when > 30 tools are granted; on | off
+  toolSearch: { mode: auto, topK: 12 }   # auto: enabled when > 30 tools are granted; on | off
   knowledge:
     collections: [sre-runbooks, postmortems]
-    auto_retrieve: false        # true = run knowledge.search on the user message before the first model call
-    top_k: 8
-    min_score: 0.30             # answerability threshold after rerank (0..1)
+    autoRetrieve: false        # true = run knowledge.search on the user message before the first model call
+    topK: 8
+    minScore: 0.30             # answerability threshold after rerank (0..1)
   skills: [mttr-report]
   memory:
     enabled: true
-    read_scopes: [user, agent, team, agent_user]
-    user_writes: auto           # auto (extraction + explicit) | explicit_only | off
-    agent_writes: review        # review (proposals go to pending_review) | off
-    recall_top_k: 8
+    readScopes: [user, agent, team, agent_user]
+    userWrites: auto           # auto (extraction + explicit) | explicit_only | off
+    agentWrites: review        # review (proposals go to pending_review) | off
+    recallTopK: 8
   subagents:
     allowed: [web-researcher]   # agent slugs this agent may delegate to
-    allow_self_clone: true      # delegate to a copy of itself with a narrowed tool subset
-    max_depth: 2                # 1..3; platform max 3
-    max_parallel: 3
+    allowSelfClone: true      # delegate to a copy of itself with a narrowed tool subset
+    maxDepth: 2                # 1..3; platform max 3
+    maxParallel: 3
   sandbox:
     enabled: true
     template: default           # sandbox template slug
     scope: conversation         # conversation | agent_user | agent
-    extra_egress_allowlist: []  # must be a subset of the tenant allowlist
+    extraEgressAllowlist: []  # must be a subset of the tenant allowlist
   budget:                       # RunBudget (per top-level run, subagents draw from it)
-    max_steps: 30
-    max_tokens: 600000
-    max_cost_micros: 50000000
-    max_wall_clock_s: 1200
-    max_tool_calls: 60
-    max_parallel_tool_calls: 4
+    maxSteps: 30
+    maxTokens: 600000
+    maxCostMicros: 50000000
+    maxWallClockS: 1200
+    maxToolCalls: 60
+    maxParallelToolCalls: 4
   context:
-    compaction_threshold: 0.7   # fraction of the model context window
-    tool_result_max_tokens: 4000
-    history_max_messages: 40
+    compactionThreshold: 0.7   # fraction of the model context window
+    toolResultMaxTokens: 4000
+    historyMaxMessages: 40
   output:
     citations: preferred        # required | preferred | off
-    show_reasoning: false
+    showReasoning: false
   safety:
-    pii_masking: false          # mask PII in prompts sent to the model (Presidio)
-    injection_classifier: true  # flag suspicious tool output (fast model)
+    piiMasking: false          # mask PII in prompts sent to the model (Presidio)
+    injectionClassifier: true  # flag suspicious tool output (fast model)
   channels: { web: true, slack: true, teams: true, email: false, api: true, widget: false }
 ```
 
@@ -142,10 +144,10 @@ Resolution at **publish**: `tools[].version` ranges are resolved to concrete `to
 ```yaml
 resolved:
   tools:
-    - { qualified_name: jira.create_issue, tool_id: "...", tool_version_id: "...", risk_class: W2 }
+    - { qualifiedName: jira.create_issue, toolId: "...", toolVersionId: "...", riskClass: W2 }
   model: { alias: reasoning }
-  skills: [ { slug: mttr-report, skill_version_id: "..." } ]
-  knowledge: [ { slug: sre-runbooks, collection_id: "..." } ]
+  skills: [ { slug: mttr-report, skillVersionId: "..." } ]
+  knowledge: [ { slug: sre-runbooks, collectionId: "..." } ]
 ```
 
 A published version therefore always runs exactly the tool versions that were reviewed at publish time. Upgrading a tool server minor version requires re-publishing the agent (UI shows "updates available").
@@ -154,22 +156,22 @@ A published version therefore always runs exactly the tool versions that were re
 
 ```yaml
 kind: ToolServer
-metadata: { slug: jira, name: Jira, owner_team: platform }
+metadata: { slug: jira, name: Jira, ownerTeam: platform }
 spec:
-  kind: remote_mcp              # remote_mcp | openapi | sql
+  kind: remoteMcp              # remoteMcp | openapi | sql
   version: 1.3.0
   description: Jira Data Center tools.
-  remote_mcp:
+  remoteMcp:
     url: https://mcp-jira.tools.svc.cluster.local/mcp
     headers: { X-Env: prod }
   auth:
     mode: user_oauth            # none | static_secret | user_oauth | token_exchange | internal_jwt
-    credential_provider: jira-oauth   # for user_oauth / token_exchange
+    credentialProvider: jira-oauth   # for user_oauth / token_exchange
     secret: null                # for static_secret: secret name
   tools:                        # optional per-tool governance overrides (discovered tools are the source of schemas)
-    create_issue: { risk_class: W2, data_classification: internal, timeout_s: 30, rate_limit_per_minute: 20 }
-    search_issues: { risk_class: R0 }
-  allowed_tools: ["*"]          # subset of discovered tools exposed to agents
+    create_issue: { riskClass: W2, dataClassification: internal, timeoutS: 30, rateLimitPerMinute: 20 }
+    search_issues: { riskClass: R0 }
+  allowedTools: ["*"]          # subset of discovered tools exposed to agents
 ```
 
 `openapi` kind:
@@ -179,10 +181,10 @@ spec:
   kind: openapi
   version: 1.0.0
   openapi:
-    spec_file: hr-api-openapi.yaml    # uploaded file name (files.kind='openapi_spec')
-    base_url: https://hr.internal.example/api
+    specFile: hr-api-openapi.yaml    # uploaded file name (files.kind='openapi_spec')
+    baseUrl: https://hr.internal.example/api
     operations: [getEmployee, listLeaveBalances]   # operationIds to expose
-  auth: { mode: token_exchange, credential_provider: hr-api }
+  auth: { mode: token_exchange, credentialProvider: hr-api }
 ```
 
 `sql` kind:
@@ -192,7 +194,7 @@ spec:
   kind: sql
   version: 1.0.0
   sql:
-    data_connection: finance-replica   # DataConnection name
+    dataConnection: finance-replica   # DataConnection name
   auth: { mode: none }                 # credentials come from the data connection
 ```
 
@@ -205,16 +207,16 @@ kind: DataConnection
 metadata: { name: finance-replica }
 spec:
   engine: postgres
-  dsn_secret: finance-replica-dsn   # secret containing postgresql://user:pass@host:5432/db
-  identity_mode: service            # service | per_user_mapped | passthrough
+  dsnSecret: finance-replica-dsn   # secret containing postgresql://user:pass@host:5432/db
+  identityMode: service            # service | per_user_mapped | passthrough
   allowlist:
     schemas: [reporting]
     tables: [reporting.invoices, reporting.customers]
-    columns_deny: [reporting.customers.pan_number]
-  row_limit: 1000
-  statement_timeout_s: 30
+    columnsDeny: [reporting.customers.pan_number]
+  rowLimit: 1000
+  statementTimeoutS: 30
   classification: confidential
-  schema_notes: |
+  schemaNotes: |
     Fiscal year starts 1 April. amounts are in INR paise.
 ```
 
@@ -226,19 +228,19 @@ metadata: { slug: sre-runbooks, name: SRE runbooks }
 spec:
   description: Runbooks and postmortems for production services.
   visibility: tenant
-  acl_mode: source              # source | collection
+  aclMode: source              # source | collection
   sensitivity: normal           # normal | high
   classification: internal
-  embedding_alias: embed
-  text_search_config: simple    # simple | english (lexical signal of hybrid retrieval)
-  chunking: { target_tokens: 512, overlap_pct: 12, contextual: false }
+  embeddingAlias: embed
+  textSearchConfig: simple    # simple | english (lexical signal of hybrid retrieval)
+  chunking: { targetTokens: 512, overlapPct: 12, contextual: false }
   sources:
     - name: confluence-sre
       kind: confluence          # upload | web | s3 | sharepoint | confluence | google_drive | database | mcp_resource
-      confluence: { base_url: https://wiki.example.com, space_keys: [SRE], include_attachments: true }
+      confluence: { baseUrl: https://wiki.example.com, spaceKeys: [SRE], includeAttachments: true }
       secret: confluence-bot
-      sync_schedule: "0 * * * *"
-      acl_sync_schedule: "*/10 * * * *"
+      syncSchedule: "0 * * * *"
+      aclSyncSchedule: "*/10 * * * *"
     - name: uploads
       kind: upload
 ```
@@ -251,7 +253,7 @@ spec:
 | `web` | `start_urls[]`, `allowed_domains[]`, `max_pages` (≤ 10,000), `max_depth` (≤ 5), `respect_robots` (true) |
 | `s3` | `bucket`, `prefix`, `endpoint_url?`, `region?` + secret (access key) |
 | `sharepoint` | `tenant_id`, `site_ids[]`, `drive_ids?[]` + secret (app credentials) ; ACLs from Microsoft Graph permissions |
-| `confluence` | `base_url`, `space_keys[]`, `include_attachments` + secret ; ACLs from space/page restrictions |
+| `confluence` | `baseUrl`, `spaceKeys[]`, `includeAttachments` + secret ; ACLs from space/page restrictions |
 | `google_drive` | `shared_drive_ids[]` + secret (service account with domain-wide delegation) |
 | `database` | `data_connection`, `query` (SELECT returning `id, title, body, updated_at, acl?`) |
 | `mcp_resource` | `tool_server`, `resource_uri_prefix` (ingests MCP resources) |
@@ -264,22 +266,22 @@ metadata: { name: weekly-incident-digest }
 spec:
   description: Monday digest of last week's incidents.
   agent: incident-analyst
-  agent_version: null           # null = published
-  run_as: owner                 # owner | service_account
-  service_account: null
+  agentVersion: null           # null = published
+  runAs: owner                 # owner | serviceAccount
+  serviceAccount: null
   instructions: |
     Summarise last week's P1/P2 incidents, compute MTTR, post to #sre-digest.
   trigger:
     type: schedule              # schedule | webhook | channel_event | email | file_arrival | db_change | manual
-    schedule: { cron: "0 9 * * MON", timezone: Asia/Kolkata, jitter_s: 120, catchup_window_s: 3600 }
-  event_filter: null            # JMESPath on the event envelope
+    schedule: { cron: "0 9 * * MON", timezone: Asia/Kolkata, jitterS: 120, catchupWindowS: 3600 }
+  eventFilter: null            # JMESPath on the event envelope
   delivery:
-    - { type: slack, integration: corp-slack, channel: "#sre-digest", pre_approved: true }
-    - { type: email, to: [sre-leads@example.com], pre_approved: false }
+    - { type: slack, integration: corp-slack, channel: "#sre-digest", preApproved: true }
+    - { type: email, to: [sre-leads@example.com], preApproved: false }
     - { type: conversation }    # always: run is recorded as a conversation of the owner
-  budget: { max_steps: 20, max_tokens: 300000, max_wall_clock_s: 900, max_tool_calls: 30, max_cost_micros: 20000000, max_parallel_tool_calls: 4 }
-  max_runs_per_day: 4
-  concurrency_policy: skip      # skip | buffer_one | allow
+  budget: { maxSteps: 20, maxTokens: 300000, maxWallClockS: 900, maxToolCalls: 30, maxCostMicros: 20000000, maxParallelToolCalls: 4 }
+  maxRunsPerDay: 4
+  concurrencyPolicy: skip      # skip | buffer_one | allow
 ```
 
 `RoutineTrigger` variants:
@@ -307,33 +309,33 @@ spec:
   priority: 100                    # lower = higher precedence when merging approval requirements (spec 09 §3.1)
   rules:
     - id: ext-email
-      effect: require_approval           # allow | deny | require_approval
+      effect: requireApproval           # allow | deny | requireApproval
       match:
         tools: ["mail.send_message", "mail.reply"]   # glob on qualified names
-        risk_classes: []                 # any
+        riskClasses: []                 # any
         agents: []                       # agent slugs; empty = any
         triggers: []                     # chat | api | channel | routine | subagent | eval
         channels: []                     # web | slack | teams | email | api | routine | widget
-        user_groups: []                  # group names
-        user_attributes: { department: [finance] }
-        data_classifications: []
+        userGroups: []                  # group names
+        userAttributes: { department: [finance] }
+        dataClassifications: []
         args:
           - { path: "$.to[*]", op: not_domain_in, value: ["example.com"] }
-        time_window: null                # { days: [MON..FRI], from: "09:00", to: "18:00", timezone: Asia/Kolkata }
+        timeWindow: null                # { days: [MON..FRI], from: "09:00", to: "18:00", timezone: Asia/Kolkata }
       approval:
         approvers: { mode: group, groups: [finance-managers] }   # requester | agent_owner | group | users
-        required_approvals: 1
-        four_eyes: true                  # requester cannot approve
-        step_up: false
-        ttl_s: 86400
+        requiredApprovals: 1
+        fourEyes: true                  # requester cannot approve
+        stepUp: false
+        ttlS: 86400
       message: "External emails need manager approval."
   tests:                               # run on every new version; activation requires all to pass
     - name: external recipient needs approval
-      input: { tool: { qualified_name: mail.send_message, risk_class: W2 }, user: { attributes: { department: finance } }, args: { to: ["x@other.org"] } }
-      expect: { decision: require_approval, rule_ids: [ext-email] }
+      input: { tool: { qualifiedName: mail.send_message, riskClass: W2 }, user: { attributes: { department: finance } }, args: { to: ["x@other.org"] } }
+      expect: { decision: requireApproval, ruleIds: [ext-email] }
     - name: internal recipient follows defaults
-      input: { tool: { qualified_name: mail.send_message, risk_class: W2 }, user: { attributes: { department: finance } }, args: { to: ["a@example.com"] } }
-      expect: { decision: require_approval }
+      input: { tool: { qualifiedName: mail.send_message, riskClass: W2 }, user: { attributes: { department: finance } }, args: { to: ["a@example.com"] } }
+      expect: { decision: requireApproval }
 ```
 
 Argument predicate ops: `eq`, `neq`, `in`, `not_in`, `matches` (RE2), `not_matches`, `domain_in`, `not_domain_in` (for email addresses / URLs), `gt`, `gte`, `lt`, `lte`, `len_gt` (arrays/strings), `exists`, `not_exists`. `path` is a JSONPath subset (`$.a.b`, `$.a[*]`, `$.a[0]`); with `[*]` the predicate is true if **any** element matches (for `not_*` ops: if any element fails the positive test).
@@ -348,8 +350,8 @@ metadata: { slug: mttr-report, name: MTTR report }
 spec:
   description: How to compute MTTR from incident tickets and render the standard chart. Use when asked for MTTR or incident duration statistics.
   visibility: tenant
-  required_tools: [jira.search_issues, sandbox.exec]
-  instructions_md: |
+  requiredTools: [jira.search_issues, sandbox.exec]
+  instructionsMd: |
     1. Query incidents with jira.search_issues (JQL: priority in (P1,P2) AND resolved >= -7d).
     2. Copy /workspace/.skills/mttr-report/mttr.py and run it with the JSON results.
     3. Present a table and the chart; cite ticket keys.
@@ -362,17 +364,89 @@ spec:
 ```yaml
 kind: ModelAlias
 metadata: { alias: reasoning }
-spec: { kind: chat, primary_model: qwen-moe-fp8, fallback_models: [gpt-oss-120b], traffic_split: {}, default_params: { temperature: 0.3 } }
+spec: { kind: chat, primaryModel: qwen-moe-fp8, fallbackModels: [gpt-oss-120b], trafficSplit: {}, defaultParams: { temperature: 0.3 } }
 ---
 kind: SandboxTemplate
 metadata: { slug: data-science }
-spec: { image_ref: "registry.internal/ar-sandbox@sha256:...", runtime_class: gvisor, cpu_millis: 4000, memory_mb: 8192, disk_gb: 20, allow_browser: false, egress_allowlist: [pypi.mirror.internal], max_classification: confidential, idle_suspend_s: 900, max_lifetime_s: 86400, exec_timeout_s: 300, retention_days: 7 }
+spec: { imageRef: "registry.internal/ar-sandbox@sha256:...", runtimeClass: gvisor, cpuMillis: 4000, memoryMb: 8192, diskGb: 20, allowBrowser: false, egressAllowlist: [pypi.mirror.internal], maxClassification: confidential, idleSuspendS: 900, maxLifetimeS: 86400, execTimeoutS: 300, retentionDays: 7 }
 ---
 kind: ChannelIntegration
 metadata: { name: corp-slack }
-spec: { kind: slack, secret: slack-bot, default_agent: incident-analyst, config: { team_id: T0123, app_id: A0456, socket_mode: true }, agent_routing: [ { match: { channel_id: C0789 }, agent: finance-analyst } ] }
+spec: { kind: slack, secret: slack-bot, defaultAgent: incident-analyst, config: { teamId: T0123, appId: A0456, socketMode: true }, agentRouting: [ { match: { channelId: C0789 }, agent: finance-analyst } ] }
 ```
 
 ## 10. Versioning of the schema itself
 
 `apiVersion: agentic-runtime.dev/v1`. Additive optional fields are allowed in v1. A breaking change introduces `v2` with an automatic converter in `ar_contracts.definitions.migrate` applied on read for older stored definitions.
+
+## 11. Content packs and assurance fields
+
+Additive in `apiVersion: agentic-runtime.dev/v1`. Existing documents stay valid.
+
+### 11.1 Agent fields
+
+```yaml
+spec:
+  output:
+    citations: preferred
+    grounding: off            # off | preferred | strict
+  assurance:
+    recordMode: off           # off | on
+```
+
+| Field | Type | Constraints |
+|---|---|---|
+| `output.grounding` | enum | `off` (default), `preferred`, `strict`. Behaviour: [spec 07 §13](../03-specs/07-agent-runtime.md#13-strict-grounding) |
+| `assurance.recordMode` | enum | `off` (default), `on`. Behaviour: [spec 18 §7](../03-specs/18-observability-eval.md#7-run-records-and-re-performance). A solution-pack template that must be re-performed sets `on` |
+
+### 11.2 Content pack (`kind: ContentPack`)
+
+```yaml
+apiVersion: agentic-runtime.dev/v1
+kind: ContentPack
+metadata:
+  id: grc
+  version: 1.0.0
+  name: GRC solution pack
+  minPlatform: 1.0.0
+spec:
+  resources: []               # same resource documents as a Bundle
+  extension:                  # omitted for a pack that is only declarative resources
+    schema: grc
+    alembic: packs/grc/migrations
+    apiMount: /api/v1/ext/grc
+    webSlot: grc
+    configSchema:
+      type: object
+      properties: {}
+    ui:
+      nav:
+        - { href: /grc, label: GRC, permission: grc.controls:read }
+    permissions: [grc.controls:read]
+    auditActions: [grc.control.updated]
+    mcpServer: grc
+```
+
+The signature is not inside the manifest. It is a sibling value supplied to `:install` ([spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs)). `spec.resources` follows [§1](#1-bundle-format). Kind `ContentPack` is not itself a member of `spec.resources`. `configSchema` and `ui` are the extension-framework fields ([extension-framework](extension-framework.md)).
+
+## 12. Defaults
+
+A new agent, routine, policy, or skill is valid with the defaults below. The UI Simple mode edits only the fields a person must understand. Advanced mode exposes the rest and the raw document.
+
+| Field | Default |
+|---|---|
+| `visibility` | `private` |
+| `riskTier` | `low` |
+| `model.alias` | `reasoning` |
+| `model.fastAlias` | `fast` |
+| `model.params.temperature` | `0.2` |
+| `model.degradeToFast` | `true` |
+| `output.citations` | `preferred` |
+| `output.grounding` | `off` |
+| `assurance.recordMode` | `off` |
+| `memory.enabled` | `false` |
+| `sandbox.enabled` | `false` |
+| `channels.web` | `true` |
+| `budget` | the tenant cap in `tenants.settings.run_budget_caps` when set, otherwise spec 07's platform caps |
+
+Omitting a field means the default. A pack template may set a stricter default in its own file; core does not.

@@ -182,6 +182,10 @@ Layout: left **ConversationList** (search `q`, filters agent/pinned/shared; infi
 - Publish dialog: change note, shows eval gate status, warnings (W3 tools, high risk tier needs second person).
 - PreviewChat: same chat components, conversation created with `agent_version_id = draft id`; "Reset preview" creates a new conversation.
 
+### 5.1 Natural-language builder
+
+`/agents/new` opens on a single field. The placeholder is a complete instruction ("create an agent that reviews vendor SOC 2 reports and flags gaps"). Submit calls `POST /api/v1/builder/sessions` and streams the builder's reply beside a preview card. The card shows persona, tools, knowledge, policies, and routines from `proposal`, plus validation warnings. The user either sends a refinement ("add a weekly routine and require approval before email") or chooses **Edit in form** or **Edit as YAML**, which calls `:apply` and opens §5 on the draft. Template cards are below the field, not above it. Specified in [spec 05 §11](05-agent-registry.md#11-natural-language-builder). Plan: M3-T10.
+
 ## 6. State management rules
 
 - Server state: TanStack Query only; no copies of server data in zustand.
@@ -206,3 +210,36 @@ LCP < 2.0 s on `/chat` (cold, desktop, 4G fast), INP < 200 ms, JS ≤ 250 KB gzi
 - Unit/component (vitest + Testing Library + msw): reducer for every stream event type (fixture streams from `packages/api-client/fixtures/streams/*.jsonl`), Composer behaviours, ApprovalCard decisions, form schema mapping, permission guards.
 - Storybook for all `components/chat`, `components/common` with interaction tests.
 - E2E (Playwright, full stack via `make test-e2e` with `fake-llm`): login (Keycloak test realm), create agent from template, publish, chat with streaming, attach file, tool call with approval, knowledge upload + cited answer, routine test run, admin creates policy and sees approval required, accessibility checks (axe) on every page, visual snapshots of key pages (light/dark).
+
+## 10. Records, reviews and guest routes
+
+Added by M5-T08, M7-T11, M13-T07 and M14. Each page has loading, empty and error states and is permission-gated.
+
+| Route | Permission | Contents |
+|---|---|---|
+| `/reviews` | `reviews:read` or a pending item | Queue tabs **To decide**, **Prepared by me**, **All** |
+| `/reviews/[reviewItemId]` | object-level | Statement, content hash, chain, decide or delegate, step-up when required |
+| `/admin/evidence` | `evidence:read` | Evidence table, verify action, custody drawer |
+| `/admin/legal-holds` | `holds:manage` | Matters, scope, release (step-up) |
+| `/admin/retention` | `retention:manage` | Schedule editor |
+| `/admin/ai-governance` | `ai_governance:read` | Agent cards, oversight, incidents |
+| `/admin/guests` | `guests:manage` | Invitations, grants, revoke |
+| `/admin/binders` | `binders:export` | Selection, build, download |
+| `/admin/content-packs` | `packs:manage` | Install, upgrade, uninstall |
+| `/guest/login` | public | Magic link and TOTP |
+| `/guest/portal` | guest session | Granted evidence and binders only |
+
+The run inspector (`/runs/[runId]`) gains a **Record** tab (`run_records:read`) and the chat citation drawer gains a **Why** panel bound to `GET .../messages/{message_id}/grounding`. Pack routes render only when `GET /api/v1/tenant/packs` lists that pack as enabled ([spec 21 §6](21-records-governance.md#6-pack-extension-points)).
+
+## 11. Presentation quality bar
+
+Every page this spec names meets [ux-quality](../08-quality/ux-quality.md): skeleton loading, empty state with one next action, plain-language error with retry, light and dark, 375 px and 1280 px, axe clean, keyboard access. Onboarding after first login is the natural-language field in §5.1, not a settings form.
+
+## 12. Simple and advanced settings
+
+`/admin/settings` and `/settings/profile` have a mode switch, remembered per user.
+
+- **Simple** shows plain-language choices that map to one or more settings (for example "Keep deleted chats for" with a few durations). Saving writes the documented defaults for every field the screen does not show.
+- **Advanced** shows every field and a raw JSON editor for `tenants.settings` (tenant admin) or the agent definition (builder). Raw JSON uses camelCase. Invalid JSON does not save.
+
+A pack settings link from `spec.extension.ui.settings` uses the same two modes against that pack's `configSchema`. Properties with `x-ar-simple: true` are the Simple set.

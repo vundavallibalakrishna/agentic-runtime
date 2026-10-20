@@ -2,6 +2,8 @@
 
 ## In scope for v1 (milestones M0–M15, see [plan](../09-plan/README.md))
 
+The GRC solution pack (M16–M19) is in the repository and is not required to call 1.0 shipped. Core 1.0 includes the generic assurance tasks in M3, M5, M7, M13 and M14.
+
 | Area | PRD | Highlights |
 |---|---|---|
 | Agent builder | [01](../01-prd/01-agent-builder.md) | Declarative agents, versions, publish/rollback, test chat, bundles import/export, draft from description |
@@ -18,13 +20,15 @@
 | Admin, tenancy, billing | [12](../01-prd/12-admin-tenancy-billing.md) | Tenants, users, teams, roles, SSO/SCIM, secrets, usage, quotas, audit, retention, DPDP rights |
 | Observability | [13](../01-prd/13-observability.md) | Traces, metrics, logs, dashboards, alerts, run inspector |
 | Evaluation | [14](../01-prd/14-evaluation.md) | Suites, cases, judges, regression gates on publish |
+| Records and assurance | [15](../01-prd/15-records-governance.md) | Immutable evidence, sign-off, segregation of duties, strict grounding, run records, legal hold, external participants, binders, pack hooks |
+| GRC pack (after 1.0) | [10-grc-pack](../10-grc-pack/prd.md) | Frameworks, collectors, workflows, auditor portal. Not core |
 
 ## Non-goals (v1)
 
 - **Training foundation models.** Open-weight models are consumed; fine-tuning (LoRA) is later.
 - **Replacing systems of record.** Agents act through existing APIs.
 - **Fully autonomous high-risk actions.** W3 actions always need a per-call human approval; standing approvals never apply to W3.
-- **Public anonymous chatbot.** Only authenticated employees and approved service accounts. The widget requires a signed-in user or a service-account-minted session for a known user ([OQ](../open-questions.md)).
+- **Public anonymous chatbot.** Only authenticated employees and approved service accounts. The widget requires a signed-in user or a service-account-minted session for a known user ([OQ](../open-questions.md)). External participants are a scoped exception: guest principals reach portals only, not chat ([OQ-26](../open-questions.md)).
 - **Frontier-parity guarantees.**
 - **Visual low-code workflow builder.** Routines are natural language + configuration.
 - **Third-party model APIs.** `model-gateway` can only call providers the operator registers; SaaS operators are expected to register company-hosted endpoints only.

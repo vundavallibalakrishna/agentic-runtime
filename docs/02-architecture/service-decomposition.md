@@ -167,3 +167,9 @@ Workflow ids are deterministic (see each spec), which gives idempotent starts.
 | Grafana | 3001 |
 | Squid egress proxy | 3128 |
 | Mailpit (SMTP / UI) | 1025 / 8025 |
+
+## 7. Records module and packs
+
+`ar_domain.records` owns the immutable evidence store, legal holds, retention schedules, disposition certificates and binders ([spec 21](../03-specs/21-records-governance.md)). It is added by M14, not by M1. Guest tables stay in `ar_domain.identity` and are also M14.
+
+Solution packs live in `packs/<pack_id>/` (package `ar_pack_<pack_id>`). They are optional workspace members. Core projects do not import them ([extension-framework](../05-contracts/extension-framework.md)). Workflows added with records, on queue `ar-system`: `EvidenceCaptureWorkflow`, `RetentionScheduleWorkflow`, `BinderBuildWorkflow`, `RunRecordSealWorkflow`.

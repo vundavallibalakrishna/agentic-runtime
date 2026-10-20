@@ -116,3 +116,16 @@ POST JSON envelope with headers (`X-AR-Signature`, `X-AR-Event-Id`, `X-AR-Topic`
 
 - Unit: recipient resolution per topic, kind mapping, signature generation (vectors), backoff schedule.
 - Integration: outbox row committed with business change and rolled back with it; relay at-least-once with idempotent subscribers (kill worker mid-batch); webhook delivery to a local receiver with retries and `dead`; SSE notification arrives < 1 s after an approval request; email via Mailpit API assertions; idempotency middleware replay/conflict cases.
+
+## 8. Kinds added for reviews and records
+
+The notifications subscriber in §1.1 also listens to `review_item.requested`, `review_item.decided`, `binder.ready`, `legal_hold.created`, `ai_incident.opened` and `run_record.replay_diverged`.
+
+| Topic | Notification kind | Link |
+|---|---|---|
+| `review_item.requested` | `review_requested` | `/reviews/{review_item_id}` |
+| `review_item.decided` | `review_decided` | `/reviews/{review_item_id}` |
+| `binder.ready` | `binder_ready` | `/admin/binders/{binder_id}` |
+| `legal_hold.created` | `legal_hold_created` | `/admin/legal-holds/{hold_id}` |
+| `ai_incident.opened` | `ai_incident_opened` | `/admin/ai-governance/incidents/{incident_id}` |
+| `run_record.replay_diverged` | `run_record_diverged` | `/runs/{run_id}` |

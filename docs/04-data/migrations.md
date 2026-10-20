@@ -43,8 +43,18 @@
 | 0017 | `routines` | §13 tables + `fk_runs_routine`, `fk_sa_routine` | M10-T01 |
 | 0018 | `channels` | §14 tables | M11-T01 |
 | 0019 | `evals` | §16 tables | M13-T03 |
+| 0020 | `content_packs` | §20 tables | M3-T09 |
+| 0021 | `reviews_signoffs` | §21 tables | M5-T08 |
+| 0022 | `sod_constraints` | §21 `sod_constraints` (split so M5-T09 owns the constraint seed) | M5-T09 |
+| 0023 | `run_records` | §22 tables, without the evidence FK | M13-T07 |
+| 0024 | `evidence_vault` | §23 tables + `fk_run_records_evidence` | M14-T08 |
+| 0025 | `legal_hold_retention` | §24 tables and the retention seed | M14-T09 |
+| 0026 | `ai_governance` | §25 tables | M14-T10 |
+| 0027 | `guest_principals` | §26 tables + `fk_guest_totp_secret` | M14-T11 |
+| 0028 | `binder_exports` | §27 table | M14-T12 |
+| 0029 | `pack_extension` | §28 tables | M14-T13 |
 
-Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above).
+Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 
 ## 4. Partitioning roadmap
 
@@ -55,3 +65,7 @@ v1 tables are unpartitioned. When `messages`, `run_events`, `usage_events` or `a
 - `tests/integration/test_migrations.py`: upgrade from empty to head, downgrade to base, upgrade again (dev DB container).
 - `test_models_match_schema`: after `upgrade head`, `alembic check` reports no diff.
 - RLS tests from [rls.md](rls.md) §5.
+
+## 6. Pack schemas
+
+Core history stays a single line (revisions 0001–0029 and anything added after). A solution pack does not append to that line. Each pack ships its own Alembic environment created with `ar_domain.packs.alembic_env` ([spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md), [OQ-28](../open-questions.md)). The GRC pack uses Postgres schema `grc` and version table `grc_alembic_version`. Pack upgrades run `alembic upgrade head` in that environment before content-pack resource import. `alembic heads` for the core environment must still return one head; pack environments are checked separately (`alembic -c packs/grc/alembic.ini heads`).

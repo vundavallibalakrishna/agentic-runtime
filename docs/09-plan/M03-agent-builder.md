@@ -4,6 +4,8 @@ Goal: builders own the agent lifecycle — draft, validate, test, publish, roll 
 
 Exit criteria: Playwright: builder creates agent from template, edits instructions, test-chats the draft, publishes v1, edits and publishes v2, rolls back to v1; exports a bundle and imports it into another tenant (dry-run diff shown first).
 
+M3-T09 is required for 1.0. It is not part of the Playwright scenario above.
+
 ---
 
 ### M3-T01 · Agent registry: full lifecycle API
@@ -69,3 +71,19 @@ Exit criteria: Playwright: builder creates agent from template, edits instructio
 - **Do:** Catalogue grid/table with search and filters, agent detail (persona, starter prompts, owner, version, "Chat" button), favourites stored in user preferences.
 - **Done when:** users only see agents visible to them; "Chat" starts a conversation with the published version.
 - **Tests:** Vitest; Playwright browse-and-chat.
+
+### M3-T09 · Content packs
+- **Depends on:** M3-T05
+- **Areas:** `ar_domain/agents/{packs.py,models.py}`, `ar_api/routers/content_packs.py`, `ar_contracts/definitions.py`, migration `0020_content_packs`
+- **Spec:** [spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs), [definition-schema §11](../05-contracts/definition-schema.md#11-content-packs-and-assurance-fields), [schema §20](../04-data/schema.md#20-content-packs-ar_domainagents), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md)
+- **Do:** Tables `installed_packs` and `installed_pack_resources`. Endpoints `GET /api/v1/content-packs`, `POST /api/v1/content-packs:install`, `GET /api/v1/content-packs/{pack_id}`, `POST /api/v1/content-packs/{pack_id}:upgrade`, `POST /api/v1/content-packs/{pack_id}:uninstall`. Verify the Ed25519 signature over the JCS SHA-256 of the manifest against `AR_PACK_TRUSTED_KEYS` when `AR_PACK_SIGNATURE_REQUIRED` is true. Import `spec.resources` through the bundle importer. A manifest with `extension.schema` is accepted and stored; schema migration is performed by the helper that [M14-T13](M14-security-compliance.md) adds. Until that helper exists, install of a manifest that sets `extension` returns 422 `extension_unavailable` after the signature check, and `:uninstall` with `dropSchema: true` returns the same code. Declarative packs (no `extension`) install, upgrade and uninstall in this task.
+- **Done when:** a signed declarative pack round-trips; a bad signature audits `pack.signature_rejected` and returns 422 `pack_signature_invalid`; upgrade refuses a version that is not strictly greater; a tenant-edited resource is `conflict` until `accept_conflicts: true`.
+- **Tests:** signature known-answer; unsigned pack rejected when the flag is true and accepted when `AR_ENV=dev`; upgrade conflict; cross-tenant 404.
+
+### M3-T10 · Natural-language builder agent
+- **Depends on:** M3-T06, M3-T07
+- **Areas:** `ar_domain/agents/builder.py`, `ar_domain/seed/builder_agent.py`, `ar_api/routers/builder.py`, `apps/web/src/app/(app)/agents/new/**`
+- **Spec:** [spec 05 §11](../03-specs/05-agent-registry.md#11-natural-language-builder), [spec 19 §5.1](../03-specs/19-web-app.md#51-natural-language-builder), [ux-quality](../08-quality/ux-quality.md)
+- **Do:** Seed agent `builder`. Endpoints `POST /api/v1/builder/sessions`, `GET /api/v1/builder/sessions/{session_id}`, `POST /api/v1/builder/sessions/{session_id}/messages`, `POST /api/v1/builder/sessions/{session_id}:apply`. Tool `builder.propose_definition` stores a camelCase bundle fragment (agent, and any policies, routines, skills) without publishing. `/agents/new` leads with the instruction field and a preview; form and YAML are the escape hatch after apply. Templates sit below the field.
+- **Done when:** the instruction "create an agent that reviews vendor SOC 2 reports and flags gaps" yields a preview containing a persona, at least one tool slot, and a validation panel; a follow-up message changes the proposal; apply creates a draft the form editor opens.
+- **Tests:** fake-llm scripted proposal; apply does not publish; Playwright creates from the sentence and opens the form.

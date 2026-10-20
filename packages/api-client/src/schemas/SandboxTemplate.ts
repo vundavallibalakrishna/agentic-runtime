@@ -5,30 +5,30 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export type ImageRef = string;
-export type RuntimeClass = "gvisor" | "kata";
-export type CpuMillis = number;
-export type MemoryMb = number;
-export type DiskGb = number;
-export type AllowBrowser = boolean;
-export type EgressAllowlist = string[];
-export type MaxClassification = string;
-export type IdleSuspendS = number;
-export type MaxLifetimeS = number;
-export type ExecTimeoutS = number;
-export type RetentionDays = number;
+export type Imageref = string;
+export type Runtimeclass = "gvisor" | "kata";
+export type Cpumillis = number;
+export type Memorymb = number;
+export type Diskgb = number;
+export type Allowbrowser = boolean;
+export type Egressallowlist = string[];
+export type Maxclassification = string;
+export type Idlesuspends = number;
+export type Maxlifetimes = number;
+export type Exectimeouts = number;
+export type Retentiondays = number;
 
 export interface SandboxTemplateDefinition {
-  image_ref: ImageRef;
-  runtime_class?: RuntimeClass;
-  cpu_millis: CpuMillis;
-  memory_mb: MemoryMb;
-  disk_gb: DiskGb;
-  allow_browser?: AllowBrowser;
-  egress_allowlist?: EgressAllowlist;
-  max_classification?: MaxClassification;
-  idle_suspend_s?: IdleSuspendS;
-  max_lifetime_s?: MaxLifetimeS;
-  exec_timeout_s?: ExecTimeoutS;
-  retention_days?: RetentionDays;
+  imageRef: Imageref;
+  runtimeClass?: Runtimeclass;
+  cpuMillis: Cpumillis;
+  memoryMb: Memorymb;
+  diskGb: Diskgb;
+  allowBrowser?: Allowbrowser;
+  egressAllowlist?: Egressallowlist;
+  maxClassification?: Maxclassification;
+  idleSuspendS?: Idlesuspends;
+  maxLifetimeS?: Maxlifetimes;
+  execTimeoutS?: Exectimeouts;
+  retentionDays?: Retentiondays;
 }

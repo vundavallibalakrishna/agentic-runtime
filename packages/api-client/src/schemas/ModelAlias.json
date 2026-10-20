@@ -10,21 +10,21 @@
       "title": "Kind",
       "type": "string"
     },
-    "primary_model": {
-      "title": "Primary Model",
+    "primaryModel": {
+      "title": "Primarymodel",
       "type": "string"
     },
-    "fallback_models": {
+    "fallbackModels": {
       "items": {
         "type": "string"
       },
-      "title": "Fallback Models",
+      "title": "Fallbackmodels",
       "type": "array"
     }
   },
   "required": [
     "kind",
-    "primary_model"
+    "primaryModel"
   ],
   "title": "ModelAliasDefinition",
   "type": "object"

@@ -7,8 +7,8 @@
 
 export type Description = string;
 export type Visibility = "private" | "team" | "tenant";
-export type RequiredTools = string[];
-export type InstructionsMd = string;
+export type Requiredtools = string[];
+export type Instructionsmd = string;
 export type Path = string;
 export type File = string;
 export type Assets = SkillAsset[];
@@ -16,8 +16,8 @@ export type Assets = SkillAsset[];
 export interface SkillDefinition {
   description: Description;
   visibility?: Visibility;
-  required_tools?: RequiredTools;
-  instructions_md: InstructionsMd;
+  requiredTools?: Requiredtools;
+  instructionsMd: Instructionsmd;
   assets?: Assets;
 }
 /**
