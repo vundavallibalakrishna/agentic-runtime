@@ -89,6 +89,7 @@ export function ChatScreen() {
   const [attachmentId, setAttachmentId] = useState("");
   const parentRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const runRef = useRef("");
 
   useEffect(() => {
     void createHighlighter({ themes: ["github-light"], langs: ["text"] }).catch(() => undefined);
@@ -105,9 +106,9 @@ export function ChatScreen() {
     setLoadError("");
     try {
       const me = await api<Session>("/api/v1/auth/session");
+      setSession(me);
       const listed = await api<{ items: Item[] }>("/api/v1/conversations");
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
-      setSession(me);
       setConversations(listed.items ?? []);
       setAgents(agentPage.items ?? []);
     } catch (error) {
@@ -212,10 +213,14 @@ export function ChatScreen() {
           }),
         },
       );
+      runRef.current = posted.run.id;
       setRunId(posted.run.id);
       await readStream(posted.run.id);
+      await openConversation(conversationId);
       const fresh = await api<{ items: Item[] }>("/api/v1/conversations");
       setConversations(fresh.items ?? []);
+      runRef.current = "";
+      setRunId("");
     } catch (error) {
       setBanner(error instanceof Error ? error.message : t("error"));
       setStream((current) => ({ ...current, status: "failed" }));
@@ -223,10 +228,11 @@ export function ChatScreen() {
   }
 
   async function stop() {
-    if (!runId) {
+    const id = runRef.current || runId;
+    if (!id) {
       return;
     }
-    await api(`/api/v1/runs/${runId}:cancel`, { method: "POST", body: "{}" });
+    await api(`/api/v1/runs/${id}:cancel`, { method: "POST", body: "{}" });
   }
 
   async function regenerate(messageId: string) {
@@ -351,7 +357,11 @@ export function ChatScreen() {
               if (!message) {
                 return null;
               }
-              const body = textOf(message) || (message.role === "assistant" ? stream.text : "");
+              const streamingHere =
+                row.index === visible.length - 1 &&
+                message.role === "assistant" &&
+                stream.status === "streaming";
+              const body = streamingHere ? stream.text || textOf(message) : textOf(message);
               return (
                 <article
                   className="absolute left-0 top-0 w-full py-3"
@@ -445,7 +455,7 @@ export function ChatScreen() {
                   {t("attach")}
                 </Button>
               </div>
-              {stream.status === "streaming" && runId ? (
+              {stream.status === "streaming" ? (
                 <Button onClick={() => void stop()} type="button" variant="outline">
                   {t("stop")}
                 </Button>

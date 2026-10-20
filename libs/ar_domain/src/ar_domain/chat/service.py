@@ -891,7 +891,7 @@ class ChatService:
             built.append(token)
             assistant["text"] = "".join(built)
             self._emit(run, "message.delta", {"message_id": str(assistant_id), "text": token})
-            await asyncio.sleep(0.35 if slow else 0.01)
+            await asyncio.sleep(0.8 if slow else 0.01)
         answer = "".join(built)
         limit = budget_exceeded(
             steps=1,
