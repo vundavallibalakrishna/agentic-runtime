@@ -3,6 +3,20 @@
     "product": "Agentic Runtime",
     "navHome": "Home",
     "navAgents": "Agents",
-    "empty": "Define an agent to start a run. This shell is the M0 placeholder."
+    "empty": "Define an agent to start a run. This shell is the M0 placeholder.",
+    "navUsers": "Users",
+    "navAudit": "Audit"
+  },
+  "auth": {
+    "title": "Sign in",
+    "body": "Use your organisation account. The dev seed signs in as admin@dev.local.",
+    "continue": "Continue"
+  },
+  "admin": {
+    "usersTitle": "Users",
+    "loading": "Loading users",
+    "empty": "No users yet. Invite someone to this tenant.",
+    "error": "Users could not be loaded.",
+    "forbidden": "You do not have permission to view this page."
   }
 }

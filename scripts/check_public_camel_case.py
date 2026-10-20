@@ -22,6 +22,21 @@ CAMEL = re.compile(r"^[a-z][a-zA-Z0-9]*$")
 _ = RunEvent
 
 
+def _load_public_models() -> None:
+    """Import contract and API models so ``ApiModel.__subclasses__`` sees M1 schemas."""
+    import importlib  # noqa: PLC0415
+    import pkgutil  # noqa: PLC0415
+
+    import ar_api  # noqa: PLC0415
+    import ar_contracts  # noqa: PLC0415
+
+    for module in pkgutil.walk_packages(ar_contracts.__path__, "ar_contracts."):
+        importlib.import_module(module.name)
+    for module in pkgutil.walk_packages(ar_api.__path__, "ar_api."):
+        if module.name.startswith("ar_api.routers"):
+            importlib.import_module(module.name)
+
+
 def _models() -> list[type[BaseModel]]:
     found: list[type[BaseModel]] = [
         model
@@ -82,6 +97,7 @@ def _check(node: object, path: str, errors: list[str]) -> None:
 
 def main() -> None:
     errors: list[str] = []
+    _load_public_models()
     models = _models()
     for model in models:
         schema = model.model_json_schema(by_alias=True)

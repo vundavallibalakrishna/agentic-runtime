@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "ProblemField": {
+      "additionalProperties": false,
+      "description": "One entry in a problem ``errors`` array.",
+      "properties": {
+        "loc": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Loc",
+          "type": "array"
+        },
+        "msg": {
+          "title": "Msg",
+          "type": "string"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "loc",
+        "msg",
+        "type"
+      ],
+      "title": "ProblemField",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "RFC 9457 body. ``code`` values stay snake_case; the key is ``requestId``.",
+  "properties": {
+    "type": {
+      "title": "Type",
+      "type": "string"
+    },
+    "title": {
+      "title": "Title",
+      "type": "string"
+    },
+    "status": {
+      "title": "Status",
+      "type": "integer"
+    },
+    "code": {
+      "title": "Code",
+      "type": "string"
+    },
+    "detail": {
+      "title": "Detail",
+      "type": "string"
+    },
+    "instance": {
+      "title": "Instance",
+      "type": "string"
+    },
+    "requestId": {
+      "title": "Requestid",
+      "type": "string"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/ProblemField"
+      },
+      "title": "Errors",
+      "type": "array"
+    }
+  },
+  "required": [
+    "type",
+    "title",
+    "status",
+    "code",
+    "detail",
+    "instance",
+    "requestId"
+  ],
+  "title": "ProblemDetails",
+  "type": "object"
+}

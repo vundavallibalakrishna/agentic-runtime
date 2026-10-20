@@ -2,4 +2,6 @@
 
 from polyfactory.factories.pydantic_factory import ModelFactory
 
-__all__ = ["ModelFactory"]
+from ar_testing.factories.identity import tenant_factory, user_factory
+
+__all__ = ["ModelFactory", "tenant_factory", "user_factory"]

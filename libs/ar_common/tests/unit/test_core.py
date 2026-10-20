@@ -91,7 +91,7 @@ def test_problem_body_shape() -> None:
     assert body["code"] == "not_found"
     assert body["status"] == 404
     assert str(body["type"]).endswith("/not_found")
-    assert body["request_id"] == "req_1"
+    assert body["requestId"] == "req_1"
 
 
 def test_mode_helpers() -> None:
@@ -253,7 +253,7 @@ def test_request_id_problem_and_readiness() -> None:
     async def broken() -> None:
         raise RuntimeError("down")
 
-    app = create_app("api", settings, readiness_checks={"postgres": broken})
+    app = create_app("api", settings, readiness_checks={"postgres": broken}, camel_json=True)
 
     @app.get("/boom")
     async def boom() -> None:
@@ -271,10 +271,14 @@ def test_request_id_problem_and_readiness() -> None:
     assert missing.status_code == 404
     assert missing.headers["content-type"].startswith("application/problem+json")
     assert missing.json()["code"] == "not_found"
+    assert missing.json()["requestId"]
     assert missing.headers["x-request-id"]
     ready = client.get("/readyz")
     assert ready.status_code == 503
     assert ready.json()["failing"] == ["postgres"]
+    renamed = client.post("/echo", json={"display_name": "Ava"})
+    assert renamed.status_code == 200
+    assert renamed.json() == {"displayName": "Ava"}
     invalid = client.post("/echo", json={"n": 1})
     assert invalid.status_code == 422
     assert invalid.json()["code"] == "validation_failed"

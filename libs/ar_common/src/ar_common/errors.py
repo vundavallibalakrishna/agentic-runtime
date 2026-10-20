@@ -111,7 +111,7 @@ class ArError(Exception):
             "code": self.code.value,
             "detail": self.detail,
             "instance": instance,
-            "request_id": request_id,
+            "requestId": request_id,
         }
         if self.errors:
             body["errors"] = [item.model_dump() for item in self.errors]

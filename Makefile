@@ -109,6 +109,7 @@ gen:
 	pnpm --filter @ar/api-client gen
 	uv run python scripts/strip_generated_markers.py
 	uv run python scripts/gen_python_client.py
+	pnpm exec biome format --write openapi.json
 
 eval:
 	@echo "not available until M8-T01"; exit 0
