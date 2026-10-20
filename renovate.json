@@ -1,0 +1,28 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on Monday"],
+  "rangeStrategy": "pin",
+  "packageRules": [
+    {
+      "groupName": "python-minor",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["minor", "major"]
+    },
+    {
+      "groupName": "js-minor",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "major"]
+    },
+    {
+      "groupName": "infra-images",
+      "matchManagers": ["dockerfile", "docker-compose"]
+    },
+    {
+      "matchManagers": ["pep621", "npm"],
+      "matchUpdateTypes": ["patch"],
+      "matchDepTypes": ["devDependencies", "dependency-groups.dev"],
+      "automerge": true
+    }
+  ]
+}

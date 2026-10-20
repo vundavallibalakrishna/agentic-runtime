@@ -1,0 +1,5 @@
+project_name_override: ar-client
+package_name_override: ar_client
+literal_enums: true
+content_type_overrides: {}
+post_hooks: []

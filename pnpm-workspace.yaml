@@ -1,0 +1,24 @@
+packages:
+  - apps/*
+  - packages/*
+
+minimumReleaseAgeExclude:
+  - '@storybook/builder-vite@10.6.3'
+  - '@storybook/nextjs-vite@10.6.3'
+  - '@storybook/react-dom-shim@10.6.3'
+  - '@storybook/react-vite@10.6.3'
+  - '@storybook/react@10.6.3'
+  - '@tanstack/query-core@5.104.5'
+  - '@tanstack/react-query@5.104.5'
+  - lucide-react@1.60.0
+  - react-resizable-panels@4.14.7
+  - storybook@10.6.3
+  - vite-plugin-storybook-nextjs@10.6.3
+  - knip@6.42.1
+
+allowBuilds:
+  lefthook: true
+  esbuild: true
+  msw: true
+  "@swc/core": true
+  "@parcel/watcher": true

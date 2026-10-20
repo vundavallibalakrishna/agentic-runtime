@@ -1,0 +1,82 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "image_ref": {
+      "title": "Image Ref",
+      "type": "string"
+    },
+    "runtime_class": {
+      "default": "gvisor",
+      "enum": [
+        "gvisor",
+        "kata"
+      ],
+      "title": "Runtime Class",
+      "type": "string"
+    },
+    "cpu_millis": {
+      "minimum": 1,
+      "title": "Cpu Millis",
+      "type": "integer"
+    },
+    "memory_mb": {
+      "minimum": 1,
+      "title": "Memory Mb",
+      "type": "integer"
+    },
+    "disk_gb": {
+      "minimum": 1,
+      "title": "Disk Gb",
+      "type": "integer"
+    },
+    "allow_browser": {
+      "default": false,
+      "title": "Allow Browser",
+      "type": "boolean"
+    },
+    "egress_allowlist": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Egress Allowlist",
+      "type": "array"
+    },
+    "max_classification": {
+      "default": "internal",
+      "title": "Max Classification",
+      "type": "string"
+    },
+    "idle_suspend_s": {
+      "default": 900,
+      "minimum": 1,
+      "title": "Idle Suspend S",
+      "type": "integer"
+    },
+    "max_lifetime_s": {
+      "default": 86400,
+      "minimum": 1,
+      "title": "Max Lifetime S",
+      "type": "integer"
+    },
+    "exec_timeout_s": {
+      "default": 300,
+      "minimum": 1,
+      "title": "Exec Timeout S",
+      "type": "integer"
+    },
+    "retention_days": {
+      "default": 7,
+      "minimum": 1,
+      "title": "Retention Days",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "image_ref",
+    "cpu_millis",
+    "memory_mb",
+    "disk_gb"
+  ],
+  "title": "SandboxTemplateDefinition",
+  "type": "object"
+}

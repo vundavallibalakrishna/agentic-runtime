@@ -1,0 +1,158 @@
+{
+  "$defs": {
+    "KnowledgeSource": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "upload",
+            "web",
+            "s3",
+            "sharepoint",
+            "confluence",
+            "google_drive",
+            "database",
+            "mcp_resource"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "secret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secret"
+        },
+        "sync_schedule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sync Schedule"
+        },
+        "acl_sync_schedule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acl Sync Schedule"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ],
+      "title": "KnowledgeSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "visibility": {
+      "default": "tenant",
+      "enum": [
+        "private",
+        "team",
+        "tenant"
+      ],
+      "title": "Visibility",
+      "type": "string"
+    },
+    "acl_mode": {
+      "default": "source",
+      "enum": [
+        "source",
+        "collection"
+      ],
+      "title": "Acl Mode",
+      "type": "string"
+    },
+    "sensitivity": {
+      "default": "normal",
+      "enum": [
+        "normal",
+        "high"
+      ],
+      "title": "Sensitivity",
+      "type": "string"
+    },
+    "classification": {
+      "default": "internal",
+      "title": "Classification",
+      "type": "string"
+    },
+    "embedding_alias": {
+      "default": "embed",
+      "title": "Embedding Alias",
+      "type": "string"
+    },
+    "text_search_config": {
+      "default": "simple",
+      "enum": [
+        "simple",
+        "english"
+      ],
+      "title": "Text Search Config",
+      "type": "string"
+    },
+    "chunk_target_tokens": {
+      "default": 512,
+      "minimum": 64,
+      "title": "Chunk Target Tokens",
+      "type": "integer"
+    },
+    "chunk_overlap_pct": {
+      "default": 12,
+      "maximum": 50,
+      "minimum": 0,
+      "title": "Chunk Overlap Pct",
+      "type": "integer"
+    },
+    "contextual": {
+      "default": false,
+      "title": "Contextual",
+      "type": "boolean"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/KnowledgeSource"
+      },
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "title": "KnowledgeCollectionDefinition",
+  "type": "object"
+}

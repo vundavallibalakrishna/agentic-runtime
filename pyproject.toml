@@ -1,0 +1,146 @@
+[project]
+name = "agentic-runtime"
+version = "0.1.0"
+description = "Agentic Runtime monorepo"
+requires-python = ">=3.14,<3.15"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff==0.17.1",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-xdist==3.8.0",
+    "pytest-cov==7.1.0",
+    "coverage==7.16.2",
+    "testcontainers==4.15.0",
+    "respx==0.23.1",
+    "hypothesis==6.170.5",
+    "polyfactory==3.3.0",
+    "time-machine==3.5.1",
+    "inline-snapshot==0.36.1",
+    "schemathesis==4.32.1",
+    "locust==2.46.7",
+    "import-linter==2.15",
+    "deptry==0.25.1",
+    "honcho==2.0.0",
+    "openapi-python-client==0.29.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["libs/*", "services/*", "connectors/*"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["libs/*/src", "services/*/src", "connectors/*/src"]
+extend-exclude = ["docs", "libs/ar_client"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "A", "C4", "SIM", "RET", "PTH", "N", "S", "ASYNC", "DTZ", "T20", "PT", "PL", "RUF", "TRY", "PERF", "FBT", "ARG", "ERA", "LOG", "G", "BLE", "TID", "TC", "FAST"]
+ignore = ["PLR0913", "TRY003", "PLR2004", "FBT003"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "PLR2004", "ARG", "FBT"]
+"**/alembic/versions/*.py" = ["E501", "N999"]
+"scripts/**" = ["T20"]
+"**/migrations/env.py" = ["T20"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"requests".msg = "use httpx.AsyncClient via ar_common.http"
+"datetime.datetime.utcnow".msg = "use ar_common.time.utcnow()"
+"json.loads".msg = "use orjson or Pydantic model_validate_json on hot paths"
+"logging.getLogger".msg = "use ar_common.logging.get_logger (structlog)"
+
+[tool.ruff.lint.isort]
+known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic_settings.BaseSettings"]
+exempt-modules = ["fastapi", "starlette", "pydantic"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+python_version = "3.14"
+mypy_path = ["libs/ar_common/src", "libs/ar_contracts/src", "libs/ar_domain/src", "libs/ar_connector_sdk/src", "libs/ar_testing/src", "libs/ar_client/src", "services/api/src", "services/runtime/src", "services/system/src", "services/ingest/src", "services/model_gateway/src", "services/mcp_gateway/src", "services/sandbox_manager/src", "services/sandbox_agent/src", "services/channels/src", "services/fake_llm/src", "connectors/mcp_sql/src", "connectors/mcp_openapi/src"]
+packages = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "ar_testing"]
+exclude = ["(?x)(^|/)(tests|migrations/versions)/"]
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "ar_contracts.*"
+disallow_any_explicit = true
+
+[[tool.mypy.overrides]]
+module = [
+    "temporalio.*",
+    "testcontainers.*",
+    "mcp.*",
+    "aiobotocore.*",
+    "botocore.*",
+    "boto3.*",
+    "rfc8785.*",
+    "opentelemetry.*",
+    "prometheus_client.*",
+    "multipart.*",
+    "sse_starlette.*",
+    "granian.*",
+    "openai.*",
+    "yaml.*",
+    "polyfactory.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["--import-mode=importlib"]
+markers = [
+    "unit: unit tests",
+    "integration: integration tests (testcontainers)",
+    "e2e: end-to-end tests",
+    "slow: slow tests",
+]
+testpaths = [
+    "libs",
+    "services",
+    "connectors",
+    "tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = [
+    "ar_common",
+    "ar_contracts",
+    "ar_domain",
+    "ar_connector_sdk",
+    "ar_api",
+    "ar_runtime",
+    "ar_system",
+    "ar_ingest",
+    "ar_model_gateway",
+    "ar_mcp_gateway",
+    "ar_sandbox_manager",
+    "ar_sandbox_agent",
+    "ar_channels",
+    "ar_mcp_sql",
+    "ar_mcp_openapi",
+    "ar_fake_llm",
+    "ar_testing",
+]
+omit = ["*/tests/*", "*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+[tool.deptry]
+known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+extend_exclude = ["tests", "libs/ar_client"]

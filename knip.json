@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreWorkspaces": ["packages/stack-pins"],
+  "ignoreDependencies": [
+    "lefthook",
+    "tailwindcss",
+    "tw-animate-css",
+    "@hey-api/client-fetch",
+    "json-schema-to-typescript",
+    "json-schema-to-zod",
+    "shadcn"
+  ],
+  "ignoreIssues": {
+    "packages/api-client/src/gen/**": [
+      "files",
+      "exports",
+      "types",
+      "nsExports",
+      "nsTypes",
+      "duplicates"
+    ],
+    "packages/api-client/src/schemas/**": [
+      "files",
+      "exports",
+      "types",
+      "nsExports",
+      "nsTypes",
+      "duplicates"
+    ]
+  },
+  "workspaces": {
+    ".": {},
+    "apps/web": {
+      "entry": [
+        "src/app/**/*.{ts,tsx}",
+        "src/**/*.stories.tsx",
+        "src/**/*.test.tsx",
+        "src/**/*.test.ts",
+        "e2e/**/*.ts"
+      ],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
+    "packages/api-client": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  }
+}

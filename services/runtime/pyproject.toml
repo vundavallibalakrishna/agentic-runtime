@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "ar-runtime"
+version = "0.1.0"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "ar-common",
+    "ar-domain",
+    "fastapi==0.151.0",
+    "uvicorn[standard]==0.54.0",
+    "temporalio==1.34.0",
+]
+
+[project.scripts]
+ar-runtime = "ar_runtime.main:main"
+
+[tool.uv.sources]
+ar-common = { workspace = true }
+ar-domain = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ar_runtime"]
+
+[tool.deptry]
+known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+
+[tool.deptry.package_module_name_map]
+ar-common = "ar_common"
+ar-contracts = "ar_contracts"
+ar-domain = "ar_domain"
+ar-connector-sdk = "ar_connector_sdk"
+ar-client = "ar_client"
+ar-testing = "ar_testing"
+ar-api = "ar_api"
+ar-runtime = "ar_runtime"
+ar-system = "ar_system"
+ar-ingest = "ar_ingest"
+ar-model-gateway = "ar_model_gateway"
+ar-mcp-gateway = "ar_mcp_gateway"
+ar-sandbox-manager = "ar_sandbox_manager"
+ar-sandbox-agent = "ar_sandbox_agent"
+ar-channels = "ar_channels"
+ar-mcp-sql = "ar_mcp_sql"
+ar-mcp-openapi = "ar_mcp_openapi"
+ar-fake-llm = "ar_fake_llm"

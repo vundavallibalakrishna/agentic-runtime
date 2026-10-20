@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
+name = "ar-domain"
+version = "0.1.0"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "ar-common",
+    "ar-contracts",
+    "sqlalchemy[asyncio]==2.1.5",
+    "asyncpg==0.32.0",
+    "psycopg[binary]==3.3.6",
+    "alembic==1.20.0",
+    "pgvector==0.5.1",
+    "pyyaml==6.0.3",
+    "jsonschema==4.26.0",
+    "jmespath==1.1.0",
+    "jinja2==3.1.6",
+    "nh3==0.3.7",
+    "croniter==6.2.4",
+    "langfuse==5.0.3",
+    "hvac==2.4.0",
+    "sqlglot==30.23.0",
+]
+
+[project.optional-dependencies]
+ingest = [
+    "docling==2.140.0",
+    "tiktoken==0.14.0",
+    "pillow==12.3.0",
+    "pypdf==6.21.1",
+    "filetype==1.2.0",
+]
+pii = ["presidio-analyzer==2.2.364", "presidio-anonymizer==2.2.364"]
+qdrant = ["qdrant-client==1.19.1", "fastembed==0.9.0"]
+
+[tool.uv.sources]
+ar-common = { workspace = true }
+ar-contracts = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ar_domain"]
+
+[tool.deptry]
+known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+
+[tool.deptry.package_module_name_map]
+ar-common = "ar_common"
+ar-contracts = "ar_contracts"
+ar-domain = "ar_domain"
+ar-connector-sdk = "ar_connector_sdk"
+ar-client = "ar_client"
+ar-testing = "ar_testing"
+ar-api = "ar_api"
+ar-runtime = "ar_runtime"
+ar-system = "ar_system"
+ar-ingest = "ar_ingest"
+ar-model-gateway = "ar_model_gateway"
+ar-mcp-gateway = "ar_mcp_gateway"
+ar-sandbox-manager = "ar_sandbox_manager"
+ar-sandbox-agent = "ar_sandbox_agent"
+ar-channels = "ar_channels"
+ar-mcp-sql = "ar_mcp_sql"
+ar-mcp-openapi = "ar_mcp_openapi"
+ar-fake-llm = "ar_fake_llm"
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["sqlglot", "pyyaml", "jsonschema", "jmespath", "jinja2", "nh3", "croniter", "langfuse", "hvac", "asyncpg", "pgvector", "docling", "tiktoken", "pillow", "pypdf", "filetype", "presidio-analyzer", "presidio-anonymizer", "qdrant-client", "fastembed", 'ar-common', 'ar-contracts', 'psycopg']

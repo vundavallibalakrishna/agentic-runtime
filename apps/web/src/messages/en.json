@@ -1,0 +1,8 @@
+{
+  "shell": {
+    "product": "Agentic Runtime",
+    "navHome": "Home",
+    "navAgents": "Agents",
+    "empty": "Define an agent to start a run. This shell is the M0 placeholder."
+  }
+}

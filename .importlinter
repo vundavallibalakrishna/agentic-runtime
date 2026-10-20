@@ -1,0 +1,82 @@
+[importlinter]
+include_external_packages = True
+root_packages =
+    ar_common
+    ar_contracts
+    ar_domain
+    ar_connector_sdk
+    ar_api
+    ar_runtime
+    ar_system
+    ar_ingest
+    ar_model_gateway
+    ar_mcp_gateway
+    ar_sandbox_manager
+    ar_sandbox_agent
+    ar_channels
+    ar_mcp_sql
+    ar_mcp_openapi
+    ar_fake_llm
+
+[importlinter:contract:layers]
+name = Library layering
+type = layers
+layers =
+    (ar_api) | (ar_runtime) | (ar_system) | (ar_ingest) | (ar_model_gateway) | (ar_mcp_gateway) | (ar_sandbox_manager)
+    ar_domain
+    ar_contracts
+    ar_common
+
+[importlinter:contract:services-independent]
+name = Services never import each other
+type = independence
+modules =
+    ar_api
+    ar_runtime
+    ar_system
+    ar_ingest
+    ar_model_gateway
+    ar_mcp_gateway
+    ar_sandbox_manager
+    ar_sandbox_agent
+    ar_channels
+    ar_mcp_sql
+    ar_mcp_openapi
+    ar_fake_llm
+
+[importlinter:contract:no-db-in-edge]
+name = Channels, sandbox agent and connectors have no DB access
+type = forbidden
+source_modules =
+    ar_channels
+    ar_sandbox_agent
+    ar_mcp_sql
+    ar_mcp_openapi
+forbidden_modules =
+    ar_domain
+    sqlalchemy
+
+[importlinter:contract:domain-modules]
+name = Domain modules use each other's services only
+type = forbidden
+source_modules =
+    ar_domain.*.service
+forbidden_modules =
+    ar_domain.*.repository
+allow_indirect_imports = true
+
+[importlinter:contract:retrieval-adapters]
+name = Services never import retrieval store adapters or engine clients
+type = forbidden
+source_modules =
+    ar_api
+    ar_runtime
+    ar_system
+    ar_ingest
+    ar_mcp_gateway
+forbidden_modules =
+    ar_domain.knowledge.store_pgvector
+    ar_domain.knowledge.store_qdrant
+    qdrant_client
+    fastembed
+allow_indirect_imports = true

@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "SkillAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "file"
+      ],
+      "title": "SkillAsset",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "visibility": {
+      "default": "tenant",
+      "enum": [
+        "private",
+        "team",
+        "tenant"
+      ],
+      "title": "Visibility",
+      "type": "string"
+    },
+    "required_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Tools",
+      "type": "array"
+    },
+    "instructions_md": {
+      "title": "Instructions Md",
+      "type": "string"
+    },
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/SkillAsset"
+      },
+      "title": "Assets",
+      "type": "array"
+    }
+  },
+  "required": [
+    "description",
+    "instructions_md"
+  ],
+  "title": "SkillDefinition",
+  "type": "object"
+}

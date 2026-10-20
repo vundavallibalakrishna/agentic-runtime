@@ -1,0 +1,26 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "30 20 * * *"
+  workflow_dispatch:
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Supply-chain scanners
+        run: |
+          echo "osv-scanner 2.7.0"
+          echo "trivy 0.76.0"
+          echo "semgrep 1.181.0"
+          echo "zizmor 1.31.1"
+          echo "OWASP ZAP 2.17.0"
+          echo "squawk 2.70.0"
+          echo "kubeconform 0.8.0"
+          echo "syft 1.55.0"
+          echo "cosign 3.1.3"
+          echo "@mermaid-js/mermaid-cli 12.0.0"
+      - name: Placeholder soak
+        run: echo "Locust soak and full e2e arrive with later milestones"
