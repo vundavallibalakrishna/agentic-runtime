@@ -1,3 +1,8 @@
+- match: {contains: "slow"}
+  respond:
+    text: "This answer is intentionally slow so you can press stop."
+    delay_ms: 400
+    tokens_per_chunk: 2
 - match: {contains: "weather"}
   respond:
     tool_calls:

@@ -12,7 +12,8 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from ar_api.auth.oidc import authorize_url, new_pkce, safe_return_to
 from ar_api.auth.session import new_session
 from ar_api.deps import expose
-from ar_common.errors import ForbiddenError, UnauthenticatedError
+from ar_common.errors import ForbiddenError, NotFoundError, UnauthenticatedError
+from ar_common.settings import EnvName
 
 if TYPE_CHECKING:
     from ar_domain.db.context import Principal
@@ -47,6 +48,21 @@ async def login(
         idp=idp,
     )
     return RedirectResponse(target, status_code=302)
+
+
+@router.post("/api/v1/auth/dev-login")
+@expose(public=True, permission=None)
+async def dev_login(request: Request) -> RedirectResponse:
+    """Sign in as the seeded admin. Disabled when ``AR_ENV=prod``."""
+    settings = request.app.state.settings
+    if settings.env is EnvName.PROD:
+        raise NotFoundError()
+    session_id, data = new_session(request.app.state.demo_tenant_id, request.app.state.demo_user_id)
+    await request.app.state.sessions.put(session_id, data, int(settings.session_ttl_s))
+    response = RedirectResponse("/chat", status_code=303)
+    response.set_cookie("ar_session", session_id, httponly=True, samesite="lax", secure=False)
+    response.set_cookie("ar_csrf", data.csrf_token, httponly=False, samesite="lax", secure=False)
+    return response
 
 
 @router.get("/api/v1/auth/callback")

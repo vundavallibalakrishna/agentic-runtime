@@ -33,6 +33,8 @@ The single place for undecided points. Every question has a **recommended defaul
 | OQ-27 | Which framework texts ship in the GRC pack? | **Only freely licensed catalogues** (NIST OSCAL, CSA CAIQ/CCM, Indian statutes and circulars). ISO, PCI and SOC 2 ship as id-and-title skeletons plus customer import. | GRC pack | decided (2026-10-20) |
 | OQ-28 | Pack schema migrations: separate Alembic environment or core linear history? | **Separate** environment and version table per pack. Core keeps one linear history. | migrations, ADR-0023 | decided (2026-10-20) |
 | OQ-29 | Where do run-record bytes live, and is record mode on by default? | **Opt-in** per agent (`assurance.recordMode` default `off`). Pack templates that must be re-performed set `on`. Encrypted tool I/O is stored with the record's retention class. | spec 18, ADR-0022 | decided (2026-10-20) |
+| OQ-30 | How does a developer sign in before Keycloak is configured? | **`POST /api/v1/auth/dev-login`** only when `AR_ENV` is not `prod`. It sets the session cookies for `admin@dev.local` on the demo tenant and redirects to `/chat`. Production returns 404. | spec 01, M2 | decided (2026-10-20) |
+| OQ-31 | The API process has no Postgres in unit tests or on a laptop without Docker. Where does chat state live? | **Process memory** (`ar_domain.chat.service.ChatService`) serves HTTP, seeded with fake-llm aliases and the published `assistant`. `make seed` writes the same catalogue into Postgres for migrations, RLS and a later tenant-session wiring. Loopback provider URLs are allowed only when `AR_ENV` is `dev` or `ci`; other deny-list addresses are always rejected. | spec 04, spec 06, M2 | decided (2026-10-20) |
 
 ## Accepted risks
 

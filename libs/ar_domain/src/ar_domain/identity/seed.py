@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from ar_common.ids import new_id
 from ar_contracts.tenants import PlanLimits, TenantSettings
-from ar_domain.identity.models import Plan, Role, RoleAssignment, Tenant, User
+from ar_domain.identity.models import Plan, Role, RoleAssignment, Team, TeamMember, Tenant, User
 from ar_domain.identity.permissions import SYSTEM_ROLE_NAMES, SYSTEM_ROLE_PERMISSIONS
 
 if TYPE_CHECKING:
@@ -43,6 +43,33 @@ def plan_limits(key: str) -> dict[str, object]:
         base["max_users"] = None
         base["api_rpm"] = 6000
     return base
+
+
+async def user_id_for_email(session: AsyncSession, tenant_id: uuid.UUID, email: str) -> uuid.UUID:
+    """Return the seeded user id, or raise when the email is missing."""
+    user = await session.scalar(
+        select(User).where(User.tenant_id == tenant_id, User.email == email)
+    )
+    if user is None:
+        raise RuntimeError("dev admin was not seeded")
+    return user.id
+
+
+async def ensure_everyone_team(
+    session: AsyncSession, tenant_id: uuid.UUID, admin_id: uuid.UUID
+) -> None:
+    """Create the default team and make the admin its lead. Safe to run twice."""
+    team = await session.scalar(
+        select(Team).where(Team.tenant_id == tenant_id, Team.slug == "everyone")
+    )
+    if team is not None:
+        return
+    team = Team(id=new_id(), tenant_id=tenant_id, slug="everyone", name="Everyone")
+    session.add(team)
+    await session.flush()
+    session.add(
+        TeamMember(tenant_id=tenant_id, team_id=team.id, user_id=admin_id, team_role="lead")
+    )
 
 
 async def apply(session: AsyncSession) -> uuid.UUID:

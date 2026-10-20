@@ -90,6 +90,16 @@ The graph allows parallel work after M5 (M6/M7/M8 can proceed in parallel by dif
 | M11 | The same agent answers in Teams and Slack with approval cards |
 | M15 | Fresh install on a kind cluster in both modes; DR restore drill passes |
 
+## Visual test
+
+Every milestone must be visually testable before merge. The pull request body includes **How to test visually**:
+
+1. **Start the stack.** Exact commands, usually `make bootstrap && make dev`. When compose is enough, say which profiles. Say which processes must be up (api, web, fake-llm).
+2. **Seeded demo.** What `make seed` inserts, the dev login (non-production `POST /api/v1/auth/dev-login` as `admin@dev.local`), and the tenant, agent and model the click-through uses. Chat must work without an external API key.
+3. **Checklist.** Numbered steps for every user-visible feature delivered by this milestone and earlier milestones. Each step says what to click or type and what the user should see, including empty, loading and error states.
+
+Playwright in `apps/web/e2e` walks the same paths and saves screenshots. A milestone does not merge on green unit tests alone when it changes a screen.
+
 ## Migration mapping
 
 Alembic revisions are created by the tasks listed in [migrations §3](../04-data/migrations.md#3-initial-revision-plan). A task that creates a revision must use exactly that revision number and name.
@@ -102,4 +112,5 @@ Alembic revisions are created by the tasks listed in [migrations §3](../04-data
 4. Every new workflow/activity: deterministic workflow code, idempotent activities, Temporal test-env test.
 5. Every new UI page: loading/empty/error states, permission gating, Vitest component test, Playwright happy path, axe check.
 6. Every new metric, alert, env var or audit action: add it to the owning spec **and** to the catalogues ([environments §3](../07-ops/environments.md#3-variable-catalogue), [audit §3](../06-security/audit.md#3-catalogue)); CI `docs` job checks this.
-7. Dev seed data grows with the product: `scripts/seed.py` (created in M1-T03; idempotent; runs `ar_domain.seed.dev.run()`) seeds tenant `dev` and the four `@dev.local` users; M2-T01 adds the `fake-llm` provider and aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`; M3-T01 adds the sample agent `Helpdesk`; M4-T06 adds the `mcp-openapi` petstore tool server; M7-T01 adds a sample collection with three markdown documents. Each addition is part of that task's Done-when ([local-dev §2](../07-ops/local-dev.md#2-make-targets-the-only-entry-points)).
+7. Dev seed data grows with the product: `scripts/seed.py` (created in M1-T03; idempotent; runs `ar_domain.seed.apply()`) seeds tenant `dev` and the four `@dev.local` users; M2 adds the `fake-llm` provider, aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`, team `everyone` and the published `assistant`; M3-T01 adds the sample agent `Helpdesk`; M4-T06 adds the `mcp-openapi` petstore tool server; M7-T01 adds a sample collection with three markdown documents. Each addition is part of that task's Done-when ([local-dev §2](../07-ops/local-dev.md#2-make-targets-the-only-entry-points)).
+8. **Visual test.** Every milestone pull request includes a **How to test visually** section: exact local start commands, seeded demo login and data, and a numbered click-through of every user-visible feature so far. See [Visual test](#visual-test).

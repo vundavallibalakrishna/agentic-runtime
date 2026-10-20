@@ -16,6 +16,7 @@ from ar_api.routers.domains import router as domains_router
 from ar_api.routers.groups import router as groups_router
 from ar_api.routers.identity_providers import router as idp_router
 from ar_api.routers.invitations import router as invitations_router
+from ar_api.routers.m2 import router as m2_router
 from ar_api.routers.me import router as me_router
 from ar_api.routers.meta import router as meta_router
 from ar_api.routers.notifications import router as notifications_router
@@ -37,6 +38,9 @@ from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
 from ar_common.settings import BaseServiceSettings, EnvName
 from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
+from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.db.context import Principal
+from ar_domain.identity.permissions import PERMISSION_KEYS
 
 LISTEN_PORT = 8000
 
@@ -91,8 +95,30 @@ async def _resolve_principal(scope: object) -> object:
     return await loader(found[0], found[1])
 
 
-async def _credential_loader(kind: str, value: str) -> None:
-    del kind, value
+def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | None]]:
+    """Resolve ``ar_session`` to the dev principal stored in the session map."""
+
+    async def load(kind: str, value: str) -> Principal | None:
+        if kind != "session":
+            return None
+        sessions = app.state.sessions
+        data = await sessions.get(value)
+        if data is None:
+            return None
+        return Principal(
+            kind="user",
+            id=str(data.user_id),
+            tenant_id=data.tenant_id,
+            permissions=PERMISSION_KEYS,
+            auth_method="session",
+            email="admin@dev.local",
+            display_name="Dev Admin",
+            session_id=value,
+            csrf_token=data.csrf_token,
+            roles=frozenset({"tenant_admin"}),
+        )
+
+    return load
 
 
 async def _signup(slug: str, name: str, email: str) -> str:
@@ -137,6 +163,7 @@ def create_application() -> FastAPI:
             plans_router,
             notifications_router,
             webhooks_router,
+            m2_router,
         ],
         inner_middleware=inner,
         docs_url=docs,
@@ -151,7 +178,13 @@ def create_application() -> FastAPI:
     app.state.login_states = {}
     app.state.complete_login = _complete_login
     app.state.resolve_principal = _resolve_principal
-    app.state.credential_loader = _credential_loader
+    app.state.credential_loader = _session_loader(app)
+    app.state.chat = ChatService(
+        allow_loopback=settings.env in {EnvName.DEV, EnvName.CI},
+        scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
+    )
+    app.state.demo_user_id = demo_id("admin")
+    app.state.demo_tenant_id = demo_id("tenant")
     app.state.allow_test_auth = False
     app.state.rate_limiter = MemoryTokenBucket()
     app.state.rate_limit = 600

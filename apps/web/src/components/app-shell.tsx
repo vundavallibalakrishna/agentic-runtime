@@ -14,7 +14,9 @@ export function AppShell({
   const t = useTranslations("shell");
   const links = [
     { href: "/", label: t("navHome") },
+    { href: "/chat", label: t("navChat") },
     { href: "/agents", label: t("navAgents") },
+    { href: "/admin/models", label: t("navModels") },
     ...extraLinks,
   ];
   return (
