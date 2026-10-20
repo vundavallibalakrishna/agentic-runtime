@@ -20,7 +20,7 @@ Status: **covered** (a task implements it), **partial** (the thin path is specif
 | U12 | Access reviews and business SoD | covered | M19-T02 | sign-off; platform SoD stays core |
 | U13 | Attestations and recurring certifications | covered | M19-T03 | sign-off, routines |
 | U14 | AI inventory beyond this platform | covered | asset `kind=model`, M19-T08 | agent cards for this platform's agents |
-| U15 | Board pack | covered | M19-T04 | binder, `review_before_send` |
+| U15 | Board pack | covered | M19-T04 | binder, `reviewBeforeSend` |
 | U16 | Multi-entity group (parent, subsidiary, rollup) | covered as a tree inside one tenant | M16-T07 | tenancy stays one tenant; a second tenant is not an entity |
 | U17 | Several frameworks on one control | covered | M16-T03 mappings | none |
 | U18 | Exceptions and waivers with expiry | covered | M18-T07 | sign-off |

@@ -100,8 +100,8 @@ M14-T08 through M14-T13 are required for 1.0. M14-T07 may run before them; M15-T
 - **Depends on:** M14-T08, M5-T08
 - **Areas:** `ar_domain/records/binders.py`, `ar_system/workflows/binder_build.py`, `scripts/verify_binder.py`, `ar_api/routers/binders.py`, migration `0028_binder_exports`
 - **Spec:** [spec 21 §5](../03-specs/21-records-governance.md#5-binder-export), [spec 21 §10](../03-specs/21-records-governance.md#10-routine-delivery-review), [schema §27](../04-data/schema.md#27-binder-exports-ar_domainrecords)
-- **Do:** Table `binder_exports`. `BinderBuildWorkflow` id `binder-{binder_id}`. ZIP contains `manifest.json`, `index.pdf`, `index.xlsx`, record metadata, evidence bytes, sign-offs and audit excerpts. `scripts/verify_binder.py` uses the Python standard library only. `files.kind` stays `export`. Cap `AR_BINDER_MAX_ITEMS` (5000). A routine delivery target may set `review_before_send`.
-- **Done when:** `verify_binder.py` accepts a built ZIP and rejects a byte flip; a delivery with `review_before_send` does not send until the review item is `signed`.
+- **Do:** Table `binder_exports`. `BinderBuildWorkflow` id `binder-{binder_id}`. ZIP contains `manifest.json`, `index.pdf`, `index.xlsx`, record metadata, evidence bytes, sign-offs and audit excerpts. `scripts/verify_binder.py` uses the Python standard library only. `files.kind` stays `export`. Cap `AR_BINDER_MAX_ITEMS` (5000). A routine delivery target may set `reviewBeforeSend`.
+- **Done when:** `verify_binder.py` accepts a built ZIP and rejects a byte flip; a delivery with `reviewBeforeSend` does not send until the review item is `signed`.
 - **Tests:** manifest hash; tamper; item cap; review-before-send Temporal test.
 
 ### M14-T13 · Solution-pack extension hooks

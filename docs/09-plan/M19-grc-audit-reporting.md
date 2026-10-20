@@ -36,7 +36,7 @@ CSCRF ATR and sampling are included before the FY 2026-27 audit cycle (mid-2027)
 - **Depends on:** M14-T12, M16-T06
 - **Areas:** `packs/grc/src/ar_pack_grc/reports.py`, template `board-reporter`, skill `cscrf-atr`, routine `grc-board-pack`
 - **Spec:** [api](../10-grc-pack/api.md), [agent-templates](../10-grc-pack/agent-templates.md)
-- **Do:** Templates `soa`, `soc2_binder`, `cscrf`, `dpdp_breach`, `board_pack`. `POST /api/v1/ext/grc/reports:render` calls the core binder API and audits `grc.report.exported`. `cscrf` uses skill `cscrf-atr` and the sampling skill from M18-T05. `board_pack` delivery sets `review_before_send`. The SoA lists control ids; it does not embed licensed statement text the tenant has not imported.
+- **Do:** Templates `soa`, `soc2_binder`, `cscrf`, `dpdp_breach`, `board_pack`. `POST /api/v1/ext/grc/reports:render` calls the core binder API and audits `grc.report.exported`. `cscrf` uses skill `cscrf-atr` and the sampling skill from M18-T05. `board_pack` delivery sets `reviewBeforeSend`. The SoA lists control ids; it does not embed licensed statement text the tenant has not imported.
 - **Done when:** each template returns a binder id; the offline verifier accepts the ZIP; a board pack is not delivered before sign-off.
 - **Tests:** one render fixture per template; review-before-send; licensed-text absence.
 

@@ -74,5 +74,5 @@ As an **auditor**, I want external AI systems recorded beside this platform's ag
 
 ### US-GRC-15 · Board pack (P1)
 As a **tenant admin**, I want a scheduled board report that is reviewed before it is sent.
-- Template `board_pack` renders through the core binder API. Routine delivery uses `review_before_send` ([spec 21 §10](../03-specs/21-records-governance.md#10-routine-delivery-review)).
+- Template `board_pack` renders through the core binder API. Routine delivery uses `reviewBeforeSend` ([spec 21 §10](../03-specs/21-records-governance.md#10-routine-delivery-review)).
 - Spec: api. Plan: M19-T04.
