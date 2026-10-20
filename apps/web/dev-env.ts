@@ -1,6 +1,20 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+
+function repoRoot(): string {
+  let current = process.cwd();
+  for (let depth = 0; depth < 6; depth += 1) {
+    if (existsSync(resolve(current, "compose.yaml"))) {
+      return current;
+    }
+    const parent = dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return process.cwd();
+}
 
 /** Root `.env` value, with the process environment winning. */
 export function rootEnv(name: string): string | undefined {
@@ -8,7 +22,7 @@ export function rootEnv(name: string): string | undefined {
   if (fromProcess) {
     return fromProcess;
   }
-  const path = resolve(dirname(fileURLToPath(import.meta.url)), "../../.env");
+  const path = resolve(repoRoot(), ".env");
   if (!existsSync(path)) {
     return undefined;
   }
