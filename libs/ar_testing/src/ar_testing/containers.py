@@ -14,6 +14,21 @@ PG_IMAGE = "pgvector/pgvector:0.8.7-pg18-trixie"
 VALKEY_IMAGE = "valkey/valkey:9.1.2"
 
 
+def to_libpq_url(url: str) -> str:
+    """Drop a SQLAlchemy driver suffix so psycopg can parse the URL.
+
+    ``PostgresContainer(driver="psycopg")`` yields ``postgresql+psycopg://...``.
+    libpq rejects that scheme (``missing "="``).
+    """
+    if "://" not in url:
+        return url
+    scheme, rest = url.split("://", 1)
+    scheme = scheme.split("+", 1)[0]
+    if scheme == "postgres":
+        scheme = "postgresql"
+    return f"{scheme}://{rest}"
+
+
 @pytest.fixture(scope="session")
 def postgres_url() -> Iterator[str]:
     """Yield a SQLAlchemy-style URL for a disposable Postgres + pgvector database."""

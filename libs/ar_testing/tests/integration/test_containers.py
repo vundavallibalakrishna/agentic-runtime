@@ -4,11 +4,13 @@ import psycopg
 import pytest
 import redis
 
+from ar_testing.containers import to_libpq_url
+
 
 @pytest.mark.integration
 def test_postgres_and_valkey_round_trip(postgres_url: str, valkey_url: str) -> None:
     """Postgres accepts a query and Valkey stores a key."""
-    with psycopg.connect(postgres_url) as connection:
+    with psycopg.connect(to_libpq_url(postgres_url)) as connection:
         row = connection.execute("SELECT 1").fetchone()
     assert row is not None
     assert row[0] == 1

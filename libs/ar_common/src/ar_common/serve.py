@@ -22,3 +22,7 @@ def main() -> None:
         server.serve()
         return
     uvicorn.run(app, host="0.0.0.0", port=port)  # noqa: S104
+
+
+if __name__ == "__main__":
+    main()

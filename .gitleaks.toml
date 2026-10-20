@@ -1,0 +1,26 @@
+title = "Agentic Runtime gitleaks config"
+
+[extend]
+useDefault = true
+
+# generic-api-key treats a comma as an assignment. These captured values are
+# English prose, not credentials. Each pattern is the entire secret so a real
+# key on the same line still fails the scan.
+
+[[allowlists]]
+description = "README stack table. The 'key' in Valkey plus the comma captures the following words 'S3-compatible'."
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^S3-compatible$''']
+
+[[allowlists]]
+description = "M1 session-store sentence. The 'token' in 'encrypted tokens' plus the comma captures 'sliding/absolute', which is a TTL description."
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^sliding/absolute$''']
+
+[[allowlists]]
+description = ".env.example placeholder. An empty ACTIVE_KEY= line lets the newline count as whitespace, so the next assignment is the secret. make bootstrap replaces the literal generate; it is not a live key."
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^AR_DB_ENCRYPTION_KEYS=generate$''']

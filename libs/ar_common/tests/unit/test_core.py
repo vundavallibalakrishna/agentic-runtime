@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import inspect
+import runpy
 import uuid
 from datetime import timedelta
 from typing import Any, get_type_hints
@@ -38,7 +39,13 @@ from ar_common.logging import _scrub, setup_logging
 from ar_common.mode import is_saas, is_single_tenant
 from ar_common.pagination import decode_cursor, encode_cursor
 from ar_common.s3 import S3Store
-from ar_common.settings import BaseServiceSettings, DeploymentMode, EnvName
+from ar_common.settings import (
+    BaseServiceSettings,
+    DeploymentMode,
+    EnvName,
+    get_settings,
+    set_settings,
+)
 from ar_common.time import utcnow
 from ar_common.valkey import valkey_client
 from ar_common.web import create_app
@@ -400,3 +407,23 @@ def test_serve_uvicorn_and_granian(monkeypatch: pytest.MonkeyPatch) -> None:
     serve.main()
     assert "uvicorn" in calls
     assert "granian" in calls
+
+
+def test_serve_module_entrypoint_starts_the_server(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``python -m ar_common.serve`` must call ``main``; otherwise containers exit 0."""
+    captured: dict[str, object] = {}
+
+    def fake_run(*args: object, **kwargs: object) -> None:
+        captured["args"] = args
+        captured["port"] = kwargs.get("port")
+
+    monkeypatch.setenv("AR_APP_MODULE", "ar_api.main")
+    monkeypatch.setenv("AR_PORT", "8123")
+    monkeypatch.setattr(serve.uvicorn, "run", fake_run)
+    previous = get_settings()
+    set_settings(BaseServiceSettings(asgi_server="uvicorn"))
+    try:
+        runpy.run_module("ar_common.serve", run_name="__main__")
+    finally:
+        set_settings(previous)
+    assert captured["port"] == 8123
