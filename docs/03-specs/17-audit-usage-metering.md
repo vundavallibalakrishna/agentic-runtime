@@ -128,3 +128,7 @@ Every sweep writes one audit event `retention.swept` with counts.
 
 - Unit: hash chain computation (known vectors), redaction, quota applicability, period keys across timezones/month ends, CSV export format.
 - Integration: concurrent audit writes for one tenant produce gapless `tenant_seq` and a valid chain (100 parallel transactions); tampering with a row (as `ar_owner`) is detected by `:verify`; usage dedupe (same key twice → one row); quota block at limit and warning notification once; rollup correctness vs raw events; retention sweep honours legal hold and classes.
+
+## 7. Legal hold interaction
+
+From M14-T09, `RetentionSweepWorkflow` and `ErasureWorkflow` skip any row listed in `legal_hold_members` for an active hold ([spec 21 §2](21-records-governance.md#2-legal-hold-and-retention-schedules)). The conversation class `legal_hold` remains the denormalised marker this sweep already honours. Erasure completion detail includes `held_record_ids` for rows that were kept. Audit archive objects under hold are not passed to `purge_audit_events`.

@@ -32,3 +32,8 @@ As a **builder**, I want thumbs-down conversations to become regression cases.
 As a **security officer**, I want built-in red-team suites in every tenant and in CI.
 - `evals/redteam/` and `evals/functional/` suites are installed into each tenant at provisioning (kind `red_team`) and run nightly in CI against reference models; release gates per [eval-strategy §5](../08-quality/eval-strategy.md#5-gates).
 - Spec: spec 18 §4.5. Plan: M13-T04, M14-T07.
+
+### US-EVAL-07 · Gate strict agents on groundedness (P0)
+As a **tenant admin**, I want agents that claim strict grounding to fail publish when the groundedness suite fails.
+- The suite `evals/golden/groundedness/` applies only when `output.grounding` is `strict`.
+- Spec: [spec 18 §4.6](../03-specs/18-observability-eval.md#46-groundedness-grader). Plan: M13-T07.

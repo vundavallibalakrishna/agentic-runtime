@@ -39,9 +39,9 @@
           "default": null,
           "title": "Channel"
         },
-        "pre_approved": {
+        "preApproved": {
           "default": false,
-          "title": "Pre Approved",
+          "title": "Preapproved",
           "type": "boolean"
         },
         "config": {
@@ -98,18 +98,18 @@
           "default": null,
           "title": "Timezone"
         },
-        "jitter_s": {
+        "jitterS": {
           "default": 0,
           "maximum": 3600,
           "minimum": 0,
-          "title": "Jitter S",
+          "title": "Jitters",
           "type": "integer"
         },
-        "catchup_window_s": {
+        "catchupWindowS": {
           "default": 0,
           "maximum": 86400,
           "minimum": 0,
-          "title": "Catchup Window S",
+          "title": "Catchupwindows",
           "type": "integer"
         },
         "config": {
@@ -130,44 +130,44 @@
       "additionalProperties": false,
       "description": "Limits for one top-level run. Subagents draw from the same budget.",
       "properties": {
-        "max_steps": {
+        "maxSteps": {
           "minimum": 1,
-          "title": "Max Steps",
+          "title": "Maxsteps",
           "type": "integer"
         },
-        "max_tokens": {
+        "maxTokens": {
           "minimum": 1,
-          "title": "Max Tokens",
+          "title": "Maxtokens",
           "type": "integer"
         },
-        "max_cost_micros": {
+        "maxCostMicros": {
           "minimum": 0,
-          "title": "Max Cost Micros",
+          "title": "Maxcostmicros",
           "type": "integer"
         },
-        "max_wall_clock_s": {
+        "maxWallClockS": {
           "minimum": 1,
-          "title": "Max Wall Clock S",
+          "title": "Maxwallclocks",
           "type": "integer"
         },
-        "max_tool_calls": {
+        "maxToolCalls": {
           "minimum": 0,
-          "title": "Max Tool Calls",
+          "title": "Maxtoolcalls",
           "type": "integer"
         },
-        "max_parallel_tool_calls": {
+        "maxParallelToolCalls": {
           "minimum": 1,
-          "title": "Max Parallel Tool Calls",
+          "title": "Maxparalleltoolcalls",
           "type": "integer"
         }
       },
       "required": [
-        "max_steps",
-        "max_tokens",
-        "max_cost_micros",
-        "max_wall_clock_s",
-        "max_tool_calls",
-        "max_parallel_tool_calls"
+        "maxSteps",
+        "maxTokens",
+        "maxCostMicros",
+        "maxWallClockS",
+        "maxToolCalls",
+        "maxParallelToolCalls"
       ],
       "title": "RunBudget",
       "type": "object"
@@ -184,7 +184,7 @@
       "title": "Agent",
       "type": "string"
     },
-    "agent_version": {
+    "agentVersion": {
       "anyOf": [
         {
           "type": "string"
@@ -194,18 +194,18 @@
         }
       ],
       "default": null,
-      "title": "Agent Version"
+      "title": "Agentversion"
     },
-    "run_as": {
+    "runAs": {
       "default": "owner",
       "enum": [
         "owner",
         "service_account"
       ],
-      "title": "Run As",
+      "title": "Runas",
       "type": "string"
     },
-    "service_account": {
+    "serviceAccount": {
       "anyOf": [
         {
           "type": "string"
@@ -215,7 +215,7 @@
         }
       ],
       "default": null,
-      "title": "Service Account"
+      "title": "Serviceaccount"
     },
     "instructions": {
       "title": "Instructions",
@@ -224,7 +224,7 @@
     "trigger": {
       "$ref": "#/$defs/RoutineTrigger"
     },
-    "event_filter": {
+    "eventFilter": {
       "anyOf": [
         {
           "type": "string"
@@ -234,7 +234,7 @@
         }
       ],
       "default": null,
-      "title": "Event Filter"
+      "title": "Eventfilter"
     },
     "delivery": {
       "items": {
@@ -246,20 +246,20 @@
     "budget": {
       "$ref": "#/$defs/RunBudget"
     },
-    "max_runs_per_day": {
+    "maxRunsPerDay": {
       "default": 4,
       "minimum": 1,
-      "title": "Max Runs Per Day",
+      "title": "Maxrunsperday",
       "type": "integer"
     },
-    "concurrency_policy": {
+    "concurrencyPolicy": {
       "default": "skip",
       "enum": [
         "skip",
         "buffer_one",
         "allow"
       ],
-      "title": "Concurrency Policy",
+      "title": "Concurrencypolicy",
       "type": "string"
     }
   },

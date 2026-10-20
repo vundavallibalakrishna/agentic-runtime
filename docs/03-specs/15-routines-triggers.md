@@ -111,3 +111,7 @@ Temporal Schedule `routine-poll-{routine_id}` (interval = `poll_interval_s` or 6
 - Unit: trigger validation, cron description, JMESPath filters, signature verification (timing-safe, tolerance), idempotency key derivation.
 - Workflow tests: duplicate event; daily cap; skip/buffer_one/allow concurrency; owner inactive → needs_review; 5 failures → paused.
 - Integration: schedule fires (time-skipping test server) → run → Slack delivery via `channels` stub with standing approval (no approval prompt) and without (approval created for owner); webhook end-to-end with signature; delegation token missing → paused with `owner_reauth_required`.
+
+## 10. Review before delivery
+
+A delivery target may set `reviewBeforeSend: true` (default false). Behaviour is [spec 21 §10](21-records-governance.md#10-routine-delivery-review): the run seals the rendered body as evidence, opens a review item, and calls `delivery.*` only after that item is `signed`.

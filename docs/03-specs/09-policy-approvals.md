@@ -146,3 +146,76 @@ Outbox `approval.requested` → `NotificationFanoutWorkflow` ([spec 20](20-notif
 - Python unit: eligibility truth table, preview rendering (escaping, truncation), standing approval constraint matching and concurrent `uses` increments (parallel test).
 - Integration: OPA container with bundle from `api`; activation latency ≤ 15 s; decide with wrong `args_hash` → 409; four-eyes; multi-approver (2 of N); step-up enforcement; Slack decision path via `channels` stub; expiry via runtime timer; OPA down fail-closed.
 - E2E: W2 tool call in chat → approval card inline → approve → result streamed; reject → model acknowledges.
+
+## 11. Reviews and sign-off
+
+Sign-off is not a tool-call approval ([ADR-0025](../02-architecture/adr/ADR-0025-output-signoff.md)). A review item freezes the statement the signer attests and the SHA-256 of the subject bytes (`content_hash`). Subjects: `artifact`, `file`, `message`, `evidence_item`, `run_record`, `agent_card`, `binder`. Pack records use `subject_type='pack_record'` and store `{pack_id, record_class, record_id}` in `subject_ref`; core checks the hash the pack supplies and does not interpret the pack row.
+
+A queue defines `levels`: an ordered list of `{level, name, role_key, required_count, step_up}`. Level 1 is the reviewer; the last level is the approver. The preparer is `review_items.preparer_principal_id` and is never eligible at any level. Signers at two levels of the same item must be different principals. A decision body echoes `content_hash` and `statement_hash`; a mismatch is 409 `conflict` reason `content_changed`. When the subject bytes change, the service supersedes the item (`status='superseded'`, audit `review_item.superseded`) and the caller must open a new item. Previous sign-offs are not copied.
+
+Delegation (`decision='delegate'`) is one hop, to a user who holds `reviews:decide` and passes SoD (§12). The delegate decides the same level. Standing approvals never satisfy a sign-off and are not consulted.
+
+Step-up is required on a level whose `step_up` is true, and on the final level when `tenants.settings.security.require_step_up_for_signoff` is true (default). API keys cannot decide a step-up level.
+
+Bulk decide (`:bulk-decide`) accepts at most 100 ids. Each item is decided in its own transaction. The response is `{results: [{id, status, error?}]}` and never fails the whole batch because one item failed.
+
+#### GET /api/v1/review-queues
+`reviews:read`.
+
+#### POST /api/v1/review-queues
+`reviews:manage`. Body `{slug, name, subject_type, levels, statement_template}`. `statement_template` is plain text with `{title}` and `{content_hash}` placeholders only. Audit `review_queue.created`.
+
+#### GET /api/v1/review-queues/{queue_id}
+`reviews:read`.
+
+#### PATCH /api/v1/review-queues/{queue_id}
+`reviews:manage`. Audit `review_queue.updated`. Does not rewrite open items; they keep the levels they were opened with.
+
+#### DELETE /api/v1/review-queues/{queue_id}
+`reviews:manage`. Refused with 409 when items are `pending` or `in_review`. Audit `review_queue.deleted`.
+
+#### GET /api/v1/review-items
+Object-level. Query `scope=to_decide|prepared|all`, `status`, `queue_id`. `all` requires `reviews:read`. `to_decide` returns items where the caller is eligible at `current_level`.
+
+#### POST /api/v1/review-items
+Any principal who can read the subject. Body `{queue_id, subject_type, subject_id, content_hash, statement_text}`. The server recomputes `content_hash` from the subject and rejects a mismatch (422 `hash_mismatch`). Audit `review_item.created`. Outbox `review_item.requested` notifies eligible level-1 signers.
+
+#### GET /api/v1/review-items/{review_item_id}
+Object-level (preparer, eligible signer, `reviews:read`). Includes `signoffs` and `statement_text`.
+
+#### POST /api/v1/review-items/{review_item_id}:decide
+Eligible signer at `current_level`, holding `reviews:decide`. Header `Idempotency-Key`. Body `{decision: approve|reject|delegate, content_hash, statement_hash, comment?, delegated_to_user_id?}`. SoD (§12) is applied before the insert. Approve advances the level or sets `signed` when the last level is complete. Reject sets `rejected`. Audit `review_item.decided` and `signoff.recorded`. Outbox `review_item.decided`.
+
+#### POST /api/v1/review-items:bulk-decide
+Same permission and body shape, plus `items: [{review_item_id, content_hash, statement_hash}]` and one shared `decision` and `comment`. Per-item results, as above.
+
+## 12. Segregation of duties
+
+Platform invariants, always enforced for approvals and sign-offs, not stored as rows:
+
+1. The preparer of a review item cannot sign it. The requester of a tool-call approval cannot decide it when `four_eyes` is set (already in §5) and cannot decide it when a sign-off chain is used.
+2. Two levels of one review item cannot be signed by the same principal.
+3. The owner of the agent that produced the subject (`agents.owner_user_id`) cannot sign a review item whose subject is a `message`, `artifact`, `run_record` or `binder` produced by that agent, and cannot decide a tool-call approval for that agent when the decision would approve the call.
+4. A standing approval cannot be granted by the routine owner to themselves for a tool the same owner would also execute unattended. Granting a standing approval still follows §6; this invariant adds: `granted_by` must differ from the routine's `owner_user_id` when the standing approval would otherwise let that owner skip approval. Existing rows keep working; new grants that violate this return 422 `sod_self_approval`.
+
+Tenant constraints live in `sod_constraints` (`kind='conflicting_roles'`, `role_a`, `role_b`, `applies_to` `approval` | `signoff` | `both`). A principal who holds `role_a` cannot decide when the preparer or requester holds `role_b`, and the reverse. The seed contains no pairs.
+
+`POST /api/v1/policies:simulate` gains a `sod` object in the response: `{allowed: bool, violations: [{invariant, principal_id}]}`. The decision value is unchanged; simulation reports SoD separately so a policy author sees a call that policy would allow and SoD would block. The gateway blocks execution when SoD fails, with `policy_decision='deny'` and reason `sod_violation`, and audits `sod.violation_blocked`.
+
+#### GET /api/v1/sod-constraints
+`sod:manage` or `policies:read`.
+
+#### POST /api/v1/sod-constraints
+`sod:manage`. Body `{role_a, role_b, applies_to}`. Audit `sod_constraint.created`.
+
+#### GET /api/v1/sod-constraints/{constraint_id}
+`policies:read`.
+
+#### PATCH /api/v1/sod-constraints/{constraint_id}
+`sod:manage`. Body `{enabled?, applies_to?}`. Audit `sod_constraint.updated`.
+
+#### DELETE /api/v1/sod-constraints/{constraint_id}
+`sod:manage`. Audit `sod_constraint.deleted`.
+
+#### POST /api/v1/sod-constraints:check
+`policies:read`. Body `{action: approval|signoff, preparer_principal_id, signer_principal_id, agent_id?, queue_id?, level?}`. Response `{allowed, violations}`. Does not write.

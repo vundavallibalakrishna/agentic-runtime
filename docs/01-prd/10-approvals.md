@@ -46,3 +46,13 @@ As a **security engineer**, I want to add custom Rego rules that can only tighte
 As a **security officer**, I want no path that bypasses policy.
 - All tool calls go through `mcp-gateway`, which calls OPA; when OPA is unavailable calls fail closed except the listed R0 built-ins; every decision is recorded on `tool_calls` and audited.
 - Spec: spec 08 §5, §13; spec 09 §3.3. Plan: M5-T03.
+
+### US-APR-09 · Sign off an output (P0)
+As an **approver**, I want to attest a statement and a content hash, separately from a tool-call approval.
+- A review queue has levels. I cannot sign my own preparation. A changed subject supersedes the item.
+- Spec: [spec 09 §11](../03-specs/09-policy-approvals.md#11-reviews-and-sign-off). Plan: M5-T08.
+
+### US-APR-10 · Segregation of duties (P0)
+As a **tenant admin**, I want the platform to refuse a sign-off or approval that concentrates the action in one person.
+- The preparer is not a signer. Two levels need two people. An agent owner cannot approve that agent's own output. A standing approval cannot be self-granted by the routine owner.
+- Spec: [spec 09 §12](../03-specs/09-policy-approvals.md#12-segregation-of-duties). Plan: M5-T09.

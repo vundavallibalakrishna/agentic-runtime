@@ -120,6 +120,10 @@ Eval runs carry the case's mocks and simulated principal in `runs.eval_context j
 ### 4.5 Platform suites
 `evals/redteam/` (prompt injection via tool output and documents, data exfiltration via links/images, cross-user memory leak, approval bypass attempts, secret disclosure) and `evals/functional/` samples are installed into each tenant as reusable suites by `TenantProvisioningWorkflow` (kind `red_team`), and run in CI nightly against real reference models and on every PR against `fake-llm` scenarios.
 
+### 4.6 Groundedness grader
+
+Assertion type `groundedness` (`ar_contracts.evals.Assertion`): params `{min_grounded_ratio: 0.9, mode: strict|preferred}`. Pass when the case ran with at least that grounding mode and `grounded_claims / claims >= min_grounded_ratio`. A case with zero claims passes. The platform suite `evals/golden/groundedness/` ships with the product and is a publish gate (`gate.required=true`, `must_pass_tags: ["groundedness"]`) for any agent whose published definition sets `output.grounding=strict`. Agents with grounding `off` or `preferred` are not gated by this suite. The grader reads the stored `GroundingReport`; it does not call a model.
+
 ## 5. Metrics
 
 `ar_eval_runs_total{status,trigger}`, `ar_eval_case_seconds`, `ar_eval_pass_rate{suite}` (last run gauge), `ar_eval_judge_calls_total`.
@@ -129,3 +133,36 @@ Eval runs carry the case's mocks and simulated principal in `runs.eval_context j
 - Unit: each assertion type; gate computation incl. regression vs baseline; JSONL import errors.
 - Integration: eval run against `fake-llm` with tool mocks (W2 tool never executed even without mock → denied); publish gate success/failure path; from-conversation case creation.
 - Observability: test that a run produces one trace with expected span names (in-memory span exporter); log redaction test (no message text in captured logs).
+
+## 7. Run records and re-performance
+
+Record mode is `spec.assurance.record_mode`: `off` (default) or `on` ([ADR-0022](../02-architecture/adr/ADR-0022-run-records.md), [OQ-29](../open-questions.md)). When it is `on`, `finalize_run` starts `RunRecordSealWorkflow` (`ar-system`, id `run-record-{run_id}`) after the run reaches a terminal status.
+
+The sealed manifest (`ar_contracts.records.RunRecordManifest`) is:
+
+| Field | Source |
+|---|---|
+| `agent_version_id`, `definition_hash` | published or draft version that ran |
+| `prompt_template_hashes` | SHA-256 of each prompt file used in [spec 07 §4](07-agent-runtime.md#4-context-assembly), keyed by block name |
+| `model_id` | provider model id string |
+| `model_revision`, `weights_digest` | provider response metadata when present, else null |
+| `sampling_params` | `{temperature, top_p, seed, max_output_tokens}` actually sent |
+| `retrieved` | `[{collection_id, index_version, chunk_id}]` |
+| `output_sha256` | SHA-256 of the final assistant text |
+| `tool_io_evidence_id` | evidence item holding the encrypted tool I/O blob |
+
+The tool I/O blob is JSON `{calls: [{tool_call_id, qualified_name, arguments, result}]}` encrypted with the evidence signing key's envelope (AES-256-GCM, DEK wrapped by `AR_EVIDENCE_SIGNING_KEY`) and stored via [spec 21 §1](21-records-governance.md#1-evidence-vault) with `collection_method='run_record'`. Size over `AR_RUN_RECORD_MAX_BLOB_BYTES` fails the seal with audit `run_record.seal_failed` and the run itself stays completed: record mode is assurance, not a reason to fail the user-visible run. The manifest is signed the same way as an evidence manifest. `run_records` is append-only.
+
+Honest limit, shown in the API field `reperformance`: replaying a record calls the pinned model with the recorded tool results substituted and compares the new output hash to `output_sha256`. A difference is divergence, not a failed audit of the original record. The original record stays valid.
+
+#### GET /api/v1/run-records
+`run_records:read`. Query `agent_id`, `run_id`, `from`, `to`.
+
+#### GET /api/v1/run-records/{run_record_id}
+`run_records:read`. Returns the manifest, signature and verification summary. Tool arguments are not inlined; they are inside the evidence item and follow evidence read rules.
+
+#### POST /api/v1/run-records/{run_record_id}:replay
+`run_records:replay`. Body `{model_id?: string}` must equal the recorded `model_id` or be omitted. Starts a replay that uses recorded tool results and does not call live tools. Response `202 {replay_id}`. Audit `run_record.replayed`. When the output hash differs, audit `run_record.replay_diverged` and the replay row stores `{step, field, expected_hash, actual_hash}`.
+
+#### GET /api/v1/run-records/{run_record_id}/replays/{replay_id}
+`run_records:read`.

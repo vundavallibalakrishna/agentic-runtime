@@ -225,3 +225,7 @@ Temporal Schedule `tool-drift-check` hourly (`AR_TOOL_DRIFT_INTERVAL`, default `
 - Unit: name normalisation, schema validation, risk proposal mapping, args hash (JCS vectors from RFC 8785), SQL guard (table of ≥ 60 allowed/denied queries per dialect incl. comment tricks, CTE writes, `SELECT ... INTO`), result neutralisation (zero-width/bidi/ANSI), truncation/offload.
 - Integration: discovery against `ar_testing.mcp_echo` (Streamable HTTP, 2026-07-28) and a legacy 2025-11-25 server; drift (change description → calls fail with `tool_manifest_drift` until re-approved); approval single-use and args mismatch rejection; credential_required path; OPA down fail-closed; `mcp-sql` against Postgres testcontainer with read-only role; `mcp-openapi` against a respx-mocked API.
 - Contract: conformance suite from `ar_connector_sdk.testing` run against `mcp-sql`, `mcp-openapi`, `mcp_echo`.
+
+## 16. Records server (added by M14-T08)
+
+The built-in MCP server `records` (`records.capture` R1, `records.get` R0, `records.verify` R0) is specified in [spec 21 §1.1](21-records-governance.md#11-built-in-tools). Browser screenshots become evidence only when the runtime calls `records.capture` with `collection_method=browser_screenshot`. This section does not change the servers already listed in §9.

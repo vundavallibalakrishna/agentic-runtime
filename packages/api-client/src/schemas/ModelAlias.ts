@@ -6,11 +6,11 @@
  */
 
 export type Kind = "chat" | "embed" | "rerank";
-export type PrimaryModel = string;
-export type FallbackModels = string[];
+export type Primarymodel = string;
+export type Fallbackmodels = string[];
 
 export interface ModelAliasDefinition {
   kind: Kind;
-  primary_model: PrimaryModel;
-  fallback_models?: FallbackModels;
+  primaryModel: Primarymodel;
+  fallbackModels?: Fallbackmodels;
 }

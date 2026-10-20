@@ -2,11 +2,22 @@
 
 You are building **Agentic Runtime** from this specification. Follow this file exactly. When anything here conflicts with a lower-level document, this file wins for *process*; the specs win for *behaviour*.
 
+## Non-negotiable principles
+
+Full text: [docs/00-overview/principles.md](docs/00-overview/principles.md). The goals are **CLEAN CODE**, **CUSTOMISABLE**, **EXTENSIBLE**, **SIMPLE UI/UX**, **OUTSTANDING PRESENTATION**.
+
+1. **camelCase on the wire.** Public JSON (REST, SSE, webhooks, definition files the UI shows) uses camelCase properties. Python stays snake_case via `ar_contracts.api_model.ApiModel` (`alias_generator=to_camel`, `populate_by_name=True`, `serialize_by_alias=True`). Database columns and env vars are unchanged. CI runs `scripts/check_public_camel_case.py`. Apply this on M1 response models ([M1-T16](docs/09-plan/M01-foundation.md)); do not wait.
+2. **Demo-grade UI.** The primary create-agent path is a natural-language instruction handled by the built-in `builder` agent, with a reviewable preview and a form/YAML escape hatch. Empty, loading, and error states are mandatory. Bar: [ux-quality](docs/08-quality/ux-quality.md).
+3. **No industry in core.** Evidence, sign-off, segregation of duties, legal hold, retention, the AI register, external participants, and binders are generic. GRC words live only under `docs/10-grc-pack/` and `packs/grc`. New capabilities are packs or connector plugins ([extension-framework](docs/05-contracts/extension-framework.md)).
+4. **The GRC pack answers the client's GRC ask.** Coverage and deliberate cuts: [use-cases](docs/10-grc-pack/use-cases.md).
+5. **Defaults.** A tenant works after secrets and identity. Every other setting has a default. Settings UI has Simple and Advanced modes.
+6. **North star.** A corporate assistant with its own computer, in the customer's environment, able to automate any work ([vision](docs/00-overview/vision.md)).
+
 ## Read order
 
 Before your first task, read in this order (≈ 1 hour):
 1. [README.md](README.md) — what the product is.
-2. [docs/00-overview/vision.md](docs/00-overview/vision.md), [glossary](docs/00-overview/glossary.md), [scope](docs/00-overview/scope.md), [deployment-modes](docs/00-overview/deployment-modes.md).
+2. [docs/00-overview/vision.md](docs/00-overview/vision.md), [principles](docs/00-overview/principles.md), [glossary](docs/00-overview/glossary.md), [scope](docs/00-overview/scope.md), [deployment-modes](docs/00-overview/deployment-modes.md).
 3. [docs/02-architecture/system-context.md](docs/02-architecture/system-context.md), [service-decomposition.md](docs/02-architecture/service-decomposition.md), [request-flows.md](docs/02-architecture/request-flows.md), [tenancy-isolation.md](docs/02-architecture/tenancy-isolation.md), the [ADR index](docs/02-architecture/adr/README.md).
 4. [docs/stack.md](docs/stack.md) and [docs/08-quality/coding-standards-python.md](docs/08-quality/coding-standards-python.md), [coding-standards-typescript.md](docs/08-quality/coding-standards-typescript.md), [testing-strategy.md](docs/08-quality/testing-strategy.md).
 5. [docs/05-contracts/api-conventions.md](docs/05-contracts/api-conventions.md) and [docs/04-data/rls.md](docs/04-data/rls.md).
@@ -17,7 +28,7 @@ For each task, additionally read every document in the task's **Spec** line, the
 ## How to pick the next task
 
 1. Open `docs/09-plan/progress.md` (created by M0-T01). Tasks marked `done` are complete.
-2. Take the **lowest-numbered milestone** that has unfinished tasks; within it, the lowest-numbered task whose **Depends on** tasks are all `done`. Never start a task with unfinished dependencies; never skip ahead to a later milestone while an earlier one is unfinished (milestone exit criteria are implicit dependencies).
+2. Take the **lowest-numbered milestone** that has unfinished tasks; within it, the lowest-numbered task whose **Depends on** tasks are all `done`. Never start a task with unfinished dependencies; never skip ahead to a later milestone while an earlier one is unfinished (milestone exit criteria are implicit dependencies). Two exceptions: M13-T07 waits for M14-T08 and is not an M13 exit task. M16 may start after M14-T13 while M15 is unfinished. Do not implement guest tables or records tables in M1; those land in M14. Do apply camelCase ([M1-T16](docs/09-plan/M01-foundation.md)) while writing M1 API models.
 3. Mark it `in_progress` in `progress.md` (`M2-T05 | in_progress | - | <date>`), do the work, then mark it `done` with the commit sha. One task per pull request unless a task explicitly says otherwise.
 4. If a task is too big for one PR, split it as `M{n}-T{nn}a`, `…b` in the milestone file (never renumber existing tasks) and record the split in `progress.md`.
 5. At the end of a milestone, run the milestone's exit criteria and demo script ([plan README](docs/09-plan/README.md#vertical-slices-and-demo-checkpoints)) and record the result in `progress.md`.

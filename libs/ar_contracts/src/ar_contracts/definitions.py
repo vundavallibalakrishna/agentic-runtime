@@ -2,15 +2,16 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from ar_contracts.api_model import ApiModel
 from ar_contracts.budget import RunBudget
 
 _SLUG = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
 
 
-class _Model(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+class _Model(ApiModel):
+    model_config = ConfigDict(frozen=True)
 
 
 class Metadata(_Model):
@@ -407,7 +408,7 @@ class Bundle(_Model):
     resources: list[DefinitionResource]
 
 
-SCHEMA_MODELS: dict[str, type[BaseModel]] = {
+SCHEMA_MODELS: dict[str, type[ApiModel]] = {
     "Agent": AgentDefinition,
     "ToolServer": ToolServerDefinition,
     "DataConnection": DataConnectionDefinition,

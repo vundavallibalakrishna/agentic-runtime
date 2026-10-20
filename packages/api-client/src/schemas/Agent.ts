@@ -5,14 +5,14 @@
  * and run json-schema-to-typescript to regenerate this file.
  */
 
-export type DisplayName = string;
+export type Displayname = string;
 export type Greeting = string;
-export type AvatarFile = string | null;
+export type Avatarfile = string | null;
 export type Instructions = string;
 /**
  * @maxItems 6
  */
-export type StarterPrompts =
+export type Starterprompts =
   | []
   | [string]
   | [string, string]
@@ -21,21 +21,21 @@ export type StarterPrompts =
   | [string, string, string, string, string]
   | [string, string, string, string, string, string];
 export type Alias = string;
-export type FastAlias = string;
-export type VisionAlias = string | null;
+export type Fastalias = string;
+export type Visionalias = string | null;
 export type Temperature = number;
-export type TopP = number;
-export type MaxOutputTokens = number;
-export type ReasoningEffort = ("low" | "medium" | "high") | null;
-export type DegradeToFast = boolean;
+export type Topp = number;
+export type Maxoutputtokens = number;
+export type Reasoningeffort = ("low" | "medium" | "high") | null;
+export type Degradetofast = boolean;
 export type Server = string;
 export type Version = string;
 export type Include = string[];
-export type RequireApproval = ("always" | "policy") | null;
+export type Requireapproval = ("always" | "policy") | null;
 export type Pinned = boolean;
 export type Tools = ToolBinding[];
 export type Mode = "auto" | "on" | "off";
-export type TopK = number;
+export type Topk = number;
 /**
  * @maxItems 20
  */
@@ -172,39 +172,39 @@ export type Collections =
       string,
       string
     ];
-export type AutoRetrieve = boolean;
-export type TopK1 = number;
-export type MinScore = number;
+export type Autoretrieve = boolean;
+export type Topk1 = number;
+export type Minscore = number;
 /**
  * @maxItems 50
  */
 export type Skills = string[];
 export type Enabled = boolean;
-export type ReadScopes = ("user" | "agent" | "team" | "agent_user")[];
-export type UserWrites = "auto" | "explicit_only" | "off";
-export type AgentWrites = "review" | "off";
-export type RecallTopK = number;
+export type Readscopes = ("user" | "agent" | "team" | "agent_user")[];
+export type Userwrites = "auto" | "explicit_only" | "off";
+export type Agentwrites = "review" | "off";
+export type Recalltopk = number;
 export type Allowed = string[];
-export type AllowSelfClone = boolean;
-export type MaxDepth = number;
-export type MaxParallel = number;
+export type Allowselfclone = boolean;
+export type Maxdepth = number;
+export type Maxparallel = number;
 export type Enabled1 = boolean;
 export type Template = string;
 export type Scope = "conversation" | "agent_user" | "agent";
-export type ExtraEgressAllowlist = string[];
-export type MaxSteps = number;
-export type MaxTokens = number;
-export type MaxCostMicros = number;
-export type MaxWallClockS = number;
-export type MaxToolCalls = number;
-export type MaxParallelToolCalls = number;
-export type CompactionThreshold = number;
-export type ToolResultMaxTokens = number;
-export type HistoryMaxMessages = number;
+export type Extraegressallowlist = string[];
+export type Maxsteps = number;
+export type Maxtokens = number;
+export type Maxcostmicros = number;
+export type Maxwallclocks = number;
+export type Maxtoolcalls = number;
+export type Maxparalleltoolcalls = number;
+export type Compactionthreshold = number;
+export type Toolresultmaxtokens = number;
+export type Historymaxmessages = number;
 export type Citations = "required" | "preferred" | "off";
-export type ShowReasoning = boolean;
-export type PiiMasking = boolean;
-export type InjectionClassifier = boolean;
+export type Showreasoning = boolean;
+export type Piimasking = boolean;
+export type Injectionclassifier = boolean;
 export type Web = boolean;
 export type Slack = boolean;
 export type Teams = boolean;
@@ -218,10 +218,10 @@ export type Widget = boolean;
 export interface AgentDefinition {
   persona: Persona;
   instructions: Instructions;
-  starter_prompts?: StarterPrompts;
+  starterPrompts?: Starterprompts;
   model: ModelSpec;
   tools?: Tools;
-  tool_search?: ToolSearch;
+  toolSearch?: ToolSearch;
   knowledge?: KnowledgeSpec;
   skills?: Skills;
   memory?: MemorySpec;
@@ -238,9 +238,9 @@ export interface AgentDefinition {
  * via the `definition` "Persona".
  */
 export interface Persona {
-  display_name: DisplayName;
+  displayName: Displayname;
   greeting?: Greeting;
-  avatar_file?: AvatarFile;
+  avatarFile?: Avatarfile;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -248,16 +248,16 @@ export interface Persona {
  */
 export interface ModelSpec {
   alias: Alias;
-  fast_alias: FastAlias;
-  vision_alias?: VisionAlias;
+  fastAlias: Fastalias;
+  visionAlias?: Visionalias;
   params?: ModelParams;
-  degrade_to_fast?: DegradeToFast;
+  degradeToFast?: Degradetofast;
 }
 export interface ModelParams {
   temperature?: Temperature;
-  top_p?: TopP;
-  max_output_tokens?: MaxOutputTokens;
-  reasoning_effort?: ReasoningEffort;
+  topP?: Topp;
+  maxOutputTokens?: Maxoutputtokens;
+  reasoningEffort?: Reasoningeffort;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -277,37 +277,37 @@ export interface Overrides {
  * via the `definition` "ToolOverride".
  */
 export interface ToolOverride {
-  require_approval?: RequireApproval;
+  requireApproval?: Requireapproval;
   pinned?: Pinned;
 }
 export interface ToolSearch {
   mode?: Mode;
-  top_k?: TopK;
+  topK?: Topk;
 }
 export interface KnowledgeSpec {
   collections?: Collections;
-  auto_retrieve?: AutoRetrieve;
-  top_k?: TopK1;
-  min_score?: MinScore;
+  autoRetrieve?: Autoretrieve;
+  topK?: Topk1;
+  minScore?: Minscore;
 }
 export interface MemorySpec {
   enabled?: Enabled;
-  read_scopes?: ReadScopes;
-  user_writes?: UserWrites;
-  agent_writes?: AgentWrites;
-  recall_top_k?: RecallTopK;
+  readScopes?: Readscopes;
+  userWrites?: Userwrites;
+  agentWrites?: Agentwrites;
+  recallTopK?: Recalltopk;
 }
 export interface SubagentSpec {
   allowed?: Allowed;
-  allow_self_clone?: AllowSelfClone;
-  max_depth?: MaxDepth;
-  max_parallel?: MaxParallel;
+  allowSelfClone?: Allowselfclone;
+  maxDepth?: Maxdepth;
+  maxParallel?: Maxparallel;
 }
 export interface SandboxSpec {
   enabled?: Enabled1;
   template?: Template;
   scope?: Scope;
-  extra_egress_allowlist?: ExtraEgressAllowlist;
+  extraEgressAllowlist?: Extraegressallowlist;
 }
 /**
  * Limits for one top-level run. Subagents draw from the same budget.
@@ -316,25 +316,25 @@ export interface SandboxSpec {
  * via the `definition` "RunBudget".
  */
 export interface RunBudget {
-  max_steps: MaxSteps;
-  max_tokens: MaxTokens;
-  max_cost_micros: MaxCostMicros;
-  max_wall_clock_s: MaxWallClockS;
-  max_tool_calls: MaxToolCalls;
-  max_parallel_tool_calls: MaxParallelToolCalls;
+  maxSteps: Maxsteps;
+  maxTokens: Maxtokens;
+  maxCostMicros: Maxcostmicros;
+  maxWallClockS: Maxwallclocks;
+  maxToolCalls: Maxtoolcalls;
+  maxParallelToolCalls: Maxparalleltoolcalls;
 }
 export interface ContextSpec {
-  compaction_threshold?: CompactionThreshold;
-  tool_result_max_tokens?: ToolResultMaxTokens;
-  history_max_messages?: HistoryMaxMessages;
+  compactionThreshold?: Compactionthreshold;
+  toolResultMaxTokens?: Toolresultmaxtokens;
+  historyMaxMessages?: Historymaxmessages;
 }
 export interface OutputSpec {
   citations?: Citations;
-  show_reasoning?: ShowReasoning;
+  showReasoning?: Showreasoning;
 }
 export interface SafetySpec {
-  pii_masking?: PiiMasking;
-  injection_classifier?: InjectionClassifier;
+  piiMasking?: Piimasking;
+  injectionClassifier?: Injectionclassifier;
 }
 export interface ChannelFlags {
   web?: Web;
@@ -361,9 +361,9 @@ export interface ChannelFlags1 {
  * via the `definition` "ContextSpec".
  */
 export interface ContextSpec1 {
-  compaction_threshold?: CompactionThreshold;
-  tool_result_max_tokens?: ToolResultMaxTokens;
-  history_max_messages?: HistoryMaxMessages;
+  compactionThreshold?: Compactionthreshold;
+  toolResultMaxTokens?: Toolresultmaxtokens;
+  historyMaxMessages?: Historymaxmessages;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -371,9 +371,9 @@ export interface ContextSpec1 {
  */
 export interface KnowledgeSpec1 {
   collections?: Collections;
-  auto_retrieve?: AutoRetrieve;
-  top_k?: TopK1;
-  min_score?: MinScore;
+  autoRetrieve?: Autoretrieve;
+  topK?: Topk1;
+  minScore?: Minscore;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -381,10 +381,10 @@ export interface KnowledgeSpec1 {
  */
 export interface MemorySpec1 {
   enabled?: Enabled;
-  read_scopes?: ReadScopes;
-  user_writes?: UserWrites;
-  agent_writes?: AgentWrites;
-  recall_top_k?: RecallTopK;
+  readScopes?: Readscopes;
+  userWrites?: Userwrites;
+  agentWrites?: Agentwrites;
+  recallTopK?: Recalltopk;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -392,9 +392,9 @@ export interface MemorySpec1 {
  */
 export interface ModelParams1 {
   temperature?: Temperature;
-  top_p?: TopP;
-  max_output_tokens?: MaxOutputTokens;
-  reasoning_effort?: ReasoningEffort;
+  topP?: Topp;
+  maxOutputTokens?: Maxoutputtokens;
+  reasoningEffort?: Reasoningeffort;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -402,15 +402,15 @@ export interface ModelParams1 {
  */
 export interface OutputSpec1 {
   citations?: Citations;
-  show_reasoning?: ShowReasoning;
+  showReasoning?: Showreasoning;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
  * via the `definition` "SafetySpec".
  */
 export interface SafetySpec1 {
-  pii_masking?: PiiMasking;
-  injection_classifier?: InjectionClassifier;
+  piiMasking?: Piimasking;
+  injectionClassifier?: Injectionclassifier;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -420,7 +420,7 @@ export interface SandboxSpec1 {
   enabled?: Enabled1;
   template?: Template;
   scope?: Scope;
-  extra_egress_allowlist?: ExtraEgressAllowlist;
+  extraEgressAllowlist?: Extraegressallowlist;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -428,9 +428,9 @@ export interface SandboxSpec1 {
  */
 export interface SubagentSpec1 {
   allowed?: Allowed;
-  allow_self_clone?: AllowSelfClone;
-  max_depth?: MaxDepth;
-  max_parallel?: MaxParallel;
+  allowSelfClone?: Allowselfclone;
+  maxDepth?: Maxdepth;
+  maxParallel?: Maxparallel;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -438,5 +438,5 @@ export interface SubagentSpec1 {
  */
 export interface ToolSearch1 {
   mode?: Mode;
-  top_k?: TopK;
+  topK?: Topk;
 }

@@ -160,6 +160,48 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_VECTOR_PG_READ_DSN` | (unset) | Optional read-replica DSN for knowledge searches on pgvector | [spec 10](../03-specs/10-knowledge.md#11-configuration), [scaling](scaling.md) |
 | `AR_WEBHOOK_ALLOW_PRIVATE` | `false` | Allow webhook targets in private ranges (dev only) | [spec 20](../03-specs/20-notifications-events.md) |
 
+### 3.1 Variables added for records, grounding and packs
+
+These names are part of the catalogue. The task that implements each one adds it to `ar_common.settings` and `.env.example` in the same change. They are not required for M1.
+
+| Variable | Default | Description | Defined in |
+|---|---|---|---|
+| `AR_BINDER_MAX_ITEMS` | `5000` | Maximum records in one binder selection | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_EVIDENCE_BUCKET` | `ar-evidence` | Object Lock bucket for evidence bytes | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_EVIDENCE_DEFAULT_LOCK_DAYS` | `2555` | Object Lock retain-until offset | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_EVIDENCE_LOCK_MODE` | `compliance` | `compliance` or `governance` | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_EVIDENCE_SIGNING_KEY` | (secret) | Ed25519 PEM for evidence and run-record manifests | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_EVIDENCE_SIGNING_KEY_ID` | `evidence-k1` | `signature_key_id` written on new items | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_GROUNDING_MAX_SENTENCES` | `200` | Claim cap per answer | [spec 07](../03-specs/07-agent-runtime.md) |
+| `AR_GRC_CONNECTOR_MAX_PAGES` | `50` | Page cap for one GRC connector collection | [GRC connectors](../10-grc-pack/connectors.md) |
+| `AR_GUEST_MAGIC_LINK_TTL_S` | `900` | Guest magic-link lifetime | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_GUEST_MAX_TTL_DAYS` | `90` | Longest guest principal lifetime | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_GUEST_SESSION_TTL_S` | `28800` | Guest session TTL | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_PACK_SIGNATURE_REQUIRED` | `true` (`false` when `AR_ENV=dev`) | Reject unsigned content packs | [spec 05](../03-specs/05-agent-registry.md) |
+| `AR_PACK_TRUSTED_KEYS` | (secret JSON) | `{key_id, public_key_pem}` entries | [spec 05](../03-specs/05-agent-registry.md) |
+| `AR_PACKS_DIR` | `packs` | Directory scanned for pack packages | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_RUN_RECORD_MAX_BLOB_BYTES` | `52428800` | Max encrypted tool I/O stored with a run record | [spec 18](../03-specs/18-observability-eval.md) |
+| `AR_TSA_TIMEOUT_MS` | `2000` | RFC 3161 call timeout | [spec 21](../03-specs/21-records-governance.md) |
+| `AR_TSA_URL` | empty | Platform TSA used when a tenant enables timestamping without its own URL | [spec 21](../03-specs/21-records-governance.md) |
+
+### 3.2 Required versus defaulted
+
+A deployment starts once secrets and identity exist. Every other variable in §3 and §3.1 has a default and must not be set for a normal tenant.
+
+Required in `staging` and `prod` (startup fails when missing):
+
+| Variable | Why it cannot be guessed |
+|---|---|
+| `AR_DATABASE_URL` | The database |
+| `AR_VALKEY_URL` | The cache |
+| `AR_INTERNAL_JWT_PRIVATE_KEY` | Service identity |
+| `AR_OIDC_CLIENT_SECRET` | Login to the identity provider |
+| `AR_SESSION_ENCRYPTION_KEY` | Session cookie contents |
+
+`AR_OIDC_ISSUER` and `AR_OIDC_CLIENT_ID` have defaults for local dev. Production sets them to the customer's issuer; they are identity, not product behaviour.
+
+Everything else, including evidence, guests, packs and grounding, runs on the default in the catalogue. Tenant behaviour lives in `tenants.settings` with the defaults in the owning spec. Settings screens use Simple and Advanced modes ([spec 19 §12](../03-specs/19-web-app.md#12-simple-and-advanced-settings)).
+
 ## 4. Mirrors and air-gapped installs
 
 | What | Variable / value | Notes |

@@ -62,3 +62,11 @@ Canonical terms. Code, API fields, tables and UI copy use these names. Deployabl
 | **Eval suite / case / run** | Test set of agent tasks with graders and their executions. | [spec 18](../03-specs/18-observability-eval.md) |
 | **Untrusted content** | Any tool output, retrieved document, file content or channel message from others; wrapped and never treated as instructions. | [prompt-injection](../06-security/prompt-injection.md) |
 | **Internal JWT** | Short-lived service-to-service token carrying acting context. | [internal-apis](../05-contracts/internal-apis.md) |
+| **Evidence item** | Immutable bytes plus a signed manifest in the evidence bucket. | [spec 21](../03-specs/21-records-governance.md) |
+| **Run record** | Sealed recording of a run, including encrypted tool I/O, so the run can be re-performed. | [spec 18](../03-specs/18-observability-eval.md) |
+| **Sign-off** | A person's attestation of a statement and a content hash. Not a tool-call approval. | [spec 09](../03-specs/09-policy-approvals.md) |
+| **Guest principal** | An external participant with a time-boxed grant. Not a user. | [spec 21](../03-specs/21-records-governance.md) |
+| **Content pack** | A signed bundle with an id and a version. A solution pack adds schema and UI through the extension framework. | [spec 05](../03-specs/05-agent-registry.md) |
+| **Legal hold** | A matter that stops disposition of the records it covers. | spec 21 |
+| **Agent card** | The platform's record of one published agent version. | spec 21 |
+| **Binder** | A ZIP of selected records, a hash manifest, and an offline verifier. | spec 21 |

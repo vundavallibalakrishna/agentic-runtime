@@ -15,8 +15,8 @@
       "title": "Secret",
       "type": "string"
     },
-    "default_agent": {
-      "title": "Default Agent",
+    "defaultAgent": {
+      "title": "Defaultagent",
       "type": "string"
     },
     "config": {
@@ -30,7 +30,7 @@
   "required": [
     "kind",
     "secret",
-    "default_agent"
+    "defaultAgent"
   ],
   "title": "ChannelIntegrationDefinition",
   "type": "object"

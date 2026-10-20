@@ -81,3 +81,7 @@ The helper exposes this as MCP resources: `resources/list` (paged, includes ACL 
 
 - Headers in [mcp-integration.md](mcp-integration.md) §3 and JWT claims in §4.5 are stable within platform major version 1.
 - New optional headers or claims may be added; servers must ignore unknown ones.
+
+## 4. Solution packs
+
+A solution pack is not a connector. It is a content pack plus the six hooks in [spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points). Pack MCP servers still use this SDK and the tool lifecycle in [spec 08](../03-specs/08-tool-registry-mcp.md). Pack knowledge connectors still use `DocumentSource`. The GRC pack's connectors are specified in [10-grc-pack/connectors.md](../10-grc-pack/connectors.md).

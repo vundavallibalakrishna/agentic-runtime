@@ -41,67 +41,67 @@ export type RunEvent =
   | Heartbeat;
 export type Id = string;
 export type Seq = number;
-export type RunId = string;
-export type RootRunId = string;
-export type ConversationId = string | null;
+export type Runid = string;
+export type Rootrunid = string;
+export type Conversationid = string | null;
 export type Ts = string;
 export type Type = "run.queued";
-export type AgentId = string;
-export type AgentVersionId = string;
+export type Agentid = string;
+export type Agentversionid = string;
 export type Trigger = string;
-export type InputMessageId = string;
+export type Inputmessageid = string;
 export type Id1 = string;
 export type Seq1 = number;
-export type RunId1 = string;
-export type RootRunId1 = string;
-export type ConversationId1 = string | null;
+export type Runid1 = string;
+export type Rootrunid1 = string;
+export type Conversationid1 = string | null;
 export type Ts1 = string;
 export type Type1 = "run.started";
-export type ModelAlias = string;
-export type MaxSteps = number;
-export type MaxTokens = number;
-export type MaxCostMicros = number;
-export type MaxWallClockS = number;
-export type MaxToolCalls = number;
-export type MaxParallelToolCalls = number;
-export type SandboxId = string | null;
+export type Modelalias = string;
+export type Maxsteps = number;
+export type Maxtokens = number;
+export type Maxcostmicros = number;
+export type Maxwallclocks = number;
+export type Maxtoolcalls = number;
+export type Maxparalleltoolcalls = number;
+export type Sandboxid = string | null;
 export type Id2 = string;
 export type Seq2 = number;
-export type RunId2 = string;
-export type RootRunId2 = string;
-export type ConversationId2 = string | null;
+export type Runid2 = string;
+export type Rootrunid2 = string;
+export type Conversationid2 = string | null;
 export type Ts2 = string;
 export type Type2 = "run.status";
 export type Status = "running" | "waiting_approval" | "waiting_input";
 export type Reason = string | null;
 export type Id3 = string;
 export type Seq3 = number;
-export type RunId3 = string;
-export type RootRunId3 = string;
-export type ConversationId3 = string | null;
+export type Runid3 = string;
+export type Rootrunid3 = string;
+export type Conversationid3 = string | null;
 export type Ts3 = string;
 export type Type3 = "run.usage";
-export type TokensIn = number;
-export type TokensOut = number;
-export type CachedTokens = number;
-export type ModelCalls = number;
-export type ToolCalls = number;
-export type CostMicros = number;
-export type SandboxCpuSeconds = number;
-export type ElapsedMs = number;
+export type Tokensin = number;
+export type Tokensout = number;
+export type Cachedtokens = number;
+export type Modelcalls = number;
+export type Toolcalls = number;
+export type Costmicros = number;
+export type Sandboxcpuseconds = number;
+export type Elapsedms = number;
 export type Id4 = string;
 export type Seq4 = number;
-export type RunId4 = string;
-export type RootRunId4 = string;
-export type ConversationId4 = string | null;
+export type Runid4 = string;
+export type Rootrunid4 = string;
+export type Conversationid4 = string | null;
 export type Ts4 = string;
 export type Type4 = "run.completed";
-export type FinalMessageId = string;
+export type Finalmessageid = string;
 export type Id5 = string;
 export type Seq5 = number;
-export type RunId5 = string;
-export type RootRunId5 = string;
-export type ConversationId5 = string | null;
+export type Runid5 = string;
+export type Rootrunid5 = string;
+export type Conversationid5 = string | null;
 export type Ts5 = string;
 export type Type5 = "run.failed";
 export type Code = string;
@@ -109,233 +109,233 @@ export type Message = string;
 export type Retriable = boolean;
 export type Id6 = string;
 export type Seq6 = number;
-export type RunId6 = string;
-export type RootRunId6 = string;
-export type ConversationId6 = string | null;
+export type Runid6 = string;
+export type Rootrunid6 = string;
+export type Conversationid6 = string | null;
 export type Ts6 = string;
 export type Type6 = "run.cancelled";
 export type By = "user" | "system";
 export type Id7 = string;
 export type Seq7 = number;
-export type RunId7 = string;
-export type RootRunId7 = string;
-export type ConversationId7 = string | null;
+export type Runid7 = string;
+export type Rootrunid7 = string;
+export type Conversationid7 = string | null;
 export type Ts7 = string;
 export type Type7 = "run.budget_exceeded";
 export type Limit = "max_steps" | "max_tokens" | "max_cost_micros" | "max_wall_clock_s" | "max_tool_calls";
 export type Id8 = string;
 export type Seq8 = number;
-export type RunId8 = string;
-export type RootRunId8 = string;
-export type ConversationId8 = string | null;
+export type Runid8 = string;
+export type Rootrunid8 = string;
+export type Conversationid8 = string | null;
 export type Ts8 = string;
 export type Type8 = "message.started";
-export type MessageId = string;
+export type Messageid = string;
 export type Role = "assistant";
-export type ModelAlias1 = string;
+export type Modelalias1 = string;
 export type Reset = boolean;
 export type Id9 = string;
 export type Seq9 = number;
-export type RunId9 = string;
-export type RootRunId9 = string;
-export type ConversationId9 = string | null;
+export type Runid9 = string;
+export type Rootrunid9 = string;
+export type Conversationid9 = string | null;
 export type Ts9 = string;
 export type Type9 = "message.delta";
-export type MessageId1 = string;
+export type Messageid1 = string;
 export type Text = string;
 export type Id10 = string;
 export type Seq10 = number;
-export type RunId10 = string;
-export type RootRunId10 = string;
-export type ConversationId10 = string | null;
+export type Runid10 = string;
+export type Rootrunid10 = string;
+export type Conversationid10 = string | null;
 export type Ts10 = string;
 export type Type10 = "reasoning.delta";
 export type Id11 = string;
 export type Seq11 = number;
-export type RunId11 = string;
-export type RootRunId11 = string;
-export type ConversationId11 = string | null;
+export type Runid11 = string;
+export type Rootrunid11 = string;
+export type Conversationid11 = string | null;
 export type Ts11 = string;
 export type Type11 = "message.completed";
-export type MessageId2 = string;
+export type Messageid2 = string;
 export type Type12 = "text";
 export type Text1 = string;
 export type Type13 = "file";
-export type FileId = string;
+export type Fileid = string;
 export type Name = string;
-export type MimeType = string;
+export type Mimetype = string;
 export type Type14 = "image";
-export type FileId1 = string;
+export type Fileid1 = string;
 export type Alt = string;
 export type Type15 = "tool_use";
-export type ToolCallId = string;
-export type QualifiedName = string;
+export type Toolcallid = string;
+export type Qualifiedname = string;
 export type Arguments = {
   [k: string]: unknown;
 } | null;
 export type Type16 = "citation_ref";
 export type Index = number;
 export type Index1 = number;
-export type DocumentId = string;
-export type ChunkId = string;
-export type CollectionId = string;
+export type Documentid = string;
+export type Chunkid = string;
+export type Collectionid = string;
 export type Title = string;
 export type Uri = string;
 export type Snippet = string;
-export type PageFrom = number | null;
-export type PageTo = number | null;
-export type SourceModifiedAt = string | null;
+export type Pagefrom = number | null;
+export type Pageto = number | null;
+export type Sourcemodifiedat = string | null;
 export type Type17 = "tool_result";
-export type ToolCallId1 = string;
+export type Toolcallid1 = string;
 export type Text2 = string;
-export type IsError = boolean;
+export type Iserror = boolean;
 export type Content = (TextPart | FilePart | ImagePart | ToolUsePart | CitationRefPart | ToolResultPart)[];
-export type TokensIn1 = number;
-export type TokensOut1 = number;
-export type FinishReason = string;
+export type Tokensin1 = number;
+export type Tokensout1 = number;
+export type Finishreason = string;
 export type Id12 = string;
 export type Seq12 = number;
-export type RunId12 = string;
-export type RootRunId12 = string;
-export type ConversationId12 = string | null;
+export type Runid12 = string;
+export type Rootrunid12 = string;
+export type Conversationid12 = string | null;
 export type Ts12 = string;
 export type Type18 = "citation.added";
-export type MessageId3 = string;
+export type Messageid3 = string;
 export type Id13 = string;
 export type Seq13 = number;
-export type RunId13 = string;
-export type RootRunId13 = string;
-export type ConversationId13 = string | null;
+export type Runid13 = string;
+export type Rootrunid13 = string;
+export type Conversationid13 = string | null;
 export type Ts13 = string;
 export type Type19 = "tool_call.started";
-export type ToolCallId2 = string;
-export type ModelCallId = string;
-export type QualifiedName1 = string;
+export type Toolcallid2 = string;
+export type Modelcallid = string;
+export type Qualifiedname1 = string;
 export type Title1 = string;
-export type RiskClass = string;
-export type ArgumentsPreview = string;
+export type Riskclass = string;
+export type Argumentspreview = string;
 export type Id14 = string;
 export type Seq14 = number;
-export type RunId14 = string;
-export type RootRunId14 = string;
-export type ConversationId14 = string | null;
+export type Runid14 = string;
+export type Rootrunid14 = string;
+export type Conversationid14 = string | null;
 export type Ts14 = string;
 export type Type20 = "tool_call.progress";
-export type ToolCallId3 = string;
+export type Toolcallid3 = string;
 export type Message1 = string;
 export type Progress = number | null;
 export type Id15 = string;
 export type Seq15 = number;
-export type RunId15 = string;
-export type RootRunId15 = string;
-export type ConversationId15 = string | null;
+export type Runid15 = string;
+export type Rootrunid15 = string;
+export type Conversationid15 = string | null;
 export type Ts15 = string;
 export type Type21 = "tool_call.approval_required";
-export type ToolCallId4 = string;
-export type ApprovalId = string;
-export type ExpiresAt = string;
-export type ApproverRule = string;
+export type Toolcallid4 = string;
+export type Approvalid = string;
+export type Expiresat = string;
+export type Approverrule = string;
 export type Id16 = string;
 export type Seq16 = number;
-export type RunId16 = string;
-export type RootRunId16 = string;
-export type ConversationId16 = string | null;
+export type Runid16 = string;
+export type Rootrunid16 = string;
+export type Conversationid16 = string | null;
 export type Ts16 = string;
 export type Type22 = "tool_call.approval_resolved";
-export type ToolCallId5 = string;
-export type ApprovalId1 = string;
+export type Toolcallid5 = string;
+export type Approvalid1 = string;
 export type Decision = "approved" | "rejected" | "expired" | "cancelled";
-export type ByUserId = string | null;
+export type Byuserid = string | null;
 export type Id17 = string;
 export type Seq17 = number;
-export type RunId17 = string;
-export type RootRunId17 = string;
-export type ConversationId17 = string | null;
+export type Runid17 = string;
+export type Rootrunid17 = string;
+export type Conversationid17 = string | null;
 export type Ts17 = string;
 export type Type23 = "input.required";
-export type RequestId = string;
-export type ToolCallId6 = string;
+export type Requestid = string;
+export type Toolcallid6 = string;
 export type Message2 = string;
-export type ExpiresAt1 = string;
+export type Expiresat1 = string;
 export type Id18 = string;
 export type Seq18 = number;
-export type RunId18 = string;
-export type RootRunId18 = string;
-export type ConversationId18 = string | null;
+export type Runid18 = string;
+export type Rootrunid18 = string;
+export type Conversationid18 = string | null;
 export type Ts18 = string;
 export type Type24 = "input.resolved";
-export type RequestId1 = string;
+export type Requestid1 = string;
 export type Action = "accept" | "decline" | "cancel" | "expired";
 export type Id19 = string;
 export type Seq19 = number;
-export type RunId19 = string;
-export type RootRunId19 = string;
-export type ConversationId19 = string | null;
+export type Runid19 = string;
+export type Rootrunid19 = string;
+export type Conversationid19 = string | null;
 export type Ts19 = string;
 export type Type25 = "tool_call.completed";
-export type ToolCallId7 = string;
+export type Toolcallid7 = string;
 export type Status1 = "succeeded";
-export type ResultPreview = string;
-export type ResultFileId = string | null;
-export type LatencyMs = number;
+export type Resultpreview = string;
+export type Resultfileid = string | null;
+export type Latencyms = number;
 export type Id20 = string;
 export type Seq20 = number;
-export type RunId20 = string;
-export type RootRunId20 = string;
-export type ConversationId20 = string | null;
+export type Runid20 = string;
+export type Rootrunid20 = string;
+export type Conversationid20 = string | null;
 export type Ts20 = string;
 export type Type26 = "tool_call.failed";
-export type ToolCallId8 = string;
+export type Toolcallid8 = string;
 export type Status2 = "failed" | "denied" | "rejected" | "expired" | "cancelled";
-export type PolicyReasons = string[] | null;
-export type ConnectUrl = string | null;
+export type Policyreasons = string[] | null;
+export type Connecturl = string | null;
 export type Id21 = string;
 export type Seq21 = number;
-export type RunId21 = string;
-export type RootRunId21 = string;
-export type ConversationId21 = string | null;
+export type Runid21 = string;
+export type Rootrunid21 = string;
+export type Conversationid21 = string | null;
 export type Ts21 = string;
 export type Type27 = "artifact.created";
-export type FileId2 = string;
+export type Fileid2 = string;
 export type Name1 = string;
-export type MimeType1 = string;
-export type SizeBytes = number;
+export type Mimetype1 = string;
+export type Sizebytes = number;
 export type Preview1 = string | null;
 export type Id22 = string;
 export type Seq22 = number;
-export type RunId22 = string;
-export type RootRunId22 = string;
-export type ConversationId22 = string | null;
+export type Runid22 = string;
+export type Rootrunid22 = string;
+export type Conversationid22 = string | null;
 export type Ts22 = string;
 export type Type28 = "sandbox.status";
-export type SandboxId1 = string;
+export type Sandboxid1 = string;
 export type Status3 = string;
 export type Id23 = string;
 export type Seq23 = number;
-export type RunId23 = string;
-export type RootRunId23 = string;
-export type ConversationId23 = string | null;
+export type Runid23 = string;
+export type Rootrunid23 = string;
+export type Conversationid23 = string | null;
 export type Ts23 = string;
 export type Type29 = "sandbox.output";
-export type ToolCallId9 = string;
+export type Toolcallid9 = string;
 export type Stream = "stdout" | "stderr";
 export type Text3 = string;
 export type Id24 = string;
 export type Seq24 = number;
-export type RunId24 = string;
-export type RootRunId24 = string;
-export type ConversationId24 = string | null;
+export type Runid24 = string;
+export type Rootrunid24 = string;
+export type Conversationid24 = string | null;
 export type Ts24 = string;
 export type Type30 = "browser.screenshot";
-export type ToolCallId10 = string;
-export type FileId3 = string;
+export type Toolcallid10 = string;
+export type Fileid3 = string;
 export type Url = string;
 export type Title2 = string;
 export type Id25 = string;
 export type Seq25 = number;
-export type RunId25 = string;
-export type RootRunId25 = string;
-export type ConversationId25 = string | null;
+export type Runid25 = string;
+export type Rootrunid25 = string;
+export type Conversationid25 = string | null;
 export type Ts25 = string;
 export type Type31 = "plan.updated";
 export type Id26 = string;
@@ -344,118 +344,118 @@ export type Status4 = "pending" | "in_progress" | "done" | "cancelled";
 export type Items = PlanItem[];
 export type Id27 = string;
 export type Seq26 = number;
-export type RunId26 = string;
-export type RootRunId26 = string;
-export type ConversationId26 = string | null;
+export type Runid26 = string;
+export type Rootrunid26 = string;
+export type Conversationid26 = string | null;
 export type Ts26 = string;
 export type Type32 = "subagent.started";
-export type ChildRunId = string;
-export type AgentId1 = string;
-export type AgentName = string;
-export type TaskBrief = string;
+export type Childrunid = string;
+export type Agentid1 = string;
+export type Agentname = string;
+export type Taskbrief = string;
 export type Id28 = string;
 export type Seq27 = number;
-export type RunId27 = string;
-export type RootRunId27 = string;
-export type ConversationId27 = string | null;
+export type Runid27 = string;
+export type Rootrunid27 = string;
+export type Conversationid27 = string | null;
 export type Ts27 = string;
 export type Type33 = "subagent.completed";
-export type ChildRunId1 = string;
+export type Childrunid1 = string;
 export type Status5 = string;
-export type ResultSummary = string;
+export type Resultsummary = string;
 export type Id29 = string;
 export type Seq28 = number;
-export type RunId28 = string;
-export type RootRunId28 = string;
-export type ConversationId28 = string | null;
+export type Runid28 = string;
+export type Rootrunid28 = string;
+export type Conversationid28 = string | null;
 export type Ts28 = string;
 export type Type34 = "memory.recalled";
-export type FactIds = string[];
+export type Factids = string[];
 export type Count = number;
 export type Id30 = string;
 export type Seq29 = number;
-export type RunId29 = string;
-export type RootRunId29 = string;
-export type ConversationId29 = string | null;
+export type Runid29 = string;
+export type Rootrunid29 = string;
+export type Conversationid29 = string | null;
 export type Ts29 = string;
 export type Type35 = "memory.saved";
-export type FactId = string;
+export type Factid = string;
 export type Content1 = string;
 export type Scope = string;
 export type Id31 = string;
 export type Seq30 = number;
-export type RunId30 = string;
-export type RootRunId30 = string;
-export type ConversationId30 = string | null;
+export type Runid30 = string;
+export type Rootrunid30 = string;
+export type Conversationid30 = string | null;
 export type Ts30 = string;
 export type Type36 = "context.compacted";
-export type TokensBefore = number;
-export type TokensAfter = number;
+export type Tokensbefore = number;
+export type Tokensafter = number;
 export type Id32 = string;
 export type Seq31 = number;
-export type RunId31 = string;
-export type RootRunId31 = string;
-export type ConversationId31 = string | null;
+export type Runid31 = string;
+export type Rootrunid31 = string;
+export type Conversationid31 = string | null;
 export type Ts31 = string;
 export type Type37 = "warning";
 export type Code1 = string;
 export type Message3 = string;
 export type Id33 = string;
 export type Seq32 = number;
-export type RunId32 = string;
-export type RootRunId32 = string;
-export type ConversationId32 = string | null;
+export type Runid32 = string;
+export type Rootrunid32 = string;
+export type Conversationid32 = string | null;
 export type Ts32 = string;
 export type Type38 = "heartbeat";
 
 export interface RunQueued {
   id: Id;
   seq: Seq;
-  run_id: RunId;
-  root_run_id: RootRunId;
-  conversation_id: ConversationId;
+  runId: Runid;
+  rootRunId: Rootrunid;
+  conversationId: Conversationid;
   ts: Ts;
   type: Type;
   data: RunQueuedData;
 }
 export interface RunQueuedData {
-  agent_id: AgentId;
-  agent_version_id: AgentVersionId;
+  agentId: Agentid;
+  agentVersionId: Agentversionid;
   trigger: Trigger;
-  input_message_id: InputMessageId;
+  inputMessageId: Inputmessageid;
 }
 export interface RunStarted {
   id: Id1;
   seq: Seq1;
-  run_id: RunId1;
-  root_run_id: RootRunId1;
-  conversation_id: ConversationId1;
+  runId: Runid1;
+  rootRunId: Rootrunid1;
+  conversationId: Conversationid1;
   ts: Ts1;
   type: Type1;
   data: RunStartedData;
 }
 export interface RunStartedData {
-  model_alias: ModelAlias;
+  modelAlias: Modelalias;
   budget: RunBudget;
-  sandbox_id?: SandboxId;
+  sandboxId?: Sandboxid;
 }
 /**
  * Limits for one top-level run. Subagents draw from the same budget.
  */
 export interface RunBudget {
-  max_steps: MaxSteps;
-  max_tokens: MaxTokens;
-  max_cost_micros: MaxCostMicros;
-  max_wall_clock_s: MaxWallClockS;
-  max_tool_calls: MaxToolCalls;
-  max_parallel_tool_calls: MaxParallelToolCalls;
+  maxSteps: Maxsteps;
+  maxTokens: Maxtokens;
+  maxCostMicros: Maxcostmicros;
+  maxWallClockS: Maxwallclocks;
+  maxToolCalls: Maxtoolcalls;
+  maxParallelToolCalls: Maxparalleltoolcalls;
 }
 export interface RunStatus {
   id: Id2;
   seq: Seq2;
-  run_id: RunId2;
-  root_run_id: RootRunId2;
-  conversation_id: ConversationId2;
+  runId: Runid2;
+  rootRunId: Rootrunid2;
+  conversationId: Conversationid2;
   ts: Ts2;
   type: Type2;
   data: RunStatusData;
@@ -467,9 +467,9 @@ export interface RunStatusData {
 export interface RunUsageEvent {
   id: Id3;
   seq: Seq3;
-  run_id: RunId3;
-  root_run_id: RootRunId3;
-  conversation_id: ConversationId3;
+  runId: Runid3;
+  rootRunId: Rootrunid3;
+  conversationId: Conversationid3;
   ts: Ts3;
   type: Type3;
   data: RunUsage;
@@ -478,35 +478,35 @@ export interface RunUsageEvent {
  * Cumulative usage reported on run events.
  */
 export interface RunUsage {
-  tokens_in?: TokensIn;
-  tokens_out?: TokensOut;
-  cached_tokens?: CachedTokens;
-  model_calls?: ModelCalls;
-  tool_calls?: ToolCalls;
-  cost_micros?: CostMicros;
-  sandbox_cpu_seconds?: SandboxCpuSeconds;
-  elapsed_ms?: ElapsedMs;
+  tokensIn?: Tokensin;
+  tokensOut?: Tokensout;
+  cachedTokens?: Cachedtokens;
+  modelCalls?: Modelcalls;
+  toolCalls?: Toolcalls;
+  costMicros?: Costmicros;
+  sandboxCpuSeconds?: Sandboxcpuseconds;
+  elapsedMs?: Elapsedms;
 }
 export interface RunCompleted {
   id: Id4;
   seq: Seq4;
-  run_id: RunId4;
-  root_run_id: RootRunId4;
-  conversation_id: ConversationId4;
+  runId: Runid4;
+  rootRunId: Rootrunid4;
+  conversationId: Conversationid4;
   ts: Ts4;
   type: Type4;
   data: RunCompletedData;
 }
 export interface RunCompletedData {
-  final_message_id: FinalMessageId;
+  finalMessageId: Finalmessageid;
   usage: RunUsage;
 }
 export interface RunFailed {
   id: Id5;
   seq: Seq5;
-  run_id: RunId5;
-  root_run_id: RootRunId5;
-  conversation_id: ConversationId5;
+  runId: Runid5;
+  rootRunId: Rootrunid5;
+  conversationId: Conversationid5;
   ts: Ts5;
   type: Type5;
   data: RunFailedData;
@@ -523,9 +523,9 @@ export interface RunErrorInfo {
 export interface RunCancelled {
   id: Id6;
   seq: Seq6;
-  run_id: RunId6;
-  root_run_id: RootRunId6;
-  conversation_id: ConversationId6;
+  runId: Runid6;
+  rootRunId: Rootrunid6;
+  conversationId: Conversationid6;
   ts: Ts6;
   type: Type6;
   data: RunCancelledData;
@@ -537,9 +537,9 @@ export interface RunCancelledData {
 export interface RunBudgetExceeded {
   id: Id7;
   seq: Seq7;
-  run_id: RunId7;
-  root_run_id: RootRunId7;
-  conversation_id: ConversationId7;
+  runId: Runid7;
+  rootRunId: Rootrunid7;
+  conversationId: Conversationid7;
   ts: Ts7;
   type: Type7;
   data: RunBudgetExceededData;
@@ -551,39 +551,39 @@ export interface RunBudgetExceededData {
 export interface MessageStarted {
   id: Id8;
   seq: Seq8;
-  run_id: RunId8;
-  root_run_id: RootRunId8;
-  conversation_id: ConversationId8;
+  runId: Runid8;
+  rootRunId: Rootrunid8;
+  conversationId: Conversationid8;
   ts: Ts8;
   type: Type8;
   data: MessageStartedData;
 }
 export interface MessageStartedData {
-  message_id: MessageId;
+  messageId: Messageid;
   role: Role;
-  model_alias: ModelAlias1;
+  modelAlias: Modelalias1;
   reset?: Reset;
 }
 export interface MessageDelta {
   id: Id9;
   seq: Seq9;
-  run_id: RunId9;
-  root_run_id: RootRunId9;
-  conversation_id: ConversationId9;
+  runId: Runid9;
+  rootRunId: Rootrunid9;
+  conversationId: Conversationid9;
   ts: Ts9;
   type: Type9;
   data: MessageDeltaData;
 }
 export interface MessageDeltaData {
-  message_id: MessageId1;
+  messageId: Messageid1;
   text: Text;
 }
 export interface ReasoningDelta {
   id: Id10;
   seq: Seq10;
-  run_id: RunId10;
-  root_run_id: RootRunId10;
-  conversation_id: ConversationId10;
+  runId: Runid10;
+  rootRunId: Rootrunid10;
+  conversationId: Conversationid10;
   ts: Ts10;
   type: Type10;
   data: MessageDeltaData;
@@ -591,19 +591,19 @@ export interface ReasoningDelta {
 export interface MessageCompleted {
   id: Id11;
   seq: Seq11;
-  run_id: RunId11;
-  root_run_id: RootRunId11;
-  conversation_id: ConversationId11;
+  runId: Runid11;
+  rootRunId: Rootrunid11;
+  conversationId: Conversationid11;
   ts: Ts11;
   type: Type11;
   data: MessageCompletedData;
 }
 export interface MessageCompletedData {
-  message_id: MessageId2;
+  messageId: Messageid2;
   content: Content;
-  tokens_in: TokensIn1;
-  tokens_out: TokensOut1;
-  finish_reason: FinishReason;
+  tokensIn: Tokensin1;
+  tokensOut: Tokensout1;
+  finishReason: Finishreason;
 }
 export interface TextPart {
   type: Type12;
@@ -611,19 +611,19 @@ export interface TextPart {
 }
 export interface FilePart {
   type: Type13;
-  file_id: FileId;
+  fileId: Fileid;
   name: Name;
-  mime_type: MimeType;
+  mimeType: Mimetype;
 }
 export interface ImagePart {
   type: Type14;
-  file_id: FileId1;
+  fileId: Fileid1;
   alt?: Alt;
 }
 export interface ToolUsePart {
   type: Type15;
-  tool_call_id: ToolCallId;
-  qualified_name: QualifiedName;
+  toolCallId: Toolcallid;
+  qualifiedName: Qualifiedname;
   arguments?: Arguments;
 }
 export interface CitationRefPart {
@@ -636,85 +636,85 @@ export interface CitationRefPart {
  */
 export interface Citation {
   index: Index1;
-  document_id: DocumentId;
-  chunk_id: ChunkId;
-  collection_id: CollectionId;
+  documentId: Documentid;
+  chunkId: Chunkid;
+  collectionId: Collectionid;
   title: Title;
   uri: Uri;
   snippet: Snippet;
-  page_from?: PageFrom;
-  page_to?: PageTo;
-  source_modified_at?: SourceModifiedAt;
+  pageFrom?: Pagefrom;
+  pageTo?: Pageto;
+  sourceModifiedAt?: Sourcemodifiedat;
 }
 export interface ToolResultPart {
   type: Type17;
-  tool_call_id: ToolCallId1;
+  toolCallId: Toolcallid1;
   text: Text2;
-  is_error?: IsError;
+  isError?: Iserror;
 }
 export interface CitationAdded {
   id: Id12;
   seq: Seq12;
-  run_id: RunId12;
-  root_run_id: RootRunId12;
-  conversation_id: ConversationId12;
+  runId: Runid12;
+  rootRunId: Rootrunid12;
+  conversationId: Conversationid12;
   ts: Ts12;
   type: Type18;
   data: CitationAddedData;
 }
 export interface CitationAddedData {
-  message_id: MessageId3;
+  messageId: Messageid3;
   citation: Citation;
 }
 export interface ToolCallStarted {
   id: Id13;
   seq: Seq13;
-  run_id: RunId13;
-  root_run_id: RootRunId13;
-  conversation_id: ConversationId13;
+  runId: Runid13;
+  rootRunId: Rootrunid13;
+  conversationId: Conversationid13;
   ts: Ts13;
   type: Type19;
   data: ToolCallStartedData;
 }
 export interface ToolCallStartedData {
-  tool_call_id: ToolCallId2;
-  model_call_id: ModelCallId;
-  qualified_name: QualifiedName1;
+  toolCallId: Toolcallid2;
+  modelCallId: Modelcallid;
+  qualifiedName: Qualifiedname1;
   title: Title1;
-  risk_class: RiskClass;
-  arguments_preview: ArgumentsPreview;
+  riskClass: Riskclass;
+  argumentsPreview: Argumentspreview;
 }
 export interface ToolCallProgress {
   id: Id14;
   seq: Seq14;
-  run_id: RunId14;
-  root_run_id: RootRunId14;
-  conversation_id: ConversationId14;
+  runId: Runid14;
+  rootRunId: Rootrunid14;
+  conversationId: Conversationid14;
   ts: Ts14;
   type: Type20;
   data: ToolCallProgressData;
 }
 export interface ToolCallProgressData {
-  tool_call_id: ToolCallId3;
+  toolCallId: Toolcallid3;
   message: Message1;
   progress?: Progress;
 }
 export interface ToolCallApprovalRequired {
   id: Id15;
   seq: Seq15;
-  run_id: RunId15;
-  root_run_id: RootRunId15;
-  conversation_id: ConversationId15;
+  runId: Runid15;
+  rootRunId: Rootrunid15;
+  conversationId: Conversationid15;
   ts: Ts15;
   type: Type21;
   data: ToolCallApprovalRequiredData;
 }
 export interface ToolCallApprovalRequiredData {
-  tool_call_id: ToolCallId4;
-  approval_id: ApprovalId;
+  toolCallId: Toolcallid4;
+  approvalId: Approvalid;
   preview: Preview;
-  expires_at: ExpiresAt;
-  approver_rule: ApproverRule;
+  expiresAt: Expiresat;
+  approverRule: Approverrule;
 }
 export interface Preview {
   [k: string]: string;
@@ -722,86 +722,86 @@ export interface Preview {
 export interface ToolCallApprovalResolved {
   id: Id16;
   seq: Seq16;
-  run_id: RunId16;
-  root_run_id: RootRunId16;
-  conversation_id: ConversationId16;
+  runId: Runid16;
+  rootRunId: Rootrunid16;
+  conversationId: Conversationid16;
   ts: Ts16;
   type: Type22;
   data: ToolCallApprovalResolvedData;
 }
 export interface ToolCallApprovalResolvedData {
-  tool_call_id: ToolCallId5;
-  approval_id: ApprovalId1;
+  toolCallId: Toolcallid5;
+  approvalId: Approvalid1;
   decision: Decision;
-  by_user_id?: ByUserId;
+  byUserId?: Byuserid;
 }
 export interface InputRequired {
   id: Id17;
   seq: Seq17;
-  run_id: RunId17;
-  root_run_id: RootRunId17;
-  conversation_id: ConversationId17;
+  runId: Runid17;
+  rootRunId: Rootrunid17;
+  conversationId: Conversationid17;
   ts: Ts17;
   type: Type23;
   data: InputRequiredData;
 }
 export interface InputRequiredData {
-  request_id: RequestId;
-  tool_call_id: ToolCallId6;
+  requestId: Requestid;
+  toolCallId: Toolcallid6;
   message: Message2;
-  requested_schema: RequestedSchema;
-  expires_at: ExpiresAt1;
+  requestedSchema: Requestedschema;
+  expiresAt: Expiresat1;
 }
-export interface RequestedSchema {
+export interface Requestedschema {
   [k: string]: string;
 }
 export interface InputResolved {
   id: Id18;
   seq: Seq18;
-  run_id: RunId18;
-  root_run_id: RootRunId18;
-  conversation_id: ConversationId18;
+  runId: Runid18;
+  rootRunId: Rootrunid18;
+  conversationId: Conversationid18;
   ts: Ts18;
   type: Type24;
   data: InputResolvedData;
 }
 export interface InputResolvedData {
-  request_id: RequestId1;
+  requestId: Requestid1;
   action: Action;
 }
 export interface ToolCallCompleted {
   id: Id19;
   seq: Seq19;
-  run_id: RunId19;
-  root_run_id: RootRunId19;
-  conversation_id: ConversationId19;
+  runId: Runid19;
+  rootRunId: Rootrunid19;
+  conversationId: Conversationid19;
   ts: Ts19;
   type: Type25;
   data: ToolCallCompletedData;
 }
 export interface ToolCallCompletedData {
-  tool_call_id: ToolCallId7;
+  toolCallId: Toolcallid7;
   status: Status1;
-  result_preview: ResultPreview;
-  result_file_id?: ResultFileId;
-  latency_ms: LatencyMs;
+  resultPreview: Resultpreview;
+  resultFileId?: Resultfileid;
+  latencyMs: Latencyms;
 }
 export interface ToolCallFailed {
   id: Id20;
   seq: Seq20;
-  run_id: RunId20;
-  root_run_id: RootRunId20;
-  conversation_id: ConversationId20;
+  runId: Runid20;
+  rootRunId: Rootrunid20;
+  conversationId: Conversationid20;
   ts: Ts20;
   type: Type26;
   data: ToolCallFailedData;
 }
 export interface ToolCallFailedData {
-  tool_call_id: ToolCallId8;
+  toolCallId: Toolcallid8;
   status: Status2;
   error: Error;
-  policy_reasons?: PolicyReasons;
-  connect_url?: ConnectUrl;
+  policyReasons?: Policyreasons;
+  connectUrl?: Connecturl;
 }
 export interface Error {
   [k: string]: string;
@@ -809,71 +809,71 @@ export interface Error {
 export interface ArtifactCreated {
   id: Id21;
   seq: Seq21;
-  run_id: RunId21;
-  root_run_id: RootRunId21;
-  conversation_id: ConversationId21;
+  runId: Runid21;
+  rootRunId: Rootrunid21;
+  conversationId: Conversationid21;
   ts: Ts21;
   type: Type27;
   data: ArtifactCreatedData;
 }
 export interface ArtifactCreatedData {
-  file_id: FileId2;
+  fileId: Fileid2;
   name: Name1;
-  mime_type: MimeType1;
-  size_bytes: SizeBytes;
+  mimeType: Mimetype1;
+  sizeBytes: Sizebytes;
   preview?: Preview1;
 }
 export interface SandboxStatus {
   id: Id22;
   seq: Seq22;
-  run_id: RunId22;
-  root_run_id: RootRunId22;
-  conversation_id: ConversationId22;
+  runId: Runid22;
+  rootRunId: Rootrunid22;
+  conversationId: Conversationid22;
   ts: Ts22;
   type: Type28;
   data: SandboxStatusData;
 }
 export interface SandboxStatusData {
-  sandbox_id: SandboxId1;
+  sandboxId: Sandboxid1;
   status: Status3;
 }
 export interface SandboxOutput {
   id: Id23;
   seq: Seq23;
-  run_id: RunId23;
-  root_run_id: RootRunId23;
-  conversation_id: ConversationId23;
+  runId: Runid23;
+  rootRunId: Rootrunid23;
+  conversationId: Conversationid23;
   ts: Ts23;
   type: Type29;
   data: SandboxOutputData;
 }
 export interface SandboxOutputData {
-  tool_call_id: ToolCallId9;
+  toolCallId: Toolcallid9;
   stream: Stream;
   text: Text3;
 }
 export interface BrowserScreenshot {
   id: Id24;
   seq: Seq24;
-  run_id: RunId24;
-  root_run_id: RootRunId24;
-  conversation_id: ConversationId24;
+  runId: Runid24;
+  rootRunId: Rootrunid24;
+  conversationId: Conversationid24;
   ts: Ts24;
   type: Type30;
   data: BrowserScreenshotData;
 }
 export interface BrowserScreenshotData {
-  tool_call_id: ToolCallId10;
-  file_id: FileId3;
+  toolCallId: Toolcallid10;
+  fileId: Fileid3;
   url: Url;
   title: Title2;
 }
 export interface PlanUpdated {
   id: Id25;
   seq: Seq25;
-  run_id: RunId25;
-  root_run_id: RootRunId25;
-  conversation_id: ConversationId25;
+  runId: Runid25;
+  rootRunId: Rootrunid25;
+  conversationId: Conversationid25;
   ts: Ts25;
   type: Type31;
   data: PlanUpdatedData;
@@ -889,84 +889,84 @@ export interface PlanItem {
 export interface SubagentStarted {
   id: Id27;
   seq: Seq26;
-  run_id: RunId26;
-  root_run_id: RootRunId26;
-  conversation_id: ConversationId26;
+  runId: Runid26;
+  rootRunId: Rootrunid26;
+  conversationId: Conversationid26;
   ts: Ts26;
   type: Type32;
   data: SubagentStartedData;
 }
 export interface SubagentStartedData {
-  child_run_id: ChildRunId;
-  agent_id: AgentId1;
-  agent_name: AgentName;
-  task_brief: TaskBrief;
+  childRunId: Childrunid;
+  agentId: Agentid1;
+  agentName: Agentname;
+  taskBrief: Taskbrief;
 }
 export interface SubagentCompleted {
   id: Id28;
   seq: Seq27;
-  run_id: RunId27;
-  root_run_id: RootRunId27;
-  conversation_id: ConversationId27;
+  runId: Runid27;
+  rootRunId: Rootrunid27;
+  conversationId: Conversationid27;
   ts: Ts27;
   type: Type33;
   data: SubagentCompletedData;
 }
 export interface SubagentCompletedData {
-  child_run_id: ChildRunId1;
+  childRunId: Childrunid1;
   status: Status5;
-  result_summary: ResultSummary;
+  resultSummary: Resultsummary;
   usage: RunUsage;
 }
 export interface MemoryRecalled {
   id: Id29;
   seq: Seq28;
-  run_id: RunId28;
-  root_run_id: RootRunId28;
-  conversation_id: ConversationId28;
+  runId: Runid28;
+  rootRunId: Rootrunid28;
+  conversationId: Conversationid28;
   ts: Ts28;
   type: Type34;
   data: MemoryRecalledData;
 }
 export interface MemoryRecalledData {
-  fact_ids: FactIds;
+  factIds: Factids;
   count: Count;
 }
 export interface MemorySaved {
   id: Id30;
   seq: Seq29;
-  run_id: RunId29;
-  root_run_id: RootRunId29;
-  conversation_id: ConversationId29;
+  runId: Runid29;
+  rootRunId: Rootrunid29;
+  conversationId: Conversationid29;
   ts: Ts29;
   type: Type35;
   data: MemorySavedData;
 }
 export interface MemorySavedData {
-  fact_id: FactId;
+  factId: Factid;
   content: Content1;
   scope: Scope;
 }
 export interface ContextCompacted {
   id: Id31;
   seq: Seq30;
-  run_id: RunId30;
-  root_run_id: RootRunId30;
-  conversation_id: ConversationId30;
+  runId: Runid30;
+  rootRunId: Rootrunid30;
+  conversationId: Conversationid30;
   ts: Ts30;
   type: Type36;
   data: ContextCompactedData;
 }
 export interface ContextCompactedData {
-  tokens_before: TokensBefore;
-  tokens_after: TokensAfter;
+  tokensBefore: Tokensbefore;
+  tokensAfter: Tokensafter;
 }
 export interface WarningEvent {
   id: Id32;
   seq: Seq31;
-  run_id: RunId31;
-  root_run_id: RootRunId31;
-  conversation_id: ConversationId31;
+  runId: Runid31;
+  rootRunId: Rootrunid31;
+  conversationId: Conversationid31;
   ts: Ts31;
   type: Type37;
   data: WarningData;
@@ -978,9 +978,9 @@ export interface WarningData {
 export interface Heartbeat {
   id: Id33;
   seq: Seq32;
-  run_id: RunId32;
-  root_run_id: RootRunId32;
-  conversation_id: ConversationId32;
+  runId: Runid32;
+  rootRunId: Rootrunid32;
+  conversationId: Conversationid32;
   ts: Ts32;
   type: Type38;
   data: _Data;

@@ -200,3 +200,18 @@ Error classification for `runs.error.code`: `model_unavailable`, `context_length
 - Replay tests: recorded histories in `services/runtime/tests/replay/*.json` replayed with `Replayer` on every PR (guards determinism).
 - Integration (testcontainers + `fake-llm` scripted scenarios in `services/fake_llm/scenarios/*.yaml`): chat turn end-to-end with SSE; tool call through `mcp-gateway` with an in-repo test MCP server (`ar_testing.mcp_echo`); subagent delegation; compaction triggered by small `context_window`.
 - Eval smoke (M13): golden suite runs nightly against real models.
+
+## 13. Strict grounding
+
+Agent field `spec.output.grounding` is `off` (default), `preferred` or `strict` ([definition-schema §11](../05-contracts/definition-schema.md#11-content-packs-and-assurance-fields)). `off` keeps today's citation behaviour (§4). `preferred` asks the model to cite and records a grounding report without changing the text. `strict` removes ungrounded factual sentences before the assistant message is stored.
+
+After the model step that produces the final answer, activity `check_grounding` splits the text on sentence boundaries, capped at `AR_GROUNDING_MAX_SENTENCES` (200). A sentence is exempt (not a claim) when it is a heading, a question, or a single citation marker. Every other sentence is a claim. A claim is grounded when it contains at least one `[n]` whose citation resolves to a knowledge chunk, a tool result or an evidence item in the run's citation index. Citations are extended in [stream-events §7](../05-contracts/stream-events.md#7-grounding-and-evidence-citations-m7-t11).
+
+In `strict` mode, ungrounded claims are removed. If nothing remains, the stored text is "This answer was removed because it was not grounded in retrieved sources, tool results or evidence." Removed text is kept only inside the grounding report, not in the user-visible `text` part. The report is a content part `{"type":"grounding","report": GroundingReport}` on the assistant message. `GroundingReport` is `{mode, claims: [{text, citation_indexes, status: grounded|removed|flagged}], sources, tools, approvals}`. `sources` lists the citation index entries. `tools` lists the run's tool calls (`tool_call_id`, `qualified_name`, `status`). `approvals` lists approval ids and decisions. The report is the "why" panel. It is returned by the endpoint below and is not written to telemetry.
+
+`output.citations=required` still applies. `grounding=strict` is stronger: a citation must exist and the sentence that states a fact must carry it.
+
+Publish-time enforcement of groundedness is the grader in [spec 18 §4.6](18-observability-eval.md#46-groundedness-grader), not this activity.
+
+#### GET /api/v1/conversations/{conversation_id}/messages/{message_id}/grounding
+Caller can read the conversation. Response `GroundingReport`. 404 when the message has no report (`grounding=off` and no citations were checked).

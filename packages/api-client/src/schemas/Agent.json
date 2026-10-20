@@ -40,23 +40,23 @@
     "ContextSpec": {
       "additionalProperties": false,
       "properties": {
-        "compaction_threshold": {
+        "compactionThreshold": {
           "default": 0.7,
           "maximum": 0.9,
           "minimum": 0.4,
-          "title": "Compaction Threshold",
+          "title": "Compactionthreshold",
           "type": "number"
         },
-        "tool_result_max_tokens": {
+        "toolResultMaxTokens": {
           "default": 4000,
           "minimum": 1,
-          "title": "Tool Result Max Tokens",
+          "title": "Toolresultmaxtokens",
           "type": "integer"
         },
-        "history_max_messages": {
+        "historyMaxMessages": {
           "default": 40,
           "minimum": 1,
-          "title": "History Max Messages",
+          "title": "Historymaxmessages",
           "type": "integer"
         }
       },
@@ -74,22 +74,22 @@
           "title": "Collections",
           "type": "array"
         },
-        "auto_retrieve": {
+        "autoRetrieve": {
           "default": false,
-          "title": "Auto Retrieve",
+          "title": "Autoretrieve",
           "type": "boolean"
         },
-        "top_k": {
+        "topK": {
           "default": 8,
           "minimum": 1,
-          "title": "Top K",
+          "title": "Topk",
           "type": "integer"
         },
-        "min_score": {
+        "minScore": {
           "default": 0.3,
           "maximum": 1,
           "minimum": 0,
-          "title": "Min Score",
+          "title": "Minscore",
           "type": "number"
         }
       },
@@ -104,7 +104,7 @@
           "title": "Enabled",
           "type": "boolean"
         },
-        "read_scopes": {
+        "readScopes": {
           "items": {
             "enum": [
               "user",
@@ -114,32 +114,32 @@
             ],
             "type": "string"
           },
-          "title": "Read Scopes",
+          "title": "Readscopes",
           "type": "array"
         },
-        "user_writes": {
+        "userWrites": {
           "default": "auto",
           "enum": [
             "auto",
             "explicit_only",
             "off"
           ],
-          "title": "User Writes",
+          "title": "Userwrites",
           "type": "string"
         },
-        "agent_writes": {
+        "agentWrites": {
           "default": "review",
           "enum": [
             "review",
             "off"
           ],
-          "title": "Agent Writes",
+          "title": "Agentwrites",
           "type": "string"
         },
-        "recall_top_k": {
+        "recallTopK": {
           "default": 8,
           "minimum": 1,
-          "title": "Recall Top K",
+          "title": "Recalltopk",
           "type": "integer"
         }
       },
@@ -156,20 +156,20 @@
           "title": "Temperature",
           "type": "number"
         },
-        "top_p": {
+        "topP": {
           "default": 1,
           "maximum": 1,
           "minimum": 0,
-          "title": "Top P",
+          "title": "Topp",
           "type": "number"
         },
-        "max_output_tokens": {
+        "maxOutputTokens": {
           "default": 4096,
           "minimum": 1,
-          "title": "Max Output Tokens",
+          "title": "Maxoutputtokens",
           "type": "integer"
         },
-        "reasoning_effort": {
+        "reasoningEffort": {
           "anyOf": [
             {
               "enum": [
@@ -184,7 +184,7 @@
             }
           ],
           "default": null,
-          "title": "Reasoning Effort"
+          "title": "Reasoningeffort"
         }
       },
       "title": "ModelParams",
@@ -197,11 +197,11 @@
           "title": "Alias",
           "type": "string"
         },
-        "fast_alias": {
-          "title": "Fast Alias",
+        "fastAlias": {
+          "title": "Fastalias",
           "type": "string"
         },
-        "vision_alias": {
+        "visionAlias": {
           "anyOf": [
             {
               "type": "string"
@@ -211,26 +211,26 @@
             }
           ],
           "default": null,
-          "title": "Vision Alias"
+          "title": "Visionalias"
         },
         "params": {
           "$ref": "#/$defs/ModelParams",
           "default": {
             "temperature": 0.2,
-            "top_p": 1.0,
-            "max_output_tokens": 4096,
-            "reasoning_effort": null
+            "topP": 1.0,
+            "maxOutputTokens": 4096,
+            "reasoningEffort": null
           }
         },
-        "degrade_to_fast": {
+        "degradeToFast": {
           "default": true,
-          "title": "Degrade To Fast",
+          "title": "Degradetofast",
           "type": "boolean"
         }
       },
       "required": [
         "alias",
-        "fast_alias"
+        "fastAlias"
       ],
       "title": "ModelSpec",
       "type": "object"
@@ -248,9 +248,9 @@
           "title": "Citations",
           "type": "string"
         },
-        "show_reasoning": {
+        "showReasoning": {
           "default": false,
-          "title": "Show Reasoning",
+          "title": "Showreasoning",
           "type": "boolean"
         }
       },
@@ -260,10 +260,10 @@
     "Persona": {
       "additionalProperties": false,
       "properties": {
-        "display_name": {
+        "displayName": {
           "maxLength": 80,
           "minLength": 1,
-          "title": "Display Name",
+          "title": "Displayname",
           "type": "string"
         },
         "greeting": {
@@ -272,7 +272,7 @@
           "title": "Greeting",
           "type": "string"
         },
-        "avatar_file": {
+        "avatarFile": {
           "anyOf": [
             {
               "type": "string"
@@ -282,11 +282,11 @@
             }
           ],
           "default": null,
-          "title": "Avatar File"
+          "title": "Avatarfile"
         }
       },
       "required": [
-        "display_name"
+        "displayName"
       ],
       "title": "Persona",
       "type": "object"
@@ -295,44 +295,44 @@
       "additionalProperties": false,
       "description": "Limits for one top-level run. Subagents draw from the same budget.",
       "properties": {
-        "max_steps": {
+        "maxSteps": {
           "minimum": 1,
-          "title": "Max Steps",
+          "title": "Maxsteps",
           "type": "integer"
         },
-        "max_tokens": {
+        "maxTokens": {
           "minimum": 1,
-          "title": "Max Tokens",
+          "title": "Maxtokens",
           "type": "integer"
         },
-        "max_cost_micros": {
+        "maxCostMicros": {
           "minimum": 0,
-          "title": "Max Cost Micros",
+          "title": "Maxcostmicros",
           "type": "integer"
         },
-        "max_wall_clock_s": {
+        "maxWallClockS": {
           "minimum": 1,
-          "title": "Max Wall Clock S",
+          "title": "Maxwallclocks",
           "type": "integer"
         },
-        "max_tool_calls": {
+        "maxToolCalls": {
           "minimum": 0,
-          "title": "Max Tool Calls",
+          "title": "Maxtoolcalls",
           "type": "integer"
         },
-        "max_parallel_tool_calls": {
+        "maxParallelToolCalls": {
           "minimum": 1,
-          "title": "Max Parallel Tool Calls",
+          "title": "Maxparalleltoolcalls",
           "type": "integer"
         }
       },
       "required": [
-        "max_steps",
-        "max_tokens",
-        "max_cost_micros",
-        "max_wall_clock_s",
-        "max_tool_calls",
-        "max_parallel_tool_calls"
+        "maxSteps",
+        "maxTokens",
+        "maxCostMicros",
+        "maxWallClockS",
+        "maxToolCalls",
+        "maxParallelToolCalls"
       ],
       "title": "RunBudget",
       "type": "object"
@@ -340,14 +340,14 @@
     "SafetySpec": {
       "additionalProperties": false,
       "properties": {
-        "pii_masking": {
+        "piiMasking": {
           "default": false,
-          "title": "Pii Masking",
+          "title": "Piimasking",
           "type": "boolean"
         },
-        "injection_classifier": {
+        "injectionClassifier": {
           "default": true,
-          "title": "Injection Classifier",
+          "title": "Injectionclassifier",
           "type": "boolean"
         }
       },
@@ -377,11 +377,11 @@
           "title": "Scope",
           "type": "string"
         },
-        "extra_egress_allowlist": {
+        "extraEgressAllowlist": {
           "items": {
             "type": "string"
           },
-          "title": "Extra Egress Allowlist",
+          "title": "Extraegressallowlist",
           "type": "array"
         }
       },
@@ -398,22 +398,22 @@
           "title": "Allowed",
           "type": "array"
         },
-        "allow_self_clone": {
+        "allowSelfClone": {
           "default": false,
-          "title": "Allow Self Clone",
+          "title": "Allowselfclone",
           "type": "boolean"
         },
-        "max_depth": {
+        "maxDepth": {
           "default": 1,
           "maximum": 3,
           "minimum": 1,
-          "title": "Max Depth",
+          "title": "Maxdepth",
           "type": "integer"
         },
-        "max_parallel": {
+        "maxParallel": {
           "default": 3,
           "minimum": 1,
-          "title": "Max Parallel",
+          "title": "Maxparallel",
           "type": "integer"
         }
       },
@@ -456,7 +456,7 @@
     "ToolOverride": {
       "additionalProperties": false,
       "properties": {
-        "require_approval": {
+        "requireApproval": {
           "anyOf": [
             {
               "enum": [
@@ -470,7 +470,7 @@
             }
           ],
           "default": null,
-          "title": "Require Approval"
+          "title": "Requireapproval"
         },
         "pinned": {
           "default": false,
@@ -494,11 +494,11 @@
           "title": "Mode",
           "type": "string"
         },
-        "top_k": {
+        "topK": {
           "default": 12,
           "maximum": 32,
           "minimum": 4,
-          "title": "Top K",
+          "title": "Topk",
           "type": "integer"
         }
       },
@@ -518,12 +518,12 @@
       "title": "Instructions",
       "type": "string"
     },
-    "starter_prompts": {
+    "starterPrompts": {
       "items": {
         "type": "string"
       },
       "maxItems": 6,
-      "title": "Starter Prompts",
+      "title": "Starterprompts",
       "type": "array"
     },
     "model": {
@@ -536,20 +536,20 @@
       "title": "Tools",
       "type": "array"
     },
-    "tool_search": {
+    "toolSearch": {
       "$ref": "#/$defs/ToolSearch",
       "default": {
         "mode": "auto",
-        "top_k": 12
+        "topK": 12
       }
     },
     "knowledge": {
       "$ref": "#/$defs/KnowledgeSpec",
       "default": {
         "collections": [],
-        "auto_retrieve": false,
-        "top_k": 8,
-        "min_score": 0.3
+        "autoRetrieve": false,
+        "topK": 8,
+        "minScore": 0.3
       }
     },
     "skills": {
@@ -564,22 +564,22 @@
       "$ref": "#/$defs/MemorySpec",
       "default": {
         "enabled": true,
-        "read_scopes": [
+        "readScopes": [
           "user",
           "agent"
         ],
-        "user_writes": "auto",
-        "agent_writes": "review",
-        "recall_top_k": 8
+        "userWrites": "auto",
+        "agentWrites": "review",
+        "recallTopK": 8
       }
     },
     "subagents": {
       "$ref": "#/$defs/SubagentSpec",
       "default": {
         "allowed": [],
-        "allow_self_clone": false,
-        "max_depth": 1,
-        "max_parallel": 3
+        "allowSelfClone": false,
+        "maxDepth": 1,
+        "maxParallel": 3
       }
     },
     "sandbox": {
@@ -588,7 +588,7 @@
         "enabled": false,
         "template": "default",
         "scope": "conversation",
-        "extra_egress_allowlist": []
+        "extraEgressAllowlist": []
       }
     },
     "budget": {
@@ -597,23 +597,23 @@
     "context": {
       "$ref": "#/$defs/ContextSpec",
       "default": {
-        "compaction_threshold": 0.7,
-        "tool_result_max_tokens": 4000,
-        "history_max_messages": 40
+        "compactionThreshold": 0.7,
+        "toolResultMaxTokens": 4000,
+        "historyMaxMessages": 40
       }
     },
     "output": {
       "$ref": "#/$defs/OutputSpec",
       "default": {
         "citations": "preferred",
-        "show_reasoning": false
+        "showReasoning": false
       }
     },
     "safety": {
       "$ref": "#/$defs/SafetySpec",
       "default": {
-        "pii_masking": false,
-        "injection_classifier": true
+        "piiMasking": false,
+        "injectionClassifier": true
       }
     },
     "channels": {

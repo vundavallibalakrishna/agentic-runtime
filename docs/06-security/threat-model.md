@@ -75,3 +75,12 @@ B1 external → platform; B2 services → stores; B3 platform → sandboxes (and
 | T15 | CI security workflow gates | `.github/workflows/security.yml` |
 | T16 | Support grant level tests | `services/api/tests/security` |
 | T17 | Retention per-rule tests; erasure completeness test | `services/system/tests` |
+
+## 5. Assurance threats
+
+| ID | Threat | Mitigation | Spec |
+|---|---|---|---|
+| T-EV1 | Evidence bytes replaced after capture | Object Lock, immutable columns, signed manifest, verify API | [spec 21 §1](../03-specs/21-records-governance.md#1-evidence-vault) |
+| T-EV2 | Guest uses a grant to reach agents or another tenant's records | Guest route denylist, grant id lists, RLS, 404 across tenants | [spec 21 §4](../03-specs/21-records-governance.md#4-guest-principals) |
+| T-EV3 | Preparer signs their own output or an agent owner signs the agent's answer | SoD invariants in the decide path | [spec 09 §12](../03-specs/09-policy-approvals.md#12-segregation-of-duties) |
+| T-EV4 | Watermark step fails open and sends original bytes to a guest | Download fails closed | [spec 21 §4.1](../03-specs/21-records-governance.md#41-watermark) |

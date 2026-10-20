@@ -103,10 +103,10 @@ ar_domain/<module>/
 
 ## 4. Pydantic and typing
 
-- Pydantic v2 models: `model_config = ConfigDict(extra="forbid", frozen=True)` for inputs and contracts; `str_strip_whitespace=True` for user text inputs.
+- Public contract models subclass `ar_contracts.api_model.ApiModel` ([ADR-0026](../02-architecture/adr/ADR-0026-public-json-camel-case.md)): camelCase JSON, snake_case attributes, `populate_by_name=True`. Add `frozen=True` on the subclass. `str_strip_whitespace=True` for user text inputs.
 - IDs are `uuid.UUID` (UUIDv7 generated in Postgres via `uuidv7()` or in Python `uuid.uuid7()`); timestamps are timezone-aware `datetime` (UTC).
 - Money as integer micros (`cost_micros: int`); never floats.
-- Enums: `StrEnum`, values snake_case, mirrored by DB CHECK constraints.
+- Enums: `StrEnum`. Database CHECK values match the Python values. Public JSON property names are still camelCase. Identifier tokens (error codes, event types) stay as the catalogue writes them.
 - No `Any` in public signatures; use `TypedDict`/models; `JsonValue` from Pydantic for free-form JSON.
 
 ## 5. Async, Temporal and concurrency

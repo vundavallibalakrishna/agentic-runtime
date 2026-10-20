@@ -11,8 +11,10 @@ Subscribers:
 Envelope (`ar_contracts.events.DomainEvent`):
 
 ```json
-{"id":"uuid","topic":"run.completed","tenant_id":"uuid","occurred_at":"2026-10-20T04:12:33Z","version":1,"payload":{ }}
+{"id":"uuid","topic":"run.completed","tenantId":"uuid","occurredAt":"2026-10-20T04:12:33Z","version":1,"payload":{ }}
 ```
+
+Webhook bodies use these camelCase names. The outbox columns stay `tenant_id` and `occurred_at`. Payload names in the tables are Python attributes; a public webhook serialises each one with the camelCase alias (`user_id` is `userId`). Internal topics may keep snake_case.
 
 ## Topics
 
@@ -54,3 +56,18 @@ Envelope (`ar_contracts.events.DomainEvent`):
 | `channel_integration.updated` | no | `integration_id` (cache invalidation for `channels`) | channels |
 
 Public webhook deliveries are signed: header `X-AR-Signature: t=<unix>,v1=<hex HMAC-SHA256(secret, t + "." + body)>`, `X-AR-Event-Id`, `X-AR-Topic`. Retries with exponential backoff (10 s → 6 h, 12 attempts), then `dead`. Receivers must respond 2xx within 10 s and dedupe on `X-AR-Event-Id`.
+
+### Topics added for records and sign-off
+
+| Topic | Public (webhooks) | Payload (`payload` fields) | Emitted by |
+|---|---|---|---|
+| `review_item.requested` | yes | `review_item_id, queue_id, level, signer_user_ids[]` | approvals |
+| `review_item.decided` | yes | `review_item_id, status, level` | approvals |
+| `evidence.captured` | yes | `evidence_item_id, content_sha256, source_system` | records |
+| `legal_hold.created` / `legal_hold.released` | no | `hold_id, matter, member_count` | records |
+| `run_record.sealed` | no | `run_record_id, run_id` | runs |
+| `binder.ready` | yes | `binder_id` | records |
+| `agent_card.published` | yes | `agent_id, agent_version_id, card_hash` | agents |
+| `ai_incident.opened` | yes | `incident_id, agent_id, severity` | agents |
+| `pack.installed` | no | `pack_id, version` | agents |
+| `run_record.replay_diverged` | yes | `run_record_id, replay_id, run_id` | runs |

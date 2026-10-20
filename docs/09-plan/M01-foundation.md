@@ -125,3 +125,11 @@ Exit criteria: RLS suite and cross-tenant suite green; `admin@dev.local` logs in
 - **Do:** Login redirect handling, `/select-tenant`, app shell (sidebar by permission, user menu, notification bell with SSE), admin pages for every M1 endpoint group (tables with filters/pagination, create/edit dialogs, destructive confirmations, step-up prompts), platform pages (SaaS only).
 - **Done when:** the spec 19 routes `/login`, `/select-tenant`, `/invite/[token]`, `/suspended`, `/settings/*`, `/admin/{users,teams,roles,sso,api-keys,secrets,audit,webhooks,settings,support-access}` and `/platform/{tenants,plans}` render with loading/empty/error states and permission gating.
 - **Tests:** Vitest component tests per page; Playwright: login, invite user, create API key, verify audit chain button; axe checks.
+
+### M1-T16 · Public JSON camelCase
+- **Depends on:** M0-T09
+- **Areas:** `libs/ar_contracts/src/ar_contracts/api_model.py`, response models in `ar_api` and `ar_domain/*/schemas.py`, `scripts/check_public_camel_case.py`
+- **Spec:** [ADR-0026](../02-architecture/adr/ADR-0026-public-json-camel-case.md), [api-conventions §3](../05-contracts/api-conventions.md#3-request-conventions), [principles §1](../00-overview/principles.md#1-api-and-ui-casing)
+- **Do:** Every public request and response model subclasses `ApiModel`. Identity routes included. `ArError.to_problem` emits `requestId` (the key in `ar_common.errors` is still `request_id`; change that key and the assertion in `libs/ar_common/tests/unit/test_core.py`). Do not rename database columns or the permission catalogue. `make gen` so the TypeScript and Zod types are camelCase. The docs CI job already runs `scripts/check_public_camel_case.py`. Apply this while writing M1 models; if models already exist on the branch, retrofit them here before M1 is finished. Do not rewrite earlier M1 tasks.
+- **Done when:** `GET /api/v1/me` JSON uses `displayName` and `createdAt`, and `model_validate` still accepts the snake_case form. The camelCase check passes.
+- **Tests:** one identity response round-trip (alias and python name); the schema check.

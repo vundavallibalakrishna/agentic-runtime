@@ -41,16 +41,16 @@ Query: `code`, `state`. Exchanges code, validates ID token (issuer, audience, no
 Errors (rendered as redirect to `/login?error=<code>`): `invalid_state`, `tenant_not_found`, `user_suspended`, `tenant_suspended`.
 
 #### POST /api/v1/auth/logout
-Auth: session. Deletes the session, revokes the Keycloak refresh token (RP-initiated logout back-channel), clears cookies, returns `{logout_url}` (Keycloak end-session URL) for the browser to visit. Audits `auth.logout`.
+Auth: session. Deletes the session, revokes the Keycloak refresh token (RP-initiated logout back-channel), clears cookies, returns `{logoutUrl}` (Keycloak end-session URL) for the browser to visit. Audits `auth.logout`.
 
 #### GET /api/v1/auth/session
 Auth: session or bearer. Response `SessionInfo`:
 ```json
-{"user": {"id":"...","email":"...","display_name":"...","locale":"en-IN","timezone":"Asia/Kolkata"},
- "tenant": {"id":"...","slug":"talentfino","name":"TalentFino","plan":"enterprise","deployment_mode":"saas"},
+{"user": {"id":"...","email":"...","displayName":"...","locale":"en-IN","timezone":"Asia/Kolkata"},
+ "tenant": {"id":"...","slug":"talentfino","name":"TalentFino","plan":"enterprise","deploymentMode":"saas"},
  "permissions": ["chat:use","agents:read", "..."], "roles": ["member","builder"],
- "memberships": [{"tenant_id":"...","slug":"...","name":"..."}],
- "csrf_token": "...", "features": {"custom_rego": false, "teams_channel": true}}
+ "memberships": [{"tenantId":"...","slug":"...","name":"..."}],
+ "csrfToken": "...", "features": {"customRego": false, "teamsChannel": true}}
 ```
 
 #### POST /api/v1/auth/switch-tenant

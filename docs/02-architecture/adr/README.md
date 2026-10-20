@@ -24,3 +24,9 @@ Format: context, decision, consequences, alternatives. Status of all records bel
 | [ADR-0018](ADR-0018-declarative-definitions.md) | Declarative, versioned YAML/JSON definitions for agents and other resources |
 | [ADR-0019](ADR-0019-sse-streaming.md) | Server-Sent Events for client streaming |
 | [ADR-0020](ADR-0020-ids-pagination-errors.md) | UUIDv7 ids, signed cursor pagination, RFC 9457 errors |
+| [ADR-0021](ADR-0021-evidence-immutability.md) | Evidence objects are immutable, hashed, signed and locked |
+| [ADR-0022](ADR-0022-run-records.md) | Run records are sealed recordings, not bit-reproducible regeneration |
+| [ADR-0023](ADR-0023-pack-extensions.md) | Solution packs use public extension points and a separate Alembic history |
+| [ADR-0024](ADR-0024-guest-principals.md) | External participants are guest principals, not users |
+| [ADR-0025](ADR-0025-output-signoff.md) | Sign-off binds a statement and a content hash, separate from tool-call approval |
+| [ADR-0026](ADR-0026-public-json-camel-case.md) | Public JSON is camelCase |

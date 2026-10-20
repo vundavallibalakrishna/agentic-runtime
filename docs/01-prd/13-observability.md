@@ -32,3 +32,8 @@ As a **builder**, I want to drill into one run: timeline of steps, model calls (
 As a **platform operator**, I want one page showing the health of every component and model provider.
 - `GET /api/v1/platform/health` aggregates readiness of deployables and dependencies with status `up|degraded|down`.
 - Spec: spec 18 §3. Plan: M13-T02.
+
+### US-OBS-07 · Re-perform a recorded run (P0)
+As an **auditor**, I want a sealed record of a run and a replay that uses the recorded tool results.
+- Record mode is off unless the agent turns it on. Replay does not call live tools. A divergence is a separate result.
+- Spec: [spec 18 §7](../03-specs/18-observability-eval.md#7-run-records-and-re-performance). Plan: M13-T07.

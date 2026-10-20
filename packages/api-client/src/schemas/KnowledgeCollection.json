@@ -33,7 +33,7 @@
           "default": null,
           "title": "Secret"
         },
-        "sync_schedule": {
+        "syncSchedule": {
           "anyOf": [
             {
               "type": "string"
@@ -43,9 +43,9 @@
             }
           ],
           "default": null,
-          "title": "Sync Schedule"
+          "title": "Syncschedule"
         },
-        "acl_sync_schedule": {
+        "aclSyncSchedule": {
           "anyOf": [
             {
               "type": "string"
@@ -55,7 +55,7 @@
             }
           ],
           "default": null,
-          "title": "Acl Sync Schedule"
+          "title": "Aclsyncschedule"
         },
         "config": {
           "additionalProperties": {
@@ -90,13 +90,13 @@
       "title": "Visibility",
       "type": "string"
     },
-    "acl_mode": {
+    "aclMode": {
       "default": "source",
       "enum": [
         "source",
         "collection"
       ],
-      "title": "Acl Mode",
+      "title": "Aclmode",
       "type": "string"
     },
     "sensitivity": {
@@ -113,31 +113,31 @@
       "title": "Classification",
       "type": "string"
     },
-    "embedding_alias": {
+    "embeddingAlias": {
       "default": "embed",
-      "title": "Embedding Alias",
+      "title": "Embeddingalias",
       "type": "string"
     },
-    "text_search_config": {
+    "textSearchConfig": {
       "default": "simple",
       "enum": [
         "simple",
         "english"
       ],
-      "title": "Text Search Config",
+      "title": "Textsearchconfig",
       "type": "string"
     },
-    "chunk_target_tokens": {
+    "chunkTargetTokens": {
       "default": 512,
       "minimum": 64,
-      "title": "Chunk Target Tokens",
+      "title": "Chunktargettokens",
       "type": "integer"
     },
-    "chunk_overlap_pct": {
+    "chunkOverlapPct": {
       "default": 12,
       "maximum": 50,
       "minimum": 0,
-      "title": "Chunk Overlap Pct",
+      "title": "Chunkoverlappct",
       "type": "integer"
     },
     "contextual": {

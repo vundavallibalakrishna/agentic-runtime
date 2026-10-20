@@ -130,3 +130,25 @@ erDiagram
   AUDIT_EVENTS { bigint id PK  bigint tenant_seq  text action  text prev_hash  text hash }
   USAGE_EVENTS { uuid id PK  text metric  bigint quantity  bigint cost_micros  text dedupe_key }
 ```
+
+## 6. Records, sign-off, guests and packs
+
+```mermaid
+erDiagram
+  REVIEW_QUEUES ||--o{ REVIEW_ITEMS : queues
+  REVIEW_ITEMS ||--o{ SIGNOFFS : collects
+  RUNS ||--o| RUN_RECORDS : seals
+  RUN_RECORDS ||--o{ RUN_RECORD_REPLAYS : replays
+  RUN_RECORDS |o--o| EVIDENCE_ITEMS : "tool I/O"
+  EVIDENCE_ITEMS ||--o{ EVIDENCE_CUSTODY_EVENTS : custody
+  LEGAL_HOLDS ||--o{ LEGAL_HOLD_MEMBERS : covers
+  AGENTS ||--o{ AGENT_CARDS : "one per version"
+  AGENTS ||--o{ AI_INCIDENTS : records
+  GUEST_PRINCIPALS ||--o{ GUEST_GRANTS : scopes
+  GUEST_PRINCIPALS ||--o{ GUEST_LOGIN_CHALLENGES : invites
+  REVIEW_ITEMS |o--o{ BINDER_EXPORTS : "may require"
+  INSTALLED_PACKS ||--o{ INSTALLED_PACK_RESOURCES : imports
+  EVIDENCE_ITEMS { uuid id PK  text content_sha256  text signature  timestamptz worm_locked_until  boolean legal_hold }
+  SIGNOFFS { uuid id PK  text content_hash  text statement_hash  text decision }
+  RUN_RECORDS { uuid id PK  uuid run_id FK  text manifest_sha256  text output_sha256 }
+```

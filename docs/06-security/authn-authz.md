@@ -156,3 +156,32 @@ Requires a session with `step_up_at` within `AR_STEP_UP_TTL_S` (600 s); API keys
 ## 8. Internal service authorisation
 
 Each internal endpoint declares allowed callers (`iss`) — tables in [internal-apis](../05-contracts/internal-apis.md). Targets never accept tenant/user identity from the request body; they use the JWT acting context. Sandboxes and MCP servers receive scoped tokens only (sandbox token, `X-AR-Context`).
+
+## 9. Permissions added after the M1 baseline
+
+M1-T03 seeds only §3. The keys below are registered by the task that introduces them. `tenant_admin` includes a key once that task has shipped. Do not add these rows to the M1 seed.
+
+Step-up, in addition to §5: creating or releasing a legal hold; uninstalling a pack with `dropSchema: true`; the final sign-off level when `security.require_step_up_for_signoff` is true.
+
+Role extensions once the introducing task has shipped, not in the M1 matrix: `approver` gains `reviews:read` and `reviews:decide`; `auditor` gains `evidence:read`, `evidence:export`, `run_records:read`, `reviews:read`, `ai_governance:read`, `binders:export`.
+
+### 9.1 Core
+
+| Key | Task |
+|---|---|
+| `packs:manage` | M3-T09 |
+| `reviews:read`, `reviews:decide`, `reviews:manage` | M5-T08 |
+| `sod:manage` | M5-T09 |
+| `evidence:read`, `evidence:capture`, `evidence:export` | M14-T08 |
+| `holds:manage` | M14-T09 |
+| `retention:manage` | M14-T09 |
+| `ai_governance:read`, `ai_governance:manage` | M14-T10 |
+| `guests:invite`, `guests:manage` | M14-T11 |
+| `binders:export` | M14-T12 |
+| `run_records:read`, `run_records:replay` | M13-T07 |
+
+### 9.2 GRC pack
+
+Registered when the pack is installed. Prefix `grc.`.
+
+`grc.frameworks:read`, `grc.frameworks:manage`, `grc.controls:read`, `grc.controls:manage`, `grc.evidence:link`, `grc.tests:read`, `grc.tests:run`, `grc.findings:read`, `grc.findings:manage`, `grc.risks:read`, `grc.risks:manage`, `grc.vendors:read`, `grc.vendors:manage`, `grc.policies:read`, `grc.policies:manage`, `grc.obligations:read`, `grc.obligations:manage`, `grc.incidents:read`, `grc.incidents:manage`, `grc.campaigns:read`, `grc.campaigns:manage`, `grc.questionnaires:read`, `grc.questionnaires:manage`, `grc.audit_portal:manage`, `grc.reports:export`, `grc.entities:read`, `grc.entities:manage`, `grc.exceptions:manage`, `grc.ethics:manage`, `grc.inspections:manage`, `grc.privacy:manage`.

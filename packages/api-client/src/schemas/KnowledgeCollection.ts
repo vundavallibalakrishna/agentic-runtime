@@ -7,31 +7,31 @@
 
 export type Description = string;
 export type Visibility = "private" | "team" | "tenant";
-export type AclMode = "source" | "collection";
+export type Aclmode = "source" | "collection";
 export type Sensitivity = "normal" | "high";
 export type Classification = string;
-export type EmbeddingAlias = string;
-export type TextSearchConfig = "simple" | "english";
-export type ChunkTargetTokens = number;
-export type ChunkOverlapPct = number;
+export type Embeddingalias = string;
+export type Textsearchconfig = "simple" | "english";
+export type Chunktargettokens = number;
+export type Chunkoverlappct = number;
 export type Contextual = boolean;
 export type Name = string;
 export type Kind = "upload" | "web" | "s3" | "sharepoint" | "confluence" | "google_drive" | "database" | "mcp_resource";
 export type Secret = string | null;
-export type SyncSchedule = string | null;
-export type AclSyncSchedule = string | null;
+export type Syncschedule = string | null;
+export type Aclsyncschedule = string | null;
 export type Sources = KnowledgeSource[];
 
 export interface KnowledgeCollectionDefinition {
   description?: Description;
   visibility?: Visibility;
-  acl_mode?: AclMode;
+  aclMode?: Aclmode;
   sensitivity?: Sensitivity;
   classification?: Classification;
-  embedding_alias?: EmbeddingAlias;
-  text_search_config?: TextSearchConfig;
-  chunk_target_tokens?: ChunkTargetTokens;
-  chunk_overlap_pct?: ChunkOverlapPct;
+  embeddingAlias?: Embeddingalias;
+  textSearchConfig?: Textsearchconfig;
+  chunkTargetTokens?: Chunktargettokens;
+  chunkOverlapPct?: Chunkoverlappct;
   contextual?: Contextual;
   sources?: Sources;
 }
@@ -43,8 +43,8 @@ export interface KnowledgeSource {
   name: Name;
   kind: Kind;
   secret?: Secret;
-  sync_schedule?: SyncSchedule;
-  acl_sync_schedule?: AclSyncSchedule;
+  syncSchedule?: Syncschedule;
+  aclSyncSchedule?: Aclsyncschedule;
   config?: Config;
 }
 export interface Config {

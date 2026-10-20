@@ -1467,3 +1467,439 @@ CREATE INDEX ix_idempotency_created ON idempotency_keys(created_at);   -- swept 
 | audit_events, usage_events, usage_daily, quotas | audit / usage | 15 |
 | eval_suites, eval_cases, eval_runs, eval_results | evals | 16 |
 | outbox_events, outbound_webhooks, webhook_deliveries, notifications, idempotency_keys | events | 17 |
+
+Sections 20–28 are additive. They do not change sections 0–19. Revision numbers are in [migrations §3](migrations.md#3-initial-revision-plan). The M1 seed and M1 tasks do not create these tables.
+
+## 20. Content packs (`ar_domain.agents`)
+
+```sql
+CREATE TABLE installed_packs (
+  id                uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id         uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  pack_id           text NOT NULL CHECK (pack_id ~ '^[a-z][a-z0-9_]{1,40}$'),
+  version           text NOT NULL,                         -- semver
+  status            text NOT NULL DEFAULT 'installed' CHECK (status IN ('installed','uninstalled')),
+  manifest          jsonb NOT NULL,                        -- schema: ar_contracts.definitions.ContentPack
+  manifest_hash     text NOT NULL,
+  signature         text,
+  signature_key_id  text,
+  installed_by      uuid REFERENCES users(id) ON DELETE SET NULL,
+  installed_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, pack_id, version)
+);
+CREATE INDEX ix_installed_packs_tenant ON installed_packs(tenant_id, pack_id);
+
+CREATE TABLE installed_pack_resources (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  pack_row_id   uuid NOT NULL REFERENCES installed_packs(id) ON DELETE CASCADE,
+  kind          text NOT NULL,
+  slug          text NOT NULL,
+  resource_id   uuid NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (pack_row_id, kind, slug)
+);
+CREATE INDEX ix_installed_pack_resources_tenant ON installed_pack_resources(tenant_id);
+```
+
+## 21. Reviews and segregation of duties (`ar_domain.approvals`)
+
+```sql
+CREATE TABLE review_queues (
+  id                   uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id            uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  slug                 citext NOT NULL,
+  name                 text NOT NULL,
+  subject_type         text NOT NULL CHECK (subject_type IN ('artifact','file','message','evidence_item','run_record','agent_card','binder','pack_record')),
+  levels               jsonb NOT NULL,                     -- schema: ar_contracts.reviews.ReviewLevel[]
+  statement_template   text NOT NULL,
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  updated_at           timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, slug)
+);
+CREATE INDEX ix_review_queues_tenant ON review_queues(tenant_id);
+
+CREATE TABLE review_items (
+  id                      uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id               uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  queue_id                uuid NOT NULL REFERENCES review_queues(id) ON DELETE RESTRICT,
+  subject_type            text NOT NULL,
+  subject_id              uuid NOT NULL,
+  subject_ref             jsonb NOT NULL DEFAULT '{}',     -- pack_record: {pack_id, record_class, record_id}
+  content_hash            text NOT NULL,
+  statement_text          text NOT NULL,
+  statement_hash          text NOT NULL,
+  status                  text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_review','signed','rejected','expired','superseded')),
+  current_level           int NOT NULL DEFAULT 1,
+  preparer_principal_type text NOT NULL CHECK (preparer_principal_type IN ('user','service_account','guest')),
+  preparer_principal_id   uuid NOT NULL,
+  expires_at              timestamptz,
+  created_at              timestamptz NOT NULL DEFAULT now(),
+  updated_at              timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_review_items_queue ON review_items(tenant_id, queue_id, status);
+CREATE INDEX ix_review_items_subject ON review_items(tenant_id, subject_type, subject_id);
+
+CREATE TABLE signoffs (                                   -- append-only
+  id                      uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id               uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  review_item_id          uuid NOT NULL REFERENCES review_items(id) ON DELETE RESTRICT,
+  level                   int NOT NULL,
+  decision                text NOT NULL CHECK (decision IN ('approve','reject','delegate')),
+  signer_principal_type   text NOT NULL CHECK (signer_principal_type IN ('user','guest')),
+  signer_principal_id     uuid NOT NULL,
+  signer_role_key         text,
+  content_hash            text NOT NULL,
+  statement_hash          text NOT NULL,
+  comment                 text NOT NULL DEFAULT '',
+  step_up_at              timestamptz,
+  delegated_to_user_id    uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at              timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_signoffs_item ON signoffs(tenant_id, review_item_id, level);
+
+CREATE TABLE sod_constraints (
+  id           uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id    uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  kind         text NOT NULL DEFAULT 'conflicting_roles' CHECK (kind IN ('conflicting_roles')),
+  role_a       text NOT NULL,
+  role_b       text NOT NULL,
+  applies_to   text NOT NULL CHECK (applies_to IN ('approval','signoff','both')),
+  enabled      boolean NOT NULL DEFAULT true,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now(),
+  CHECK (role_a <> role_b),
+  UNIQUE (tenant_id, role_a, role_b, applies_to)
+);
+CREATE INDEX ix_sod_constraints_tenant ON sod_constraints(tenant_id);
+```
+
+Trigger `append_only` on `signoffs`.
+
+## 22. Run records (`ar_domain.runs`)
+
+```sql
+CREATE TABLE run_records (                                -- append-only
+  id                       uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id                uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  run_id                   uuid NOT NULL UNIQUE REFERENCES runs(id) ON DELETE RESTRICT,
+  agent_id                 uuid NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
+  agent_version_id         uuid NOT NULL REFERENCES agent_versions(id) ON DELETE RESTRICT,
+  definition_hash          text NOT NULL,
+  prompt_template_hashes   jsonb NOT NULL,
+  model_id                 text NOT NULL,
+  model_revision           text,
+  weights_digest           text,
+  sampling_params          jsonb NOT NULL,
+  retrieved                jsonb NOT NULL DEFAULT '[]',
+  output_sha256            text NOT NULL,
+  manifest_sha256          text NOT NULL,
+  signature                text NOT NULL,
+  signature_key_id         text NOT NULL,
+  tool_io_evidence_id      uuid,                          -- FK added in section 23
+  retention_class          text NOT NULL DEFAULT 'run_record',
+  sealed_at                timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_run_records_tenant ON run_records(tenant_id, sealed_at DESC);
+CREATE INDEX ix_run_records_agent ON run_records(tenant_id, agent_id);
+
+CREATE TABLE run_record_replays (
+  id              uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id       uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  run_record_id   uuid NOT NULL REFERENCES run_records(id) ON DELETE RESTRICT,
+  status          text NOT NULL CHECK (status IN ('running','matched','diverged','failed')),
+  divergence      jsonb,
+  started_by      uuid REFERENCES users(id) ON DELETE SET NULL,
+  started_at      timestamptz NOT NULL DEFAULT now(),
+  completed_at    timestamptz
+);
+CREATE INDEX ix_run_record_replays_record ON run_record_replays(tenant_id, run_record_id);
+```
+
+Trigger `append_only` on `run_records`.
+
+## 23. Evidence vault (`ar_domain.records`)
+
+```sql
+CREATE TABLE evidence_items (
+  id                        uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id                 uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  status                    text NOT NULL DEFAULT 'sealed' CHECK (status IN ('sealed','disposed')),
+  content_sha256            text NOT NULL,
+  size_bytes                bigint NOT NULL CHECK (size_bytes >= 0),
+  media_type                text NOT NULL,
+  storage_key               text NOT NULL,
+  worm_locked_until         timestamptz NOT NULL,
+  rfc3161_token             bytea,
+  signature                 text NOT NULL,
+  signature_key_id          text NOT NULL,
+  source_system             text NOT NULL,
+  collection_method         text NOT NULL CHECK (collection_method IN ('api','tool_call','upload','browser_screenshot','sandbox','run_record')),
+  collected_at              timestamptz NOT NULL,
+  collector_run_id          uuid,
+  collector_tool_call_id    uuid,
+  collector_principal_type  text NOT NULL CHECK (collector_principal_type IN ('user','service_account','system')),
+  collector_principal_id    uuid,
+  provenance                jsonb NOT NULL,               -- schema: ar_contracts.records.EvidenceProvenance
+  classification            text NOT NULL DEFAULT 'internal' CHECK (classification IN ('public','internal','confidential','restricted')),
+  legal_hold                boolean NOT NULL DEFAULT false,
+  retention_class           text NOT NULL DEFAULT 'evidence_item',
+  created_at                timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_evidence_items_tenant ON evidence_items(tenant_id, collected_at DESC);
+CREATE UNIQUE INDEX ux_evidence_storage_key ON evidence_items(tenant_id, storage_key);
+
+CREATE TABLE evidence_custody_events (                    -- append-only
+  id                    uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id             uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  evidence_item_id      uuid NOT NULL REFERENCES evidence_items(id) ON DELETE RESTRICT,
+  action                text NOT NULL CHECK (action IN ('captured','accessed','exported','verified','hold_applied','hold_released','disposed')),
+  actor_principal_type  text NOT NULL,
+  actor_principal_id    uuid,
+  detail                jsonb NOT NULL DEFAULT '{}',
+  audit_event_id        bigint,
+  created_at            timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_evidence_custody_item ON evidence_custody_events(tenant_id, evidence_item_id, created_at);
+
+ALTER TABLE run_records
+  ADD CONSTRAINT fk_run_records_evidence
+  FOREIGN KEY (tool_io_evidence_id) REFERENCES evidence_items(id) ON DELETE RESTRICT;
+```
+
+Trigger `evidence_items_immutable`: UPDATE may change only `status`, `legal_hold` and `worm_locked_until`. DELETE is rejected. Trigger `append_only` on `evidence_custody_events`.
+
+## 24. Legal hold and retention (`ar_domain.records`)
+
+```sql
+CREATE TABLE legal_holds (
+  id                 uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id          uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  matter             text NOT NULL,
+  custodians         jsonb NOT NULL DEFAULT '[]',      -- user ids
+  scope_query        jsonb NOT NULL,                   -- schema: ar_contracts.records.HoldScope
+  status             text NOT NULL DEFAULT 'active' CHECK (status IN ('active','released')),
+  approver_user_id   uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  created_by         uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  started_at         timestamptz NOT NULL DEFAULT now(),
+  released_at        timestamptz,
+  release_reason     text,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_legal_holds_tenant ON legal_holds(tenant_id, status);
+
+CREATE TABLE legal_hold_members (
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  hold_id       uuid NOT NULL REFERENCES legal_holds(id) ON DELETE CASCADE,
+  record_class  text NOT NULL CHECK (record_class IN (
+                  'conversation','run','run_record','evidence_item','document','file',
+                  'memory_fact','signoff','agent_card','audit_archive')),
+  record_id     uuid NOT NULL,
+  detail        jsonb NOT NULL DEFAULT '{}',           -- previous_retention_class
+  applied_at    timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (hold_id, record_class, record_id)
+);
+CREATE INDEX ix_legal_hold_members_record ON legal_hold_members(tenant_id, record_class, record_id);
+
+CREATE TABLE retention_schedules (
+  id              uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id       uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  record_class    text NOT NULL,
+  retention_days  int NOT NULL CHECK (retention_days >= 1),
+  disposition     text NOT NULL CHECK (disposition IN ('delete','archive_then_delete','keep')),
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, record_class)
+);
+CREATE INDEX ix_retention_schedules_tenant ON retention_schedules(tenant_id);
+
+CREATE TABLE disposition_certificates (                  -- append-only
+  id                 uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id          uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  record_class       text NOT NULL,
+  record_id          uuid NOT NULL,
+  content_sha256     text NOT NULL,
+  method             text NOT NULL,
+  disposed_at        timestamptz NOT NULL DEFAULT now(),
+  certificate_hash   text NOT NULL,
+  actor_user_id      uuid REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX ix_disposition_certificates_tenant ON disposition_certificates(tenant_id, disposed_at DESC);
+```
+
+Trigger `append_only` on `disposition_certificates`.
+
+## 25. AI governance register (`ar_domain.agents`)
+
+```sql
+CREATE TABLE agent_cards (
+  id                  uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id           uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  agent_id            uuid NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
+  agent_version_id    uuid NOT NULL UNIQUE REFERENCES agent_versions(id) ON DELETE RESTRICT,
+  purpose             text NOT NULL,
+  risk_tier           text NOT NULL,
+  data_categories     text[] NOT NULL DEFAULT '{}',
+  oversight_mode      text NOT NULL CHECK (oversight_mode IN ('autonomous_r0','approval','human_in_loop')),
+  eval_summary        jsonb,
+  known_limitations   text NOT NULL DEFAULT '',
+  owner_user_id       uuid REFERENCES users(id) ON DELETE SET NULL,
+  review_due_at       date,
+  card_hash           text NOT NULL,
+  published_at        timestamptz NOT NULL DEFAULT now(),
+  created_at          timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_agent_cards_agent ON agent_cards(tenant_id, agent_id);
+
+CREATE TABLE ai_incidents (
+  id                 uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id          uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  agent_id           uuid REFERENCES agents(id) ON DELETE SET NULL,
+  agent_version_id   uuid REFERENCES agent_versions(id) ON DELETE SET NULL,
+  run_id             uuid REFERENCES runs(id) ON DELETE SET NULL,
+  severity           text NOT NULL CHECK (severity IN ('low','medium','high')),
+  summary            text NOT NULL,
+  status             text NOT NULL DEFAULT 'open' CHECK (status IN ('open','mitigated','closed')),
+  detected_at        timestamptz NOT NULL DEFAULT now(),
+  closed_at          timestamptz,
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_ai_incidents_tenant ON ai_incidents(tenant_id, status);
+
+CREATE TABLE ai_oversight_daily (
+  tenant_id              uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  agent_id               uuid NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+  day                    date NOT NULL,
+  approvals_requested    int NOT NULL DEFAULT 0,
+  approvals_approved     int NOT NULL DEFAULT 0,
+  approvals_rejected     int NOT NULL DEFAULT 0,
+  signoffs_approved      int NOT NULL DEFAULT 0,
+  signoffs_rejected      int NOT NULL DEFAULT 0,
+  overrides              int NOT NULL DEFAULT 0,
+  PRIMARY KEY (tenant_id, agent_id, day)
+);
+```
+
+`agent_cards` trigger `agent_cards_limited_update` allows UPDATE only of `known_limitations`, `review_due_at`, `data_categories` and `card_hash`.
+
+## 26. Guest principals (`ar_domain.identity`)
+
+Created by M14-T11. M1 does not read or write these tables.
+
+```sql
+CREATE TABLE guest_principals (
+  id                   uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id            uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  email                citext NOT NULL,
+  display_name         text NOT NULL,
+  kind                 text NOT NULL CHECK (kind IN ('external','partner','other')),
+  status               text NOT NULL DEFAULT 'invited' CHECK (status IN ('invited','active','expired','revoked')),
+  auth_method          text NOT NULL CHECK (auth_method IN ('magic_link_totp','federated')),
+  totp_secret_ref_id   uuid,                              -- FK to secret_refs, added in the same revision
+  federated_subject    text,
+  invited_by_user_id   uuid REFERENCES users(id) ON DELETE SET NULL,
+  expires_at           timestamptz NOT NULL,
+  last_login_at        timestamptz,
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  updated_at           timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, email)
+);
+CREATE INDEX ix_guest_principals_tenant ON guest_principals(tenant_id, status);
+
+ALTER TABLE guest_principals
+  ADD CONSTRAINT fk_guest_totp_secret FOREIGN KEY (totp_secret_ref_id) REFERENCES secret_refs(id) ON DELETE SET NULL;
+
+CREATE TABLE guest_grants (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  guest_id      uuid NOT NULL REFERENCES guest_principals(id) ON DELETE CASCADE,
+  portal        text NOT NULL CHECK (portal ~ '^[a-z][a-z0-9_]{0,40}$'),
+  scope         jsonb NOT NULL,                           -- {evidence_ids, binder_ids, pack_record_ids}
+  expires_at    timestamptz NOT NULL,
+  watermark     boolean NOT NULL DEFAULT true,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_guest_grants_guest ON guest_grants(tenant_id, guest_id);
+
+CREATE TABLE guest_login_challenges (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  guest_id      uuid NOT NULL REFERENCES guest_principals(id) ON DELETE CASCADE,
+  token_hash    text NOT NULL UNIQUE,
+  expires_at    timestamptz NOT NULL,
+  consumed_at   timestamptz,
+  created_at    timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_guest_login_challenges_guest ON guest_login_challenges(tenant_id, guest_id);
+```
+
+## 27. Binder exports (`ar_domain.records`)
+
+```sql
+CREATE TABLE binder_exports (
+  id                uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id         uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  title             text NOT NULL,
+  status            text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','pending_review','building','ready','failed')),
+  selection         jsonb NOT NULL,
+  require_review    boolean NOT NULL DEFAULT false,
+  review_item_id    uuid REFERENCES review_items(id) ON DELETE SET NULL,
+  manifest_sha256   text,
+  file_id           uuid REFERENCES files(id) ON DELETE SET NULL,
+  created_by        uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  completed_at      timestamptz
+);
+CREATE INDEX ix_binder_exports_tenant ON binder_exports(tenant_id, created_at DESC);
+```
+
+`files.kind` for the ZIP is the existing value `export`.
+
+## 28. Pack enablement (`ar_domain.packs`)
+
+```sql
+CREATE TABLE pack_registrations (                         -- platform-or-own; tenant_id NULL = built-in registration
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id     uuid REFERENCES tenants(id) ON DELETE CASCADE,
+  pack_id       text NOT NULL,
+  version       text NOT NULL,
+  manifest      jsonb NOT NULL,
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (pack_id, version)
+);
+
+CREATE TABLE tenant_pack_flags (
+  tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  pack_id     text NOT NULL,
+  enabled     boolean NOT NULL DEFAULT false,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, pack_id)
+);
+```
+
+`pack_registrations` uses the platform-or-own RLS policy ([rls §3.2](rls.md#32-platform-or-own-tables-tenant_id-nullable)). `tenant_pack_flags` is tenant-owned.
+
+## 29. Triggers added with sections 20–28
+
+- `append_only` on `signoffs`, `run_records`, `evidence_custody_events`, `disposition_certificates`.
+- `evidence_items_immutable` on `evidence_items` (see §23).
+- `agent_cards_limited_update` on `agent_cards` (see §25).
+- Tenant deletion bypasses these triggers only inside `TenantDeletionWorkflow`, with the same `session_replication_role` rule as §18, and only after a binder of the tenant's evidence manifests has been written to the audit archive.
+
+## 30. Table index (additions, 23 tables)
+
+| Tables | Module | Section |
+|---|---|---|
+| installed_packs, installed_pack_resources | agents | 20 |
+| review_queues, review_items, signoffs, sod_constraints | approvals | 21 |
+| run_records, run_record_replays | runs | 22 |
+| evidence_items, evidence_custody_events | records | 23 |
+| legal_holds, legal_hold_members, retention_schedules, disposition_certificates | records | 24 |
+| agent_cards, ai_incidents, ai_oversight_daily | agents | 25 |
+| guest_principals, guest_grants, guest_login_challenges | identity | 26 |
+| binder_exports | records | 27 |
+| pack_registrations, tenant_pack_flags | packs | 28 |
+
+Core total is 97 tables: 74 in §19 plus these 23. The GRC pack schema is not in this list ([10-grc-pack/domain-model.md](../10-grc-pack/domain-model.md)).

@@ -9,29 +9,29 @@ export type Kind = "remote_mcp" | "openapi" | "sql";
 export type Version = string;
 export type Description = string;
 export type Url = string;
-export type SpecFile = string;
-export type BaseUrl = string;
+export type Specfile = string;
+export type Baseurl = string;
 export type Operations = string[];
-export type DataConnection = string;
+export type Dataconnection = string;
 export type Mode = "none" | "static_secret" | "user_oauth" | "token_exchange" | "internal_jwt";
-export type CredentialProvider = string | null;
+export type Credentialprovider = string | null;
 export type Secret = string | null;
-export type RiskClass = ("R0" | "W1" | "W2" | "W3") | null;
-export type DataClassification = string | null;
-export type TimeoutS = number | null;
-export type RateLimitPerMinute = number | null;
-export type AllowedTools = string[];
+export type Riskclass = ("R0" | "W1" | "W2" | "W3") | null;
+export type Dataclassification = string | null;
+export type Timeouts = number | null;
+export type Ratelimitperminute = number | null;
+export type Allowedtools = string[];
 
 export interface ToolServerDefinition {
   kind: Kind;
   version: Version;
   description?: Description;
-  remote_mcp?: RemoteMcp | null;
+  remoteMcp?: RemoteMcp | null;
   openapi?: OpenApiSpec | null;
   sql?: SqlSpec | null;
   auth?: ToolAuth;
   tools?: Tools;
-  allowed_tools?: AllowedTools;
+  allowedTools?: Allowedtools;
 }
 /**
  * This interface was referenced by `ToolServerDefinition`'s JSON-Schema
@@ -49,8 +49,8 @@ export interface Headers {
  * via the `definition` "OpenApiSpec".
  */
 export interface OpenApiSpec {
-  spec_file: SpecFile;
-  base_url: BaseUrl;
+  specFile: Specfile;
+  baseUrl: Baseurl;
   operations?: Operations;
 }
 /**
@@ -58,11 +58,11 @@ export interface OpenApiSpec {
  * via the `definition` "SqlSpec".
  */
 export interface SqlSpec {
-  data_connection: DataConnection;
+  dataConnection: Dataconnection;
 }
 export interface ToolAuth {
   mode?: Mode;
-  credential_provider?: CredentialProvider;
+  credentialProvider?: Credentialprovider;
   secret?: Secret;
 }
 export interface Tools {
@@ -73,10 +73,10 @@ export interface Tools {
  * via the `definition` "ToolGovernance".
  */
 export interface ToolGovernance {
-  risk_class?: RiskClass;
-  data_classification?: DataClassification;
-  timeout_s?: TimeoutS;
-  rate_limit_per_minute?: RateLimitPerMinute;
+  riskClass?: Riskclass;
+  dataClassification?: Dataclassification;
+  timeoutS?: Timeouts;
+  rateLimitPerMinute?: Ratelimitperminute;
 }
 /**
  * This interface was referenced by `ToolServerDefinition`'s JSON-Schema
@@ -84,6 +84,6 @@ export interface ToolGovernance {
  */
 export interface ToolAuth1 {
   mode?: Mode;
-  credential_provider?: CredentialProvider;
+  credentialProvider?: Credentialprovider;
   secret?: Secret;
 }

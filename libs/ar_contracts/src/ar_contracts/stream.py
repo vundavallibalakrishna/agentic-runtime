@@ -4,14 +4,15 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 
+from ar_contracts.api_model import ApiModel
 from ar_contracts.budget import RunBudget, RunUsage
 from ar_contracts.messages import Citation, ContentPart
 
 
-class _Event(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+class _Event(ApiModel):
+    model_config = ConfigDict(frozen=True)
 
     id: str
     seq: int = Field(ge=1)
@@ -21,8 +22,8 @@ class _Event(BaseModel):
     ts: datetime
 
 
-class _Data(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+class _Data(ApiModel):
+    model_config = ConfigDict(frozen=True)
 
 
 class RunQueuedData(_Data):

@@ -304,3 +304,7 @@ Events: `tenant.created`, `tenant.suspended`, `user.provisioned`, `user.deprovis
 - Integration: SCIM create/patch/deactivate user → status and cascade (sessions deleted, routines paused); invitation accept flow; RLS cross-tenant for every identity table; KeycloakAdmin against a real Keycloak container (compose profile `keycloak`) in a nightly suite.
 - Workflow tests (Temporal `WorkflowEnvironment` time-skipping): provisioning happy path and retry on Keycloak failure; deletion grace + resume; erasure removes all user rows (assert by querying every table with `user_id`/`owner_user_id`).
 - E2E: admin invites user → user logs in → sees default agent.
+
+## 10. Guest principals (later milestone)
+
+External auditors and vendors are not `users` and are not created by any M1 task. Tables `guest_principals`, `guest_grants` and `guest_login_challenges` arrive in revision 0027 ([schema §26](../04-data/schema.md#26-guest-principals-ar_domainidentity)). Behaviour, grants and session rules: [spec 21 §4](21-records-governance.md#4-guest-principals), [ADR-0024](../02-architecture/adr/ADR-0024-guest-principals.md). M1 code must not require those tables.

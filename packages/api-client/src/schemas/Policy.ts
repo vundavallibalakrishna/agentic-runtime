@@ -11,11 +11,11 @@ export type Priority = number;
 export type Id = string;
 export type Effect = "allow" | "deny" | "require_approval";
 export type Tools = string[];
-export type RiskClasses = string[];
+export type Riskclasses = string[];
 export type Agents = string[];
 export type Triggers = string[];
 export type Channels = string[];
-export type UserGroups = string[];
+export type Usergroups = string[];
 export type Message = string;
 export type Rules = PolicyRule[];
 
@@ -37,11 +37,11 @@ export interface PolicyRule {
 }
 export interface PolicyMatch {
   tools?: Tools;
-  risk_classes?: RiskClasses;
+  riskClasses?: Riskclasses;
   agents?: Agents;
   triggers?: Triggers;
   channels?: Channels;
-  user_groups?: UserGroups;
+  userGroups?: Usergroups;
 }
 /**
  * This interface was referenced by `PolicyDefinition`'s JSON-Schema
@@ -49,9 +49,9 @@ export interface PolicyMatch {
  */
 export interface PolicyMatch1 {
   tools?: Tools;
-  risk_classes?: RiskClasses;
+  riskClasses?: Riskclasses;
   agents?: Agents;
   triggers?: Triggers;
   channels?: Channels;
-  user_groups?: UserGroups;
+  userGroups?: Usergroups;
 }

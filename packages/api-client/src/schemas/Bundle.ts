@@ -11,18 +11,18 @@ export type Slug = string | null;
 export type Name = string | null;
 export type Description = string | null;
 export type Visibility = ("private" | "team" | "tenant") | null;
-export type OwnerTeam = string | null;
-export type RiskTier = ("low" | "medium" | "high") | null;
+export type Ownerteam = string | null;
+export type Risktier = ("low" | "medium" | "high") | null;
 export type Alias = string | null;
 export type Kind1 = "Agent";
-export type DisplayName = string;
+export type Displayname = string;
 export type Greeting = string;
-export type AvatarFile = string | null;
+export type Avatarfile = string | null;
 export type Instructions = string;
 /**
  * @maxItems 6
  */
-export type StarterPrompts =
+export type Starterprompts =
   | []
   | [string]
   | [string, string]
@@ -31,21 +31,21 @@ export type StarterPrompts =
   | [string, string, string, string, string]
   | [string, string, string, string, string, string];
 export type Alias1 = string;
-export type FastAlias = string;
-export type VisionAlias = string | null;
+export type Fastalias = string;
+export type Visionalias = string | null;
 export type Temperature = number;
-export type TopP = number;
-export type MaxOutputTokens = number;
-export type ReasoningEffort = ("low" | "medium" | "high") | null;
-export type DegradeToFast = boolean;
+export type Topp = number;
+export type Maxoutputtokens = number;
+export type Reasoningeffort = ("low" | "medium" | "high") | null;
+export type Degradetofast = boolean;
 export type Server = string;
 export type Version = string;
 export type Include = string[];
-export type RequireApproval = ("always" | "policy") | null;
+export type Requireapproval = ("always" | "policy") | null;
 export type Pinned = boolean;
 export type Tools = ToolBinding[];
 export type Mode = "auto" | "on" | "off";
-export type TopK = number;
+export type Topk = number;
 /**
  * @maxItems 20
  */
@@ -182,39 +182,39 @@ export type Collections =
       string,
       string
     ];
-export type AutoRetrieve = boolean;
-export type TopK1 = number;
-export type MinScore = number;
+export type Autoretrieve = boolean;
+export type Topk1 = number;
+export type Minscore = number;
 /**
  * @maxItems 50
  */
 export type Skills = string[];
 export type Enabled = boolean;
-export type ReadScopes = ("user" | "agent" | "team" | "agent_user")[];
-export type UserWrites = "auto" | "explicit_only" | "off";
-export type AgentWrites = "review" | "off";
-export type RecallTopK = number;
+export type Readscopes = ("user" | "agent" | "team" | "agent_user")[];
+export type Userwrites = "auto" | "explicit_only" | "off";
+export type Agentwrites = "review" | "off";
+export type Recalltopk = number;
 export type Allowed = string[];
-export type AllowSelfClone = boolean;
-export type MaxDepth = number;
-export type MaxParallel = number;
+export type Allowselfclone = boolean;
+export type Maxdepth = number;
+export type Maxparallel = number;
 export type Enabled1 = boolean;
 export type Template = string;
 export type Scope = "conversation" | "agent_user" | "agent";
-export type ExtraEgressAllowlist = string[];
-export type MaxSteps = number;
-export type MaxTokens = number;
-export type MaxCostMicros = number;
-export type MaxWallClockS = number;
-export type MaxToolCalls = number;
-export type MaxParallelToolCalls = number;
-export type CompactionThreshold = number;
-export type ToolResultMaxTokens = number;
-export type HistoryMaxMessages = number;
+export type Extraegressallowlist = string[];
+export type Maxsteps = number;
+export type Maxtokens = number;
+export type Maxcostmicros = number;
+export type Maxwallclocks = number;
+export type Maxtoolcalls = number;
+export type Maxparalleltoolcalls = number;
+export type Compactionthreshold = number;
+export type Toolresultmaxtokens = number;
+export type Historymaxmessages = number;
 export type Citations = "required" | "preferred" | "off";
-export type ShowReasoning = boolean;
-export type PiiMasking = boolean;
-export type InjectionClassifier = boolean;
+export type Showreasoning = boolean;
+export type Piimasking = boolean;
+export type Injectionclassifier = boolean;
 export type Web = boolean;
 export type Slack = boolean;
 export type Teams = boolean;
@@ -226,67 +226,67 @@ export type Kind3 = "remote_mcp" | "openapi" | "sql";
 export type Version1 = string;
 export type Description1 = string;
 export type Url = string;
-export type SpecFile = string;
-export type BaseUrl = string;
+export type Specfile = string;
+export type Baseurl = string;
 export type Operations = string[];
-export type DataConnection = string;
+export type Dataconnection = string;
 export type Mode1 = "none" | "static_secret" | "user_oauth" | "token_exchange" | "internal_jwt";
-export type CredentialProvider = string | null;
+export type Credentialprovider = string | null;
 export type Secret = string | null;
-export type RiskClass = ("R0" | "W1" | "W2" | "W3") | null;
-export type DataClassification = string | null;
-export type TimeoutS = number | null;
-export type RateLimitPerMinute = number | null;
-export type AllowedTools = string[];
+export type Riskclass = ("R0" | "W1" | "W2" | "W3") | null;
+export type Dataclassification = string | null;
+export type Timeouts = number | null;
+export type Ratelimitperminute = number | null;
+export type Allowedtools = string[];
 export type Kind4 = "DataConnection";
 export type Engine = "postgres";
-export type DsnSecret = string;
-export type IdentityMode = "service" | "per_user_mapped" | "passthrough";
-export type AllowlistSchemas = string[];
-export type AllowlistTables = string[];
-export type ColumnsDeny = string[];
-export type RowLimit = number;
-export type StatementTimeoutS = number;
+export type Dsnsecret = string;
+export type Identitymode = "service" | "per_user_mapped" | "passthrough";
+export type Allowlistschemas = string[];
+export type Allowlisttables = string[];
+export type Columnsdeny = string[];
+export type Rowlimit = number;
+export type Statementtimeouts = number;
 export type Classification = string;
-export type SchemaNotes = string;
+export type Schemanotes = string;
 export type Kind5 = "KnowledgeCollection";
 export type Description2 = string;
 export type Visibility1 = "private" | "team" | "tenant";
-export type AclMode = "source" | "collection";
+export type Aclmode = "source" | "collection";
 export type Sensitivity = "normal" | "high";
 export type Classification1 = string;
-export type EmbeddingAlias = string;
-export type TextSearchConfig = "simple" | "english";
-export type ChunkTargetTokens = number;
-export type ChunkOverlapPct = number;
+export type Embeddingalias = string;
+export type Textsearchconfig = "simple" | "english";
+export type Chunktargettokens = number;
+export type Chunkoverlappct = number;
 export type Contextual = boolean;
 export type Name1 = string;
 export type Kind6 =
   "upload" | "web" | "s3" | "sharepoint" | "confluence" | "google_drive" | "database" | "mcp_resource";
 export type Secret1 = string | null;
-export type SyncSchedule = string | null;
-export type AclSyncSchedule = string | null;
+export type Syncschedule = string | null;
+export type Aclsyncschedule = string | null;
 export type Sources = KnowledgeSource[];
 export type Kind7 = "Routine";
 export type Description3 = string;
 export type Agent = string;
-export type AgentVersion = string | null;
-export type RunAs = "owner" | "service_account";
-export type ServiceAccount = string | null;
+export type Agentversion = string | null;
+export type Runas = "owner" | "service_account";
+export type Serviceaccount = string | null;
 export type Instructions1 = string;
 export type Type = "schedule" | "webhook" | "channel_event" | "email" | "file_arrival" | "db_change" | "manual";
 export type Cron = string | null;
 export type Timezone = string | null;
-export type JitterS = number;
-export type CatchupWindowS = number;
-export type EventFilter = string | null;
+export type Jitters = number;
+export type Catchupwindows = number;
+export type Eventfilter = string | null;
 export type Type1 = "conversation" | "slack" | "teams" | "email" | "webhook" | "file";
 export type Integration = string | null;
 export type Channel = string | null;
-export type PreApproved = boolean;
+export type Preapproved = boolean;
 export type Delivery = DeliveryTarget[];
-export type MaxRunsPerDay = number;
-export type ConcurrencyPolicy = "skip" | "buffer_one" | "allow";
+export type Maxrunsperday = number;
+export type Concurrencypolicy = "skip" | "buffer_one" | "allow";
 export type Kind8 = "Policy";
 export type Description4 = string;
 export type Status = "active" | "disabled";
@@ -294,42 +294,42 @@ export type Priority = number;
 export type Id = string;
 export type Effect = "allow" | "deny" | "require_approval";
 export type Tools2 = string[];
-export type RiskClasses = string[];
+export type Riskclasses = string[];
 export type Agents = string[];
 export type Triggers = string[];
 export type Channels = string[];
-export type UserGroups = string[];
+export type Usergroups = string[];
 export type Message = string;
 export type Rules = PolicyRule[];
 export type Kind9 = "Skill";
 export type Description5 = string;
 export type Visibility2 = "private" | "team" | "tenant";
-export type RequiredTools = string[];
-export type InstructionsMd = string;
+export type Requiredtools = string[];
+export type Instructionsmd = string;
 export type Path = string;
 export type File = string;
 export type Assets = SkillAsset[];
 export type Kind10 = "ModelAlias";
 export type Kind11 = "chat" | "embed" | "rerank";
-export type PrimaryModel = string;
-export type FallbackModels = string[];
+export type Primarymodel = string;
+export type Fallbackmodels = string[];
 export type Kind12 = "SandboxTemplate";
-export type ImageRef = string;
-export type RuntimeClass = "gvisor" | "kata";
-export type CpuMillis = number;
-export type MemoryMb = number;
-export type DiskGb = number;
-export type AllowBrowser = boolean;
-export type EgressAllowlist = string[];
-export type MaxClassification = string;
-export type IdleSuspendS = number;
-export type MaxLifetimeS = number;
-export type ExecTimeoutS = number;
-export type RetentionDays = number;
+export type Imageref = string;
+export type Runtimeclass = "gvisor" | "kata";
+export type Cpumillis = number;
+export type Memorymb = number;
+export type Diskgb = number;
+export type Allowbrowser = boolean;
+export type Egressallowlist = string[];
+export type Maxclassification = string;
+export type Idlesuspends = number;
+export type Maxlifetimes = number;
+export type Exectimeouts = number;
+export type Retentiondays = number;
 export type Kind13 = "ChannelIntegration";
 export type Kind14 = "slack" | "teams" | "email" | "widget";
 export type Secret2 = string;
-export type DefaultAgent = string;
+export type Defaultagent = string;
 export type Resources = (
   | AgentResource
   | ToolServerResource
@@ -358,8 +358,8 @@ export interface Metadata {
   name?: Name;
   description?: Description;
   visibility?: Visibility;
-  owner_team?: OwnerTeam;
-  risk_tier?: RiskTier;
+  ownerTeam?: Ownerteam;
+  riskTier?: Risktier;
   alias?: Alias;
 }
 /**
@@ -380,10 +380,10 @@ export interface AgentResource {
 export interface AgentDefinition {
   persona: Persona;
   instructions: Instructions;
-  starter_prompts?: StarterPrompts;
+  starterPrompts?: Starterprompts;
   model: ModelSpec;
   tools?: Tools;
-  tool_search?: ToolSearch;
+  toolSearch?: ToolSearch;
   knowledge?: KnowledgeSpec;
   skills?: Skills;
   memory?: MemorySpec;
@@ -400,9 +400,9 @@ export interface AgentDefinition {
  * via the `definition` "Persona".
  */
 export interface Persona {
-  display_name: DisplayName;
+  displayName: Displayname;
   greeting?: Greeting;
-  avatar_file?: AvatarFile;
+  avatarFile?: Avatarfile;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -410,16 +410,16 @@ export interface Persona {
  */
 export interface ModelSpec {
   alias: Alias1;
-  fast_alias: FastAlias;
-  vision_alias?: VisionAlias;
+  fastAlias: Fastalias;
+  visionAlias?: Visionalias;
   params?: ModelParams;
-  degrade_to_fast?: DegradeToFast;
+  degradeToFast?: Degradetofast;
 }
 export interface ModelParams {
   temperature?: Temperature;
-  top_p?: TopP;
-  max_output_tokens?: MaxOutputTokens;
-  reasoning_effort?: ReasoningEffort;
+  topP?: Topp;
+  maxOutputTokens?: Maxoutputtokens;
+  reasoningEffort?: Reasoningeffort;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -439,37 +439,37 @@ export interface Overrides {
  * via the `definition` "ToolOverride".
  */
 export interface ToolOverride {
-  require_approval?: RequireApproval;
+  requireApproval?: Requireapproval;
   pinned?: Pinned;
 }
 export interface ToolSearch {
   mode?: Mode;
-  top_k?: TopK;
+  topK?: Topk;
 }
 export interface KnowledgeSpec {
   collections?: Collections;
-  auto_retrieve?: AutoRetrieve;
-  top_k?: TopK1;
-  min_score?: MinScore;
+  autoRetrieve?: Autoretrieve;
+  topK?: Topk1;
+  minScore?: Minscore;
 }
 export interface MemorySpec {
   enabled?: Enabled;
-  read_scopes?: ReadScopes;
-  user_writes?: UserWrites;
-  agent_writes?: AgentWrites;
-  recall_top_k?: RecallTopK;
+  readScopes?: Readscopes;
+  userWrites?: Userwrites;
+  agentWrites?: Agentwrites;
+  recallTopK?: Recalltopk;
 }
 export interface SubagentSpec {
   allowed?: Allowed;
-  allow_self_clone?: AllowSelfClone;
-  max_depth?: MaxDepth;
-  max_parallel?: MaxParallel;
+  allowSelfClone?: Allowselfclone;
+  maxDepth?: Maxdepth;
+  maxParallel?: Maxparallel;
 }
 export interface SandboxSpec {
   enabled?: Enabled1;
   template?: Template;
   scope?: Scope;
-  extra_egress_allowlist?: ExtraEgressAllowlist;
+  extraEgressAllowlist?: Extraegressallowlist;
 }
 /**
  * Limits for one top-level run. Subagents draw from the same budget.
@@ -478,25 +478,25 @@ export interface SandboxSpec {
  * via the `definition` "RunBudget".
  */
 export interface RunBudget {
-  max_steps: MaxSteps;
-  max_tokens: MaxTokens;
-  max_cost_micros: MaxCostMicros;
-  max_wall_clock_s: MaxWallClockS;
-  max_tool_calls: MaxToolCalls;
-  max_parallel_tool_calls: MaxParallelToolCalls;
+  maxSteps: Maxsteps;
+  maxTokens: Maxtokens;
+  maxCostMicros: Maxcostmicros;
+  maxWallClockS: Maxwallclocks;
+  maxToolCalls: Maxtoolcalls;
+  maxParallelToolCalls: Maxparalleltoolcalls;
 }
 export interface ContextSpec {
-  compaction_threshold?: CompactionThreshold;
-  tool_result_max_tokens?: ToolResultMaxTokens;
-  history_max_messages?: HistoryMaxMessages;
+  compactionThreshold?: Compactionthreshold;
+  toolResultMaxTokens?: Toolresultmaxtokens;
+  historyMaxMessages?: Historymaxmessages;
 }
 export interface OutputSpec {
   citations?: Citations;
-  show_reasoning?: ShowReasoning;
+  showReasoning?: Showreasoning;
 }
 export interface SafetySpec {
-  pii_masking?: PiiMasking;
-  injection_classifier?: InjectionClassifier;
+  piiMasking?: Piimasking;
+  injectionClassifier?: Injectionclassifier;
 }
 export interface ChannelFlags {
   web?: Web;
@@ -523,12 +523,12 @@ export interface ToolServerDefinition {
   kind: Kind3;
   version: Version1;
   description?: Description1;
-  remote_mcp?: RemoteMcp | null;
+  remoteMcp?: RemoteMcp | null;
   openapi?: OpenApiSpec | null;
   sql?: SqlSpec | null;
   auth?: ToolAuth;
   tools?: Tools1;
-  allowed_tools?: AllowedTools;
+  allowedTools?: Allowedtools;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -546,8 +546,8 @@ export interface Headers {
  * via the `definition` "OpenApiSpec".
  */
 export interface OpenApiSpec {
-  spec_file: SpecFile;
-  base_url: BaseUrl;
+  specFile: Specfile;
+  baseUrl: Baseurl;
   operations?: Operations;
 }
 /**
@@ -555,11 +555,11 @@ export interface OpenApiSpec {
  * via the `definition` "SqlSpec".
  */
 export interface SqlSpec {
-  data_connection: DataConnection;
+  dataConnection: Dataconnection;
 }
 export interface ToolAuth {
   mode?: Mode1;
-  credential_provider?: CredentialProvider;
+  credentialProvider?: Credentialprovider;
   secret?: Secret;
 }
 export interface Tools1 {
@@ -570,10 +570,10 @@ export interface Tools1 {
  * via the `definition` "ToolGovernance".
  */
 export interface ToolGovernance {
-  risk_class?: RiskClass;
-  data_classification?: DataClassification;
-  timeout_s?: TimeoutS;
-  rate_limit_per_minute?: RateLimitPerMinute;
+  riskClass?: Riskclass;
+  dataClassification?: Dataclassification;
+  timeoutS?: Timeouts;
+  rateLimitPerMinute?: Ratelimitperminute;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -590,15 +590,15 @@ export interface DataConnectionResource {
  */
 export interface DataConnectionDefinition {
   engine?: Engine;
-  dsn_secret: DsnSecret;
-  identity_mode?: IdentityMode;
-  allowlist_schemas?: AllowlistSchemas;
-  allowlist_tables?: AllowlistTables;
-  columns_deny?: ColumnsDeny;
-  row_limit?: RowLimit;
-  statement_timeout_s?: StatementTimeoutS;
+  dsnSecret: Dsnsecret;
+  identityMode?: Identitymode;
+  allowlistSchemas?: Allowlistschemas;
+  allowlistTables?: Allowlisttables;
+  columnsDeny?: Columnsdeny;
+  rowLimit?: Rowlimit;
+  statementTimeoutS?: Statementtimeouts;
   classification?: Classification;
-  schema_notes?: SchemaNotes;
+  schemaNotes?: Schemanotes;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -616,13 +616,13 @@ export interface KnowledgeCollectionResource {
 export interface KnowledgeCollectionDefinition {
   description?: Description2;
   visibility?: Visibility1;
-  acl_mode?: AclMode;
+  aclMode?: Aclmode;
   sensitivity?: Sensitivity;
   classification?: Classification1;
-  embedding_alias?: EmbeddingAlias;
-  text_search_config?: TextSearchConfig;
-  chunk_target_tokens?: ChunkTargetTokens;
-  chunk_overlap_pct?: ChunkOverlapPct;
+  embeddingAlias?: Embeddingalias;
+  textSearchConfig?: Textsearchconfig;
+  chunkTargetTokens?: Chunktargettokens;
+  chunkOverlapPct?: Chunkoverlappct;
   contextual?: Contextual;
   sources?: Sources;
 }
@@ -634,8 +634,8 @@ export interface KnowledgeSource {
   name: Name1;
   kind: Kind6;
   secret?: Secret1;
-  sync_schedule?: SyncSchedule;
-  acl_sync_schedule?: AclSyncSchedule;
+  syncSchedule?: Syncschedule;
+  aclSyncSchedule?: Aclsyncschedule;
   config?: Config;
 }
 export interface Config {
@@ -657,16 +657,16 @@ export interface RoutineResource {
 export interface RoutineDefinition {
   description?: Description3;
   agent: Agent;
-  agent_version?: AgentVersion;
-  run_as?: RunAs;
-  service_account?: ServiceAccount;
+  agentVersion?: Agentversion;
+  runAs?: Runas;
+  serviceAccount?: Serviceaccount;
   instructions: Instructions1;
   trigger: RoutineTrigger;
-  event_filter?: EventFilter;
+  eventFilter?: Eventfilter;
   delivery?: Delivery;
   budget: RunBudget;
-  max_runs_per_day?: MaxRunsPerDay;
-  concurrency_policy?: ConcurrencyPolicy;
+  maxRunsPerDay?: Maxrunsperday;
+  concurrencyPolicy?: Concurrencypolicy;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -676,8 +676,8 @@ export interface RoutineTrigger {
   type: Type;
   cron?: Cron;
   timezone?: Timezone;
-  jitter_s?: JitterS;
-  catchup_window_s?: CatchupWindowS;
+  jitterS?: Jitters;
+  catchupWindowS?: Catchupwindows;
   config?: Config1;
 }
 export interface Config1 {
@@ -691,7 +691,7 @@ export interface DeliveryTarget {
   type: Type1;
   integration?: Integration;
   channel?: Channel;
-  pre_approved?: PreApproved;
+  preApproved?: Preapproved;
   config?: Config2;
 }
 export interface Config2 {
@@ -728,11 +728,11 @@ export interface PolicyRule {
 }
 export interface PolicyMatch {
   tools?: Tools2;
-  risk_classes?: RiskClasses;
+  riskClasses?: Riskclasses;
   agents?: Agents;
   triggers?: Triggers;
   channels?: Channels;
-  user_groups?: UserGroups;
+  userGroups?: Usergroups;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -750,8 +750,8 @@ export interface SkillResource {
 export interface SkillDefinition {
   description: Description5;
   visibility?: Visibility2;
-  required_tools?: RequiredTools;
-  instructions_md: InstructionsMd;
+  requiredTools?: Requiredtools;
+  instructionsMd: Instructionsmd;
   assets?: Assets;
 }
 /**
@@ -777,8 +777,8 @@ export interface ModelAliasResource {
  */
 export interface ModelAliasDefinition {
   kind: Kind11;
-  primary_model: PrimaryModel;
-  fallback_models?: FallbackModels;
+  primaryModel: Primarymodel;
+  fallbackModels?: Fallbackmodels;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -794,18 +794,18 @@ export interface SandboxTemplateResource {
  * via the `definition` "SandboxTemplateDefinition".
  */
 export interface SandboxTemplateDefinition {
-  image_ref: ImageRef;
-  runtime_class?: RuntimeClass;
-  cpu_millis: CpuMillis;
-  memory_mb: MemoryMb;
-  disk_gb: DiskGb;
-  allow_browser?: AllowBrowser;
-  egress_allowlist?: EgressAllowlist;
-  max_classification?: MaxClassification;
-  idle_suspend_s?: IdleSuspendS;
-  max_lifetime_s?: MaxLifetimeS;
-  exec_timeout_s?: ExecTimeoutS;
-  retention_days?: RetentionDays;
+  imageRef: Imageref;
+  runtimeClass?: Runtimeclass;
+  cpuMillis: Cpumillis;
+  memoryMb: Memorymb;
+  diskGb: Diskgb;
+  allowBrowser?: Allowbrowser;
+  egressAllowlist?: Egressallowlist;
+  maxClassification?: Maxclassification;
+  idleSuspendS?: Idlesuspends;
+  maxLifetimeS?: Maxlifetimes;
+  execTimeoutS?: Exectimeouts;
+  retentionDays?: Retentiondays;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -823,7 +823,7 @@ export interface ChannelIntegrationResource {
 export interface ChannelIntegrationDefinition {
   kind: Kind14;
   secret: Secret2;
-  default_agent: DefaultAgent;
+  defaultAgent: Defaultagent;
   config?: Config3;
 }
 export interface Config3 {
@@ -846,9 +846,9 @@ export interface ChannelFlags1 {
  * via the `definition` "ContextSpec".
  */
 export interface ContextSpec1 {
-  compaction_threshold?: CompactionThreshold;
-  tool_result_max_tokens?: ToolResultMaxTokens;
-  history_max_messages?: HistoryMaxMessages;
+  compactionThreshold?: Compactionthreshold;
+  toolResultMaxTokens?: Toolresultmaxtokens;
+  historyMaxMessages?: Historymaxmessages;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -856,9 +856,9 @@ export interface ContextSpec1 {
  */
 export interface KnowledgeSpec1 {
   collections?: Collections;
-  auto_retrieve?: AutoRetrieve;
-  top_k?: TopK1;
-  min_score?: MinScore;
+  autoRetrieve?: Autoretrieve;
+  topK?: Topk1;
+  minScore?: Minscore;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -866,10 +866,10 @@ export interface KnowledgeSpec1 {
  */
 export interface MemorySpec1 {
   enabled?: Enabled;
-  read_scopes?: ReadScopes;
-  user_writes?: UserWrites;
-  agent_writes?: AgentWrites;
-  recall_top_k?: RecallTopK;
+  readScopes?: Readscopes;
+  userWrites?: Userwrites;
+  agentWrites?: Agentwrites;
+  recallTopK?: Recalltopk;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -877,9 +877,9 @@ export interface MemorySpec1 {
  */
 export interface ModelParams1 {
   temperature?: Temperature;
-  top_p?: TopP;
-  max_output_tokens?: MaxOutputTokens;
-  reasoning_effort?: ReasoningEffort;
+  topP?: Topp;
+  maxOutputTokens?: Maxoutputtokens;
+  reasoningEffort?: Reasoningeffort;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -887,7 +887,7 @@ export interface ModelParams1 {
  */
 export interface OutputSpec1 {
   citations?: Citations;
-  show_reasoning?: ShowReasoning;
+  showReasoning?: Showreasoning;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -895,19 +895,19 @@ export interface OutputSpec1 {
  */
 export interface PolicyMatch1 {
   tools?: Tools2;
-  risk_classes?: RiskClasses;
+  riskClasses?: Riskclasses;
   agents?: Agents;
   triggers?: Triggers;
   channels?: Channels;
-  user_groups?: UserGroups;
+  userGroups?: Usergroups;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
  * via the `definition` "SafetySpec".
  */
 export interface SafetySpec1 {
-  pii_masking?: PiiMasking;
-  injection_classifier?: InjectionClassifier;
+  piiMasking?: Piimasking;
+  injectionClassifier?: Injectionclassifier;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -917,7 +917,7 @@ export interface SandboxSpec1 {
   enabled?: Enabled1;
   template?: Template;
   scope?: Scope;
-  extra_egress_allowlist?: ExtraEgressAllowlist;
+  extraEgressAllowlist?: Extraegressallowlist;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -925,9 +925,9 @@ export interface SandboxSpec1 {
  */
 export interface SubagentSpec1 {
   allowed?: Allowed;
-  allow_self_clone?: AllowSelfClone;
-  max_depth?: MaxDepth;
-  max_parallel?: MaxParallel;
+  allowSelfClone?: Allowselfclone;
+  maxDepth?: Maxdepth;
+  maxParallel?: Maxparallel;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -935,7 +935,7 @@ export interface SubagentSpec1 {
  */
 export interface ToolAuth1 {
   mode?: Mode1;
-  credential_provider?: CredentialProvider;
+  credentialProvider?: Credentialprovider;
   secret?: Secret;
 }
 /**
@@ -944,5 +944,5 @@ export interface ToolAuth1 {
  */
 export interface ToolSearch1 {
   mode?: Mode;
-  top_k?: TopK;
+  topK?: Topk;
 }

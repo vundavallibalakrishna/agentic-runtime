@@ -10,11 +10,11 @@
           "title": "Tools",
           "type": "array"
         },
-        "risk_classes": {
+        "riskClasses": {
           "items": {
             "type": "string"
           },
-          "title": "Risk Classes",
+          "title": "Riskclasses",
           "type": "array"
         },
         "agents": {
@@ -38,11 +38,11 @@
           "title": "Channels",
           "type": "array"
         },
-        "user_groups": {
+        "userGroups": {
           "items": {
             "type": "string"
           },
-          "title": "User Groups",
+          "title": "Usergroups",
           "type": "array"
         }
       },
@@ -69,11 +69,11 @@
           "$ref": "#/$defs/PolicyMatch",
           "default": {
             "tools": [],
-            "risk_classes": [],
+            "riskClasses": [],
             "agents": [],
             "triggers": [],
             "channels": [],
-            "user_groups": []
+            "userGroups": []
           }
         },
         "message": {

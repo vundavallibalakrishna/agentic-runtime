@@ -47,10 +47,11 @@ As a **tenant admin**, I want to disable an agent immediately so that a misbehav
 - `POST /api/v1/agents/{agent_id}:disable` (permission `agents:disable`) blocks new runs (`resource_disabled`) and cancels active runs; enabling restores it; both audited.
 - Spec: spec 05 §3. Plan: M3-T01.
 
-### US-AGT-08 · Draft an agent from a description (P1)
-As a **builder**, I want to describe what I need in plain language and get a proposed definition.
+### US-AGT-08 · One-shot draft API (P1)
+As a **builder**, I want a single call that turns a description into a definition.
 - `POST /api/v1/agents:draft-from-description` returns a definition that passes schema validation and references only resources visible to me; nothing is saved until I accept.
-- Spec: spec 05 §1.6. Plan: M3-T06.
+- The screen people use is US-AGT-11. This endpoint is what the builder agent calls.
+- Spec: spec 05 §3. Plan: M3-T06.
 
 ### US-AGT-09 · Import and export bundles (P1)
 As a **builder**, I want to move agents (with skills, policies, routines) between environments as files.
@@ -62,3 +63,9 @@ As a **builder**, I want to move agents (with skills, policies, routines) betwee
 As a **member**, I want to find agents relevant to me and start chatting.
 - Catalogue with search, filters (team, channel, recently used), agent detail (description, starter prompts, owner, version) and a "Chat" action that opens a new conversation.
 - Spec: [spec 19 §3](../03-specs/19-web-app.md#3-pages). Plan: M3-T08.
+
+### US-AGT-11 · Describe the agent you want (P0)
+As a **builder**, I want to type what the agent should do and get a full draft I can correct.
+- The first control is a natural-language field. The built-in `builder` agent returns a preview of persona, tools, knowledge, policies and routines.
+- I can refine in the conversation or open the same draft in the form or YAML editor. Nothing is published until I publish.
+- Spec: [spec 05 §11](../03-specs/05-agent-registry.md#11-natural-language-builder). Plan: M3-T10.
