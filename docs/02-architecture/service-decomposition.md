@@ -168,6 +168,8 @@ Workflow ids are deterministic (see each spec), which gives idempotent starts.
 | Squid egress proxy | 3128 |
 | Mailpit (SMTP / UI) | 1025 / 8025 |
 
+The host side of each port is `${VAR:-default}` in `compose.yaml`. Defaults are the numbers above. `AR_PORT` is the API. Database ports keep the container port fixed and only the host mapping moves. See [local-dev host ports](../07-ops/local-dev.md#5-host-ports).
+
 ## 7. Records module and packs
 
 `ar_domain.records` owns the immutable evidence store, legal holds, retention schedules, disposition certificates and binders ([spec 21](../03-specs/21-records-governance.md)). It is added by M14, not by M1. Guest tables stay in `ar_domain.identity` and are also M14.

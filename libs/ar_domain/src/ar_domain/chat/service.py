@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
+from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
@@ -103,6 +104,8 @@ class ChatService:
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        if self.fake_llm_url == "http://127.0.0.1:8099/v1":
+            self.fake_llm_url = fake_llm_base_url()
         self.seed_demo()
 
     def seed_demo(self) -> None:

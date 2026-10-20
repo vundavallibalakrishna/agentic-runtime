@@ -3,7 +3,6 @@
 import asyncio
 import hashlib
 import math
-import os
 import random
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -344,6 +343,7 @@ def _sse(payload: Mapping[str, object]) -> str:
 
 
 def main() -> None:
-    """Run fake-llm on port 8099."""
-    port = int(os.environ.get("FAKE_LLM_PORT", "8099"))
-    uvicorn.run(create_application(), host="0.0.0.0", port=port)  # noqa: S104
+    """Run fake-llm on ``AR_FAKE_LLM_HOST_PORT`` (default 8099)."""
+    from ar_common.host_ports import fake_llm_port  # noqa: PLC0415
+
+    uvicorn.run(create_application(), host="0.0.0.0", port=fake_llm_port())  # noqa: S104

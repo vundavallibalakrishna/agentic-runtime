@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 
+from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.logic import assistant_definition, definition_hash
@@ -18,8 +19,6 @@ if TYPE_CHECKING:
     import uuid
 
     from sqlalchemy.ext.asyncio import AsyncSession
-
-FAKE_URL = "http://127.0.0.1:8099/v1"
 
 
 async def apply(session: AsyncSession, tenant_id: uuid.UUID, admin_id: uuid.UUID) -> None:
@@ -35,7 +34,7 @@ async def apply(session: AsyncSession, tenant_id: uuid.UUID, admin_id: uuid.UUID
             tenant_id=None,
             name="fake-llm",
             kind="fake",
-            base_url=FAKE_URL,
+            base_url=fake_llm_base_url(),
         )
         session.add(provider)
         await session.flush()

@@ -23,8 +23,9 @@ Exact versions: [stack.md](../stack.md).
 | `make up` / `make down` | Start/stop dependency containers from `compose.yaml` (profile `deps`; add `OBS=1`, `SCAN=1`, `QDRANT=1` for the optional `obs`, `scan`, `qdrant` profiles) |
 | `make migrate` | `uv run alembic -c libs/ar_domain/alembic.ini upgrade head` and seeds Keycloak realm (import is automatic on first start) |
 | `make seed` | `uv run python scripts/seed.py`: tenant `dev` (plan `enterprise`, matching the Keycloak organization `dev`), users `admin@dev.local` (tenant_admin), `builder@dev.local` (builder, tool_owner, knowledge_manager), `member@dev.local` (member), `approver@dev.local` (approver), all with password `dev-password` (defined in the realm export); model provider `fake-llm` with aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`; team `everyone`; published agent `assistant`. Sample knowledge and the Helpdesk agent arrive with later milestones. |
-| `make dev` | `make up migrate seed` (idempotent) then runs all app processes with reload via `honcho` (`Procfile.dev`): api, runtime-worker, system-worker, ingest-worker, model-gateway, mcp-gateway, sandbox-manager (Docker driver), channels, mcp-sql, mcp-openapi, fake-llm, web (`pnpm --filter @ar/web dev`) |
-| `make dev-min` | Only api, runtime-worker, system-worker, model-gateway, mcp-gateway, fake-llm, web (enough for chat + tools) |
+| `make ports-check` | Reads `.env` host ports, rewrites localhost URLs so they use the same ports, and exits non-zero when a port is already taken. The message names the variable to change. |
+| `make dev` | `make ports-check`, then `make up migrate seed` (idempotent), then all app processes via `honcho` (`Procfile.dev`): api, runtime-worker, system-worker, ingest-worker, model-gateway, mcp-gateway, sandbox-manager (Docker driver), channels, mcp-sql, mcp-openapi, fake-llm, web (`pnpm --filter @ar/web dev`). `make dev AUTO_PORTS=1` moves busy host ports onto free ports and updates the URLs before compose starts. |
+| `make dev-min` | Same preflight, then only api, runtime-worker, system-worker, model-gateway, mcp-gateway, fake-llm, web (enough for chat + tools) |
 | `make fmt` | `ruff format`, `ruff check --fix`, `biome check --write` |
 | `make test-integration` | Only integration tests (testcontainers) |
 | `make check` | `make lint typecheck test-unit` for Python and TS |
@@ -47,7 +48,7 @@ Exact versions: [stack.md](../stack.md).
 - `qdrant`: Qdrant on 6333/6334, only for working on or testing the optional qdrant retrieval adapter (`make up QDRANT=1`, then set `AR_VECTOR_BACKEND=qdrant` and `AR_QDRANT_URL=http://localhost:6333` in `.env`). Knowledge retrieval uses Postgres + pgvector by default; nothing else needs Qdrant.
 - `apps`: also runs every app image (for testing images locally: `docker compose --profile apps up`).
 
-Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6-ports-local-development).
+Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6-ports-local-development). Every host port is an env var with that number as the default. See [Host ports](#5-host-ports).
 
 ## 4. Day-to-day
 
@@ -59,7 +60,37 @@ Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6
 - New migration: `uv run alembic -c libs/ar_domain/alembic.ini revision --autogenerate -m "<area>_<change>"`, then hand-edit (RLS policies, grants) per [migrations](../04-data/migrations.md).
 - Resetting state: `make reset-db`; `docker compose down -v` wipes everything.
 
-## 5. Troubleshooting
+## 5. Host ports
+
+`compose.yaml` publishes `${AR_PG_HOST_PORT:-5432}` (and the same pattern for every other host port). Database container ports stay on the image default. App processes listen on the published port (`AR_PORT` for the API). `make ports-check` copies a changed host port into the matching localhost URL in `.env`:
+
+| Set this | Also updates |
+|---|---|
+| `AR_PG_HOST_PORT` | `AR_DATABASE_URL` when the host is localhost |
+| `AR_VALKEY_HOST_PORT` | `AR_VALKEY_URL` |
+| `AR_TEMPORAL_HOST_PORT` | `AR_TEMPORAL_ADDRESS` |
+| `AR_PORT` | API listen port, `AR_API_INTERNAL_URL`, and `API_PROXY_URL` (the web dev rewrite) |
+| `AR_WEB_HOST_PORT` | `AR_PUBLIC_URL` and `next dev --port` |
+| `AR_FAKE_LLM_HOST_PORT` | fake-llm listen port and the seeded base URL |
+| `AR_KEYCLOAK_HOST_PORT` | `AR_OIDC_ISSUER` when it points at localhost |
+| `AR_S3_HOST_PORT` | `AR_S3_ENDPOINT` and `AR_S3_PUBLIC_ENDPOINT` |
+| `AR_VAULT_HOST_PORT` | `AR_VAULT_ADDR` |
+
+The full list, including Mailpit, Squid, OPA, Grafana and the worker health ports, is in `.env.example` and [environments §3.3](environments.md#33-local-host-ports). A remote URL (host other than `localhost` or `127.0.0.1`) is left alone.
+
+Example when Postgres, Valkey, Temporal and the API are already taken:
+
+```bash
+# .env
+AR_PG_HOST_PORT=15432
+AR_VALKEY_HOST_PORT=16379
+AR_TEMPORAL_HOST_PORT=17233
+AR_PORT=18000
+```
+
+Then `make dev`. Or skip the edits: `make dev AUTO_PORTS=1`.
+
+## 6. Troubleshooting
 
 | Symptom | Fix |
 |---|---|
@@ -67,4 +98,4 @@ Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6
 | Runs stay `queued` | `runtime-worker` not running or Temporal not ready; check Temporal UI task queue `ar-runtime` pollers |
 | Tool calls fail `sandbox_unavailable` | Docker socket not accessible to sandbox-manager; on macOS enable "Allow the default Docker socket" |
 | `make gen` diff in CI | Run `make gen` and commit the generated files |
-| Port in use | Override in `.env` (`AR_*_PORT`) and `compose.override.yaml` |
+| Port in use | `make ports-check` prints the variable (`AR_PG_HOST_PORT`, `AR_VALKEY_HOST_PORT`, `AR_TEMPORAL_HOST_PORT`, `AR_PORT`, …). Set it in `.env` or run `make dev AUTO_PORTS=1`. One assignment updates the published port and the localhost URL. |

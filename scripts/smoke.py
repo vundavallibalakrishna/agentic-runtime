@@ -5,25 +5,11 @@ import sys
 import time
 import urllib.request
 
+from ar_common.host_ports import health_urls
+
 # Cold images need a moment after `compose up -d` before the process binds.
 _WAIT_S = 90
 _INTERVAL_S = 1.0
-
-DEFAULT_URLS = [
-    "http://localhost:8000/healthz",
-    "http://localhost:8001/healthz",
-    "http://localhost:8002/healthz",
-    "http://localhost:8003/healthz",
-    "http://localhost:8004/healthz",
-    "http://localhost:8010/healthz",
-    "http://localhost:8011/healthz",
-    "http://localhost:8012/healthz",
-    "http://localhost:8013/healthz",
-    "http://localhost:8014/healthz",
-    "http://localhost:8080/healthz",
-    "http://localhost:8099/healthz",
-    "http://localhost:3000/healthz",
-]
 
 
 def _get(url: str) -> tuple[bool, str]:
@@ -46,7 +32,7 @@ def main() -> None:
     parser.add_argument("--wait-seconds", type=float, default=_WAIT_S)
     parser.add_argument("--interval-seconds", type=float, default=_INTERVAL_S)
     args = parser.parse_args()
-    urls = args.urls or DEFAULT_URLS
+    urls = args.urls or health_urls()
     if not args.health_only:
         print("conversation smoke is not available until M2; use --health-only", file=sys.stderr)
         raise SystemExit(2)

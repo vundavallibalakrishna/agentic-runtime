@@ -202,6 +202,43 @@ Required in `staging` and `prod` (startup fails when missing):
 
 Everything else, including evidence, guests, packs and grounding, runs on the default in the catalogue. Tenant behaviour lives in `tenants.settings` with the defaults in the owning spec. Settings screens use Simple and Advanced modes ([spec 19 §12](../03-specs/19-web-app.md#12-simple-and-advanced-settings)).
 
+### 3.3 Local host ports
+
+These are laptop publish ports. They are not set in Helm. `make ports-check` copies a non-default value into the localhost URL named in [local-dev](local-dev.md#5-host-ports). `AR_MG_PORT`, `AR_MCPG_PORT`, `AR_CHANNELS_PORT` and `AR_SMTP_PORT` are already in §3 and are the host ports for those processes.
+
+| Variable | Default | Description | Defined in |
+|---|---|---|---|
+| `AR_CLICKHOUSE_HOST_PORT` | `8123` | Host port for ClickHouse HTTP | [local-dev](local-dev.md#5-host-ports) |
+| `AR_CLAMAV_HOST_PORT` | `3310` | Host port for clamd. Updates `AR_CLAMAV_ADDRESS` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_EGRESS_HOST_PORT` | `3128` | Host port for Squid. Updates `AR_EGRESS_PROXY_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_FAKE_LLM_HOST_PORT` | `8099` | Host port for fake-llm. `FAKE_LLM_PORT` is still accepted | [local-dev](local-dev.md#5-host-ports) |
+| `AR_GRAFANA_HOST_PORT` | `3001` | Host port for Grafana. Updates `AR_TRACE_UI_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_INGEST_HOST_PORT` | `8014` | Host port for ingest-worker health | [local-dev](local-dev.md#5-host-ports) |
+| `AR_KEYCLOAK_HOST_PORT` | `8180` | Host port for Keycloak. Updates `AR_OIDC_ISSUER` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_LANGFUSE_HOST_PORT` | `3100` | Host port for Langfuse | [local-dev](local-dev.md#5-host-ports) |
+| `AR_MAILPIT_UI_HOST_PORT` | `8025` | Host port for the Mailpit UI | [local-dev](local-dev.md#5-host-ports) |
+| `AR_MCP_OPENAPI_HOST_PORT` | `8011` | Host port for mcp-openapi | [local-dev](local-dev.md#5-host-ports) |
+| `AR_MCP_SQL_HOST_PORT` | `8010` | Host port for mcp-sql | [local-dev](local-dev.md#5-host-ports) |
+| `AR_OPA_HOST_PORT` | `8181` | Host port for OPA. Updates `AR_OPA_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_OTEL_GRPC_HOST_PORT` | `4317` | Host port for OTLP gRPC. Updates `AR_OTEL_EXPORTER_OTLP_ENDPOINT` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_OTEL_HTTP_HOST_PORT` | `4318` | Host port for OTLP HTTP | [local-dev](local-dev.md#5-host-ports) |
+| `AR_PG_HOST_PORT` | `5432` | Host port for Postgres. Updates `AR_DATABASE_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_PORT` | `8000` | API listen port and host port. Updates `AR_API_INTERNAL_URL` and `API_PROXY_URL` | [local-dev](local-dev.md#5-host-ports) |
+| `AR_PROMETHEUS_HOST_PORT` | `9090` | Host port for Prometheus | [local-dev](local-dev.md#5-host-ports) |
+| `AR_QDRANT_GRPC_HOST_PORT` | `6334` | Host port for Qdrant gRPC | [local-dev](local-dev.md#5-host-ports) |
+| `AR_QDRANT_HTTP_HOST_PORT` | `6333` | Host port for Qdrant HTTP. Updates `AR_QDRANT_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_RUNTIME_HOST_PORT` | `8012` | Host port for runtime-worker health | [local-dev](local-dev.md#5-host-ports) |
+| `AR_S3_HOST_PORT` | `8333` | Host port for SeaweedFS S3. Updates `AR_S3_ENDPOINT` and `AR_S3_PUBLIC_ENDPOINT` | [local-dev](local-dev.md#5-host-ports) |
+| `AR_SANDBOX_AGENT_HOST_PORT` | `8080` | Host port for sandbox-agent | [local-dev](local-dev.md#5-host-ports) |
+| `AR_SANDBOX_MANAGER_HOST_PORT` | `8003` | Host port for sandbox-manager | [local-dev](local-dev.md#5-host-ports) |
+| `AR_SYSTEM_HOST_PORT` | `8013` | Host port for system-worker health | [local-dev](local-dev.md#5-host-ports) |
+| `AR_TEMPO_HOST_PORT` | `3200` | Host port for Tempo | [local-dev](local-dev.md#5-host-ports) |
+| `AR_TEMPORAL_HOST_PORT` | `7233` | Host port for Temporal gRPC. Updates `AR_TEMPORAL_ADDRESS` | [local-dev](local-dev.md#5-host-ports) |
+| `AR_TEMPORAL_UI_HOST_PORT` | `8233` | Host port for the Temporal UI | [local-dev](local-dev.md#5-host-ports) |
+| `AR_VALKEY_HOST_PORT` | `6379` | Host port for Valkey. Updates `AR_VALKEY_URL` | [local-dev](local-dev.md#5-host-ports) |
+| `AR_VAULT_HOST_PORT` | `8200` | Host port for OpenBao. Updates `AR_VAULT_ADDR` on localhost | [local-dev](local-dev.md#5-host-ports) |
+| `AR_WEB_HOST_PORT` | `3000` | Host port for the web app. Updates `AR_PUBLIC_URL` | [local-dev](local-dev.md#5-host-ports) |
+
 ## 4. Mirrors and air-gapped installs
 
 | What | Variable / value | Notes |

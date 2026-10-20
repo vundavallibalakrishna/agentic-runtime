@@ -15,7 +15,8 @@
     ".storybook/**/*.ts",
     ".storybook/**/*.tsx",
     "vitest.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "dev-env.ts"
   ],
   "exclude": ["node_modules"]
 }

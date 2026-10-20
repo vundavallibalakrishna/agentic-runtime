@@ -35,6 +35,7 @@ from ar_api.routers.users import router as users_router
 from ar_api.routers.webhooks import router as webhooks_router
 from ar_api.secrets_runtime import MemorySecretApi
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
+from ar_common.host_ports import listen_port
 from ar_common.settings import BaseServiceSettings, EnvName
 from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
@@ -201,10 +202,14 @@ def create_application() -> FastAPI:
 
 
 def main() -> None:
-    """Listen on port 8000."""
+    """Listen on ``AR_PORT`` (default 8000)."""
     import uvicorn  # noqa: PLC0415
 
-    uvicorn.run(create_application(), host="0.0.0.0", port=LISTEN_PORT)  # noqa: S104
+    uvicorn.run(
+        create_application(),
+        host="0.0.0.0",  # noqa: S104
+        port=listen_port("AR_PORT", LISTEN_PORT),
+    )
 
 
 LoginCompleter = Callable[[str, dict[str, object]], Awaitable[dict[str, str]]]

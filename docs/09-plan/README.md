@@ -97,6 +97,7 @@ Every milestone must be visually testable before merge. The pull request body in
 1. **Start the stack.** Exact commands, usually `make bootstrap && make dev`. When compose is enough, say which profiles. Say which processes must be up (api, web, fake-llm).
 2. **Seeded demo.** What `make seed` inserts, the dev login (non-production `POST /api/v1/auth/dev-login` as `admin@dev.local`), and the tenant, agent and model the click-through uses. Chat must work without an external API key.
 3. **Checklist.** Numbered steps for every user-visible feature delivered by this milestone and earlier milestones. Each step says what to click or type and what the user should see, including empty, loading and error states.
+4. **Host ports.** When the default ports are taken, say which variables to set. `make ports-check` names each busy port and the `.env` assignment that frees it. `make dev AUTO_PORTS=1` picks free ports and rewrites the localhost URLs (`AR_PG_HOST_PORT` updates `AR_DATABASE_URL`, `AR_PORT` updates the API listen port and `API_PROXY_URL`). Defaults stay 5432, 6379, 7233, 8000 and the rest of the [local port table](../07-ops/local-dev.md#5-host-ports).
 
 Playwright in `apps/web/e2e` walks the same paths and saves screenshots. A milestone does not merge on green unit tests alone when it changes a screen.
 
