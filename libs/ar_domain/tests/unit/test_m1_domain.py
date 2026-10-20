@@ -415,7 +415,10 @@ class _MemStore:
         self.Plan = Plan
         self.Tenant = Tenant
         self.plan = Plan(
-            id=uuid.uuid4(), key="enterprise", name="Enterprise", limits=PlanLimits().model_dump(by_alias=False)
+            id=uuid.uuid4(),
+            key="enterprise",
+            name="Enterprise",
+            limits=PlanLimits().model_dump(by_alias=False),
         )
         self.tenant = Tenant(
             id=ctx.tenant_id,

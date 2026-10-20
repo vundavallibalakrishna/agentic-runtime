@@ -4192,9 +4192,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "ApiKeyCreate"
       },
       "AssignmentCreate": {
@@ -4233,11 +4231,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "roleId",
-          "principalType",
-          "principalId"
-        ],
+        "required": ["roleId", "principalType", "principalId"],
         "title": "AssignmentCreate"
       },
       "DomainCreate": {
@@ -4249,9 +4243,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "domain"
-        ],
+        "required": ["domain"],
         "title": "DomainCreate"
       },
       "GrantCreate": {
@@ -4282,12 +4274,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "operatorSubject",
-          "operatorEmail",
-          "level",
-          "reason"
-        ],
+        "required": ["operatorSubject", "operatorEmail", "level", "reason"],
         "title": "GrantCreate"
       },
       "GroupCreate": {
@@ -4299,9 +4286,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "GroupCreate"
       },
       "HTTPValidationError": {
@@ -4335,11 +4320,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "kind",
-          "displayName",
-          "config"
-        ],
+        "required": ["kind", "displayName", "config"],
         "title": "IdpCreate"
       },
       "InvitationCreate": {
@@ -4363,9 +4344,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "emails"
-        ],
+        "required": ["emails"],
         "title": "InvitationCreate"
       },
       "Me": {
@@ -4446,9 +4425,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "id"
-        ],
+        "required": ["id"],
         "title": "Me",
         "description": "Authenticated caller. Role and permission values stay catalogue tokens."
       },
@@ -4500,10 +4477,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "key",
-          "name"
-        ],
+        "required": ["key", "name"],
         "title": "PlanBody"
       },
       "RoleCreate": {
@@ -4531,11 +4505,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "key",
-          "name",
-          "permissions"
-        ],
+        "required": ["key", "name", "permissions"],
         "title": "RoleCreate"
       },
       "RolePatch": {
@@ -4593,10 +4563,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "name",
-          "value"
-        ],
+        "required": ["name", "value"],
         "title": "SecretCreate"
       },
       "SecretRotate": {
@@ -4608,9 +4575,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "value"
-        ],
+        "required": ["value"],
         "title": "SecretRotate"
       },
       "ServiceAccountCreate": {
@@ -4632,9 +4597,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "ServiceAccountCreate"
       },
       "ServiceAccountPatch": {
@@ -4694,11 +4657,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "slug",
-          "name",
-          "email"
-        ],
+        "required": ["slug", "name", "email"],
         "title": "SignupBody"
       },
       "TeamCreate": {
@@ -4719,10 +4678,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "slug",
-          "name"
-        ],
+        "required": ["slug", "name"],
         "title": "TeamCreate"
       },
       "TeamMemberCreate": {
@@ -4740,9 +4696,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "userId"
-        ],
+        "required": ["userId"],
         "title": "TeamMemberCreate"
       },
       "TenantCreate": {
@@ -4766,12 +4720,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "slug",
-          "name",
-          "planKey",
-          "ownerEmail"
-        ],
+        "required": ["slug", "name", "planKey", "ownerEmail"],
         "title": "TenantCreate"
       },
       "TenantPatch": {
@@ -4867,11 +4816,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError"
       },
       "WebhookCreate": {
@@ -4894,11 +4839,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "name",
-          "url",
-          "topics"
-        ],
+        "required": ["name", "url", "topics"],
         "title": "WebhookCreate"
       }
     }
