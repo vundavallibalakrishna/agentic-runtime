@@ -4,8 +4,19 @@ import { Bot } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+  children,
+  extraLinks = [],
+}: {
+  children: ReactNode;
+  extraLinks?: { href: string; label: string }[];
+}) {
   const t = useTranslations("shell");
+  const links = [
+    { href: "/", label: t("navHome") },
+    { href: "/agents", label: t("navAgents") },
+    ...extraLinks,
+  ];
   return (
     <div className="grid min-h-screen grid-cols-[220px_1fr]">
       <aside className="border-r border-[var(--border)] p-4">
@@ -14,8 +25,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           {t("product")}
         </p>
         <nav className="mt-4 flex flex-col gap-2 text-sm" aria-label="Primary">
-          <a href="/">{t("navHome")}</a>
-          <a href="/agents">{t("navAgents")}</a>
+          {links.map((link) => (
+            <a key={link.href} href={link.href}>
+              {link.label}
+            </a>
+          ))}
         </nav>
       </aside>
       <main className="p-6">{children}</main>
