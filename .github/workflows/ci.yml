@@ -1,0 +1,181 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  pr-title:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conventional commit title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$TITLE" | grep -Eq '^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)(\([^)]+\))?: .+'
+
+  python-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --all-extras --frozen
+      - run: uv run ruff format --check .
+      - run: uv run ruff check .
+      - run: uv run mypy
+      - run: uv run lint-imports
+      - run: make deptry
+
+  python-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --frozen
+      - run: uv run pytest -m "not integration and not e2e" -q --cov
+
+  python-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --all-extras --frozen
+      - run: uv run pytest -m integration -q
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec biome check .
+      - run: pnpm exec turbo run typecheck
+      - run: pnpm exec turbo run test
+      - run: pnpm exec knip
+      - run: pnpm --filter @ar/web build
+
+  codegen-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --frozen
+      - run: pnpm install --frozen-lockfile
+      - run: make gen
+      - run: git diff --exit-code
+
+  opa-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OPA
+        run: |
+          curl -fsSL -o /usr/local/bin/opa "https://github.com/open-policy-agent/opa/releases/download/v1.21.3/opa_linux_amd64_static"
+          chmod +x /usr/local/bin/opa
+      - run: opa fmt --diff policies/
+      - run: opa check --strict policies/
+      - run: opa test policies/ --coverage
+
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Placeholder until the first Alembic revision
+        run: echo "not available until M1-T02"
+
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --frozen
+      - run: docker compose --profile deps --profile apps up -d --build
+      - run: uv run python scripts/smoke.py --health-only
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --frozen
+      - run: pnpm install --frozen-lockfile
+      - run: uv run python scripts/check_docs_links.py
+      - run: uv run python scripts/check_env_catalogue.py
+      - run: uv run python scripts/check_audit_catalogue.py
+      - run: uv run python scripts/check_stack_pins.py
+      - name: no placeholder markers
+        run: |
+          if grep -RInE --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=.git --exclude-dir=.next --exclude-dir=.turbo 'TO''DO|FIX''ME' .; then
+            echo "placeholder markers are not allowed; record the item in docs/open-questions.md"
+            exit 1
+          fi
+
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.3.1
+      - run: helm lint deploy/helm/agentic-runtime
+      - run: helm template agentic-runtime deploy/helm/agentic-runtime
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+      - run: uv tool install pip-audit==2.10.1
+      - run: uv tool run pip-audit --vulnerability-service osv

@@ -1,0 +1,3496 @@
+{
+  "$defs": {
+    "ArtifactCreated": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "artifact.created",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ArtifactCreatedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ArtifactCreated",
+      "type": "object"
+    },
+    "ArtifactCreatedData": {
+      "additionalProperties": false,
+      "properties": {
+        "file_id": {
+          "format": "uuid",
+          "title": "File Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "mime_type": {
+          "title": "Mime Type",
+          "type": "string"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "type": "integer"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Preview"
+        }
+      },
+      "required": [
+        "file_id",
+        "name",
+        "mime_type",
+        "size_bytes"
+      ],
+      "title": "ArtifactCreatedData",
+      "type": "object"
+    },
+    "BrowserScreenshot": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "browser.screenshot",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/BrowserScreenshotData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "BrowserScreenshot",
+      "type": "object"
+    },
+    "BrowserScreenshotData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "file_id": {
+          "format": "uuid",
+          "title": "File Id",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "file_id",
+        "url",
+        "title"
+      ],
+      "title": "BrowserScreenshotData",
+      "type": "object"
+    },
+    "Citation": {
+      "additionalProperties": false,
+      "description": "A knowledge citation attached to an assistant message.",
+      "properties": {
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "document_id": {
+          "format": "uuid",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "chunk_id": {
+          "format": "uuid",
+          "title": "Chunk Id",
+          "type": "string"
+        },
+        "collection_id": {
+          "format": "uuid",
+          "title": "Collection Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "uri": {
+          "title": "Uri",
+          "type": "string"
+        },
+        "snippet": {
+          "title": "Snippet",
+          "type": "string"
+        },
+        "page_from": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page From"
+        },
+        "page_to": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page To"
+        },
+        "source_modified_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Modified At"
+        }
+      },
+      "required": [
+        "index",
+        "document_id",
+        "chunk_id",
+        "collection_id",
+        "title",
+        "uri",
+        "snippet"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "CitationAdded": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "citation.added",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/CitationAddedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "CitationAdded",
+      "type": "object"
+    },
+    "CitationAddedData": {
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "format": "uuid",
+          "title": "Message Id",
+          "type": "string"
+        },
+        "citation": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "required": [
+        "message_id",
+        "citation"
+      ],
+      "title": "CitationAddedData",
+      "type": "object"
+    },
+    "CitationRefPart": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "citation_ref",
+          "title": "Type",
+          "type": "string"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "citation": {
+          "$ref": "#/$defs/Citation"
+        }
+      },
+      "required": [
+        "type",
+        "index",
+        "citation"
+      ],
+      "title": "CitationRefPart",
+      "type": "object"
+    },
+    "ContextCompacted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "context.compacted",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ContextCompactedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ContextCompacted",
+      "type": "object"
+    },
+    "ContextCompactedData": {
+      "additionalProperties": false,
+      "properties": {
+        "tokens_before": {
+          "title": "Tokens Before",
+          "type": "integer"
+        },
+        "tokens_after": {
+          "title": "Tokens After",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tokens_before",
+        "tokens_after"
+      ],
+      "title": "ContextCompactedData",
+      "type": "object"
+    },
+    "FilePart": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "file",
+          "title": "Type",
+          "type": "string"
+        },
+        "file_id": {
+          "format": "uuid",
+          "title": "File Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "mime_type": {
+          "title": "Mime Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "file_id",
+        "name",
+        "mime_type"
+      ],
+      "title": "FilePart",
+      "type": "object"
+    },
+    "Heartbeat": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "heartbeat",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/_Data"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "Heartbeat",
+      "type": "object"
+    },
+    "ImagePart": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "image",
+          "title": "Type",
+          "type": "string"
+        },
+        "file_id": {
+          "format": "uuid",
+          "title": "File Id",
+          "type": "string"
+        },
+        "alt": {
+          "default": "",
+          "title": "Alt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "file_id"
+      ],
+      "title": "ImagePart",
+      "type": "object"
+    },
+    "InputRequired": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "input.required",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/InputRequiredData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "InputRequired",
+      "type": "object"
+    },
+    "InputRequiredData": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "requested_schema": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Requested Schema",
+          "type": "object"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "tool_call_id",
+        "message",
+        "requested_schema",
+        "expires_at"
+      ],
+      "title": "InputRequiredData",
+      "type": "object"
+    },
+    "InputResolved": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "input.resolved",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/InputResolvedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "InputResolved",
+      "type": "object"
+    },
+    "InputResolvedData": {
+      "additionalProperties": false,
+      "properties": {
+        "request_id": {
+          "format": "uuid",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "accept",
+            "decline",
+            "cancel",
+            "expired"
+          ],
+          "title": "Action",
+          "type": "string"
+        }
+      },
+      "required": [
+        "request_id",
+        "action"
+      ],
+      "title": "InputResolvedData",
+      "type": "object"
+    },
+    "MemoryRecalled": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "memory.recalled",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MemoryRecalledData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "MemoryRecalled",
+      "type": "object"
+    },
+    "MemoryRecalledData": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "fact_ids",
+        "count"
+      ],
+      "title": "MemoryRecalledData",
+      "type": "object"
+    },
+    "MemorySaved": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "memory.saved",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MemorySavedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "MemorySaved",
+      "type": "object"
+    },
+    "MemorySavedData": {
+      "additionalProperties": false,
+      "properties": {
+        "fact_id": {
+          "format": "uuid",
+          "title": "Fact Id",
+          "type": "string"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "scope": {
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fact_id",
+        "content",
+        "scope"
+      ],
+      "title": "MemorySavedData",
+      "type": "object"
+    },
+    "MessageCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "message.completed",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MessageCompletedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "MessageCompleted",
+      "type": "object"
+    },
+    "MessageCompletedData": {
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "format": "uuid",
+          "title": "Message Id",
+          "type": "string"
+        },
+        "content": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "citation_ref": "#/$defs/CitationRefPart",
+                "file": "#/$defs/FilePart",
+                "image": "#/$defs/ImagePart",
+                "text": "#/$defs/TextPart",
+                "tool_result": "#/$defs/ToolResultPart",
+                "tool_use": "#/$defs/ToolUsePart"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/TextPart"
+              },
+              {
+                "$ref": "#/$defs/FilePart"
+              },
+              {
+                "$ref": "#/$defs/ImagePart"
+              },
+              {
+                "$ref": "#/$defs/ToolUsePart"
+              },
+              {
+                "$ref": "#/$defs/CitationRefPart"
+              },
+              {
+                "$ref": "#/$defs/ToolResultPart"
+              }
+            ]
+          },
+          "title": "Content",
+          "type": "array"
+        },
+        "tokens_in": {
+          "title": "Tokens In",
+          "type": "integer"
+        },
+        "tokens_out": {
+          "title": "Tokens Out",
+          "type": "integer"
+        },
+        "finish_reason": {
+          "title": "Finish Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id",
+        "content",
+        "tokens_in",
+        "tokens_out",
+        "finish_reason"
+      ],
+      "title": "MessageCompletedData",
+      "type": "object"
+    },
+    "MessageDelta": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "message.delta",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MessageDeltaData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "MessageDelta",
+      "type": "object"
+    },
+    "MessageDeltaData": {
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "format": "uuid",
+          "title": "Message Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message_id",
+        "text"
+      ],
+      "title": "MessageDeltaData",
+      "type": "object"
+    },
+    "MessageStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "message.started",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MessageStartedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "MessageStarted",
+      "type": "object"
+    },
+    "MessageStartedData": {
+      "additionalProperties": false,
+      "properties": {
+        "message_id": {
+          "format": "uuid",
+          "title": "Message Id",
+          "type": "string"
+        },
+        "role": {
+          "const": "assistant",
+          "title": "Role",
+          "type": "string"
+        },
+        "model_alias": {
+          "title": "Model Alias",
+          "type": "string"
+        },
+        "reset": {
+          "default": false,
+          "title": "Reset",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "message_id",
+        "role",
+        "model_alias"
+      ],
+      "title": "MessageStartedData",
+      "type": "object"
+    },
+    "PlanItem": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "in_progress",
+            "done",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "status"
+      ],
+      "title": "PlanItem",
+      "type": "object"
+    },
+    "PlanUpdated": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "plan.updated",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/PlanUpdatedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "PlanUpdated",
+      "type": "object"
+    },
+    "PlanUpdatedData": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/PlanItem"
+          },
+          "title": "Items",
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "title": "PlanUpdatedData",
+      "type": "object"
+    },
+    "ReasoningDelta": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "reasoning.delta",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/MessageDeltaData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ReasoningDelta",
+      "type": "object"
+    },
+    "RunBudget": {
+      "additionalProperties": false,
+      "description": "Limits for one top-level run. Subagents draw from the same budget.",
+      "properties": {
+        "max_steps": {
+          "minimum": 1,
+          "title": "Max Steps",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "max_cost_micros": {
+          "minimum": 0,
+          "title": "Max Cost Micros",
+          "type": "integer"
+        },
+        "max_wall_clock_s": {
+          "minimum": 1,
+          "title": "Max Wall Clock S",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_parallel_tool_calls": {
+          "minimum": 1,
+          "title": "Max Parallel Tool Calls",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_steps",
+        "max_tokens",
+        "max_cost_micros",
+        "max_wall_clock_s",
+        "max_tool_calls",
+        "max_parallel_tool_calls"
+      ],
+      "title": "RunBudget",
+      "type": "object"
+    },
+    "RunBudgetExceeded": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.budget_exceeded",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunBudgetExceededData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunBudgetExceeded",
+      "type": "object"
+    },
+    "RunBudgetExceededData": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "enum": [
+            "max_steps",
+            "max_tokens",
+            "max_cost_micros",
+            "max_wall_clock_s",
+            "max_tool_calls"
+          ],
+          "title": "Limit",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/RunUsage"
+        }
+      },
+      "required": [
+        "limit",
+        "usage"
+      ],
+      "title": "RunBudgetExceededData",
+      "type": "object"
+    },
+    "RunCancelled": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.cancelled",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunCancelledData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunCancelled",
+      "type": "object"
+    },
+    "RunCancelledData": {
+      "additionalProperties": false,
+      "properties": {
+        "by": {
+          "enum": [
+            "user",
+            "system"
+          ],
+          "title": "By",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/RunUsage"
+        }
+      },
+      "required": [
+        "by",
+        "usage"
+      ],
+      "title": "RunCancelledData",
+      "type": "object"
+    },
+    "RunCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.completed",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunCompletedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunCompleted",
+      "type": "object"
+    },
+    "RunCompletedData": {
+      "additionalProperties": false,
+      "properties": {
+        "final_message_id": {
+          "format": "uuid",
+          "title": "Final Message Id",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/RunUsage"
+        }
+      },
+      "required": [
+        "final_message_id",
+        "usage"
+      ],
+      "title": "RunCompletedData",
+      "type": "object"
+    },
+    "RunErrorInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "retriable": {
+          "title": "Retriable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retriable"
+      ],
+      "title": "RunErrorInfo",
+      "type": "object"
+    },
+    "RunFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.failed",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunFailedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunFailed",
+      "type": "object"
+    },
+    "RunFailedData": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "$ref": "#/$defs/RunErrorInfo"
+        },
+        "usage": {
+          "$ref": "#/$defs/RunUsage"
+        }
+      },
+      "required": [
+        "error",
+        "usage"
+      ],
+      "title": "RunFailedData",
+      "type": "object"
+    },
+    "RunQueued": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.queued",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunQueuedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunQueued",
+      "type": "object"
+    },
+    "RunQueuedData": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_id": {
+          "format": "uuid",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "agent_version_id": {
+          "format": "uuid",
+          "title": "Agent Version Id",
+          "type": "string"
+        },
+        "trigger": {
+          "title": "Trigger",
+          "type": "string"
+        },
+        "input_message_id": {
+          "format": "uuid",
+          "title": "Input Message Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent_id",
+        "agent_version_id",
+        "trigger",
+        "input_message_id"
+      ],
+      "title": "RunQueuedData",
+      "type": "object"
+    },
+    "RunStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.started",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunStartedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunStarted",
+      "type": "object"
+    },
+    "RunStartedData": {
+      "additionalProperties": false,
+      "properties": {
+        "model_alias": {
+          "title": "Model Alias",
+          "type": "string"
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        },
+        "sandbox_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sandbox Id"
+        }
+      },
+      "required": [
+        "model_alias",
+        "budget"
+      ],
+      "title": "RunStartedData",
+      "type": "object"
+    },
+    "RunStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.status",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunStatusData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunStatus",
+      "type": "object"
+    },
+    "RunStatusData": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "enum": [
+            "running",
+            "waiting_approval",
+            "waiting_input"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "RunStatusData",
+      "type": "object"
+    },
+    "RunUsage": {
+      "additionalProperties": false,
+      "description": "Cumulative usage reported on run events.",
+      "properties": {
+        "tokens_in": {
+          "default": 0,
+          "title": "Tokens In",
+          "type": "integer"
+        },
+        "tokens_out": {
+          "default": 0,
+          "title": "Tokens Out",
+          "type": "integer"
+        },
+        "cached_tokens": {
+          "default": 0,
+          "title": "Cached Tokens",
+          "type": "integer"
+        },
+        "model_calls": {
+          "default": 0,
+          "title": "Model Calls",
+          "type": "integer"
+        },
+        "tool_calls": {
+          "default": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        },
+        "cost_micros": {
+          "default": 0,
+          "title": "Cost Micros",
+          "type": "integer"
+        },
+        "sandbox_cpu_seconds": {
+          "default": 0,
+          "title": "Sandbox Cpu Seconds",
+          "type": "number"
+        },
+        "elapsed_ms": {
+          "default": 0,
+          "title": "Elapsed Ms",
+          "type": "integer"
+        }
+      },
+      "title": "RunUsage",
+      "type": "object"
+    },
+    "RunUsageEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "run.usage",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/RunUsage"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "RunUsageEvent",
+      "type": "object"
+    },
+    "SandboxOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "sandbox.output",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SandboxOutputData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "SandboxOutput",
+      "type": "object"
+    },
+    "SandboxOutputData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "stream": {
+          "enum": [
+            "stdout",
+            "stderr"
+          ],
+          "title": "Stream",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "stream",
+        "text"
+      ],
+      "title": "SandboxOutputData",
+      "type": "object"
+    },
+    "SandboxStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "sandbox.status",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SandboxStatusData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "SandboxStatus",
+      "type": "object"
+    },
+    "SandboxStatusData": {
+      "additionalProperties": false,
+      "properties": {
+        "sandbox_id": {
+          "format": "uuid",
+          "title": "Sandbox Id",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sandbox_id",
+        "status"
+      ],
+      "title": "SandboxStatusData",
+      "type": "object"
+    },
+    "SubagentCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "subagent.completed",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SubagentCompletedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "SubagentCompleted",
+      "type": "object"
+    },
+    "SubagentCompletedData": {
+      "additionalProperties": false,
+      "properties": {
+        "child_run_id": {
+          "format": "uuid",
+          "title": "Child Run Id",
+          "type": "string"
+        },
+        "status": {
+          "title": "Status",
+          "type": "string"
+        },
+        "result_summary": {
+          "title": "Result Summary",
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "#/$defs/RunUsage"
+        }
+      },
+      "required": [
+        "child_run_id",
+        "status",
+        "result_summary",
+        "usage"
+      ],
+      "title": "SubagentCompletedData",
+      "type": "object"
+    },
+    "SubagentStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "subagent.started",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/SubagentStartedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "SubagentStarted",
+      "type": "object"
+    },
+    "SubagentStartedData": {
+      "additionalProperties": false,
+      "properties": {
+        "child_run_id": {
+          "format": "uuid",
+          "title": "Child Run Id",
+          "type": "string"
+        },
+        "agent_id": {
+          "format": "uuid",
+          "title": "Agent Id",
+          "type": "string"
+        },
+        "agent_name": {
+          "title": "Agent Name",
+          "type": "string"
+        },
+        "task_brief": {
+          "title": "Task Brief",
+          "type": "string"
+        }
+      },
+      "required": [
+        "child_run_id",
+        "agent_id",
+        "agent_name",
+        "task_brief"
+      ],
+      "title": "SubagentStartedData",
+      "type": "object"
+    },
+    "TextPart": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "text",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "text"
+      ],
+      "title": "TextPart",
+      "type": "object"
+    },
+    "ToolCallApprovalRequired": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_call.approval_required",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ToolCallApprovalRequiredData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ToolCallApprovalRequired",
+      "type": "object"
+    },
+    "ToolCallApprovalRequiredData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "approval_id": {
+          "format": "uuid",
+          "title": "Approval Id",
+          "type": "string"
+        },
+        "preview": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Preview",
+          "type": "object"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "approver_rule": {
+          "title": "Approver Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "approval_id",
+        "preview",
+        "expires_at",
+        "approver_rule"
+      ],
+      "title": "ToolCallApprovalRequiredData",
+      "type": "object"
+    },
+    "ToolCallApprovalResolved": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_call.approval_resolved",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ToolCallApprovalResolvedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ToolCallApprovalResolved",
+      "type": "object"
+    },
+    "ToolCallApprovalResolvedData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "approval_id": {
+          "format": "uuid",
+          "title": "Approval Id",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "approved",
+            "rejected",
+            "expired",
+            "cancelled"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "by_user_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "By User Id"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "approval_id",
+        "decision"
+      ],
+      "title": "ToolCallApprovalResolvedData",
+      "type": "object"
+    },
+    "ToolCallCompleted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_call.completed",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ToolCallCompletedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ToolCallCompleted",
+      "type": "object"
+    },
+    "ToolCallCompletedData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "status": {
+          "const": "succeeded",
+          "title": "Status",
+          "type": "string"
+        },
+        "result_preview": {
+          "title": "Result Preview",
+          "type": "string"
+        },
+        "result_file_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Result File Id"
+        },
+        "latency_ms": {
+          "title": "Latency Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "status",
+        "result_preview",
+        "latency_ms"
+      ],
+      "title": "ToolCallCompletedData",
+      "type": "object"
+    },
+    "ToolCallFailed": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_call.failed",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ToolCallFailedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ToolCallFailed",
+      "type": "object"
+    },
+    "ToolCallFailedData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "failed",
+            "denied",
+            "rejected",
+            "expired",
+            "cancelled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "error": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Error",
+          "type": "object"
+        },
+        "policy_reasons": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Policy Reasons"
+        },
+        "connect_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Connect Url"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "status",
+        "error"
+      ],
+      "title": "ToolCallFailedData",
+      "type": "object"
+    },
+    "ToolCallProgress": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_call.progress",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ToolCallProgressData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ToolCallProgress",
+      "type": "object"
+    },
+    "ToolCallProgressData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Progress"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "message"
+      ],
+      "title": "ToolCallProgressData",
+      "type": "object"
+    },
+    "ToolCallStarted": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "tool_call.started",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ToolCallStartedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ToolCallStarted",
+      "type": "object"
+    },
+    "ToolCallStartedData": {
+      "additionalProperties": false,
+      "properties": {
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "model_call_id": {
+          "format": "uuid",
+          "title": "Model Call Id",
+          "type": "string"
+        },
+        "qualified_name": {
+          "title": "Qualified Name",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "risk_class": {
+          "title": "Risk Class",
+          "type": "string"
+        },
+        "arguments_preview": {
+          "title": "Arguments Preview",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_call_id",
+        "model_call_id",
+        "qualified_name",
+        "title",
+        "risk_class",
+        "arguments_preview"
+      ],
+      "title": "ToolCallStartedData",
+      "type": "object"
+    },
+    "ToolResultPart": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "tool_result",
+          "title": "Type",
+          "type": "string"
+        },
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "is_error": {
+          "default": false,
+          "title": "Is Error",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "tool_call_id",
+        "text"
+      ],
+      "title": "ToolResultPart",
+      "type": "object"
+    },
+    "ToolUsePart": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "tool_use",
+          "title": "Type",
+          "type": "string"
+        },
+        "tool_call_id": {
+          "format": "uuid",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "qualified_name": {
+          "title": "Qualified Name",
+          "type": "string"
+        },
+        "arguments": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Arguments"
+        }
+      },
+      "required": [
+        "type",
+        "tool_call_id",
+        "qualified_name"
+      ],
+      "title": "ToolUsePart",
+      "type": "object"
+    },
+    "WarningData": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "WarningData",
+      "type": "object"
+    },
+    "WarningEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "root_run_id": {
+          "format": "uuid",
+          "title": "Root Run Id",
+          "type": "string"
+        },
+        "conversation_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversation Id"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "warning",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/WarningData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "run_id",
+        "root_run_id",
+        "conversation_id",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "WarningEvent",
+      "type": "object"
+    },
+    "_Data": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "_Data",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "artifact.created": "#/$defs/ArtifactCreated",
+      "browser.screenshot": "#/$defs/BrowserScreenshot",
+      "citation.added": "#/$defs/CitationAdded",
+      "context.compacted": "#/$defs/ContextCompacted",
+      "heartbeat": "#/$defs/Heartbeat",
+      "input.required": "#/$defs/InputRequired",
+      "input.resolved": "#/$defs/InputResolved",
+      "memory.recalled": "#/$defs/MemoryRecalled",
+      "memory.saved": "#/$defs/MemorySaved",
+      "message.completed": "#/$defs/MessageCompleted",
+      "message.delta": "#/$defs/MessageDelta",
+      "message.started": "#/$defs/MessageStarted",
+      "plan.updated": "#/$defs/PlanUpdated",
+      "reasoning.delta": "#/$defs/ReasoningDelta",
+      "run.budget_exceeded": "#/$defs/RunBudgetExceeded",
+      "run.cancelled": "#/$defs/RunCancelled",
+      "run.completed": "#/$defs/RunCompleted",
+      "run.failed": "#/$defs/RunFailed",
+      "run.queued": "#/$defs/RunQueued",
+      "run.started": "#/$defs/RunStarted",
+      "run.status": "#/$defs/RunStatus",
+      "run.usage": "#/$defs/RunUsageEvent",
+      "sandbox.output": "#/$defs/SandboxOutput",
+      "sandbox.status": "#/$defs/SandboxStatus",
+      "subagent.completed": "#/$defs/SubagentCompleted",
+      "subagent.started": "#/$defs/SubagentStarted",
+      "tool_call.approval_required": "#/$defs/ToolCallApprovalRequired",
+      "tool_call.approval_resolved": "#/$defs/ToolCallApprovalResolved",
+      "tool_call.completed": "#/$defs/ToolCallCompleted",
+      "tool_call.failed": "#/$defs/ToolCallFailed",
+      "tool_call.progress": "#/$defs/ToolCallProgress",
+      "tool_call.started": "#/$defs/ToolCallStarted",
+      "warning": "#/$defs/WarningEvent"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/RunQueued"
+    },
+    {
+      "$ref": "#/$defs/RunStarted"
+    },
+    {
+      "$ref": "#/$defs/RunStatus"
+    },
+    {
+      "$ref": "#/$defs/RunUsageEvent"
+    },
+    {
+      "$ref": "#/$defs/RunCompleted"
+    },
+    {
+      "$ref": "#/$defs/RunFailed"
+    },
+    {
+      "$ref": "#/$defs/RunCancelled"
+    },
+    {
+      "$ref": "#/$defs/RunBudgetExceeded"
+    },
+    {
+      "$ref": "#/$defs/MessageStarted"
+    },
+    {
+      "$ref": "#/$defs/MessageDelta"
+    },
+    {
+      "$ref": "#/$defs/ReasoningDelta"
+    },
+    {
+      "$ref": "#/$defs/MessageCompleted"
+    },
+    {
+      "$ref": "#/$defs/CitationAdded"
+    },
+    {
+      "$ref": "#/$defs/ToolCallStarted"
+    },
+    {
+      "$ref": "#/$defs/ToolCallProgress"
+    },
+    {
+      "$ref": "#/$defs/ToolCallApprovalRequired"
+    },
+    {
+      "$ref": "#/$defs/ToolCallApprovalResolved"
+    },
+    {
+      "$ref": "#/$defs/InputRequired"
+    },
+    {
+      "$ref": "#/$defs/InputResolved"
+    },
+    {
+      "$ref": "#/$defs/ToolCallCompleted"
+    },
+    {
+      "$ref": "#/$defs/ToolCallFailed"
+    },
+    {
+      "$ref": "#/$defs/ArtifactCreated"
+    },
+    {
+      "$ref": "#/$defs/SandboxStatus"
+    },
+    {
+      "$ref": "#/$defs/SandboxOutput"
+    },
+    {
+      "$ref": "#/$defs/BrowserScreenshot"
+    },
+    {
+      "$ref": "#/$defs/PlanUpdated"
+    },
+    {
+      "$ref": "#/$defs/SubagentStarted"
+    },
+    {
+      "$ref": "#/$defs/SubagentCompleted"
+    },
+    {
+      "$ref": "#/$defs/MemoryRecalled"
+    },
+    {
+      "$ref": "#/$defs/MemorySaved"
+    },
+    {
+      "$ref": "#/$defs/ContextCompacted"
+    },
+    {
+      "$ref": "#/$defs/WarningEvent"
+    },
+    {
+      "$ref": "#/$defs/Heartbeat"
+    }
+  ]
+}

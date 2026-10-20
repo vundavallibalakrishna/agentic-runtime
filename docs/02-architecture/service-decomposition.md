@@ -151,6 +151,9 @@ Workflow ids are deterministic (see each spec), which gives idempotent starts.
 | mcp-openapi | 8011 |
 | fake-llm | 8099 |
 | sandbox-agent (inside sandbox) | 8080 |
+| runtime-worker (health) | 8012 |
+| system-worker (health) | 8013 |
+| ingest-worker (health) | 8014 |
 | Postgres | 5432 |
 | Valkey | 6379 |
 | Temporal gRPC / UI | 7233 / 8233 |

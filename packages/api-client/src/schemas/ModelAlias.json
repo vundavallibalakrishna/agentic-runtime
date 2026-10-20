@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "chat",
+        "embed",
+        "rerank"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "primary_model": {
+      "title": "Primary Model",
+      "type": "string"
+    },
+    "fallback_models": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Fallback Models",
+      "type": "array"
+    }
+  },
+  "required": [
+    "kind",
+    "primary_model"
+  ],
+  "title": "ModelAliasDefinition",
+  "type": "object"
+}

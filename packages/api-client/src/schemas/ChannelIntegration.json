@@ -1,0 +1,37 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "slack",
+        "teams",
+        "email",
+        "widget"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "secret": {
+      "title": "Secret",
+      "type": "string"
+    },
+    "default_agent": {
+      "title": "Default Agent",
+      "type": "string"
+    },
+    "config": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Config",
+      "type": "object"
+    }
+  },
+  "required": [
+    "kind",
+    "secret",
+    "default_agent"
+  ],
+  "title": "ChannelIntegrationDefinition",
+  "type": "object"
+}

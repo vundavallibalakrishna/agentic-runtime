@@ -1,0 +1,7 @@
+- match: {contains: "weather"}
+  respond:
+    tool_calls:
+      - name: web.fetch
+        arguments: {url: "https://example.test/weather"}
+- match: {last_tool_result: {tool: web.fetch}}
+  respond: {text: "It is sunny.", delay_ms: 0, tokens_per_chunk: 3}

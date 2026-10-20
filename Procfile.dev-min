@@ -1,0 +1,7 @@
+api: uv run ar-api
+runtime-worker: uv run ar-runtime
+system-worker: uv run ar-system
+model-gateway: uv run ar-model-gateway
+mcp-gateway: uv run ar-mcp-gateway
+fake-llm: uv run ar-fake-llm
+web: pnpm --filter @ar/web dev

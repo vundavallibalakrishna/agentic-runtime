@@ -1,0 +1,11 @@
+pre-commit:
+  commands:
+    ruff-format:
+      glob: "*.py"
+      run: uv run ruff format {staged_files}
+    ruff-check:
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+    biome:
+      glob: "*.{ts,tsx,js,jsx,json,css}"
+      run: pnpm exec biome check --write {staged_files}

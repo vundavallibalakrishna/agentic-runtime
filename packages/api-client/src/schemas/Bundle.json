@@ -1,0 +1,2088 @@
+{
+  "$defs": {
+    "AgentDefinition": {
+      "additionalProperties": false,
+      "description": "Versioned body stored in ``agent_versions.definition``.",
+      "properties": {
+        "persona": {
+          "$ref": "#/$defs/Persona"
+        },
+        "instructions": {
+          "maxLength": 32000,
+          "minLength": 1,
+          "title": "Instructions",
+          "type": "string"
+        },
+        "starter_prompts": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 6,
+          "title": "Starter Prompts",
+          "type": "array"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelSpec"
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/ToolBinding"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "tool_search": {
+          "$ref": "#/$defs/ToolSearch",
+          "default": {
+            "mode": "auto",
+            "top_k": 12
+          }
+        },
+        "knowledge": {
+          "$ref": "#/$defs/KnowledgeSpec",
+          "default": {
+            "collections": [],
+            "auto_retrieve": false,
+            "top_k": 8,
+            "min_score": 0.3
+          }
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Skills",
+          "type": "array"
+        },
+        "memory": {
+          "$ref": "#/$defs/MemorySpec",
+          "default": {
+            "enabled": true,
+            "read_scopes": [
+              "user",
+              "agent"
+            ],
+            "user_writes": "auto",
+            "agent_writes": "review",
+            "recall_top_k": 8
+          }
+        },
+        "subagents": {
+          "$ref": "#/$defs/SubagentSpec",
+          "default": {
+            "allowed": [],
+            "allow_self_clone": false,
+            "max_depth": 1,
+            "max_parallel": 3
+          }
+        },
+        "sandbox": {
+          "$ref": "#/$defs/SandboxSpec",
+          "default": {
+            "enabled": false,
+            "template": "default",
+            "scope": "conversation",
+            "extra_egress_allowlist": []
+          }
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        },
+        "context": {
+          "$ref": "#/$defs/ContextSpec",
+          "default": {
+            "compaction_threshold": 0.7,
+            "tool_result_max_tokens": 4000,
+            "history_max_messages": 40
+          }
+        },
+        "output": {
+          "$ref": "#/$defs/OutputSpec",
+          "default": {
+            "citations": "preferred",
+            "show_reasoning": false
+          }
+        },
+        "safety": {
+          "$ref": "#/$defs/SafetySpec",
+          "default": {
+            "pii_masking": false,
+            "injection_classifier": true
+          }
+        },
+        "channels": {
+          "$ref": "#/$defs/ChannelFlags",
+          "default": {
+            "web": true,
+            "slack": false,
+            "teams": false,
+            "email": false,
+            "api": true,
+            "widget": false
+          }
+        }
+      },
+      "required": [
+        "persona",
+        "instructions",
+        "model",
+        "budget"
+      ],
+      "title": "AgentDefinition",
+      "type": "object"
+    },
+    "AgentResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Agent",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/AgentDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "AgentResource",
+      "type": "object"
+    },
+    "ChannelFlags": {
+      "additionalProperties": false,
+      "properties": {
+        "web": {
+          "default": true,
+          "title": "Web",
+          "type": "boolean"
+        },
+        "slack": {
+          "default": false,
+          "title": "Slack",
+          "type": "boolean"
+        },
+        "teams": {
+          "default": false,
+          "title": "Teams",
+          "type": "boolean"
+        },
+        "email": {
+          "default": false,
+          "title": "Email",
+          "type": "boolean"
+        },
+        "api": {
+          "default": true,
+          "title": "Api",
+          "type": "boolean"
+        },
+        "widget": {
+          "default": false,
+          "title": "Widget",
+          "type": "boolean"
+        }
+      },
+      "title": "ChannelFlags",
+      "type": "object"
+    },
+    "ChannelIntegrationDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "slack",
+            "teams",
+            "email",
+            "widget"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "secret": {
+          "title": "Secret",
+          "type": "string"
+        },
+        "default_agent": {
+          "title": "Default Agent",
+          "type": "string"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "secret",
+        "default_agent"
+      ],
+      "title": "ChannelIntegrationDefinition",
+      "type": "object"
+    },
+    "ChannelIntegrationResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "ChannelIntegration",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/ChannelIntegrationDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "ChannelIntegrationResource",
+      "type": "object"
+    },
+    "ContextSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compaction_threshold": {
+          "default": 0.7,
+          "maximum": 0.9,
+          "minimum": 0.4,
+          "title": "Compaction Threshold",
+          "type": "number"
+        },
+        "tool_result_max_tokens": {
+          "default": 4000,
+          "minimum": 1,
+          "title": "Tool Result Max Tokens",
+          "type": "integer"
+        },
+        "history_max_messages": {
+          "default": 40,
+          "minimum": 1,
+          "title": "History Max Messages",
+          "type": "integer"
+        }
+      },
+      "title": "ContextSpec",
+      "type": "object"
+    },
+    "DataConnectionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "engine": {
+          "const": "postgres",
+          "default": "postgres",
+          "title": "Engine",
+          "type": "string"
+        },
+        "dsn_secret": {
+          "title": "Dsn Secret",
+          "type": "string"
+        },
+        "identity_mode": {
+          "default": "service",
+          "enum": [
+            "service",
+            "per_user_mapped",
+            "passthrough"
+          ],
+          "title": "Identity Mode",
+          "type": "string"
+        },
+        "allowlist_schemas": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowlist Schemas",
+          "type": "array"
+        },
+        "allowlist_tables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowlist Tables",
+          "type": "array"
+        },
+        "columns_deny": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns Deny",
+          "type": "array"
+        },
+        "row_limit": {
+          "default": 1000,
+          "minimum": 1,
+          "title": "Row Limit",
+          "type": "integer"
+        },
+        "statement_timeout_s": {
+          "default": 30,
+          "minimum": 1,
+          "title": "Statement Timeout S",
+          "type": "integer"
+        },
+        "classification": {
+          "default": "internal",
+          "title": "Classification",
+          "type": "string"
+        },
+        "schema_notes": {
+          "default": "",
+          "title": "Schema Notes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dsn_secret"
+      ],
+      "title": "DataConnectionDefinition",
+      "type": "object"
+    },
+    "DataConnectionResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "DataConnection",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/DataConnectionDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "DataConnectionResource",
+      "type": "object"
+    },
+    "DeliveryTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "conversation",
+            "slack",
+            "teams",
+            "email",
+            "webhook",
+            "file"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "integration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Integration"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "pre_approved": {
+          "default": false,
+          "title": "Pre Approved",
+          "type": "boolean"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "DeliveryTarget",
+      "type": "object"
+    },
+    "KnowledgeCollectionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "visibility": {
+          "default": "tenant",
+          "enum": [
+            "private",
+            "team",
+            "tenant"
+          ],
+          "title": "Visibility",
+          "type": "string"
+        },
+        "acl_mode": {
+          "default": "source",
+          "enum": [
+            "source",
+            "collection"
+          ],
+          "title": "Acl Mode",
+          "type": "string"
+        },
+        "sensitivity": {
+          "default": "normal",
+          "enum": [
+            "normal",
+            "high"
+          ],
+          "title": "Sensitivity",
+          "type": "string"
+        },
+        "classification": {
+          "default": "internal",
+          "title": "Classification",
+          "type": "string"
+        },
+        "embedding_alias": {
+          "default": "embed",
+          "title": "Embedding Alias",
+          "type": "string"
+        },
+        "text_search_config": {
+          "default": "simple",
+          "enum": [
+            "simple",
+            "english"
+          ],
+          "title": "Text Search Config",
+          "type": "string"
+        },
+        "chunk_target_tokens": {
+          "default": 512,
+          "minimum": 64,
+          "title": "Chunk Target Tokens",
+          "type": "integer"
+        },
+        "chunk_overlap_pct": {
+          "default": 12,
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Chunk Overlap Pct",
+          "type": "integer"
+        },
+        "contextual": {
+          "default": false,
+          "title": "Contextual",
+          "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/KnowledgeSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "title": "KnowledgeCollectionDefinition",
+      "type": "object"
+    },
+    "KnowledgeCollectionResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "KnowledgeCollection",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/KnowledgeCollectionDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "KnowledgeCollectionResource",
+      "type": "object"
+    },
+    "KnowledgeSource": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "upload",
+            "web",
+            "s3",
+            "sharepoint",
+            "confluence",
+            "google_drive",
+            "database",
+            "mcp_resource"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "secret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secret"
+        },
+        "sync_schedule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sync Schedule"
+        },
+        "acl_sync_schedule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acl Sync Schedule"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ],
+      "title": "KnowledgeSource",
+      "type": "object"
+    },
+    "KnowledgeSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "collections": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Collections",
+          "type": "array"
+        },
+        "auto_retrieve": {
+          "default": false,
+          "title": "Auto Retrieve",
+          "type": "boolean"
+        },
+        "top_k": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        },
+        "min_score": {
+          "default": 0.3,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Score",
+          "type": "number"
+        }
+      },
+      "title": "KnowledgeSpec",
+      "type": "object"
+    },
+    "MemorySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "read_scopes": {
+          "items": {
+            "enum": [
+              "user",
+              "agent",
+              "team",
+              "agent_user"
+            ],
+            "type": "string"
+          },
+          "title": "Read Scopes",
+          "type": "array"
+        },
+        "user_writes": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "explicit_only",
+            "off"
+          ],
+          "title": "User Writes",
+          "type": "string"
+        },
+        "agent_writes": {
+          "default": "review",
+          "enum": [
+            "review",
+            "off"
+          ],
+          "title": "Agent Writes",
+          "type": "string"
+        },
+        "recall_top_k": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Recall Top K",
+          "type": "integer"
+        }
+      },
+      "title": "MemorySpec",
+      "type": "object"
+    },
+    "Metadata": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slug"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "visibility": {
+          "anyOf": [
+            {
+              "enum": [
+                "private",
+                "team",
+                "tenant"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visibility"
+        },
+        "owner_team": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owner Team"
+        },
+        "risk_tier": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Tier"
+        },
+        "alias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alias"
+        }
+      },
+      "title": "Metadata",
+      "type": "object"
+    },
+    "ModelAliasDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "chat",
+            "embed",
+            "rerank"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "primary_model": {
+          "title": "Primary Model",
+          "type": "string"
+        },
+        "fallback_models": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fallback Models",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "primary_model"
+      ],
+      "title": "ModelAliasDefinition",
+      "type": "object"
+    },
+    "ModelAliasResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "ModelAlias",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/ModelAliasDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "ModelAliasResource",
+      "type": "object"
+    },
+    "ModelParams": {
+      "additionalProperties": false,
+      "properties": {
+        "temperature": {
+          "default": 0.2,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "top_p": {
+          "default": 1,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Top P",
+          "type": "number"
+        },
+        "max_output_tokens": {
+          "default": 4096,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        }
+      },
+      "title": "ModelParams",
+      "type": "object"
+    },
+    "ModelSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "title": "Alias",
+          "type": "string"
+        },
+        "fast_alias": {
+          "title": "Fast Alias",
+          "type": "string"
+        },
+        "vision_alias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vision Alias"
+        },
+        "params": {
+          "$ref": "#/$defs/ModelParams",
+          "default": {
+            "temperature": 0.2,
+            "top_p": 1.0,
+            "max_output_tokens": 4096,
+            "reasoning_effort": null
+          }
+        },
+        "degrade_to_fast": {
+          "default": true,
+          "title": "Degrade To Fast",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "alias",
+        "fast_alias"
+      ],
+      "title": "ModelSpec",
+      "type": "object"
+    },
+    "OpenApiSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "spec_file": {
+          "title": "Spec File",
+          "type": "string"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "spec_file",
+        "base_url"
+      ],
+      "title": "OpenApiSpec",
+      "type": "object"
+    },
+    "OutputSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "citations": {
+          "default": "preferred",
+          "enum": [
+            "required",
+            "preferred",
+            "off"
+          ],
+          "title": "Citations",
+          "type": "string"
+        },
+        "show_reasoning": {
+          "default": false,
+          "title": "Show Reasoning",
+          "type": "boolean"
+        }
+      },
+      "title": "OutputSpec",
+      "type": "object"
+    },
+    "Persona": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "greeting": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Greeting",
+          "type": "string"
+        },
+        "avatar_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avatar File"
+        }
+      },
+      "required": [
+        "display_name"
+      ],
+      "title": "Persona",
+      "type": "object"
+    },
+    "PolicyDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "status": {
+          "default": "active",
+          "enum": [
+            "active",
+            "disabled"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "priority": {
+          "default": 100,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/PolicyRule"
+          },
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "title": "PolicyDefinition",
+      "type": "object"
+    },
+    "PolicyMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "risk_classes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Classes",
+          "type": "array"
+        },
+        "agents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Agents",
+          "type": "array"
+        },
+        "triggers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Triggers",
+          "type": "array"
+        },
+        "channels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Channels",
+          "type": "array"
+        },
+        "user_groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "User Groups",
+          "type": "array"
+        }
+      },
+      "title": "PolicyMatch",
+      "type": "object"
+    },
+    "PolicyResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Policy",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/PolicyDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "PolicyResource",
+      "type": "object"
+    },
+    "PolicyRule": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "effect": {
+          "enum": [
+            "allow",
+            "deny",
+            "require_approval"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/PolicyMatch",
+          "default": {
+            "tools": [],
+            "risk_classes": [],
+            "agents": [],
+            "triggers": [],
+            "channels": [],
+            "user_groups": []
+          }
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "effect"
+      ],
+      "title": "PolicyRule",
+      "type": "object"
+    },
+    "RemoteMcp": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "RemoteMcp",
+      "type": "object"
+    },
+    "RoutineDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "agent": {
+          "title": "Agent",
+          "type": "string"
+        },
+        "agent_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Agent Version"
+        },
+        "run_as": {
+          "default": "owner",
+          "enum": [
+            "owner",
+            "service_account"
+          ],
+          "title": "Run As",
+          "type": "string"
+        },
+        "service_account": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Service Account"
+        },
+        "instructions": {
+          "title": "Instructions",
+          "type": "string"
+        },
+        "trigger": {
+          "$ref": "#/$defs/RoutineTrigger"
+        },
+        "event_filter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Filter"
+        },
+        "delivery": {
+          "items": {
+            "$ref": "#/$defs/DeliveryTarget"
+          },
+          "title": "Delivery",
+          "type": "array"
+        },
+        "budget": {
+          "$ref": "#/$defs/RunBudget"
+        },
+        "max_runs_per_day": {
+          "default": 4,
+          "minimum": 1,
+          "title": "Max Runs Per Day",
+          "type": "integer"
+        },
+        "concurrency_policy": {
+          "default": "skip",
+          "enum": [
+            "skip",
+            "buffer_one",
+            "allow"
+          ],
+          "title": "Concurrency Policy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "agent",
+        "instructions",
+        "trigger",
+        "budget"
+      ],
+      "title": "RoutineDefinition",
+      "type": "object"
+    },
+    "RoutineResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Routine",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/RoutineDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "RoutineResource",
+      "type": "object"
+    },
+    "RoutineTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "schedule",
+            "webhook",
+            "channel_event",
+            "email",
+            "file_arrival",
+            "db_change",
+            "manual"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "cron": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cron"
+        },
+        "timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "jitter_s": {
+          "default": 0,
+          "maximum": 3600,
+          "minimum": 0,
+          "title": "Jitter S",
+          "type": "integer"
+        },
+        "catchup_window_s": {
+          "default": 0,
+          "maximum": 86400,
+          "minimum": 0,
+          "title": "Catchup Window S",
+          "type": "integer"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "RoutineTrigger",
+      "type": "object"
+    },
+    "RunBudget": {
+      "additionalProperties": false,
+      "description": "Limits for one top-level run. Subagents draw from the same budget.",
+      "properties": {
+        "max_steps": {
+          "minimum": 1,
+          "title": "Max Steps",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "max_cost_micros": {
+          "minimum": 0,
+          "title": "Max Cost Micros",
+          "type": "integer"
+        },
+        "max_wall_clock_s": {
+          "minimum": 1,
+          "title": "Max Wall Clock S",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_parallel_tool_calls": {
+          "minimum": 1,
+          "title": "Max Parallel Tool Calls",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_steps",
+        "max_tokens",
+        "max_cost_micros",
+        "max_wall_clock_s",
+        "max_tool_calls",
+        "max_parallel_tool_calls"
+      ],
+      "title": "RunBudget",
+      "type": "object"
+    },
+    "SafetySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "pii_masking": {
+          "default": false,
+          "title": "Pii Masking",
+          "type": "boolean"
+        },
+        "injection_classifier": {
+          "default": true,
+          "title": "Injection Classifier",
+          "type": "boolean"
+        }
+      },
+      "title": "SafetySpec",
+      "type": "object"
+    },
+    "SandboxSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "template": {
+          "default": "default",
+          "title": "Template",
+          "type": "string"
+        },
+        "scope": {
+          "default": "conversation",
+          "enum": [
+            "conversation",
+            "agent_user",
+            "agent"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "extra_egress_allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Extra Egress Allowlist",
+          "type": "array"
+        }
+      },
+      "title": "SandboxSpec",
+      "type": "object"
+    },
+    "SandboxTemplateDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "image_ref": {
+          "title": "Image Ref",
+          "type": "string"
+        },
+        "runtime_class": {
+          "default": "gvisor",
+          "enum": [
+            "gvisor",
+            "kata"
+          ],
+          "title": "Runtime Class",
+          "type": "string"
+        },
+        "cpu_millis": {
+          "minimum": 1,
+          "title": "Cpu Millis",
+          "type": "integer"
+        },
+        "memory_mb": {
+          "minimum": 1,
+          "title": "Memory Mb",
+          "type": "integer"
+        },
+        "disk_gb": {
+          "minimum": 1,
+          "title": "Disk Gb",
+          "type": "integer"
+        },
+        "allow_browser": {
+          "default": false,
+          "title": "Allow Browser",
+          "type": "boolean"
+        },
+        "egress_allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Egress Allowlist",
+          "type": "array"
+        },
+        "max_classification": {
+          "default": "internal",
+          "title": "Max Classification",
+          "type": "string"
+        },
+        "idle_suspend_s": {
+          "default": 900,
+          "minimum": 1,
+          "title": "Idle Suspend S",
+          "type": "integer"
+        },
+        "max_lifetime_s": {
+          "default": 86400,
+          "minimum": 1,
+          "title": "Max Lifetime S",
+          "type": "integer"
+        },
+        "exec_timeout_s": {
+          "default": 300,
+          "minimum": 1,
+          "title": "Exec Timeout S",
+          "type": "integer"
+        },
+        "retention_days": {
+          "default": 7,
+          "minimum": 1,
+          "title": "Retention Days",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "image_ref",
+        "cpu_millis",
+        "memory_mb",
+        "disk_gb"
+      ],
+      "title": "SandboxTemplateDefinition",
+      "type": "object"
+    },
+    "SandboxTemplateResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "SandboxTemplate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/SandboxTemplateDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "SandboxTemplateResource",
+      "type": "object"
+    },
+    "SkillAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "file": {
+          "title": "File",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "file"
+      ],
+      "title": "SkillAsset",
+      "type": "object"
+    },
+    "SkillDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "visibility": {
+          "default": "tenant",
+          "enum": [
+            "private",
+            "team",
+            "tenant"
+          ],
+          "title": "Visibility",
+          "type": "string"
+        },
+        "required_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Tools",
+          "type": "array"
+        },
+        "instructions_md": {
+          "title": "Instructions Md",
+          "type": "string"
+        },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/SkillAsset"
+          },
+          "title": "Assets",
+          "type": "array"
+        }
+      },
+      "required": [
+        "description",
+        "instructions_md"
+      ],
+      "title": "SkillDefinition",
+      "type": "object"
+    },
+    "SkillResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "Skill",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/SkillDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "SkillResource",
+      "type": "object"
+    },
+    "SqlSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "data_connection": {
+          "title": "Data Connection",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_connection"
+      ],
+      "title": "SqlSpec",
+      "type": "object"
+    },
+    "SubagentSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed",
+          "type": "array"
+        },
+        "allow_self_clone": {
+          "default": false,
+          "title": "Allow Self Clone",
+          "type": "boolean"
+        },
+        "max_depth": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Max Depth",
+          "type": "integer"
+        },
+        "max_parallel": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Max Parallel",
+          "type": "integer"
+        }
+      },
+      "title": "SubagentSpec",
+      "type": "object"
+    },
+    "ToolAuth": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "static_secret",
+            "user_oauth",
+            "token_exchange",
+            "internal_jwt"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "credential_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Provider"
+        },
+        "secret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secret"
+        }
+      },
+      "title": "ToolAuth",
+      "type": "object"
+    },
+    "ToolBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "server": {
+          "title": "Server",
+          "type": "string"
+        },
+        "version": {
+          "default": "*",
+          "title": "Version",
+          "type": "string"
+        },
+        "include": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Include",
+          "type": "array"
+        },
+        "overrides": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ToolOverride"
+          },
+          "title": "Overrides",
+          "type": "object"
+        }
+      },
+      "required": [
+        "server"
+      ],
+      "title": "ToolBinding",
+      "type": "object"
+    },
+    "ToolGovernance": {
+      "additionalProperties": false,
+      "properties": {
+        "risk_class": {
+          "anyOf": [
+            {
+              "enum": [
+                "R0",
+                "W1",
+                "W2",
+                "W3"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Class"
+        },
+        "data_classification": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Classification"
+        },
+        "timeout_s": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout S"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        }
+      },
+      "title": "ToolGovernance",
+      "type": "object"
+    },
+    "ToolOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "require_approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "always",
+                "policy"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Require Approval"
+        },
+        "pinned": {
+          "default": false,
+          "title": "Pinned",
+          "type": "boolean"
+        }
+      },
+      "title": "ToolOverride",
+      "type": "object"
+    },
+    "ToolSearch": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "top_k": {
+          "default": 12,
+          "maximum": 32,
+          "minimum": 4,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "title": "ToolSearch",
+      "type": "object"
+    },
+    "ToolServerDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "remote_mcp",
+            "openapi",
+            "sql"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "remote_mcp": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RemoteMcp"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "openapi": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OpenApiSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sql": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SqlSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "auth": {
+          "$ref": "#/$defs/ToolAuth",
+          "default": {
+            "mode": "none",
+            "credential_provider": null,
+            "secret": null
+          }
+        },
+        "tools": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ToolGovernance"
+          },
+          "title": "Tools",
+          "type": "object"
+        },
+        "allowed_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Tools",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "version"
+      ],
+      "title": "ToolServerDefinition",
+      "type": "object"
+    },
+    "ToolServerResource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "ToolServer",
+          "title": "Kind",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/$defs/Metadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/ToolServerDefinition"
+        }
+      },
+      "required": [
+        "kind",
+        "metadata",
+        "spec"
+      ],
+      "title": "ToolServerResource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "agentic-runtime.dev/v1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "kind": {
+      "const": "Bundle",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
+    },
+    "resources": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "Agent": "#/$defs/AgentResource",
+            "ChannelIntegration": "#/$defs/ChannelIntegrationResource",
+            "DataConnection": "#/$defs/DataConnectionResource",
+            "KnowledgeCollection": "#/$defs/KnowledgeCollectionResource",
+            "ModelAlias": "#/$defs/ModelAliasResource",
+            "Policy": "#/$defs/PolicyResource",
+            "Routine": "#/$defs/RoutineResource",
+            "SandboxTemplate": "#/$defs/SandboxTemplateResource",
+            "Skill": "#/$defs/SkillResource",
+            "ToolServer": "#/$defs/ToolServerResource"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/AgentResource"
+          },
+          {
+            "$ref": "#/$defs/ToolServerResource"
+          },
+          {
+            "$ref": "#/$defs/DataConnectionResource"
+          },
+          {
+            "$ref": "#/$defs/KnowledgeCollectionResource"
+          },
+          {
+            "$ref": "#/$defs/RoutineResource"
+          },
+          {
+            "$ref": "#/$defs/PolicyResource"
+          },
+          {
+            "$ref": "#/$defs/SkillResource"
+          },
+          {
+            "$ref": "#/$defs/ModelAliasResource"
+          },
+          {
+            "$ref": "#/$defs/SandboxTemplateResource"
+          },
+          {
+            "$ref": "#/$defs/ChannelIntegrationResource"
+          }
+        ]
+      },
+      "title": "Resources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "resources"
+  ],
+  "title": "Bundle",
+  "type": "object"
+}

@@ -1,0 +1,639 @@
+{
+  "$defs": {
+    "ChannelFlags": {
+      "additionalProperties": false,
+      "properties": {
+        "web": {
+          "default": true,
+          "title": "Web",
+          "type": "boolean"
+        },
+        "slack": {
+          "default": false,
+          "title": "Slack",
+          "type": "boolean"
+        },
+        "teams": {
+          "default": false,
+          "title": "Teams",
+          "type": "boolean"
+        },
+        "email": {
+          "default": false,
+          "title": "Email",
+          "type": "boolean"
+        },
+        "api": {
+          "default": true,
+          "title": "Api",
+          "type": "boolean"
+        },
+        "widget": {
+          "default": false,
+          "title": "Widget",
+          "type": "boolean"
+        }
+      },
+      "title": "ChannelFlags",
+      "type": "object"
+    },
+    "ContextSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compaction_threshold": {
+          "default": 0.7,
+          "maximum": 0.9,
+          "minimum": 0.4,
+          "title": "Compaction Threshold",
+          "type": "number"
+        },
+        "tool_result_max_tokens": {
+          "default": 4000,
+          "minimum": 1,
+          "title": "Tool Result Max Tokens",
+          "type": "integer"
+        },
+        "history_max_messages": {
+          "default": 40,
+          "minimum": 1,
+          "title": "History Max Messages",
+          "type": "integer"
+        }
+      },
+      "title": "ContextSpec",
+      "type": "object"
+    },
+    "KnowledgeSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "collections": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Collections",
+          "type": "array"
+        },
+        "auto_retrieve": {
+          "default": false,
+          "title": "Auto Retrieve",
+          "type": "boolean"
+        },
+        "top_k": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        },
+        "min_score": {
+          "default": 0.3,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Min Score",
+          "type": "number"
+        }
+      },
+      "title": "KnowledgeSpec",
+      "type": "object"
+    },
+    "MemorySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "read_scopes": {
+          "items": {
+            "enum": [
+              "user",
+              "agent",
+              "team",
+              "agent_user"
+            ],
+            "type": "string"
+          },
+          "title": "Read Scopes",
+          "type": "array"
+        },
+        "user_writes": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "explicit_only",
+            "off"
+          ],
+          "title": "User Writes",
+          "type": "string"
+        },
+        "agent_writes": {
+          "default": "review",
+          "enum": [
+            "review",
+            "off"
+          ],
+          "title": "Agent Writes",
+          "type": "string"
+        },
+        "recall_top_k": {
+          "default": 8,
+          "minimum": 1,
+          "title": "Recall Top K",
+          "type": "integer"
+        }
+      },
+      "title": "MemorySpec",
+      "type": "object"
+    },
+    "ModelParams": {
+      "additionalProperties": false,
+      "properties": {
+        "temperature": {
+          "default": 0.2,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Temperature",
+          "type": "number"
+        },
+        "top_p": {
+          "default": 1,
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Top P",
+          "type": "number"
+        },
+        "max_output_tokens": {
+          "default": 4096,
+          "minimum": 1,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        },
+        "reasoning_effort": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reasoning Effort"
+        }
+      },
+      "title": "ModelParams",
+      "type": "object"
+    },
+    "ModelSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "title": "Alias",
+          "type": "string"
+        },
+        "fast_alias": {
+          "title": "Fast Alias",
+          "type": "string"
+        },
+        "vision_alias": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vision Alias"
+        },
+        "params": {
+          "$ref": "#/$defs/ModelParams",
+          "default": {
+            "temperature": 0.2,
+            "top_p": 1.0,
+            "max_output_tokens": 4096,
+            "reasoning_effort": null
+          }
+        },
+        "degrade_to_fast": {
+          "default": true,
+          "title": "Degrade To Fast",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "alias",
+        "fast_alias"
+      ],
+      "title": "ModelSpec",
+      "type": "object"
+    },
+    "OutputSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "citations": {
+          "default": "preferred",
+          "enum": [
+            "required",
+            "preferred",
+            "off"
+          ],
+          "title": "Citations",
+          "type": "string"
+        },
+        "show_reasoning": {
+          "default": false,
+          "title": "Show Reasoning",
+          "type": "boolean"
+        }
+      },
+      "title": "OutputSpec",
+      "type": "object"
+    },
+    "Persona": {
+      "additionalProperties": false,
+      "properties": {
+        "display_name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        },
+        "greeting": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Greeting",
+          "type": "string"
+        },
+        "avatar_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avatar File"
+        }
+      },
+      "required": [
+        "display_name"
+      ],
+      "title": "Persona",
+      "type": "object"
+    },
+    "RunBudget": {
+      "additionalProperties": false,
+      "description": "Limits for one top-level run. Subagents draw from the same budget.",
+      "properties": {
+        "max_steps": {
+          "minimum": 1,
+          "title": "Max Steps",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "max_cost_micros": {
+          "minimum": 0,
+          "title": "Max Cost Micros",
+          "type": "integer"
+        },
+        "max_wall_clock_s": {
+          "minimum": 1,
+          "title": "Max Wall Clock S",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_parallel_tool_calls": {
+          "minimum": 1,
+          "title": "Max Parallel Tool Calls",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_steps",
+        "max_tokens",
+        "max_cost_micros",
+        "max_wall_clock_s",
+        "max_tool_calls",
+        "max_parallel_tool_calls"
+      ],
+      "title": "RunBudget",
+      "type": "object"
+    },
+    "SafetySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "pii_masking": {
+          "default": false,
+          "title": "Pii Masking",
+          "type": "boolean"
+        },
+        "injection_classifier": {
+          "default": true,
+          "title": "Injection Classifier",
+          "type": "boolean"
+        }
+      },
+      "title": "SafetySpec",
+      "type": "object"
+    },
+    "SandboxSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "template": {
+          "default": "default",
+          "title": "Template",
+          "type": "string"
+        },
+        "scope": {
+          "default": "conversation",
+          "enum": [
+            "conversation",
+            "agent_user",
+            "agent"
+          ],
+          "title": "Scope",
+          "type": "string"
+        },
+        "extra_egress_allowlist": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Extra Egress Allowlist",
+          "type": "array"
+        }
+      },
+      "title": "SandboxSpec",
+      "type": "object"
+    },
+    "SubagentSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed",
+          "type": "array"
+        },
+        "allow_self_clone": {
+          "default": false,
+          "title": "Allow Self Clone",
+          "type": "boolean"
+        },
+        "max_depth": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Max Depth",
+          "type": "integer"
+        },
+        "max_parallel": {
+          "default": 3,
+          "minimum": 1,
+          "title": "Max Parallel",
+          "type": "integer"
+        }
+      },
+      "title": "SubagentSpec",
+      "type": "object"
+    },
+    "ToolBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "server": {
+          "title": "Server",
+          "type": "string"
+        },
+        "version": {
+          "default": "*",
+          "title": "Version",
+          "type": "string"
+        },
+        "include": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Include",
+          "type": "array"
+        },
+        "overrides": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ToolOverride"
+          },
+          "title": "Overrides",
+          "type": "object"
+        }
+      },
+      "required": [
+        "server"
+      ],
+      "title": "ToolBinding",
+      "type": "object"
+    },
+    "ToolOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "require_approval": {
+          "anyOf": [
+            {
+              "enum": [
+                "always",
+                "policy"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Require Approval"
+        },
+        "pinned": {
+          "default": false,
+          "title": "Pinned",
+          "type": "boolean"
+        }
+      },
+      "title": "ToolOverride",
+      "type": "object"
+    },
+    "ToolSearch": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "auto",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "top_k": {
+          "default": 12,
+          "maximum": 32,
+          "minimum": 4,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "title": "ToolSearch",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Versioned body stored in ``agent_versions.definition``.",
+  "properties": {
+    "persona": {
+      "$ref": "#/$defs/Persona"
+    },
+    "instructions": {
+      "maxLength": 32000,
+      "minLength": 1,
+      "title": "Instructions",
+      "type": "string"
+    },
+    "starter_prompts": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 6,
+      "title": "Starter Prompts",
+      "type": "array"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelSpec"
+    },
+    "tools": {
+      "items": {
+        "$ref": "#/$defs/ToolBinding"
+      },
+      "title": "Tools",
+      "type": "array"
+    },
+    "tool_search": {
+      "$ref": "#/$defs/ToolSearch",
+      "default": {
+        "mode": "auto",
+        "top_k": 12
+      }
+    },
+    "knowledge": {
+      "$ref": "#/$defs/KnowledgeSpec",
+      "default": {
+        "collections": [],
+        "auto_retrieve": false,
+        "top_k": 8,
+        "min_score": 0.3
+      }
+    },
+    "skills": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Skills",
+      "type": "array"
+    },
+    "memory": {
+      "$ref": "#/$defs/MemorySpec",
+      "default": {
+        "enabled": true,
+        "read_scopes": [
+          "user",
+          "agent"
+        ],
+        "user_writes": "auto",
+        "agent_writes": "review",
+        "recall_top_k": 8
+      }
+    },
+    "subagents": {
+      "$ref": "#/$defs/SubagentSpec",
+      "default": {
+        "allowed": [],
+        "allow_self_clone": false,
+        "max_depth": 1,
+        "max_parallel": 3
+      }
+    },
+    "sandbox": {
+      "$ref": "#/$defs/SandboxSpec",
+      "default": {
+        "enabled": false,
+        "template": "default",
+        "scope": "conversation",
+        "extra_egress_allowlist": []
+      }
+    },
+    "budget": {
+      "$ref": "#/$defs/RunBudget"
+    },
+    "context": {
+      "$ref": "#/$defs/ContextSpec",
+      "default": {
+        "compaction_threshold": 0.7,
+        "tool_result_max_tokens": 4000,
+        "history_max_messages": 40
+      }
+    },
+    "output": {
+      "$ref": "#/$defs/OutputSpec",
+      "default": {
+        "citations": "preferred",
+        "show_reasoning": false
+      }
+    },
+    "safety": {
+      "$ref": "#/$defs/SafetySpec",
+      "default": {
+        "pii_masking": false,
+        "injection_classifier": true
+      }
+    },
+    "channels": {
+      "$ref": "#/$defs/ChannelFlags",
+      "default": {
+        "web": true,
+        "slack": false,
+        "teams": false,
+        "email": false,
+        "api": true,
+        "widget": false
+      }
+    }
+  },
+  "required": [
+    "persona",
+    "instructions",
+    "model",
+    "budget"
+  ],
+  "title": "AgentDefinition",
+  "type": "object"
+}

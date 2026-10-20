@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "engine": {
+      "const": "postgres",
+      "default": "postgres",
+      "title": "Engine",
+      "type": "string"
+    },
+    "dsn_secret": {
+      "title": "Dsn Secret",
+      "type": "string"
+    },
+    "identity_mode": {
+      "default": "service",
+      "enum": [
+        "service",
+        "per_user_mapped",
+        "passthrough"
+      ],
+      "title": "Identity Mode",
+      "type": "string"
+    },
+    "allowlist_schemas": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowlist Schemas",
+      "type": "array"
+    },
+    "allowlist_tables": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowlist Tables",
+      "type": "array"
+    },
+    "columns_deny": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Columns Deny",
+      "type": "array"
+    },
+    "row_limit": {
+      "default": 1000,
+      "minimum": 1,
+      "title": "Row Limit",
+      "type": "integer"
+    },
+    "statement_timeout_s": {
+      "default": 30,
+      "minimum": 1,
+      "title": "Statement Timeout S",
+      "type": "integer"
+    },
+    "classification": {
+      "default": "internal",
+      "title": "Classification",
+      "type": "string"
+    },
+    "schema_notes": {
+      "default": "",
+      "title": "Schema Notes",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dsn_secret"
+  ],
+  "title": "DataConnectionDefinition",
+  "type": "object"
+}

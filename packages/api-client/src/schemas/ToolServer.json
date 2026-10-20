@@ -1,0 +1,251 @@
+{
+  "$defs": {
+    "OpenApiSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "spec_file": {
+          "title": "Spec File",
+          "type": "string"
+        },
+        "base_url": {
+          "title": "Base Url",
+          "type": "string"
+        },
+        "operations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Operations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "spec_file",
+        "base_url"
+      ],
+      "title": "OpenApiSpec",
+      "type": "object"
+    },
+    "RemoteMcp": {
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "RemoteMcp",
+      "type": "object"
+    },
+    "SqlSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "data_connection": {
+          "title": "Data Connection",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_connection"
+      ],
+      "title": "SqlSpec",
+      "type": "object"
+    },
+    "ToolAuth": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "static_secret",
+            "user_oauth",
+            "token_exchange",
+            "internal_jwt"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "credential_provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Provider"
+        },
+        "secret": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Secret"
+        }
+      },
+      "title": "ToolAuth",
+      "type": "object"
+    },
+    "ToolGovernance": {
+      "additionalProperties": false,
+      "properties": {
+        "risk_class": {
+          "anyOf": [
+            {
+              "enum": [
+                "R0",
+                "W1",
+                "W2",
+                "W3"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risk Class"
+        },
+        "data_classification": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Classification"
+        },
+        "timeout_s": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout S"
+        },
+        "rate_limit_per_minute": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rate Limit Per Minute"
+        }
+      },
+      "title": "ToolGovernance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "remote_mcp",
+        "openapi",
+        "sql"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "remote_mcp": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RemoteMcp"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "openapi": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OpenApiSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sql": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SqlSpec"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "auth": {
+      "$ref": "#/$defs/ToolAuth",
+      "default": {
+        "mode": "none",
+        "credential_provider": null,
+        "secret": null
+      }
+    },
+    "tools": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ToolGovernance"
+      },
+      "title": "Tools",
+      "type": "object"
+    },
+    "allowed_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Tools",
+      "type": "array"
+    }
+  },
+  "required": [
+    "kind",
+    "version"
+  ],
+  "title": "ToolServerDefinition",
+  "type": "object"
+}

@@ -1,0 +1,124 @@
+{
+  "$defs": {
+    "PolicyMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "risk_classes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Risk Classes",
+          "type": "array"
+        },
+        "agents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Agents",
+          "type": "array"
+        },
+        "triggers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Triggers",
+          "type": "array"
+        },
+        "channels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Channels",
+          "type": "array"
+        },
+        "user_groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "User Groups",
+          "type": "array"
+        }
+      },
+      "title": "PolicyMatch",
+      "type": "object"
+    },
+    "PolicyRule": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "effect": {
+          "enum": [
+            "allow",
+            "deny",
+            "require_approval"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/PolicyMatch",
+          "default": {
+            "tools": [],
+            "risk_classes": [],
+            "agents": [],
+            "triggers": [],
+            "channels": [],
+            "user_groups": []
+          }
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "effect"
+      ],
+      "title": "PolicyRule",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "status": {
+      "default": "active",
+      "enum": [
+        "active",
+        "disabled"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "priority": {
+      "default": 100,
+      "title": "Priority",
+      "type": "integer"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/PolicyRule"
+      },
+      "title": "Rules",
+      "type": "array"
+    }
+  },
+  "title": "PolicyDefinition",
+  "type": "object"
+}

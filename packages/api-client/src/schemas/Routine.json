@@ -1,0 +1,274 @@
+{
+  "$defs": {
+    "DeliveryTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "conversation",
+            "slack",
+            "teams",
+            "email",
+            "webhook",
+            "file"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "integration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Integration"
+        },
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "pre_approved": {
+          "default": false,
+          "title": "Pre Approved",
+          "type": "boolean"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "DeliveryTarget",
+      "type": "object"
+    },
+    "RoutineTrigger": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": [
+            "schedule",
+            "webhook",
+            "channel_event",
+            "email",
+            "file_arrival",
+            "db_change",
+            "manual"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "cron": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cron"
+        },
+        "timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timezone"
+        },
+        "jitter_s": {
+          "default": 0,
+          "maximum": 3600,
+          "minimum": 0,
+          "title": "Jitter S",
+          "type": "integer"
+        },
+        "catchup_window_s": {
+          "default": 0,
+          "maximum": 86400,
+          "minimum": 0,
+          "title": "Catchup Window S",
+          "type": "integer"
+        },
+        "config": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Config",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "RoutineTrigger",
+      "type": "object"
+    },
+    "RunBudget": {
+      "additionalProperties": false,
+      "description": "Limits for one top-level run. Subagents draw from the same budget.",
+      "properties": {
+        "max_steps": {
+          "minimum": 1,
+          "title": "Max Steps",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "max_cost_micros": {
+          "minimum": 0,
+          "title": "Max Cost Micros",
+          "type": "integer"
+        },
+        "max_wall_clock_s": {
+          "minimum": 1,
+          "title": "Max Wall Clock S",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_parallel_tool_calls": {
+          "minimum": 1,
+          "title": "Max Parallel Tool Calls",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_steps",
+        "max_tokens",
+        "max_cost_micros",
+        "max_wall_clock_s",
+        "max_tool_calls",
+        "max_parallel_tool_calls"
+      ],
+      "title": "RunBudget",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "agent": {
+      "title": "Agent",
+      "type": "string"
+    },
+    "agent_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Agent Version"
+    },
+    "run_as": {
+      "default": "owner",
+      "enum": [
+        "owner",
+        "service_account"
+      ],
+      "title": "Run As",
+      "type": "string"
+    },
+    "service_account": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Service Account"
+    },
+    "instructions": {
+      "title": "Instructions",
+      "type": "string"
+    },
+    "trigger": {
+      "$ref": "#/$defs/RoutineTrigger"
+    },
+    "event_filter": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Event Filter"
+    },
+    "delivery": {
+      "items": {
+        "$ref": "#/$defs/DeliveryTarget"
+      },
+      "title": "Delivery",
+      "type": "array"
+    },
+    "budget": {
+      "$ref": "#/$defs/RunBudget"
+    },
+    "max_runs_per_day": {
+      "default": 4,
+      "minimum": 1,
+      "title": "Max Runs Per Day",
+      "type": "integer"
+    },
+    "concurrency_policy": {
+      "default": "skip",
+      "enum": [
+        "skip",
+        "buffer_one",
+        "allow"
+      ],
+      "title": "Concurrency Policy",
+      "type": "string"
+    }
+  },
+  "required": [
+    "agent",
+    "instructions",
+    "trigger",
+    "budget"
+  ],
+  "title": "RoutineDefinition",
+  "type": "object"
+}

@@ -1,0 +1,4 @@
+/* Generated from ar_contracts Pydantic models by scripts/gen_json_schema.py. Do not edit. */
+import { z } from "zod"
+
+export const policySchema = z.object({ "description": z.string().default(""), "status": z.enum(["active","disabled"]).default("active"), "priority": z.number().int().default(100), "rules": z.array(z.object({ "id": z.string(), "effect": z.enum(["allow","deny","require_approval"]), "match": z.object({ "tools": z.array(z.string()).optional(), "risk_classes": z.array(z.string()).optional(), "agents": z.array(z.string()).optional(), "triggers": z.array(z.string()).optional(), "channels": z.array(z.string()).optional(), "user_groups": z.array(z.string()).optional() }).strict().default({"tools":[],"risk_classes":[],"agents":[],"triggers":[],"channels":[],"user_groups":[]}), "message": z.string().default("") }).strict()).optional() }).strict()

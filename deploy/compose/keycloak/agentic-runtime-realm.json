@@ -1,0 +1,88 @@
+{
+  "realm": "agentic-runtime",
+  "enabled": true,
+  "organizationsEnabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "clients": [
+    {
+      "clientId": "ar-web",
+      "name": "Agentic Runtime web BFF",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ar-web-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["http://localhost:3000"]
+    },
+    {
+      "clientId": "ar-api",
+      "name": "Agentic Runtime API",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ar-api-dev-secret",
+      "bearerOnly": true
+    },
+    {
+      "clientId": "ar-admin",
+      "name": "Agentic Runtime admin",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ar-admin-dev-secret",
+      "directAccessGrantsEnabled": true
+    },
+    {
+      "clientId": "ar-token-exchange",
+      "name": "Token exchange",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "ar-token-exchange-dev-secret",
+      "standardFlowEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@dev.local",
+      "email": "admin@dev.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
+    },
+    {
+      "username": "builder@dev.local",
+      "email": "builder@dev.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
+    },
+    {
+      "username": "member@dev.local",
+      "email": "member@dev.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
+    },
+    {
+      "username": "approver@dev.local",
+      "email": "approver@dev.local",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
+    }
+  ],
+  "organizations": [
+    {
+      "name": "dev",
+      "alias": "dev",
+      "enabled": true,
+      "domains": [{"name": "dev.local", "verified": true}]
+    }
+  ]
+}

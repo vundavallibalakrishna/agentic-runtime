@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  color-scheme: light;
+  --background: #f7f6f3;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --muted: #78716c;
+  --border: #e7e5e4;
+  --accent: #0f766e;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #1c1917;
+  --foreground: #fafaf9;
+  --card: #292524;
+  --muted: #a8a29e;
+  --border: #44403c;
+  --accent: #2dd4bf;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}

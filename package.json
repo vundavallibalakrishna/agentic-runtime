@@ -1,0 +1,22 @@
+{
+  "name": "agentic-runtime",
+  "private": true,
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24.22.0"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "build": "turbo run build",
+    "gen:ts": "pnpm --filter @ar/api-client gen"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "knip": "6.42.1",
+    "lefthook": "2.2.2",
+    "turbo": "2.11.9",
+    "typescript": "7.0.2"
+  }
+}

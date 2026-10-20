@@ -1,0 +1,28 @@
+{
+  "name": "@ar/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schemas": "./src/schemas/index.ts"
+  },
+  "scripts": {
+    "gen": "openapi-ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@hey-api/client-fetch": "0.13.1",
+    "@tanstack/react-query": "5.104.5",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "json-schema-to-typescript": "16.0.0",
+    "json-schema-to-zod": "2.8.1",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "vitest": "5.0.5"
+  }
+}

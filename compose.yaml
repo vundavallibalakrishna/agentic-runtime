@@ -1,0 +1,286 @@
+name: agentic-runtime
+
+x-app-env: &app-env
+  AR_ENV: dev
+  AR_DEPLOYMENT_MODE: single_tenant
+  AR_DATABASE_URL: postgresql+asyncpg://ar_app:ar_app@postgres:5432/agentic_runtime
+  AR_VALKEY_URL: redis://valkey:6379/0
+  AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+
+services:
+  postgres:
+    profiles: [deps]
+    image: pgvector/pgvector:0.8.7-pg18-trixie
+    environment:
+      POSTGRES_USER: ar_owner
+      POSTGRES_PASSWORD: ar_owner
+      POSTGRES_DB: agentic_runtime
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
+    ports: ["5432:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./deploy/compose/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ar_owner -d agentic_runtime"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  valkey:
+    profiles: [deps]
+    image: valkey/valkey:9.1.2
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  temporal:
+    profiles: [deps]
+    # Production chart uses temporalio/server:1.32.1. Local dev uses the CLI image.
+    image: temporalio/temporal:1.9.1
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-port", "8233"]
+    ports: ["7233:7233", "8233:8233"]
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  keycloak:
+    profiles: [deps]
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: ["start-dev", "--import-realm", "--http-port=8080"]
+    environment:
+      KC_FEATURES: organization
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports: ["8180:8080"]
+    volumes:
+      - ./deploy/compose/keycloak/agentic-runtime-realm.json:/opt/keycloak/data/import/agentic-runtime-realm.json:ro
+
+  seaweedfs:
+    profiles: [deps]
+    image: chrislusf/seaweedfs:4.48
+    command: ["server", "-s3", "-s3.port=8333", "-dir=/data"]
+    ports: ["8333:8333"]
+    volumes:
+      - seaweed:/data
+
+  openbao:
+    profiles: [deps]
+    image: openbao/openbao:2.7.1
+    cap_add: [IPC_LOCK]
+    command: ["server", "-dev", "-dev-root-token-id=dev-root-token", "-dev-listen-address=0.0.0.0:8200"]
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: dev-root-token
+    ports: ["8200:8200"]
+
+  opa:
+    profiles: [deps]
+    image: openpolicyagent/opa:1.21.3-static
+    command: ["run", "--server", "--addr", "0.0.0.0:8181", "/policies"]
+    volumes:
+      - ./policies:/policies:ro
+    ports: ["8181:8181"]
+
+  mailpit:
+    profiles: [deps]
+    image: axllent/mailpit:v1.31.6
+    ports: ["1025:1025", "8025:8025"]
+
+  squid:
+    profiles: [deps]
+    build:
+      context: .
+      dockerfile: images/squid/Dockerfile
+    ports: ["3128:3128"]
+
+  clamav:
+    profiles: [scan]
+    image: clamav/clamav:1.5.4
+    ports: ["3310:3310"]
+
+  qdrant:
+    profiles: [qdrant]
+    image: qdrant/qdrant:v1.19.2
+    ports: ["6333:6333", "6334:6334"]
+
+  otel:
+    profiles: [obs]
+    image: otel/opentelemetry-collector-contrib:0.163.1
+    command: ["--config=/etc/otel/collector.yaml"]
+    volumes:
+      - ./deploy/compose/otel/collector.yaml:/etc/otel/collector.yaml:ro
+    ports: ["4317:4317", "4318:4318"]
+    depends_on: [tempo]
+
+  prometheus:
+    profiles: [obs]
+    image: prom/prometheus:v3.15.0
+    volumes:
+      - ./deploy/compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports: ["9090:9090"]
+
+  tempo:
+    profiles: [obs]
+    image: grafana/tempo:3.1.0
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./deploy/compose/tempo/tempo.yaml:/etc/tempo.yaml:ro
+    ports: ["3200:3200"]
+
+  loki:
+    profiles: [obs]
+    image: grafana/loki:3.7.8
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./deploy/compose/loki/loki.yaml:/etc/loki/loki.yaml:ro
+
+  grafana:
+    profiles: [obs]
+    image: grafana/grafana:13.2.4
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./deploy/compose/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports: ["3001:3000"]
+
+  langfuse:
+    profiles: [obs]
+    image: langfuse/langfuse:4.64.0
+    environment:
+      NEXTAUTH_URL: http://localhost:3100
+      NEXTAUTH_SECRET: dev-langfuse-secret
+      SALT: dev-langfuse-salt
+      DATABASE_URL: postgresql://ar_owner:ar_owner@postgres:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      REDIS_CONNECTION_STRING: redis://valkey:6379
+    ports: ["3100:3000"]
+    depends_on: [postgres, valkey, clickhouse]
+
+  clickhouse:
+    profiles: [obs]
+    image: clickhouse/clickhouse-server:25.3
+    ports: ["8123:8123"]
+
+  api:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: api } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_api.main
+      AR_PORT: "8000"
+    ports: ["8000:8000"]
+
+  model-gateway:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: model_gateway } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_model_gateway.main
+      AR_PORT: "8001"
+    ports: ["8001:8001"]
+
+  mcp-gateway:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_gateway } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_mcp_gateway.main
+      AR_PORT: "8002"
+    ports: ["8002:8002"]
+
+  sandbox-manager:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: sandbox_manager } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_sandbox_manager.main
+      AR_PORT: "8003"
+    ports: ["8003:8003"]
+
+  channels:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: channels } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_channels.main
+      AR_PORT: "8004"
+    ports: ["8004:8004"]
+
+  mcp-sql:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_sql } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_mcp_sql.main
+      AR_PORT: "8010"
+    ports: ["8010:8010"]
+
+  mcp-openapi:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_openapi } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_mcp_openapi.main
+      AR_PORT: "8011"
+    ports: ["8011:8011"]
+
+  runtime-worker:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: runtime } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_runtime.main
+      AR_PORT: "8012"
+    ports: ["8012:8012"]
+
+  system-worker:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: system } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_system.main
+      AR_PORT: "8013"
+    ports: ["8013:8013"]
+
+  ingest-worker:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/ingest/Dockerfile }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_ingest.main
+      AR_PORT: "8014"
+    ports: ["8014:8014"]
+
+  sandbox-agent:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: sandbox_agent } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_sandbox_agent.main
+      AR_PORT: "8080"
+    ports: ["8080:8080"]
+
+  fake-llm:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: fake_llm } }
+    environment:
+      <<: *app-env
+      AR_APP_MODULE: ar_fake_llm.app
+      AR_PORT: "8099"
+    ports: ["8099:8099"]
+
+  web:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/web.Dockerfile }
+    ports: ["3000:3000"]
+
+volumes:
+  pgdata:
+  seaweed:
