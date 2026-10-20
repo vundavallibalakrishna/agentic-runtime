@@ -9,8 +9,8 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
+from ...models.me import Me
 from ...models.me_patch import MePatch
-from ...models.patch_me_api_v1_me_patch_response_patch_me_api_v1_me_patch import PatchMeApiV1MePatchResponsePatchMeApiV1MePatch
 from typing import cast
 
 
@@ -41,9 +41,9 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | Me | None:
     if response.status_code == 200:
-        response_200 = PatchMeApiV1MePatchResponsePatchMeApiV1MePatch.from_dict(response.json())
+        response_200 = Me.from_dict(response.json())
 
 
 
@@ -62,7 +62,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | Me]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -76,7 +76,7 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     body: MePatch,
 
-) -> Response[HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch]:
+) -> Response[HTTPValidationError | Me]:
     """ Patch Me
 
     Args:
@@ -87,7 +87,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch]
+        Response[HTTPValidationError | Me]
      """
 
 
@@ -107,7 +107,7 @@ def sync(
     client: AuthenticatedClient | Client,
     body: MePatch,
 
-) -> HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch | None:
+) -> HTTPValidationError | Me | None:
     """ Patch Me
 
     Args:
@@ -118,7 +118,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch
+        HTTPValidationError | Me
      """
 
 
@@ -133,7 +133,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
     body: MePatch,
 
-) -> Response[HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch]:
+) -> Response[HTTPValidationError | Me]:
     """ Patch Me
 
     Args:
@@ -144,7 +144,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch]
+        Response[HTTPValidationError | Me]
      """
 
 
@@ -164,7 +164,7 @@ async def asyncio(
     client: AuthenticatedClient | Client,
     body: MePatch,
 
-) -> HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch | None:
+) -> HTTPValidationError | Me | None:
     """ Patch Me
 
     Args:
@@ -175,7 +175,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        HTTPValidationError | PatchMeApiV1MePatchResponsePatchMeApiV1MePatch
+        HTTPValidationError | Me
      """
 
 

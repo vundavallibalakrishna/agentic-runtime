@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from ar_contracts.json_api import ApiModel
+from ar_contracts.api_model import ApiModel
 
 
 class _Model(ApiModel):

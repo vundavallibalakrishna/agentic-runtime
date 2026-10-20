@@ -143,6 +143,56 @@ export type InvitationCreate = {
 };
 
 /**
+ * Me
+ *
+ * Authenticated caller. Role and permission values stay catalogue tokens.
+ */
+export type Me = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Email
+     */
+    email?: string | null;
+    /**
+     * Displayname
+     */
+    displayName?: string | null;
+    /**
+     * Createdat
+     */
+    createdAt?: string | null;
+    /**
+     * Roles
+     */
+    roles?: Array<string>;
+    /**
+     * Permissions
+     */
+    permissions?: Array<string>;
+    /**
+     * Teams
+     */
+    teams?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Groups
+     */
+    groups?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Settings
+     */
+    settings?: {
+        [key: string]: unknown;
+    };
+};
+
+/**
  * MePatch
  */
 export type MePatch = {
@@ -796,13 +846,9 @@ export type GetMeApiV1MeGetData = {
 
 export type GetMeApiV1MeGetResponses = {
     /**
-     * Response Get Me Api V1 Me Get
-     *
      * Successful Response
      */
-    200: {
-        [key: string]: unknown;
-    };
+    200: Me;
 };
 
 export type GetMeApiV1MeGetResponse = GetMeApiV1MeGetResponses[keyof GetMeApiV1MeGetResponses];
@@ -825,13 +871,9 @@ export type PatchMeApiV1MePatchError = PatchMeApiV1MePatchErrors[keyof PatchMeAp
 
 export type PatchMeApiV1MePatchResponses = {
     /**
-     * Response Patch Me Api V1 Me Patch
-     *
      * Successful Response
      */
-    200: {
-        [key: string]: unknown;
-    };
+    200: Me;
 };
 
 export type PatchMeApiV1MePatchResponse = PatchMeApiV1MePatchResponses[keyof PatchMeApiV1MePatchResponses];

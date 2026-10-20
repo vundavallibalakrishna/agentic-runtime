@@ -8,7 +8,7 @@ from ar_api.deps import expose, require_permission
 from ar_api.state import as_object
 from ar_common.errors import NotFoundError
 from ar_common.http import assert_public_url
-from ar_contracts.json_api import ApiModel
+from ar_contracts.api_model import ApiModel
 
 router = APIRouter()
 

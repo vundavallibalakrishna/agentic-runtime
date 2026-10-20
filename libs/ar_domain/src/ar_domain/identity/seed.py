@@ -27,7 +27,7 @@ DEV_USERS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 
 def plan_limits(key: str) -> dict[str, object]:
     """Plan documents. Enterprise and self-hosted match the spec defaults."""
-    base = PlanLimits().model_dump()
+    base = PlanLimits().model_dump(by_alias=False)
     if key == "free":
         base["max_users"] = 5
         base["max_agents"] = 3
@@ -101,7 +101,7 @@ async def _tenant(session: AsyncSession, plan_id: uuid.UUID) -> Tenant:
             name="Dev",
             status="active",
             plan_id=plan_id,
-            settings=TenantSettings().model_dump(),
+            settings=TenantSettings().model_dump(by_alias=False),
         )
         session.add(row)
         await session.flush()
@@ -165,7 +165,7 @@ async def ensure_admin(
             slug=slug,
             name=name,
             plan_id=plan.id,
-            settings=TenantSettings().model_dump(),
+            settings=TenantSettings().model_dump(by_alias=False),
         )
         session.add(tenant)
         await session.flush()

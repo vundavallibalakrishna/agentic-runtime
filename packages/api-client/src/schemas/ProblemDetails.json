@@ -37,7 +37,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "RFC 9457 body. ``code`` values stay snake_case; the key ``requestId`` does not.",
+  "description": "RFC 9457 body. ``code`` values stay snake_case; the key is ``requestId``.",
   "properties": {
     "type": {
       "title": "Type",

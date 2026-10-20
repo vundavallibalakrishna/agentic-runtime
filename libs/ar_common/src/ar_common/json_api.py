@@ -2,7 +2,8 @@
 
 Python and the database stay snake_case. Keys in REST bodies, problem
 documents, pagination envelopes, SSE payloads and webhooks are camelCase.
-The public models live in ``ar_contracts.json_api`` and call :func:`camelize`.
+Public models live in ``ar_contracts.api_model.ApiModel``. :func:`camelize` rewrites
+free-form objects that are not Pydantic fields, such as pagination items.
 """
 
 from pydantic.alias_generators import to_camel

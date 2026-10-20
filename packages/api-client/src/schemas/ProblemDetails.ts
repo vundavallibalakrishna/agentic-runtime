@@ -18,7 +18,7 @@ export type Type1 = string;
 export type Errors = ProblemField[];
 
 /**
- * RFC 9457 body. ``code`` values stay snake_case; the key ``requestId`` does not.
+ * RFC 9457 body. ``code`` values stay snake_case; the key is ``requestId``.
  */
 export interface ProblemDetails {
   type: Type;

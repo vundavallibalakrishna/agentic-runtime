@@ -415,14 +415,14 @@ class _MemStore:
         self.Plan = Plan
         self.Tenant = Tenant
         self.plan = Plan(
-            id=uuid.uuid4(), key="enterprise", name="Enterprise", limits=PlanLimits().model_dump()
+            id=uuid.uuid4(), key="enterprise", name="Enterprise", limits=PlanLimits().model_dump(by_alias=False)
         )
         self.tenant = Tenant(
             id=ctx.tenant_id,
             slug="dev",
             name="Dev",
             plan_id=self.plan.id,
-            settings=TenantSettings().model_dump(),
+            settings=TenantSettings().model_dump(by_alias=False),
             billing_currency="INR",
         )
         self.users: dict[uuid.UUID, User] = {}

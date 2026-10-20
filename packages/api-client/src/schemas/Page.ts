@@ -12,10 +12,7 @@ export type Nextcursor = string | null;
 export type Hasmore = boolean;
 
 /**
- * Cursor page. Conventions §4, with camelCase keys.
- *
- * Items are JSON objects. A recursive ``JsonValue`` schema is too deep for the
- * generated Zod client, and list endpoints return objects.
+ * Cursor page. Items are JSON objects so the generated Zod schema stays finite.
  */
 export interface Page {
   items?: Items;

@@ -2012,7 +2012,6 @@
   "properties": {
     "apiVersion": {
       "const": "agentic-runtime.dev/v1",
-      "default": "agentic-runtime.dev/v1",
       "title": "Apiversion",
       "type": "string"
     },
@@ -2079,6 +2078,7 @@
     }
   },
   "required": [
+    "apiVersion",
     "kind",
     "metadata",
     "resources"

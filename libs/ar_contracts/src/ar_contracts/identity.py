@@ -1,10 +1,11 @@
 """Identity documents stored as JSON. Spec: docs/03-specs/02-identity-tenancy.md §3.2."""
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import Field
 
-from ar_contracts.json_api import ApiModel
+from ar_contracts.api_model import ApiModel
 
 
 class _Model(ApiModel):
@@ -35,3 +36,17 @@ class SamlIdpConfig(_Model):
 
 
 IdpConfig = OidcIdpConfig | SamlIdpConfig
+
+
+class Me(ApiModel):
+    """Authenticated caller. Role and permission values stay catalogue tokens."""
+
+    id: str
+    email: str | None = None
+    display_name: str | None = None
+    created_at: datetime | None = None
+    roles: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
+    teams: list[dict[str, object]] = Field(default_factory=list)
+    groups: list[dict[str, object]] = Field(default_factory=list)
+    settings: dict[str, object] = Field(default_factory=dict)

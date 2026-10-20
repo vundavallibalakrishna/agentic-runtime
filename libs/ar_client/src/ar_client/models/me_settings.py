@@ -14,12 +14,12 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="PatchMeApiV1MePatchResponsePatchMeApiV1MePatch")
+T = TypeVar("T", bound="MeSettings")
 
 
 
 @_attrs_define
-class PatchMeApiV1MePatchResponsePatchMeApiV1MePatch:
+class MeSettings:
     
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -40,12 +40,12 @@ class PatchMeApiV1MePatchResponsePatchMeApiV1MePatch:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        patch_me_api_v1_me_patch_response_patch_me_api_v1_me_patch = cls(
+        me_settings = cls(
         )
 
 
-        patch_me_api_v1_me_patch_response_patch_me_api_v1_me_patch.additional_properties = d
-        return patch_me_api_v1_me_patch_response_patch_me_api_v1_me_patch
+        me_settings.additional_properties = d
+        return me_settings
 
     @property
     def additional_keys(self) -> list[str]:

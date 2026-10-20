@@ -2,6 +2,8 @@
 
 import re
 
+from pydantic.alias_generators import to_snake
+
 from ar_common.errors import PlanLimitReachedError, ValidationFailedError
 from ar_contracts.tenants import PlanLimits, TenantSettings
 
@@ -21,8 +23,8 @@ def validate_tenant_settings(settings: TenantSettings, limits: PlanLimits) -> Te
     for domain in settings.egress_allowlist:
         if _DOMAIN.fullmatch(domain) is None:
             raise ValidationFailedError(f"egress domain is invalid: {domain}")
-    plan_features = limits.features.model_dump()
-    for name, enabled in settings.features.model_dump().items():
+    plan_features = limits.features.model_dump(by_alias=False)
+    for name, enabled in settings.features.model_dump(by_alias=False).items():
         if enabled and name in plan_features and not plan_features[name]:
             raise PlanLimitReachedError(f"feature {name} is not on this plan")
     return settings
@@ -30,9 +32,29 @@ def validate_tenant_settings(settings: TenantSettings, limits: PlanLimits) -> Te
 
 def merge_settings(current: TenantSettings, patch: dict[str, object]) -> TenantSettings:
     """Deep-merge a partial settings document."""
-    merged = current.model_dump()
-    _merge(merged, patch)
+    merged = current.model_dump(by_alias=False)
+    _merge(merged, snakeize(patch))
     return TenantSettings.model_validate(merged)
+
+
+def _snake_key(key: str) -> str:
+    return key if "_" in key else to_snake(key)
+
+
+def snakeize(value: dict[str, object]) -> dict[str, object]:
+    """Map public camelCase keys onto the snake_case document stored in JSONB."""
+    rewritten: dict[str, object] = {}
+    for key, item in value.items():
+        name = _snake_key(str(key))
+        if isinstance(item, dict):
+            rewritten[name] = snakeize(item)
+        elif isinstance(item, list):
+            rewritten[name] = [
+                snakeize(entry) if isinstance(entry, dict) else entry for entry in item
+            ]
+        else:
+            rewritten[name] = item
+    return rewritten
 
 
 def _merge(base: dict[str, object], patch: dict[str, object]) -> None:

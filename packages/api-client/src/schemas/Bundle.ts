@@ -344,7 +344,7 @@ export type Resources = (
 )[];
 
 export interface Bundle {
-  apiVersion?: Apiversion;
+  apiVersion: Apiversion;
   kind: Kind;
   metadata: Metadata;
   resources: Resources;

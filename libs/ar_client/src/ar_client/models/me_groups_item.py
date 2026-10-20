@@ -14,12 +14,12 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="GetMeApiV1MeGetResponseGetMeApiV1MeGet")
+T = TypeVar("T", bound="MeGroupsItem")
 
 
 
 @_attrs_define
-class GetMeApiV1MeGetResponseGetMeApiV1MeGet:
+class MeGroupsItem:
     
 
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -40,12 +40,12 @@ class GetMeApiV1MeGetResponseGetMeApiV1MeGet:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        get_me_api_v1_me_get_response_get_me_api_v1_me_get = cls(
+        me_groups_item = cls(
         )
 
 
-        get_me_api_v1_me_get_response_get_me_api_v1_me_get.additional_properties = d
-        return get_me_api_v1_me_get_response_get_me_api_v1_me_get
+        me_groups_item.additional_properties = d
+        return me_groups_item
 
     @property
     def additional_keys(self) -> list[str]:

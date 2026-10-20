@@ -83,6 +83,7 @@ def _app(principal: Principal) -> TestClient:
             email=principal.email or "",
             display_name="Admin",
             status="active",
+            created_at=utcnow(),
         )
     )
     app.state.identity_override = IdentityService(store)
@@ -184,7 +185,11 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     client = _app(_principal(user_id, tenant_id))
     me = client.get("/api/v1/me")
     assert me.status_code == 200
-    assert "displayName" in me.json()
+    body = me.json()
+    assert body["displayName"] == "Admin"
+    assert "createdAt" in body
+    assert "display_name" not in body
+    assert "created_at" not in body
     patched = client.patch("/api/v1/me", json={"displayName": "Ava"})
     assert patched.status_code == 200
     assert patched.json()["displayName"] == "Ava"

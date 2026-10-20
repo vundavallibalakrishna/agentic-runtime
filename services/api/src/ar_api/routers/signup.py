@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 
 from ar_api.deps import expose
 from ar_common.errors import NotFoundError
-from ar_contracts.json_api import ApiModel
+from ar_contracts.api_model import ApiModel
 
 router = APIRouter()
 

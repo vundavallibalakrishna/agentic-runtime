@@ -8,7 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.get_me_api_v1_me_get_response_get_me_api_v1_me_get import GetMeApiV1MeGetResponseGetMeApiV1MeGet
+from ...models.me import Me
 from typing import cast
 
 
@@ -32,9 +32,9 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> GetMeApiV1MeGetResponseGetMeApiV1MeGet | None:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Me | None:
     if response.status_code == 200:
-        response_200 = GetMeApiV1MeGetResponseGetMeApiV1MeGet.from_dict(response.json())
+        response_200 = Me.from_dict(response.json())
 
 
 
@@ -46,7 +46,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[GetMeApiV1MeGetResponseGetMeApiV1MeGet]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Me]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -59,7 +59,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
 
-) -> Response[GetMeApiV1MeGetResponseGetMeApiV1MeGet]:
+) -> Response[Me]:
     """ Get Me
 
     Raises:
@@ -67,7 +67,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[GetMeApiV1MeGetResponseGetMeApiV1MeGet]
+        Response[Me]
      """
 
 
@@ -85,7 +85,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
 
-) -> GetMeApiV1MeGetResponseGetMeApiV1MeGet | None:
+) -> Me | None:
     """ Get Me
 
     Raises:
@@ -93,7 +93,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        GetMeApiV1MeGetResponseGetMeApiV1MeGet
+        Me
      """
 
 
@@ -106,7 +106,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
 
-) -> Response[GetMeApiV1MeGetResponseGetMeApiV1MeGet]:
+) -> Response[Me]:
     """ Get Me
 
     Raises:
@@ -114,7 +114,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[GetMeApiV1MeGetResponseGetMeApiV1MeGet]
+        Response[Me]
      """
 
 
@@ -132,7 +132,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
 
-) -> GetMeApiV1MeGetResponseGetMeApiV1MeGet | None:
+) -> Me | None:
     """ Get Me
 
     Raises:
@@ -140,7 +140,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        GetMeApiV1MeGetResponseGetMeApiV1MeGet
+        Me
      """
 
 

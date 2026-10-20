@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 
 from ar_api.deps import IdentityDep, expose, require_permission
 from ar_common.errors import NotFoundError
-from ar_contracts.json_api import ApiModel
+from ar_contracts.api_model import ApiModel
 
 router = APIRouter()
 

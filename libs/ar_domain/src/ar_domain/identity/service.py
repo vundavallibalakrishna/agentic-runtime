@@ -15,7 +15,7 @@ from ar_common.errors import (
 from ar_common.time import utcnow
 from ar_contracts.tenants import PlanLimits, TenantSettings, UserSettings
 from ar_domain.audit.actions import AuditAction
-from ar_domain.identity.limits import merge_settings, validate_tenant_settings
+from ar_domain.identity.limits import merge_settings, snakeize, validate_tenant_settings
 from ar_domain.identity.models import (
     ApiKey,
     Group,
@@ -140,7 +140,7 @@ class IdentityService:
             current = TenantSettings.model_validate(tenant.settings)
             merged = merge_settings(current, settings_patch)
             limits = PlanLimits.model_validate(plan.limits)
-            tenant.settings = validate_tenant_settings(merged, limits).model_dump()
+            tenant.settings = validate_tenant_settings(merged, limits).model_dump(by_alias=False)
         await self.store.audit(
             AuditAction.TENANT_UPDATED, "tenant", str(tenant.id), {"name": tenant.name}
         )
@@ -155,7 +155,7 @@ class IdentityService:
             user.display_name = display_name
         if settings:
             current = UserSettings.model_validate(user.settings or {})
-            user.settings = merge_user(current, settings).model_dump()
+            user.settings = merge_user(current, settings).model_dump(by_alias=False)
         return user
 
     async def patch_user(
@@ -516,6 +516,10 @@ class IdentityService:
             raise NotFoundError("tenant not found")
         return tenant
 
+    async def current_user(self) -> User:
+        """Return the caller. Profile routes serialize this as ``Me``."""
+        return await self._self()
+
     async def _self(self) -> User:
         if self.ctx.user_id is None:
             raise ForbiddenError("only users can update their profile")
@@ -548,8 +552,8 @@ class IdentityService:
 
 def merge_user(current: UserSettings, patch: dict[str, object]) -> UserSettings:
     """Merge a partial user settings document."""
-    merged = current.model_dump()
-    for key, value in patch.items():
+    merged = current.model_dump(by_alias=False)
+    for key, value in snakeize(patch).items():
         if isinstance(merged.get(key), dict) and isinstance(value, dict):
             merged[key] = {**merged[key], **value}
         else:

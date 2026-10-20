@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from pydantic import Field
 
 from ar_api.deps import IdentityDep, expose, require_permission
-from ar_contracts.json_api import ApiModel
+from ar_contracts.api_model import ApiModel
 from ar_domain.identity.mail import send_email
 from ar_domain.identity.tokens import sha256_hex
 

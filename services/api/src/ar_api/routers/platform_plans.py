@@ -8,7 +8,7 @@ from pydantic import Field
 from ar_api.deps import expose
 from ar_api.state import as_object
 from ar_common.errors import ForbiddenError, NotFoundError
-from ar_contracts.json_api import ApiModel
+from ar_contracts.api_model import ApiModel
 
 router = APIRouter()
 
