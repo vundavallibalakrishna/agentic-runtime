@@ -320,10 +320,10 @@ export function ChatScreen() {
 
   return (
     <AppShell flush>
-      <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[16rem_1fr]">
+      <div className="grid h-full min-h-0 min-w-0 grid-cols-1 md:grid-cols-[16rem_1fr]">
         <aside
           aria-label={t("conversations")}
-          className="flex max-h-48 min-h-0 flex-col overflow-hidden border-b border-[var(--border)] md:max-h-none md:border-b-0 md:border-r"
+          className="flex max-h-40 min-h-0 min-w-0 flex-col overflow-hidden border-b border-[var(--border)] md:max-h-none md:border-b-0 md:border-r"
         >
           <div className="px-2 pt-3">
             <Button
@@ -359,7 +359,7 @@ export function ChatScreen() {
             })}
           </nav>
         </aside>
-        <section className="flex min-h-0 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-col">
           <h1 className="sr-only">{t("title")}</h1>
           <p className="sr-only">{session?.tenant?.name ?? t("tenant")}</p>
           <div className="sr-only" aria-atomic="false" aria-live="polite">

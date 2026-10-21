@@ -51,11 +51,11 @@ export default async function LoginPage({
             <form action="/api/v1/auth/dev-login" key={email} method="post">
               <input name="email" type="hidden" value={email} />
               <Button
-                className="h-9 w-full justify-start px-2 font-normal"
+                className="h-9 w-full justify-start overflow-hidden px-2 font-normal"
                 type="submit"
                 variant="ghost"
               >
-                {t("devLoginAs", { email })}
+                <span className="min-w-0 truncate">{t("devLoginAs", { email })}</span>
               </Button>
             </form>
           ))}

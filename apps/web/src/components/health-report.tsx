@@ -55,15 +55,15 @@ export function HealthReport() {
     <div className="grid gap-3 sm:grid-cols-3">
       <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
         <p className="text-sm text-[var(--muted-foreground)]">{failed ? t("down") : t("ok")}</p>
-        <p className="mt-2 font-serif text-2xl">{health?.status ?? "down"}</p>
+        <p className="mt-2 text-2xl font-medium tracking-tight">{health?.status ?? "down"}</p>
       </article>
       <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
         <p className="text-sm text-[var(--muted-foreground)]">{t("version")}</p>
-        <p className="mt-2 font-serif text-2xl">{meta?.version ?? "—"}</p>
+        <p className="mt-2 text-2xl font-medium tracking-tight">{meta?.version ?? "—"}</p>
       </article>
       <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
         <p className="text-sm text-[var(--muted-foreground)]">{t("mode")}</p>
-        <p className="mt-2 font-serif text-2xl">{mode}</p>
+        <p className="mt-2 text-2xl font-medium tracking-tight">{mode}</p>
       </article>
     </div>
   );

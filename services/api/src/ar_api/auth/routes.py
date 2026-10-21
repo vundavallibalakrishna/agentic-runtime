@@ -62,8 +62,9 @@ async def _dev_email(request: Request) -> str:
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
         body = await request.json()
-        if isinstance(body, dict) and isinstance(body.get("email"), str) and body["email"].strip():
-            return body["email"].strip().lower()
+        email = body.get("email") if isinstance(body, dict) else None
+        if isinstance(email, str) and email.strip():
+            return email.strip().lower()
     if "form" in content_type:
         form = await request.form()
         raw = form.get("email")

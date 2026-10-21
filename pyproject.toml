@@ -103,6 +103,7 @@ module = [
     "prometheus_client.*",
     "multipart.*",
     "sse_starlette.*",
+    "authlib.*",
     "granian.*",
     "openai.*",
     "yaml.*",

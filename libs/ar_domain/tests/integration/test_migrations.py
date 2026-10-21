@@ -5,6 +5,7 @@ import subprocess
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.engine.url import make_url
 
 pytestmark = pytest.mark.integration
 
@@ -53,7 +54,8 @@ async def test_seed_is_idempotent(migrated: str) -> None:
     from ar_domain.seed import apply
 
     os.environ["AR_DATABASE_URL"] = migrated
-    set_settings(BaseServiceSettings())
+    os.environ["AR_PG_HOST_PORT"] = str(make_url(migrated).port or 5432)
+    set_settings(BaseServiceSettings(_env_file=None))
     engine = get_engine(migrated)
     async with engine.connect() as connection:
         await connection.execution_options(isolation_level="AUTOCOMMIT")

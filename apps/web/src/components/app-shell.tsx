@@ -1,8 +1,10 @@
 "use client";
 
 import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import { CommandPalette, type PaletteCommand } from "@/components/command-palette";
 import { primaryNav } from "@/components/nav";
@@ -12,6 +14,7 @@ import { api, type Session } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_KEY = "ar-sidebar";
+let rememberedSession: Session | null = null;
 
 export function AppShell({
   children,
@@ -22,12 +25,19 @@ export function AppShell({
   extraLinks?: { href: string; label: string }[];
 }) {
   const t = useTranslations("shell");
+  const router = useRouter();
   const { choice, setChoice } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
   const [path, setPath] = useState("");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    if (rememberedSession) {
+      setSession(rememberedSession);
+    }
+  }, []);
 
   useEffect(() => {
     setPath(window.location.pathname);
@@ -36,10 +46,12 @@ export function AppShell({
     void (async () => {
       try {
         const body = await api<Session>("/api/v1/auth/session");
+        rememberedSession = body;
         if (!cancelled) {
           setSession(body);
         }
       } catch {
+        rememberedSession = null;
         if (!cancelled) {
           setSession(null);
         }
@@ -61,7 +73,7 @@ export function AppShell({
       label: t(item.labelKey),
       hint: item.soon ? t("soon") : undefined,
       run: () => {
-        window.location.assign(item.href);
+        router.push(item.href);
       },
     }));
     return [
@@ -72,11 +84,18 @@ export function AppShell({
         run: () => {
           window.dispatchEvent(new Event("ar-new-chat"));
           if (!window.location.pathname.startsWith("/chat")) {
-            window.location.assign("/chat");
+            router.push("/chat");
           }
         },
       },
       ...pages,
+      {
+        id: "health",
+        label: t("navHealth"),
+        run: () => {
+          router.push("/platform/health");
+        },
+      },
       {
         id: "theme",
         label: t("theme"),
@@ -87,7 +106,7 @@ export function AppShell({
         },
       },
     ];
-  }, [choice, items, setChoice, t]);
+  }, [choice, items, router, setChoice, t]);
 
   function toggleCollapsed() {
     setCollapsed((current) => {
@@ -98,6 +117,7 @@ export function AppShell({
   }
 
   async function signOut() {
+    rememberedSession = null;
     try {
       await api("/api/v1/auth/logout", { method: "POST", body: "{}" });
     } catch {
@@ -113,7 +133,7 @@ export function AppShell({
         const Icon = item.icon;
         const active = path === item.href || path.startsWith(`${item.href}/`);
         return (
-          <a
+          <Link
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-[var(--foreground)]",
@@ -137,7 +157,7 @@ export function AppShell({
                 {t("soon")}
               </span>
             ) : null}
-          </a>
+          </Link>
         );
       })}
     </nav>
@@ -152,14 +172,14 @@ export function AppShell({
           collapsed ? "w-14" : "w-56",
         )}
       >
-        <a className="mb-6 flex items-center px-2" href="/chat">
+        <Link className="mb-6 flex items-center px-2" href="/chat">
           <span className={cn("text-sm font-medium tracking-tight", collapsed && "sr-only")}>
             {t("product")}
           </span>
           <span aria-hidden="true" className={cn("text-sm font-medium", !collapsed && "hidden")}>
             A
           </span>
-        </a>
+        </Link>
         <p
           className={cn("mb-3 px-2 text-xs text-[var(--muted-foreground)]", collapsed && "sr-only")}
         >
@@ -244,14 +264,14 @@ export function AppShell({
       {mobileOpen ? (
         <div className="fixed inset-0 z-30 lg:hidden">
           <button
-            aria-label={t("closeMenu")}
+            aria-label={t("dismiss")}
             className="absolute inset-0 bg-[var(--scrim)]"
             onClick={() => setMobileOpen(false)}
             type="button"
           />
           <div className="absolute inset-y-0 left-0 flex w-72 flex-col bg-[var(--sidebar)] p-4 shadow-[var(--shadow)]">
             <p className="text-sm font-medium tracking-tight">{t("product")}</p>
-            <div className="mt-4 flex min-h-0 flex-1 flex-col">{nav}</div>
+            <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">{nav}</div>
             <Button onClick={() => setMobileOpen(false)} type="button" variant="outline">
               {t("closeMenu")}
             </Button>

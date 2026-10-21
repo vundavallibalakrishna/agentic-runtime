@@ -16,7 +16,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   setChoice: () => undefined,
 });
 
-export function applyTheme(choice: ThemeChoice) {
+function applyTheme(choice: ThemeChoice) {
   const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const dark = choice === "dark" || (choice === "system" && systemDark);
   document.documentElement.classList.toggle("dark", dark);

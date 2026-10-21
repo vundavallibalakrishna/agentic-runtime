@@ -27,6 +27,7 @@ export function UsersPanel({
   }
   return (
     <table className="w-full text-left text-sm">
+      <caption className="sr-only">{t("usersTitle")}</caption>
       <thead className="text-[var(--muted-foreground)]">
         <tr>
           <th className="p-3 font-medium">{t("usersTitle")}</th>

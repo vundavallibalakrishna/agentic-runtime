@@ -16,6 +16,9 @@ export function MarkdownView({ text }: { text: string }) {
     <div className="markdown">
       <ReactMarkdown
         components={{
+          pre({ children }) {
+            return <div className="contents">{children}</div>;
+          },
           code({ className, children }) {
             const value = String(children ?? "").replace(/\n$/, "");
             if (!className) {

@@ -53,6 +53,13 @@ def test_settings_follow_an_explicit_host_port() -> None:
     assert settings.valkey_url == "redis://localhost:6379/0"
 
 
+def test_settings_keep_a_database_url_when_the_host_port_is_unset() -> None:
+    settings = BaseServiceSettings(_env_file=None)
+    settings.database_url = "postgresql+asyncpg://ar_app:ar_app@127.0.0.1:35432/agentic_runtime"
+    apply_host_ports(settings, {})
+    assert settings.database_url.endswith("@127.0.0.1:35432/agentic_runtime")
+
+
 def test_listen_port_and_fake_llm_follow_the_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_PORT", "18000")
     monkeypatch.setenv("AR_FAKE_LLM_HOST_PORT", "18099")

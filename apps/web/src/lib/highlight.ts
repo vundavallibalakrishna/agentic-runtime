@@ -14,6 +14,17 @@ function highlighter(): Promise<Highlighter> {
 
 export type Token = { content: string; color?: string };
 
+const readableLight: Record<string, string> = {
+  "#D73A49": "#B42334",
+};
+
+function readableColor(color: string | undefined, dark: boolean): string | undefined {
+  if (!color || dark) {
+    return color;
+  }
+  return readableLight[color.toUpperCase()] ?? color;
+}
+
 export async function highlightCode(code: string, language: string): Promise<Token[][]> {
   const engine = await highlighter();
   const known = (
@@ -25,6 +36,9 @@ export async function highlightCode(code: string, language: string): Promise<Tok
     theme: dark ? "github-dark" : "github-light",
   });
   return rendered.tokens.map((line) =>
-    line.map((token) => ({ content: token.content, color: token.color })),
+    line.map((token) => ({
+      content: token.content,
+      color: readableColor(token.color, dark),
+    })),
   );
 }

@@ -56,7 +56,7 @@ def sync_detailed(
 ) -> Response[Any]:
     """ Dev Login
 
-     Sign in as the seeded admin. Disabled when ``AR_ENV=prod``.
+     Sign in as one of the four seeded users. Disabled when ``AR_ENV=prod``.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -85,7 +85,7 @@ async def asyncio_detailed(
 ) -> Response[Any]:
     """ Dev Login
 
-     Sign in as the seeded admin. Disabled when ``AR_ENV=prod``.
+     Sign in as one of the four seeded users. Disabled when ``AR_ENV=prod``.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

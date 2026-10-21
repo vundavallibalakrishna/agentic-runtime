@@ -238,8 +238,14 @@ jobs:
         run: make bootstrap
       - name: Occupy the default host ports
         run: |
-          uv run python scripts/hold_ports.py > /tmp/hold-ports.log 2>&1 &
-          sleep 1
+          setsid nohup uv run python -u scripts/hold_ports.py > /tmp/hold-ports.log 2>&1 < /dev/null &
+          echo $! > /tmp/hold-ports.pid
+          for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+            if grep -qE "holding|already taken" /tmp/hold-ports.log; then
+              break
+            fi
+            sleep 1
+          done
           grep -E "holding|already taken" /tmp/hold-ports.log
       - name: Move busy ports
         run: make ports-check AUTO_PORTS=1
@@ -259,7 +265,7 @@ jobs:
           # shellcheck disable=SC1091
           . ./.env
           set +a
-          uv run honcho start -f Procfile.dev > /tmp/honcho.log 2>&1 &
+          setsid nohup uv run honcho start -f Procfile.dev > /tmp/honcho.log 2>&1 < /dev/null &
           echo $! > /tmp/honcho.pid
       - name: Health and login smoke
         run: FRESH_CLONE_EXPECT_SHIFTED=1 uv run python scripts/fresh_clone_smoke.py
@@ -274,7 +280,8 @@ jobs:
       - name: Stop
         if: always()
         run: |
-          if [ -f /tmp/honcho.pid ]; then kill "$(cat /tmp/honcho.pid)" || true; fi
+          if [ -f /tmp/honcho.pid ]; then kill -- -"$(cat /tmp/honcho.pid)" || kill "$(cat /tmp/honcho.pid)" || true; fi
+          if [ -f /tmp/hold-ports.pid ]; then kill "$(cat /tmp/hold-ports.pid)" || true; fi
           make down
 
   security:

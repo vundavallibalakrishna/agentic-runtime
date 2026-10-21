@@ -239,7 +239,11 @@ def align_local_value(current: str, template: str, port: int, default: int) -> s
 
 
 def apply_host_ports(target: object, env: Mapping[str, str] | None = None) -> None:
-    """Rewrite localhost settings fields from the host-port variables."""
+    """Rewrite localhost settings fields from the host-port variables.
+
+    An unset port variable leaves the field alone. An explicit DSN, including
+    the database a test container published, is not forced back to the default.
+    """
     source = merged_env() if env is None else env
     for binding in URL_BINDINGS:
         if not binding.attr or not hasattr(target, binding.attr):
@@ -248,6 +252,8 @@ def apply_host_ports(target: object, env: Mapping[str, str] | None = None) -> No
         if not isinstance(current, str):
             continue
         spec = PORT_BY_NAME[binding.port_name]
+        if not source.get(spec.name, "").strip():
+            continue
         port = resolved_port(spec, source)
         updated = align_local_value(current, binding.template, port, spec.default)
         setattr(target, binding.attr, updated)

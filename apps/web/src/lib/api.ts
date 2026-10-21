@@ -5,7 +5,7 @@ export type Session = {
   roles?: string[];
 };
 
-export function csrfToken(): string {
+function csrfToken(): string {
   const match = document.cookie.match(/(?:^|; )ar_csrf=([^;]*)/);
   return match?.[1] ? decodeURIComponent(match[1]) : "";
 }

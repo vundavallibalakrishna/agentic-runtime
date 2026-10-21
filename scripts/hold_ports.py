@@ -20,12 +20,12 @@ def hold(ports: tuple[int, ...] = DEFAULTS) -> list[socket.socket]:
         try:
             sock.bind(("127.0.0.1", port))
         except OSError as exc:
-            print(f"hold {port}: already taken ({exc})")
+            print(f"hold {port}: already taken ({exc})", flush=True)
             sock.close()
             continue
         sock.listen(1)
         opened.append(sock)
-        print(f"holding {port}")
+        print(f"holding {port}", flush=True)
     return opened
 
 
