@@ -7,9 +7,11 @@ Keycloak with organizations asks for the username and then the password.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 from html.parser import HTMLParser
+from http.cookiejar import DefaultCookiePolicy
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -23,6 +25,29 @@ SEEDED = (
     "approver@dev.local",
 )
 PASSWORD = "dev-password"  # noqa: S105 - documented dev realm password
+
+
+def allow_secure_cookies_on_localhost() -> None:
+    """Send Keycloak's Secure cookies back to plain HTTP on localhost.
+
+    Keycloak 26 treats localhost as a secure context, so ``AUTH_SESSION_ID``
+    is marked Secure even when the dev realm is served over HTTP. Browsers
+    return that cookie to localhost. The default cookie policy does not, and
+    the login post then has no session.
+    """
+    if getattr(allow_secure_cookies_on_localhost, "done", False):
+        return
+    original = DefaultCookiePolicy.return_ok_secure
+
+    def return_ok_secure(self: DefaultCookiePolicy, cookie: object, request: object) -> bool:
+        host = getattr(request, "host", "")
+        secure = bool(getattr(cookie, "secure", False))
+        if secure and host in {"localhost", "127.0.0.1"}:
+            return True
+        return bool(original(self, cookie, request))
+
+    DefaultCookiePolicy.return_ok_secure = return_ok_secure  # type: ignore[method-assign]
+    allow_secure_cookies_on_localhost.done = True  # type: ignore[attr-defined]
 
 
 class _FormParser(HTMLParser):
@@ -191,8 +216,15 @@ def _ensure_org_members(keycloak: str) -> None:
         print(f"org member {email}")
 
 
+def _page_hint(html: str) -> str:
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:240]
+
+
 def _keycloak_login(api: str, email: str) -> None:
     """Sign one seeded user in through the username step and then the password."""
+    allow_secure_cookies_on_localhost()
     with httpx.Client(timeout=30, follow_redirects=True) as client:
         page = client.get(f"{api}/api/v1/auth/login")
         for _ in range(6):
@@ -211,7 +243,12 @@ def _keycloak_login(api: str, email: str) -> None:
             page = client.post(action, data=payload)
         final = str(page.url)
         if "error=" in final or "ar_session" not in client.cookies:
-            print(f"keycloak login did not create a session for {email}: {final}", file=sys.stderr)
+            hint = _page_hint(page.text)
+            print(
+                f"keycloak login did not create a session for {email}: "
+                f"{page.status_code} {final} {hint}",
+                file=sys.stderr,
+            )
             raise SystemExit(1)
         print(f"keycloak login {email} landed on {final}")
 
