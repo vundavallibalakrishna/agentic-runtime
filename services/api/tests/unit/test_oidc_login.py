@@ -63,6 +63,7 @@ def _jwks(pem: bytes) -> dict[str, object]:
 
 def test_organization_claim_shapes() -> None:
     assert organization_aliases({"organization": {"dev": {}}}) == ["dev"]
+    assert organization_aliases({"organization": {"8f1c": {"alias": "dev"}}}) == ["dev"]
     assert organization_aliases({"organization": ["dev", "other"]}) == ["dev", "other"]
     assert choose_organization(["dev", "other"], hint=None, email="a@dev.local") is None
     assert choose_organization(["dev", "other"], hint="dev", email="a@dev.local") == "dev"
@@ -175,6 +176,9 @@ def test_realm_allows_local_http_and_names_users() -> None:
     assert names["member@dev.local"][1] == "Member"
     assert names["approver@dev.local"][1] == "Approver"
     assert realm["organizations"][0]["alias"] == "dev"
+    web = next(client for client in realm["clients"] if client["clientId"] == "ar-web")
+    claims = {mapper["config"]["claim.name"] for mapper in web["protocolMappers"]}
+    assert {"email", "preferred_username", "organization"} <= claims
 
 
 def test_bootstrap_keyring_decodes_as_standard_base64() -> None:

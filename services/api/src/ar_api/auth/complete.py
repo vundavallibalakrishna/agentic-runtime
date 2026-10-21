@@ -7,6 +7,9 @@ from authlib.jose import JsonWebKey, JsonWebToken
 from authlib.jose.errors import JoseError
 
 from ar_api.auth.dev_users import DEV_TENANT_ID, DevUser, catalogue
+from ar_common.logging import get_logger
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from ar_api.main import Settings
@@ -30,7 +33,14 @@ def organization_aliases(claims: dict[str, object]) -> list[str]:
     if isinstance(raw, list):
         return [str(item) for item in raw if str(item).strip()]
     if isinstance(raw, dict):
-        return [str(key) for key in raw if str(key).strip()]
+        aliases: list[str] = []
+        for key, value in raw.items():
+            nested = value.get("alias") if isinstance(value, dict) else None
+            if isinstance(nested, str) and nested.strip():
+                aliases.append(nested.strip())
+            elif str(key).strip():
+                aliases.append(str(key).strip())
+        return aliases
     return []
 
 
@@ -86,6 +96,18 @@ def login_result(user: DevUser, *, access_token: str, refresh_token: str) -> dic
         "roles": list(user.roles),
         "permissions": sorted(user.permissions),
     }
+
+
+def _token_error(response: httpx.Response) -> str:
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    if not isinstance(body, dict):
+        return ""
+    error = str(body.get("error", ""))
+    description = str(body.get("error_description", ""))
+    return f"{error} {description}".strip()[:200]
 
 
 def _audience_ok(claims: dict[str, object], client_id: str) -> bool:
@@ -148,6 +170,12 @@ async def complete_oidc_login(
             headers={"accept": "application/json"},
         )
         if token_response.status_code != 200:
+            detail = _token_error(token_response)
+            logger.warning(
+                "oidc_token_exchange_failed",
+                status=token_response.status_code,
+                error=detail,
+            )
             raise LoginError("tenant_not_found")
         body = token_response.json()
         if not isinstance(body, dict) or not isinstance(body.get("id_token"), str):
@@ -172,13 +200,18 @@ async def complete_oidc_login(
     )
     email = str(claims.get("email") or claims.get("preferred_username") or "").strip().lower()
     if "@" not in email:
+        logger.warning("oidc_id_token_missing_email", claims=sorted(str(key) for key in claims))
         raise LoginError("tenant_not_found")
     hint = saved.get("tenant")
     tenant_hint = hint if isinstance(hint, str) and hint else None
     organization = choose_organization(organization_aliases(claims), hint=tenant_hint, email=email)
     if organization is None:
         return {"select_tenant": "1"}
-    user = profile_for(email, organization)
+    try:
+        user = profile_for(email, organization)
+    except LoginError:
+        logger.warning("oidc_organization_rejected", organization=organization)
+        raise
     return login_result(
         user,
         access_token=str(body.get("access_token", "")),

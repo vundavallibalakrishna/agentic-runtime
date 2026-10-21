@@ -245,6 +245,7 @@ jobs:
           cleanup() {
             if [ -n "${honcho_pid}" ]; then kill "${honcho_pid}" || true; fi
             kill "${holder}" || true
+            docker compose -f compose.yaml logs --no-color --tail 150 keycloak > /tmp/keycloak.log 2>&1 || true
             make down || true
           }
           trap cleanup EXIT
@@ -276,7 +277,8 @@ jobs:
           cat /tmp/hold-ports.log || true
           echo "----- honcho -----"
           tail -n 200 /tmp/honcho.log || true
-          docker compose -f compose.yaml logs --no-color --tail 80 keycloak || true
+          echo "----- keycloak -----"
+          cat /tmp/keycloak.log || true
       - name: Stop
         if: always()
         run: make down
