@@ -34,6 +34,11 @@ def encryption_keyring() -> str:
     return orjson.dumps({"k1": key}).decode()
 
 
+def shell_value(value: str) -> str:
+    """Single-quote a value so sourcing ``.env`` does not split on spaces."""
+    return "'" + value.replace("'", "'\"'\"'") + "'"
+
+
 def session_key() -> str:
     """Standard base64 of 32 bytes. URL-safe tokens fail ``b64decode``."""
     return base64.b64encode(secrets.token_bytes(32)).decode()
@@ -57,10 +62,11 @@ def main() -> None:
     text = ENV.read_text(encoding="utf-8") if ENV.exists() else ""
     text = _ensure(text, "AR_SESSION_ENCRYPTION_KEY", session_key())
     text = _ensure(text, "AR_CURSOR_SECRET", secrets.token_urlsafe(32))
-    text = _ensure(text, "AR_DB_ENCRYPTION_KEYS", "'" + encryption_keyring() + "'")
+    text = _ensure(text, "AR_DB_ENCRYPTION_KEYS", shell_value(encryption_keyring()))
     text = _ensure(text, "AR_DB_ENCRYPTION_ACTIVE_KEY", "k1")
     text = _ensure(text, "AR_TOKEN_CACHE_KEY", session_key())
-    text = _ensure(text, "AR_INTERNAL_JWT_PRIVATE_KEY", private_pem.replace("\n", "\\n"))
+    escaped_pem = private_pem.replace("\n", "\\n")
+    text = _ensure(text, "AR_INTERNAL_JWT_PRIVATE_KEY", shell_value(escaped_pem))
     text = _ensure(text, "AR_INTERNAL_JWT_JWKS", base64.b64encode(public.encode()).decode())
     ENV.write_text(text, encoding="utf-8")
     print(f"wrote dev keys to {ENV}")

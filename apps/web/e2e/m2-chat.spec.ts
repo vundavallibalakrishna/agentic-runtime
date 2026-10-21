@@ -45,22 +45,34 @@ test("sign in, chat, stop, empty and error states", async ({ page }) => {
   await page.screenshot({ path: `${shots}/06-error.png`, fullPage: true });
 });
 
-test("keycloak sign-in walks username and then password", async ({ page }) => {
+test("keycloak sign-in walks username and then password", async ({ page, context }) => {
   if (process.env.AR_E2E_KEYCLOAK !== "1") {
     return;
   }
-  await page.goto("/login");
-  await page.getByRole("link", { name: "Continue with SSO" }).click();
-  const password = page.locator("input[name='password']");
-  const username = page.locator("input[name='username']");
-  await username.waitFor({ timeout: 20_000 });
-  if (await username.isVisible()) {
-    await username.fill("admin@dev.local");
-  }
-  if (!(await password.isVisible())) {
+  for (const email of [
+    "admin@dev.local",
+    "builder@dev.local",
+    "member@dev.local",
+    "approver@dev.local",
+  ]) {
+    await context.clearCookies();
+    await page.goto("/login");
+    await page.getByRole("link", { name: "Continue with SSO" }).click();
+    const password = page.locator("input[name='password']");
+    const username = page.locator("input[name='username']");
+    await username.waitFor({ timeout: 20_000 });
+    if (await username.isVisible()) {
+      await username.fill(email);
+    }
+    if (!(await password.isVisible())) {
+      await page.getByRole("button", { name: /sign in/i }).click();
+    }
+    await password.fill("dev-password");
     await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(email)).toBeVisible();
+    await page.getByRole("button", { name: /Dev / }).click();
+    await page.getByRole("menuitem", { name: "Sign out" }).click();
+    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   }
-  await password.fill("dev-password");
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible({ timeout: 20_000 });
 });

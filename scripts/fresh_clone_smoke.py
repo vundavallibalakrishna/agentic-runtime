@@ -191,28 +191,29 @@ def _ensure_org_members(keycloak: str) -> None:
         print(f"org member {email}")
 
 
-def _keycloak_login(api: str) -> None:
+def _keycloak_login(api: str, email: str) -> None:
+    """Sign one seeded user in through the username step and then the password."""
     with httpx.Client(timeout=30, follow_redirects=True) as client:
         page = client.get(f"{api}/api/v1/auth/login")
         for _ in range(6):
             body = page.text
             lowered = body.lower()
             if "https required" in lowered or "update account" in lowered:
-                print("keycloak blocked the login page", file=sys.stderr)
+                print(f"keycloak blocked the login page for {email}", file=sys.stderr)
                 raise SystemExit(1)
             form = next(
-                (item for item in parse_forms(body) if fill_login(item, SEEDED[0], PASSWORD)), None
+                (item for item in parse_forms(body) if fill_login(item, email, PASSWORD)), None
             )
             if form is None:
                 break
-            payload = fill_login(form, SEEDED[0], PASSWORD)
+            payload = fill_login(form, email, PASSWORD)
             action = urljoin(str(page.url), str(form.get("action", "")))
             page = client.post(action, data=payload)
         final = str(page.url)
         if "error=" in final or "ar_session" not in client.cookies:
-            print(f"keycloak login did not create a session: {final}", file=sys.stderr)
+            print(f"keycloak login did not create a session for {email}: {final}", file=sys.stderr)
             raise SystemExit(1)
-        print(f"keycloak login landed on {final}")
+        print(f"keycloak login {email} landed on {final}")
 
 
 def main() -> None:
@@ -228,7 +229,8 @@ def main() -> None:
     _dev_logins(api)
     _wait_ok(f"{keycloak}/realms/agentic-runtime")
     _ensure_org_members(keycloak)
-    _keycloak_login(api)
+    for email in SEEDED:
+        _keycloak_login(api, email)
 
 
 if __name__ == "__main__":

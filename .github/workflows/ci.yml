@@ -236,10 +236,18 @@ jobs:
       - run: uv python install 3.14.8
       - name: Bootstrap
         run: make bootstrap
-      - name: Occupy the default host ports
+      - name: Fresh clone with the default ports taken
         run: |
-          setsid nohup uv run python -u scripts/hold_ports.py > /tmp/hold-ports.log 2>&1 < /dev/null &
-          echo $! > /tmp/hold-ports.pid
+          set -euo pipefail
+          uv run python -u scripts/hold_ports.py > /tmp/hold-ports.log 2>&1 &
+          holder=$!
+          honcho_pid=""
+          cleanup() {
+            if [ -n "${honcho_pid}" ]; then kill "${honcho_pid}" || true; fi
+            kill "${holder}" || true
+            make down || true
+          }
+          trap cleanup EXIT
           for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
             if grep -qE "holding|already taken" /tmp/hold-ports.log; then
               break
@@ -247,28 +255,20 @@ jobs:
             sleep 1
           done
           grep -E "holding|already taken" /tmp/hold-ports.log
-      - name: Move busy ports
-        run: make ports-check AUTO_PORTS=1
-      - name: Start dependencies and seed
-        run: |
+          make ports-check AUTO_PORTS=1
           make up
           make migrate
           make seed
-      - name: Owned containers do not shift ports again
-        run: |
           cp .env /tmp/env-after-up
           make ports-check AUTO_PORTS=1
           diff -q .env /tmp/env-after-up
-      - name: Start the app processes
-        run: |
           set -a
           # shellcheck disable=SC1091
           . ./.env
           set +a
-          setsid nohup uv run honcho start -f Procfile.dev > /tmp/honcho.log 2>&1 < /dev/null &
-          echo $! > /tmp/honcho.pid
-      - name: Health and login smoke
-        run: FRESH_CLONE_EXPECT_SHIFTED=1 uv run python scripts/fresh_clone_smoke.py
+          uv run honcho start -f Procfile.dev > /tmp/honcho.log 2>&1 &
+          honcho_pid=$!
+          FRESH_CLONE_EXPECT_SHIFTED=1 uv run python scripts/fresh_clone_smoke.py
       - name: Logs
         if: always()
         run: |
@@ -279,10 +279,7 @@ jobs:
           docker compose -f compose.yaml logs --no-color --tail 80 keycloak || true
       - name: Stop
         if: always()
-        run: |
-          if [ -f /tmp/honcho.pid ]; then kill -- -"$(cat /tmp/honcho.pid)" || kill "$(cat /tmp/honcho.pid)" || true; fi
-          if [ -f /tmp/hold-ports.pid ]; then kill "$(cat /tmp/hold-ports.pid)" || true; fi
-          make down
+        run: make down
 
   security:
     runs-on: ubuntu-latest

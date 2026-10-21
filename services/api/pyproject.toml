@@ -15,6 +15,7 @@ dependencies = [
     "sse-starlette==3.5.0",
     "python-multipart==0.0.32",
     "authlib==1.9.1",
+    "httpx==0.28.1",
     "orjson==3.13.0",
     "pydantic==2.14.1",
     "starlette==1.9.0",

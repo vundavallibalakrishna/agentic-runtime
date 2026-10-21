@@ -191,3 +191,5 @@ def test_bootstrap_keyring_decodes_as_standard_base64() -> None:
     import base64
 
     assert len(base64.b64decode(module.session_key())) == 32
+    pem = "-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----\\n"
+    assert module.shell_value(pem) == f"'{pem}'"
