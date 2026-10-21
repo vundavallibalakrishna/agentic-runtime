@@ -32,6 +32,7 @@ For each task, additionally read every document in the task's **Spec** line, the
 3. Mark it `in_progress` in `progress.md` (`M2-T05 | in_progress | - | <date>`), do the work, then mark it `done` with the commit sha. One task per pull request unless a task explicitly says otherwise.
 4. If a task is too big for one PR, split it as `M{n}-T{nn}a`, `…b` in the milestone file (never renumber existing tasks) and record the split in `progress.md`.
 5. At the end of a milestone, run the milestone's exit criteria and demo script ([plan README](docs/09-plan/README.md#vertical-slices-and-demo-checkpoints)) and record the result in `progress.md`.
+6. Every milestone pull request includes **How to test visually** as defined in the plan [Visual test](docs/09-plan/README.md#visual-test) section: exact local start commands, seeded demo login and data, and a numbered click-through of every user-visible feature so far with expected results.
 
 ## Conventions
 

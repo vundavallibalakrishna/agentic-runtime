@@ -1,3 +1,4 @@
+# Host ports are ${AR_*:-default} from .env. See docs/07-ops/local-dev.md.
 name: agentic-runtime
 
 x-app-env: &app-env
@@ -16,7 +17,7 @@ services:
       POSTGRES_PASSWORD: ar_owner
       POSTGRES_DB: agentic_runtime
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
-    ports: ["5432:5432"]
+    ports: ["${AR_PG_HOST_PORT:-5432}:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./deploy/compose/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
@@ -29,7 +30,7 @@ services:
   valkey:
     profiles: [deps]
     image: valkey/valkey:9.1.2
-    ports: ["6379:6379"]
+    ports: ["${AR_VALKEY_HOST_PORT:-6379}:6379"]
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
@@ -41,7 +42,7 @@ services:
     # Production chart uses temporalio/server:1.32.1. Local dev uses the CLI image.
     image: temporalio/temporal:1.9.1
     command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-port", "8233"]
-    ports: ["7233:7233", "8233:8233"]
+    ports: ["${AR_TEMPORAL_HOST_PORT:-7233}:7233", "${AR_TEMPORAL_UI_HOST_PORT:-8233}:8233"]
     healthcheck:
       test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
       interval: 5s
@@ -56,7 +57,7 @@ services:
       KC_FEATURES: organization
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
-    ports: ["8180:8080"]
+    ports: ["${AR_KEYCLOAK_HOST_PORT:-8180}:8080"]
     volumes:
       - ./deploy/compose/keycloak/agentic-runtime-realm.json:/opt/keycloak/data/import/agentic-runtime-realm.json:ro
 
@@ -64,7 +65,7 @@ services:
     profiles: [deps]
     image: chrislusf/seaweedfs:4.48
     command: ["server", "-s3", "-s3.port=8333", "-dir=/data"]
-    ports: ["8333:8333"]
+    ports: ["${AR_S3_HOST_PORT:-8333}:8333"]
     volumes:
       - seaweed:/data
 
@@ -75,7 +76,7 @@ services:
     command: ["server", "-dev", "-dev-root-token-id=dev-root-token", "-dev-listen-address=0.0.0.0:8200"]
     environment:
       BAO_DEV_ROOT_TOKEN_ID: dev-root-token
-    ports: ["8200:8200"]
+    ports: ["${AR_VAULT_HOST_PORT:-8200}:8200"]
 
   opa:
     profiles: [deps]
@@ -83,29 +84,31 @@ services:
     command: ["run", "--server", "--addr", "0.0.0.0:8181", "/policies"]
     volumes:
       - ./policies:/policies:ro
-    ports: ["8181:8181"]
+    ports: ["${AR_OPA_HOST_PORT:-8181}:8181"]
 
   mailpit:
     profiles: [deps]
     image: axllent/mailpit:v1.31.6
-    ports: ["1025:1025", "8025:8025"]
+    ports: ["${AR_SMTP_PORT:-1025}:1025", "${AR_MAILPIT_UI_HOST_PORT:-8025}:8025"]
 
   squid:
     profiles: [deps]
     build:
       context: .
       dockerfile: images/squid/Dockerfile
-    ports: ["3128:3128"]
+    ports: ["${AR_EGRESS_HOST_PORT:-3128}:3128"]
 
   clamav:
     profiles: [scan]
     image: clamav/clamav:1.5.4
-    ports: ["3310:3310"]
+    ports: ["${AR_CLAMAV_HOST_PORT:-3310}:3310"]
 
   qdrant:
     profiles: [qdrant]
     image: qdrant/qdrant:v1.19.2
-    ports: ["6333:6333", "6334:6334"]
+    ports:
+      - "${AR_QDRANT_HTTP_HOST_PORT:-6333}:6333"
+      - "${AR_QDRANT_GRPC_HOST_PORT:-6334}:6334"
 
   otel:
     profiles: [obs]
@@ -113,7 +116,9 @@ services:
     command: ["--config=/etc/otel/collector.yaml"]
     volumes:
       - ./deploy/compose/otel/collector.yaml:/etc/otel/collector.yaml:ro
-    ports: ["4317:4317", "4318:4318"]
+    ports:
+      - "${AR_OTEL_GRPC_HOST_PORT:-4317}:4317"
+      - "${AR_OTEL_HTTP_HOST_PORT:-4318}:4318"
     depends_on: [tempo]
 
   prometheus:
@@ -121,7 +126,7 @@ services:
     image: prom/prometheus:v3.15.0
     volumes:
       - ./deploy/compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports: ["9090:9090"]
+    ports: ["${AR_PROMETHEUS_HOST_PORT:-9090}:9090"]
 
   tempo:
     profiles: [obs]
@@ -129,7 +134,7 @@ services:
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
       - ./deploy/compose/tempo/tempo.yaml:/etc/tempo.yaml:ro
-    ports: ["3200:3200"]
+    ports: ["${AR_TEMPO_HOST_PORT:-3200}:3200"]
 
   loki:
     profiles: [obs]
@@ -147,26 +152,26 @@ services:
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
     volumes:
       - ./deploy/compose/grafana/provisioning:/etc/grafana/provisioning:ro
-    ports: ["3001:3000"]
+    ports: ["${AR_GRAFANA_HOST_PORT:-3001}:3000"]
 
   langfuse:
     profiles: [obs]
     image: langfuse/langfuse:4.64.0
     environment:
-      NEXTAUTH_URL: http://localhost:3100
+      NEXTAUTH_URL: http://localhost:${AR_LANGFUSE_HOST_PORT:-3100}
       NEXTAUTH_SECRET: dev-langfuse-secret
       SALT: dev-langfuse-salt
       DATABASE_URL: postgresql://ar_owner:ar_owner@postgres:5432/langfuse
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
       REDIS_CONNECTION_STRING: redis://valkey:6379
-    ports: ["3100:3000"]
+    ports: ["${AR_LANGFUSE_HOST_PORT:-3100}:3000"]
     depends_on: [postgres, valkey, clickhouse]
 
   clickhouse:
     profiles: [obs]
     image: clickhouse/clickhouse-server:25.3
-    ports: ["8123:8123"]
+    ports: ["${AR_CLICKHOUSE_HOST_PORT:-8123}:8123"]
 
   api:
     profiles: [apps]
@@ -174,8 +179,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_api.main
-      AR_PORT: "8000"
-    ports: ["8000:8000"]
+      AR_PORT: ${AR_PORT:-8000}
+    ports: ["${AR_PORT:-8000}:${AR_PORT:-8000}"]
 
   model-gateway:
     profiles: [apps]
@@ -183,8 +188,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_model_gateway.main
-      AR_PORT: "8001"
-    ports: ["8001:8001"]
+      AR_PORT: ${AR_MG_PORT:-8001}
+    ports: ["${AR_MG_PORT:-8001}:${AR_MG_PORT:-8001}"]
 
   mcp-gateway:
     profiles: [apps]
@@ -192,8 +197,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_mcp_gateway.main
-      AR_PORT: "8002"
-    ports: ["8002:8002"]
+      AR_PORT: ${AR_MCPG_PORT:-8002}
+    ports: ["${AR_MCPG_PORT:-8002}:${AR_MCPG_PORT:-8002}"]
 
   sandbox-manager:
     profiles: [apps]
@@ -201,8 +206,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_sandbox_manager.main
-      AR_PORT: "8003"
-    ports: ["8003:8003"]
+      AR_PORT: ${AR_SANDBOX_MANAGER_HOST_PORT:-8003}
+    ports: ["${AR_SANDBOX_MANAGER_HOST_PORT:-8003}:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}"]
 
   channels:
     profiles: [apps]
@@ -210,8 +215,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_channels.main
-      AR_PORT: "8004"
-    ports: ["8004:8004"]
+      AR_PORT: ${AR_CHANNELS_PORT:-8004}
+    ports: ["${AR_CHANNELS_PORT:-8004}:${AR_CHANNELS_PORT:-8004}"]
 
   mcp-sql:
     profiles: [apps]
@@ -219,8 +224,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_mcp_sql.main
-      AR_PORT: "8010"
-    ports: ["8010:8010"]
+      AR_PORT: ${AR_MCP_SQL_HOST_PORT:-8010}
+    ports: ["${AR_MCP_SQL_HOST_PORT:-8010}:${AR_MCP_SQL_HOST_PORT:-8010}"]
 
   mcp-openapi:
     profiles: [apps]
@@ -228,8 +233,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_mcp_openapi.main
-      AR_PORT: "8011"
-    ports: ["8011:8011"]
+      AR_PORT: ${AR_MCP_OPENAPI_HOST_PORT:-8011}
+    ports: ["${AR_MCP_OPENAPI_HOST_PORT:-8011}:${AR_MCP_OPENAPI_HOST_PORT:-8011}"]
 
   runtime-worker:
     profiles: [apps]
@@ -237,8 +242,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_runtime.main
-      AR_PORT: "8012"
-    ports: ["8012:8012"]
+      AR_PORT: ${AR_RUNTIME_HOST_PORT:-8012}
+    ports: ["${AR_RUNTIME_HOST_PORT:-8012}:${AR_RUNTIME_HOST_PORT:-8012}"]
 
   system-worker:
     profiles: [apps]
@@ -246,8 +251,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_system.main
-      AR_PORT: "8013"
-    ports: ["8013:8013"]
+      AR_PORT: ${AR_SYSTEM_HOST_PORT:-8013}
+    ports: ["${AR_SYSTEM_HOST_PORT:-8013}:${AR_SYSTEM_HOST_PORT:-8013}"]
 
   ingest-worker:
     profiles: [apps]
@@ -255,8 +260,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_ingest.main
-      AR_PORT: "8014"
-    ports: ["8014:8014"]
+      AR_PORT: ${AR_INGEST_HOST_PORT:-8014}
+    ports: ["${AR_INGEST_HOST_PORT:-8014}:${AR_INGEST_HOST_PORT:-8014}"]
 
   sandbox-agent:
     profiles: [apps]
@@ -264,8 +269,8 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_sandbox_agent.main
-      AR_PORT: "8080"
-    ports: ["8080:8080"]
+      AR_PORT: ${AR_SANDBOX_AGENT_HOST_PORT:-8080}
+    ports: ["${AR_SANDBOX_AGENT_HOST_PORT:-8080}:${AR_SANDBOX_AGENT_HOST_PORT:-8080}"]
 
   fake-llm:
     profiles: [apps]
@@ -273,13 +278,16 @@ services:
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_fake_llm.app
-      AR_PORT: "8099"
-    ports: ["8099:8099"]
+      AR_PORT: ${AR_FAKE_LLM_HOST_PORT:-8099}
+    ports: ["${AR_FAKE_LLM_HOST_PORT:-8099}:${AR_FAKE_LLM_HOST_PORT:-8099}"]
 
   web:
     profiles: [apps]
     build: { context: ., dockerfile: images/web.Dockerfile }
-    ports: ["3000:3000"]
+    environment:
+      PORT: "3000"
+      API_PROXY_URL: http://api:${AR_PORT:-8000}
+    ports: ["${AR_WEB_HOST_PORT:-3000}:3000"]
 
 volumes:
   pgdata:

@@ -1,9 +1,11 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 
+import { apiProxyUrl } from "./dev-env";
+
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-const apiOrigin = process.env.API_PROXY_URL ?? "http://127.0.0.1:8000";
+const apiOrigin = apiProxyUrl;
 
 const nextConfig: NextConfig = {
   output: "standalone",

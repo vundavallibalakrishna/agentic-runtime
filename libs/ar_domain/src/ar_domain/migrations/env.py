@@ -9,10 +9,15 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import ar_domain.agents.tables
 import ar_domain.audit.models
+import ar_domain.conversations.tables
 import ar_domain.events.models
+import ar_domain.files.tables
 import ar_domain.identity.models
-import ar_domain.secrets.models  # noqa: F401
+import ar_domain.models.tables
+import ar_domain.secrets.models
+import ar_domain.usage.tables  # noqa: F401
 from ar_domain.db import metadata
 from ar_domain.db.engine import owner_database_url
 

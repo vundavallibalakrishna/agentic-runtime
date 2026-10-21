@@ -7,6 +7,8 @@ from pathlib import Path
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from ar_common.host_ports import apply_host_ports
+
 # Every name in docs/07-ops/environments.md §3. A variable outside this set is a typo.
 CATALOGUE_ENV: frozenset[str] = frozenset(
     {
@@ -145,6 +147,39 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_VECTOR_PG_READ_DSN",
         "AR_WEBHOOK_ALLOW_PRIVATE",
     }
+) | frozenset(
+    {
+        "AR_CLICKHOUSE_HOST_PORT",
+        "AR_CLAMAV_HOST_PORT",
+        "AR_EGRESS_HOST_PORT",
+        "AR_FAKE_LLM_HOST_PORT",
+        "AR_GRAFANA_HOST_PORT",
+        "AR_INGEST_HOST_PORT",
+        "AR_KEYCLOAK_HOST_PORT",
+        "AR_LANGFUSE_HOST_PORT",
+        "AR_MAILPIT_UI_HOST_PORT",
+        "AR_MCP_OPENAPI_HOST_PORT",
+        "AR_MCP_SQL_HOST_PORT",
+        "AR_OPA_HOST_PORT",
+        "AR_OTEL_GRPC_HOST_PORT",
+        "AR_OTEL_HTTP_HOST_PORT",
+        "AR_PG_HOST_PORT",
+        "AR_PORT",
+        "AR_PROMETHEUS_HOST_PORT",
+        "AR_QDRANT_GRPC_HOST_PORT",
+        "AR_QDRANT_HTTP_HOST_PORT",
+        "AR_RUNTIME_HOST_PORT",
+        "AR_S3_HOST_PORT",
+        "AR_SANDBOX_AGENT_HOST_PORT",
+        "AR_SANDBOX_MANAGER_HOST_PORT",
+        "AR_SYSTEM_HOST_PORT",
+        "AR_TEMPO_HOST_PORT",
+        "AR_TEMPORAL_HOST_PORT",
+        "AR_TEMPORAL_UI_HOST_PORT",
+        "AR_VALKEY_HOST_PORT",
+        "AR_VAULT_HOST_PORT",
+        "AR_WEB_HOST_PORT",
+    }
 )
 
 
@@ -204,6 +239,7 @@ class BaseServiceSettings(BaseSettings):
                 setattr(self, attr, SecretStr(Path(file_path).read_text(encoding="utf-8").strip()))
         if self.deployment_mode is DeploymentMode.SAAS and "AR_LOG_HASH_USER_IDS" not in os.environ:
             self.log_hash_user_ids = True
+        apply_host_ports(self)
         return self
 
 

@@ -5,12 +5,66 @@
     "navAgents": "Agents",
     "empty": "Define an agent to start a run. This shell is the M0 placeholder.",
     "navUsers": "Users",
-    "navAudit": "Audit"
+    "navAudit": "Audit",
+    "navChat": "Chat",
+    "navModels": "Models"
   },
   "auth": {
     "title": "Sign in",
     "body": "Use your organisation account. The dev seed signs in as admin@dev.local.",
-    "continue": "Continue"
+    "continue": "Continue with SSO",
+    "devLogin": "Sign in as admin@dev.local"
+  },
+  "chat": {
+    "product": "Agentic Runtime",
+    "title": "Chat",
+    "tenant": "Dev tenant",
+    "signedOut": "Not signed in",
+    "newChat": "New chat",
+    "conversations": "Conversations",
+    "noConversations": "No conversations yet.",
+    "untitled": "New chat",
+    "greeting": "Hello. I can help with writing, summaries and questions.",
+    "empty": "Start a conversation with the assistant. Answers stream in as they are generated.",
+    "starter1": "Draft a short status update",
+    "starter2": "Explain this in simpler terms",
+    "starter3": "Summarise the attached document",
+    "composer": "Message",
+    "placeholder": "Message the assistant",
+    "send": "Send",
+    "stop": "Stop",
+    "regenerate": "Regenerate",
+    "attach": "Attach file",
+    "attached": "Attached",
+    "loading": "Loading chat",
+    "error": "Chat could not be loaded.",
+    "retry": "Try again",
+    "uploadError": "That file could not be uploaded.",
+    "models": "Models",
+    "health": "Platform health"
+  },
+  "models": {
+    "title": "Models",
+    "body": "Platform models are read-only. Register a provider, add a model and test it.",
+    "loading": "Loading models",
+    "empty": "No providers are visible yet.",
+    "error": "Models could not be loaded.",
+    "providers": "Providers",
+    "name": "Name",
+    "url": "Base URL",
+    "scope": "Scope",
+    "platform": "Platform",
+    "tenant": "Tenant",
+    "register": "Register a provider",
+    "test": "Register and test",
+    "sample": "Sample",
+    "counts": "{models} models, {aliases} aliases",
+    "back": "Back to chat"
+  },
+  "platform": {
+    "healthTitle": "Platform health",
+    "healthBody": "Service health lands in a later milestone. This page is the placeholder.",
+    "back": "Back to chat"
   },
   "admin": {
     "usersTitle": "Users",

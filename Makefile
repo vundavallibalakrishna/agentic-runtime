@@ -6,6 +6,8 @@ SHELL := /bin/bash
 OBS ?= 0
 SCAN ?= 0
 QDRANT ?= 0
+AUTO_PORTS ?= 0
+DEV_MIN ?= 0
 COMPOSE := docker compose -f compose.yaml
 PROFILES := --profile deps
 ifeq ($(OBS),1)
@@ -23,11 +25,13 @@ PY_PKGS := libs/ar_common libs/ar_contracts libs/ar_domain libs/ar_connector_sdk
 	services/sandbox_manager services/sandbox_agent services/channels services/fake_llm \
 	connectors/mcp_sql connectors/mcp_openapi
 
-.PHONY: help bootstrap up down migrate seed dev dev-min fmt lint typecheck test test-unit test-integration \
-	test-e2e check gen eval reset-db kind-up kind-down images images-bundle deptry
+.PHONY: help bootstrap up down migrate seed ports-check dev dev-min fmt lint typecheck test \
+	test-unit test-integration test-e2e check gen eval reset-db kind-up kind-down images \
+	images-bundle deptry
 
 help:
-	@echo "make bootstrap | up | down | migrate | seed | dev | check | gen"
+	@echo "make bootstrap | up | down | migrate | seed | ports-check | dev | check | gen"
+	@echo "make dev AUTO_PORTS=1    # move busy host ports and rewrite localhost URLs"
 
 bootstrap:
 	uv sync --all-packages --all-groups --all-extras
@@ -52,10 +56,17 @@ migrate:
 seed:
 	uv run python scripts/seed.py
 
-dev: up migrate seed
+ports-check:
+	AUTO_PORTS="$(AUTO_PORTS)" DEV_MIN="$(DEV_MIN)" OBS="$(OBS)" SCAN="$(SCAN)" QDRANT="$(QDRANT)" \
+		uv run python scripts/host_ports.py
+
+dev: ports-check
+	$(MAKE) up migrate seed
 	uv run honcho start -f Procfile.dev
 
-dev-min: up migrate seed
+dev-min:
+	$(MAKE) ports-check DEV_MIN=1
+	$(MAKE) up migrate seed
 	uv run honcho start -f Procfile.dev-min
 
 fmt:
