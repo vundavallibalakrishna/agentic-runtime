@@ -170,7 +170,7 @@ export const loginApiV1AuthLoginGetOptions = (options?: Options<LoginApiV1AuthLo
 /**
  * Dev Login
  *
- * Sign in as the seeded admin. Disabled when ``AR_ENV=prod``.
+ * Sign in as one of the four seeded users. Disabled when ``AR_ENV=prod``.
  */
 export const devLoginApiV1AuthDevLoginPostMutation = (options?: Partial<Options<DevLoginApiV1AuthDevLoginPostData>>): UseMutationOptions<unknown, DefaultError, Options<DevLoginApiV1AuthDevLoginPostData>> => {
     const mutationOptions: UseMutationOptions<unknown, DefaultError, Options<DevLoginApiV1AuthDevLoginPostData>> = {

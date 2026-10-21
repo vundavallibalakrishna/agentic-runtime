@@ -22,6 +22,7 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M0 | [M00-scaffold.md](M00-scaffold.md) | Scaffold & tooling | Monorepo builds, CI green, `make dev` brings up the local stack, fake-llm works, codegen pipeline in place | 12 |
 | M1 | [M01-foundation.md](M01-foundation.md) | Data, identity, tenancy, audit, events | Users log in via Keycloak; tenants, users, teams, roles, API keys, secrets, SSO/SCIM; RLS; audit chain; outbox; notifications/webhooks base; admin pages | 16 |
 | M2 | [M02-first-chat.md](M02-first-chat.md) | Secrets, model gateway & first chat | A user chats with the default `assistant` agent with streaming over SSE through `model-gateway`; files upload; runs API; usage metered | 13 |
+| M2.5 | [M02.5-design-polish.md](M02.5-design-polish.md) | Design polish | The shell, sign-in, chat and admin pages use the design system; Keycloak and a fresh clone work on a laptop whose default ports are taken | 4 |
 | M3 | [M03-agent-builder.md](M03-agent-builder.md) | Agent builder & bundles | Builders create, validate, test, publish, roll back agents; bundles import/export; agent catalogue; natural-language builder; content packs | 10 |
 | M4 | [M04-tools-mcp.md](M04-tools-mcp.md) | Tools & MCP | Tool servers registered and reviewed; agents call remote MCP, OpenAPI and SQL tools through `mcp-gateway`; OAuth connections; built-ins (files, conversations, web, plan, tools.search) | 10 |
 | M5 | [M05-policy-approvals.md](M05-policy-approvals.md) | Policy & approvals | OPA decisions on every tool call; approvals in web; standing approvals; simulation; output sign-off; segregation of duties | 9 |
@@ -40,13 +41,13 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M18 | [M18-grc-workflows.md](M18-grc-workflows.md) | GRC workflows | Questionnaires, vendors, policies, risk, regulatory change, breach clocks, exceptions, ethics | 8 |
 | M19 | [M19-grc-audit-reporting.md](M19-grc-audit-reporting.md) | GRC audit and reporting | Auditor portal, access reviews, attestations, reports, inspections, DSAR, pack release | 8 |
 
-Total: **172 tasks** across 20 milestones (M0–M19). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027).
+Total: **176 tasks** across 21 milestones (M0–M19, including M2.5 between M2 and M3). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027).
 
 ## Dependency graph
 
 ```mermaid
 flowchart LR
-  M0 --> M1 --> M2 --> M3 --> M4 --> M5
+  M0 --> M1 --> M2 --> M25[M2.5] --> M3 --> M4 --> M5
   M2 --> M6
   M4 --> M6
   M5 --> M6
@@ -82,6 +83,7 @@ The graph allows parallel work after M5 (M6/M7/M8 can proceed in parallel by dif
 | After | Demo |
 |---|---|
 | M2 | Log in, chat with `assistant`, see streaming, upload a file, view usage events in DB |
+| M2.5 | Sign in as any seeded user, switch light and dark, and read a streamed answer in the centred column. Checklist: [m2.5-checklist](../testing/m2.5-checklist.md) |
 | M4 | Agent files a ticket through a registered MCP server (W1), reads a SQL table |
 | M5 | W2 call pauses for approval; approver approves in the inbox; run continues |
 | M6 | "Analyse this CSV and chart it" produces a PNG artifact from a sandbox |

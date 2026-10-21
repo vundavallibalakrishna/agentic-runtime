@@ -58,7 +58,7 @@ export const loginApiV1AuthLoginGet = <ThrowOnError extends boolean = false>(opt
 /**
  * Dev Login
  *
- * Sign in as the seeded admin. Disabled when ``AR_ENV=prod``.
+ * Sign in as one of the four seeded users. Disabled when ``AR_ENV=prod``.
  */
 export const devLoginApiV1AuthDevLoginPost = <ThrowOnError extends boolean = false>(options?: Options<DevLoginApiV1AuthDevLoginPostData, ThrowOnError>): RequestResult<DevLoginApiV1AuthDevLoginPostResponses, unknown, ThrowOnError> => (options?.client ?? client).post<DevLoginApiV1AuthDevLoginPostResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/dev-login', ...options });
 

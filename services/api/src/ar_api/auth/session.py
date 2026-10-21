@@ -24,6 +24,10 @@ class SessionData:
     step_up_at: datetime | None = None
     access_token: str = ""
     refresh_token: str = ""
+    email: str = ""
+    display_name: str = ""
+    roles: list[str] | None = None
+    permissions: list[str] | None = None
 
     def to_json(self) -> bytes:
         return orjson.dumps(
@@ -36,6 +40,10 @@ class SessionData:
                 "step_up_at": None if self.step_up_at is None else self.step_up_at.isoformat(),
                 "access_token": self.access_token,
                 "refresh_token": self.refresh_token,
+                "email": self.email,
+                "display_name": self.display_name,
+                "roles": list(self.roles or []),
+                "permissions": list(self.permissions or []),
             }
         )
 
@@ -52,6 +60,10 @@ class SessionData:
             step_up_at=None if step is None else datetime.fromisoformat(step),
             access_token=str(payload.get("access_token", "")),
             refresh_token=str(payload.get("refresh_token", "")),
+            email=str(payload.get("email", "")),
+            display_name=str(payload.get("display_name", "")),
+            roles=_strings(payload.get("roles")),
+            permissions=_strings(payload.get("permissions")),
         )
 
 
@@ -86,6 +98,27 @@ def session_key_bytes(raw_b64: str, fallback: str, *, prod: bool) -> bytes:
     if prod:
         raise RuntimeError("AR_SESSION_ENCRYPTION_KEY must be 32 bytes, base64")
     return hashlib.sha256(fallback.encode()).digest()
+
+
+def _strings(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def remember_profile(
+    data: SessionData,
+    *,
+    email: str,
+    display_name: str,
+    roles: list[str] | tuple[str, ...],
+    permissions: list[str] | frozenset[str],
+) -> None:
+    """Copy the signed-in person onto the session. The loader does not guess."""
+    data.email = email
+    data.display_name = display_name
+    data.roles = list(roles)
+    data.permissions = list(permissions)
 
 
 def new_session(tenant_id: uuid.UUID, user_id: uuid.UUID) -> tuple[str, SessionData]:

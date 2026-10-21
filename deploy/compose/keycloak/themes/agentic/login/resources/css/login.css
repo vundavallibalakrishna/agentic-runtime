@@ -1,0 +1,35 @@
+:root {
+  --ar-ink: #171717;
+  --ar-paper: #fcfcfc;
+  --ar-line: #e7e7e7;
+}
+
+body,
+.login-pf body {
+  background: var(--ar-paper);
+  color: var(--ar-ink);
+  font-family: "Source Sans 3", "Segoe UI", sans-serif;
+}
+
+#kc-header-wrapper {
+  color: var(--ar-ink);
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}
+
+.card-pf {
+  border: 1px solid var(--ar-line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.pf-c-button.pf-m-primary,
+#kc-login {
+  background: var(--ar-ink);
+  border-color: var(--ar-ink);
+  border-radius: 8px;
+}
+
+.pf-c-form-control {
+  border-radius: 8px;
+}

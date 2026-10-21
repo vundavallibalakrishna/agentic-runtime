@@ -2,7 +2,8 @@
   "realm": "agentic-runtime",
   "enabled": true,
   "organizationsEnabled": true,
-  "sslRequired": "external",
+  "loginTheme": "agentic",
+  "sslRequired": "none",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "clients": [
@@ -15,8 +16,58 @@
       "secret": "ar-web-dev-secret",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://localhost:3000/*"],
-      "webOrigins": ["http://localhost:3000"]
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "username",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "config": {
+            "user.attribute": "username",
+            "claim.name": "preferred_username",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "organization",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-organization-membership-mapper",
+          "config": {
+            "claim.name": "organization",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ],
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3001/*",
+        "http://localhost:3002/*",
+        "http://localhost:3003/*",
+        "http://localhost:3004/*",
+        "http://localhost:3005/*",
+        "http://127.0.0.1:3000/*",
+        "http://127.0.0.1:3001/*"
+      ],
+      "webOrigins": ["http://localhost:3000", "http://127.0.0.1:3000", "+"]
     },
     {
       "clientId": "ar-api",
@@ -51,29 +102,41 @@
     {
       "username": "admin@dev.local",
       "email": "admin@dev.local",
+      "firstName": "Dev",
+      "lastName": "Admin",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     },
     {
       "username": "builder@dev.local",
       "email": "builder@dev.local",
+      "firstName": "Dev",
+      "lastName": "Builder",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     },
     {
       "username": "member@dev.local",
       "email": "member@dev.local",
+      "firstName": "Dev",
+      "lastName": "Member",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     },
     {
       "username": "approver@dev.local",
       "email": "approver@dev.local",
+      "firstName": "Dev",
+      "lastName": "Approver",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     }
   ],

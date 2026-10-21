@@ -20,7 +20,7 @@ Exact versions: [stack.md](../stack.md).
 | Target | Does |
 |---|---|
 | `make bootstrap` | `uv sync --all-packages`, `pnpm install`, `lefthook install`, copies `.env.example` → `.env` if missing, generates dev keys into `.env` (`AR_SESSION_ENCRYPTION_KEY`, `AR_CURSOR_SECRET`, `AR_DB_ENCRYPTION_KEYS`, `AR_TOKEN_CACHE_KEY`, internal JWT key pair) with `scripts/dev_keys.py` |
-| `make up` / `make down` | Start/stop dependency containers from `compose.yaml` (profile `deps`; add `OBS=1`, `SCAN=1`, `QDRANT=1` for the optional `obs`, `scan`, `qdrant` profiles) |
+| `make up` / `make down` | Start/stop dependency containers from `compose.yaml` (profile `deps`; add `OBS=1`, `SCAN=1`, `QDRANT=1` for the optional `obs`, `scan`, `qdrant` profiles). `make up` waits until the health checks pass before it returns, so `make migrate` does not race Postgres |
 | `make migrate` | `uv run alembic -c libs/ar_domain/alembic.ini upgrade head` and seeds Keycloak realm (import is automatic on first start) |
 | `make seed` | `uv run python scripts/seed.py`: tenant `dev` (plan `enterprise`, matching the Keycloak organization `dev`), users `admin@dev.local` (tenant_admin), `builder@dev.local` (builder, tool_owner, knowledge_manager), `member@dev.local` (member), `approver@dev.local` (approver), all with password `dev-password` (defined in the realm export); model provider `fake-llm` with aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`; team `everyone`; published agent `assistant`. Sample knowledge and the Helpdesk agent arrive with later milestones. |
 | `make ports-check` | Reads `.env` host ports, rewrites localhost URLs so they use the same ports, and exits non-zero when a port is already taken. The message names the variable to change. |
@@ -42,7 +42,7 @@ Exact versions: [stack.md](../stack.md).
 ## 3. Compose stack
 
 `compose.yaml` profiles:
-- `deps` (default for `make up`): postgres (pgvector image, `shared_preload_libraries=pg_stat_statements`), valkey, temporal (`temporal server start-dev` with SQLite persistence, UI on 8233), keycloak (realm import from `deploy/compose/keycloak/agentic-runtime-realm.json`), seaweedfs (S3, buckets `ar-files`, `ar-audit-archive` with Object Lock created by an init container), openbao (dev mode, KV v2 + Transit enabled by init script), opa (bundle polling `api`), squid (egress proxy), mailpit.
+- `deps` (default for `make up`): postgres (pgvector image, `shared_preload_libraries=pg_stat_statements`; the data volume is `/var/lib/postgresql`, which is the Postgres 18 data directory), valkey, temporal (`temporal server start-dev` with SQLite persistence, UI on 8233), keycloak (realm import from `deploy/compose/keycloak/agentic-runtime-realm.json`, login theme `agentic`, plain HTTP for local dev), seaweedfs (S3, buckets `ar-files`, `ar-audit-archive` with Object Lock created by an init container), openbao (dev mode, KV v2 + Transit enabled by init script), opa (bundle polling `api`), squid (egress proxy), mailpit.
 - `obs`: OTel collector, Prometheus, Tempo, Loki, Grafana, Langfuse (`make up OBS=1`).
 - `scan`: ClamAV.
 - `qdrant`: Qdrant on 6333/6334, only for working on or testing the optional qdrant retrieval adapter (`make up QDRANT=1`, then set `AR_VECTOR_BACKEND=qdrant` and `AR_QDRANT_URL=http://localhost:6333` in `.env`). Knowledge retrieval uses Postgres + pgvector by default; nothing else needs Qdrant.
@@ -52,7 +52,7 @@ Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6
 
 ## 4. Day-to-day
 
-- Web: http://localhost:3000 → login redirects to Keycloak (8180) → use a seeded user.
+- Web: http://localhost:3000. The sign-in page lists the four seeded users for dev login, and **Continue with SSO** opens Keycloak. Organisations are on, so Keycloak asks for the username and then the password. Password `dev-password`. The dev realm allows plain HTTP on localhost.
 - API docs: http://localhost:8000/api/docs (only `AR_ENV != prod`).
 - Temporal UI: http://localhost:8233; Grafana: http://localhost:3001 and Langfuse: http://localhost:3100 (profile `obs`); Mailpit: http://localhost:8025.
 - Using a real model: create a provider in **Admin → Models** pointing at an OpenAI-compatible endpoint, or set `AR_DEV_MODEL_BASE_URL`/`AR_DEV_MODEL_API_KEY` before `make seed` to seed it instead of `fake-llm`.
@@ -76,7 +76,9 @@ Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6
 | `AR_S3_HOST_PORT` | `AR_S3_ENDPOINT` and `AR_S3_PUBLIC_ENDPOINT` |
 | `AR_VAULT_HOST_PORT` | `AR_VAULT_ADDR` |
 
-The full list, including Mailpit, Squid, OPA, Grafana and the worker health ports, is in `.env.example` and [environments §3.3](environments.md#33-local-host-ports). A remote URL (host other than `localhost` or `127.0.0.1`) is left alone.
+The full list, including Mailpit, Squid, OPA, Grafana and the worker health ports, is in `.env.example` and [environments §3.3](environments.md#33-local-host-ports). A remote URL (host other than `localhost` or `127.0.0.1`) is left alone. A localhost URL is rewritten to the host port, including back to the default when the host port is the default again. An empty value in `.env` is ignored and the setting's default is used, so a copied `.env.example` does not fail validation on a blank number.
+
+`make dev AUTO_PORTS=1` treats a port published by this compose project as free, so a second start does not keep walking the port number. It also moves `AR_MG_PORT` (model gateway, 8001) and `AR_SYSTEM_HOST_PORT` (system worker, 8013) when those are taken. `scripts/dev_keys.py` writes `AR_DB_ENCRYPTION_KEYS` as a quoted JSON keyring `{"k1":"<standard base64>"}` and `AR_SESSION_ENCRYPTION_KEY` as standard base64. Alembic reads `AR_DATABASE_URL` from the environment or from `.env`.
 
 Example when Postgres, Valkey, Temporal and the API are already taken:
 
@@ -98,4 +100,12 @@ Then `make dev`. Or skip the edits: `make dev AUTO_PORTS=1`.
 | Runs stay `queued` | `runtime-worker` not running or Temporal not ready; check Temporal UI task queue `ar-runtime` pollers |
 | Tool calls fail `sandbox_unavailable` | Docker socket not accessible to sandbox-manager; on macOS enable "Allow the default Docker socket" |
 | `make gen` diff in CI | Run `make gen` and commit the generated files |
-| Port in use | `make ports-check` prints the variable (`AR_PG_HOST_PORT`, `AR_VALKEY_HOST_PORT`, `AR_TEMPORAL_HOST_PORT`, `AR_PORT`, …). Set it in `.env` or run `make dev AUTO_PORTS=1`. One assignment updates the published port and the localhost URL. |
+| Port in use | `make ports-check` prints the variable (`AR_PG_HOST_PORT`, `AR_VALKEY_HOST_PORT`, `AR_TEMPORAL_HOST_PORT`, `AR_PORT`, `AR_MG_PORT`, `AR_SYSTEM_HOST_PORT`, …). Set it in `.env` or run `make dev AUTO_PORTS=1`. One assignment updates the published port and the localhost URL. |
+| `NoSuchModuleError: driver` from Alembic | `AR_DATABASE_URL` was empty. Run `make bootstrap` so `.env` exists, then `make migrate` (it loads `.env`). |
+| Postgres exits with an unused data directory | The Postgres 18 volume must be mounted at `/var/lib/postgresql`, not `/var/lib/postgresql/data`. `compose.yaml` already does this. Recreate the volume if an older container left it on the wrong path. |
+| `max_json_body_bytes` validation error on an empty string | Empty assignments in `.env` are ignored. Pull the current settings code and restart. |
+| `NoReferencedTableError` on `secret_refs` during seed | `make seed` imports every model module before it opens a session. Update and run `make seed` again. |
+| `Incorrect padding` from the encryption key | `AR_DB_ENCRYPTION_KEYS` must be a JSON keyring of standard base64. Run `make bootstrap` again (or delete the placeholder and let `scripts/dev_keys.py` rewrite it). |
+| Keycloak says HTTPS required | The dev realm uses `sslRequired: none` and the compose service disables the hostname HTTPS check. Re-import the realm (`docker compose down` the keycloak volume, then `make up`) if an older realm is still stored. |
+| Keycloak asks to update account information | The seeded users need a first and last name. Re-import the realm from `deploy/compose/keycloak/agentic-runtime-realm.json`. |
+| `/login?error=tenant_not_found` after a correct password | The API callback must exchange the code and map the Keycloak organisation `dev` (or an `@dev.local` address) onto the demo tenant. Check `AR_OIDC_ISSUER`, `AR_OIDC_CLIENT_SECRET` (default `ar-web-dev-secret`) and that the redirect URI matches `AR_PUBLIC_URL`. |

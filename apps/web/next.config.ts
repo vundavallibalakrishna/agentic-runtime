@@ -9,6 +9,7 @@ const apiOrigin = apiProxyUrl;
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  agentRules: false,
   transpilePackages: ["@ar/api-client"],
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }];

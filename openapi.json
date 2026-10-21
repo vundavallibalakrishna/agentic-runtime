@@ -210,7 +210,7 @@
     "/api/v1/auth/dev-login": {
       "post": {
         "summary": "Dev Login",
-        "description": "Sign in as the seeded admin. Disabled when ``AR_ENV=prod``.",
+        "description": "Sign in as one of the four seeded users. Disabled when ``AR_ENV=prod``.",
         "operationId": "dev_login_api_v1_auth_dev_login_post",
         "responses": {
           "200": {

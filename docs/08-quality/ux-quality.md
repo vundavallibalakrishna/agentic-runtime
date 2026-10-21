@@ -7,7 +7,7 @@ A task that adds a page is not done until the checks below pass.
 ## 1. Design system
 
 - Components come from `src/components/ui` (shadcn) and `src/components/common`. A one-off control needs a reason in the task.
-- Type, colour, radius, and spacing come from the tokens in `app/globals.css`. No new hex values in a feature.
+- Type, colour, radius, and spacing come from the tokens in `app/globals.css`. No new hex values in a feature. The palette, type scale and theme behaviour are specified in [design-system](design-system.md).
 - Light and dark both look finished. Contrast meets WCAG 2.1 AA (4.5:1 for text).
 - Motion is short and can be turned off with `prefers-reduced-motion`.
 

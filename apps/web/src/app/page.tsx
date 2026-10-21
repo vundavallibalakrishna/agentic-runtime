@@ -9,7 +9,7 @@ export default async function HomePage() {
   return (
     <AppShell>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t("product")}</h1>
+        <h1 className="text-2xl font-medium tracking-tight">{t("product")}</h1>
         <ThemeToggle />
       </div>
       <Card>

@@ -137,6 +137,124 @@ class ChatService:
             self.aliases[alias_id] = self._alias(alias_id, None, alias, kind, model_id)
         self.ensure_assistant(demo_id("tenant"), demo_id("admin"))
 
+    def seed_showcase(self) -> None:
+        """Example threads for the dev admin so the first screen is not empty.
+
+        Stable ids make the insert idempotent. The durable catalogue still comes
+        from ``make seed``; this store is the one the dev API serves (OQ-31).
+        """
+        tenant_id = demo_id("tenant")
+        user_id = demo_id("admin")
+        marker = demo_id("showcase-status")
+        if marker in self.conversations:
+            return
+        agent = self.ensure_assistant(tenant_id, user_id)
+        samples = (
+            (
+                "showcase-status",
+                "Weekly status for the platform",
+                "Draft a short status update for the platform team.",
+                "\n".join(
+                    (
+                        "Here is a status you can send.",
+                        "",
+                        "## This week",
+                        "",
+                        "- Chat answers stream in place, with a stop control.",
+                        "- The workspace directory lists the four seeded roles.",
+                        "- Model aliases `reasoning`, `fast` and `vision` point at fake-llm.",
+                        "",
+                        "Nothing is blocked for the Friday review.",
+                    )
+                ),
+            ),
+            (
+                "showcase-session",
+                "How the session cookie works",
+                "Explain the sign-in session in simpler terms, and show a short example.",
+                "\n".join(
+                    (
+                        "The browser keeps a cookie named `ar_session`. The API stores the",
+                        "real session on the server, so the cookie is only a lookup key.",
+                        "",
+                        "```python",
+                        "def signed_in(cookie: str, sessions: dict[str, str]) -> bool:",
+                        "    return cookie in sessions",
+                        "```",
+                        "",
+                        "A second cookie, `ar_csrf`, travels with any change you make.",
+                        "That stops another site from submitting a form as you.",
+                    )
+                ),
+            ),
+            (
+                "showcase-tone",
+                "What the assistant should feel like",
+                "Summarise what a calm enterprise assistant should feel like.",
+                "\n".join(
+                    (
+                        "It should feel like a well-run desk.",
+                        "",
+                        "1. One clear next step, not a wall of settings.",
+                        "2. Answers that stay in a readable column.",
+                        "3. Light and dark that are both finished.",
+                        "",
+                        "People open it when they have work to do, and they can see",
+                        "where that work stands.",
+                    )
+                ),
+            ),
+        )
+        now = utcnow()
+        for name, title, question, answer in samples:
+            conversation_id = demo_id(name)
+            question_id = demo_id(f"{name}-q")
+            answer_id = demo_id(f"{name}-a")
+            created = now
+            self.conversations[conversation_id] = {
+                "id": conversation_id,
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "agent_id": agent["id"],
+                "agent_name": agent["name"],
+                "title": title,
+                "status": "active",
+                "pinned": False,
+                "active_run_id": None,
+                "created_at": created,
+                "updated_at": created,
+                "deleted_at": None,
+                "showcase": True,
+            }
+            self.messages[question_id] = {
+                "id": question_id,
+                "tenant_id": tenant_id,
+                "conversation_id": conversation_id,
+                "run_id": None,
+                "parent_message_id": None,
+                "role": "user",
+                "content": [{"type": "text", "text": question}],
+                "text": question,
+                "status": "completed",
+                "is_active_branch": True,
+                "attachments": [],
+                "created_at": created,
+                "author_user_id": user_id,
+            }
+            self.messages[answer_id] = {
+                "id": answer_id,
+                "tenant_id": tenant_id,
+                "conversation_id": conversation_id,
+                "run_id": None,
+                "parent_message_id": question_id,
+                "role": "assistant",
+                "content": [{"type": "text", "text": answer}],
+                "text": answer,
+                "status": "completed",
+                "is_active_branch": True,
+                "created_at": created,
+            }
+
     def ensure_assistant(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> dict[str, object]:
         """Create the published ``assistant`` agent for a tenant once."""
         for agent in self.agents.values():

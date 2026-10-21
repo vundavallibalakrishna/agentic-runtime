@@ -7,10 +7,13 @@ ports for databases stay fixed; app processes listen on the published port.
 
 import os
 import socket
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit, urlunsplit
+
+import orjson
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -223,16 +226,24 @@ def rewrite_local_port(value: str, port: int) -> str:
 
 
 def align_local_value(current: str, template: str, port: int, default: int) -> str:
-    """Keep ``current`` unless ``port`` moved off the default."""
-    if port == default:
-        return current
+    """Track localhost URLs to the host port, including a return to the default.
+
+    An empty value stays empty while the port is still the default, so a fresh
+    ``.env`` is not filled with every URL. A remote host is left alone.
+    """
     if current.strip() == "":
+        if port == default:
+            return current
         return template.format(port=port)
     return rewrite_local_port(current, port)
 
 
 def apply_host_ports(target: object, env: Mapping[str, str] | None = None) -> None:
-    """Rewrite localhost settings fields from the host-port variables."""
+    """Rewrite localhost settings fields from the host-port variables.
+
+    An unset port variable leaves the field alone. An explicit DSN, including
+    the database a test container published, is not forced back to the default.
+    """
     source = merged_env() if env is None else env
     for binding in URL_BINDINGS:
         if not binding.attr or not hasattr(target, binding.attr):
@@ -241,6 +252,8 @@ def apply_host_ports(target: object, env: Mapping[str, str] | None = None) -> No
         if not isinstance(current, str):
             continue
         spec = PORT_BY_NAME[binding.port_name]
+        if not source.get(spec.name, "").strip():
+            continue
         port = resolved_port(spec, source)
         updated = align_local_value(current, binding.template, port, spec.default)
         setattr(target, binding.attr, updated)
@@ -302,6 +315,61 @@ def port_in_use(port: int) -> bool:
             except OSError:
                 return True
     return False
+
+
+def compose_published_ports(compose_file: Path) -> set[int]:
+    """Host ports published by this compose project. Empty when Docker is absent.
+
+    ``make dev AUTO_PORTS=1`` must treat those ports as free. Otherwise every
+    restart sees its own containers as conflicts and walks the ports forward.
+    """
+    if not compose_file.is_file():
+        return set()
+    try:
+        completed = subprocess.run(  # noqa: S603
+            ["docker", "compose", "-f", str(compose_file), "ps", "--format", "json"],  # noqa: S607
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except OSError, subprocess.TimeoutExpired:
+        return set()
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return set()
+    return _published_ports(completed.stdout)
+
+
+def _published_ports(raw: str) -> set[int]:
+    text = raw.strip()
+    payloads: list[object] = []
+    if text.startswith("["):
+        try:
+            loaded = orjson.loads(text)
+        except orjson.JSONDecodeError:
+            loaded = []
+        if isinstance(loaded, list):
+            payloads = loaded
+    else:
+        for line in text.splitlines():
+            try:
+                payloads.append(orjson.loads(line))
+            except orjson.JSONDecodeError:
+                continue
+    found: set[int] = set()
+    for item in payloads:
+        if not isinstance(item, dict):
+            continue
+        publishers = item.get("Publishers") or item.get("publishers") or []
+        if not isinstance(publishers, list):
+            continue
+        for publisher in publishers:
+            if not isinstance(publisher, dict):
+                continue
+            published = publisher.get("PublishedPort", publisher.get("publishedPort"))
+            if isinstance(published, int) and published > 0:
+                found.add(published)
+    return found
 
 
 def active_ports(check: PortCheck) -> tuple[HostPort, ...]:
@@ -414,6 +482,7 @@ def prepare_env_file(
     example: Path,
     *,
     probe: Callable[[int], bool] | None = None,
+    owned: set[int] | None = None,
 ) -> tuple[int, str]:
     """Sync localhost URLs, then report or move busy ports. Returns an exit code."""
     original = parse_env(env_file)
@@ -424,7 +493,17 @@ def prepare_env_file(
             env[spec.name] = exported
     specs = active_ports(check)
     in_use = port_in_use if probe is None else probe
-    notes = assign_ports(specs, env, auto=check.auto, probe=in_use)
+    if owned is None and probe is None:
+        owned_ports = compose_published_ports(env_file.parent / "compose.yaml")
+    else:
+        owned_ports = set() if owned is None else set(owned)
+
+    def consider(port: int) -> bool:
+        if port in owned_ports:
+            return False
+        return in_use(port)
+
+    notes = assign_ports(specs, env, auto=check.auto, probe=consider)
     merged = {**original, **{key: value for key, value in env.items() if value.strip()}}
     updates = _port_updates(specs, original, env)
     updates.update(derived_updates(merged))

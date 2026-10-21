@@ -1,10 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "@/components/app-shell";
 import messages from "@/messages/en.json";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: () => undefined }),
+}));
 
 function wrap(children: ReactNode) {
   return (
