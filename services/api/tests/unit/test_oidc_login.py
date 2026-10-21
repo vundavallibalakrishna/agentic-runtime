@@ -175,6 +175,7 @@ def test_realm_allows_local_http_and_names_users() -> None:
     assert names["builder@dev.local"][1] == "Builder"
     assert names["member@dev.local"][1] == "Member"
     assert names["approver@dev.local"][1] == "Approver"
+    assert all("offline_access" in user["realmRoles"] for user in realm["users"])
     assert realm["organizations"][0]["alias"] == "dev"
     web = next(client for client in realm["clients"] if client["clientId"] == "ar-web")
     claims = {mapper["config"]["claim.name"] for mapper in web["protocolMappers"]}

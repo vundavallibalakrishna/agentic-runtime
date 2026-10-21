@@ -106,6 +106,7 @@
       "lastName": "Admin",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     },
     {
@@ -115,6 +116,7 @@
       "lastName": "Builder",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     },
     {
@@ -124,6 +126,7 @@
       "lastName": "Member",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     },
     {
@@ -133,6 +136,7 @@
       "lastName": "Approver",
       "enabled": true,
       "emailVerified": true,
+      "realmRoles": ["offline_access"],
       "credentials": [{"type": "password", "value": "dev-password", "temporary": false}]
     }
   ],
