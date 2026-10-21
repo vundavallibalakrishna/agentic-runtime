@@ -40,7 +40,7 @@ def allow_secure_cookies_on_localhost() -> None:
     original = DefaultCookiePolicy.return_ok_secure
 
     def return_ok_secure(self: DefaultCookiePolicy, cookie: object, request: object) -> bool:
-        host = getattr(request, "host", "")
+        host = str(getattr(request, "host", "")).rsplit(":", 1)[0]
         secure = bool(getattr(cookie, "secure", False))
         if secure and host in {"localhost", "127.0.0.1"}:
             return True
@@ -217,7 +217,10 @@ def _ensure_org_members(keycloak: str) -> None:
 
 
 def _page_hint(html: str) -> str:
-    text = re.sub(r"<[^>]+>", " ", html)
+    flags = re.IGNORECASE | re.DOTALL
+    without_script = re.sub(r"<script\b[^>]*>.*?</script>", " ", html, flags=flags)
+    without_style = re.sub(r"<style\b[^>]*>.*?</style>", " ", without_script, flags=flags)
+    text = re.sub(r"<[^>]+>", " ", without_style)
     text = re.sub(r"\s+", " ", text).strip()
     return text[:240]
 

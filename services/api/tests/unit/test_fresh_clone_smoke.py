@@ -37,23 +37,22 @@ def test_secure_cookie_is_sent_back_to_localhost_over_http() -> None:
     forms = _forms()
     forms.allow_secure_cookies_on_localhost()
     seen: dict[str, str] = {}
+    cookie = "AUTH_SESSION_ID=abc; Path=/realms/agentic-runtime/; Secure; HttpOnly; SameSite=None"
 
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/start":
-            return httpx.Response(
-                200,
-                headers=[("set-cookie", "AUTH_SESSION_ID=abc; Path=/; Secure; HttpOnly")],
-            )
+        if request.url.path.endswith("/auth"):
+            return httpx.Response(200, headers=[("set-cookie", cookie)])
         seen[request.url.host] = request.headers.get("cookie", "")
         return httpx.Response(200, text="ok")
 
     transport = httpx.MockTransport(handler)
+    realm = "/realms/agentic-runtime"
     with httpx.Client(transport=transport) as client:
-        client.get("http://localhost/start")
-        client.get("http://localhost/next")
+        client.get(f"http://localhost:8180{realm}/protocol/openid-connect/auth")
+        client.post(f"http://localhost:8180{realm}/login-actions/authenticate")
     with httpx.Client(transport=transport) as client:
-        client.get("http://example.com/start")
-        client.get("http://example.com/next")
+        client.get(f"http://example.com:8180{realm}/protocol/openid-connect/auth")
+        client.post(f"http://example.com:8180{realm}/login-actions/authenticate")
     assert seen["localhost"] == "AUTH_SESSION_ID=abc"
     assert seen["example.com"] == ""
 
