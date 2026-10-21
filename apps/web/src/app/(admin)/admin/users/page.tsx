@@ -1,17 +1,17 @@
 import { getTranslations } from "next-intl/server";
 
 import { AppShell } from "@/components/app-shell";
+import { PageHeader } from "@/components/page-header";
 import { PermissionGate } from "@/components/permission-gate";
-import { UsersPanel } from "@/components/users-panel";
+import { UsersDirectory } from "@/components/users-directory";
 
 export default async function UsersPage() {
-  const shell = await getTranslations("shell");
   const admin = await getTranslations("admin");
   return (
-    <AppShell extraLinks={[{ href: "/admin/users", label: shell("navUsers") }]}>
-      <h1 className="mb-4 text-2xl font-semibold">{admin("usersTitle")}</h1>
+    <AppShell>
+      <PageHeader body={admin("seedNote")} title={admin("usersTitle")} />
       <PermissionGate allowed>
-        <UsersPanel status="empty" users={[]} />
+        <UsersDirectory />
       </PermissionGate>
     </AppShell>
   );

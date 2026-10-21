@@ -18,6 +18,7 @@ import ar_domain.identity.models
 import ar_domain.models.tables
 import ar_domain.secrets.models
 import ar_domain.usage.tables  # noqa: F401
+from ar_common.host_ports import find_env_file, parse_env
 from ar_domain.db import metadata
 from ar_domain.db.engine import owner_database_url
 
@@ -30,8 +31,25 @@ if config.config_file_name is not None:
 
 target_metadata = metadata
 
-database_url = os.environ.get("AR_DATABASE_URL", "")
+
+def _database_url() -> str:
+    """Prefer the process environment, then the repo ``.env``.
+
+    ``make migrate`` exports ``.env``. A direct ``uv run alembic`` call does not,
+    and an empty ``AR_DATABASE_URL=`` must not win over the file.
+    """
+    raw = os.environ.get("AR_DATABASE_URL", "").strip()
+    if raw:
+        return raw
+    env_file = find_env_file()
+    if env_file is None:
+        return ""
+    return parse_env(env_file).get("AR_DATABASE_URL", "").strip()
+
+
+database_url = _database_url()
 if database_url:
+    os.environ["AR_DATABASE_URL"] = database_url
     config.set_main_option("sqlalchemy.url", owner_database_url(database_url))
 
 

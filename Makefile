@@ -41,13 +41,14 @@ bootstrap:
 	uv run python scripts/dev_keys.py
 
 up:
-	$(COMPOSE) $(PROFILES) up -d
+	$(COMPOSE) $(PROFILES) up -d --wait --wait-timeout 180
 
 down:
 	$(COMPOSE) --profile deps --profile obs --profile scan --profile qdrant --profile apps down
 
 migrate:
-	@if ls libs/ar_domain/src/ar_domain/migrations/versions/*.py >/dev/null 2>&1; then \
+	@set -a; [ -f .env ] && . ./.env; set +a; \
+	if ls libs/ar_domain/src/ar_domain/migrations/versions/*.py >/dev/null 2>&1; then \
 		uv run alembic -c libs/ar_domain/alembic.ini upgrade head; \
 	else \
 		echo "not available until M1-T02"; \

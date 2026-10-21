@@ -7,7 +7,7 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
 }
 
 export function TableHeader({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("text-left text-[var(--muted)]", className)} {...props} />;
+  return <thead className={cn("text-left text-[var(--muted-foreground)]", className)} {...props} />;
 }
 
 export function TableBody(props: HTMLAttributes<HTMLTableSectionElement>) {

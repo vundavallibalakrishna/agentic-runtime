@@ -1,29 +1,179 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Design tokens. Feature code uses these names and does not add hex colours. */
+
 :root {
   color-scheme: light;
-  --background: #f7f6f3;
-  --foreground: #1c1917;
-  --card: #ffffff;
-  --muted: #78716c;
-  --border: #e7e5e4;
-  --accent: #0f766e;
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.18 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.4 0 0);
+  --border: oklch(0.91 0 0);
+  --primary: oklch(0.18 0 0);
+  --primary-foreground: oklch(0.99 0 0);
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --destructive: oklch(0.45 0.14 25);
+  --ring: var(--foreground);
+  --sidebar: var(--background);
+  --scrim: oklch(0.18 0 0 / 0.28);
+  --shadow: 0 12px 32px oklch(0.18 0 0 / 0.06);
+  --radius: 12px;
+  --motion: 120ms;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
 }
 
 .dark {
   color-scheme: dark;
-  --background: #1c1917;
-  --foreground: #fafaf9;
-  --card: #292524;
-  --muted: #a8a29e;
-  --border: #44403c;
-  --accent: #2dd4bf;
+  --background: oklch(0.16 0 0);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.2 0 0);
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --muted: oklch(0.24 0 0);
+  --muted-foreground: oklch(0.74 0 0);
+  --border: oklch(0.3 0 0);
+  --primary: oklch(0.96 0 0);
+  --primary-foreground: oklch(0.16 0 0);
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --destructive: oklch(0.72 0.12 25);
+  --ring: var(--foreground);
+  --sidebar: var(--background);
+  --scrim: oklch(0 0 0 / 0.55);
+  --shadow: 0 12px 32px oklch(0 0 0 / 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --radius-lg: var(--radius);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  margin: 0;
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-source-sans), "Source Sans 3", ui-sans-serif, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+}
+
+::placeholder {
+  color: var(--muted-foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+button,
+a,
+input,
+textarea {
+  transition-property: background-color, color, border-color;
+  transition-duration: var(--motion);
+}
+
+::selection {
+  background: color-mix(in oklch, var(--primary) 28%, transparent);
+}
+
+.font-serif {
+  font-family: var(--font-source-serif), "Source Serif 4", Georgia, serif;
+}
+
+.markdown {
+  font-size: var(--text-sm);
+  line-height: 1.65;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown pre {
+  margin: 0.6rem 0;
+}
+
+.markdown h2,
+.markdown h3 {
+  margin: 1rem 0 0.35rem;
+  font-family: var(--font-source-serif), Georgia, serif;
+  letter-spacing: -0.02em;
+}
+
+.markdown pre {
+  overflow: auto;
+  border-radius: 12px;
+  background: var(--muted);
+  padding: 0.85rem 1rem;
+}
+
+.markdown code {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+}
+
+.markdown :not(pre) > code {
+  border-radius: 6px;
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+}
+
+.caret {
+  display: inline-block;
+  width: 0.45rem;
+  height: 1em;
+  margin-left: 1px;
+  transform: translateY(2px);
+  background: var(--foreground);
+  animation: caret-blink 1s steps(1) infinite;
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+    scroll-behavior: auto;
+    transition-duration: 0.01ms;
+  }
 }

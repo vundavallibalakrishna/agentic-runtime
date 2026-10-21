@@ -3,17 +3,46 @@
     "product": "Agentic Runtime",
     "navHome": "Home",
     "navAgents": "Agents",
-    "empty": "Define an agent to start a run. This shell is the M0 placeholder.",
+    "empty": "Ask for the work in a sentence. The assistant keeps the thread.",
     "navUsers": "Users",
     "navAudit": "Audit",
     "navChat": "Chat",
-    "navModels": "Models"
+    "navModels": "Models",
+    "navTools": "Tools",
+    "navKnowledge": "Knowledge",
+    "navRoutines": "Routines",
+    "navApprovals": "Approvals",
+    "navRuns": "Runs",
+    "soon": "Soon",
+    "newChat": "New chat",
+    "theme": "Theme",
+    "expand": "Expand sidebar",
+    "collapse": "Collapse sidebar",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "workspace": "Workspace",
+    "loading": "Loading workspace",
+    "signedOut": "Not signed in",
+    "account": "Account",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "signOut": "Sign out",
+    "sidebar": "Sidebar"
   },
   "auth": {
     "title": "Sign in",
-    "body": "Use your organisation account. The dev seed signs in as admin@dev.local.",
+    "body": "Use your organisation account, or pick a seeded role on this machine.",
+    "lede": "A calm workspace for an assistant that keeps the thread.",
     "continue": "Continue with SSO",
-    "devLogin": "Sign in as admin@dev.local"
+    "devLogin": "Sign in as admin@dev.local",
+    "devLoginAs": "Sign in as {email}",
+    "devHeading": "Seeded roles",
+    "passwordHint": "Keycloak password for every seeded user is dev-password.",
+    "errorTenant": "This organisation is not set up on this server. Ask an administrator to connect it.",
+    "errorUnknown": "That account is not one of the seeded roles.",
+    "errorState": "The sign-in attempt expired. Start again.",
+    "errorGeneric": "Sign-in did not complete. Start again."
   },
   "chat": {
     "product": "Agentic Runtime",
@@ -41,7 +70,13 @@
     "retry": "Try again",
     "uploadError": "That file could not be uploaded.",
     "models": "Models",
-    "health": "Platform health"
+    "health": "Platform health",
+    "copy": "Copy",
+    "copied": "Copied",
+    "jump": "Jump to latest",
+    "offline": "You are offline. The message will send when the connection returns.",
+    "hint": "Enter to send. Shift+Enter for a new line.",
+    "streaming": "Assistant is writing"
   },
   "models": {
     "title": "Models",
@@ -59,18 +94,41 @@
     "test": "Register and test",
     "sample": "Sample",
     "counts": "{models} models, {aliases} aliases",
-    "back": "Back to chat"
+    "back": "Back to chat",
+    "simple": "Simple",
+    "advanced": "Advanced",
+    "modeLabel": "Settings detail"
   },
   "platform": {
     "healthTitle": "Platform health",
-    "healthBody": "Service health lands in a later milestone. This page is the placeholder.",
-    "back": "Back to chat"
+    "healthBody": "This page reports whether the API this browser is talking to is up.",
+    "back": "Back to chat",
+    "ok": "The API is responding.",
+    "down": "The API did not respond.",
+    "version": "Version",
+    "mode": "Deployment"
   },
   "admin": {
     "usersTitle": "Users",
     "loading": "Loading users",
     "empty": "No users yet. Invite someone to this tenant.",
     "error": "Users could not be loaded.",
-    "forbidden": "You do not have permission to view this page."
+    "forbidden": "You do not have permission to view this page.",
+    "seedNote": "Showing the four accounts created by the dev seed.",
+    "role": "Role"
+  },
+  "soon": {
+    "body": "This section arrives in a later milestone. Chat, agents, models and users are ready now.",
+    "back": "Back to chat"
+  },
+  "agents": {
+    "title": "Agents",
+    "body": "The published assistant is ready in chat. Building a new agent arrives with the next milestone.",
+    "catalogue": "Component catalogue"
+  },
+  "select": {
+    "title": "Choose a workspace",
+    "body": "Your account belongs to more than one organisation. Continue with the dev workspace.",
+    "continue": "Continue as Dev"
   }
 }

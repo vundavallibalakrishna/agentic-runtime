@@ -1,14 +1,15 @@
 import { getTranslations } from "next-intl/server";
 
+import { AppShell } from "@/components/app-shell";
+import { HealthReport } from "@/components/health-report";
+import { PageHeader } from "@/components/page-header";
+
 export default async function PlatformHealthPage() {
   const t = await getTranslations("platform");
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-semibold">{t("healthTitle")}</h1>
-      <p className="mt-2 text-sm text-[var(--muted)]">{t("healthBody")}</p>
-      <a className="mt-6 inline-block text-sm underline" href="/chat">
-        {t("back")}
-      </a>
-    </main>
+    <AppShell>
+      <PageHeader body={t("healthBody")} title={t("healthTitle")} />
+      <HealthReport />
+    </AppShell>
   );
 }

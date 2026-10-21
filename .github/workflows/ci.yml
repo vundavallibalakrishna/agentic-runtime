@@ -217,6 +217,66 @@ jobs:
       - run: helm lint deploy/helm/agentic-runtime
       - run: helm template agentic-runtime deploy/helm/agentic-runtime
 
+  fresh-clone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: uv python install 3.14.8
+      - name: Bootstrap
+        run: make bootstrap
+      - name: Occupy the default host ports
+        run: |
+          uv run python scripts/hold_ports.py > /tmp/hold-ports.log 2>&1 &
+          sleep 1
+          grep -E "holding|already taken" /tmp/hold-ports.log
+      - name: Move busy ports
+        run: make ports-check AUTO_PORTS=1
+      - name: Start dependencies and seed
+        run: |
+          make up
+          make migrate
+          make seed
+      - name: Owned containers do not shift ports again
+        run: |
+          cp .env /tmp/env-after-up
+          make ports-check AUTO_PORTS=1
+          diff -q .env /tmp/env-after-up
+      - name: Start the app processes
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          . ./.env
+          set +a
+          uv run honcho start -f Procfile.dev > /tmp/honcho.log 2>&1 &
+          echo $! > /tmp/honcho.pid
+      - name: Health and login smoke
+        run: FRESH_CLONE_EXPECT_SHIFTED=1 uv run python scripts/fresh_clone_smoke.py
+      - name: Logs
+        if: always()
+        run: |
+          echo "----- hold -----"
+          cat /tmp/hold-ports.log || true
+          echo "----- honcho -----"
+          tail -n 200 /tmp/honcho.log || true
+          docker compose -f compose.yaml logs --no-color --tail 80 keycloak || true
+      - name: Stop
+        if: always()
+        run: |
+          if [ -f /tmp/honcho.pid ]; then kill "$(cat /tmp/honcho.pid)" || true; fi
+          make down
+
   security:
     runs-on: ubuntu-latest
     steps:

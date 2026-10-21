@@ -26,5 +26,5 @@ export function SampleForm({ onSubmit }: { onSubmit?: (values: SampleValues) => 
 }
 
 export function FormNote({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-[var(--muted)]">{children}</p>;
+  return <p className="text-sm text-[var(--muted-foreground)]">{children}</p>;
 }

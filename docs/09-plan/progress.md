@@ -45,3 +45,8 @@ M2-T10 | done | 1460d56 | runs API and signed callback helper
 M2-T11 | done | 1460d56 | web chat with streaming, empty and error states
 M2-T12 | done | 1460d56 | regenerate, edit, branches, feedback, share, export
 M2-T13 | done | 1460d56 | models admin and dev login without an external key
+
+M2.5-T01 | in_progress | - | design system, shell, sign-in, chat, restyled pages
+M2.5-T02 | in_progress | - | Keycloak callback and local-run bugs
+M2.5-T03 | in_progress | - | fresh-clone CI job
+M2.5-T04 | in_progress | - | checklist, screenshots, walkthrough

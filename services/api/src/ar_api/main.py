@@ -41,7 +41,6 @@ from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.db.context import Principal
-from ar_domain.identity.permissions import PERMISSION_KEYS
 
 LISTEN_PORT = 8000
 
@@ -53,7 +52,7 @@ class Settings(BaseServiceSettings):
     public_url: str = "http://localhost:3000"
     oidc_issuer: str = "http://localhost:8180/realms/agentic-runtime"
     oidc_client_id: str = "ar-web"
-    oidc_client_secret: SecretStr = SecretStr("")
+    oidc_client_secret: SecretStr = SecretStr("ar-web-dev-secret")
     oidc_api_audience: str = "ar-api"
     session_encryption_key: SecretStr = SecretStr("")
     session_ttl_s: int = 43_200
@@ -79,9 +78,10 @@ class Settings(BaseServiceSettings):
     vault_role: str = ""
 
 
-async def _complete_login(code: str, saved: dict[str, object]) -> dict[str, str]:
-    del code, saved
-    raise RuntimeError("login completion is provided by the OIDC callback adapter")
+async def _complete_login(code: str, saved: dict[str, object]) -> dict[str, object]:
+    from ar_api.auth.complete import complete_oidc_login  # noqa: PLC0415
+
+    return await complete_oidc_login(Settings(), code, saved)
 
 
 async def _resolve_principal(scope: object) -> object:
@@ -97,7 +97,7 @@ async def _resolve_principal(scope: object) -> object:
 
 
 def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | None]]:
-    """Resolve ``ar_session`` to the dev principal stored in the session map."""
+    """Resolve ``ar_session`` to the person stored on that session."""
 
     async def load(kind: str, value: str) -> Principal | None:
         if kind != "session":
@@ -106,17 +106,32 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
         data = await sessions.get(value)
         if data is None:
             return None
+        from ar_api.auth.dev_users import by_id  # noqa: PLC0415
+
+        known = by_id(data.user_id)
+        email = data.email or (known.email if known is not None else "")
+        display_name = data.display_name or (known.display_name if known is not None else email)
+        permissions = (
+            frozenset(data.permissions)
+            if data.permissions
+            else (known.permissions if known is not None else frozenset())
+        )
+        roles = (
+            frozenset(data.roles)
+            if data.roles
+            else (frozenset(known.roles) if known is not None else frozenset())
+        )
         return Principal(
             kind="user",
             id=str(data.user_id),
             tenant_id=data.tenant_id,
-            permissions=PERMISSION_KEYS,
+            permissions=permissions,
             auth_method="session",
-            email="admin@dev.local",
-            display_name="Dev Admin",
+            email=email,
+            display_name=display_name or "Signed in",
             session_id=value,
             csrf_token=data.csrf_token,
-            roles=frozenset({"tenant_admin"}),
+            roles=roles,
         )
 
     return load
@@ -184,6 +199,8 @@ def create_application() -> FastAPI:
         allow_loopback=settings.env in {EnvName.DEV, EnvName.CI},
         scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
     )
+    if settings.env in {EnvName.DEV, EnvName.CI}:
+        app.state.chat.seed_showcase()
     app.state.demo_user_id = demo_id("admin")
     app.state.demo_tenant_id = demo_id("tenant")
     app.state.allow_test_auth = False
@@ -212,4 +229,4 @@ def main() -> None:
     )
 
 
-LoginCompleter = Callable[[str, dict[str, object]], Awaitable[dict[str, str]]]
+LoginCompleter = Callable[[str, dict[str, object]], Awaitable[dict[str, object]]]

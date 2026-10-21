@@ -26,12 +26,18 @@ export function UsersPanel({
     return <p>{t("empty")}</p>;
   }
   return (
-    <table>
+    <table className="w-full text-left text-sm">
+      <thead className="text-[var(--muted-foreground)]">
+        <tr>
+          <th className="p-3 font-medium">{t("usersTitle")}</th>
+          <th className="p-3 font-medium">Email</th>
+        </tr>
+      </thead>
       <tbody>
         {users.map((user) => (
-          <tr key={user.id}>
-            <td>{user.displayName}</td>
-            <td>{user.email}</td>
+          <tr className="border-t border-[var(--border)]" key={user.id}>
+            <td className="p-3">{user.displayName}</td>
+            <td className="p-3">{user.email}</td>
           </tr>
         ))}
       </tbody>

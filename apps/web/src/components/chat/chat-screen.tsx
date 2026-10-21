@@ -2,21 +2,16 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { createParser } from "eventsource-parser";
-import mermaid from "mermaid";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import rehypeKatex from "rehype-katex";
-import rehypeSanitize from "rehype-sanitize";
-import remarkGfm from "remark-gfm";
-import { createHighlighter } from "shiki";
 import { create } from "zustand";
 
+import { AppShell } from "@/components/app-shell";
+import { MarkdownView } from "@/components/chat/markdown-view";
 import { Button } from "@/components/ui/button";
-import { sanitizeHtml } from "@/lib/markdown";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/lib/api";
 import { emptyStream, reduceStream, type StreamState } from "@/lib/stream/reducer";
-
-import "katex/dist/katex.min.css";
 
 type Item = Record<string, unknown>;
 
@@ -30,34 +25,6 @@ type Session = {
   tenant?: { name?: string; id?: string };
   permissions?: string[];
 };
-
-function csrfToken(): string {
-  const match = document.cookie.match(/(?:^|; )ar_csrf=([^;]*)/);
-  return match?.[1] ? decodeURIComponent(match[1]) : "";
-}
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
-  if (init?.body && !headers.has("content-type")) {
-    headers.set("content-type", "application/json");
-  }
-  headers.set("x-csrf-token", csrfToken());
-  const response = await fetch(path, { ...init, headers, credentials: "include" });
-  if (!response.ok) {
-    let detail = response.statusText;
-    try {
-      const problem = (await response.json()) as { detail?: string };
-      detail = problem.detail ?? detail;
-    } catch {
-      detail = response.statusText;
-    }
-    throw new Error(detail);
-  }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return (await response.json()) as T;
-}
 
 function textOf(message: Item): string {
   if (typeof message.text === "string") {
@@ -87,14 +54,15 @@ export function ChatScreen() {
   const [banner, setBanner] = useState("");
   const [attachmentName, setAttachmentName] = useState("");
   const [attachmentId, setAttachmentId] = useState("");
+  const [offline, setOffline] = useState(false);
+  const [live, setLive] = useState("");
+  const [stuck, setStuck] = useState(false);
+  const [copiedId, setCopiedId] = useState("");
   const parentRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const runRef = useRef("");
-
-  useEffect(() => {
-    void createHighlighter({ themes: ["github-light"], langs: ["text"] }).catch(() => undefined);
-    mermaid.initialize({ startOnLoad: false });
-  }, []);
+  const stickRef = useRef(true);
 
   const greeting = useMemo(() => {
     const agent = agents[0];
@@ -122,12 +90,56 @@ export function ChatScreen() {
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    function onNew() {
+      setActiveId("");
+      setMessages([]);
+      setStream(emptyStream);
+      setBanner("");
+    }
+    window.addEventListener("ar-new-chat", onNew);
+    return () => window.removeEventListener("ar-new-chat", onNew);
+  }, []);
+
+  useEffect(() => {
+    function sync() {
+      setOffline(!navigator.onLine);
+    }
+    sync();
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (stream.status !== "streaming") {
+      setLive("");
+      return;
+    }
+    const timer = window.setTimeout(() => setLive(stream.text), 400);
+    return () => window.clearTimeout(timer);
+  }, [stream.status, stream.text]);
+
+  const pin = `${messages.length}:${stream.text.length}`;
+  useEffect(() => {
+    const node = parentRef.current;
+    if (!node || !stickRef.current || pin.length < 0) {
+      return;
+    }
+    node.scrollTop = node.scrollHeight;
+  }, [pin]);
+
   async function openConversation(id: string) {
     setActiveId(id);
     setBanner("");
     const body = await api<Item & { messages?: Item[] }>(`/api/v1/conversations/${id}`);
     setMessages(body.messages ?? []);
     setStream(emptyStream);
+    stickRef.current = true;
+    setStuck(false);
   }
 
   async function startChat() {
@@ -190,6 +202,7 @@ export function ChatScreen() {
       setConversations((current) => [created, ...current]);
     }
     setBanner("");
+    stickRef.current = true;
     setMessages((current) => [
       ...current,
       { id: `local-${Date.now()}`, role: "user", text, isActiveBranch: true },
@@ -221,6 +234,8 @@ export function ChatScreen() {
       setConversations(fresh.items ?? []);
       runRef.current = "";
       setRunId("");
+      setAttachmentId("");
+      setAttachmentName("");
     } catch (error) {
       setBanner(error instanceof Error ? error.message : t("error"));
       setStream((current) => ({ ...current, status: "failed" }));
@@ -239,12 +254,16 @@ export function ChatScreen() {
     if (!activeId || messageId.startsWith("local-")) {
       return;
     }
+    setStream({ ...emptyStream, status: "streaming" });
     const posted = await api<{ run: { id: string } }>(
       `/api/v1/conversations/${activeId}/messages/${messageId}:regenerate`,
       { method: "POST", body: "{}" },
     );
+    runRef.current = posted.run.id;
     setRunId(posted.run.id);
     await readStream(posted.run.id);
+    runRef.current = "";
+    setRunId("");
     await openConversation(activeId);
   }
 
@@ -252,220 +271,327 @@ export function ChatScreen() {
     const body = new FormData();
     body.set("upload", file);
     body.set("mime_type", file.type || "application/pdf");
-    const headers = new Headers();
-    headers.set("x-csrf-token", csrfToken());
-    const response = await fetch("/api/v1/files:upload", {
-      method: "POST",
-      body,
-      headers,
-      credentials: "include",
-    });
-    if (!response.ok) {
+    try {
+      const saved = await api<{ id: string; name: string; status: string }>(
+        "/api/v1/files:upload",
+        {
+          method: "POST",
+          body,
+        },
+      );
+      if (saved.status !== "ready") {
+        setBanner(t("uploadError"));
+        return;
+      }
+      setAttachmentId(saved.id);
+      setAttachmentName(saved.name);
+    } catch {
       setBanner(t("uploadError"));
+    }
+  }
+
+  async function copyMessage(id: string, text: string) {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId(""), 1200);
+  }
+
+  function onScroll() {
+    const node = parentRef.current;
+    if (!node) {
       return;
     }
-    const saved = (await response.json()) as { id: string; name: string; status: string };
-    if (saved.status !== "ready") {
-      setBanner(t("uploadError"));
-      return;
-    }
-    setAttachmentId(saved.id);
-    setAttachmentName(saved.name);
+    const nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+    stickRef.current = nearBottom;
+    setStuck(!nearBottom);
+  }
+
+  function grow(node: HTMLTextAreaElement) {
+    node.style.height = "auto";
+    node.style.height = `${Math.min(node.scrollHeight, 180)}px`;
   }
 
   const visible = messages.filter((message) => message.isActiveBranch !== false);
   const virtualizer = useVirtualizer({
     count: visible.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 96,
+    estimateSize: () => 120,
   });
 
   return (
-    <div className="grid h-screen grid-cols-[280px_1fr]">
-      <aside className="flex flex-col border-r border-[var(--border)] bg-[var(--card)] p-4">
-        <p className="text-sm font-semibold">{t("product")}</p>
-        <p className="mt-1 text-xs text-[var(--muted)]">{session?.user?.email ?? t("signedOut")}</p>
-        <Button className="mt-4" onClick={() => void startChat()} type="button">
-          {t("newChat")}
-        </Button>
-        <nav
+    <AppShell flush>
+      <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[16rem_1fr]">
+        <aside
           aria-label={t("conversations")}
-          className="mt-4 flex flex-1 flex-col gap-1 overflow-auto"
+          className="flex max-h-48 min-h-0 flex-col overflow-hidden border-b border-[var(--border)] md:max-h-none md:border-b-0 md:border-r"
         >
-          {conversations.length === 0 && !loading ? (
-            <p className="text-sm text-[var(--muted)]">{t("noConversations")}</p>
-          ) : null}
-          {conversations.map((conversation) => (
-            <button
-              className="rounded-md px-2 py-2 text-left text-sm hover:bg-[var(--background)]"
-              key={String(conversation.id)}
-              onClick={() => void openConversation(String(conversation.id))}
+          <div className="px-2 pt-3">
+            <Button
+              className="h-8 w-full justify-start px-2 text-[13px] font-normal"
+              onClick={() => void startChat()}
               type="button"
+              variant="ghost"
             >
-              {String(conversation.title || t("untitled"))}
-            </button>
-          ))}
-        </nav>
-        <a className="mt-3 text-sm underline" href="/admin/models">
-          {t("models")}
-        </a>
-      </aside>
-      <section className="flex min-h-0 flex-col">
-        <header className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
-          <div>
-            <h1 className="text-lg font-semibold">{t("title")}</h1>
-            <p className="text-sm text-[var(--muted)]">{session?.tenant?.name ?? t("tenant")}</p>
-          </div>
-          <a className="text-sm underline" href="/platform/health">
-            {t("health")}
-          </a>
-        </header>
-        {loading ? <p className="p-6 text-sm">{t("loading")}</p> : null}
-        {loadError ? (
-          <div className="m-6 rounded-md border border-[var(--border)] p-4" role="alert">
-            <p>{loadError}</p>
-            <Button className="mt-3" onClick={() => void reload()} type="button" variant="outline">
-              {t("retry")}
+              {t("newChat")}
             </Button>
           </div>
-        ) : null}
-        {!loading && !loadError && visible.length === 0 ? (
-          <div className="mx-auto max-w-xl p-10 text-center">
-            <h2 className="text-2xl font-semibold">{greeting}</h2>
-            <p className="mt-2 text-[var(--muted)]">{t("empty")}</p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              {[t("starter1"), t("starter2"), t("starter3")].map((prompt) => (
-                <Button
-                  key={prompt}
-                  onClick={() => void send(prompt)}
-                  type="button"
-                  variant="outline"
-                >
-                  {prompt}
-                </Button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        <div className="min-h-0 flex-1 overflow-auto px-6" ref={parentRef}>
-          <div
-            className="relative mx-auto max-w-3xl"
-            style={{ height: virtualizer.getTotalSize() }}
+          <nav
+            aria-label={t("conversations")}
+            className="mt-1 flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2 pb-3"
           >
-            {virtualizer.getVirtualItems().map((row) => {
-              const message = visible[row.index];
-              if (!message) {
-                return null;
-              }
-              const streamingHere =
-                row.index === visible.length - 1 &&
-                message.role === "assistant" &&
-                stream.status === "streaming";
-              const body = streamingHere ? stream.text || textOf(message) : textOf(message);
+            {conversations.length === 0 && !loading ? (
+              <p className="text-sm text-[var(--muted-foreground)]">{t("noConversations")}</p>
+            ) : null}
+            {conversations.map((conversation) => {
+              const id = String(conversation.id);
+              const selected = id === activeId;
               return (
-                <article
-                  className="absolute left-0 top-0 w-full py-3"
-                  data-index={row.index}
-                  key={String(message.id)}
-                  ref={virtualizer.measureElement}
-                  style={{ transform: `translateY(${row.start}px)` }}
+                <button
+                  aria-current={selected ? "true" : undefined}
+                  className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${selected ? "bg-[var(--muted)]" : "hover:bg-[var(--muted)]"}`}
+                  key={id}
+                  onClick={() => void openConversation(id)}
+                  type="button"
                 >
-                  <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
-                    {String(message.role)}
-                  </p>
-                  <div className="prose mt-1 max-w-none text-sm">
-                    <ReactMarkdown
-                      rehypePlugins={[rehypeKatex, rehypeSanitize]}
-                      remarkPlugins={[remarkGfm]}
-                    >
-                      {sanitizeHtml(body)}
-                    </ReactMarkdown>
-                  </div>
-                  {message.role === "assistant" &&
-                  message.id &&
-                  !String(message.id).startsWith("local-") ? (
-                    <Button
-                      className="mt-2"
-                      onClick={() => void regenerate(String(message.id))}
-                      type="button"
-                      variant="outline"
-                    >
-                      {t("regenerate")}
-                    </Button>
-                  ) : null}
-                </article>
+                  {String(conversation.title || t("untitled"))}
+                </button>
               );
             })}
+          </nav>
+        </aside>
+        <section className="flex min-h-0 flex-col">
+          <h1 className="sr-only">{t("title")}</h1>
+          <p className="sr-only">{session?.tenant?.name ?? t("tenant")}</p>
+          <div className="sr-only" aria-atomic="false" aria-live="polite">
+            {live ? `${t("streaming")}. ${live}` : ""}
           </div>
-        </div>
-        {banner ? (
-          <p className="px-6 text-sm" role="alert">
-            {banner}
-          </p>
-        ) : null}
-        <form
-          className="border-t border-[var(--border)] p-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const text = draft.trim();
-            if (!text) {
-              return;
-            }
-            setDraft("");
-            void send(text);
-          }}
-        >
-          <div className="mx-auto flex max-w-3xl flex-col gap-2">
-            {attachmentName ? (
-              <p className="text-xs text-[var(--muted)]">
-                {t("attached")}: {attachmentName}
+          {loading ? (
+            <div aria-busy="true" className="mx-auto w-full max-w-2xl space-y-3 px-6 py-8">
+              <p className="sr-only">{t("loading")}</p>
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-5/6" />
+            </div>
+          ) : null}
+          {loadError ? (
+            <div
+              className="m-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+              role="alert"
+            >
+              <p>{loadError}</p>
+              <Button
+                className="mt-3"
+                onClick={() => void reload()}
+                type="button"
+                variant="outline"
+              >
+                {t("retry")}
+              </Button>
+            </div>
+          ) : null}
+          {!loading && !loadError && visible.length === 0 ? (
+            <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 pb-8">
+              <h2 className="font-serif text-[2rem] leading-tight tracking-tight">{greeting}</h2>
+              <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--muted-foreground)]">
+                {t("empty")}
               </p>
-            ) : null}
-            <label className="sr-only" htmlFor="composer">
-              {t("composer")}
-            </label>
-            <textarea
-              className="min-h-20 rounded-md border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
-              id="composer"
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  event.currentTarget.form?.requestSubmit();
-                }
-              }}
-              placeholder={t("placeholder")}
-              value={draft}
-            />
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex gap-2">
-                <input
-                  accept="application/pdf,text/plain,image/png"
-                  className="sr-only"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) {
-                      void onUpload(file);
-                    }
-                  }}
-                  ref={fileRef}
-                  type="file"
-                />
-                <Button onClick={() => fileRef.current?.click()} type="button" variant="outline">
-                  {t("attach")}
-                </Button>
+              <div className="mt-8 flex flex-col items-start gap-1">
+                {[t("starter1"), t("starter2"), t("starter3")].map((prompt) => (
+                  <Button
+                    className="h-9 px-2 font-normal text-[var(--muted-foreground)]"
+                    key={prompt}
+                    onClick={() => void send(prompt)}
+                    type="button"
+                    variant="ghost"
+                  >
+                    {prompt}
+                  </Button>
+                ))}
               </div>
-              {stream.status === "streaming" ? (
-                <Button onClick={() => void stop()} type="button" variant="outline">
-                  {t("stop")}
-                </Button>
-              ) : (
-                <Button type="submit">{t("send")}</Button>
-              )}
+            </div>
+          ) : null}
+          <div
+            className="min-h-0 flex-1 overflow-auto px-4 md:px-8"
+            onScroll={onScroll}
+            ref={parentRef}
+          >
+            <div
+              className="relative mx-auto max-w-2xl"
+              style={{ height: virtualizer.getTotalSize() }}
+            >
+              {virtualizer.getVirtualItems().map((row) => {
+                const message = visible[row.index];
+                if (!message) {
+                  return null;
+                }
+                const streamingHere =
+                  row.index === visible.length - 1 &&
+                  message.role === "assistant" &&
+                  stream.status === "streaming";
+                const body = streamingHere ? stream.text || textOf(message) : textOf(message);
+                const id = String(message.id ?? row.index);
+                const mine = message.role === "user";
+                return (
+                  <article
+                    className="absolute left-0 top-0 w-full py-3"
+                    data-index={row.index}
+                    key={id}
+                    ref={virtualizer.measureElement}
+                    style={{ transform: `translateY(${row.start}px)` }}
+                  >
+                    <div className={mine ? "flex justify-end" : ""}>
+                      <div
+                        className={
+                          mine
+                            ? "max-w-[85%] rounded-2xl bg-[var(--muted)] px-4 py-2.5"
+                            : "max-w-none"
+                        }
+                      >
+                        <p className="sr-only">{String(message.role)}</p>
+                        <MarkdownView text={body} />
+                        {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
+                      </div>
+                    </div>
+                    <div className={`mt-1 flex gap-1 ${mine ? "justify-end" : ""}`}>
+                      <Button
+                        className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                        onClick={() => void copyMessage(id, body)}
+                        type="button"
+                        variant="ghost"
+                      >
+                        {copiedId === id ? t("copied") : t("copy")}
+                      </Button>
+                      {message.role === "assistant" && id && !id.startsWith("local-") ? (
+                        <Button
+                          className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                          onClick={() => void regenerate(id)}
+                          type="button"
+                          variant="ghost"
+                        >
+                          {t("regenerate")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </div>
-        </form>
-      </section>
-    </div>
+          {stuck ? (
+            <div className="flex justify-center">
+              <Button
+                onClick={() => {
+                  stickRef.current = true;
+                  setStuck(false);
+                  if (parentRef.current) {
+                    parentRef.current.scrollTop = parentRef.current.scrollHeight;
+                  }
+                }}
+                type="button"
+                variant="outline"
+              >
+                {t("jump")}
+              </Button>
+            </div>
+          ) : null}
+          {offline ? (
+            <p className="px-6 text-sm" role="status">
+              {t("offline")}
+            </p>
+          ) : null}
+          {banner ? (
+            <p className="px-6 text-sm" role="alert">
+              {banner}
+            </p>
+          ) : null}
+          <form
+            className="px-4 pb-4 md:px-8"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const text = draft.trim();
+              if (!text || stream.status === "streaming") {
+                return;
+              }
+              setDraft("");
+              if (composerRef.current) {
+                composerRef.current.style.height = "auto";
+              }
+              void send(text);
+            }}
+          >
+            <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+              {attachmentName ? (
+                <p className="px-1 pb-1 text-xs text-[var(--muted-foreground)]">
+                  {t("attached")}: {attachmentName}
+                </p>
+              ) : null}
+              <label className="sr-only" htmlFor="composer">
+                {t("composer")}
+              </label>
+              <textarea
+                className="max-h-44 min-h-12 w-full resize-none border-0 bg-transparent px-1 py-1 text-[15px]"
+                id="composer"
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  grow(event.currentTarget);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
+                placeholder={t("placeholder")}
+                ref={composerRef}
+                rows={2}
+                value={draft}
+              />
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <input
+                    accept="application/pdf,text/plain,image/png"
+                    aria-label={t("attach")}
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        void onUpload(file);
+                      }
+                    }}
+                    ref={fileRef}
+                    type="file"
+                  />
+                  <Button
+                    className="h-8 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                    onClick={() => fileRef.current?.click()}
+                    type="button"
+                    variant="ghost"
+                  >
+                    {t("attach")}
+                  </Button>
+                  <p className="hidden text-xs text-[var(--muted-foreground)] sm:block">
+                    {t("hint")}
+                  </p>
+                </div>
+                {stream.status === "streaming" ? (
+                  <Button
+                    className="h-8 px-3 text-xs"
+                    onClick={() => void stop()}
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("stop")}
+                  </Button>
+                ) : (
+                  <Button className="h-8 px-3 text-xs" type="submit">
+                    {t("send")}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </form>
+        </section>
+      </div>
+    </AppShell>
   );
 }

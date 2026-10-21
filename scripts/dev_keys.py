@@ -4,6 +4,7 @@ import base64
 import secrets
 from pathlib import Path
 
+import orjson
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -27,6 +28,17 @@ def _ensure(text: str, key: str, value: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def encryption_keyring() -> str:
+    """JSON object ``{"k1": "<standard base64 of 32 bytes>"}`` for ``AR_DB_ENCRYPTION_KEYS``."""
+    key = base64.b64encode(secrets.token_bytes(32)).decode()
+    return orjson.dumps({"k1": key}).decode()
+
+
+def session_key() -> str:
+    """Standard base64 of 32 bytes. URL-safe tokens fail ``b64decode``."""
+    return base64.b64encode(secrets.token_bytes(32)).decode()
+
+
 def main() -> None:
     private = Ed25519PrivateKey.generate()
     private_pem = private.private_bytes(
@@ -43,10 +55,11 @@ def main() -> None:
         .decode()
     )
     text = ENV.read_text(encoding="utf-8") if ENV.exists() else ""
-    text = _ensure(text, "AR_SESSION_ENCRYPTION_KEY", secrets.token_urlsafe(32))
+    text = _ensure(text, "AR_SESSION_ENCRYPTION_KEY", session_key())
     text = _ensure(text, "AR_CURSOR_SECRET", secrets.token_urlsafe(32))
-    text = _ensure(text, "AR_DB_ENCRYPTION_KEYS", secrets.token_urlsafe(32))
-    text = _ensure(text, "AR_TOKEN_CACHE_KEY", secrets.token_urlsafe(32))
+    text = _ensure(text, "AR_DB_ENCRYPTION_KEYS", "'" + encryption_keyring() + "'")
+    text = _ensure(text, "AR_DB_ENCRYPTION_ACTIVE_KEY", "k1")
+    text = _ensure(text, "AR_TOKEN_CACHE_KEY", session_key())
     text = _ensure(text, "AR_INTERNAL_JWT_PRIVATE_KEY", private_pem.replace("\n", "\\n"))
     text = _ensure(text, "AR_INTERNAL_JWT_JWKS", base64.b64encode(public.encode()).decode())
     ENV.write_text(text, encoding="utf-8")
