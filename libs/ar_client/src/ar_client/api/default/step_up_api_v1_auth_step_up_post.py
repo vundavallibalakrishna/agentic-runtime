@@ -9,31 +9,27 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.step_up_api_v1_auth_step_up_post_body_type_0 import StepUpApiV1AuthStepUpPostBodyType0
-from ...models.step_up_api_v1_auth_step_up_post_response_step_up_api_v1_auth_step_up_post import StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost
+from ...models.step_up_api_v1_auth_step_up_post_body_type_0 import (
+    StepUpApiV1AuthStepUpPostBodyType0,
+)
+from ...models.step_up_api_v1_auth_step_up_post_response_step_up_api_v1_auth_step_up_post import (
+    StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost,
+)
 from ...types import UNSET, Unset
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: None | StepUpApiV1AuthStepUpPostBodyType0 | Unset = UNSET,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/api/v1/auth/step-up",
     }
 
-    
     if isinstance(body, StepUpApiV1AuthStepUpPostBodyType0):
         _kwargs["json"] = body.to_dict()
     else:
@@ -45,19 +41,18 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
     if response.status_code == 200:
-        response_200 = StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost.from_dict(response.json())
-
-
+        response_200 = StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -67,7 +62,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -80,9 +77,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: None | StepUpApiV1AuthStepUpPostBodyType0 | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
-    """ Step Up
+    """Step Up
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -93,12 +89,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -107,13 +101,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: None | StepUpApiV1AuthStepUpPostBodyType0 | Unset = UNSET,
-
 ) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
-    """ Step Up
+    """Step Up
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -124,22 +118,20 @@ def sync(
 
     Returns:
         HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: None | StepUpApiV1AuthStepUpPostBodyType0 | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
-    """ Step Up
+    """Step Up
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -150,27 +142,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: None | StepUpApiV1AuthStepUpPostBodyType0 | Unset = UNSET,
-
 ) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
-    """ Step Up
+    """Step Up
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -181,11 +169,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

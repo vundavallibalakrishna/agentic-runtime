@@ -84,6 +84,7 @@ The graph allows parallel work after M5 (M6/M7/M8 can proceed in parallel by dif
 |---|---|
 | M2 | Log in, chat with `assistant`, see streaming, upload a file, view usage events in DB |
 | M2.5 | Sign in as any seeded user, switch light and dark, and read a streamed answer in the centred column. Checklist: [m2.5-checklist](../testing/m2.5-checklist.md) |
+| M3 | Describe an agent, preview it, apply the draft, publish, roll back, and import a bundle. Checklist: [m3-checklist](../testing/m3-checklist.md) |
 | M4 | Agent files a ticket through a registered MCP server (W1), reads a SQL table |
 | M5 | W2 call pauses for approval; approver approves in the inbox; run continues |
 | M6 | "Analyse this CSV and chart it" produces a PNG artifact from a sandbox |
@@ -115,5 +116,5 @@ Alembic revisions are created by the tasks listed in [migrations §3](../04-data
 4. Every new workflow/activity: deterministic workflow code, idempotent activities, Temporal test-env test.
 5. Every new UI page: loading/empty/error states, permission gating, Vitest component test, Playwright happy path, axe check.
 6. Every new metric, alert, env var or audit action: add it to the owning spec **and** to the catalogues ([environments §3](../07-ops/environments.md#3-variable-catalogue), [audit §3](../06-security/audit.md#3-catalogue)); CI `docs` job checks this.
-7. Dev seed data grows with the product: `scripts/seed.py` (created in M1-T03; idempotent; runs `ar_domain.seed.apply()`) seeds tenant `dev` and the four `@dev.local` users; M2 adds the `fake-llm` provider, aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`, team `everyone` and the published `assistant`; M3-T01 adds the sample agent `Helpdesk`; M4-T06 adds the `mcp-openapi` petstore tool server; M7-T01 adds a sample collection with three markdown documents. Each addition is part of that task's Done-when ([local-dev §2](../07-ops/local-dev.md#2-make-targets-the-only-entry-points)).
+7. Dev seed data grows with the product: `scripts/seed.py` (created in M1-T03; idempotent; runs `ar_domain.seed.apply()`) seeds tenant `dev` and the four `@dev.local` users; M2 adds the `fake-llm` provider, aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`, team `everyone` and the published `assistant`; M3 adds the sample agent `Helpdesk` and the built-in `builder`; M4-T06 adds the `mcp-openapi` petstore tool server; M7-T01 adds a sample collection with three markdown documents. Each addition is part of that task's Done-when ([local-dev §2](../07-ops/local-dev.md#2-make-targets-the-only-entry-points)).
 8. **Visual test.** Every milestone pull request includes a **How to test visually** section: exact local start commands, seeded demo login and data, and a numbered click-through of every user-visible feature so far. See [Visual test](#visual-test).

@@ -13,25 +13,20 @@ from typing import cast
 from uuid import UUID
 
 
-
-
-
-
 T = TypeVar("T", bound="RunBody")
-
 
 
 @_attrs_define
 class RunBody:
-    """ 
-        Attributes:
-            agent_id (UUID):
-            text (str):
-            callback_url (None | str | Unset):
-            on_behalf_of_user_id (None | Unset | UUID):
-            allow_on_behalf_of (bool | Unset):  Default: False.
-            wait (bool | Unset):  Default: False.
-     """
+    """
+    Attributes:
+        agent_id (UUID):
+        text (str):
+        callback_url (None | str | Unset):
+        on_behalf_of_user_id (None | Unset | UUID):
+        allow_on_behalf_of (bool | Unset):  Default: False.
+        wait (bool | Unset):  Default: False.
+    """
 
     agent_id: UUID
     text: str
@@ -39,10 +34,6 @@ class RunBody:
     on_behalf_of_user_id: None | Unset | UUID = UNSET
     allow_on_behalf_of: bool | Unset = False
     wait: bool | Unset = False
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         agent_id = str(self.agent_id)
@@ -67,13 +58,14 @@ class RunBody:
 
         wait = self.wait
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "agentId": agent_id,
-            "text": text,
-        })
+        field_dict.update(
+            {
+                "agentId": agent_id,
+                "text": text,
+            }
+        )
         if callback_url is not UNSET:
             field_dict["callbackUrl"] = callback_url
         if on_behalf_of_user_id is not UNSET:
@@ -85,15 +77,10 @@ class RunBody:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         agent_id = UUID(d.pop("agentId"))
-
-
-
 
         text = d.pop("text")
 
@@ -106,7 +93,6 @@ class RunBody:
 
         callback_url = _parse_callback_url(d.pop("callbackUrl", UNSET))
 
-
         def _parse_on_behalf_of_user_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
@@ -117,15 +103,12 @@ class RunBody:
                     raise TypeError()
                 on_behalf_of_user_id_type_0 = UUID(data)
 
-
-
                 return on_behalf_of_user_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except TypeError, ValueError, AttributeError, KeyError:
                 pass
             return cast(None | Unset | UUID, data)
 
         on_behalf_of_user_id = _parse_on_behalf_of_user_id(d.pop("onBehalfOfUserId", UNSET))
-
 
         allow_on_behalf_of = d.pop("allowOnBehalfOf", UNSET)
 
@@ -141,4 +124,3 @@ class RunBody:
         )
 
         return run_body
-

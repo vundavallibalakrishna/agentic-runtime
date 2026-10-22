@@ -63,6 +63,7 @@ export function ChatScreen() {
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const runRef = useRef("");
   const stickRef = useRef(true);
+  const openedFromQuery = useRef(false);
 
   const greeting = useMemo(() => {
     const agent = agents[0];
@@ -79,6 +80,18 @@ export function ChatScreen() {
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
       setConversations(listed.items ?? []);
       setAgents(agentPage.items ?? []);
+      if (!openedFromQuery.current) {
+        const conversationId = new URLSearchParams(window.location.search).get("conversation");
+        if (conversationId) {
+          openedFromQuery.current = true;
+          const body = await api<Item & { messages?: Item[] }>(
+            `/api/v1/conversations/${conversationId}`,
+          );
+          setActiveId(conversationId);
+          setMessages(body.messages ?? []);
+          setStream(emptyStream);
+        }
+      }
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : t("error"));
     } finally {

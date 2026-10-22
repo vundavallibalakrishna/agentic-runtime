@@ -9,23 +9,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.patch_tenant_api_v1_tenant_patch_response_patch_tenant_api_v1_tenant_patch import PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch
+from ...models.patch_tenant_api_v1_tenant_patch_response_patch_tenant_api_v1_tenant_patch import (
+    PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch,
+)
 from ...models.tenant_patch import TenantPatch
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: TenantPatch,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "patch",
@@ -40,19 +35,18 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch | None:
     if response.status_code == 200:
-        response_200 = PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch.from_dict(response.json())
-
-
+        response_200 = PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +56,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +71,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: TenantPatch,
-
 ) -> Response[HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch]:
-    """ Patch Tenant
+    """Patch Tenant
 
     Args:
         body (TenantPatch):
@@ -88,12 +83,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +95,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: TenantPatch,
-
 ) -> HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch | None:
-    """ Patch Tenant
+    """Patch Tenant
 
     Args:
         body (TenantPatch):
@@ -119,22 +112,20 @@ def sync(
 
     Returns:
         HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: TenantPatch,
-
 ) -> Response[HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch]:
-    """ Patch Tenant
+    """Patch Tenant
 
     Args:
         body (TenantPatch):
@@ -145,27 +136,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: TenantPatch,
-
 ) -> HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch | None:
-    """ Patch Tenant
+    """Patch Tenant
 
     Args:
         body (TenantPatch):
@@ -176,11 +163,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

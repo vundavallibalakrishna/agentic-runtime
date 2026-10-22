@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet")
-
+T = TypeVar(
+    "T",
+    bound="ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet",
+)
 
 
 @_attrs_define
 class ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        service_provider_config_scim_v2_service_provider_config_get_response_service_provider_config_scim_v2_serviceproviderconfig_get = cls(
-        )
-
+        service_provider_config_scim_v2_service_provider_config_get_response_service_provider_config_scim_v2_serviceproviderconfig_get = cls()
 
         service_provider_config_scim_v2_service_provider_config_get_response_service_provider_config_scim_v2_serviceproviderconfig_get.additional_properties = d
         return service_provider_config_scim_v2_service_provider_config_get_response_service_provider_config_scim_v2_serviceproviderconfig_get

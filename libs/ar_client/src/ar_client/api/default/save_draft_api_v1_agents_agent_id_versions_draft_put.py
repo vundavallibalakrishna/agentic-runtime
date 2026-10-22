@@ -10,28 +10,29 @@ from ... import errors
 
 from ...models.draft_body import DraftBody
 from ...models.http_validation_error import HTTPValidationError
-from ...models.save_draft_api_v1_agents_agent_id_versions_draft_put_response_save_draft_api_v1_agents_agent_id_versions_draft_put import SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
+from ...models.save_draft_api_v1_agents_agent_id_versions_draft_put_response_save_draft_api_v1_agents_agent_id_versions_draft_put import (
+    SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut,
+)
+from ...types import UNSET, Unset
 from typing import cast
 from uuid import UUID
-
 
 
 def _get_kwargs(
     agent_id: UUID,
     *,
     body: DraftBody,
-
+    if_match: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
+    if not isinstance(if_match, Unset):
+        headers["If-Match"] = if_match
 
     _kwargs: dict[str, Any] = {
         "method": "put",
-        "url": "/api/v1/agents/{agent_id}/versions/draft".format(agent_id=quote(str(agent_id), safe=""),),
+        "url": "/api/v1/agents/{agent_id}/versions/draft".format(
+            agent_id=quote(str(agent_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -42,19 +43,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
+    | None
+):
     if response.status_code == 200:
-        response_200 = SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut.from_dict(response.json())
-
-
+        response_200 = SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -64,7 +68,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,12 +87,16 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: DraftBody,
-
-) -> Response[HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut]:
-    """ Save Draft
+    if_match: None | str | Unset = UNSET,
+) -> Response[
+    HTTPValidationError
+    | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
+]:
+    """Save Draft
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
         body (DraftBody):
 
     Raises:
@@ -92,13 +105,12 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         agent_id=agent_id,
-body=body,
-
+        body=body,
+        if_match=if_match,
     )
 
     response = client.get_httpx_client().request(
@@ -107,17 +119,23 @@ body=body,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: DraftBody,
-
-) -> HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut | None:
-    """ Save Draft
+    if_match: None | str | Unset = UNSET,
+) -> (
+    HTTPValidationError
+    | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
+    | None
+):
+    """Save Draft
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
         body (DraftBody):
 
     Raises:
@@ -126,27 +144,31 @@ def sync(
 
     Returns:
         HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
-     """
-
+    """
 
     return sync_detailed(
         agent_id=agent_id,
-client=client,
-body=body,
-
+        client=client,
+        body=body,
+        if_match=if_match,
     ).parsed
+
 
 async def asyncio_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: DraftBody,
-
-) -> Response[HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut]:
-    """ Save Draft
+    if_match: None | str | Unset = UNSET,
+) -> Response[
+    HTTPValidationError
+    | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
+]:
+    """Save Draft
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
         body (DraftBody):
 
     Raises:
@@ -155,32 +177,35 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         agent_id=agent_id,
-body=body,
-
+        body=body,
+        if_match=if_match,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: DraftBody,
-
-) -> HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut | None:
-    """ Save Draft
+    if_match: None | str | Unset = UNSET,
+) -> (
+    HTTPValidationError
+    | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
+    | None
+):
+    """Save Draft
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
         body (DraftBody):
 
     Raises:
@@ -189,12 +214,13 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        agent_id=agent_id,
-client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            agent_id=agent_id,
+            client=client,
+            body=body,
+            if_match=if_match,
+        )
+    ).parsed

@@ -39,6 +39,10 @@ def main() -> None:
         if TARGET.exists():
             shutil.rmtree(TARGET)
         shutil.copytree(dest, TARGET)
+    uv = shutil.which("uv")
+    if uv is None:
+        raise SystemExit("uv is required to format the generated client")
+    subprocess.run([uv, "run", "ruff", "format", str(TARGET)], check=True, cwd=ROOT)  # noqa: S603
     print(f"wrote {TARGET}")
 
 

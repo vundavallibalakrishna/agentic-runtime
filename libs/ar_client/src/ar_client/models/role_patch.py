@@ -12,28 +12,19 @@ from ..types import UNSET, Unset
 from typing import cast
 
 
-
-
-
-
 T = TypeVar("T", bound="RolePatch")
-
 
 
 @_attrs_define
 class RolePatch:
-    """ 
-        Attributes:
-            name (None | str | Unset):
-            permissions (list[str] | None | Unset):
-     """
+    """
+    Attributes:
+        name (None | str | Unset):
+        permissions (list[str] | None | Unset):
+    """
 
     name: None | str | Unset = UNSET
     permissions: list[str] | None | Unset = UNSET
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         name: None | str | Unset
@@ -48,15 +39,12 @@ class RolePatch:
         elif isinstance(self.permissions, list):
             permissions = self.permissions
 
-
         else:
             permissions = self.permissions
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-        })
+        field_dict.update({})
         if name is not UNSET:
             field_dict["name"] = name
         if permissions is not UNSET:
@@ -64,11 +52,10 @@ class RolePatch:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -77,7 +64,6 @@ class RolePatch:
             return cast(None | str | Unset, data)
 
         name = _parse_name(d.pop("name", UNSET))
-
 
         def _parse_permissions(data: object) -> list[str] | None | Unset:
             if data is None:
@@ -90,12 +76,11 @@ class RolePatch:
                 permissions_type_0 = cast(list[str], data)
 
                 return permissions_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except TypeError, ValueError, AttributeError, KeyError:
                 pass
             return cast(list[str] | None | Unset, data)
 
         permissions = _parse_permissions(d.pop("permissions", UNSET))
-
 
         role_patch = cls(
             name=name,
@@ -103,4 +88,3 @@ class RolePatch:
         )
 
         return role_patch
-

@@ -8,45 +8,46 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.delete_role_api_v1_roles_role_id_delete_response_delete_role_api_v1_roles_role_id_delete import DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete
+from ...models.delete_role_api_v1_roles_role_id_delete_response_delete_role_api_v1_roles_role_id_delete import (
+    DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     role_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": "/api/v1/roles/{role_id}".format(role_id=quote(str(role_id), safe=""),),
+        "url": "/api/v1/roles/{role_id}".format(
+            role_id=quote(str(role_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete.from_dict(response.json())
-
-
+        response_200 = (
+            DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete.from_dict(
+                response.json()
+            )
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +57,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +74,10 @@ def sync_detailed(
     role_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError]:
-    """ Delete Role
+) -> Response[
+    DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError
+]:
+    """Delete Role
 
     Args:
         role_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         role_id=role_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     role_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError | None:
-    """ Delete Role
+) -> (
+    DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete
+    | HTTPValidationError
+    | None
+):
+    """Delete Role
 
     Args:
         role_id (UUID):
@@ -113,22 +121,22 @@ def sync(
 
     Returns:
         DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         role_id=role_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     role_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError]:
-    """ Delete Role
+) -> Response[
+    DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError
+]:
+    """Delete Role
 
     Args:
         role_id (UUID):
@@ -139,27 +147,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         role_id=role_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     role_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError | None:
-    """ Delete Role
+) -> (
+    DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete
+    | HTTPValidationError
+    | None
+):
+    """Delete Role
 
     Args:
         role_id (UUID):
@@ -170,11 +178,11 @@ async def asyncio(
 
     Returns:
         DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        role_id=role_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            role_id=role_id,
+            client=client,
+        )
+    ).parsed

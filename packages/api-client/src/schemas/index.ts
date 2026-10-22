@@ -27,3 +27,5 @@ export type { ChannelIntegrationDefinition } from "./ChannelIntegration";
 export { channelIntegrationSchema } from "./ChannelIntegration.zod";
 export type { Bundle } from "./Bundle";
 export { bundleSchema } from "./Bundle.zod";
+export type { ContentPack } from "./ContentPack";
+export { contentPackSchema } from "./ContentPack.zod";

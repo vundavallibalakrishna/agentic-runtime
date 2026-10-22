@@ -1,0 +1,155 @@
+{
+  "$defs": {
+    "ContentPackSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "resources": {
+          "items": {
+            "additionalProperties": {
+              "$ref": "#/$defs/JsonValue"
+            },
+            "type": "object"
+          },
+          "title": "Resources",
+          "type": "array"
+        },
+        "extension": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackExtension"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ContentPackSpec",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "PackExtension": {
+      "additionalProperties": false,
+      "description": "Optional pack code. Present only when the manifest is not declarative.",
+      "properties": {
+        "schema": {
+          "default": "",
+          "title": "Schema",
+          "type": "string"
+        },
+        "alembic": {
+          "default": "",
+          "title": "Alembic",
+          "type": "string"
+        },
+        "apiMount": {
+          "default": "",
+          "title": "Apimount",
+          "type": "string"
+        },
+        "webSlot": {
+          "default": "",
+          "title": "Webslot",
+          "type": "string"
+        },
+        "configSchema": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Configschema",
+          "type": "object"
+        },
+        "ui": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Ui",
+          "type": "object"
+        },
+        "permissions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permissions",
+          "type": "array"
+        },
+        "auditActions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Auditactions",
+          "type": "array"
+        },
+        "mcpServer": {
+          "default": "",
+          "title": "Mcpserver",
+          "type": "string"
+        }
+      },
+      "title": "PackExtension",
+      "type": "object"
+    },
+    "PackMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{1,40}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "minPlatform": {
+          "default": "1.0.0",
+          "title": "Minplatform",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "name"
+      ],
+      "title": "PackMetadata",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Signed manifest. ``spec.resources`` uses the same documents as a bundle.",
+  "properties": {
+    "apiVersion": {
+      "const": "agentic-runtime.dev/v1",
+      "title": "Apiversion",
+      "type": "string"
+    },
+    "kind": {
+      "const": "ContentPack",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/PackMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/ContentPackSpec",
+      "default": {
+        "resources": [],
+        "extension": null
+      }
+    }
+  },
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata"
+  ],
+  "title": "ContentPack",
+  "type": "object"
+}

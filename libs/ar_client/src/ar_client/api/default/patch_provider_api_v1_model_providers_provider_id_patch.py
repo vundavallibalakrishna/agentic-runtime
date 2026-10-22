@@ -9,29 +9,26 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.patch_provider_api_v1_model_providers_provider_id_patch_response_patch_provider_api_v1_model_providers_provider_id_patch import PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
+from ...models.patch_provider_api_v1_model_providers_provider_id_patch_response_patch_provider_api_v1_model_providers_provider_id_patch import (
+    PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch,
+)
 from ...models.provider_patch import ProviderPatch
 from typing import cast
 from uuid import UUID
-
 
 
 def _get_kwargs(
     provider_id: UUID,
     *,
     body: ProviderPatch,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/api/v1/model-providers/{provider_id}".format(provider_id=quote(str(provider_id), safe=""),),
+        "url": "/api/v1/model-providers/{provider_id}".format(
+            provider_id=quote(str(provider_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -42,19 +39,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
+    | None
+):
     if response.status_code == 200:
-        response_200 = PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch.from_dict(response.json())
-
-
+        response_200 = PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -64,7 +64,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,9 +83,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ProviderPatch,
-
-) -> Response[HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch]:
-    """ Patch Provider
+) -> Response[
+    HTTPValidationError
+    | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
+]:
+    """Patch Provider
 
     Args:
         provider_id (UUID):
@@ -92,13 +99,11 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         provider_id=provider_id,
-body=body,
-
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -107,14 +112,18 @@ body=body,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     provider_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: ProviderPatch,
-
-) -> HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch | None:
-    """ Patch Provider
+) -> (
+    HTTPValidationError
+    | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
+    | None
+):
+    """Patch Provider
 
     Args:
         provider_id (UUID):
@@ -126,24 +135,25 @@ def sync(
 
     Returns:
         HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
-     """
-
+    """
 
     return sync_detailed(
         provider_id=provider_id,
-client=client,
-body=body,
-
+        client=client,
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     provider_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: ProviderPatch,
-
-) -> Response[HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch]:
-    """ Patch Provider
+) -> Response[
+    HTTPValidationError
+    | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
+]:
+    """Patch Provider
 
     Args:
         provider_id (UUID):
@@ -155,29 +165,29 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         provider_id=provider_id,
-body=body,
-
+        body=body,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     provider_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: ProviderPatch,
-
-) -> HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch | None:
-    """ Patch Provider
+) -> (
+    HTTPValidationError
+    | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
+    | None
+):
+    """Patch Provider
 
     Args:
         provider_id (UUID):
@@ -189,12 +199,12 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        provider_id=provider_id,
-client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            provider_id=provider_id,
+            client=client,
+            body=body,
+        )
+    ).parsed

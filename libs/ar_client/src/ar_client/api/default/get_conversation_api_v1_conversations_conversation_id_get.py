@@ -8,45 +8,44 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.get_conversation_api_v1_conversations_conversation_id_get_response_get_conversation_api_v1_conversations_conversation_id_get import GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet
+from ...models.get_conversation_api_v1_conversations_conversation_id_get_response_get_conversation_api_v1_conversations_conversation_id_get import (
+    GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     conversation_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/conversations/{conversation_id}".format(conversation_id=quote(str(conversation_id), safe=""),),
+        "url": "/api/v1/conversations/{conversation_id}".format(
+            conversation_id=quote(str(conversation_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet.from_dict(response.json())
-
-
+        response_200 = GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError]:
-    """ Get Conversation
+) -> Response[
+    GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet
+    | HTTPValidationError
+]:
+    """Get Conversation
 
     Args:
         conversation_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError | None:
-    """ Get Conversation
+) -> (
+    GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet
+    | HTTPValidationError
+    | None
+):
+    """Get Conversation
 
     Args:
         conversation_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         conversation_id=conversation_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError]:
-    """ Get Conversation
+) -> Response[
+    GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet
+    | HTTPValidationError
+]:
+    """Get Conversation
 
     Args:
         conversation_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError | None:
-    """ Get Conversation
+) -> (
+    GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet
+    | HTTPValidationError
+    | None
+):
+    """Get Conversation
 
     Args:
         conversation_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        conversation_id=conversation_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            conversation_id=conversation_id,
+            client=client,
+        )
+    ).parsed

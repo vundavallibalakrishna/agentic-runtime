@@ -101,7 +101,14 @@
           "$ref": "#/$defs/OutputSpec",
           "default": {
             "citations": "preferred",
-            "showReasoning": false
+            "showReasoning": false,
+            "grounding": "off"
+          }
+        },
+        "assurance": {
+          "$ref": "#/$defs/AssuranceSpec",
+          "default": {
+            "recordMode": "off"
           }
         },
         "safety": {
@@ -153,6 +160,22 @@
         "spec"
       ],
       "title": "AgentResource",
+      "type": "object"
+    },
+    "AssuranceSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "recordMode": {
+          "default": "off",
+          "enum": [
+            "off",
+            "on"
+          ],
+          "title": "Recordmode",
+          "type": "string"
+        }
+      },
+      "title": "AssuranceSpec",
       "type": "object"
     },
     "ChannelFlags": {
@@ -902,6 +925,7 @@
           "type": "string"
         },
         "fastAlias": {
+          "default": "fast",
           "title": "Fastalias",
           "type": "string"
         },
@@ -933,8 +957,7 @@
         }
       },
       "required": [
-        "alias",
-        "fastAlias"
+        "alias"
       ],
       "title": "ModelSpec",
       "type": "object"
@@ -982,6 +1005,16 @@
           "default": false,
           "title": "Showreasoning",
           "type": "boolean"
+        },
+        "grounding": {
+          "default": "off",
+          "enum": [
+            "off",
+            "preferred",
+            "strict"
+          ],
+          "title": "Grounding",
+          "type": "string"
         }
       },
       "title": "OutputSpec",

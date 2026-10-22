@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost")
-
+T = TypeVar(
+    "T",
+    bound="ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost",
+)
 
 
 @_attrs_define
 class ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost:
-    
-
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        resume_api_v1_platform_tenants_tenant_id_resume_post_response_resume_api_v1_platform_tenants_tenant_id_resume_post = cls(
-        )
-
+        resume_api_v1_platform_tenants_tenant_id_resume_post_response_resume_api_v1_platform_tenants_tenant_id_resume_post = cls()
 
         resume_api_v1_platform_tenants_tenant_id_resume_post_response_resume_api_v1_platform_tenants_tenant_id_resume_post.additional_properties = d
         return resume_api_v1_platform_tenants_tenant_id_resume_post_response_resume_api_v1_platform_tenants_tenant_id_resume_post

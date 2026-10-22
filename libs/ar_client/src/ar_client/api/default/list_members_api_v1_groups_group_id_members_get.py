@@ -9,44 +9,43 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.list_members_api_v1_groups_group_id_members_get_response_list_members_api_v1_groups_group_id_members_get import ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
+from ...models.list_members_api_v1_groups_group_id_members_get_response_list_members_api_v1_groups_group_id_members_get import (
+    ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     group_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/groups/{group_id}/members".format(group_id=quote(str(group_id), safe=""),),
+        "url": "/api/v1/groups/{group_id}/members".format(
+            group_id=quote(str(group_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
+    | None
+):
     if response.status_code == 200:
-        response_200 = ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet.from_dict(response.json())
-
-
+        response_200 = ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     group_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet]:
-    """ List Members
+) -> Response[
+    HTTPValidationError
+    | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
+]:
+    """List Members
 
     Args:
         group_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         group_id=group_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     group_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet | None:
-    """ List Members
+) -> (
+    HTTPValidationError
+    | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
+    | None
+):
+    """List Members
 
     Args:
         group_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
-     """
-
+    """
 
     return sync_detailed(
         group_id=group_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     group_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet]:
-    """ List Members
+) -> Response[
+    HTTPValidationError
+    | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
+]:
+    """List Members
 
     Args:
         group_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         group_id=group_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     group_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet | None:
-    """ List Members
+) -> (
+    HTTPValidationError
+    | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
+    | None
+):
+    """List Members
 
     Args:
         group_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        group_id=group_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            group_id=group_id,
+            client=client,
+        )
+    ).parsed

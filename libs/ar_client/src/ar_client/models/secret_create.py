@@ -11,32 +11,23 @@ from ..types import UNSET, Unset
 from ..types import UNSET, Unset
 
 
-
-
-
-
 T = TypeVar("T", bound="SecretCreate")
-
 
 
 @_attrs_define
 class SecretCreate:
-    """ 
-        Attributes:
-            name (str):
-            value (str):
-            kind (str | Unset):  Default: 'generic'.
-            description (str | Unset):  Default: ''.
-     """
+    """
+    Attributes:
+        name (str):
+        value (str):
+        kind (str | Unset):  Default: 'generic'.
+        description (str | Unset):  Default: ''.
+    """
 
     name: str
     value: str
-    kind: str | Unset = 'generic'
-    description: str | Unset = ''
-
-
-
-
+    kind: str | Unset = "generic"
+    description: str | Unset = ""
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
@@ -47,21 +38,20 @@ class SecretCreate:
 
         description = self.description
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "name": name,
-            "value": value,
-        })
+        field_dict.update(
+            {
+                "name": name,
+                "value": value,
+            }
+        )
         if kind is not UNSET:
             field_dict["kind"] = kind
         if description is not UNSET:
             field_dict["description"] = description
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -82,4 +72,3 @@ class SecretCreate:
         )
 
         return secret_create
-

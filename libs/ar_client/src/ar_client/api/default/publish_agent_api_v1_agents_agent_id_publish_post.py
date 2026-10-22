@@ -9,44 +9,59 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post import PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
+from ...models.publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post import (
+    PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost,
+)
+from ...models.publish_body import PublishBody
+from ...types import UNSET, Unset
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     agent_id: UUID,
-
+    *,
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
-    
-
-    
-
-    
+    headers: dict[str, Any] = {}
+    if not isinstance(if_match, Unset):
+        headers["If-Match"] = if_match
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/agents/{agent_id}:publish".format(agent_id=quote(str(agent_id), safe=""),),
+        "url": "/api/v1/agents/{agent_id}:publish".format(
+            agent_id=quote(str(agent_id), safe=""),
+        ),
     }
 
+    if isinstance(body, PublishBody):
+        _kwargs["json"] = body.to_dict()
+    else:
+        _kwargs["json"] = body
 
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost.from_dict(response.json())
-
-
+        response_200 = PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +71,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,12 +89,18 @@ def sync_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost]:
-    """ Publish Agent
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
+) -> Response[
+    HTTPValidationError
+    | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
+]:
+    """Publish Agent
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
+        body (None | PublishBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,12 +108,12 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         agent_id=agent_id,
-
+        body=body,
+        if_match=if_match,
     )
 
     response = client.get_httpx_client().request(
@@ -96,16 +122,24 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost | None:
-    """ Publish Agent
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
+) -> (
+    HTTPValidationError
+    | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
+    | None
+):
+    """Publish Agent
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
+        body (None | PublishBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -113,25 +147,32 @@ def sync(
 
     Returns:
         HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
-     """
-
+    """
 
     return sync_detailed(
         agent_id=agent_id,
-client=client,
-
+        client=client,
+        body=body,
+        if_match=if_match,
     ).parsed
+
 
 async def asyncio_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost]:
-    """ Publish Agent
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
+) -> Response[
+    HTTPValidationError
+    | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
+]:
+    """Publish Agent
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
+        body (None | PublishBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -139,30 +180,36 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         agent_id=agent_id,
-
+        body=body,
+        if_match=if_match,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost | None:
-    """ Publish Agent
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
+) -> (
+    HTTPValidationError
+    | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
+    | None
+):
+    """Publish Agent
 
     Args:
         agent_id (UUID):
+        if_match (None | str | Unset):
+        body (None | PublishBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -170,11 +217,13 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        agent_id=agent_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            agent_id=agent_id,
+            client=client,
+            body=body,
+            if_match=if_match,
+        )
+    ).parsed

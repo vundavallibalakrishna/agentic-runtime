@@ -9,40 +9,26 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="DeleteGroupApiV1GroupsGroupIdDeleteResponseDeleteGroupApiV1GroupsGroupIdDelete")
-
+T = TypeVar(
+    "T", bound="DeleteGroupApiV1GroupsGroupIdDeleteResponseDeleteGroupApiV1GroupsGroupIdDelete"
+)
 
 
 @_attrs_define
 class DeleteGroupApiV1GroupsGroupIdDeleteResponseDeleteGroupApiV1GroupsGroupIdDelete:
-    
-
     additional_properties: dict[str, bool] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        delete_group_api_v1_groups_group_id_delete_response_delete_group_api_v1_groups_group_id_delete = cls(
-        )
-
+        delete_group_api_v1_groups_group_id_delete_response_delete_group_api_v1_groups_group_id_delete = cls()
 
         delete_group_api_v1_groups_group_id_delete_response_delete_group_api_v1_groups_group_id_delete.additional_properties = d
         return delete_group_api_v1_groups_group_id_delete_response_delete_group_api_v1_groups_group_id_delete

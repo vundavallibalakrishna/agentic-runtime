@@ -12,61 +12,45 @@ from ..types import UNSET, Unset
 from typing import cast
 
 
-
-
-
-
 T = TypeVar("T", bound="InvitationCreate")
-
 
 
 @_attrs_define
 class InvitationCreate:
-    """ 
-        Attributes:
-            emails (list[str]):
-            role_keys (list[str] | Unset):
-     """
+    """
+    Attributes:
+        emails (list[str]):
+        role_keys (list[str] | Unset):
+    """
 
     emails: list[str]
     role_keys: list[str] | Unset = UNSET
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
         emails = self.emails
-
-
 
         role_keys: list[str] | Unset = UNSET
         if not isinstance(self.role_keys, Unset):
             role_keys = self.role_keys
 
-
-
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "emails": emails,
-        })
+        field_dict.update(
+            {
+                "emails": emails,
+            }
+        )
         if role_keys is not UNSET:
             field_dict["roleKeys"] = role_keys
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         emails = cast(list[str], d.pop("emails"))
 
-
         role_keys = cast(list[str], d.pop("roleKeys", UNSET))
-
 
         invitation_create = cls(
             emails=emails,
@@ -74,4 +58,3 @@ class InvitationCreate:
         )
 
         return invitation_create
-

@@ -9,23 +9,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.conversation_body import ConversationBody
-from ...models.create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post import CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost
+from ...models.create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post import (
+    CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: ConversationBody,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +35,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost.from_dict(response.json())
-
-
+        response_200 = CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +60,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +78,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ConversationBody,
-
-) -> Response[CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError]:
-    """ Create Conversation
+) -> Response[
+    CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost
+    | HTTPValidationError
+]:
+    """Create Conversation
 
     Args:
         body (ConversationBody):
@@ -88,12 +93,10 @@ def sync_detailed(
 
     Returns:
         Response[CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +105,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: ConversationBody,
-
-) -> CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError | None:
-    """ Create Conversation
+) -> (
+    CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Conversation
 
     Args:
         body (ConversationBody):
@@ -119,22 +126,23 @@ def sync(
 
     Returns:
         CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ConversationBody,
-
-) -> Response[CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError]:
-    """ Create Conversation
+) -> Response[
+    CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost
+    | HTTPValidationError
+]:
+    """Create Conversation
 
     Args:
         body (ConversationBody):
@@ -145,27 +153,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: ConversationBody,
-
-) -> CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError | None:
-    """ Create Conversation
+) -> (
+    CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Conversation
 
     Args:
         body (ConversationBody):
@@ -176,11 +184,11 @@ async def asyncio(
 
     Returns:
         CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

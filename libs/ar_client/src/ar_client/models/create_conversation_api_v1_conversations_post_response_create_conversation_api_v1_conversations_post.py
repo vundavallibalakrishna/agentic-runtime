@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost")
-
+T = TypeVar(
+    "T",
+    bound="CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost",
+)
 
 
 @_attrs_define
 class CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post = cls(
-        )
-
+        create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post = cls()
 
         create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post.additional_properties = d
         return create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post

@@ -95,6 +95,7 @@ TopicName = Literal[
     "erasure.completed",
     "audit.event",
     "eval.completed",
+    "pack.installed",
     "channel_integration.updated",
     "webhook.test",
     "role.changed",

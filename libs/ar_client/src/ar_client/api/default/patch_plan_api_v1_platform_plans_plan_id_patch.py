@@ -9,29 +9,26 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch import PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
+from ...models.patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch import (
+    PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch,
+)
 from ...models.plan_body import PlanBody
 from typing import cast
 from uuid import UUID
-
 
 
 def _get_kwargs(
     plan_id: UUID,
     *,
     body: PlanBody,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/api/v1/platform/plans/{plan_id}".format(plan_id=quote(str(plan_id), safe=""),),
+        "url": "/api/v1/platform/plans/{plan_id}".format(
+            plan_id=quote(str(plan_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -42,19 +39,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
+    | None
+):
     if response.status_code == 200:
-        response_200 = PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch.from_dict(response.json())
-
-
+        response_200 = PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -64,7 +64,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,9 +83,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: PlanBody,
-
-) -> Response[HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch]:
-    """ Patch Plan
+) -> Response[
+    HTTPValidationError
+    | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
+]:
+    """Patch Plan
 
     Args:
         plan_id (UUID):
@@ -92,13 +99,11 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         plan_id=plan_id,
-body=body,
-
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -107,14 +112,18 @@ body=body,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     plan_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: PlanBody,
-
-) -> HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch | None:
-    """ Patch Plan
+) -> (
+    HTTPValidationError
+    | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
+    | None
+):
+    """Patch Plan
 
     Args:
         plan_id (UUID):
@@ -126,24 +135,25 @@ def sync(
 
     Returns:
         HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
-     """
-
+    """
 
     return sync_detailed(
         plan_id=plan_id,
-client=client,
-body=body,
-
+        client=client,
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     plan_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: PlanBody,
-
-) -> Response[HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch]:
-    """ Patch Plan
+) -> Response[
+    HTTPValidationError
+    | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
+]:
+    """Patch Plan
 
     Args:
         plan_id (UUID):
@@ -155,29 +165,29 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         plan_id=plan_id,
-body=body,
-
+        body=body,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     plan_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: PlanBody,
-
-) -> HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch | None:
-    """ Patch Plan
+) -> (
+    HTTPValidationError
+    | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
+    | None
+):
+    """Patch Plan
 
     Args:
         plan_id (UUID):
@@ -189,12 +199,12 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        plan_id=plan_id,
-client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            plan_id=plan_id,
+            client=client,
+            body=body,
+        )
+    ).parsed

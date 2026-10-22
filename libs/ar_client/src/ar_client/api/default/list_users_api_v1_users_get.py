@@ -9,21 +9,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.list_users_api_v1_users_get_response_list_users_api_v1_users_get import ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet
+from ...models.list_users_api_v1_users_get_response_list_users_api_v1_users_get import (
+    ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet,
+)
 from ...types import UNSET, Unset
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     q: None | str | Unset = UNSET,
     status: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
@@ -41,9 +38,7 @@ def _get_kwargs(
         json_status = status
     params["status"] = json_status
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -51,23 +46,21 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet | None:
     if response.status_code == 200:
-        response_200 = ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet.from_dict(response.json())
-
-
+        response_200 = ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -77,7 +70,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -91,9 +86,8 @@ def sync_detailed(
     client: AuthenticatedClient | Client,
     q: None | str | Unset = UNSET,
     status: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet]:
-    """ List Users
+    """List Users
 
     Args:
         q (None | str | Unset):
@@ -105,13 +99,11 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         q=q,
-status=status,
-
+        status=status,
     )
 
     response = client.get_httpx_client().request(
@@ -120,14 +112,14 @@ status=status,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     q: None | str | Unset = UNSET,
     status: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet | None:
-    """ List Users
+    """List Users
 
     Args:
         q (None | str | Unset):
@@ -139,24 +131,22 @@ def sync(
 
     Returns:
         HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-q=q,
-status=status,
-
+        q=q,
+        status=status,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     q: None | str | Unset = UNSET,
     status: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet]:
-    """ List Users
+    """List Users
 
     Args:
         q (None | str | Unset):
@@ -168,29 +158,25 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         q=q,
-status=status,
-
+        status=status,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     q: None | str | Unset = UNSET,
     status: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet | None:
-    """ List Users
+    """List Users
 
     Args:
         q (None | str | Unset):
@@ -202,12 +188,12 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ListUsersApiV1UsersGetResponseListUsersApiV1UsersGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-q=q,
-status=status,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            q=q,
+            status=status,
+        )
+    ).parsed

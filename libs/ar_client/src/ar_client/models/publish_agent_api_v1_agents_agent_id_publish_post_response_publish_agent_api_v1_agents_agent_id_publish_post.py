@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost")
-
+T = TypeVar(
+    "T",
+    bound="PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost",
+)
 
 
 @_attrs_define
 class PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post = cls(
-        )
-
+        publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post = cls()
 
         publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post.additional_properties = d
         return publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post

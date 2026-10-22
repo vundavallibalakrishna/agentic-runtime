@@ -9,40 +9,24 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="CreateTeamApiV1TeamsPostResponseCreateTeamApiV1TeamsPost")
-
 
 
 @_attrs_define
 class CreateTeamApiV1TeamsPostResponseCreateTeamApiV1TeamsPost:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        create_team_api_v1_teams_post_response_create_team_api_v1_teams_post = cls(
-        )
-
+        create_team_api_v1_teams_post_response_create_team_api_v1_teams_post = cls()
 
         create_team_api_v1_teams_post_response_create_team_api_v1_teams_post.additional_properties = d
         return create_team_api_v1_teams_post_response_create_team_api_v1_teams_post

@@ -9,43 +9,31 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="ListDomainsApiV1TenantDomainsGetResponseListDomainsApiV1TenantDomainsGet")
-
 
 
 @_attrs_define
 class ListDomainsApiV1TenantDomainsGetResponseListDomainsApiV1TenantDomainsGet:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        list_domains_api_v1_tenant_domains_get_response_list_domains_api_v1_tenant_domains_get = cls(
+        list_domains_api_v1_tenant_domains_get_response_list_domains_api_v1_tenant_domains_get = (
+            cls()
         )
 
-
         list_domains_api_v1_tenant_domains_get_response_list_domains_api_v1_tenant_domains_get.additional_properties = d
-        return list_domains_api_v1_tenant_domains_get_response_list_domains_api_v1_tenant_domains_get
+        return (
+            list_domains_api_v1_tenant_domains_get_response_list_domains_api_v1_tenant_domains_get
+        )
 
     @property
     def additional_keys(self) -> list[str]:

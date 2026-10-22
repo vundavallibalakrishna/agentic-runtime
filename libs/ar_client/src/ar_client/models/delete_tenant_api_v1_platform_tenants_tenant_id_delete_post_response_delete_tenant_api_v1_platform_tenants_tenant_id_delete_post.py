@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponseDeleteTenantApiV1PlatformTenantsTenantIdDeletePost")
-
+T = TypeVar(
+    "T",
+    bound="DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponseDeleteTenantApiV1PlatformTenantsTenantIdDeletePost",
+)
 
 
 @_attrs_define
 class DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponseDeleteTenantApiV1PlatformTenantsTenantIdDeletePost:
-    
-
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        delete_tenant_api_v1_platform_tenants_tenant_id_delete_post_response_delete_tenant_api_v1_platform_tenants_tenant_id_delete_post = cls(
-        )
-
+        delete_tenant_api_v1_platform_tenants_tenant_id_delete_post_response_delete_tenant_api_v1_platform_tenants_tenant_id_delete_post = cls()
 
         delete_tenant_api_v1_platform_tenants_tenant_id_delete_post_response_delete_tenant_api_v1_platform_tenants_tenant_id_delete_post.additional_properties = d
         return delete_tenant_api_v1_platform_tenants_tenant_id_delete_post_response_delete_tenant_api_v1_platform_tenants_tenant_id_delete_post

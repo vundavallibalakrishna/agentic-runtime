@@ -9,40 +9,24 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch")
-
 
 
 @_attrs_define
 class PatchTenantApiV1TenantPatchResponsePatchTenantApiV1TenantPatch:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        patch_tenant_api_v1_tenant_patch_response_patch_tenant_api_v1_tenant_patch = cls(
-        )
-
+        patch_tenant_api_v1_tenant_patch_response_patch_tenant_api_v1_tenant_patch = cls()
 
         patch_tenant_api_v1_tenant_patch_response_patch_tenant_api_v1_tenant_patch.additional_properties = d
         return patch_tenant_api_v1_tenant_patch_response_patch_tenant_api_v1_tenant_patch

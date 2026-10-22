@@ -12,30 +12,21 @@ from ..types import UNSET, Unset
 from typing import cast
 
 
-
-
-
-
 T = TypeVar("T", bound="ServiceAccountPatch")
-
 
 
 @_attrs_define
 class ServiceAccountPatch:
-    """ 
-        Attributes:
-            description (None | str | Unset):
-            status (None | str | Unset):
-            allow_on_behalf_of (bool | None | Unset):
-     """
+    """
+    Attributes:
+        description (None | str | Unset):
+        status (None | str | Unset):
+        allow_on_behalf_of (bool | None | Unset):
+    """
 
     description: None | str | Unset = UNSET
     status: None | str | Unset = UNSET
     allow_on_behalf_of: bool | None | Unset = UNSET
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         description: None | str | Unset
@@ -56,11 +47,9 @@ class ServiceAccountPatch:
         else:
             allow_on_behalf_of = self.allow_on_behalf_of
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-        })
+        field_dict.update({})
         if description is not UNSET:
             field_dict["description"] = description
         if status is not UNSET:
@@ -70,11 +59,10 @@ class ServiceAccountPatch:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -83,7 +71,6 @@ class ServiceAccountPatch:
             return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
-
 
         def _parse_status(data: object) -> None | str | Unset:
             if data is None:
@@ -94,7 +81,6 @@ class ServiceAccountPatch:
 
         status = _parse_status(d.pop("status", UNSET))
 
-
         def _parse_allow_on_behalf_of(data: object) -> bool | None | Unset:
             if data is None:
                 return data
@@ -104,7 +90,6 @@ class ServiceAccountPatch:
 
         allow_on_behalf_of = _parse_allow_on_behalf_of(d.pop("allowOnBehalfOf", UNSET))
 
-
         service_account_patch = cls(
             description=description,
             status=status,
@@ -112,4 +97,3 @@ class ServiceAccountPatch:
         )
 
         return service_account_patch
-

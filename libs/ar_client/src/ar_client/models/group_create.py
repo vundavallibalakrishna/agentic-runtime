@@ -9,41 +9,30 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="GroupCreate")
-
 
 
 @_attrs_define
 class GroupCreate:
-    """ 
-        Attributes:
-            name (str):
-     """
+    """
+    Attributes:
+        name (str):
+    """
 
     name: str
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "name": name,
-        })
+        field_dict.update(
+            {
+                "name": name,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -55,4 +44,3 @@ class GroupCreate:
         )
 
         return group_create
-

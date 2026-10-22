@@ -85,6 +85,8 @@ Canonical error codes (the `code` field is stable and is what clients switch on)
 | 415 | `unsupported_media_type` | File type not allowed |
 | 422 | `validation_failed` | Pydantic or domain validation failure |
 | 422 | `unknown_reference` | Definition references a non-existent or invisible object |
+| 422 | `pack_signature_invalid` | Content-pack signature does not match a trusted key |
+| 422 | `extension_unavailable` | Pack manifest sets `extension`, or uninstall asks to drop a pack schema, before pack migrations exist |
 | 423 | `resource_disabled` | Agent/tool/model kill switch engaged |
 | 429 | `rate_limited` | Rate limit exceeded (`Retry-After` header) |
 | 429 | `quota_exceeded` | Quota with action `block` exhausted |

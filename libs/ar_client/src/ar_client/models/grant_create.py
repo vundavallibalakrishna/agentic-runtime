@@ -11,34 +11,25 @@ from ..types import UNSET, Unset
 from ..types import UNSET, Unset
 
 
-
-
-
-
 T = TypeVar("T", bound="GrantCreate")
-
 
 
 @_attrs_define
 class GrantCreate:
-    """ 
-        Attributes:
-            operator_subject (str):
-            operator_email (str):
-            level (str):
-            reason (str):
-            hours (int | Unset):  Default: 8.
-     """
+    """
+    Attributes:
+        operator_subject (str):
+        operator_email (str):
+        level (str):
+        reason (str):
+        hours (int | Unset):  Default: 8.
+    """
 
     operator_subject: str
     operator_email: str
     level: str
     reason: str
     hours: int | Unset = 8
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         operator_subject = self.operator_subject
@@ -51,21 +42,20 @@ class GrantCreate:
 
         hours = self.hours
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "operatorSubject": operator_subject,
-            "operatorEmail": operator_email,
-            "level": level,
-            "reason": reason,
-        })
+        field_dict.update(
+            {
+                "operatorSubject": operator_subject,
+                "operatorEmail": operator_email,
+                "level": level,
+                "reason": reason,
+            }
+        )
         if hours is not UNSET:
             field_dict["hours"] = hours
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -89,4 +79,3 @@ class GrantCreate:
         )
 
         return grant_create
-

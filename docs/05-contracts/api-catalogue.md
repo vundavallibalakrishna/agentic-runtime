@@ -181,23 +181,24 @@ Spec: [05-agent-registry.md](../03-specs/05-agent-registry.md)
 | GET | [`/api/v1/agents`](../03-specs/05-agent-registry.md#get-apiv1agents) | `agents:read` | 3. Public API |
 | POST | [`/api/v1/agents`](../03-specs/05-agent-registry.md#post-apiv1agents) | `agents:create` | 3. Public API |
 | GET | [`/api/v1/agents/{agent_id}`](../03-specs/05-agent-registry.md#get-apiv1agentsagent_id) | `agents:read` | 3. Public API |
-| PATCH | [`/api/v1/agents/{agent_id}`](../03-specs/05-agent-registry.md#patch-apiv1agentsagent_id) | `agents:publish` | 3. Public API |
-| DELETE | [`/api/v1/agents/{agent_id}`](../03-specs/05-agent-registry.md#delete-apiv1agentsagent_id) | `agents:manage_all` | 3. Public API |
+| PATCH | [`/api/v1/agents/{agent_id}`](../03-specs/05-agent-registry.md#patch-apiv1agentsagent_id) | `agents:edit` | 3. Public API |
+| DELETE | [`/api/v1/agents/{agent_id}`](../03-specs/05-agent-registry.md#delete-apiv1agentsagent_id) | `agents:read` | 3. Public API |
 | POST | [`/api/v1/agents/{agent_id}:archive`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idarchive) | `agents:read` | 3. Public API |
 | POST | [`/api/v1/agents/{agent_id}:unarchive`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idunarchive) | `agents:read` | 3. Public API |
 | GET | [`/api/v1/agents/{agent_id}/versions`](../03-specs/05-agent-registry.md#get-apiv1agentsagent_idversions) | `agents:read` | 3. Public API |
 | GET | [`/api/v1/agents/{agent_id}/versions/{version_ref}`](../03-specs/05-agent-registry.md#get-apiv1agentsagent_idversionsversion_ref) | `agents:read` | 3. Public API |
-| PUT | [`/api/v1/agents/{agent_id}/versions/draft`](../03-specs/05-agent-registry.md#put-apiv1agentsagent_idversionsdraft) | `agents:read` | 3. Public API |
-| POST | [`/api/v1/agents/{agent_id}:validate`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idvalidate) | `agents:read` | 3. Public API |
-| POST | [`/api/v1/agents/{agent_id}:publish`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idpublish) | `agents:manage_all` | 3. Public API |
-| POST | [`/api/v1/agents/{agent_id}:rollback`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idrollback) | `agents:read` | 3. Public API |
+| PUT | [`/api/v1/agents/{agent_id}/versions/draft`](../03-specs/05-agent-registry.md#put-apiv1agentsagent_idversionsdraft) | `agents:edit` | 3. Public API |
+| POST | [`/api/v1/agents/{agent_id}:validate`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idvalidate) | `agents:edit` | 3. Public API |
+| POST | [`/api/v1/agents/{agent_id}:publish`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idpublish) | `agents:publish` | 3. Public API |
+| POST | [`/api/v1/agents/{agent_id}:rollback`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idrollback) | `agents:publish` | 3. Public API |
 | POST | [`/api/v1/agents/{agent_id}:duplicate`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idduplicate) | `agents:create` | 3. Public API |
 | POST | [`/api/v1/agents/{agent_id}:disable`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_iddisable) | `agents:disable` | 3. Public API |
 | POST | [`/api/v1/agents/{agent_id}:enable`](../03-specs/05-agent-registry.md#post-apiv1agentsagent_idenable) | `agents:disable` | 3. Public API |
-| GET | [`/api/v1/agents/{agent_id}/where-used`](../03-specs/05-agent-registry.md#get-apiv1agentsagent_idwhere-used) | `agents:disable` | 3. Public API |
+| GET | [`/api/v1/agents/{agent_id}/where-used`](../03-specs/05-agent-registry.md#get-apiv1agentsagent_idwhere-used) | `agents:edit` | 3. Public API |
 | POST | [`/api/v1/agents:draft-from-description`](../03-specs/05-agent-registry.md#post-apiv1agentsdraft-from-description) | `agents:create` | 3. Public API |
-| POST | [`/api/v1/bundles:import`](../03-specs/05-agent-registry.md#post-apiv1bundlesimport) | `agents:disable` | 3. Public API |
-| GET | [`/api/v1/bundles:export`](../03-specs/05-agent-registry.md#get-apiv1bundlesexport) | object-level (see spec) | 3. Public API |
+| PUT | [`/api/v1/me/agent-favourites`](../03-specs/05-agent-registry.md#put-apiv1meagent-favourites) | `agents:read` | 3. Public API |
+| POST | [`/api/v1/bundles:import`](../03-specs/05-agent-registry.md#post-apiv1bundlesimport) | `agents:create` | 3. Public API |
+| GET | [`/api/v1/bundles:export`](../03-specs/05-agent-registry.md#get-apiv1bundlesexport) | `agents:read` | 3. Public API |
 
 ## Spec 06: Conversations, messages and runs API (`ar_domain.conversations`, `ar_domain.runs`)
 

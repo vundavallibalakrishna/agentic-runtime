@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="DeleteTokenApiV1ScimTokensScimTokenIdDeleteResponseDeleteTokenApiV1ScimTokensScimTokenIdDelete")
-
+T = TypeVar(
+    "T",
+    bound="DeleteTokenApiV1ScimTokensScimTokenIdDeleteResponseDeleteTokenApiV1ScimTokensScimTokenIdDelete",
+)
 
 
 @_attrs_define
 class DeleteTokenApiV1ScimTokensScimTokenIdDeleteResponseDeleteTokenApiV1ScimTokensScimTokenIdDelete:
-    
-
     additional_properties: dict[str, bool] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        delete_token_api_v1_scim_tokens_scim_token_id_delete_response_delete_token_api_v1_scim_tokens_scim_token_id_delete = cls(
-        )
-
+        delete_token_api_v1_scim_tokens_scim_token_id_delete_response_delete_token_api_v1_scim_tokens_scim_token_id_delete = cls()
 
         delete_token_api_v1_scim_tokens_scim_token_id_delete_response_delete_token_api_v1_scim_tokens_scim_token_id_delete.additional_properties = d
         return delete_token_api_v1_scim_tokens_scim_token_id_delete_response_delete_token_api_v1_scim_tokens_scim_token_id_delete

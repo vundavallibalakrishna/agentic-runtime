@@ -8,24 +8,19 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.create_service_account_api_v1_service_accounts_post_response_create_service_account_api_v1_service_accounts_post import CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost
+from ...models.create_service_account_api_v1_service_accounts_post_response_create_service_account_api_v1_service_accounts_post import (
+    CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost,
+)
 from ...models.http_validation_error import HTTPValidationError
 from ...models.service_account_create import ServiceAccountCreate
 from typing import cast
 
 
-
 def _get_kwargs(
     *,
     body: ServiceAccountCreate,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +35,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost.from_dict(response.json())
-
-
+        response_200 = CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +60,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +78,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceAccountCreate,
-
-) -> Response[CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError]:
-    """ Create Service Account
+) -> Response[
+    CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost
+    | HTTPValidationError
+]:
+    """Create Service Account
 
     Args:
         body (ServiceAccountCreate):
@@ -88,12 +93,10 @@ def sync_detailed(
 
     Returns:
         Response[CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +105,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceAccountCreate,
-
-) -> CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError | None:
-    """ Create Service Account
+) -> (
+    CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Service Account
 
     Args:
         body (ServiceAccountCreate):
@@ -119,22 +126,23 @@ def sync(
 
     Returns:
         CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceAccountCreate,
-
-) -> Response[CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError]:
-    """ Create Service Account
+) -> Response[
+    CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost
+    | HTTPValidationError
+]:
+    """Create Service Account
 
     Args:
         body (ServiceAccountCreate):
@@ -145,27 +153,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: ServiceAccountCreate,
-
-) -> CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError | None:
-    """ Create Service Account
+) -> (
+    CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Service Account
 
     Args:
         body (ServiceAccountCreate):
@@ -176,11 +184,11 @@ async def asyncio(
 
     Returns:
         CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

@@ -9,23 +9,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.platform_create_provider_api_v1_platform_model_providers_post_response_platform_create_provider_api_v1_platform_model_providers_post import PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
+from ...models.platform_create_provider_api_v1_platform_model_providers_post_response_platform_create_provider_api_v1_platform_model_providers_post import (
+    PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost,
+)
 from ...models.provider_body import ProviderBody
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: ProviderBody,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +35,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost.from_dict(response.json())
-
-
+        response_200 = PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +60,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +78,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ProviderBody,
-
-) -> Response[HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost]:
-    """ Platform Create Provider
+) -> Response[
+    HTTPValidationError
+    | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
+]:
+    """Platform Create Provider
 
     Args:
         body (ProviderBody):
@@ -88,12 +93,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +105,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: ProviderBody,
-
-) -> HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost | None:
-    """ Platform Create Provider
+) -> (
+    HTTPValidationError
+    | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
+    | None
+):
+    """Platform Create Provider
 
     Args:
         body (ProviderBody):
@@ -119,22 +126,23 @@ def sync(
 
     Returns:
         HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: ProviderBody,
-
-) -> Response[HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost]:
-    """ Platform Create Provider
+) -> Response[
+    HTTPValidationError
+    | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
+]:
+    """Platform Create Provider
 
     Args:
         body (ProviderBody):
@@ -145,27 +153,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: ProviderBody,
-
-) -> HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost | None:
-    """ Platform Create Provider
+) -> (
+    HTTPValidationError
+    | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
+    | None
+):
+    """Platform Create Provider
 
     Args:
         body (ProviderBody):
@@ -176,11 +184,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | PlatformCreateProviderApiV1PlatformModelProvidersPostResponsePlatformCreateProviderApiV1PlatformModelProvidersPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

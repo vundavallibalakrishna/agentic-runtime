@@ -136,3 +136,57 @@ class AgentVersionBinding(Base):
         server_default=text(f"'{_ZERO}'::uuid"),
     )
     target_key: Mapped[str] = mapped_column(Text, primary_key=True, server_default=text("''"))
+
+
+class InstalledPack(Base):
+    """A content pack installed in one tenant. Spec: schema §20."""
+
+    __tablename__ = "installed_packs"
+    __table_args__ = (
+        CheckConstraint("pack_id ~ '^[a-z][a-z0-9_]{1,40}$'", name="pack_id"),
+        CheckConstraint("status IN ('installed','uninstalled')", name="status"),
+        UniqueConstraint("tenant_id", "pack_id", "version", name="uq_installed_packs_version"),
+        Index("ix_installed_packs_tenant", "tenant_id", "pack_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    pack_id: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'installed'"))
+    manifest: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    manifest_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    signature: Mapped[str | None] = mapped_column(Text)
+    signature_key_id: Mapped[str | None] = mapped_column(Text)
+    installed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    installed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+
+
+class InstalledPackResource(Base):
+    """Resource rows created by a pack install."""
+
+    __tablename__ = "installed_pack_resources"
+    __table_args__ = (
+        UniqueConstraint(
+            "pack_row_id", "kind", "slug", name="uq_installed_pack_resources_identity"
+        ),
+        Index("ix_installed_pack_resources_tenant", "tenant_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    pack_row_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("installed_packs.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    slug: Mapped[str] = mapped_column(Text, nullable=False)
+    resource_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = created_at_col()

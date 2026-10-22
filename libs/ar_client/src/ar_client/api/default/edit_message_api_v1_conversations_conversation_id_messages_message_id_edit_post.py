@@ -9,11 +9,12 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.edit_body import EditBody
-from ...models.edit_message_api_v1_conversations_conversation_id_messages_message_id_edit_post_response_edit_message_api_v1_conversations_conversation_id_messages_message_id_edit_post import EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost
+from ...models.edit_message_api_v1_conversations_conversation_id_messages_message_id_edit_post_response_edit_message_api_v1_conversations_conversation_id_messages_message_id_edit_post import (
+    EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
 from uuid import UUID
-
 
 
 def _get_kwargs(
@@ -21,18 +22,15 @@ def _get_kwargs(
     message_id: UUID,
     *,
     body: EditBody,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/conversations/{conversation_id}/messages/{message_id}:edit".format(conversation_id=quote(str(conversation_id), safe=""),message_id=quote(str(message_id), safe=""),),
+        "url": "/api/v1/conversations/{conversation_id}/messages/{message_id}:edit".format(
+            conversation_id=quote(str(conversation_id), safe=""),
+            message_id=quote(str(message_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -43,19 +41,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 202:
-        response_202 = EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost.from_dict(response.json())
-
-
+        response_202 = EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost.from_dict(
+            response.json()
+        )
 
         return response_202
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -65,7 +66,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -80,9 +86,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: EditBody,
-
-) -> Response[EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError]:
-    """ Edit Message
+) -> Response[
+    EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost
+    | HTTPValidationError
+]:
+    """Edit Message
 
     Args:
         conversation_id (UUID):
@@ -95,14 +103,12 @@ def sync_detailed(
 
     Returns:
         Response[EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
-message_id=message_id,
-body=body,
-
+        message_id=message_id,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -111,15 +117,19 @@ body=body,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     conversation_id: UUID,
     message_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: EditBody,
-
-) -> EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError | None:
-    """ Edit Message
+) -> (
+    EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost
+    | HTTPValidationError
+    | None
+):
+    """Edit Message
 
     Args:
         conversation_id (UUID):
@@ -132,16 +142,15 @@ def sync(
 
     Returns:
         EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         conversation_id=conversation_id,
-message_id=message_id,
-client=client,
-body=body,
-
+        message_id=message_id,
+        client=client,
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     conversation_id: UUID,
@@ -149,9 +158,11 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: EditBody,
-
-) -> Response[EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError]:
-    """ Edit Message
+) -> Response[
+    EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost
+    | HTTPValidationError
+]:
+    """Edit Message
 
     Args:
         conversation_id (UUID):
@@ -164,21 +175,18 @@ async def asyncio_detailed(
 
     Returns:
         Response[EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
-message_id=message_id,
-body=body,
-
+        message_id=message_id,
+        body=body,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     conversation_id: UUID,
@@ -186,9 +194,12 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: EditBody,
-
-) -> EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError | None:
-    """ Edit Message
+) -> (
+    EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost
+    | HTTPValidationError
+    | None
+):
+    """Edit Message
 
     Args:
         conversation_id (UUID):
@@ -201,13 +212,13 @@ async def asyncio(
 
     Returns:
         EditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPostResponseEditMessageApiV1ConversationsConversationIdMessagesMessageIdEditPost | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        conversation_id=conversation_id,
-message_id=message_id,
-client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            conversation_id=conversation_id,
+            message_id=message_id,
+            client=client,
+            body=body,
+        )
+    ).parsed

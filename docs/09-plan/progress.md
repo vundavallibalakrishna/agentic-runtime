@@ -50,3 +50,14 @@ M2.5-T01 | done | e29016a | design system, shell, sign-in, chat, restyled pages
 M2.5-T02 | done | e29016a | Keycloak callback and local-run bugs
 M2.5-T03 | done | e29016a | fresh-clone CI job
 M2.5-T04 | done | e29016a | checklist, screenshots, walkthrough
+
+M3-T01 | done | 8d6d5b0 | lifecycle API, access rules, audit and domain events
+M3-T02 | done | 8d6d5b0 | schema then reference validation, definition hash
+M3-T03 | done | 8d6d5b0 | prompt assembly, budget, wrapping, prompt hash
+M3-T04 | done | 8d6d5b0 | preview conversations for draft versions
+M3-T05 | done | 8d6d5b0 | bundle export and dry-run import
+M3-T06 | done | 8d6d5b0 | draft-from-description with one repair
+M3-T07 | done | 8d6d5b0 | builder UI, form and YAML, Playwright and axe
+M3-T08 | done | 8d6d5b0 | catalogue, search, filters, favourites, chat
+M3-T09 | done | 8d6d5b0 | content packs, signatures, migration 0020
+M3-T10 | done | 8d6d5b0 | builder agent, sessions, apply creates a draft

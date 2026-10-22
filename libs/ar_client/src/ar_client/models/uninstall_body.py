@@ -8,59 +8,39 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 
 
-
-
-
-
-T = TypeVar("T", bound="AgentBody")
-
+T = TypeVar("T", bound="UninstallBody")
 
 
 @_attrs_define
-class AgentBody:
-    """ 
-        Attributes:
-            slug (str):
-            name (str):
-     """
+class UninstallBody:
+    """
+    Attributes:
+        drop_schema (bool | Unset):  Default: False.
+    """
 
-    slug: str
-    name: str
-
-
-
-
+    drop_schema: bool | Unset = False
 
     def to_dict(self) -> dict[str, Any]:
-        slug = self.slug
-
-        name = self.name
-
+        drop_schema = self.drop_schema
 
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "slug": slug,
-            "name": name,
-        })
+        field_dict.update({})
+        if drop_schema is not UNSET:
+            field_dict["dropSchema"] = drop_schema
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        slug = d.pop("slug")
+        drop_schema = d.pop("dropSchema", UNSET)
 
-        name = d.pop("name")
-
-        agent_body = cls(
-            slug=slug,
-            name=name,
+        uninstall_body = cls(
+            drop_schema=drop_schema,
         )
 
-        return agent_body
-
+        return uninstall_body

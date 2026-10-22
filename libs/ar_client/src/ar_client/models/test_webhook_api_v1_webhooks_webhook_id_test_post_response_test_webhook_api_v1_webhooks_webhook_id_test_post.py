@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="TestWebhookApiV1WebhooksWebhookIdTestPostResponseTestWebhookApiV1WebhooksWebhookIdTestPost")
-
+T = TypeVar(
+    "T",
+    bound="TestWebhookApiV1WebhooksWebhookIdTestPostResponseTestWebhookApiV1WebhooksWebhookIdTestPost",
+)
 
 
 @_attrs_define
 class TestWebhookApiV1WebhooksWebhookIdTestPostResponseTestWebhookApiV1WebhooksWebhookIdTestPost:
-    
-
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        test_webhook_api_v1_webhooks_webhook_id_test_post_response_test_webhook_api_v1_webhooks_webhook_id_test_post = cls(
-        )
-
+        test_webhook_api_v1_webhooks_webhook_id_test_post_response_test_webhook_api_v1_webhooks_webhook_id_test_post = cls()
 
         test_webhook_api_v1_webhooks_webhook_id_test_post_response_test_webhook_api_v1_webhooks_webhook_id_test_post.additional_properties = d
         return test_webhook_api_v1_webhooks_webhook_id_test_post_response_test_webhook_api_v1_webhooks_webhook_id_test_post

@@ -8,35 +8,29 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.list_webhooks_api_v1_webhooks_get_response_list_webhooks_api_v1_webhooks_get import ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet
+from ...models.list_webhooks_api_v1_webhooks_get_response_list_webhooks_api_v1_webhooks_get import (
+    ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet,
+)
 from typing import cast
 
 
-
-def _get_kwargs(
-    
-) -> dict[str, Any]:
-    
-
-    
-
-    
+def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/v1/webhooks",
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet | None:
     if response.status_code == 200:
-        response_200 = ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet.from_dict(response.json())
-
-
+        response_200 = ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
@@ -46,7 +40,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -58,9 +54,8 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-
 ) -> Response[ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet]:
-    """ List Webhooks
+    """List Webhooks
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -68,12 +63,9 @@ def sync_detailed(
 
     Returns:
         Response[ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet]
-     """
+    """
 
-
-    kwargs = _get_kwargs(
-        
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -81,12 +73,12 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
-
 ) -> ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet | None:
-    """ List Webhooks
+    """List Webhooks
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,20 +86,18 @@ def sync(
 
     Returns:
         ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-
 ) -> Response[ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet]:
-    """ List Webhooks
+    """List Webhooks
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -115,25 +105,20 @@ async def asyncio_detailed(
 
     Returns:
         Response[ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet]
-     """
+    """
 
+    kwargs = _get_kwargs()
 
-    kwargs = _get_kwargs(
-        
-    )
-
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-
 ) -> ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet | None:
-    """ List Webhooks
+    """List Webhooks
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,10 +126,10 @@ async def asyncio(
 
     Returns:
         ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+        )
+    ).parsed

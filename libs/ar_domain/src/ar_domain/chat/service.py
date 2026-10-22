@@ -18,7 +18,9 @@ from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
 from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
 from ar_common.time import utcnow
+from ar_domain.agents.access import Actor
 from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
+from ar_domain.agents.service import AgentLifecycle
 from ar_domain.conversations.logic import MessageNode, activate_branch, run_is_active
 from ar_domain.files.logic import (
     MAX_UPLOAD_BYTES,
@@ -36,6 +38,7 @@ from ar_domain.models.logic import (
     resolve_alias,
     valid_alias,
 )
+from ar_domain.prompts.assembler import build_prompt
 from ar_domain.runs.logic import assemble_context, budget_exceeded, tools_not_supported
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys, record_usage
 
@@ -102,6 +105,18 @@ class ChatService:
     sse_counts: dict[str, int] = field(default_factory=dict)
     temporal_up: bool = False
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
+    bindings: dict[tuple[object, ...], dict[str, object]] = field(default_factory=dict)
+    audit_log: list[dict[str, object]] = field(default_factory=list)
+    domain_events: list[dict[str, object]] = field(default_factory=list)
+    packs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    pack_resources: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    catalogue: dict[tuple[str, str, str], dict[str, object]] = field(default_factory=dict)
+    favourites: dict[tuple[uuid.UUID, uuid.UUID], set[uuid.UUID]] = field(default_factory=dict)
+    builder_sessions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    builder_scripts: list[str] = field(default_factory=list)
+    builder_strict: bool = False
+    pack_signature_required: bool = False
+    pack_trusted_keys: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -136,6 +151,7 @@ class ChatService:
             alias_id = demo_id(f"alias-{alias}")
             self.aliases[alias_id] = self._alias(alias_id, None, alias, kind, model_id)
         self.ensure_assistant(demo_id("tenant"), demo_id("admin"))
+        AgentLifecycle(self).ensure_builtins(demo_id("tenant"), demo_id("admin"))
 
     def seed_showcase(self) -> None:
         """Example threads for the dev admin so the first screen is not empty.
@@ -678,34 +694,23 @@ class ChatService:
     def publish(
         self, tenant_id: uuid.UUID, agent_id: uuid.UUID, user_id: uuid.UUID
     ) -> dict[str, object]:
-        agent = self._require(self.agents, agent_id, tenant_id)
-        draft_id = agent.get("draft_version_id") or agent.get("published_version_id")
-        if not isinstance(draft_id, uuid.UUID):
-            raise ArError(ErrorCode.INVALID_STATE, "nothing to publish")
-        version = self.versions[draft_id]
-        definition = version["definition"]
-        if not isinstance(definition, dict):
-            raise ArError(ErrorCode.VALIDATION_FAILED, "definition is invalid")
-        model = definition.get("model", {})
-        alias = model.get("alias") if isinstance(model, dict) else None
-        if not isinstance(alias, str) or self.resolve(tenant_id, alias) is None:
-            raise ArError(ErrorCode.UNKNOWN_REFERENCE, "model alias is unknown")
-        if tools_not_supported(definition):
-            raise ArError(ErrorCode.INVALID_STATE, "tools are not available yet")
-        version["state"] = "published"
-        version["published_at"] = utcnow()
-        version["published_by"] = user_id
-        agent["published_version_id"] = draft_id
-        agent["status"] = "published"
-        agent["draft_version_id"] = None
-        return self._agent_out(agent)
+        actor = Actor(
+            tenant_id,
+            user_id,
+            frozenset({"agents:manage_all", "agents:publish", "agents:edit", "agents:create"}),
+        )
+        return AgentLifecycle(self).publish(actor, agent_id)
 
     def list_versions(self, tenant_id: uuid.UUID, agent_id: uuid.UUID) -> list[dict[str, object]]:
         self._require(self.agents, agent_id, tenant_id)
         return [self._public(row) for row in self.versions.values() if row["agent_id"] == agent_id]
 
     def list_conversations(
-        self, tenant_id: uuid.UUID, user_id: uuid.UUID
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        include_previews: bool = False,
     ) -> list[dict[str, object]]:
         rows = [
             self._public(row)
@@ -713,6 +718,7 @@ class ChatService:
             if row["tenant_id"] == tenant_id
             and row["user_id"] == user_id
             and row.get("deleted_at") is None
+            and (include_previews or not row.get("is_preview"))
         ]
         rows.sort(key=lambda item: str(item.get("updated_at")), reverse=True)
         return rows
@@ -732,6 +738,8 @@ class ChatService:
             "title": "New chat",
             "status": "active",
             "pinned": False,
+            "is_preview": False,
+            "agent_version_id": agent.get("published_version_id"),
             "active_run_id": None,
             "created_at": now,
             "updated_at": now,
@@ -754,6 +762,8 @@ class ChatService:
         if agent is None or agent["tenant_id"] != tenant_id:
             raise NotFoundError("agent not found")
         view = self._view(agent)
+        if agent.get("disabled"):
+            raise ArError(ErrorCode.RESOURCE_DISABLED, "agent is disabled")
         if not can_start_run(
             view,
             can_see=can_see_agent(
@@ -837,9 +847,9 @@ class ChatService:
         nodes = [
             MessageNode(
                 id=str(row["id"]),
-                parent_id=None
-                if row["parent_message_id"] is None
-                else str(row["parent_message_id"]),
+                parent_id=(
+                    None if row["parent_message_id"] is None else str(row["parent_message_id"])
+                ),
                 is_active=bool(row["is_active_branch"]),
             )
             for row in self.messages.values()
@@ -867,6 +877,9 @@ class ChatService:
         schedule: bool = True,
     ) -> dict[str, object]:
         conversation = self._owned_conversation(tenant_id, user_id, conversation_id)
+        agent_id = conversation.get("agent_id")
+        if isinstance(agent_id, uuid.UUID):
+            AgentLifecycle(self).assert_runnable(tenant_id, agent_id)
         active = conversation.get("active_run_id")
         if isinstance(active, uuid.UUID):
             run = self.runs.get(active)
@@ -946,6 +959,7 @@ class ChatService:
             "input_message_id": message_id,
             "status": "queued",
             "trigger": trigger,
+            "label": "preview" if conversation.get("is_preview") else None,
             "temporal_workflow_id": f"run-{run_id}",
             "temporal_started": self.temporal_up,
             "callback_url": callback_url,
@@ -971,26 +985,63 @@ class ChatService:
             return
         self.tasks.append(loop.create_task(self.generate(run_id, text, names)))
 
+    def _prepare_run(
+        self,
+        run: dict[str, object],
+        conversation: dict[str, object],
+        agent: dict[str, object],
+        text: str,
+        names: list[str],
+    ) -> None:
+        """Resolve the version, store the prompt hash, and mark the run running."""
+        if agent.get("disabled"):
+            raise ArError(ErrorCode.RESOURCE_DISABLED, "agent is disabled")
+        version_key = conversation.get("agent_version_id") or agent.get("published_version_id")
+        if not isinstance(version_key, uuid.UUID):
+            version_key = agent.get("draft_version_id")
+        version = self.versions[uuid.UUID(str(version_key))]
+        definition = version["definition"] if isinstance(version["definition"], dict) else {}
+        instructions = str(definition.get("instructions", ""))
+        assemble_context(
+            instructions=instructions,
+            history=[{"role": "user", "content": text}],
+            attachment_names=names,
+        )
+        self._store_prompt(run, definition, text, names)
+        run["status"] = "running"
+        run["started_at"] = utcnow()
+
+    def _store_prompt(
+        self,
+        run: dict[str, object],
+        definition: dict[str, object],
+        text: str,
+        names: list[str],
+    ) -> None:
+        """Record ``detail.prompt_hash``. The prompt text stays out of the step."""
+        bundle = build_prompt(
+            {
+                "definition": definition,
+                "user_text": text,
+                "files": names,
+                "history": [{"role": "user", "content": text}],
+            }
+        )
+        digest = bundle.prompt_hash
+        steps = run.get("steps")
+        if not isinstance(steps, list):
+            steps = []
+            run["steps"] = steps
+        steps.append({"kind": "model", "detail": {"prompt_hash": digest}})
+
     async def generate(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
         conversation = self.conversations[uuid.UUID(str(run["conversation_id"]))]
         agent = self.agents[uuid.UUID(str(conversation["agent_id"]))]
-        version = self.versions[uuid.UUID(str(agent["published_version_id"]))]
-        definition = version["definition"]
-        instructions = ""
-        if isinstance(definition, dict):
-            instructions = str(definition.get("instructions", ""))
-        history = assemble_context(
-            instructions=instructions,
-            history=[{"role": "user", "content": text}],
-            attachment_names=names,
-        )
-        del history
+        self._prepare_run(run, conversation, agent, text, names)
         assistant_id = uuid.UUID(str(run["assistant_message_id"]))
         assistant = self.messages[assistant_id]
-        run["status"] = "running"
-        run["started_at"] = utcnow()
         self._emit(run, "run.started", {"model_alias": "reasoning"})
         self._emit(
             run,
@@ -1201,11 +1252,21 @@ class ChatService:
         return self._public(run)
 
     def list_runs(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> list[dict[str, object]]:
-        return [
-            self._public(row)
-            for row in self.runs.values()
-            if row["tenant_id"] == tenant_id and row["user_id"] == user_id
-        ]
+        listed: list[dict[str, object]] = []
+        for row in self.runs.values():
+            if row["tenant_id"] != tenant_id or row["user_id"] != user_id:
+                continue
+            body = self._public(row)
+            conversation_id = row.get("conversation_id")
+            conversation = (
+                self.conversations.get(conversation_id)
+                if isinstance(conversation_id, uuid.UUID)
+                else None
+            )
+            if isinstance(conversation, dict) and conversation.get("is_preview"):
+                body["label"] = "preview"
+            listed.append(body)
+        return listed
 
     def list_steps(self, tenant_id: uuid.UUID, run_id: uuid.UUID) -> list[dict[str, object]]:
         self.get_run(tenant_id, run_id)
@@ -1281,9 +1342,9 @@ class ChatService:
         nodes = [
             MessageNode(
                 id=str(row["id"]),
-                parent_id=None
-                if row["parent_message_id"] is None
-                else str(row["parent_message_id"]),
+                parent_id=(
+                    None if row["parent_message_id"] is None else str(row["parent_message_id"])
+                ),
                 is_active=bool(row["is_active_branch"]),
             )
             for row in self.messages.values()

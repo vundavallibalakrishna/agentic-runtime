@@ -9,44 +9,43 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.tool_calls_api_v1_runs_run_id_tool_calls_get_response_tool_calls_api_v1_runs_run_id_tool_calls_get import ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
+from ...models.tool_calls_api_v1_runs_run_id_tool_calls_get_response_tool_calls_api_v1_runs_run_id_tool_calls_get import (
+    ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     run_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/runs/{run_id}/tool-calls".format(run_id=quote(str(run_id), safe=""),),
+        "url": "/api/v1/runs/{run_id}/tool-calls".format(
+            run_id=quote(str(run_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
+    | None
+):
     if response.status_code == 200:
-        response_200 = ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet.from_dict(response.json())
-
-
+        response_200 = ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet]:
-    """ Tool Calls
+) -> Response[
+    HTTPValidationError
+    | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
+]:
+    """Tool Calls
 
     Args:
         run_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         run_id=run_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet | None:
-    """ Tool Calls
+) -> (
+    HTTPValidationError
+    | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
+    | None
+):
+    """Tool Calls
 
     Args:
         run_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
-     """
-
+    """
 
     return sync_detailed(
         run_id=run_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet]:
-    """ Tool Calls
+) -> Response[
+    HTTPValidationError
+    | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
+]:
+    """Tool Calls
 
     Args:
         run_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         run_id=run_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet | None:
-    """ Tool Calls
+) -> (
+    HTTPValidationError
+    | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
+    | None
+):
+    """Tool Calls
 
     Args:
         run_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        run_id=run_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            run_id=run_id,
+            client=client,
+        )
+    ).parsed

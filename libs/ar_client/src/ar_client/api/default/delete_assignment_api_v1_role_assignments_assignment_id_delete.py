@@ -8,45 +8,44 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.delete_assignment_api_v1_role_assignments_assignment_id_delete_response_delete_assignment_api_v1_role_assignments_assignment_id_delete import DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete
+from ...models.delete_assignment_api_v1_role_assignments_assignment_id_delete_response_delete_assignment_api_v1_role_assignments_assignment_id_delete import (
+    DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     assignment_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": "/api/v1/role-assignments/{assignment_id}".format(assignment_id=quote(str(assignment_id), safe=""),),
+        "url": "/api/v1/role-assignments/{assignment_id}".format(
+            assignment_id=quote(str(assignment_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete.from_dict(response.json())
-
-
+        response_200 = DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     assignment_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError]:
-    """ Delete Assignment
+) -> Response[
+    DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete
+    | HTTPValidationError
+]:
+    """Delete Assignment
 
     Args:
         assignment_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         assignment_id=assignment_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     assignment_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError | None:
-    """ Delete Assignment
+) -> (
+    DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete
+    | HTTPValidationError
+    | None
+):
+    """Delete Assignment
 
     Args:
         assignment_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         assignment_id=assignment_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     assignment_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError]:
-    """ Delete Assignment
+) -> Response[
+    DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete
+    | HTTPValidationError
+]:
+    """Delete Assignment
 
     Args:
         assignment_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         assignment_id=assignment_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     assignment_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError | None:
-    """ Delete Assignment
+) -> (
+    DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete
+    | HTTPValidationError
+    | None
+):
+    """Delete Assignment
 
     Args:
         assignment_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        assignment_id=assignment_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            assignment_id=assignment_id,
+            client=client,
+        )
+    ).parsed

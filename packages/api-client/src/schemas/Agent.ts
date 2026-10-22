@@ -203,6 +203,8 @@ export type Toolresultmaxtokens = number;
 export type Historymaxmessages = number;
 export type Citations = "required" | "preferred" | "off";
 export type Showreasoning = boolean;
+export type Grounding = "off" | "preferred" | "strict";
+export type Recordmode = "off" | "on";
 export type Piimasking = boolean;
 export type Injectionclassifier = boolean;
 export type Web = boolean;
@@ -230,6 +232,7 @@ export interface AgentDefinition {
   budget: RunBudget;
   context?: ContextSpec;
   output?: OutputSpec;
+  assurance?: AssuranceSpec;
   safety?: SafetySpec;
   channels?: ChannelFlags;
 }
@@ -248,7 +251,7 @@ export interface Persona {
  */
 export interface ModelSpec {
   alias: Alias;
-  fastAlias: Fastalias;
+  fastAlias?: Fastalias;
   visionAlias?: Visionalias;
   params?: ModelParams;
   degradeToFast?: Degradetofast;
@@ -331,6 +334,10 @@ export interface ContextSpec {
 export interface OutputSpec {
   citations?: Citations;
   showReasoning?: Showreasoning;
+  grounding?: Grounding;
+}
+export interface AssuranceSpec {
+  recordMode?: Recordmode;
 }
 export interface SafetySpec {
   piiMasking?: Piimasking;
@@ -343,6 +350,13 @@ export interface ChannelFlags {
   email?: Email;
   api?: Api;
   widget?: Widget;
+}
+/**
+ * This interface was referenced by `AgentDefinition`'s JSON-Schema
+ * via the `definition` "AssuranceSpec".
+ */
+export interface AssuranceSpec1 {
+  recordMode?: Recordmode;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -403,6 +417,7 @@ export interface ModelParams1 {
 export interface OutputSpec1 {
   citations?: Citations;
   showReasoning?: Showreasoning;
+  grounding?: Grounding;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema

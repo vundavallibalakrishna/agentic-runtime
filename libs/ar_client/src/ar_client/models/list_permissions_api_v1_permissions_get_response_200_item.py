@@ -9,40 +9,24 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="ListPermissionsApiV1PermissionsGetResponse200Item")
-
 
 
 @_attrs_define
 class ListPermissionsApiV1PermissionsGetResponse200Item:
-    
-
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        list_permissions_api_v1_permissions_get_response_200_item = cls(
-        )
-
+        list_permissions_api_v1_permissions_get_response_200_item = cls()
 
         list_permissions_api_v1_permissions_get_response_200_item.additional_properties = d
         return list_permissions_api_v1_permissions_get_response_200_item

@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="DeleteFeedbackApiV1MessagesMessageIdFeedbackDeleteResponseDeleteFeedbackApiV1MessagesMessageIdFeedbackDelete")
-
+T = TypeVar(
+    "T",
+    bound="DeleteFeedbackApiV1MessagesMessageIdFeedbackDeleteResponseDeleteFeedbackApiV1MessagesMessageIdFeedbackDelete",
+)
 
 
 @_attrs_define
 class DeleteFeedbackApiV1MessagesMessageIdFeedbackDeleteResponseDeleteFeedbackApiV1MessagesMessageIdFeedbackDelete:
-    
-
     additional_properties: dict[str, bool] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        delete_feedback_api_v1_messages_message_id_feedback_delete_response_delete_feedback_api_v1_messages_message_id_feedback_delete = cls(
-        )
-
+        delete_feedback_api_v1_messages_message_id_feedback_delete_response_delete_feedback_api_v1_messages_message_id_feedback_delete = cls()
 
         delete_feedback_api_v1_messages_message_id_feedback_delete_response_delete_feedback_api_v1_messages_message_id_feedback_delete.additional_properties = d
         return delete_feedback_api_v1_messages_message_id_feedback_delete_response_delete_feedback_api_v1_messages_message_id_feedback_delete

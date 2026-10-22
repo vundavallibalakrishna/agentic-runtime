@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost")
-
+T = TypeVar(
+    "T",
+    bound="RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost",
+)
 
 
 @_attrs_define
 class RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost:
-    
-
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post = cls(
-        )
-
+        redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post = cls()
 
         redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post.additional_properties = d
         return redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post

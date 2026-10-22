@@ -12,35 +12,28 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.plan_body_limits import PlanBodyLimits
-
-
-
+    from ..models.plan_body_limits import PlanBodyLimits
 
 
 T = TypeVar("T", bound="PlanBody")
 
 
-
 @_attrs_define
 class PlanBody:
-    """ 
-        Attributes:
-            key (str):
-            name (str):
-            limits (PlanBodyLimits | Unset):
-     """
+    """
+    Attributes:
+        key (str):
+        name (str):
+        limits (PlanBodyLimits | Unset):
+    """
 
     key: str
     name: str
     limits: PlanBodyLimits | Unset = UNSET
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.plan_body_limits import PlanBodyLimits # noqa: PLC0415
+        from ..models.plan_body_limits import PlanBodyLimits  # noqa: PLC0415
+
         key = self.key
 
         name = self.name
@@ -49,23 +42,23 @@ class PlanBody:
         if not isinstance(self.limits, Unset):
             limits = self.limits.to_dict()
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "key": key,
-            "name": name,
-        })
+        field_dict.update(
+            {
+                "key": key,
+                "name": name,
+            }
+        )
         if limits is not UNSET:
             field_dict["limits"] = limits
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.plan_body_limits import PlanBodyLimits # noqa: PLC0415
+        from ..models.plan_body_limits import PlanBodyLimits  # noqa: PLC0415
+
         d = dict(src_dict)
         key = d.pop("key")
 
@@ -73,13 +66,10 @@ class PlanBody:
 
         _limits = d.pop("limits", UNSET)
         limits: PlanBodyLimits | Unset
-        if isinstance(_limits,  Unset):
+        if isinstance(_limits, Unset):
             limits = UNSET
         else:
             limits = PlanBodyLimits.from_dict(_limits)
-
-
-
 
         plan_body = cls(
             key=key,
@@ -88,4 +78,3 @@ class PlanBody:
         )
 
         return plan_body
-

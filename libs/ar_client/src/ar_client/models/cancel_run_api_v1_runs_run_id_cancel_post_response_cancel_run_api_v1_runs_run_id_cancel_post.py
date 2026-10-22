@@ -9,40 +9,24 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="CancelRunApiV1RunsRunIdCancelPostResponseCancelRunApiV1RunsRunIdCancelPost")
-
 
 
 @_attrs_define
 class CancelRunApiV1RunsRunIdCancelPostResponseCancelRunApiV1RunsRunIdCancelPost:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        cancel_run_api_v1_runs_run_id_cancel_post_response_cancel_run_api_v1_runs_run_id_cancel_post = cls(
-        )
-
+        cancel_run_api_v1_runs_run_id_cancel_post_response_cancel_run_api_v1_runs_run_id_cancel_post = cls()
 
         cancel_run_api_v1_runs_run_id_cancel_post_response_cancel_run_api_v1_runs_run_id_cancel_post.additional_properties = d
         return cancel_run_api_v1_runs_run_id_cancel_post_response_cancel_run_api_v1_runs_run_id_cancel_post

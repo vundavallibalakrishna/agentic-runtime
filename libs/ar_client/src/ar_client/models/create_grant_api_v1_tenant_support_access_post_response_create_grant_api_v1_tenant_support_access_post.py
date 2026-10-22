@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="CreateGrantApiV1TenantSupportAccessPostResponseCreateGrantApiV1TenantSupportAccessPost")
-
+T = TypeVar(
+    "T",
+    bound="CreateGrantApiV1TenantSupportAccessPostResponseCreateGrantApiV1TenantSupportAccessPost",
+)
 
 
 @_attrs_define
 class CreateGrantApiV1TenantSupportAccessPostResponseCreateGrantApiV1TenantSupportAccessPost:
-    
-
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        create_grant_api_v1_tenant_support_access_post_response_create_grant_api_v1_tenant_support_access_post = cls(
-        )
-
+        create_grant_api_v1_tenant_support_access_post_response_create_grant_api_v1_tenant_support_access_post = cls()
 
         create_grant_api_v1_tenant_support_access_post_response_create_grant_api_v1_tenant_support_access_post.additional_properties = d
         return create_grant_api_v1_tenant_support_access_post_response_create_grant_api_v1_tenant_support_access_post

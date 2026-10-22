@@ -9,29 +9,26 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.patch_user_api_v1_users_user_id_patch_response_patch_user_api_v1_users_user_id_patch import PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
+from ...models.patch_user_api_v1_users_user_id_patch_response_patch_user_api_v1_users_user_id_patch import (
+    PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch,
+)
 from ...models.user_patch import UserPatch
 from typing import cast
 from uuid import UUID
-
 
 
 def _get_kwargs(
     user_id: UUID,
     *,
     body: UserPatch,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/api/v1/users/{user_id}".format(user_id=quote(str(user_id), safe=""),),
+        "url": "/api/v1/users/{user_id}".format(
+            user_id=quote(str(user_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -42,19 +39,24 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
+    | None
+):
     if response.status_code == 200:
-        response_200 = PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch.from_dict(response.json())
-
-
+        response_200 = (
+            PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch.from_dict(
+                response.json()
+            )
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -64,7 +66,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,9 +84,10 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: UserPatch,
-
-) -> Response[HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch]:
-    """ Patch User
+) -> Response[
+    HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
+]:
+    """Patch User
 
     Args:
         user_id (UUID):
@@ -92,13 +99,11 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         user_id=user_id,
-body=body,
-
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -107,14 +112,18 @@ body=body,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     user_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: UserPatch,
-
-) -> HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch | None:
-    """ Patch User
+) -> (
+    HTTPValidationError
+    | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
+    | None
+):
+    """Patch User
 
     Args:
         user_id (UUID):
@@ -126,24 +135,24 @@ def sync(
 
     Returns:
         HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
-     """
-
+    """
 
     return sync_detailed(
         user_id=user_id,
-client=client,
-body=body,
-
+        client=client,
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     user_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: UserPatch,
-
-) -> Response[HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch]:
-    """ Patch User
+) -> Response[
+    HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
+]:
+    """Patch User
 
     Args:
         user_id (UUID):
@@ -155,29 +164,29 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         user_id=user_id,
-body=body,
-
+        body=body,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     user_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: UserPatch,
-
-) -> HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch | None:
-    """ Patch User
+) -> (
+    HTTPValidationError
+    | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
+    | None
+):
+    """Patch User
 
     Args:
         user_id (UUID):
@@ -189,12 +198,12 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | PatchUserApiV1UsersUserIdPatchResponsePatchUserApiV1UsersUserIdPatch
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        user_id=user_id,
-client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            user_id=user_id,
+            client=client,
+            body=body,
+        )
+    ).parsed
