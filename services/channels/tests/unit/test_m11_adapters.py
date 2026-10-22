@@ -50,7 +50,7 @@ def _client() -> TestClient:
             "kind": "slack",
             "config": {"team_id": "T1", "allowed_channel_ids": []},
             "credentials": {
-                "signing_secret": "8f742231b10e8888abcd99yyyzzz7777",
+                "signing_secret": "demo-signing-secret",
                 "bot_token": "xoxb-demo",
             },
         }
@@ -138,14 +138,14 @@ def test_http_bridge_and_slack_command() -> None:
     response = client.post(
         "/channels/slack/commands",
         content=body,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", body),
+        headers=_sign("demo-signing-secret", body),
     )
     assert response.json()["response_type"] == "ephemeral"
     challenge = json.dumps({"type": "url_verification", "team_id": "T1", "challenge": "c"}).encode()
     checked = client.post(
         "/channels/slack/events",
         content=challenge,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", challenge),
+        headers=_sign("demo-signing-secret", challenge),
     )
     assert checked.json()["challenge"] == "c"
     client.app.state.bridge = _Bridge({"action": "busy"})
@@ -160,7 +160,7 @@ def test_http_bridge_and_slack_command() -> None:
     busy = client.post(
         "/channels/slack/events",
         content=busy_body,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", busy_body),
+        headers=_sign("demo-signing-secret", busy_body),
     )
     assert busy.json()["action"] == "busy"
     client.app.state.bridge = _Bridge({"action": "unavailable"})
@@ -175,7 +175,7 @@ def test_http_bridge_and_slack_command() -> None:
     down = client.post(
         "/channels/slack/events",
         content=down_body,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", down_body),
+        headers=_sign("demo-signing-secret", down_body),
     )
     assert down.json()["action"] == "unavailable"
     empty = create_application()
@@ -193,7 +193,7 @@ def test_http_bridge_and_slack_command() -> None:
     ignored = client.post(
         "/channels/slack/events",
         content=bot_body,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", bot_body),
+        headers=_sign("demo-signing-secret", bot_body),
     )
     assert ignored.json()["ignored"] == "ignore"
     mailbox = InProcessMailbox()
@@ -229,7 +229,7 @@ def test_slack_cycle_link_prompt_and_approval() -> None:
             },
         }
     ).encode()
-    headers = _sign("8f742231b10e8888abcd99yyyzzz7777", body)
+    headers = _sign("demo-signing-secret", body)
     first = client.post("/channels/slack/events", content=body, headers=headers)
     assert first.status_code == 200
     assert first.json()["run_id"] == "r1"
@@ -237,7 +237,7 @@ def test_slack_cycle_link_prompt_and_approval() -> None:
     duplicate = client.post(
         "/channels/slack/events",
         content=body,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", body),
+        headers=_sign("demo-signing-secret", body),
     )
     assert duplicate.json()["duplicate"] is True
     bad = client.post(
@@ -269,7 +269,7 @@ def test_slack_cycle_link_prompt_and_approval() -> None:
     linked = client.post(
         "/channels/slack/events",
         content=fresh,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", fresh),
+        headers=_sign("demo-signing-secret", fresh),
     )
     assert linked.json()["action"] == "link_required"
     assert any(
@@ -286,7 +286,7 @@ def test_slack_cycle_link_prompt_and_approval() -> None:
     decision = client.post(
         "/channels/slack/interactions",
         content=form,
-        headers=_sign("8f742231b10e8888abcd99yyyzzz7777", form),
+        headers=_sign("demo-signing-secret", form),
     )
     assert decision.json()["result"] == "approved"
 
