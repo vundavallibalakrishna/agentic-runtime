@@ -1545,6 +1545,58 @@ export type QueuePatch = {
 };
 
 /**
+ * QuotaBody
+ */
+export type QuotaBody = {
+    /**
+     * Scopetype
+     */
+    scopeType: string;
+    /**
+     * Scopeid
+     */
+    scopeId?: string | null;
+    /**
+     * Metric
+     */
+    metric: string;
+    /**
+     * Period
+     */
+    period: string;
+    /**
+     * Limitvalue
+     */
+    limitValue: number;
+    /**
+     * Action
+     */
+    action?: string;
+    /**
+     * Warnatpct
+     */
+    warnAtPct?: number;
+};
+
+/**
+ * QuotaPatch
+ */
+export type QuotaPatch = {
+    /**
+     * Limitvalue
+     */
+    limitValue?: number | null;
+    /**
+     * Action
+     */
+    action?: string | null;
+    /**
+     * Warnatpct
+     */
+    warnAtPct?: number | null;
+};
+
+/**
  * ReasonBody
  */
 export type ReasonBody = {
@@ -5397,6 +5449,84 @@ export type DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses = {
 };
 
 export type DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponse = DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses[keyof DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses];
+
+export type PlatformUsageApiV1PlatformUsageGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Group By
+         */
+        group_by?: string;
+        /**
+         * From
+         */
+        from?: string | null;
+        /**
+         * To
+         */
+        to?: string | null;
+    };
+    url: '/api/v1/platform/usage';
+};
+
+export type PlatformUsageApiV1PlatformUsageGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlatformUsageApiV1PlatformUsageGetError = PlatformUsageApiV1PlatformUsageGetErrors[keyof PlatformUsageApiV1PlatformUsageGetErrors];
+
+export type PlatformUsageApiV1PlatformUsageGetResponses = {
+    /**
+     * Response Platform Usage Api V1 Platform Usage Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PlatformUsageApiV1PlatformUsageGetResponse = PlatformUsageApiV1PlatformUsageGetResponses[keyof PlatformUsageApiV1PlatformUsageGetResponses];
+
+export type PlatformExportApiV1PlatformUsageExportGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Group By
+         */
+        group_by?: string;
+        /**
+         * From
+         */
+        from?: string | null;
+        /**
+         * To
+         */
+        to?: string | null;
+    };
+    url: '/api/v1/platform/usage/export';
+};
+
+export type PlatformExportApiV1PlatformUsageExportGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PlatformExportApiV1PlatformUsageExportGetError = PlatformExportApiV1PlatformUsageExportGetErrors[keyof PlatformExportApiV1PlatformUsageExportGetErrors];
+
+export type PlatformExportApiV1PlatformUsageExportGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type ListPlansApiV1PlatformPlansGetData = {
     body?: never;
@@ -13196,6 +13326,249 @@ export type ChannelEventsInternalV1ChannelsEventsPostResponses = {
 };
 
 export type ChannelEventsInternalV1ChannelsEventsPostResponse = ChannelEventsInternalV1ChannelsEventsPostResponses[keyof ChannelEventsInternalV1ChannelsEventsPostResponses];
+
+export type ListQuotasApiV1QuotasGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/quotas';
+};
+
+export type ListQuotasApiV1QuotasGetResponses = {
+    /**
+     * Response List Quotas Api V1 Quotas Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListQuotasApiV1QuotasGetResponse = ListQuotasApiV1QuotasGetResponses[keyof ListQuotasApiV1QuotasGetResponses];
+
+export type CreateQuotaApiV1QuotasPostData = {
+    body: QuotaBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/quotas';
+};
+
+export type CreateQuotaApiV1QuotasPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateQuotaApiV1QuotasPostError = CreateQuotaApiV1QuotasPostErrors[keyof CreateQuotaApiV1QuotasPostErrors];
+
+export type CreateQuotaApiV1QuotasPostResponses = {
+    /**
+     * Response Create Quota Api V1 Quotas Post
+     *
+     * Successful Response
+     */
+    201: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateQuotaApiV1QuotasPostResponse = CreateQuotaApiV1QuotasPostResponses[keyof CreateQuotaApiV1QuotasPostResponses];
+
+export type DeleteQuotaApiV1QuotasQuotaIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Quota Id
+         */
+        quota_id: string;
+    };
+    query?: never;
+    url: '/api/v1/quotas/{quota_id}';
+};
+
+export type DeleteQuotaApiV1QuotasQuotaIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteQuotaApiV1QuotasQuotaIdDeleteError = DeleteQuotaApiV1QuotasQuotaIdDeleteErrors[keyof DeleteQuotaApiV1QuotasQuotaIdDeleteErrors];
+
+export type DeleteQuotaApiV1QuotasQuotaIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteQuotaApiV1QuotasQuotaIdDeleteResponse = DeleteQuotaApiV1QuotasQuotaIdDeleteResponses[keyof DeleteQuotaApiV1QuotasQuotaIdDeleteResponses];
+
+export type PatchQuotaApiV1QuotasQuotaIdPatchData = {
+    body: QuotaPatch;
+    path: {
+        /**
+         * Quota Id
+         */
+        quota_id: string;
+    };
+    query?: never;
+    url: '/api/v1/quotas/{quota_id}';
+};
+
+export type PatchQuotaApiV1QuotasQuotaIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchQuotaApiV1QuotasQuotaIdPatchError = PatchQuotaApiV1QuotasQuotaIdPatchErrors[keyof PatchQuotaApiV1QuotasQuotaIdPatchErrors];
+
+export type PatchQuotaApiV1QuotasQuotaIdPatchResponses = {
+    /**
+     * Response Patch Quota Api V1 Quotas  Quota Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchQuotaApiV1QuotasQuotaIdPatchResponse = PatchQuotaApiV1QuotasQuotaIdPatchResponses[keyof PatchQuotaApiV1QuotasQuotaIdPatchResponses];
+
+export type UsageSummaryApiV1UsageSummaryGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Group By
+         */
+        group_by?: string;
+        /**
+         * From
+         */
+        from?: string | null;
+        /**
+         * To
+         */
+        to?: string | null;
+        /**
+         * Metric
+         */
+        metric?: string | null;
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+        /**
+         * User Id
+         */
+        user_id?: string | null;
+        /**
+         * Team Id
+         */
+        team_id?: string | null;
+    };
+    url: '/api/v1/usage/summary';
+};
+
+export type UsageSummaryApiV1UsageSummaryGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UsageSummaryApiV1UsageSummaryGetError = UsageSummaryApiV1UsageSummaryGetErrors[keyof UsageSummaryApiV1UsageSummaryGetErrors];
+
+export type UsageSummaryApiV1UsageSummaryGetResponses = {
+    /**
+     * Response Usage Summary Api V1 Usage Summary Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type UsageSummaryApiV1UsageSummaryGetResponse = UsageSummaryApiV1UsageSummaryGetResponses[keyof UsageSummaryApiV1UsageSummaryGetResponses];
+
+export type UsageExportApiV1UsageExportGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Group By
+         */
+        group_by?: string;
+        /**
+         * From
+         */
+        from?: string | null;
+        /**
+         * To
+         */
+        to?: string | null;
+        /**
+         * Metric
+         */
+        metric?: string | null;
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+        /**
+         * User Id
+         */
+        user_id?: string | null;
+        /**
+         * Team Id
+         */
+        team_id?: string | null;
+    };
+    url: '/api/v1/usage/export';
+};
+
+export type UsageExportApiV1UsageExportGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UsageExportApiV1UsageExportGetError = UsageExportApiV1UsageExportGetErrors[keyof UsageExportApiV1UsageExportGetErrors];
+
+export type UsageExportApiV1UsageExportGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type MyUsageApiV1MeUsageGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/usage';
+};
+
+export type MyUsageApiV1MeUsageGetResponses = {
+    /**
+     * Response My Usage Api V1 Me Usage Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type MyUsageApiV1MeUsageGetResponse = MyUsageApiV1MeUsageGetResponses[keyof MyUsageApiV1MeUsageGetResponses];
 
 export type ListIntegrationsApiV1ChannelIntegrationsGetData = {
     body?: never;

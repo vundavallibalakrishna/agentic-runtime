@@ -285,7 +285,11 @@ export function ChatScreen() {
       setAttachmentId("");
       setAttachmentName("");
     } catch (error) {
-      setBanner(error instanceof Error ? error.message : t("error"));
+      const message = error instanceof Error ? error.message : t("error");
+      setBanner(message);
+      if (message.toLowerCase().includes("quota")) {
+        setMessages((current) => current.filter((item) => !item.id.startsWith("local-")));
+      }
       setStream((current) => ({ ...current, status: "failed" }));
     }
   }

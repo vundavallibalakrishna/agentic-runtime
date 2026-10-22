@@ -1,5 +1,6 @@
 """Authenticate, tenant guard, CSRF and rate limit. Spec: docs/03-specs/01-api-bff.md §4."""
 
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ar_api.auth.csrf import csrf_ok, origin_ok
@@ -148,6 +149,11 @@ class RateLimitMiddleware:
             )
             await response(scope, receive, send)
             return
+        used = max(int(decision.limit) - int(decision.remaining) - 1, 0)
+        blocked = _plan_rpm(scope, principal, used, path)
+        if blocked is not None:
+            await blocked(scope, receive, send)
+            return
 
         async def send_limits(message: dict[str, object]) -> None:
             if message["type"] == "http.response.start":
@@ -164,6 +170,22 @@ class RateLimitMiddleware:
             await send(message)
 
         await self.app(scope, receive, send_limits)  # type: ignore[arg-type]
+
+
+def _plan_rpm(scope: Scope, principal: object, used: int, path: str) -> JSONResponse | None:
+    """Apply the plan's ``api_rpm`` after the process bucket allows the call."""
+    from ar_common.errors import PlanLimitReachedError  # noqa: PLC0415
+    from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+    chat = getattr(scope["app"].state, "chat", None)
+    tenant_id = getattr(principal, "tenant_id", None)
+    if chat is None or tenant_id is None:
+        return None
+    try:
+        guard(chat, tenant_id, "api_rpm", 1, current=used)
+    except PlanLimitReachedError as exc:
+        return problem_response(exc, instance=path, request_id=_request_id(scope))
+    return None
 
 
 def presented_credential(scope: Scope) -> tuple[str, str] | None:

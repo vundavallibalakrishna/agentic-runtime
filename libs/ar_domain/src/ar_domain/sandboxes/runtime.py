@@ -42,7 +42,8 @@ from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
-from ar_domain.usage.logic import UsageRecord, record_usage
+from ar_domain.usage.logic import UsageRecord
+from ar_domain.usage.service import note
 
 CHART_SCRIPT = """
 import csv, os, pathlib, struct, zlib, sys
@@ -164,6 +165,9 @@ def ensure_scope(
             live["last_active_at"] = utcnow()
             live["status"] = "ready"
             return live
+        from ar_domain.usage.service import UsageBook  # noqa: PLC0415
+
+        UsageBook(store).assert_sandbox(tenant_id, user_id, agent_id)
         _cap(store, tenant_id)
         template = _template(store, tenant_id, template_slug)
         if template is None or template.get("status") != "active":
@@ -620,6 +624,8 @@ def _ensure_for_call(store: Any, arguments: dict[str, object]) -> dict[str, obje
         scope_key = f"agent:{agent}"
     elif scope == "agent_user" and agent is not None and user is not None:
         scope_key = f"au:{agent}:{user}"
+    from ar_common.errors import QuotaExceededError  # noqa: PLC0415
+
     try:
         row = ensure_scope(
             store,
@@ -634,6 +640,8 @@ def _ensure_for_call(store: Any, arguments: dict[str, object]) -> dict[str, obje
     except LookupError:
         return _error("sandbox_unavailable", f"sandbox template {slug} is not available")
     except RuntimeError as exc:
+        return _error("quota_exceeded", str(exc))
+    except QuotaExceededError as exc:
         return _error("quota_exceeded", str(exc))
     run_id = _uuid(arguments.get("_run_id"))
     if run_id is not None:
@@ -751,6 +759,13 @@ def _cap(store: Any, tenant_id: uuid.UUID) -> None:
         for row in store.sandboxes.values()
         if row.get("tenant_id") == tenant_id and row.get("status") in _LIVE
     ]
+    from ar_common.errors import PlanLimitReachedError  # noqa: PLC0415
+    from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+    try:
+        guard(store, tenant_id, "max_concurrent_sandboxes", 1, current=len(live))
+    except PlanLimitReachedError as exc:
+        raise RuntimeError("concurrent sandbox limit reached") from exc
     if len(live) >= cap:
         raise RuntimeError("concurrent sandbox limit reached")
 
@@ -979,8 +994,10 @@ def _list(root: Path, arguments: dict[str, object]) -> dict[str, object]:
 
 
 def _meter_session(store: Any, row: dict[str, object]) -> None:
-    record_usage(
-        store.usage,
+    user = None if row.get("user_id") is None else str(row.get("user_id"))
+    agent = None if row.get("agent_id") is None else str(row.get("agent_id"))
+    note(
+        store,
         UsageRecord(
             tenant_id=str(row["tenant_id"]),
             occurred_at=utcnow(),
@@ -988,11 +1005,27 @@ def _meter_session(store: Any, row: dict[str, object]) -> None:
             quantity=1,
             cost_micros=0,
             dedupe_key=f"sandbox-session:{row['id']}",
-            user_id=None if row.get("user_id") is None else str(row.get("user_id")),
-            agent_id=None if row.get("agent_id") is None else str(row.get("agent_id")),
+            user_id=user,
+            agent_id=agent,
             source="sandbox",
         ),
     )
+    cpu = row.get("cpu_seconds")
+    if isinstance(cpu, int) and cpu > 0:
+        note(
+            store,
+            UsageRecord(
+                tenant_id=str(row["tenant_id"]),
+                occurred_at=utcnow(),
+                metric="sandbox_cpu_seconds",
+                quantity=cpu,
+                cost_micros=0,
+                dedupe_key=f"sandbox-cpu:{row['id']}",
+                user_id=user,
+                agent_id=agent,
+                source="sandbox",
+            ),
+        )
 
 
 def terminate_row(store: Any, row: dict[str, object], *, actor: object) -> None:

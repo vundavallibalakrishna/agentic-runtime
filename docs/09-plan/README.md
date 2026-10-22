@@ -91,6 +91,7 @@ The graph allows parallel work after M5 (M6/M7/M8 can proceed in parallel by dif
 | M7 | Answers cite SharePoint documents the user can access, not others |
 | M10 | A weekly routine posts a summary to Slack |
 | M11 | The same agent answers in Teams and Slack with approval cards |
+| M12 | A 10,000 token daily quota blocks the next run, and usage exports as CSV. Checklist: [m12-checklist](../testing/m12-checklist.md) |
 | M15 | Fresh install on a kind cluster in both modes; DR restore drill passes |
 
 ## Visual test

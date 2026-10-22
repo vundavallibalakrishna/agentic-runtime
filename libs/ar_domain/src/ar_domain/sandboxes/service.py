@@ -164,9 +164,10 @@ class SandboxBook:
             raise ValidationFailedError(problem)
         cpu = _int(body.get("cpu_millis"), 2000)
         memory = _int(body.get("memory_mb"), 4096)
-        limits = _limits(self.store, actor.tenant_id)
-        if cpu > limits.max_sandbox_cpu_millis or memory > limits.max_sandbox_memory_mb:
-            raise ValidationFailedError("template exceeds the plan sandbox limits")
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        guard(self.store, actor.tenant_id, "max_sandbox_cpu_millis", cpu)
+        guard(self.store, actor.tenant_id, "max_sandbox_memory_mb", memory)
         now = utcnow()
         template_id = new_id()
         row = {

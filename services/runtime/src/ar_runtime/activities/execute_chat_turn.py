@@ -19,6 +19,18 @@ async def execute_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
     await reload_run(store, run_id)
+    from ar_common.errors import QuotaExceededError  # noqa: PLC0415
+    from ar_runtime.activities.start_run import assert_start  # noqa: PLC0415
+
+    try:
+        assert_start(store, run_id)
+    except QuotaExceededError as exc:
+        runs = getattr(store, "runs", None)
+        run = runs.get(run_id) if isinstance(runs, dict) else None
+        if isinstance(run, dict):
+            run["status"] = "failed"
+            run["error"] = {"code": "quota_exceeded", "message": str(exc)}
+        return {"status": "quota_exceeded", "run_id": str(run_id)}
     text = str(payload.get("text") or "")
     raw_names = payload.get("names")
     names = [str(item) for item in raw_names] if isinstance(raw_names, list) else []

@@ -79,6 +79,13 @@ describe("channel screens", () => {
           items: [{ id: "id-1", externalUserId: "U-ADMIN", matchMethod: "manual_link" }],
         }),
       ),
+      http.get("*/api/v1/me/usage", () =>
+        HttpResponse.json({
+          currency: "INR",
+          totals: { quantity: 1200, costMicros: 40 },
+          quotas: [{ metric: "model_tokens", period: "day", limit: 100000, used: 1200 }],
+        }),
+      ),
     );
     render(wrap(<ProfileScreen />));
     expect(await screen.findByRole("heading", { name: "U-ADMIN" })).toBeTruthy();

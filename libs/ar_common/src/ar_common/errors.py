@@ -180,3 +180,36 @@ class UnavailableError(ArError):
 class PlanLimitReachedError(ArError):
     def __init__(self, detail: str) -> None:
         super().__init__(ErrorCode.PLAN_LIMIT_REACHED, detail)
+
+
+class QuotaExceededError(ArError):
+    """429 body includes the quota that blocked the call."""
+
+    def __init__(
+        self,
+        detail: str,
+        *,
+        quota_id: str,
+        metric: str,
+        period: str,
+        limit: int,
+        used: int,
+        resets_at: str,
+    ) -> None:
+        super().__init__(ErrorCode.QUOTA_EXCEEDED, detail)
+        self.quota_id = quota_id
+        self.metric = metric
+        self.period = period
+        self.limit = limit
+        self.used = used
+        self.resets_at = resets_at
+
+    def to_problem(self, *, instance: str, request_id: str) -> dict[str, JsonValue]:
+        body = super().to_problem(instance=instance, request_id=request_id)
+        body["quotaId"] = self.quota_id
+        body["metric"] = self.metric
+        body["period"] = self.period
+        body["limit"] = self.limit
+        body["used"] = self.used
+        body["resetsAt"] = self.resets_at
+        return body

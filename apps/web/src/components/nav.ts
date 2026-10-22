@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   Bot,
   Brain,
   CheckCheck,
+  Gauge,
   Library,
   MessageSquare,
   Monitor,
@@ -25,6 +27,8 @@ export type NavItem = {
     | "navSkills"
     | "navRoutines"
     | "navChannels"
+    | "navUsage"
+    | "navQuotas"
     | "navApprovals"
     | "navRuns"
     | "navModels"
@@ -59,6 +63,8 @@ export const primaryNav: NavItem[] = [
     permission: "channels:manage",
     icon: Radio,
   },
+  { href: "/admin/usage", labelKey: "navUsage", permission: "usage:read", icon: BarChart3 },
+  { href: "/admin/quotas", labelKey: "navQuotas", permission: "usage:read", icon: Gauge },
   {
     href: "/approvals",
     labelKey: "navApprovals",

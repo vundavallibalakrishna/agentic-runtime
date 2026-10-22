@@ -38,7 +38,9 @@ from ar_api.routers.opa_bundle import router as opa_bundle_router
 from ar_api.routers.openai_compat import router as openai_router
 from ar_api.routers.platform_plans import router as plans_router
 from ar_api.routers.platform_tenants import router as platform_router
+from ar_api.routers.platform_usage import router as platform_usage_router
 from ar_api.routers.policies import router as policies_router
+from ar_api.routers.quotas import router as quotas_router
 from ar_api.routers.reviews import router as reviews_router
 from ar_api.routers.roles import router as roles_router
 from ar_api.routers.routines import router as routines_router
@@ -56,6 +58,7 @@ from ar_api.routers.teams import router as teams_router
 from ar_api.routers.tenant import router as tenant_router
 from ar_api.routers.tool_servers import router as tool_servers_router
 from ar_api.routers.tools import router as tools_router
+from ar_api.routers.usage import router as usage_router
 from ar_api.routers.users import router as users_router
 from ar_api.routers.webhooks import router as webhooks_router
 from ar_api.routers.widget import router as widget_router
@@ -228,6 +231,7 @@ def create_application() -> FastAPI:
             support_router,
             signup_router,
             platform_router,
+            platform_usage_router,
             plans_router,
             notifications_router,
             webhooks_router,
@@ -252,6 +256,8 @@ def create_application() -> FastAPI:
             memory_router,
             skills_router,
             routines_router,
+            quotas_router,
+            usage_router,
             channels_router,
             openai_router,
             widget_router,

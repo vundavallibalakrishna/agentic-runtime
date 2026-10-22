@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from ar_common.errors import QuotaExceededError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
@@ -24,7 +25,8 @@ from ar_domain.tools.logic import (
     schema_errors,
 )
 from ar_domain.tools.remote_mcp import RemoteError, call_remote
-from ar_domain.usage.logic import UsageRecord, record_usage
+from ar_domain.usage.logic import UsageRecord
+from ar_domain.usage.service import UsageBook, note
 
 _IMPLICIT = frozenset(
     {
@@ -110,6 +112,9 @@ class ToolPipeline:
         limited = self._limited(request, tool, version)
         if limited is not None:
             return limited
+        blocked = self._quota(request, version, tool, started)
+        if blocked is not None:
+            return blocked
         arguments = as_mapping(request.get("arguments"))
         schema = as_mapping(version.get("input_schema"))
         invalid = schema_errors(schema, arguments)
@@ -452,6 +457,26 @@ class ToolPipeline:
             return False
         return any(isinstance(item, dict) and item.get("server") == server_slug for item in tools)
 
+    def _quota(
+        self,
+        request: dict[str, object],
+        version: dict[str, object],
+        tool: dict[str, object],
+        started: float,
+    ) -> dict[str, object] | None:
+        tenant = request.get("tenant_id")
+        if not isinstance(tenant, uuid.UUID):
+            return None
+        try:
+            UsageBook(self.store).assert_tool(
+                tenant, request.get("user_id"), request.get("agent_id")
+            )
+        except QuotaExceededError as exc:
+            return self._fail(
+                request, "quota_exceeded", str(exc), started, version, tool, policy=False
+            )
+        return None
+
     def _limited(
         self, request: dict[str, object], tool: dict[str, object], version: dict[str, object]
     ) -> dict[str, object] | None:
@@ -632,8 +657,8 @@ class ToolPipeline:
         if status in {"succeeded", "failed", "denied"} and isinstance(
             request.get("tenant_id"), uuid.UUID
         ):
-            record_usage(
-                self.store.usage,
+            note(
+                self.store,
                 UsageRecord(
                     str(request["tenant_id"]),
                     utcnow(),
@@ -641,6 +666,12 @@ class ToolPipeline:
                     1,
                     0,
                     f"tool:{call_id}",
+                    user_id=None
+                    if not isinstance(request.get("user_id"), uuid.UUID)
+                    else str(request.get("user_id")),
+                    agent_id=None
+                    if not isinstance(request.get("agent_id"), uuid.UUID)
+                    else str(request.get("agent_id")),
                     source="mcp-gateway",
                 ),
             )

@@ -277,11 +277,31 @@ class ChannelBook:
             found.append(item)
         return found
 
+    def _plan_forbids(self, tenant_id: uuid.UUID, feature: str) -> bool:
+        from ar_domain.identity.plan_limits import (  # noqa: PLC0415
+            LimitContext,
+            check,
+            explicit_plan,
+            load_limits,
+        )
+
+        if not explicit_plan(self.store, tenant_id):
+            return False
+        try:
+            limits = load_limits(self.store, tenant_id)
+            check(LimitContext(limits, {}), f"features.{feature}")
+        except ForbiddenError:
+            return True
+        return False
+
     def _check_new(self, actor: Actor, kind: str, name: str) -> None:
         if kind not in _KINDS:
             raise ValidationFailedError("kind must be slack, teams, email or widget")
         if not name:
             raise ValidationFailedError("name is required")
+        feature = _FEATURES.get(kind)
+        if feature is not None and self._plan_forbids(actor.tenant_id, feature):
+            raise ForbiddenError(f"feature_not_in_plan:{feature}")
         if not self._enabled(actor.tenant_id, kind):
             raise ForbiddenError(f"the plan does not include {kind}")
         for row in self._integrations().values():
