@@ -3,7 +3,6 @@
 
 import os
 import sys
-import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -20,7 +19,7 @@ def verdict(login: str, host: str) -> str:
             f"{base}/internal/v1/egress/check?{query}", timeout=2
         ) as response:
             return "OK" if response.status == 200 else "ERR"
-    except (OSError, urllib.error.URLError):
+    except OSError:
         return "ERR"
 
 

@@ -82,3 +82,13 @@ M5-T06 | done | 99000ef | policy simulation and embedded tests
 M5-T07 | done | 99000ef | web approvals, policies, chat card
 M5-T08 | done | 99000ef | reviews and sign-off
 M5-T09 | done | 99000ef | segregation of duties
+
+M6-T01 | done | c587f91 | sandbox templates and revision 0013
+M6-T02 | done | c587f91 | sandbox agent and image
+M6-T03 | done | c587f91 | sandbox-manager and local driver
+M6-T04 | done | c587f91 | pod spec, network policy, warm pool
+M6-T05 | done | c587f91 | egress allowlist and Squid helper
+M6-T06 | done | c587f91 | gateway routing and reaper
+M6-T07 | done | c587f91 | browser tools
+M6-T08 | done | c587f91 | file previews and download headers
+M6-T09 | done | c587f91 | artifacts, computer panel, Computers page
