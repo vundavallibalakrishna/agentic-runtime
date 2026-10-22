@@ -332,6 +332,7 @@ Spec: [11-memory.md](../03-specs/11-memory.md)
 | Method | Path | Permission | Section |
 |---|---|---|---|
 | GET | [`/api/v1/memory`](../03-specs/11-memory.md#get-apiv1memory) | any signed-in principal | 5. Public API |
+| PATCH | [`/api/v1/memory/settings`](../03-specs/11-memory.md#patch-apiv1memorysettings) | any signed-in principal | 5. Public API |
 | POST | [`/api/v1/memory`](../03-specs/11-memory.md#post-apiv1memory) | any signed-in principal | 5. Public API |
 | PATCH | [`/api/v1/memory/{fact_id}`](../03-specs/11-memory.md#patch-apiv1memoryfact_id) | any signed-in principal | 5. Public API |
 | DELETE | [`/api/v1/memory/{fact_id}`](../03-specs/11-memory.md#delete-apiv1memoryfact_id) | any signed-in principal | 5. Public API |

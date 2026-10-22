@@ -53,6 +53,8 @@ def dispatch(  # noqa: PLR0911
         return _control(store, name, arguments)
     if endpoint == "builtin://knowledge":
         return _knowledge(store, name, arguments)
+    if endpoint == "builtin://memory":
+        return _memory(store, name, arguments)
     return {
         "text": "upstream server is not reachable",
         "structured": {},
@@ -339,6 +341,36 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         if isinstance(hit, dict)
     ]
     return {"text": "\n".join(str(line) for line in lines), "structured": found, "is_error": False}
+
+
+def _memory(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.memory.book import MemoryBook  # noqa: PLC0415
+
+    tenant = arguments.get("_tenant_id")
+    user = arguments.get("_user_id")
+    if not isinstance(tenant, uuid.UUID) or not isinstance(user, uuid.UUID):
+        return _error("validation_failed", "memory tools need a signed-in person")
+    actor = Actor(tenant, user, frozenset({"chat:use", "memory:manage_agent"}))
+    book = MemoryBook(store)
+    run_id = arguments.get("_run_id")
+    run = store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
+    try:
+        bound = run if isinstance(run, dict) else None
+        if name == "search":
+            rows = book.search_from_tool(actor, arguments, run=bound)
+            lines = [f"{row['id']}: {row['content']}" for row in rows]
+            text = "\n".join(lines) or "No memories."
+            return {"text": text, "structured": {"facts": rows}, "is_error": False}
+        if name == "save":
+            fact = book.save_from_tool(actor, arguments, run=bound)
+            return {"text": f"Saved memory {fact['id']}.", "structured": fact, "is_error": False}
+        if name == "forget":
+            count = book.forget_from_tool(actor, arguments)
+            return {"text": f"Forgot {count}.", "structured": {"deleted": count}, "is_error": False}
+    except (ValueError, TypeError, ArError) as exc:
+        return _error("validation_failed", str(exc))
+    return _error("unknown_tool", f"unknown tool {name}")
 
 
 def _settings(store: Any) -> dict[str, object]:

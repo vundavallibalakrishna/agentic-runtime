@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 
+from ar_system.subscribers.memory_extraction import on_run_completed
 from ar_system.workflows.notification_fanout import notices_for
 from ar_system.workflows.outbox_relay import RelayEvent
 
@@ -21,6 +22,7 @@ def build_registry(extra: dict[str, list[Handler]] | None = None) -> dict[str, l
         "invitation.created": [on_notification],
         "role.changed": [on_cache],
         "membership.changed": [on_cache],
+        "run.completed": [on_run_completed],
     }
     for topic, handlers in (extra or {}).items():
         registry.setdefault(topic, []).extend(handlers)

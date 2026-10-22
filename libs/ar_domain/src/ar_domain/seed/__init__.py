@@ -17,6 +17,7 @@ _MODEL_MODULES = (
     "ar_domain.events.models",
     "ar_domain.files.tables",
     "ar_domain.knowledge.tables",
+    "ar_domain.memory.tables",
     "ar_domain.identity.models",
     "ar_domain.models.tables",
     "ar_domain.secrets.models",

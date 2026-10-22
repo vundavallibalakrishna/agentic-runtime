@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { AppShell } from "@/components/app-shell";
 import { CitationList, citationsOf } from "@/components/chat/citations";
 import { MarkdownView } from "@/components/chat/markdown-view";
+import { MemoryIndicator } from "@/components/chat/memory-indicator";
 import { ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
@@ -217,6 +218,14 @@ export function ChatScreen() {
       }
       parser.feed(decoder.decode(chunk.value, { stream: true }));
     }
+  }
+
+  async function undoMemory(factId: string) {
+    await api(`/api/v1/memory/${factId}`, { method: "DELETE" });
+    setStream((current) => ({
+      ...current,
+      memories: current.memories.filter((item) => item.factId !== factId),
+    }));
   }
 
   async function send(text: string) {
@@ -499,6 +508,14 @@ export function ChatScreen() {
                           conversationId={activeId}
                           messageId={id}
                         />
+                        {row.index === visible.length - 1 && message.role === "assistant" ? (
+                          <MemoryIndicator
+                            compacted={stream.compacted}
+                            memories={stream.memories}
+                            onUndo={(factId) => void undoMemory(factId)}
+                            recalled={stream.recalled}
+                          />
+                        ) : null}
                         {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
                       </div>
                     </div>

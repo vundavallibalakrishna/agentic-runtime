@@ -93,6 +93,7 @@ def seed(store: Any) -> None:
     _sandbox_server(store)
     _browser_server(store)
     _knowledge_server(store)
+    _memory_server(store)
     _analyst(store, tenant, admin)
     store.tools_seeded = True
 
@@ -604,6 +605,60 @@ def _knowledge_server(store: Any) -> None:
                 "List knowledge collections the person can see.",
                 {"type": "object", "properties": {}},
                 "R0",
+            ),
+        ],
+    )
+
+
+def _memory_server(store: Any) -> None:
+    _builtin(
+        store,
+        "memory",
+        "Memory",
+        "builtin://memory",
+        [
+            _tool(
+                "search",
+                "Search memory",
+                "Find facts this run is allowed to recall.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "scopes": {"type": "array", "items": {"type": "string"}},
+                        "top_k": {"type": "integer"},
+                    },
+                    "required": ["query"],
+                },
+                "R0",
+            ),
+            _tool(
+                "save",
+                "Save a memory",
+                "Remember a short fact. Agent-wide notes wait for review.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "content": {"type": "string"},
+                        "scope": {"type": "string"},
+                        "category": {"type": "string"},
+                    },
+                    "required": ["content", "scope"],
+                },
+                "W1",
+            ),
+            _tool(
+                "forget",
+                "Forget a memory",
+                "Delete one of the signed-in person's facts.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "fact_id": {"type": "string"},
+                        "query": {"type": "string"},
+                    },
+                },
+                "W1",
             ),
         ],
     )

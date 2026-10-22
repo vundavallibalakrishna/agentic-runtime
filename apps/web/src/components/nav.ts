@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Bot,
+  Brain,
   CheckCheck,
   Library,
   MessageSquare,
@@ -18,6 +19,7 @@ export type NavItem = {
     | "navAgents"
     | "navTools"
     | "navKnowledge"
+    | "navMemory"
     | "navRoutines"
     | "navApprovals"
     | "navRuns"
@@ -39,6 +41,7 @@ export const primaryNav: NavItem[] = [
     permission: "knowledge:read",
     icon: Library,
   },
+  { href: "/memory", labelKey: "navMemory", permission: "chat:use", icon: Brain },
   {
     href: "/routines",
     labelKey: "navRoutines",

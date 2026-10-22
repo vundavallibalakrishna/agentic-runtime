@@ -38,7 +38,10 @@ Latency budget: p95 ≤ 80 ms excluding embedding.
 ## 5. Public API
 
 #### GET /api/v1/memory
-Any user. The caller's facts. Query `scope` (`user|agent_user`), `agent_id`, `category`, `q` (semantic when ≥ 3 words, else ILIKE), `status` (`active` default | `superseded`). Item `MemoryFact {id, scope, agent: {id, name}|null, content, category, source_kind, trust_level, confidence, status, created_at, last_recalled_at, recall_count, source: {conversation_id, message_id}|null}`.
+Any user. The caller's facts. Query `scope` (`user|agent_user`), `agent_id`, `category`, `q` (semantic when ≥ 3 words, else ILIKE), `status` (`active` default | `superseded`). Item `MemoryFact {id, scope, agent: {id, name}|null, content, category, source_kind, trust_level, confidence, status, created_at, last_recalled_at, recall_count, source: {conversation_id, message_id}|null}`. The list also returns `memory_enabled` and `teams` (`{id, name, items}` for each team the caller belongs to) so the settings page can show the toggle and shared glossary without a second catalogue call ([OQ-39](../open-questions.md)).
+
+#### PATCH /api/v1/memory/settings
+Any user. Body `{enabled}`. Sets the caller's `memory_enabled` toggle. `PATCH /api/v1/me` stays on the identity database, which the dev API does not use for this switch ([OQ-39](../open-questions.md)).
 
 #### POST /api/v1/memory
 Body `{content (≤ 500), scope: "user"|"agent_user", agent_id? (required for agent_user), category?}`. `source_kind='explicit'`.

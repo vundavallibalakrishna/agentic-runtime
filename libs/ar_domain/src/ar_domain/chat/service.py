@@ -40,7 +40,6 @@ from ar_domain.models.logic import (
     resolve_alias,
     valid_alias,
 )
-from ar_domain.prompts.assembler import build_prompt
 from ar_domain.runs.logic import assemble_context, budget_exceeded, tools_not_supported
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys, record_usage
 
@@ -178,6 +177,11 @@ class ChatService:
     user_emails: dict[uuid.UUID, str] = field(default_factory=dict)
     user_clearance: dict[uuid.UUID, str] = field(default_factory=dict)
     group_keys: dict[str, str] = field(default_factory=dict)
+    memory_facts: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    user_settings: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    team_roster: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    memory_extracted: set[object] = field(default_factory=set)
+    memory_seeded: bool = False
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -229,6 +233,7 @@ class ChatService:
         if marker in self.conversations:
             self._seed_chart(tenant_id, user_id)
             self._seed_library(tenant_id, user_id)
+            self._seed_memory(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -338,6 +343,12 @@ class ChatService:
             }
         self._seed_chart(tenant_id, user_id)
         self._seed_library(tenant_id, user_id)
+        self._seed_memory(tenant_id, user_id)
+
+    def _seed_memory(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.memory.showcase import seed_memory  # noqa: PLC0415
+
+        seed_memory(self, tenant_id, user_id)
 
     def _seed_library(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.knowledge.showcase import seed_library  # noqa: PLC0415
@@ -1087,28 +1098,23 @@ class ChatService:
             history=[{"role": "user", "content": text}],
             attachment_names=names,
         )
-        self._store_prompt(run, definition, text, names)
         run["agent_version_id"] = version.get("id")
+        self._store_prompt(run, conversation, definition, text, names)
         run["status"] = "running"
         run["started_at"] = utcnow()
 
     def _store_prompt(
         self,
         run: dict[str, object],
+        conversation: dict[str, object],
         definition: dict[str, object],
         text: str,
         names: list[str],
     ) -> None:
         """Record ``detail.prompt_hash``. The prompt text stays out of the step."""
-        bundle = build_prompt(
-            {
-                "definition": definition,
-                "user_text": text,
-                "files": names,
-                "history": [{"role": "user", "content": text}],
-            }
-        )
-        digest = bundle.prompt_hash
+        from ar_domain.memory.session import prepare_prompt  # noqa: PLC0415
+
+        digest = prepare_prompt(self, run, conversation, definition, text, names=names)
         steps = run.get("steps")
         if not isinstance(steps, list):
             steps = []
@@ -1152,9 +1158,11 @@ class ChatService:
         run["usage"] = usage
         self._meter(run, usage)
         self._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
+        user_text = str(self.messages[uuid.UUID(str(run["input_message_id"]))].get("text") or "")
+        self._emit_memory(run, user_text, answer)
         self._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": usage})
 
-    async def generate(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
+    async def generate(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:  # noqa: PLR0915
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
         conversation = self.conversations[uuid.UUID(str(run["conversation_id"]))]
@@ -1162,7 +1170,11 @@ class ChatService:
         self._prepare_run(run, conversation, agent, text, names)
         assistant_id = uuid.UUID(str(run["assistant_message_id"]))
         assistant = self.messages[assistant_id]
+        if run.get("context_error") == "context_length_exceeded":
+            self._fail_context(run, conversation, assistant)
+            return
         self._emit(run, "run.started", {"model_alias": "reasoning"})
+        self._emit_recall(run)
         self._emit(
             run,
             "message.started",
@@ -1179,7 +1191,7 @@ class ChatService:
             await self._finish_grounded(run, assistant, conversation, grounded)
             return
         slow = "slow" in text.lower()
-        tokens = await self._tokens(text, names, slow=slow)
+        tokens = await self._tokens(text, names, slow=slow, system=self._system_prompt(run))
         built: list[str] = []
         for token in tokens:
             if run_id in self.cancel_flags:
@@ -1223,6 +1235,7 @@ class ChatService:
         run["result_summary"] = answer[:8000]
         self._meter(run, usage)
         self._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
+        self._emit_memory(run, text, answer)
         self._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": usage})
         callback = run.get("callback_url")
         if isinstance(callback, str) and callback:
@@ -1230,24 +1243,31 @@ class ChatService:
                 {"url": callback, "run_id": str(run_id), "status": "completed", "text": answer}
             )
 
-    async def _tokens(self, text: str, names: list[str], *, slow: bool) -> list[str]:
+    async def _tokens(
+        self, text: str, names: list[str], *, slow: bool, system: str = ""
+    ) -> list[str]:
         if slow:
             sentence = "This answer is intentionally slow so you can press stop. "
             return [sentence] * 12
         prefix = f"Attached {', '.join(names)}. " if names else ""
-        remote = await self._remote_completion(text)
-        body = remote if remote else f"fake: {text}"
+        remote = await self._remote_completion(text, system)
+        if remote:
+            return [prefix + remote]
+        body = f"fake: {text}"
+        if "bullet points" in system.lower():
+            body = f"- {body}"
         return [prefix + body]
 
-    async def _remote_completion(self, text: str) -> str | None:
+    async def _remote_completion(self, text: str, system: str = "") -> str | None:
+        messages: list[dict[str, str]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": text})
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.post(
                     self.fake_llm_url.rstrip("/") + "/chat/completions",
-                    json={
-                        "model": "fake-chat",
-                        "messages": [{"role": "user", "content": text}],
-                    },
+                    json={"model": "fake-chat", "messages": messages},
                     headers={"X-Fake-Script-Set": "echo"},
                 )
             if response.status_code >= 300:
@@ -1289,6 +1309,75 @@ class ChatService:
                 source="model-gateway",
             ),
         )
+
+    def _system_prompt(self, run: dict[str, object]) -> str:
+        messages = run.get("prompt_messages")
+        if (
+            isinstance(messages, list)
+            and messages
+            and isinstance(messages[0], dict)
+            and messages[0].get("role") == "system"
+        ):
+            return str(messages[0].get("content") or "")
+        return ""
+
+    def _emit_recall(self, run: dict[str, object]) -> None:
+        recalled = run.get("recalled")
+        if isinstance(recalled, list) and recalled:
+            self._emit(
+                run,
+                "memory.recalled",
+                {
+                    "fact_ids": [
+                        str(item.get("id")) for item in recalled if isinstance(item, dict)
+                    ],
+                    "count": len(recalled),
+                },
+            )
+        compaction = run.get("compaction")
+        if isinstance(compaction, dict):
+            self._emit(
+                run,
+                "context.compacted",
+                {
+                    "tokens_before": compaction.get("tokens_before"),
+                    "tokens_after": compaction.get("tokens_after"),
+                },
+            )
+
+    def _emit_memory(self, run: dict[str, object], user_text: str, answer: str) -> None:
+        from ar_domain.memory.session import remember_turn  # noqa: PLC0415
+
+        try:
+            saved = remember_turn(self, run, user_text, answer)
+        except Exception:  # noqa: BLE001 - extraction never fails the turn
+            return
+        for fact in saved:
+            self._emit(
+                run,
+                "memory.saved",
+                {
+                    "fact_id": fact.get("id"),
+                    "content": fact.get("content"),
+                    "scope": fact.get("scope"),
+                    "status": fact.get("status"),
+                },
+            )
+
+    def _fail_context(
+        self,
+        run: dict[str, object],
+        conversation: dict[str, object],
+        assistant: dict[str, object],
+    ) -> None:
+        message = "This conversation is too long. Start a new one."
+        assistant["status"] = "completed"
+        assistant["text"] = message
+        run["status"] = "failed"
+        run["ended_at"] = utcnow()
+        run["error"] = {"code": "context_length_exceeded", "message": message}
+        conversation["active_run_id"] = None
+        self._emit(run, "run.failed", {"error": run["error"]})
 
     def _emit(self, run: dict[str, object], event_type: str, data: dict[str, object]) -> None:
         run_id = uuid.UUID(str(run["id"]))

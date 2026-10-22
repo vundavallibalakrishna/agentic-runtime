@@ -104,3 +104,9 @@ M7-T08 | done | 791133d | knowledge pages and citation UI
 M7-T09 | done | 791133d | Qdrant adapter and conformance-qdrant
 M7-T10 | done | 791133d | migrate-store CLI and pgvector/qdrant parity copy
 M7-T11 | done | 791133d | strict grounding mode
+
+M8-T01 | in_progress | - | revision 0015 and memory API
+M8-T02 | in_progress | - | memory tools and recall
+M8-T03 | in_progress | - | extraction workflow
+M8-T04 | in_progress | - | compaction
+M8-T05 | in_progress | - | memory settings, review queue, chat indicator

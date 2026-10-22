@@ -1,3 +1,8 @@
+- match:
+    system_contains: "bullet points"
+    contains: "status"
+  respond:
+    text: "- Platform work is on track.\n- I kept this in bullet points because you asked me to."
 - match: {contains: "slow"}
   respond:
     text: "This answer is intentionally slow so you can press stop."
