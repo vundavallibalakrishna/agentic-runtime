@@ -9,44 +9,45 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.run_input_api_v1_runs_run_id_input_post_response_run_input_api_v1_runs_run_id_input_post import RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
+from ...models.run_input_api_v1_runs_run_id_input_post_response_run_input_api_v1_runs_run_id_input_post import (
+    RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     run_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/runs/{run_id}:input".format(run_id=quote(str(run_id), safe=""),),
+        "url": "/api/v1/runs/{run_id}:input".format(
+            run_id=quote(str(run_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost.from_dict(response.json())
-
-
+        response_200 = (
+            RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost.from_dict(
+                response.json()
+            )
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +57,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +74,10 @@ def sync_detailed(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost]:
-    """ Run Input
+) -> Response[
+    HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
+]:
+    """Run Input
 
     Args:
         run_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         run_id=run_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost | None:
-    """ Run Input
+) -> (
+    HTTPValidationError
+    | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
+    | None
+):
+    """Run Input
 
     Args:
         run_id (UUID):
@@ -113,22 +121,22 @@ def sync(
 
     Returns:
         HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
-     """
-
+    """
 
     return sync_detailed(
         run_id=run_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost]:
-    """ Run Input
+) -> Response[
+    HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
+]:
+    """Run Input
 
     Args:
         run_id (UUID):
@@ -139,27 +147,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         run_id=run_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     run_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost | None:
-    """ Run Input
+) -> (
+    HTTPValidationError
+    | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
+    | None
+):
+    """Run Input
 
     Args:
         run_id (UUID):
@@ -170,11 +178,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        run_id=run_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            run_id=run_id,
+            client=client,
+        )
+    ).parsed

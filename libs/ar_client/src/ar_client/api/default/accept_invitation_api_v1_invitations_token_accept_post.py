@@ -8,44 +8,43 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.accept_invitation_api_v1_invitations_token_accept_post_response_accept_invitation_api_v1_invitations_token_accept_post import AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
+from ...models.accept_invitation_api_v1_invitations_token_accept_post_response_accept_invitation_api_v1_invitations_token_accept_post import (
+    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
 
 
-
 def _get_kwargs(
     token: str,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/invitations/{token}:accept".format(token=quote(str(token), safe=""),),
+        "url": "/api/v1/invitations/{token}:accept".format(
+            token=quote(str(token), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost.from_dict(response.json())
-
-
+        response_200 = AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -55,7 +54,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -68,9 +72,11 @@ def sync_detailed(
     token: str,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError]:
-    """ Accept Invitation
+) -> Response[
+    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
+    | HTTPValidationError
+]:
+    """Accept Invitation
 
     Args:
         token (str):
@@ -81,12 +87,10 @@ def sync_detailed(
 
     Returns:
         Response[AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         token=token,
-
     )
 
     response = client.get_httpx_client().request(
@@ -95,13 +99,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     token: str,
     *,
     client: AuthenticatedClient | Client,
-
-) -> AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError | None:
-    """ Accept Invitation
+) -> (
+    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
+    | HTTPValidationError
+    | None
+):
+    """Accept Invitation
 
     Args:
         token (str):
@@ -112,22 +120,23 @@ def sync(
 
     Returns:
         AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         token=token,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     token: str,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError]:
-    """ Accept Invitation
+) -> Response[
+    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
+    | HTTPValidationError
+]:
+    """Accept Invitation
 
     Args:
         token (str):
@@ -138,27 +147,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         token=token,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     token: str,
     *,
     client: AuthenticatedClient | Client,
-
-) -> AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError | None:
-    """ Accept Invitation
+) -> (
+    AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost
+    | HTTPValidationError
+    | None
+):
+    """Accept Invitation
 
     Args:
         token (str):
@@ -169,11 +178,11 @@ async def asyncio(
 
     Returns:
         AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        token=token,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            token=token,
+            client=client,
+        )
+    ).parsed

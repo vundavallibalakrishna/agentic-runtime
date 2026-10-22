@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="RotateSecretApiV1SecretsSecretIdRotatePostResponseRotateSecretApiV1SecretsSecretIdRotatePost")
-
+T = TypeVar(
+    "T",
+    bound="RotateSecretApiV1SecretsSecretIdRotatePostResponseRotateSecretApiV1SecretsSecretIdRotatePost",
+)
 
 
 @_attrs_define
 class RotateSecretApiV1SecretsSecretIdRotatePostResponseRotateSecretApiV1SecretsSecretIdRotatePost:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        rotate_secret_api_v1_secrets_secret_id_rotate_post_response_rotate_secret_api_v1_secrets_secret_id_rotate_post = cls(
-        )
-
+        rotate_secret_api_v1_secrets_secret_id_rotate_post_response_rotate_secret_api_v1_secrets_secret_id_rotate_post = cls()
 
         rotate_secret_api_v1_secrets_secret_id_rotate_post_response_rotate_secret_api_v1_secrets_secret_id_rotate_post.additional_properties = d
         return rotate_secret_api_v1_secrets_secret_id_rotate_post_response_rotate_secret_api_v1_secrets_secret_id_rotate_post

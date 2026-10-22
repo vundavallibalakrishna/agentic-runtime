@@ -9,40 +9,26 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="OpenapiDocumentApiV1OpenapiJsonGetResponseOpenapiDocumentApiV1OpenapiJsonGet")
-
+T = TypeVar(
+    "T", bound="OpenapiDocumentApiV1OpenapiJsonGetResponseOpenapiDocumentApiV1OpenapiJsonGet"
+)
 
 
 @_attrs_define
 class OpenapiDocumentApiV1OpenapiJsonGetResponseOpenapiDocumentApiV1OpenapiJsonGet:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        openapi_document_api_v1_openapi_json_get_response_openapi_document_api_v1_openapi_json_get = cls(
-        )
-
+        openapi_document_api_v1_openapi_json_get_response_openapi_document_api_v1_openapi_json_get = cls()
 
         openapi_document_api_v1_openapi_json_get_response_openapi_document_api_v1_openapi_json_get.additional_properties = d
         return openapi_document_api_v1_openapi_json_get_response_openapi_document_api_v1_openapi_json_get

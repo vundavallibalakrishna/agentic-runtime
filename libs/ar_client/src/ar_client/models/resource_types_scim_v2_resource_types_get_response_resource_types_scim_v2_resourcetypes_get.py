@@ -9,40 +9,26 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet")
-
+T = TypeVar(
+    "T", bound="ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet"
+)
 
 
 @_attrs_define
 class ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        resource_types_scim_v2_resource_types_get_response_resource_types_scim_v2_resourcetypes_get = cls(
-        )
-
+        resource_types_scim_v2_resource_types_get_response_resource_types_scim_v2_resourcetypes_get = cls()
 
         resource_types_scim_v2_resource_types_get_response_resource_types_scim_v2_resourcetypes_get.additional_properties = d
         return resource_types_scim_v2_resource_types_get_response_resource_types_scim_v2_resourcetypes_get

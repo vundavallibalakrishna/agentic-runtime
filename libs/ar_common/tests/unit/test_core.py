@@ -69,6 +69,8 @@ _CATALOGUE = {
     "unsupported_media_type": 415,
     "validation_failed": 422,
     "unknown_reference": 422,
+    "pack_signature_invalid": 422,
+    "extension_unavailable": 422,
     "resource_disabled": 423,
     "rate_limited": 429,
     "quota_exceeded": 429,

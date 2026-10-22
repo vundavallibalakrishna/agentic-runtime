@@ -10,22 +10,17 @@ from ... import errors
 
 from ...models.body_upload_file_api_v1_files_upload_post import BodyUploadFileApiV1FilesUploadPost
 from ...models.http_validation_error import HTTPValidationError
-from ...models.upload_file_api_v1_files_upload_post_response_upload_file_api_v1_files_upload_post import UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
+from ...models.upload_file_api_v1_files_upload_post_response_upload_file_api_v1_files_upload_post import (
+    UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost,
+)
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: BodyUploadFileApiV1FilesUploadPost,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +35,24 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost.from_dict(response.json())
-
-
+        response_200 = (
+            UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost.from_dict(
+                response.json()
+            )
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +62,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +79,10 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: BodyUploadFileApiV1FilesUploadPost,
-
-) -> Response[HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost]:
-    """ Upload File
+) -> Response[
+    HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
+]:
+    """Upload File
 
     Args:
         body (BodyUploadFileApiV1FilesUploadPost):
@@ -88,12 +93,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +105,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: BodyUploadFileApiV1FilesUploadPost,
-
-) -> HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost | None:
-    """ Upload File
+) -> (
+    HTTPValidationError
+    | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
+    | None
+):
+    """Upload File
 
     Args:
         body (BodyUploadFileApiV1FilesUploadPost):
@@ -119,22 +126,22 @@ def sync(
 
     Returns:
         HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: BodyUploadFileApiV1FilesUploadPost,
-
-) -> Response[HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost]:
-    """ Upload File
+) -> Response[
+    HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
+]:
+    """Upload File
 
     Args:
         body (BodyUploadFileApiV1FilesUploadPost):
@@ -145,27 +152,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: BodyUploadFileApiV1FilesUploadPost,
-
-) -> HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost | None:
-    """ Upload File
+) -> (
+    HTTPValidationError
+    | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
+    | None
+):
+    """Upload File
 
     Args:
         body (BodyUploadFileApiV1FilesUploadPost):
@@ -176,11 +183,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

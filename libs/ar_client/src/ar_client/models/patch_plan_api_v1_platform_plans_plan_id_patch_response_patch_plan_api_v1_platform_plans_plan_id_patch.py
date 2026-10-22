@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch")
-
+T = TypeVar(
+    "T",
+    bound="PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch",
+)
 
 
 @_attrs_define
 class PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch = cls(
-        )
-
+        patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch = cls()
 
         patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch.additional_properties = d
         return patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch

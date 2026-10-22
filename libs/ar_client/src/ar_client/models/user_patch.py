@@ -12,33 +12,26 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.user_patch_attributes_type_0 import UserPatchAttributesType0
-
-
-
+    from ..models.user_patch_attributes_type_0 import UserPatchAttributesType0
 
 
 T = TypeVar("T", bound="UserPatch")
 
 
-
 @_attrs_define
 class UserPatch:
-    """ 
-        Attributes:
-            status (None | str | Unset):
-            attributes (None | Unset | UserPatchAttributesType0):
-     """
+    """
+    Attributes:
+        status (None | str | Unset):
+        attributes (None | Unset | UserPatchAttributesType0):
+    """
 
     status: None | str | Unset = UNSET
     attributes: None | Unset | UserPatchAttributesType0 = UNSET
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.user_patch_attributes_type_0 import UserPatchAttributesType0 # noqa: PLC0415
+        from ..models.user_patch_attributes_type_0 import UserPatchAttributesType0  # noqa: PLC0415
+
         status: None | str | Unset
         if isinstance(self.status, Unset):
             status = UNSET
@@ -53,11 +46,9 @@ class UserPatch:
         else:
             attributes = self.attributes
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-        })
+        field_dict.update({})
         if status is not UNSET:
             field_dict["status"] = status
         if attributes is not UNSET:
@@ -65,12 +56,12 @@ class UserPatch:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.user_patch_attributes_type_0 import UserPatchAttributesType0 # noqa: PLC0415
+        from ..models.user_patch_attributes_type_0 import UserPatchAttributesType0  # noqa: PLC0415
+
         d = dict(src_dict)
+
         def _parse_status(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -79,7 +70,6 @@ class UserPatch:
             return cast(None | str | Unset, data)
 
         status = _parse_status(d.pop("status", UNSET))
-
 
         def _parse_attributes(data: object) -> None | Unset | UserPatchAttributesType0:
             if data is None:
@@ -91,15 +81,12 @@ class UserPatch:
                     raise TypeError()
                 attributes_type_0 = UserPatchAttributesType0.from_dict(data)
 
-
-
                 return attributes_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except TypeError, ValueError, AttributeError, KeyError:
                 pass
             return cast(None | Unset | UserPatchAttributesType0, data)
 
         attributes = _parse_attributes(d.pop("attributes", UNSET))
-
 
         user_patch = cls(
             status=status,
@@ -107,4 +94,3 @@ class UserPatch:
         )
 
         return user_patch
-

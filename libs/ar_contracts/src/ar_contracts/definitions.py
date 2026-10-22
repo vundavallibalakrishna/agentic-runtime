@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, JsonValue
 
 from ar_contracts.api_model import ApiModel
 from ar_contracts.budget import RunBudget
@@ -39,7 +39,7 @@ class ModelParams(_Model):
 
 class ModelSpec(_Model):
     alias: str
-    fast_alias: str
+    fast_alias: str = "fast"
     vision_alias: str | None = None
     params: ModelParams = ModelParams()
     degrade_to_fast: bool = True
@@ -106,6 +106,11 @@ class ContextSpec(_Model):
 class OutputSpec(_Model):
     citations: Literal["required", "preferred", "off"] = "preferred"
     show_reasoning: bool = False
+    grounding: Literal["off", "preferred", "strict"] = "off"
+
+
+class AssuranceSpec(_Model):
+    record_mode: Literal["off", "on"] = "off"
 
 
 class SafetySpec(_Model):
@@ -139,6 +144,7 @@ class AgentDefinition(_Model):
     budget: RunBudget
     context: ContextSpec = ContextSpec()
     output: OutputSpec = OutputSpec()
+    assurance: AssuranceSpec = AssuranceSpec()
     safety: SafetySpec = SafetySpec()
     channels: ChannelFlags = ChannelFlags()
 
@@ -386,6 +392,41 @@ class ChannelIntegrationResource(_Model):
     spec: ChannelIntegrationDefinition
 
 
+class PackMetadata(_Model):
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]{1,40}$")
+    version: str
+    name: str
+    min_platform: str = "1.0.0"
+
+
+class PackExtension(_Model):
+    """Optional pack code. Present only when the manifest is not declarative."""
+
+    schema_name: str = Field(alias="schema", default="")
+    alembic: str = ""
+    api_mount: str = ""
+    web_slot: str = ""
+    config_schema: dict[str, JsonValue] = Field(default_factory=dict)
+    ui: dict[str, JsonValue] = Field(default_factory=dict)
+    permissions: list[str] = Field(default_factory=list)
+    audit_actions: list[str] = Field(default_factory=list)
+    mcp_server: str = ""
+
+
+class ContentPackSpec(_Model):
+    resources: list[dict[str, JsonValue]] = Field(default_factory=list)
+    extension: PackExtension | None = None
+
+
+class ContentPack(_Model):
+    """Signed manifest. ``spec.resources`` uses the same documents as a bundle."""
+
+    api_version: Literal["agentic-runtime.dev/v1"] = Field(alias="apiVersion")
+    kind: Literal["ContentPack"]
+    metadata: PackMetadata
+    spec: ContentPackSpec = ContentPackSpec()
+
+
 DefinitionResource = Annotated[
     AgentResource
     | ToolServerResource
@@ -420,4 +461,5 @@ SCHEMA_MODELS: dict[str, type[ApiModel]] = {
     "SandboxTemplate": SandboxTemplateDefinition,
     "ChannelIntegration": ChannelIntegrationDefinition,
     "Bundle": Bundle,
+    "ContentPack": ContentPack,
 }

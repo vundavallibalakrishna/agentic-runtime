@@ -9,29 +9,26 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.patch_team_api_v1_teams_team_id_patch_response_patch_team_api_v1_teams_team_id_patch import PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
+from ...models.patch_team_api_v1_teams_team_id_patch_response_patch_team_api_v1_teams_team_id_patch import (
+    PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch,
+)
 from ...models.team_create import TeamCreate
 from typing import cast
 from uuid import UUID
-
 
 
 def _get_kwargs(
     team_id: UUID,
     *,
     body: TeamCreate,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
-
-    
-
-    
-
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": "/api/v1/teams/{team_id}".format(team_id=quote(str(team_id), safe=""),),
+        "url": "/api/v1/teams/{team_id}".format(
+            team_id=quote(str(team_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -42,19 +39,24 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
+    | None
+):
     if response.status_code == 200:
-        response_200 = PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch.from_dict(response.json())
-
-
+        response_200 = (
+            PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch.from_dict(
+                response.json()
+            )
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -64,7 +66,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -78,9 +84,10 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: TeamCreate,
-
-) -> Response[HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch]:
-    """ Patch Team
+) -> Response[
+    HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
+]:
+    """Patch Team
 
     Args:
         team_id (UUID):
@@ -92,13 +99,11 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         team_id=team_id,
-body=body,
-
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -107,14 +112,18 @@ body=body,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     team_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: TeamCreate,
-
-) -> HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch | None:
-    """ Patch Team
+) -> (
+    HTTPValidationError
+    | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
+    | None
+):
+    """Patch Team
 
     Args:
         team_id (UUID):
@@ -126,24 +135,24 @@ def sync(
 
     Returns:
         HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
-     """
-
+    """
 
     return sync_detailed(
         team_id=team_id,
-client=client,
-body=body,
-
+        client=client,
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     team_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: TeamCreate,
-
-) -> Response[HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch]:
-    """ Patch Team
+) -> Response[
+    HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
+]:
+    """Patch Team
 
     Args:
         team_id (UUID):
@@ -155,29 +164,29 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         team_id=team_id,
-body=body,
-
+        body=body,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     team_id: UUID,
     *,
     client: AuthenticatedClient | Client,
     body: TeamCreate,
-
-) -> HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch | None:
-    """ Patch Team
+) -> (
+    HTTPValidationError
+    | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
+    | None
+):
+    """Patch Team
 
     Args:
         team_id (UUID):
@@ -189,12 +198,12 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        team_id=team_id,
-client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            team_id=team_id,
+            client=client,
+            body=body,
+        )
+    ).parsed

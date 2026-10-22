@@ -12,32 +12,23 @@ from ..types import UNSET, Unset
 from typing import cast
 
 
-
-
-
-
 T = TypeVar("T", bound="RoleCreate")
-
 
 
 @_attrs_define
 class RoleCreate:
-    """ 
-        Attributes:
-            key (str):
-            name (str):
-            permissions (list[str]):
-            description (str | Unset):  Default: ''.
-     """
+    """
+    Attributes:
+        key (str):
+        name (str):
+        permissions (list[str]):
+        description (str | Unset):  Default: ''.
+    """
 
     key: str
     name: str
     permissions: list[str]
-    description: str | Unset = ''
-
-
-
-
+    description: str | Unset = ""
 
     def to_dict(self) -> dict[str, Any]:
         key = self.key
@@ -46,24 +37,21 @@ class RoleCreate:
 
         permissions = self.permissions
 
-
-
         description = self.description
-
 
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "key": key,
-            "name": name,
-            "permissions": permissions,
-        })
+        field_dict.update(
+            {
+                "key": key,
+                "name": name,
+                "permissions": permissions,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -73,7 +61,6 @@ class RoleCreate:
         name = d.pop("name")
 
         permissions = cast(list[str], d.pop("permissions"))
-
 
         description = d.pop("description", UNSET)
 
@@ -85,4 +72,3 @@ class RoleCreate:
         )
 
         return role_create
-

@@ -9,44 +9,43 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.resume_api_v1_platform_tenants_tenant_id_resume_post_response_resume_api_v1_platform_tenants_tenant_id_resume_post import ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
+from ...models.resume_api_v1_platform_tenants_tenant_id_resume_post_response_resume_api_v1_platform_tenants_tenant_id_resume_post import (
+    ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     tenant_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/platform/tenants/{tenant_id}:resume".format(tenant_id=quote(str(tenant_id), safe=""),),
+        "url": "/api/v1/platform/tenants/{tenant_id}:resume".format(
+            tenant_id=quote(str(tenant_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
+    | None
+):
     if response.status_code == 200:
-        response_200 = ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost.from_dict(response.json())
-
-
+        response_200 = ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     tenant_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost]:
-    """ Resume
+) -> Response[
+    HTTPValidationError
+    | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
+]:
+    """Resume
 
     Args:
         tenant_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         tenant_id=tenant_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     tenant_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost | None:
-    """ Resume
+) -> (
+    HTTPValidationError
+    | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
+    | None
+):
+    """Resume
 
     Args:
         tenant_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
-     """
-
+    """
 
     return sync_detailed(
         tenant_id=tenant_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     tenant_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost]:
-    """ Resume
+) -> Response[
+    HTTPValidationError
+    | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
+]:
+    """Resume
 
     Args:
         tenant_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         tenant_id=tenant_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     tenant_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost | None:
-    """ Resume
+) -> (
+    HTTPValidationError
+    | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
+    | None
+):
+    """Resume
 
     Args:
         tenant_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        tenant_id=tenant_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            tenant_id=tenant_id,
+            client=client,
+        )
+    ).parsed

@@ -13,16 +13,11 @@ from ...types import UNSET, Unset
 from typing import cast
 
 
-
 def _get_kwargs(
     *,
-    code: str | Unset = '',
-    state: str | Unset = '',
-
+    code: str | Unset = "",
+    state: str | Unset = "",
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
@@ -30,9 +25,7 @@ def _get_kwargs(
 
     params["state"] = state
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -40,20 +33,18 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Any | HTTPValidationError | None:
     if response.status_code == 200:
         response_200 = response.json()
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -63,7 +54,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[Any | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,11 +68,10 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = '',
-    state: str | Unset = '',
-
+    code: str | Unset = "",
+    state: str | Unset = "",
 ) -> Response[Any | HTTPValidationError]:
-    """ Callback
+    """Callback
 
      Finish login. Tests inject ``app.state.complete_login``.
 
@@ -93,13 +85,11 @@ def sync_detailed(
 
     Returns:
         Response[Any | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         code=code,
-state=state,
-
+        state=state,
     )
 
     response = client.get_httpx_client().request(
@@ -108,14 +98,14 @@ state=state,
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = '',
-    state: str | Unset = '',
-
+    code: str | Unset = "",
+    state: str | Unset = "",
 ) -> Any | HTTPValidationError | None:
-    """ Callback
+    """Callback
 
      Finish login. Tests inject ``app.state.complete_login``.
 
@@ -129,24 +119,22 @@ def sync(
 
     Returns:
         Any | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-code=code,
-state=state,
-
+        code=code,
+        state=state,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = '',
-    state: str | Unset = '',
-
+    code: str | Unset = "",
+    state: str | Unset = "",
 ) -> Response[Any | HTTPValidationError]:
-    """ Callback
+    """Callback
 
      Finish login. Tests inject ``app.state.complete_login``.
 
@@ -160,29 +148,25 @@ async def asyncio_detailed(
 
     Returns:
         Response[Any | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         code=code,
-state=state,
-
+        state=state,
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = '',
-    state: str | Unset = '',
-
+    code: str | Unset = "",
+    state: str | Unset = "",
 ) -> Any | HTTPValidationError | None:
-    """ Callback
+    """Callback
 
      Finish login. Tests inject ``app.state.complete_login``.
 
@@ -196,12 +180,12 @@ async def asyncio(
 
     Returns:
         Any | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-code=code,
-state=state,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            code=code,
+            state=state,
+        )
+    ).parsed

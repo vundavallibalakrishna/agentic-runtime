@@ -8,45 +8,44 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.delete_secret_api_v1_secrets_secret_id_delete_response_delete_secret_api_v1_secrets_secret_id_delete import DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete
+from ...models.delete_secret_api_v1_secrets_secret_id_delete_response_delete_secret_api_v1_secrets_secret_id_delete import (
+    DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     secret_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": "/api/v1/secrets/{secret_id}".format(secret_id=quote(str(secret_id), safe=""),),
+        "url": "/api/v1/secrets/{secret_id}".format(
+            secret_id=quote(str(secret_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete.from_dict(response.json())
-
-
+        response_200 = DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     secret_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError]:
-    """ Delete Secret
+) -> Response[
+    DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete
+    | HTTPValidationError
+]:
+    """Delete Secret
 
     Args:
         secret_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         secret_id=secret_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     secret_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError | None:
-    """ Delete Secret
+) -> (
+    DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete
+    | HTTPValidationError
+    | None
+):
+    """Delete Secret
 
     Args:
         secret_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         secret_id=secret_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     secret_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError]:
-    """ Delete Secret
+) -> Response[
+    DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete
+    | HTTPValidationError
+]:
+    """Delete Secret
 
     Args:
         secret_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         secret_id=secret_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     secret_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError | None:
-    """ Delete Secret
+) -> (
+    DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete
+    | HTTPValidationError
+    | None
+):
+    """Delete Secret
 
     Args:
         secret_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        secret_id=secret_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            secret_id=secret_id,
+            client=client,
+        )
+    ).parsed

@@ -11,30 +11,21 @@ from ..types import UNSET, Unset
 from ..types import UNSET, Unset
 
 
-
-
-
-
 T = TypeVar("T", bound="ServiceAccountCreate")
-
 
 
 @_attrs_define
 class ServiceAccountCreate:
-    """ 
-        Attributes:
-            name (str):
-            description (str | Unset):  Default: ''.
-            allow_on_behalf_of (bool | Unset):  Default: False.
-     """
+    """
+    Attributes:
+        name (str):
+        description (str | Unset):  Default: ''.
+        allow_on_behalf_of (bool | Unset):  Default: False.
+    """
 
     name: str
-    description: str | Unset = ''
+    description: str | Unset = ""
     allow_on_behalf_of: bool | Unset = False
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
@@ -43,20 +34,19 @@ class ServiceAccountCreate:
 
         allow_on_behalf_of = self.allow_on_behalf_of
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "name": name,
-        })
+        field_dict.update(
+            {
+                "name": name,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
         if allow_on_behalf_of is not UNSET:
             field_dict["allowOnBehalfOf"] = allow_on_behalf_of
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -74,4 +64,3 @@ class ServiceAccountCreate:
         )
 
         return service_account_create
-

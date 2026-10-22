@@ -9,44 +9,43 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.verify_domain_api_v1_tenant_domains_domain_id_verify_post_response_verify_domain_api_v1_tenant_domains_domain_id_verify_post import VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
+from ...models.verify_domain_api_v1_tenant_domains_domain_id_verify_post_response_verify_domain_api_v1_tenant_domains_domain_id_verify_post import (
+    VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     domain_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/tenant/domains/{domain_id}:verify".format(domain_id=quote(str(domain_id), safe=""),),
+        "url": "/api/v1/tenant/domains/{domain_id}:verify".format(
+            domain_id=quote(str(domain_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost.from_dict(response.json())
-
-
+        response_200 = VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     domain_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost]:
-    """ Verify Domain
+) -> Response[
+    HTTPValidationError
+    | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
+]:
+    """Verify Domain
 
     Args:
         domain_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         domain_id=domain_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     domain_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost | None:
-    """ Verify Domain
+) -> (
+    HTTPValidationError
+    | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
+    | None
+):
+    """Verify Domain
 
     Args:
         domain_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
-     """
-
+    """
 
     return sync_detailed(
         domain_id=domain_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     domain_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost]:
-    """ Verify Domain
+) -> Response[
+    HTTPValidationError
+    | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
+]:
+    """Verify Domain
 
     Args:
         domain_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         domain_id=domain_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     domain_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost | None:
-    """ Verify Domain
+) -> (
+    HTTPValidationError
+    | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
+    | None
+):
+    """Verify Domain
 
     Args:
         domain_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | VerifyDomainApiV1TenantDomainsDomainIdVerifyPostResponseVerifyDomainApiV1TenantDomainsDomainIdVerifyPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        domain_id=domain_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            domain_id=domain_id,
+            client=client,
+        )
+    ).parsed

@@ -9,40 +9,26 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="ReadAllApiV1NotificationsReadAllPostResponseReadAllApiV1NotificationsReadAllPost")
-
+T = TypeVar(
+    "T", bound="ReadAllApiV1NotificationsReadAllPostResponseReadAllApiV1NotificationsReadAllPost"
+)
 
 
 @_attrs_define
 class ReadAllApiV1NotificationsReadAllPostResponseReadAllApiV1NotificationsReadAllPost:
-    
-
     additional_properties: dict[str, int] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        read_all_api_v1_notifications_read_all_post_response_read_all_api_v1_notifications_read_all_post = cls(
-        )
-
+        read_all_api_v1_notifications_read_all_post_response_read_all_api_v1_notifications_read_all_post = cls()
 
         read_all_api_v1_notifications_read_all_post_response_read_all_api_v1_notifications_read_all_post.additional_properties = d
         return read_all_api_v1_notifications_read_all_post_response_read_all_api_v1_notifications_read_all_post

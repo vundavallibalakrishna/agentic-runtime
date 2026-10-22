@@ -105,6 +105,7 @@ PERMISSIONS: tuple[Permission, ...] = (
     Permission("audit:export", "audit", "Audit exports"),
     Permission("evals:run", "evals", "Run eval suites"),
     Permission("evals:manage", "evals", "Manage eval suites/cases; read feedback"),
+    Permission("packs:manage", "agents", "Install, upgrade and uninstall content packs"),
 )
 
 PERMISSION_KEYS: frozenset[str] = frozenset(item.key for item in PERMISSIONS)

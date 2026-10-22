@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="DeleteProviderApiV1ModelProvidersProviderIdDeleteResponseDeleteProviderApiV1ModelProvidersProviderIdDelete")
-
+T = TypeVar(
+    "T",
+    bound="DeleteProviderApiV1ModelProvidersProviderIdDeleteResponseDeleteProviderApiV1ModelProvidersProviderIdDelete",
+)
 
 
 @_attrs_define
 class DeleteProviderApiV1ModelProvidersProviderIdDeleteResponseDeleteProviderApiV1ModelProvidersProviderIdDelete:
-    
-
     additional_properties: dict[str, bool] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        delete_provider_api_v1_model_providers_provider_id_delete_response_delete_provider_api_v1_model_providers_provider_id_delete = cls(
-        )
-
+        delete_provider_api_v1_model_providers_provider_id_delete_response_delete_provider_api_v1_model_providers_provider_id_delete = cls()
 
         delete_provider_api_v1_model_providers_provider_id_delete_response_delete_provider_api_v1_model_providers_provider_id_delete.additional_properties = d
         return delete_provider_api_v1_model_providers_provider_id_delete_response_delete_provider_api_v1_model_providers_provider_id_delete

@@ -9,43 +9,31 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete")
-
 
 
 @_attrs_define
 class DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete:
-    
-
     additional_properties: dict[str, bool] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        delete_role_api_v1_roles_role_id_delete_response_delete_role_api_v1_roles_role_id_delete = cls(
+        delete_role_api_v1_roles_role_id_delete_response_delete_role_api_v1_roles_role_id_delete = (
+            cls()
         )
 
-
         delete_role_api_v1_roles_role_id_delete_response_delete_role_api_v1_roles_role_id_delete.additional_properties = d
-        return delete_role_api_v1_roles_role_id_delete_response_delete_role_api_v1_roles_role_id_delete
+        return (
+            delete_role_api_v1_roles_role_id_delete_response_delete_role_api_v1_roles_role_id_delete
+        )
 
     @property
     def additional_keys(self) -> list[str]:

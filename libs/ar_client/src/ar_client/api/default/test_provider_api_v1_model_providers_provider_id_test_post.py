@@ -9,44 +9,43 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.test_provider_api_v1_model_providers_provider_id_test_post_response_test_provider_api_v1_model_providers_provider_id_test_post import TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
+from ...models.test_provider_api_v1_model_providers_provider_id_test_post_response_test_provider_api_v1_model_providers_provider_id_test_post import (
+    TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     provider_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/model-providers/{provider_id}:test".format(provider_id=quote(str(provider_id), safe=""),),
+        "url": "/api/v1/model-providers/{provider_id}:test".format(
+            provider_id=quote(str(provider_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost.from_dict(response.json())
-
-
+        response_200 = TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     provider_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost]:
-    """ Test Provider
+) -> Response[
+    HTTPValidationError
+    | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
+]:
+    """Test Provider
 
     Args:
         provider_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         provider_id=provider_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     provider_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost | None:
-    """ Test Provider
+) -> (
+    HTTPValidationError
+    | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
+    | None
+):
+    """Test Provider
 
     Args:
         provider_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
-     """
-
+    """
 
     return sync_detailed(
         provider_id=provider_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     provider_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost]:
-    """ Test Provider
+) -> Response[
+    HTTPValidationError
+    | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
+]:
+    """Test Provider
 
     Args:
         provider_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         provider_id=provider_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     provider_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost | None:
-    """ Test Provider
+) -> (
+    HTTPValidationError
+    | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
+    | None
+):
+    """Test Provider
 
     Args:
         provider_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        provider_id=provider_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            provider_id=provider_id,
+            client=client,
+        )
+    ).parsed

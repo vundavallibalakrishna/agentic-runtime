@@ -12,6 +12,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.logic import assistant_definition, definition_hash
 from ar_domain.agents.tables import Agent, AgentVersion
+from ar_domain.agents.templates import builder_definition, helpdesk_definition
 from ar_domain.identity.seed import ensure_everyone_team
 from ar_domain.models.tables import Model, ModelAlias, ModelProvider
 
@@ -47,47 +48,86 @@ async def apply(session: AsyncSession, tenant_id: uuid.UUID, admin_id: uuid.UUID
     await _alias(session, "embed", "embedding", embed.id)
     await _alias(session, "rerank", "rerank", rerank.id)
     await ensure_everyone_team(session, tenant_id, admin_id)
-    agent = await session.scalar(
-        select(Agent).where(Agent.tenant_id == tenant_id, Agent.slug == "assistant")
+    await _published(
+        session,
+        tenant_id,
+        admin_id,
+        slug="assistant",
+        name="Assistant",
+        description="Default assistant",
+        definition=assistant_definition(),
     )
-    if agent is None:
-        agent_id = new_id()
-        version_id = new_id()
-        now = utcnow()
-        definition = assistant_definition()
-        session.add(
-            Agent(
-                id=agent_id,
-                tenant_id=tenant_id,
-                slug="assistant",
-                name="Assistant",
-                description="Default assistant",
-                owner_user_id=admin_id,
-                visibility="tenant",
-                status="published",
-                risk_tier="low",
-            )
+    await _published(
+        session,
+        tenant_id,
+        admin_id,
+        slug="helpdesk",
+        name="Helpdesk",
+        description="Answers common requests.",
+        definition=helpdesk_definition(),
+    )
+    await _published(
+        session,
+        tenant_id,
+        admin_id,
+        slug="builder",
+        name="Builder",
+        description="Drafts an agent from a sentence. It does not publish.",
+        definition=builder_definition(),
+    )
+
+
+async def _published(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    admin_id: uuid.UUID,
+    *,
+    slug: str,
+    name: str,
+    description: str,
+    definition: dict[str, object],
+) -> None:
+    agent = await session.scalar(
+        select(Agent).where(Agent.tenant_id == tenant_id, Agent.slug == slug)
+    )
+    if agent is not None:
+        return
+    agent_id = new_id()
+    version_id = new_id()
+    now = utcnow()
+    session.add(
+        Agent(
+            id=agent_id,
+            tenant_id=tenant_id,
+            slug=slug,
+            name=name,
+            description=description,
+            owner_user_id=admin_id,
+            visibility="tenant",
+            status="published",
+            risk_tier="low",
         )
-        await session.flush()
-        session.add(
-            AgentVersion(
-                id=version_id,
-                tenant_id=tenant_id,
-                agent_id=agent_id,
-                version=1,
-                state="published",
-                definition=definition,
-                definition_hash=definition_hash(definition),
-                change_note="seed",
-                created_by=admin_id,
-                published_at=now,
-                published_by=admin_id,
-            )
+    )
+    await session.flush()
+    session.add(
+        AgentVersion(
+            id=version_id,
+            tenant_id=tenant_id,
+            agent_id=agent_id,
+            version=1,
+            state="published",
+            definition=definition,
+            definition_hash=definition_hash(definition),
+            change_note="seed",
+            created_by=admin_id,
+            published_at=now,
+            published_by=admin_id,
         )
-        await session.flush()
-        stored = await session.get(Agent, agent_id)
-        if stored is not None:
-            stored.published_version_id = version_id
+    )
+    await session.flush()
+    stored = await session.get(Agent, agent_id)
+    if stored is not None:
+        stored.published_version_id = version_id
 
 
 async def _model(session: AsyncSession, provider_id: uuid.UUID, name: str, kind: str) -> Model:

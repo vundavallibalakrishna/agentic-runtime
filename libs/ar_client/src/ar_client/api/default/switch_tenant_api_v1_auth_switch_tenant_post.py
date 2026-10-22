@@ -9,23 +9,20 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.switch_tenant_api_v1_auth_switch_tenant_post_body import SwitchTenantApiV1AuthSwitchTenantPostBody
-from ...models.switch_tenant_api_v1_auth_switch_tenant_post_response_switch_tenant_api_v1_auth_switch_tenant_post import SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
+from ...models.switch_tenant_api_v1_auth_switch_tenant_post_body import (
+    SwitchTenantApiV1AuthSwitchTenantPostBody,
+)
+from ...models.switch_tenant_api_v1_auth_switch_tenant_post_response_switch_tenant_api_v1_auth_switch_tenant_post import (
+    SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost,
+)
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: SwitchTenantApiV1AuthSwitchTenantPostBody,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +37,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost.from_dict(response.json())
-
-
+        response_200 = SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +62,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +80,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: SwitchTenantApiV1AuthSwitchTenantPostBody,
-
-) -> Response[HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost]:
-    """ Switch Tenant
+) -> Response[
+    HTTPValidationError
+    | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
+]:
+    """Switch Tenant
 
     Args:
         body (SwitchTenantApiV1AuthSwitchTenantPostBody):
@@ -88,12 +95,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +107,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: SwitchTenantApiV1AuthSwitchTenantPostBody,
-
-) -> HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost | None:
-    """ Switch Tenant
+) -> (
+    HTTPValidationError
+    | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
+    | None
+):
+    """Switch Tenant
 
     Args:
         body (SwitchTenantApiV1AuthSwitchTenantPostBody):
@@ -119,22 +128,23 @@ def sync(
 
     Returns:
         HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: SwitchTenantApiV1AuthSwitchTenantPostBody,
-
-) -> Response[HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost]:
-    """ Switch Tenant
+) -> Response[
+    HTTPValidationError
+    | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
+]:
+    """Switch Tenant
 
     Args:
         body (SwitchTenantApiV1AuthSwitchTenantPostBody):
@@ -145,27 +155,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: SwitchTenantApiV1AuthSwitchTenantPostBody,
-
-) -> HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost | None:
-    """ Switch Tenant
+) -> (
+    HTTPValidationError
+    | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
+    | None
+):
+    """Switch Tenant
 
     Args:
         body (SwitchTenantApiV1AuthSwitchTenantPostBody):
@@ -176,11 +186,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

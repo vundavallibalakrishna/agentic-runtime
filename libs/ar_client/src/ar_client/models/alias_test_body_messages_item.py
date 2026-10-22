@@ -9,40 +9,24 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="AliasTestBodyMessagesItem")
-
 
 
 @_attrs_define
 class AliasTestBodyMessagesItem:
-    
-
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        alias_test_body_messages_item = cls(
-        )
-
+        alias_test_body_messages_item = cls()
 
         alias_test_body_messages_item.additional_properties = d
         return alias_test_body_messages_item

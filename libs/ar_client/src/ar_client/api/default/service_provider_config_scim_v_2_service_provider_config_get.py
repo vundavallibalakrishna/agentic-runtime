@@ -8,35 +8,32 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.service_provider_config_scim_v2_service_provider_config_get_response_service_provider_config_scim_v2_serviceproviderconfig_get import ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
+from ...models.service_provider_config_scim_v2_service_provider_config_get_response_service_provider_config_scim_v2_serviceproviderconfig_get import (
+    ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet,
+)
 from typing import cast
 
 
-
-def _get_kwargs(
-    
-) -> dict[str, Any]:
-    
-
-    
-
-    
+def _get_kwargs() -> dict[str, Any]:
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/scim/v2/ServiceProviderConfig",
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
+    | None
+):
     if response.status_code == 200:
-        response_200 = ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet.from_dict(response.json())
-
-
+        response_200 = ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
@@ -46,7 +43,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -58,9 +59,10 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet]:
-    """ Service Provider Config
+) -> Response[
+    ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
+]:
+    """Service Provider Config
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -68,12 +70,9 @@ def sync_detailed(
 
     Returns:
         Response[ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet]
-     """
+    """
 
-
-    kwargs = _get_kwargs(
-        
-    )
+    kwargs = _get_kwargs()
 
     response = client.get_httpx_client().request(
         **kwargs,
@@ -81,12 +80,15 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
-
-) -> ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet | None:
-    """ Service Provider Config
+) -> (
+    ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
+    | None
+):
+    """Service Provider Config
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,20 +96,20 @@ def sync(
 
     Returns:
         ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet]:
-    """ Service Provider Config
+) -> Response[
+    ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
+]:
+    """Service Provider Config
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -115,25 +117,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet]
-     """
+    """
 
+    kwargs = _get_kwargs()
 
-    kwargs = _get_kwargs(
-        
-    )
-
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-
-) -> ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet | None:
-    """ Service Provider Config
+) -> (
+    ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
+    | None
+):
+    """Service Provider Config
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -141,10 +141,10 @@ async def asyncio(
 
     Returns:
         ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+        )
+    ).parsed

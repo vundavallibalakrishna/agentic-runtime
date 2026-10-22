@@ -5,9 +5,9 @@ export type ClientOptions = {
 };
 
 /**
- * AgentBody
+ * AgentCreate
  */
-export type AgentBody = {
+export type AgentCreate = {
     /**
      * Slug
      */
@@ -16,6 +16,58 @@ export type AgentBody = {
      * Name
      */
     name: string;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Visibility
+     */
+    visibility?: string;
+    /**
+     * Risktier
+     */
+    riskTier?: string;
+    /**
+     * Template
+     */
+    template?: string | null;
+    /**
+     * Definition
+     */
+    definition?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * AgentPatch
+ */
+export type AgentPatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Visibility
+     */
+    visibility?: string | null;
+    /**
+     * Ownerteamid
+     */
+    ownerTeamId?: string | null;
+    /**
+     * Owneruserid
+     */
+    ownerUserId?: string | null;
+    /**
+     * Risktier
+     */
+    riskTier?: string | null;
 };
 
 /**
@@ -75,6 +127,20 @@ export type ApiKeyCreate = {
 };
 
 /**
+ * ApplyBody
+ */
+export type ApplyBody = {
+    /**
+     * Mode
+     */
+    mode?: string;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+};
+
+/**
  * AssignmentCreate
  */
 export type AssignmentCreate = {
@@ -122,6 +188,10 @@ export type ConversationBody = {
      * Agentid
      */
     agentId?: string | null;
+    /**
+     * Agentversionid
+     */
+    agentVersionId?: string | null;
 };
 
 /**
@@ -136,6 +206,34 @@ export type ConversationPatch = {
      * Pinned
      */
     pinned?: boolean | null;
+};
+
+/**
+ * DescriptionBody
+ */
+export type DescriptionBody = {
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Availableonly
+     */
+    availableOnly?: boolean;
+};
+
+/**
+ * DisableBody
+ */
+export type DisableBody = {
+    /**
+     * Reason
+     */
+    reason: string;
+    /**
+     * Cancelactive
+     */
+    cancelActive?: boolean;
 };
 
 /**
@@ -158,6 +256,24 @@ export type DraftBody = {
     definition: {
         [key: string]: unknown;
     };
+    /**
+     * Changenote
+     */
+    changeNote?: string;
+};
+
+/**
+ * DuplicateBody
+ */
+export type DuplicateBody = {
+    /**
+     * Slug
+     */
+    slug: string;
+    /**
+     * Name
+     */
+    name: string;
 };
 
 /**
@@ -168,6 +284,20 @@ export type EditBody = {
      * Text
      */
     text: string;
+};
+
+/**
+ * FavouriteBody
+ */
+export type FavouriteBody = {
+    /**
+     * Agentid
+     */
+    agentId: string;
+    /**
+     * Favourite
+     */
+    favourite?: boolean;
 };
 
 /**
@@ -248,6 +378,46 @@ export type IdpCreate = {
     config: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * ImportBody
+ */
+export type ImportBody = {
+    /**
+     * Bundle
+     */
+    bundle?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Yamltext
+     */
+    yamlText?: string | null;
+    /**
+     * Dryrun
+     */
+    dryRun?: boolean;
+};
+
+/**
+ * InstallBody
+ */
+export type InstallBody = {
+    /**
+     * Manifest
+     */
+    manifest: {
+        [key: string]: unknown;
+    };
+    /**
+     * Signature
+     */
+    signature?: string | null;
+    /**
+     * Keyid
+     */
+    keyId?: string | null;
 };
 
 /**
@@ -415,6 +585,20 @@ export type ProviderPatch = {
 };
 
 /**
+ * PublishBody
+ */
+export type PublishBody = {
+    /**
+     * Changenote
+     */
+    changeNote?: string;
+    /**
+     * Skipevalgate
+     */
+    skipEvalGate?: boolean;
+};
+
+/**
  * RoleCreate
  */
 export type RoleCreate = {
@@ -448,6 +632,20 @@ export type RolePatch = {
      * Permissions
      */
     permissions?: Array<string> | null;
+};
+
+/**
+ * RollbackBody
+ */
+export type RollbackBody = {
+    /**
+     * Version
+     */
+    version: number;
+    /**
+     * Changenote
+     */
+    changeNote?: string;
 };
 
 /**
@@ -546,6 +744,26 @@ export type ServiceAccountPatch = {
      * Allowonbehalfof
      */
     allowOnBehalfOf?: boolean | null;
+};
+
+/**
+ * SessionBody
+ */
+export type SessionBody = {
+    /**
+     * Instruction
+     */
+    instruction: string;
+};
+
+/**
+ * SessionMessage
+ */
+export type SessionMessage = {
+    /**
+     * Text
+     */
+    text: string;
 };
 
 /**
@@ -651,6 +869,40 @@ export type TenantPatch = {
 };
 
 /**
+ * UninstallBody
+ */
+export type UninstallBody = {
+    /**
+     * Dropschema
+     */
+    dropSchema?: boolean;
+};
+
+/**
+ * UpgradeBody
+ */
+export type UpgradeBody = {
+    /**
+     * Manifest
+     */
+    manifest: {
+        [key: string]: unknown;
+    };
+    /**
+     * Signature
+     */
+    signature?: string | null;
+    /**
+     * Keyid
+     */
+    keyId?: string | null;
+    /**
+     * Acceptconflicts
+     */
+    acceptConflicts?: boolean;
+};
+
+/**
  * UserPatch
  */
 export type UserPatch = {
@@ -664,6 +916,16 @@ export type UserPatch = {
     attributes?: {
         [key: string]: unknown;
     } | null;
+};
+
+/**
+ * ValidateBody
+ */
+export type ValidateBody = {
+    /**
+     * Versionref
+     */
+    versionRef?: string;
 };
 
 /**
@@ -3941,6 +4203,1016 @@ export type RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses = {
 
 export type RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponse = RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses[keyof RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponses];
 
+export type ListAgentsApiV1AgentsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string | null;
+        /**
+         * Status
+         */
+        status?: string | null;
+        /**
+         * Visibility
+         */
+        visibility?: string | null;
+        /**
+         * Owner
+         */
+        owner?: string | null;
+    };
+    url: '/api/v1/agents';
+};
+
+export type ListAgentsApiV1AgentsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAgentsApiV1AgentsGetError = ListAgentsApiV1AgentsGetErrors[keyof ListAgentsApiV1AgentsGetErrors];
+
+export type ListAgentsApiV1AgentsGetResponses = {
+    /**
+     * Response List Agents Api V1 Agents Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListAgentsApiV1AgentsGetResponse = ListAgentsApiV1AgentsGetResponses[keyof ListAgentsApiV1AgentsGetResponses];
+
+export type CreateAgentApiV1AgentsPostData = {
+    body: AgentCreate;
+    path?: never;
+    query?: never;
+    url: '/api/v1/agents';
+};
+
+export type CreateAgentApiV1AgentsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateAgentApiV1AgentsPostError = CreateAgentApiV1AgentsPostErrors[keyof CreateAgentApiV1AgentsPostErrors];
+
+export type CreateAgentApiV1AgentsPostResponses = {
+    /**
+     * Response Create Agent Api V1 Agents Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateAgentApiV1AgentsPostResponse = CreateAgentApiV1AgentsPostResponses[keyof CreateAgentApiV1AgentsPostResponses];
+
+export type DraftAgentApiV1AgentsDraftFromDescriptionPostData = {
+    body: DescriptionBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/agents:draft-from-description';
+};
+
+export type DraftAgentApiV1AgentsDraftFromDescriptionPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DraftAgentApiV1AgentsDraftFromDescriptionPostError = DraftAgentApiV1AgentsDraftFromDescriptionPostErrors[keyof DraftAgentApiV1AgentsDraftFromDescriptionPostErrors];
+
+export type DraftAgentApiV1AgentsDraftFromDescriptionPostResponses = {
+    /**
+     * Response Draft Agent Api V1 Agents Draft From Description Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DraftAgentApiV1AgentsDraftFromDescriptionPostResponse = DraftAgentApiV1AgentsDraftFromDescriptionPostResponses[keyof DraftAgentApiV1AgentsDraftFromDescriptionPostResponses];
+
+export type SetFavouriteApiV1MeAgentFavouritesPutData = {
+    body: FavouriteBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/agent-favourites';
+};
+
+export type SetFavouriteApiV1MeAgentFavouritesPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SetFavouriteApiV1MeAgentFavouritesPutError = SetFavouriteApiV1MeAgentFavouritesPutErrors[keyof SetFavouriteApiV1MeAgentFavouritesPutErrors];
+
+export type SetFavouriteApiV1MeAgentFavouritesPutResponses = {
+    /**
+     * Response Set Favourite Api V1 Me Agent Favourites Put
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SetFavouriteApiV1MeAgentFavouritesPutResponse = SetFavouriteApiV1MeAgentFavouritesPutResponses[keyof SetFavouriteApiV1MeAgentFavouritesPutResponses];
+
+export type DeleteAgentApiV1AgentsAgentIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}';
+};
+
+export type DeleteAgentApiV1AgentsAgentIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAgentApiV1AgentsAgentIdDeleteError = DeleteAgentApiV1AgentsAgentIdDeleteErrors[keyof DeleteAgentApiV1AgentsAgentIdDeleteErrors];
+
+export type DeleteAgentApiV1AgentsAgentIdDeleteResponses = {
+    /**
+     * Response Delete Agent Api V1 Agents  Agent Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteAgentApiV1AgentsAgentIdDeleteResponse = DeleteAgentApiV1AgentsAgentIdDeleteResponses[keyof DeleteAgentApiV1AgentsAgentIdDeleteResponses];
+
+export type GetAgentApiV1AgentsAgentIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}';
+};
+
+export type GetAgentApiV1AgentsAgentIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetAgentApiV1AgentsAgentIdGetError = GetAgentApiV1AgentsAgentIdGetErrors[keyof GetAgentApiV1AgentsAgentIdGetErrors];
+
+export type GetAgentApiV1AgentsAgentIdGetResponses = {
+    /**
+     * Response Get Agent Api V1 Agents  Agent Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetAgentApiV1AgentsAgentIdGetResponse = GetAgentApiV1AgentsAgentIdGetResponses[keyof GetAgentApiV1AgentsAgentIdGetResponses];
+
+export type PatchAgentApiV1AgentsAgentIdPatchData = {
+    body: AgentPatch;
+    headers?: {
+        /**
+         * If-Match
+         */
+        'If-Match'?: string | null;
+    };
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}';
+};
+
+export type PatchAgentApiV1AgentsAgentIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchAgentApiV1AgentsAgentIdPatchError = PatchAgentApiV1AgentsAgentIdPatchErrors[keyof PatchAgentApiV1AgentsAgentIdPatchErrors];
+
+export type PatchAgentApiV1AgentsAgentIdPatchResponses = {
+    /**
+     * Response Patch Agent Api V1 Agents  Agent Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchAgentApiV1AgentsAgentIdPatchResponse = PatchAgentApiV1AgentsAgentIdPatchResponses[keyof PatchAgentApiV1AgentsAgentIdPatchResponses];
+
+export type ArchiveAgentApiV1AgentsAgentIdArchivePostData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:archive';
+};
+
+export type ArchiveAgentApiV1AgentsAgentIdArchivePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ArchiveAgentApiV1AgentsAgentIdArchivePostError = ArchiveAgentApiV1AgentsAgentIdArchivePostErrors[keyof ArchiveAgentApiV1AgentsAgentIdArchivePostErrors];
+
+export type ArchiveAgentApiV1AgentsAgentIdArchivePostResponses = {
+    /**
+     * Response Archive Agent Api V1 Agents  Agent Id  Archive Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ArchiveAgentApiV1AgentsAgentIdArchivePostResponse = ArchiveAgentApiV1AgentsAgentIdArchivePostResponses[keyof ArchiveAgentApiV1AgentsAgentIdArchivePostResponses];
+
+export type UnarchiveAgentApiV1AgentsAgentIdUnarchivePostData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:unarchive';
+};
+
+export type UnarchiveAgentApiV1AgentsAgentIdUnarchivePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UnarchiveAgentApiV1AgentsAgentIdUnarchivePostError = UnarchiveAgentApiV1AgentsAgentIdUnarchivePostErrors[keyof UnarchiveAgentApiV1AgentsAgentIdUnarchivePostErrors];
+
+export type UnarchiveAgentApiV1AgentsAgentIdUnarchivePostResponses = {
+    /**
+     * Response Unarchive Agent Api V1 Agents  Agent Id  Unarchive Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type UnarchiveAgentApiV1AgentsAgentIdUnarchivePostResponse = UnarchiveAgentApiV1AgentsAgentIdUnarchivePostResponses[keyof UnarchiveAgentApiV1AgentsAgentIdUnarchivePostResponses];
+
+export type ListVersionsApiV1AgentsAgentIdVersionsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/versions';
+};
+
+export type ListVersionsApiV1AgentsAgentIdVersionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListVersionsApiV1AgentsAgentIdVersionsGetError = ListVersionsApiV1AgentsAgentIdVersionsGetErrors[keyof ListVersionsApiV1AgentsAgentIdVersionsGetErrors];
+
+export type ListVersionsApiV1AgentsAgentIdVersionsGetResponses = {
+    /**
+     * Response List Versions Api V1 Agents  Agent Id  Versions Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListVersionsApiV1AgentsAgentIdVersionsGetResponse = ListVersionsApiV1AgentsAgentIdVersionsGetResponses[keyof ListVersionsApiV1AgentsAgentIdVersionsGetResponses];
+
+export type GetVersionApiV1AgentsAgentIdVersionsVersionRefGetData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+        /**
+         * Version Ref
+         */
+        version_ref: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/versions/{version_ref}';
+};
+
+export type GetVersionApiV1AgentsAgentIdVersionsVersionRefGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetVersionApiV1AgentsAgentIdVersionsVersionRefGetError = GetVersionApiV1AgentsAgentIdVersionsVersionRefGetErrors[keyof GetVersionApiV1AgentsAgentIdVersionsVersionRefGetErrors];
+
+export type GetVersionApiV1AgentsAgentIdVersionsVersionRefGetResponses = {
+    /**
+     * Response Get Version Api V1 Agents  Agent Id  Versions  Version Ref  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetVersionApiV1AgentsAgentIdVersionsVersionRefGetResponse = GetVersionApiV1AgentsAgentIdVersionsVersionRefGetResponses[keyof GetVersionApiV1AgentsAgentIdVersionsVersionRefGetResponses];
+
+export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutData = {
+    body: DraftBody;
+    headers?: {
+        /**
+         * If-Match
+         */
+        'If-Match'?: string | null;
+    };
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/versions/draft';
+};
+
+export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutError = SaveDraftApiV1AgentsAgentIdVersionsDraftPutErrors[keyof SaveDraftApiV1AgentsAgentIdVersionsDraftPutErrors];
+
+export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponses = {
+    /**
+     * Response Save Draft Api V1 Agents  Agent Id  Versions Draft Put
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponse = SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponses[keyof SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponses];
+
+export type ValidateAgentApiV1AgentsAgentIdValidatePostData = {
+    /**
+     * Body
+     */
+    body?: ValidateBody | null;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:validate';
+};
+
+export type ValidateAgentApiV1AgentsAgentIdValidatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ValidateAgentApiV1AgentsAgentIdValidatePostError = ValidateAgentApiV1AgentsAgentIdValidatePostErrors[keyof ValidateAgentApiV1AgentsAgentIdValidatePostErrors];
+
+export type ValidateAgentApiV1AgentsAgentIdValidatePostResponses = {
+    /**
+     * Response Validate Agent Api V1 Agents  Agent Id  Validate Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ValidateAgentApiV1AgentsAgentIdValidatePostResponse = ValidateAgentApiV1AgentsAgentIdValidatePostResponses[keyof ValidateAgentApiV1AgentsAgentIdValidatePostResponses];
+
+export type PublishAgentApiV1AgentsAgentIdPublishPostData = {
+    /**
+     * Body
+     */
+    body?: PublishBody | null;
+    headers?: {
+        /**
+         * If-Match
+         */
+        'If-Match'?: string | null;
+    };
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:publish';
+};
+
+export type PublishAgentApiV1AgentsAgentIdPublishPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PublishAgentApiV1AgentsAgentIdPublishPostError = PublishAgentApiV1AgentsAgentIdPublishPostErrors[keyof PublishAgentApiV1AgentsAgentIdPublishPostErrors];
+
+export type PublishAgentApiV1AgentsAgentIdPublishPostResponses = {
+    /**
+     * Response Publish Agent Api V1 Agents  Agent Id  Publish Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PublishAgentApiV1AgentsAgentIdPublishPostResponse = PublishAgentApiV1AgentsAgentIdPublishPostResponses[keyof PublishAgentApiV1AgentsAgentIdPublishPostResponses];
+
+export type RollbackAgentApiV1AgentsAgentIdRollbackPostData = {
+    body: RollbackBody;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:rollback';
+};
+
+export type RollbackAgentApiV1AgentsAgentIdRollbackPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RollbackAgentApiV1AgentsAgentIdRollbackPostError = RollbackAgentApiV1AgentsAgentIdRollbackPostErrors[keyof RollbackAgentApiV1AgentsAgentIdRollbackPostErrors];
+
+export type RollbackAgentApiV1AgentsAgentIdRollbackPostResponses = {
+    /**
+     * Response Rollback Agent Api V1 Agents  Agent Id  Rollback Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RollbackAgentApiV1AgentsAgentIdRollbackPostResponse = RollbackAgentApiV1AgentsAgentIdRollbackPostResponses[keyof RollbackAgentApiV1AgentsAgentIdRollbackPostResponses];
+
+export type DuplicateAgentApiV1AgentsAgentIdDuplicatePostData = {
+    body: DuplicateBody;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:duplicate';
+};
+
+export type DuplicateAgentApiV1AgentsAgentIdDuplicatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DuplicateAgentApiV1AgentsAgentIdDuplicatePostError = DuplicateAgentApiV1AgentsAgentIdDuplicatePostErrors[keyof DuplicateAgentApiV1AgentsAgentIdDuplicatePostErrors];
+
+export type DuplicateAgentApiV1AgentsAgentIdDuplicatePostResponses = {
+    /**
+     * Response Duplicate Agent Api V1 Agents  Agent Id  Duplicate Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DuplicateAgentApiV1AgentsAgentIdDuplicatePostResponse = DuplicateAgentApiV1AgentsAgentIdDuplicatePostResponses[keyof DuplicateAgentApiV1AgentsAgentIdDuplicatePostResponses];
+
+export type DisableAgentApiV1AgentsAgentIdDisablePostData = {
+    body: DisableBody;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:disable';
+};
+
+export type DisableAgentApiV1AgentsAgentIdDisablePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DisableAgentApiV1AgentsAgentIdDisablePostError = DisableAgentApiV1AgentsAgentIdDisablePostErrors[keyof DisableAgentApiV1AgentsAgentIdDisablePostErrors];
+
+export type DisableAgentApiV1AgentsAgentIdDisablePostResponses = {
+    /**
+     * Response Disable Agent Api V1 Agents  Agent Id  Disable Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DisableAgentApiV1AgentsAgentIdDisablePostResponse = DisableAgentApiV1AgentsAgentIdDisablePostResponses[keyof DisableAgentApiV1AgentsAgentIdDisablePostResponses];
+
+export type EnableAgentApiV1AgentsAgentIdEnablePostData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}:enable';
+};
+
+export type EnableAgentApiV1AgentsAgentIdEnablePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type EnableAgentApiV1AgentsAgentIdEnablePostError = EnableAgentApiV1AgentsAgentIdEnablePostErrors[keyof EnableAgentApiV1AgentsAgentIdEnablePostErrors];
+
+export type EnableAgentApiV1AgentsAgentIdEnablePostResponses = {
+    /**
+     * Response Enable Agent Api V1 Agents  Agent Id  Enable Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type EnableAgentApiV1AgentsAgentIdEnablePostResponse = EnableAgentApiV1AgentsAgentIdEnablePostResponses[keyof EnableAgentApiV1AgentsAgentIdEnablePostResponses];
+
+export type WhereUsedApiV1AgentsAgentIdWhereUsedGetData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/where-used';
+};
+
+export type WhereUsedApiV1AgentsAgentIdWhereUsedGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WhereUsedApiV1AgentsAgentIdWhereUsedGetError = WhereUsedApiV1AgentsAgentIdWhereUsedGetErrors[keyof WhereUsedApiV1AgentsAgentIdWhereUsedGetErrors];
+
+export type WhereUsedApiV1AgentsAgentIdWhereUsedGetResponses = {
+    /**
+     * Response Where Used Api V1 Agents  Agent Id  Where Used Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WhereUsedApiV1AgentsAgentIdWhereUsedGetResponse = WhereUsedApiV1AgentsAgentIdWhereUsedGetResponses[keyof WhereUsedApiV1AgentsAgentIdWhereUsedGetResponses];
+
+export type ExportAgentsApiV1BundlesExportGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Ids
+         */
+        ids?: string | null;
+    };
+    url: '/api/v1/bundles:export';
+};
+
+export type ExportAgentsApiV1BundlesExportGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExportAgentsApiV1BundlesExportGetError = ExportAgentsApiV1BundlesExportGetErrors[keyof ExportAgentsApiV1BundlesExportGetErrors];
+
+export type ExportAgentsApiV1BundlesExportGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ImportAgentsApiV1BundlesImportPostData = {
+    body: ImportBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/bundles:import';
+};
+
+export type ImportAgentsApiV1BundlesImportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportAgentsApiV1BundlesImportPostError = ImportAgentsApiV1BundlesImportPostErrors[keyof ImportAgentsApiV1BundlesImportPostErrors];
+
+export type ImportAgentsApiV1BundlesImportPostResponses = {
+    /**
+     * Response Import Agents Api V1 Bundles Import Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ImportAgentsApiV1BundlesImportPostResponse = ImportAgentsApiV1BundlesImportPostResponses[keyof ImportAgentsApiV1BundlesImportPostResponses];
+
+export type ListPacksApiV1ContentPacksGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/content-packs';
+};
+
+export type ListPacksApiV1ContentPacksGetResponses = {
+    /**
+     * Response List Packs Api V1 Content Packs Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListPacksApiV1ContentPacksGetResponse = ListPacksApiV1ContentPacksGetResponses[keyof ListPacksApiV1ContentPacksGetResponses];
+
+export type InstallPackApiV1ContentPacksInstallPostData = {
+    body: InstallBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/content-packs:install';
+};
+
+export type InstallPackApiV1ContentPacksInstallPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InstallPackApiV1ContentPacksInstallPostError = InstallPackApiV1ContentPacksInstallPostErrors[keyof InstallPackApiV1ContentPacksInstallPostErrors];
+
+export type InstallPackApiV1ContentPacksInstallPostResponses = {
+    /**
+     * Response Install Pack Api V1 Content Packs Install Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type InstallPackApiV1ContentPacksInstallPostResponse = InstallPackApiV1ContentPacksInstallPostResponses[keyof InstallPackApiV1ContentPacksInstallPostResponses];
+
+export type GetPackApiV1ContentPacksPackIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Pack Id
+         */
+        pack_id: string;
+    };
+    query?: never;
+    url: '/api/v1/content-packs/{pack_id}';
+};
+
+export type GetPackApiV1ContentPacksPackIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPackApiV1ContentPacksPackIdGetError = GetPackApiV1ContentPacksPackIdGetErrors[keyof GetPackApiV1ContentPacksPackIdGetErrors];
+
+export type GetPackApiV1ContentPacksPackIdGetResponses = {
+    /**
+     * Response Get Pack Api V1 Content Packs  Pack Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetPackApiV1ContentPacksPackIdGetResponse = GetPackApiV1ContentPacksPackIdGetResponses[keyof GetPackApiV1ContentPacksPackIdGetResponses];
+
+export type UpgradePackApiV1ContentPacksPackIdUpgradePostData = {
+    body: UpgradeBody;
+    path: {
+        /**
+         * Pack Id
+         */
+        pack_id: string;
+    };
+    query?: never;
+    url: '/api/v1/content-packs/{pack_id}:upgrade';
+};
+
+export type UpgradePackApiV1ContentPacksPackIdUpgradePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpgradePackApiV1ContentPacksPackIdUpgradePostError = UpgradePackApiV1ContentPacksPackIdUpgradePostErrors[keyof UpgradePackApiV1ContentPacksPackIdUpgradePostErrors];
+
+export type UpgradePackApiV1ContentPacksPackIdUpgradePostResponses = {
+    /**
+     * Response Upgrade Pack Api V1 Content Packs  Pack Id  Upgrade Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type UpgradePackApiV1ContentPacksPackIdUpgradePostResponse = UpgradePackApiV1ContentPacksPackIdUpgradePostResponses[keyof UpgradePackApiV1ContentPacksPackIdUpgradePostResponses];
+
+export type UninstallPackApiV1ContentPacksPackIdUninstallPostData = {
+    body: UninstallBody;
+    path: {
+        /**
+         * Pack Id
+         */
+        pack_id: string;
+    };
+    query?: never;
+    url: '/api/v1/content-packs/{pack_id}:uninstall';
+};
+
+export type UninstallPackApiV1ContentPacksPackIdUninstallPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UninstallPackApiV1ContentPacksPackIdUninstallPostError = UninstallPackApiV1ContentPacksPackIdUninstallPostErrors[keyof UninstallPackApiV1ContentPacksPackIdUninstallPostErrors];
+
+export type UninstallPackApiV1ContentPacksPackIdUninstallPostResponses = {
+    /**
+     * Response Uninstall Pack Api V1 Content Packs  Pack Id  Uninstall Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type UninstallPackApiV1ContentPacksPackIdUninstallPostResponse = UninstallPackApiV1ContentPacksPackIdUninstallPostResponses[keyof UninstallPackApiV1ContentPacksPackIdUninstallPostResponses];
+
+export type StartSessionApiV1BuilderSessionsPostData = {
+    body: SessionBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/builder/sessions';
+};
+
+export type StartSessionApiV1BuilderSessionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartSessionApiV1BuilderSessionsPostError = StartSessionApiV1BuilderSessionsPostErrors[keyof StartSessionApiV1BuilderSessionsPostErrors];
+
+export type StartSessionApiV1BuilderSessionsPostResponses = {
+    /**
+     * Response Start Session Api V1 Builder Sessions Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type StartSessionApiV1BuilderSessionsPostResponse = StartSessionApiV1BuilderSessionsPostResponses[keyof StartSessionApiV1BuilderSessionsPostResponses];
+
+export type ReadSessionApiV1BuilderSessionsSessionIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/builder/sessions/{session_id}';
+};
+
+export type ReadSessionApiV1BuilderSessionsSessionIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadSessionApiV1BuilderSessionsSessionIdGetError = ReadSessionApiV1BuilderSessionsSessionIdGetErrors[keyof ReadSessionApiV1BuilderSessionsSessionIdGetErrors];
+
+export type ReadSessionApiV1BuilderSessionsSessionIdGetResponses = {
+    /**
+     * Response Read Session Api V1 Builder Sessions  Session Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ReadSessionApiV1BuilderSessionsSessionIdGetResponse = ReadSessionApiV1BuilderSessionsSessionIdGetResponses[keyof ReadSessionApiV1BuilderSessionsSessionIdGetResponses];
+
+export type SessionMessageApiV1BuilderSessionsSessionIdMessagesPostData = {
+    body: SessionMessage;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/builder/sessions/{session_id}/messages';
+};
+
+export type SessionMessageApiV1BuilderSessionsSessionIdMessagesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SessionMessageApiV1BuilderSessionsSessionIdMessagesPostError = SessionMessageApiV1BuilderSessionsSessionIdMessagesPostErrors[keyof SessionMessageApiV1BuilderSessionsSessionIdMessagesPostErrors];
+
+export type SessionMessageApiV1BuilderSessionsSessionIdMessagesPostResponses = {
+    /**
+     * Response Session Message Api V1 Builder Sessions  Session Id  Messages Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SessionMessageApiV1BuilderSessionsSessionIdMessagesPostResponse = SessionMessageApiV1BuilderSessionsSessionIdMessagesPostResponses[keyof SessionMessageApiV1BuilderSessionsSessionIdMessagesPostResponses];
+
+export type ApplySessionApiV1BuilderSessionsSessionIdApplyPostData = {
+    body: ApplyBody;
+    path: {
+        /**
+         * Session Id
+         */
+        session_id: string;
+    };
+    query?: never;
+    url: '/api/v1/builder/sessions/{session_id}:apply';
+};
+
+export type ApplySessionApiV1BuilderSessionsSessionIdApplyPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ApplySessionApiV1BuilderSessionsSessionIdApplyPostError = ApplySessionApiV1BuilderSessionsSessionIdApplyPostErrors[keyof ApplySessionApiV1BuilderSessionsSessionIdApplyPostErrors];
+
+export type ApplySessionApiV1BuilderSessionsSessionIdApplyPostResponses = {
+    /**
+     * Response Apply Session Api V1 Builder Sessions  Session Id  Apply Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ApplySessionApiV1BuilderSessionsSessionIdApplyPostResponse = ApplySessionApiV1BuilderSessionsSessionIdApplyPostResponses[keyof ApplySessionApiV1BuilderSessionsSessionIdApplyPostResponses];
+
 export type ListProvidersApiV1ModelProvidersGetData = {
     body?: never;
     path?: never;
@@ -4307,197 +5579,26 @@ export type PlatformCreateProviderApiV1PlatformModelProvidersPostResponses = {
 
 export type PlatformCreateProviderApiV1PlatformModelProvidersPostResponse = PlatformCreateProviderApiV1PlatformModelProvidersPostResponses[keyof PlatformCreateProviderApiV1PlatformModelProvidersPostResponses];
 
-export type ListAgentsApiV1AgentsGetData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/agents';
-};
-
-export type ListAgentsApiV1AgentsGetResponses = {
-    /**
-     * Response List Agents Api V1 Agents Get
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type ListAgentsApiV1AgentsGetResponse = ListAgentsApiV1AgentsGetResponses[keyof ListAgentsApiV1AgentsGetResponses];
-
-export type CreateAgentApiV1AgentsPostData = {
-    body: AgentBody;
-    path?: never;
-    query?: never;
-    url: '/api/v1/agents';
-};
-
-export type CreateAgentApiV1AgentsPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CreateAgentApiV1AgentsPostError = CreateAgentApiV1AgentsPostErrors[keyof CreateAgentApiV1AgentsPostErrors];
-
-export type CreateAgentApiV1AgentsPostResponses = {
-    /**
-     * Response Create Agent Api V1 Agents Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type CreateAgentApiV1AgentsPostResponse = CreateAgentApiV1AgentsPostResponses[keyof CreateAgentApiV1AgentsPostResponses];
-
-export type GetAgentApiV1AgentsAgentIdGetData = {
-    body?: never;
-    path: {
-        /**
-         * Agent Id
-         */
-        agent_id: string;
-    };
-    query?: never;
-    url: '/api/v1/agents/{agent_id}';
-};
-
-export type GetAgentApiV1AgentsAgentIdGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetAgentApiV1AgentsAgentIdGetError = GetAgentApiV1AgentsAgentIdGetErrors[keyof GetAgentApiV1AgentsAgentIdGetErrors];
-
-export type GetAgentApiV1AgentsAgentIdGetResponses = {
-    /**
-     * Response Get Agent Api V1 Agents  Agent Id  Get
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type GetAgentApiV1AgentsAgentIdGetResponse = GetAgentApiV1AgentsAgentIdGetResponses[keyof GetAgentApiV1AgentsAgentIdGetResponses];
-
-export type ListVersionsApiV1AgentsAgentIdVersionsGetData = {
-    body?: never;
-    path: {
-        /**
-         * Agent Id
-         */
-        agent_id: string;
-    };
-    query?: never;
-    url: '/api/v1/agents/{agent_id}/versions';
-};
-
-export type ListVersionsApiV1AgentsAgentIdVersionsGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ListVersionsApiV1AgentsAgentIdVersionsGetError = ListVersionsApiV1AgentsAgentIdVersionsGetErrors[keyof ListVersionsApiV1AgentsAgentIdVersionsGetErrors];
-
-export type ListVersionsApiV1AgentsAgentIdVersionsGetResponses = {
-    /**
-     * Response List Versions Api V1 Agents  Agent Id  Versions Get
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type ListVersionsApiV1AgentsAgentIdVersionsGetResponse = ListVersionsApiV1AgentsAgentIdVersionsGetResponses[keyof ListVersionsApiV1AgentsAgentIdVersionsGetResponses];
-
-export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutData = {
-    body: DraftBody;
-    path: {
-        /**
-         * Agent Id
-         */
-        agent_id: string;
-    };
-    query?: never;
-    url: '/api/v1/agents/{agent_id}/versions/draft';
-};
-
-export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutError = SaveDraftApiV1AgentsAgentIdVersionsDraftPutErrors[keyof SaveDraftApiV1AgentsAgentIdVersionsDraftPutErrors];
-
-export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponses = {
-    /**
-     * Response Save Draft Api V1 Agents  Agent Id  Versions Draft Put
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponse = SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponses[keyof SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponses];
-
-export type PublishAgentApiV1AgentsAgentIdPublishPostData = {
-    body?: never;
-    path: {
-        /**
-         * Agent Id
-         */
-        agent_id: string;
-    };
-    query?: never;
-    url: '/api/v1/agents/{agent_id}:publish';
-};
-
-export type PublishAgentApiV1AgentsAgentIdPublishPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type PublishAgentApiV1AgentsAgentIdPublishPostError = PublishAgentApiV1AgentsAgentIdPublishPostErrors[keyof PublishAgentApiV1AgentsAgentIdPublishPostErrors];
-
-export type PublishAgentApiV1AgentsAgentIdPublishPostResponses = {
-    /**
-     * Response Publish Agent Api V1 Agents  Agent Id  Publish Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: unknown;
-    };
-};
-
-export type PublishAgentApiV1AgentsAgentIdPublishPostResponse = PublishAgentApiV1AgentsAgentIdPublishPostResponses[keyof PublishAgentApiV1AgentsAgentIdPublishPostResponses];
-
 export type ListConversationsApiV1ConversationsGetData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Includepreviews
+         */
+        includePreviews?: boolean;
+    };
     url: '/api/v1/conversations';
 };
+
+export type ListConversationsApiV1ConversationsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListConversationsApiV1ConversationsGetError = ListConversationsApiV1ConversationsGetErrors[keyof ListConversationsApiV1ConversationsGetErrors];
 
 export type ListConversationsApiV1ConversationsGetResponses = {
     /**

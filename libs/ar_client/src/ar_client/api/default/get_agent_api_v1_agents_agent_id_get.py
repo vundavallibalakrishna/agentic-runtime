@@ -8,45 +8,42 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.get_agent_api_v1_agents_agent_id_get_response_get_agent_api_v1_agents_agent_id_get import GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet
+from ...models.get_agent_api_v1_agents_agent_id_get_response_get_agent_api_v1_agents_agent_id_get import (
+    GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     agent_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/agents/{agent_id}".format(agent_id=quote(str(agent_id), safe=""),),
+        "url": "/api/v1/agents/{agent_id}".format(
+            agent_id=quote(str(agent_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError | None
+):
     if response.status_code == 200:
-        response_200 = GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet.from_dict(response.json())
-
-
+        response_200 = GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +53,11 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +70,10 @@ def sync_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError]:
-    """ Get Agent
+) -> Response[
+    GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError
+]:
+    """Get Agent
 
     Args:
         agent_id (UUID):
@@ -82,12 +84,10 @@ def sync_detailed(
 
     Returns:
         Response[GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         agent_id=agent_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +96,15 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError | None:
-    """ Get Agent
+) -> (
+    GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError | None
+):
+    """Get Agent
 
     Args:
         agent_id (UUID):
@@ -113,22 +115,22 @@ def sync(
 
     Returns:
         GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         agent_id=agent_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError]:
-    """ Get Agent
+) -> Response[
+    GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError
+]:
+    """Get Agent
 
     Args:
         agent_id (UUID):
@@ -139,27 +141,25 @@ async def asyncio_detailed(
 
     Returns:
         Response[GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         agent_id=agent_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError | None:
-    """ Get Agent
+) -> (
+    GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError | None
+):
+    """Get Agent
 
     Args:
         agent_id (UUID):
@@ -170,11 +170,11 @@ async def asyncio(
 
     Returns:
         GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        agent_id=agent_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            agent_id=agent_id,
+            client=client,
+        )
+    ).parsed

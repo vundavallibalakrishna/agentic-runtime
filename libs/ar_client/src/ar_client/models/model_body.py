@@ -12,32 +12,23 @@ from ..types import UNSET, Unset
 from uuid import UUID
 
 
-
-
-
-
 T = TypeVar("T", bound="ModelBody")
-
 
 
 @_attrs_define
 class ModelBody:
-    """ 
-        Attributes:
-            provider_id (UUID):
-            name (str):
-            upstream_model (str):
-            kind (str | Unset):  Default: 'chat'.
-     """
+    """
+    Attributes:
+        provider_id (UUID):
+        name (str):
+        upstream_model (str):
+        kind (str | Unset):  Default: 'chat'.
+    """
 
     provider_id: UUID
     name: str
     upstream_model: str
-    kind: str | Unset = 'chat'
-
-
-
-
+    kind: str | Unset = "chat"
 
     def to_dict(self) -> dict[str, Any]:
         provider_id = str(self.provider_id)
@@ -48,28 +39,24 @@ class ModelBody:
 
         kind = self.kind
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "providerId": provider_id,
-            "name": name,
-            "upstreamModel": upstream_model,
-        })
+        field_dict.update(
+            {
+                "providerId": provider_id,
+                "name": name,
+                "upstreamModel": upstream_model,
+            }
+        )
         if kind is not UNSET:
             field_dict["kind"] = kind
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         provider_id = UUID(d.pop("providerId"))
-
-
-
 
         name = d.pop("name")
 
@@ -85,4 +72,3 @@ class ModelBody:
         )
 
         return model_body
-

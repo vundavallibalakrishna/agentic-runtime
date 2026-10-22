@@ -9,20 +9,17 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.list_groups_scim_v2_groups_get_response_list_groups_scim_v2_groups_get import ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet
+from ...models.list_groups_scim_v2_groups_get_response_list_groups_scim_v2_groups_get import (
+    ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet,
+)
 from ...types import UNSET, Unset
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     filter_: None | str | Unset = UNSET,
-
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
@@ -33,9 +30,7 @@ def _get_kwargs(
         json_filter_ = filter_
     params["filter"] = json_filter_
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -43,23 +38,21 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet | None:
     if response.status_code == 200:
-        response_200 = ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet.from_dict(response.json())
-
-
+        response_200 = ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -69,7 +62,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -82,9 +77,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     filter_: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet]:
-    """ List Groups
+    """List Groups
 
     Args:
         filter_ (None | str | Unset):
@@ -95,12 +89,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         filter_=filter_,
-
     )
 
     response = client.get_httpx_client().request(
@@ -109,13 +101,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     filter_: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet | None:
-    """ List Groups
+    """List Groups
 
     Args:
         filter_ (None | str | Unset):
@@ -126,22 +118,20 @@ def sync(
 
     Returns:
         HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-filter_=filter_,
-
+        filter_=filter_,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     filter_: None | str | Unset = UNSET,
-
 ) -> Response[HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet]:
-    """ List Groups
+    """List Groups
 
     Args:
         filter_ (None | str | Unset):
@@ -152,27 +142,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         filter_=filter_,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     filter_: None | str | Unset = UNSET,
-
 ) -> HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet | None:
-    """ List Groups
+    """List Groups
 
     Args:
         filter_ (None | str | Unset):
@@ -183,11 +169,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-filter_=filter_,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            filter_=filter_,
+        )
+    ).parsed

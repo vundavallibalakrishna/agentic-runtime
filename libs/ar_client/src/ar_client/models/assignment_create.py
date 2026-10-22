@@ -13,34 +13,25 @@ from typing import cast
 from uuid import UUID
 
 
-
-
-
-
 T = TypeVar("T", bound="AssignmentCreate")
-
 
 
 @_attrs_define
 class AssignmentCreate:
-    """ 
-        Attributes:
-            role_id (UUID):
-            principal_type (str):
-            principal_id (UUID):
-            scope_type (str | Unset):  Default: 'tenant'.
-            scope_id (None | Unset | UUID):
-     """
+    """
+    Attributes:
+        role_id (UUID):
+        principal_type (str):
+        principal_id (UUID):
+        scope_type (str | Unset):  Default: 'tenant'.
+        scope_id (None | Unset | UUID):
+    """
 
     role_id: UUID
     principal_type: str
     principal_id: UUID
-    scope_type: str | Unset = 'tenant'
+    scope_type: str | Unset = "tenant"
     scope_id: None | Unset | UUID = UNSET
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         role_id = str(self.role_id)
@@ -59,14 +50,15 @@ class AssignmentCreate:
         else:
             scope_id = self.scope_id
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "roleId": role_id,
-            "principalType": principal_type,
-            "principalId": principal_id,
-        })
+        field_dict.update(
+            {
+                "roleId": role_id,
+                "principalType": principal_type,
+                "principalId": principal_id,
+            }
+        )
         if scope_type is not UNSET:
             field_dict["scopeType"] = scope_type
         if scope_id is not UNSET:
@@ -74,22 +66,14 @@ class AssignmentCreate:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         role_id = UUID(d.pop("roleId"))
 
-
-
-
         principal_type = d.pop("principalType")
 
         principal_id = UUID(d.pop("principalId"))
-
-
-
 
         scope_type = d.pop("scopeType", UNSET)
 
@@ -103,15 +87,12 @@ class AssignmentCreate:
                     raise TypeError()
                 scope_id_type_0 = UUID(data)
 
-
-
                 return scope_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except TypeError, ValueError, AttributeError, KeyError:
                 pass
             return cast(None | Unset | UUID, data)
 
         scope_id = _parse_scope_id(d.pop("scopeId", UNSET))
-
 
         assignment_create = cls(
             role_id=role_id,
@@ -122,4 +103,3 @@ class AssignmentCreate:
         )
 
         return assignment_create
-

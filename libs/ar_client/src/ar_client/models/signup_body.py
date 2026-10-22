@@ -9,31 +9,21 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="SignupBody")
-
 
 
 @_attrs_define
 class SignupBody:
-    """ 
-        Attributes:
-            slug (str):
-            name (str):
-            email (str):
-     """
+    """
+    Attributes:
+        slug (str):
+        name (str):
+        email (str):
+    """
 
     slug: str
     name: str
     email: str
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         slug = self.slug
@@ -42,18 +32,17 @@ class SignupBody:
 
         email = self.email
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "slug": slug,
-            "name": name,
-            "email": email,
-        })
+        field_dict.update(
+            {
+                "slug": slug,
+                "name": name,
+                "email": email,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -71,4 +60,3 @@ class SignupBody:
         )
 
         return signup_body
-

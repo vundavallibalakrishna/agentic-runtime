@@ -13,32 +13,23 @@ from typing import cast
 from uuid import UUID
 
 
-
-
-
-
 T = TypeVar("T", bound="ApiKeyCreate")
-
 
 
 @_attrs_define
 class ApiKeyCreate:
-    """ 
-        Attributes:
-            name (str):
-            service_account_id (None | Unset | UUID):
-            scopes (list[str] | Unset):
-            expires_in_days (int | Unset):  Default: 90.
-     """
+    """
+    Attributes:
+        name (str):
+        service_account_id (None | Unset | UUID):
+        scopes (list[str] | Unset):
+        expires_in_days (int | Unset):  Default: 90.
+    """
 
     name: str
     service_account_id: None | Unset | UUID = UNSET
     scopes: list[str] | Unset = UNSET
     expires_in_days: int | Unset = 90
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
@@ -55,16 +46,15 @@ class ApiKeyCreate:
         if not isinstance(self.scopes, Unset):
             scopes = self.scopes
 
-
-
         expires_in_days = self.expires_in_days
-
 
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "name": name,
-        })
+        field_dict.update(
+            {
+                "name": name,
+            }
+        )
         if service_account_id is not UNSET:
             field_dict["serviceAccountId"] = service_account_id
         if scopes is not UNSET:
@@ -73,8 +63,6 @@ class ApiKeyCreate:
             field_dict["expiresInDays"] = expires_in_days
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -91,18 +79,14 @@ class ApiKeyCreate:
                     raise TypeError()
                 service_account_id_type_0 = UUID(data)
 
-
-
                 return service_account_id_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except TypeError, ValueError, AttributeError, KeyError:
                 pass
             return cast(None | Unset | UUID, data)
 
         service_account_id = _parse_service_account_id(d.pop("serviceAccountId", UNSET))
 
-
         scopes = cast(list[str], d.pop("scopes", UNSET))
-
 
         expires_in_days = d.pop("expiresInDays", UNSET)
 
@@ -114,4 +98,3 @@ class ApiKeyCreate:
         )
 
         return api_key_create
-

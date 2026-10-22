@@ -13,28 +13,19 @@ from typing import cast
 from uuid import UUID
 
 
-
-
-
-
 T = TypeVar("T", bound="MessageBody")
-
 
 
 @_attrs_define
 class MessageBody:
-    """ 
-        Attributes:
-            text (str):
-            attachment_ids (list[UUID] | Unset):
-     """
+    """
+    Attributes:
+        text (str):
+        attachment_ids (list[UUID] | Unset):
+    """
 
     text: str
     attachment_ids: list[UUID] | Unset = UNSET
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         text = self.text
@@ -46,20 +37,17 @@ class MessageBody:
                 attachment_ids_item = str(attachment_ids_item_data)
                 attachment_ids.append(attachment_ids_item)
 
-
-
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "text": text,
-        })
+        field_dict.update(
+            {
+                "text": text,
+            }
+        )
         if attachment_ids is not UNSET:
             field_dict["attachmentIds"] = attachment_ids
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -73,10 +61,7 @@ class MessageBody:
             for attachment_ids_item_data in _attachment_ids:
                 attachment_ids_item = UUID(attachment_ids_item_data)
 
-
-
                 attachment_ids.append(attachment_ids_item)
-
 
         message_body = cls(
             text=text,
@@ -84,4 +69,3 @@ class MessageBody:
         )
 
         return message_body
-

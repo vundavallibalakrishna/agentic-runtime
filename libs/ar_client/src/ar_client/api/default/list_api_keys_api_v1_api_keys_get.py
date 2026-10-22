@@ -9,21 +9,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.list_api_keys_api_v1_api_keys_get_response_list_api_keys_api_v1_api_keys_get import ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet
+from ...models.list_api_keys_api_v1_api_keys_get_response_list_api_keys_api_v1_api_keys_get import (
+    ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet,
+)
 from ...types import UNSET, Unset
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     *,
     service_account_id: None | Unset | UUID = UNSET,
-
 ) -> dict[str, Any]:
-    
-
-    
 
     params: dict[str, Any] = {}
 
@@ -36,9 +33,7 @@ def _get_kwargs(
         json_service_account_id = service_account_id
     params["service_account_id"] = json_service_account_id
 
-
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
-
 
     _kwargs: dict[str, Any] = {
         "method": "get",
@@ -46,23 +41,21 @@ def _get_kwargs(
         "params": params,
     }
 
-
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet | None:
     if response.status_code == 200:
-        response_200 = ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet.from_dict(response.json())
-
-
+        response_200 = ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -72,7 +65,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -85,9 +80,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
-
 ) -> Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]:
-    """ List Api Keys
+    """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
@@ -98,12 +92,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         service_account_id=service_account_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -112,13 +104,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
-
 ) -> HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet | None:
-    """ List Api Keys
+    """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
@@ -129,22 +121,20 @@ def sync(
 
     Returns:
         HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-service_account_id=service_account_id,
-
+        service_account_id=service_account_id,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
-
 ) -> Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]:
-    """ List Api Keys
+    """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
@@ -155,27 +145,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         service_account_id=service_account_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     service_account_id: None | Unset | UUID = UNSET,
-
 ) -> HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet | None:
-    """ List Api Keys
+    """List Api Keys
 
     Args:
         service_account_id (None | Unset | UUID):
@@ -186,11 +172,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-service_account_id=service_account_id,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            service_account_id=service_account_id,
+        )
+    ).parsed

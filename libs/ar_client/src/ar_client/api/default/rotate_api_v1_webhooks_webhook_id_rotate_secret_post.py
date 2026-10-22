@@ -9,44 +9,43 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.rotate_api_v1_webhooks_webhook_id_rotate_secret_post_response_rotate_api_v1_webhooks_webhook_id_rotate_secret_post import RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
+from ...models.rotate_api_v1_webhooks_webhook_id_rotate_secret_post_response_rotate_api_v1_webhooks_webhook_id_rotate_secret_post import (
+    RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     webhook_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": "/api/v1/webhooks/{webhook_id}:rotate-secret".format(webhook_id=quote(str(webhook_id), safe=""),),
+        "url": "/api/v1/webhooks/{webhook_id}:rotate-secret".format(
+            webhook_id=quote(str(webhook_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
+    | None
+):
     if response.status_code == 200:
-        response_200 = RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost.from_dict(response.json())
-
-
+        response_200 = RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     webhook_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost]:
-    """ Rotate
+) -> Response[
+    HTTPValidationError
+    | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
+]:
+    """Rotate
 
     Args:
         webhook_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         webhook_id=webhook_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     webhook_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost | None:
-    """ Rotate
+) -> (
+    HTTPValidationError
+    | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
+    | None
+):
+    """Rotate
 
     Args:
         webhook_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
-     """
-
+    """
 
     return sync_detailed(
         webhook_id=webhook_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     webhook_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost]:
-    """ Rotate
+) -> Response[
+    HTTPValidationError
+    | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
+]:
+    """Rotate
 
     Args:
         webhook_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         webhook_id=webhook_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     webhook_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost | None:
-    """ Rotate
+) -> (
+    HTTPValidationError
+    | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
+    | None
+):
+    """Rotate
 
     Args:
         webhook_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        webhook_id=webhook_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            webhook_id=webhook_id,
+            client=client,
+        )
+    ).parsed

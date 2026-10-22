@@ -9,40 +9,27 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="ListAssignmentsApiV1RoleAssignmentsGetResponseListAssignmentsApiV1RoleAssignmentsGet")
-
+T = TypeVar(
+    "T",
+    bound="ListAssignmentsApiV1RoleAssignmentsGetResponseListAssignmentsApiV1RoleAssignmentsGet",
+)
 
 
 @_attrs_define
 class ListAssignmentsApiV1RoleAssignmentsGetResponseListAssignmentsApiV1RoleAssignmentsGet:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        list_assignments_api_v1_role_assignments_get_response_list_assignments_api_v1_role_assignments_get = cls(
-        )
-
+        list_assignments_api_v1_role_assignments_get_response_list_assignments_api_v1_role_assignments_get = cls()
 
         list_assignments_api_v1_role_assignments_get_response_list_assignments_api_v1_role_assignments_get.additional_properties = d
         return list_assignments_api_v1_role_assignments_get_response_list_assignments_api_v1_role_assignments_get

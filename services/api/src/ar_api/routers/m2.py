@@ -7,9 +7,12 @@ from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 
+from ar_api.actors import actor_from
 from ar_api.deps import expose, require_permission
 from ar_common.errors import ArError, ErrorCode, NotFoundError
 from ar_contracts.api_model import ApiModel
+from ar_domain.agents.access import can_edit
+from ar_domain.agents.service import AgentLifecycle
 from ar_domain.chat.service import ChatService
 from ar_domain.db.context import Principal
 from ar_domain.events.sign import public_json_bytes
@@ -48,17 +51,9 @@ class AliasTestBody(ApiModel):
     messages: list[dict[str, str]] = Field(default_factory=list)
 
 
-class AgentBody(ApiModel):
-    slug: str
-    name: str
-
-
-class DraftBody(ApiModel):
-    definition: dict[str, object]
-
-
 class ConversationBody(ApiModel):
     agent_id: uuid.UUID | None = None
+    agent_version_id: uuid.UUID | None = None
 
 
 class ConversationPatch(ApiModel):
@@ -265,74 +260,31 @@ async def platform_create_provider(body: ProviderBody, request: Request) -> dict
     return _chat(request).create_provider(None, body.name, body.kind, body.base_url, platform=True)
 
 
-@router.get("/api/v1/agents", dependencies=[Depends(require_permission("agents:read"))])
-@expose(public=False, permission="agents:read")
-async def list_agents(request: Request) -> dict[str, object]:
-    principal = _principal(request)
-    return _page(_chat(request).list_agents(_tenant(principal), uuid.UUID(principal.id)))
-
-
-@router.post("/api/v1/agents", dependencies=[Depends(require_permission("agents:create"))])
-@expose(public=False, permission="agents:create")
-async def create_agent(body: AgentBody, request: Request) -> dict[str, object]:
-    principal = _principal(request)
-    return _chat(request).create_agent(
-        _tenant(principal),
-        uuid.UUID(principal.id),
-        body.slug,
-        body.name,
-    )
-
-
-@router.get("/api/v1/agents/{agent_id}", dependencies=[Depends(require_permission("agents:read"))])
-@expose(public=False, permission="agents:read")
-async def get_agent(agent_id: uuid.UUID, request: Request) -> dict[str, object]:
-    principal = _principal(request)
-    return _chat(request).get_agent(_tenant(principal), agent_id)
-
-
-@router.get(
-    "/api/v1/agents/{agent_id}/versions",
-    dependencies=[Depends(require_permission("agents:read"))],
-)
-@expose(public=False, permission="agents:read")
-async def list_versions(agent_id: uuid.UUID, request: Request) -> dict[str, object]:
-    principal = _principal(request)
-    return _page(_chat(request).list_versions(_tenant(principal), agent_id))
-
-
-@router.put(
-    "/api/v1/agents/{agent_id}/versions/draft",
-    dependencies=[Depends(require_permission("agents:edit"))],
-)
-@expose(public=False, permission="agents:edit")
-async def save_draft(agent_id: uuid.UUID, body: DraftBody, request: Request) -> dict[str, object]:
-    principal = _principal(request)
-    return _chat(request).save_draft(_tenant(principal), agent_id, body.definition)
-
-
-@router.post(
-    "/api/v1/agents/{agent_id}:publish",
-    dependencies=[Depends(require_permission("agents:publish"))],
-)
-@expose(public=False, permission="agents:publish")
-async def publish_agent(agent_id: uuid.UUID, request: Request) -> dict[str, object]:
-    principal = _principal(request)
-    return _chat(request).publish(_tenant(principal), agent_id, uuid.UUID(principal.id))
-
-
 @router.get("/api/v1/conversations", dependencies=[Depends(require_permission("chat:use"))])
 @expose(public=False, permission="chat:use")
-async def list_conversations(request: Request) -> dict[str, object]:
+async def list_conversations(
+    request: Request,
+    *,
+    include_previews: Annotated[bool, Query(alias="includePreviews")] = False,
+) -> dict[str, object]:
     principal = _principal(request)
-    return _page(_chat(request).list_conversations(_tenant(principal), uuid.UUID(principal.id)))
+    return _page(
+        _chat(request).list_conversations(
+            _tenant(principal),
+            uuid.UUID(principal.id),
+            include_previews=include_previews,
+        )
+    )
 
 
 @router.post("/api/v1/conversations", dependencies=[Depends(require_permission("chat:use"))])
 @expose(public=False, permission="chat:use")
 async def create_conversation(body: ConversationBody, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    return _chat(request).create_conversation(
+    service = _chat(request)
+    if body.agent_version_id is not None:
+        return AgentLifecycle(service).open_preview(actor_from(principal), body.agent_version_id)
+    return service.create_conversation(
         _tenant(principal),
         uuid.UUID(principal.id),
         body.agent_id,
@@ -347,12 +299,19 @@ async def create_conversation(body: ConversationBody, request: Request) -> dict[
 async def get_conversation(conversation_id: uuid.UUID, request: Request) -> dict[str, object]:
     principal = _principal(request)
     read_all = principal.allows("conversations:read_all")
-    return _chat(request).get_conversation(
+    service = _chat(request)
+    body = service.get_conversation(
         _tenant(principal),
         uuid.UUID(principal.id),
         conversation_id,
         read_all=read_all,
     )
+    if body.get("is_preview"):
+        agent_id = body.get("agent_id")
+        agent = service.agents.get(uuid.UUID(str(agent_id))) if agent_id else None
+        if not isinstance(agent, dict) or not can_edit(agent, actor_from(principal)):
+            raise NotFoundError()
+    return body
 
 
 @router.patch(

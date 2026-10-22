@@ -9,23 +9,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.create_group_scim_v2_groups_post_body import CreateGroupScimV2GroupsPostBody
-from ...models.create_group_scim_v2_groups_post_response_create_group_scim_v2_groups_post import CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost
+from ...models.create_group_scim_v2_groups_post_response_create_group_scim_v2_groups_post import (
+    CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: CreateGroupScimV2GroupsPostBody,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +35,18 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError | None:
     if response.status_code == 200:
-        response_200 = CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost.from_dict(response.json())
-
-
+        response_200 = CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +56,9 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +71,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: CreateGroupScimV2GroupsPostBody,
-
 ) -> Response[CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError]:
-    """ Create Group
+    """Create Group
 
     Args:
         body (CreateGroupScimV2GroupsPostBody):
@@ -88,12 +83,10 @@ def sync_detailed(
 
     Returns:
         Response[CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +95,13 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: CreateGroupScimV2GroupsPostBody,
-
 ) -> CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError | None:
-    """ Create Group
+    """Create Group
 
     Args:
         body (CreateGroupScimV2GroupsPostBody):
@@ -119,22 +112,20 @@ def sync(
 
     Returns:
         CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: CreateGroupScimV2GroupsPostBody,
-
 ) -> Response[CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError]:
-    """ Create Group
+    """Create Group
 
     Args:
         body (CreateGroupScimV2GroupsPostBody):
@@ -145,27 +136,23 @@ async def asyncio_detailed(
 
     Returns:
         Response[CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: CreateGroupScimV2GroupsPostBody,
-
 ) -> CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError | None:
-    """ Create Group
+    """Create Group
 
     Args:
         body (CreateGroupScimV2GroupsPostBody):
@@ -176,11 +163,11 @@ async def asyncio(
 
     Returns:
         CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

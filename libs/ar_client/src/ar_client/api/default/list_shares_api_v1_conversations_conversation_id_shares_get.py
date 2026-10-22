@@ -9,44 +9,43 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
-from ...models.list_shares_api_v1_conversations_conversation_id_shares_get_response_list_shares_api_v1_conversations_conversation_id_shares_get import ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
+from ...models.list_shares_api_v1_conversations_conversation_id_shares_get_response_list_shares_api_v1_conversations_conversation_id_shares_get import (
+    ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet,
+)
 from typing import cast
 from uuid import UUID
 
 
-
 def _get_kwargs(
     conversation_id: UUID,
-
 ) -> dict[str, Any]:
-    
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": "/api/v1/conversations/{conversation_id}/shares".format(conversation_id=quote(str(conversation_id), safe=""),),
+        "url": "/api/v1/conversations/{conversation_id}/shares".format(
+            conversation_id=quote(str(conversation_id), safe=""),
+        ),
     }
-
 
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    HTTPValidationError
+    | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
+    | None
+):
     if response.status_code == 200:
-        response_200 = ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet.from_dict(response.json())
-
-
+        response_200 = ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -56,7 +55,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    HTTPValidationError
+    | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -69,9 +73,11 @@ def sync_detailed(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet]:
-    """ List Shares
+) -> Response[
+    HTTPValidationError
+    | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
+]:
+    """List Shares
 
     Args:
         conversation_id (UUID):
@@ -82,12 +88,10 @@ def sync_detailed(
 
     Returns:
         Response[HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
-
     )
 
     response = client.get_httpx_client().request(
@@ -96,13 +100,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet | None:
-    """ List Shares
+) -> (
+    HTTPValidationError
+    | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
+    | None
+):
+    """List Shares
 
     Args:
         conversation_id (UUID):
@@ -113,22 +121,23 @@ def sync(
 
     Returns:
         HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
-     """
-
+    """
 
     return sync_detailed(
         conversation_id=conversation_id,
-client=client,
-
+        client=client,
     ).parsed
+
 
 async def asyncio_detailed(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> Response[HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet]:
-    """ List Shares
+) -> Response[
+    HTTPValidationError
+    | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
+]:
+    """List Shares
 
     Args:
         conversation_id (UUID):
@@ -139,27 +148,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         conversation_id=conversation_id,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     conversation_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-
-) -> HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet | None:
-    """ List Shares
+) -> (
+    HTTPValidationError
+    | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
+    | None
+):
+    """List Shares
 
     Args:
         conversation_id (UUID):
@@ -170,11 +179,11 @@ async def asyncio(
 
     Returns:
         HTTPValidationError | ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        conversation_id=conversation_id,
-client=client,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            conversation_id=conversation_id,
+            client=client,
+        )
+    ).parsed

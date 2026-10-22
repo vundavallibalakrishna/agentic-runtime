@@ -13,32 +13,23 @@ from typing import cast
 from uuid import UUID
 
 
-
-
-
-
 T = TypeVar("T", bound="AliasBody")
-
 
 
 @_attrs_define
 class AliasBody:
-    """ 
-        Attributes:
-            alias (str):
-            primary_model_id (UUID):
-            kind (str | Unset):  Default: 'chat'.
-            fallback_model_ids (list[UUID] | Unset):
-     """
+    """
+    Attributes:
+        alias (str):
+        primary_model_id (UUID):
+        kind (str | Unset):  Default: 'chat'.
+        fallback_model_ids (list[UUID] | Unset):
+    """
 
     alias: str
     primary_model_id: UUID
-    kind: str | Unset = 'chat'
+    kind: str | Unset = "chat"
     fallback_model_ids: list[UUID] | Unset = UNSET
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         alias = self.alias
@@ -54,15 +45,14 @@ class AliasBody:
                 fallback_model_ids_item = str(fallback_model_ids_item_data)
                 fallback_model_ids.append(fallback_model_ids_item)
 
-
-
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "alias": alias,
-            "primaryModelId": primary_model_id,
-        })
+        field_dict.update(
+            {
+                "alias": alias,
+                "primaryModelId": primary_model_id,
+            }
+        )
         if kind is not UNSET:
             field_dict["kind"] = kind
         if fallback_model_ids is not UNSET:
@@ -70,17 +60,12 @@ class AliasBody:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
         alias = d.pop("alias")
 
         primary_model_id = UUID(d.pop("primaryModelId"))
-
-
-
 
         kind = d.pop("kind", UNSET)
 
@@ -91,10 +76,7 @@ class AliasBody:
             for fallback_model_ids_item_data in _fallback_model_ids:
                 fallback_model_ids_item = UUID(fallback_model_ids_item_data)
 
-
-
                 fallback_model_ids.append(fallback_model_ids_item)
-
 
         alias_body = cls(
             alias=alias,
@@ -104,4 +86,3 @@ class AliasBody:
         )
 
         return alias_body
-

@@ -13,33 +13,29 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.me_groups_item import MeGroupsItem
-  from ..models.me_settings import MeSettings
-  from ..models.me_teams_item import MeTeamsItem
-
-
-
+    from ..models.me_groups_item import MeGroupsItem
+    from ..models.me_settings import MeSettings
+    from ..models.me_teams_item import MeTeamsItem
 
 
 T = TypeVar("T", bound="Me")
 
 
-
 @_attrs_define
 class Me:
-    """ Authenticated caller. Role and permission values stay catalogue tokens.
+    """Authenticated caller. Role and permission values stay catalogue tokens.
 
-        Attributes:
-            id (str):
-            email (None | str | Unset):
-            display_name (None | str | Unset):
-            created_at (datetime.datetime | None | Unset):
-            roles (list[str] | Unset):
-            permissions (list[str] | Unset):
-            teams (list[MeTeamsItem] | Unset):
-            groups (list[MeGroupsItem] | Unset):
-            settings (MeSettings | Unset):
-     """
+    Attributes:
+        id (str):
+        email (None | str | Unset):
+        display_name (None | str | Unset):
+        created_at (datetime.datetime | None | Unset):
+        roles (list[str] | Unset):
+        permissions (list[str] | Unset):
+        teams (list[MeTeamsItem] | Unset):
+        groups (list[MeGroupsItem] | Unset):
+        settings (MeSettings | Unset):
+    """
 
     id: str
     email: None | str | Unset = UNSET
@@ -51,14 +47,11 @@ class Me:
     groups: list[MeGroupsItem] | Unset = UNSET
     settings: MeSettings | Unset = UNSET
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        from ..models.me_groups_item import MeGroupsItem # noqa: PLC0415
-        from ..models.me_settings import MeSettings # noqa: PLC0415
-        from ..models.me_teams_item import MeTeamsItem # noqa: PLC0415
+        from ..models.me_groups_item import MeGroupsItem  # noqa: PLC0415
+        from ..models.me_settings import MeSettings  # noqa: PLC0415
+        from ..models.me_teams_item import MeTeamsItem  # noqa: PLC0415
+
         id = self.id
 
         email: None | str | Unset
@@ -85,13 +78,9 @@ class Me:
         if not isinstance(self.roles, Unset):
             roles = self.roles
 
-
-
         permissions: list[str] | Unset = UNSET
         if not isinstance(self.permissions, Unset):
             permissions = self.permissions
-
-
 
         teams: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.teams, Unset):
@@ -100,8 +89,6 @@ class Me:
                 teams_item = teams_item_data.to_dict()
                 teams.append(teams_item)
 
-
-
         groups: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.groups, Unset):
             groups = []
@@ -109,18 +96,17 @@ class Me:
                 groups_item = groups_item_data.to_dict()
                 groups.append(groups_item)
 
-
-
         settings: dict[str, Any] | Unset = UNSET
         if not isinstance(self.settings, Unset):
             settings = self.settings.to_dict()
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "id": id,
-        })
+        field_dict.update(
+            {
+                "id": id,
+            }
+        )
         if email is not UNSET:
             field_dict["email"] = email
         if display_name is not UNSET:
@@ -140,13 +126,12 @@ class Me:
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.me_groups_item import MeGroupsItem # noqa: PLC0415
-        from ..models.me_settings import MeSettings # noqa: PLC0415
-        from ..models.me_teams_item import MeTeamsItem # noqa: PLC0415
+        from ..models.me_groups_item import MeGroupsItem  # noqa: PLC0415
+        from ..models.me_settings import MeSettings  # noqa: PLC0415
+        from ..models.me_teams_item import MeTeamsItem  # noqa: PLC0415
+
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -159,7 +144,6 @@ class Me:
 
         email = _parse_email(d.pop("email", UNSET))
 
-
         def _parse_display_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -168,7 +152,6 @@ class Me:
             return cast(None | str | Unset, data)
 
         display_name = _parse_display_name(d.pop("displayName", UNSET))
-
 
         def _parse_created_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
@@ -180,21 +163,16 @@ class Me:
                     raise TypeError()
                 created_at_type_0 = datetime.datetime.fromisoformat(data)
 
-
-
                 return created_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
+            except TypeError, ValueError, AttributeError, KeyError:
                 pass
             return cast(datetime.datetime | None | Unset, data)
 
         created_at = _parse_created_at(d.pop("createdAt", UNSET))
 
-
         roles = cast(list[str], d.pop("roles", UNSET))
 
-
         permissions = cast(list[str], d.pop("permissions", UNSET))
-
 
         _teams = d.pop("teams", UNSET)
         teams: list[MeTeamsItem] | Unset = UNSET
@@ -203,10 +181,7 @@ class Me:
             for teams_item_data in _teams:
                 teams_item = MeTeamsItem.from_dict(teams_item_data)
 
-
-
                 teams.append(teams_item)
-
 
         _groups = d.pop("groups", UNSET)
         groups: list[MeGroupsItem] | Unset = UNSET
@@ -215,20 +190,14 @@ class Me:
             for groups_item_data in _groups:
                 groups_item = MeGroupsItem.from_dict(groups_item_data)
 
-
-
                 groups.append(groups_item)
-
 
         _settings = d.pop("settings", UNSET)
         settings: MeSettings | Unset
-        if isinstance(_settings,  Unset):
+        if isinstance(_settings, Unset):
             settings = UNSET
         else:
             settings = MeSettings.from_dict(_settings)
-
-
-
 
         me = cls(
             id=id,
@@ -243,4 +212,3 @@ class Me:
         )
 
         return me
-

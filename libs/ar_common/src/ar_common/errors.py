@@ -27,6 +27,8 @@ class ErrorCode(StrEnum):
     UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"
     VALIDATION_FAILED = "validation_failed"
     UNKNOWN_REFERENCE = "unknown_reference"
+    PACK_SIGNATURE_INVALID = "pack_signature_invalid"
+    EXTENSION_UNAVAILABLE = "extension_unavailable"
     RESOURCE_DISABLED = "resource_disabled"
     RATE_LIMITED = "rate_limited"
     QUOTA_EXCEEDED = "quota_exceeded"
@@ -64,6 +66,8 @@ _SPECS: dict[ErrorCode, tuple[int, str]] = {
     ErrorCode.UNSUPPORTED_MEDIA_TYPE: (415, "Unsupported media type"),
     ErrorCode.VALIDATION_FAILED: (422, "Validation failed"),
     ErrorCode.UNKNOWN_REFERENCE: (422, "Unknown reference"),
+    ErrorCode.PACK_SIGNATURE_INVALID: (422, "Pack signature invalid"),
+    ErrorCode.EXTENSION_UNAVAILABLE: (422, "Extension unavailable"),
     ErrorCode.RESOURCE_DISABLED: (423, "Resource disabled"),
     ErrorCode.RATE_LIMITED: (429, "Rate limited"),
     ErrorCode.QUOTA_EXCEEDED: (429, "Quota exceeded"),

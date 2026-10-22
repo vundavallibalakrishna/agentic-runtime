@@ -9,41 +9,30 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
 T = TypeVar("T", bound="DomainCreate")
-
 
 
 @_attrs_define
 class DomainCreate:
-    """ 
-        Attributes:
-            domain (str):
-     """
+    """
+    Attributes:
+        domain (str):
+    """
 
     domain: str
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         domain = self.domain
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "domain": domain,
-        })
+        field_dict.update(
+            {
+                "domain": domain,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -55,4 +44,3 @@ class DomainCreate:
         )
 
         return domain_create
-

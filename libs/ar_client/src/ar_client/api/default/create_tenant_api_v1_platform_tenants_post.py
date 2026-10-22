@@ -8,24 +8,19 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.create_tenant_api_v1_platform_tenants_post_response_create_tenant_api_v1_platform_tenants_post import CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost
+from ...models.create_tenant_api_v1_platform_tenants_post_response_create_tenant_api_v1_platform_tenants_post import (
+    CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost,
+)
 from ...models.http_validation_error import HTTPValidationError
 from ...models.tenant_create import TenantCreate
 from typing import cast
 
 
-
 def _get_kwargs(
     *,
     body: TenantCreate,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +35,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 202:
-        response_202 = CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost.from_dict(response.json())
-
-
+        response_202 = CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost.from_dict(
+            response.json()
+        )
 
         return response_202
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +60,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +78,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: TenantCreate,
-
-) -> Response[CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError]:
-    """ Create Tenant
+) -> Response[
+    CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost
+    | HTTPValidationError
+]:
+    """Create Tenant
 
     Args:
         body (TenantCreate):
@@ -88,12 +93,10 @@ def sync_detailed(
 
     Returns:
         Response[CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +105,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: TenantCreate,
-
-) -> CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError | None:
-    """ Create Tenant
+) -> (
+    CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Tenant
 
     Args:
         body (TenantCreate):
@@ -119,22 +126,23 @@ def sync(
 
     Returns:
         CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: TenantCreate,
-
-) -> Response[CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError]:
-    """ Create Tenant
+) -> Response[
+    CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost
+    | HTTPValidationError
+]:
+    """Create Tenant
 
     Args:
         body (TenantCreate):
@@ -145,27 +153,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: TenantCreate,
-
-) -> CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError | None:
-    """ Create Tenant
+) -> (
+    CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Tenant
 
     Args:
         body (TenantCreate):
@@ -176,11 +184,11 @@ async def asyncio(
 
     Returns:
         CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

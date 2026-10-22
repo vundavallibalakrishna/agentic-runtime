@@ -11,30 +11,21 @@ from ..types import UNSET, Unset
 from ..types import UNSET, Unset
 
 
-
-
-
-
 T = TypeVar("T", bound="TeamCreate")
-
 
 
 @_attrs_define
 class TeamCreate:
-    """ 
-        Attributes:
-            slug (str):
-            name (str):
-            description (str | Unset):  Default: ''.
-     """
+    """
+    Attributes:
+        slug (str):
+        name (str):
+        description (str | Unset):  Default: ''.
+    """
 
     slug: str
     name: str
-    description: str | Unset = ''
-
-
-
-
+    description: str | Unset = ""
 
     def to_dict(self) -> dict[str, Any]:
         slug = self.slug
@@ -43,19 +34,18 @@ class TeamCreate:
 
         description = self.description
 
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "slug": slug,
-            "name": name,
-        })
+        field_dict.update(
+            {
+                "slug": slug,
+                "name": name,
+            }
+        )
         if description is not UNSET:
             field_dict["description"] = description
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -73,4 +63,3 @@ class TeamCreate:
         )
 
         return team_create
-

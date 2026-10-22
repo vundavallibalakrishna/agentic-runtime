@@ -9,23 +9,18 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.assignment_create import AssignmentCreate
-from ...models.create_assignment_api_v1_role_assignments_post_response_create_assignment_api_v1_role_assignments_post import CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost
+from ...models.create_assignment_api_v1_role_assignments_post_response_create_assignment_api_v1_role_assignments_post import (
+    CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost,
+)
 from ...models.http_validation_error import HTTPValidationError
 from typing import cast
-
 
 
 def _get_kwargs(
     *,
     body: AssignmentCreate,
-
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
-
-
-    
-
-    
 
     _kwargs: dict[str, Any] = {
         "method": "post",
@@ -40,19 +35,22 @@ def _get_kwargs(
     return _kwargs
 
 
-
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError | None:
+def _parse_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> (
+    CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost
+    | HTTPValidationError
+    | None
+):
     if response.status_code == 200:
-        response_200 = CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost.from_dict(response.json())
-
-
+        response_200 = CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost.from_dict(
+            response.json()
+        )
 
         return response_200
 
     if response.status_code == 422:
         response_422 = HTTPValidationError.from_dict(response.json())
-
-
 
         return response_422
 
@@ -62,7 +60,12 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
         return None
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError]:
+def _build_response(
+    *, client: AuthenticatedClient | Client, response: httpx.Response
+) -> Response[
+    CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost
+    | HTTPValidationError
+]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -75,9 +78,11 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AssignmentCreate,
-
-) -> Response[CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError]:
-    """ Create Assignment
+) -> Response[
+    CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost
+    | HTTPValidationError
+]:
+    """Create Assignment
 
     Args:
         body (AssignmentCreate):
@@ -88,12 +93,10 @@ def sync_detailed(
 
     Returns:
         Response[CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
     response = client.get_httpx_client().request(
@@ -102,13 +105,17 @@ def sync_detailed(
 
     return _build_response(client=client, response=response)
 
+
 def sync(
     *,
     client: AuthenticatedClient | Client,
     body: AssignmentCreate,
-
-) -> CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError | None:
-    """ Create Assignment
+) -> (
+    CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Assignment
 
     Args:
         body (AssignmentCreate):
@@ -119,22 +126,23 @@ def sync(
 
     Returns:
         CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError
-     """
-
+    """
 
     return sync_detailed(
         client=client,
-body=body,
-
+        body=body,
     ).parsed
+
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AssignmentCreate,
-
-) -> Response[CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError]:
-    """ Create Assignment
+) -> Response[
+    CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost
+    | HTTPValidationError
+]:
+    """Create Assignment
 
     Args:
         body (AssignmentCreate):
@@ -145,27 +153,27 @@ async def asyncio_detailed(
 
     Returns:
         Response[CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError]
-     """
-
+    """
 
     kwargs = _get_kwargs(
         body=body,
-
     )
 
-    response = await client.get_async_httpx_client().request(
-        **kwargs
-    )
+    response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
 
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: AssignmentCreate,
-
-) -> CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError | None:
-    """ Create Assignment
+) -> (
+    CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost
+    | HTTPValidationError
+    | None
+):
+    """Create Assignment
 
     Args:
         body (AssignmentCreate):
@@ -176,11 +184,11 @@ async def asyncio(
 
     Returns:
         CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost | HTTPValidationError
-     """
+    """
 
-
-    return (await asyncio_detailed(
-        client=client,
-body=body,
-
-    )).parsed
+    return (
+        await asyncio_detailed(
+            client=client,
+            body=body,
+        )
+    ).parsed

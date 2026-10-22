@@ -9,40 +9,26 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 
-
-
-
-
-
-T = TypeVar("T", bound="ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet")
-
+T = TypeVar(
+    "T", bound="ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet"
+)
 
 
 @_attrs_define
 class ToolCallsApiV1RunsRunIdToolCallsGetResponseToolCallsApiV1RunsRunIdToolCallsGet:
-    
-
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
-
-
-
-
     def to_dict(self) -> dict[str, Any]:
-        
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
 
         return field_dict
 
-
-
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        tool_calls_api_v1_runs_run_id_tool_calls_get_response_tool_calls_api_v1_runs_run_id_tool_calls_get = cls(
-        )
-
+        tool_calls_api_v1_runs_run_id_tool_calls_get_response_tool_calls_api_v1_runs_run_id_tool_calls_get = cls()
 
         tool_calls_api_v1_runs_run_id_tool_calls_get_response_tool_calls_api_v1_runs_run_id_tool_calls_get.additional_properties = d
         return tool_calls_api_v1_runs_run_id_tool_calls_get_response_tool_calls_api_v1_runs_run_id_tool_calls_get

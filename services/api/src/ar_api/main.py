@@ -1,7 +1,9 @@
 """HTTP entrypoint for api."""
 
+import os
 from collections.abc import Awaitable, Callable
 
+import orjson
 from fastapi import FastAPI
 from pydantic import SecretStr
 
@@ -10,8 +12,12 @@ from ar_api.auth.session import MemorySessionStore, session_key_bytes
 from ar_api.middleware.idempotency import IdempotencyMiddleware, MemoryIdempotencyStore
 from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, RateLimitMiddleware
 from ar_api.ratelimit import MemoryTokenBucket
+from ar_api.routers.agents import router as agents_router
 from ar_api.routers.api_keys import router as api_keys_router
 from ar_api.routers.audit import router as audit_router
+from ar_api.routers.builder import router as builder_router
+from ar_api.routers.bundles import router as bundles_router
+from ar_api.routers.content_packs import router as packs_router
 from ar_api.routers.domains import router as domains_router
 from ar_api.routers.groups import router as groups_router
 from ar_api.routers.identity_providers import router as idp_router
@@ -142,6 +148,21 @@ async def _signup(slug: str, name: str, email: str) -> str:
     return "pending"
 
 
+def _configure_chat(chat: ChatService, settings: Settings) -> None:
+    """Pack trust follows the environment. Dev and CI accept unsigned packs."""
+    raw = os.environ.get("AR_PACK_SIGNATURE_REQUIRED")
+    if raw is None:
+        chat.pack_signature_required = settings.env not in {EnvName.DEV, EnvName.CI}
+    else:
+        chat.pack_signature_required = raw.strip().lower() in {"1", "true", "yes"}
+    keys = os.environ.get("AR_PACK_TRUSTED_KEYS")
+    if not keys:
+        return
+    loaded = orjson.loads(keys)
+    if isinstance(loaded, dict):
+        chat.pack_trusted_keys = {str(key): str(value) for key, value in loaded.items()}
+
+
 def create_application() -> FastAPI:
     """Build the ASGI app. Health does not connect to Postgres or Temporal."""
     settings = Settings()
@@ -179,6 +200,10 @@ def create_application() -> FastAPI:
             plans_router,
             notifications_router,
             webhooks_router,
+            agents_router,
+            bundles_router,
+            packs_router,
+            builder_router,
             m2_router,
         ],
         inner_middleware=inner,
@@ -199,6 +224,7 @@ def create_application() -> FastAPI:
         allow_loopback=settings.env in {EnvName.DEV, EnvName.CI},
         scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
     )
+    _configure_chat(app.state.chat, settings)
     if settings.env in {EnvName.DEV, EnvName.CI}:
         app.state.chat.seed_showcase()
     app.state.demo_user_id = demo_id("admin")

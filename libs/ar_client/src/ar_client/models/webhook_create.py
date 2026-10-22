@@ -11,30 +11,21 @@ from ..types import UNSET, Unset
 from typing import cast
 
 
-
-
-
-
 T = TypeVar("T", bound="WebhookCreate")
-
 
 
 @_attrs_define
 class WebhookCreate:
-    """ 
-        Attributes:
-            name (str):
-            url (str):
-            topics (list[str]):
-     """
+    """
+    Attributes:
+        name (str):
+        url (str):
+        topics (list[str]):
+    """
 
     name: str
     url: str
     topics: list[str]
-
-
-
-
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
@@ -43,20 +34,17 @@ class WebhookCreate:
 
         topics = self.topics
 
-
-
-
         field_dict: dict[str, Any] = {}
 
-        field_dict.update({
-            "name": name,
-            "url": url,
-            "topics": topics,
-        })
+        field_dict.update(
+            {
+                "name": name,
+                "url": url,
+                "topics": topics,
+            }
+        )
 
         return field_dict
-
-
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
@@ -67,7 +55,6 @@ class WebhookCreate:
 
         topics = cast(list[str], d.pop("topics"))
 
-
         webhook_create = cls(
             name=name,
             url=url,
@@ -75,4 +62,3 @@ class WebhookCreate:
         )
 
         return webhook_create
-
