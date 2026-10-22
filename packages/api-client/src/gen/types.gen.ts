@@ -5,6 +5,16 @@ export type ClientOptions = {
 };
 
 /**
+ * ActivateBody
+ */
+export type ActivateBody = {
+    /**
+     * Version
+     */
+    version: number;
+};
+
+/**
  * AgentCreate
  */
 export type AgentCreate = {
@@ -141,6 +151,30 @@ export type ApplyBody = {
 };
 
 /**
+ * ApprovalDecideBody
+ */
+export type ApprovalDecideBody = {
+    /**
+     * Decision
+     */
+    decision: string;
+    /**
+     * Comment
+     */
+    comment?: string;
+    /**
+     * Argshash
+     */
+    argsHash: string;
+    /**
+     * Arguments
+     */
+    arguments?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
  * AssignmentCreate
  */
 export type AssignmentCreate = {
@@ -178,6 +212,64 @@ export type BodyUploadFileApiV1FilesUploadPost = {
      * Mime Type
      */
     mime_type?: string;
+};
+
+/**
+ * BulkBody
+ */
+export type BulkBody = {
+    /**
+     * Decision
+     */
+    decision: string;
+    /**
+     * Comment
+     */
+    comment?: string;
+    /**
+     * Items
+     */
+    items: Array<BulkItem>;
+};
+
+/**
+ * BulkItem
+ */
+export type BulkItem = {
+    /**
+     * Reviewitemid
+     */
+    reviewItemId: string;
+    /**
+     * Contenthash
+     */
+    contentHash: string;
+    /**
+     * Statementhash
+     */
+    statementHash: string;
+};
+
+/**
+ * CheckBody
+ */
+export type CheckBody = {
+    /**
+     * Action
+     */
+    action?: string;
+    /**
+     * Preparerprincipalid
+     */
+    preparerPrincipalId?: string | null;
+    /**
+     * Signerprincipalid
+     */
+    signerPrincipalId?: string | null;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
 };
 
 /**
@@ -258,6 +350,38 @@ export type ConnectionPatch = {
     allowlist?: {
         [key: string]: unknown;
     } | null;
+};
+
+/**
+ * ConstraintBody
+ */
+export type ConstraintBody = {
+    /**
+     * Rolea
+     */
+    roleA: string;
+    /**
+     * Roleb
+     */
+    roleB: string;
+    /**
+     * Appliesto
+     */
+    appliesTo: string;
+};
+
+/**
+ * ConstraintPatch
+ */
+export type ConstraintPatch = {
+    /**
+     * Enabled
+     */
+    enabled?: boolean | null;
+    /**
+     * Appliesto
+     */
+    appliesTo?: string | null;
 };
 
 /**
@@ -591,6 +715,38 @@ export type InvitationCreate = {
 };
 
 /**
+ * ItemBody
+ */
+export type ItemBody = {
+    /**
+     * Queueid
+     */
+    queueId: string;
+    /**
+     * Subjecttype
+     */
+    subjectType?: string;
+    /**
+     * Subjectid
+     */
+    subjectId: string;
+    /**
+     * Subjectref
+     */
+    subjectRef?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Contenthash
+     */
+    contentHash: string;
+    /**
+     * Statementtext
+     */
+    statementText: string;
+};
+
+/**
  * Me
  *
  * Authenticated caller. Role and permission values stay catalogue tokens.
@@ -723,6 +879,56 @@ export type PlanBody = {
 };
 
 /**
+ * PolicyBody
+ */
+export type PolicyBody = {
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Kind
+     */
+    kind?: string;
+    /**
+     * Priority
+     */
+    priority?: number;
+    /**
+     * Document
+     */
+    document?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Rego
+     */
+    rego?: string | null;
+};
+
+/**
+ * PolicyPatch
+ */
+export type PolicyPatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Priority
+     */
+    priority?: number | null;
+};
+
+/**
  * ProbeBody
  */
 export type ProbeBody = {
@@ -775,6 +981,54 @@ export type PublishBody = {
 };
 
 /**
+ * QueueBody
+ */
+export type QueueBody = {
+    /**
+     * Slug
+     */
+    slug?: string;
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Subjecttype
+     */
+    subjectType?: string;
+    /**
+     * Levels
+     */
+    levels?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Statementtemplate
+     */
+    statementTemplate?: string;
+};
+
+/**
+ * QueuePatch
+ */
+export type QueuePatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Levels
+     */
+    levels?: Array<{
+        [key: string]: unknown;
+    }> | null;
+    /**
+     * Statementtemplate
+     */
+    statementTemplate?: string | null;
+};
+
+/**
  * ReasonBody
  */
 export type ReasonBody = {
@@ -782,6 +1036,32 @@ export type ReasonBody = {
      * Reason
      */
     reason?: string;
+};
+
+/**
+ * ReviewDecideBody
+ */
+export type ReviewDecideBody = {
+    /**
+     * Decision
+     */
+    decision: string;
+    /**
+     * Comment
+     */
+    comment?: string;
+    /**
+     * Contenthash
+     */
+    contentHash: string;
+    /**
+     * Statementhash
+     */
+    statementHash: string;
+    /**
+     * Delegatedtouserid
+     */
+    delegatedToUserId?: string | null;
 };
 
 /**
@@ -1027,6 +1307,78 @@ export type SignupBody = {
      * Email
      */
     email: string;
+};
+
+/**
+ * SimulateBody
+ */
+export type SimulateBody = {
+    /**
+     * Toolqualifiedname
+     */
+    toolQualifiedName?: string;
+    /**
+     * Toolcallid
+     */
+    toolCallId?: string | null;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+    /**
+     * Userid
+     */
+    userId?: string | null;
+    /**
+     * Args
+     */
+    args?: {
+        [key: string]: unknown;
+    };
+    /**
+     * Includedrafts
+     */
+    includeDrafts?: Array<string>;
+    /**
+     * Trigger
+     */
+    trigger?: string;
+    /**
+     * Channel
+     */
+    channel?: string;
+};
+
+/**
+ * StandingBody
+ */
+export type StandingBody = {
+    /**
+     * Toolid
+     */
+    toolId: string;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+    /**
+     * Routineid
+     */
+    routineId?: string | null;
+    /**
+     * Argumentconstraints
+     */
+    argumentConstraints?: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Maxuses
+     */
+    maxUses?: number | null;
+    /**
+     * Expiresat
+     */
+    expiresAt: string;
 };
 
 /**
@@ -1560,7 +1912,7 @@ export type StepUpApiV1AuthStepUpPostData = {
      * Body
      */
     body?: {
-        [key: string]: string;
+        [key: string]: unknown;
     } | null;
     path?: never;
     query?: never;
@@ -6762,7 +7114,7 @@ export type RunInputApiV1RunsRunIdInputPostResponses = {
      * Successful Response
      */
     200: {
-        [key: string]: string;
+        [key: string]: unknown;
     };
 };
 
@@ -8153,3 +8505,1063 @@ export type InternalTestInternalV1ConnectionsTestPostResponses = {
 };
 
 export type InternalTestInternalV1ConnectionsTestPostResponse = InternalTestInternalV1ConnectionsTestPostResponses[keyof InternalTestInternalV1ConnectionsTestPostResponses];
+
+export type ListPoliciesApiV1PoliciesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies';
+};
+
+export type ListPoliciesApiV1PoliciesGetResponses = {
+    /**
+     * Response List Policies Api V1 Policies Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListPoliciesApiV1PoliciesGetResponse = ListPoliciesApiV1PoliciesGetResponses[keyof ListPoliciesApiV1PoliciesGetResponses];
+
+export type CreatePolicyApiV1PoliciesPostData = {
+    body: PolicyBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies';
+};
+
+export type CreatePolicyApiV1PoliciesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePolicyApiV1PoliciesPostError = CreatePolicyApiV1PoliciesPostErrors[keyof CreatePolicyApiV1PoliciesPostErrors];
+
+export type CreatePolicyApiV1PoliciesPostResponses = {
+    /**
+     * Response Create Policy Api V1 Policies Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreatePolicyApiV1PoliciesPostResponse = CreatePolicyApiV1PoliciesPostResponses[keyof CreatePolicyApiV1PoliciesPostResponses];
+
+export type SimulatePolicyApiV1PoliciesSimulatePostData = {
+    body: SimulateBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies:simulate';
+};
+
+export type SimulatePolicyApiV1PoliciesSimulatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SimulatePolicyApiV1PoliciesSimulatePostError = SimulatePolicyApiV1PoliciesSimulatePostErrors[keyof SimulatePolicyApiV1PoliciesSimulatePostErrors];
+
+export type SimulatePolicyApiV1PoliciesSimulatePostResponses = {
+    /**
+     * Response Simulate Policy Api V1 Policies Simulate Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SimulatePolicyApiV1PoliciesSimulatePostResponse = SimulatePolicyApiV1PoliciesSimulatePostResponses[keyof SimulatePolicyApiV1PoliciesSimulatePostResponses];
+
+export type DeletePolicyApiV1PoliciesPolicyIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}';
+};
+
+export type DeletePolicyApiV1PoliciesPolicyIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeletePolicyApiV1PoliciesPolicyIdDeleteError = DeletePolicyApiV1PoliciesPolicyIdDeleteErrors[keyof DeletePolicyApiV1PoliciesPolicyIdDeleteErrors];
+
+export type DeletePolicyApiV1PoliciesPolicyIdDeleteResponses = {
+    /**
+     * Response Delete Policy Api V1 Policies  Policy Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeletePolicyApiV1PoliciesPolicyIdDeleteResponse = DeletePolicyApiV1PoliciesPolicyIdDeleteResponses[keyof DeletePolicyApiV1PoliciesPolicyIdDeleteResponses];
+
+export type GetPolicyApiV1PoliciesPolicyIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}';
+};
+
+export type GetPolicyApiV1PoliciesPolicyIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPolicyApiV1PoliciesPolicyIdGetError = GetPolicyApiV1PoliciesPolicyIdGetErrors[keyof GetPolicyApiV1PoliciesPolicyIdGetErrors];
+
+export type GetPolicyApiV1PoliciesPolicyIdGetResponses = {
+    /**
+     * Response Get Policy Api V1 Policies  Policy Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetPolicyApiV1PoliciesPolicyIdGetResponse = GetPolicyApiV1PoliciesPolicyIdGetResponses[keyof GetPolicyApiV1PoliciesPolicyIdGetResponses];
+
+export type PatchPolicyApiV1PoliciesPolicyIdPatchData = {
+    body: PolicyPatch;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}';
+};
+
+export type PatchPolicyApiV1PoliciesPolicyIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchPolicyApiV1PoliciesPolicyIdPatchError = PatchPolicyApiV1PoliciesPolicyIdPatchErrors[keyof PatchPolicyApiV1PoliciesPolicyIdPatchErrors];
+
+export type PatchPolicyApiV1PoliciesPolicyIdPatchResponses = {
+    /**
+     * Response Patch Policy Api V1 Policies  Policy Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchPolicyApiV1PoliciesPolicyIdPatchResponse = PatchPolicyApiV1PoliciesPolicyIdPatchResponses[keyof PatchPolicyApiV1PoliciesPolicyIdPatchResponses];
+
+export type ListVersionsApiV1PoliciesPolicyIdVersionsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/versions';
+};
+
+export type ListVersionsApiV1PoliciesPolicyIdVersionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListVersionsApiV1PoliciesPolicyIdVersionsGetError = ListVersionsApiV1PoliciesPolicyIdVersionsGetErrors[keyof ListVersionsApiV1PoliciesPolicyIdVersionsGetErrors];
+
+export type ListVersionsApiV1PoliciesPolicyIdVersionsGetResponses = {
+    /**
+     * Response List Versions Api V1 Policies  Policy Id  Versions Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListVersionsApiV1PoliciesPolicyIdVersionsGetResponse = ListVersionsApiV1PoliciesPolicyIdVersionsGetResponses[keyof ListVersionsApiV1PoliciesPolicyIdVersionsGetResponses];
+
+export type AddVersionApiV1PoliciesPolicyIdVersionsPostData = {
+    body: PolicyBody;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/versions';
+};
+
+export type AddVersionApiV1PoliciesPolicyIdVersionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddVersionApiV1PoliciesPolicyIdVersionsPostError = AddVersionApiV1PoliciesPolicyIdVersionsPostErrors[keyof AddVersionApiV1PoliciesPolicyIdVersionsPostErrors];
+
+export type AddVersionApiV1PoliciesPolicyIdVersionsPostResponses = {
+    /**
+     * Response Add Version Api V1 Policies  Policy Id  Versions Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type AddVersionApiV1PoliciesPolicyIdVersionsPostResponse = AddVersionApiV1PoliciesPolicyIdVersionsPostResponses[keyof AddVersionApiV1PoliciesPolicyIdVersionsPostResponses];
+
+export type ActivatePolicyApiV1PoliciesPolicyIdActivatePostData = {
+    body: ActivateBody;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}:activate';
+};
+
+export type ActivatePolicyApiV1PoliciesPolicyIdActivatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ActivatePolicyApiV1PoliciesPolicyIdActivatePostError = ActivatePolicyApiV1PoliciesPolicyIdActivatePostErrors[keyof ActivatePolicyApiV1PoliciesPolicyIdActivatePostErrors];
+
+export type ActivatePolicyApiV1PoliciesPolicyIdActivatePostResponses = {
+    /**
+     * Response Activate Policy Api V1 Policies  Policy Id  Activate Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ActivatePolicyApiV1PoliciesPolicyIdActivatePostResponse = ActivatePolicyApiV1PoliciesPolicyIdActivatePostResponses[keyof ActivatePolicyApiV1PoliciesPolicyIdActivatePostResponses];
+
+export type DisablePolicyApiV1PoliciesPolicyIdDisablePostData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}:disable';
+};
+
+export type DisablePolicyApiV1PoliciesPolicyIdDisablePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DisablePolicyApiV1PoliciesPolicyIdDisablePostError = DisablePolicyApiV1PoliciesPolicyIdDisablePostErrors[keyof DisablePolicyApiV1PoliciesPolicyIdDisablePostErrors];
+
+export type DisablePolicyApiV1PoliciesPolicyIdDisablePostResponses = {
+    /**
+     * Response Disable Policy Api V1 Policies  Policy Id  Disable Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DisablePolicyApiV1PoliciesPolicyIdDisablePostResponse = DisablePolicyApiV1PoliciesPolicyIdDisablePostResponses[keyof DisablePolicyApiV1PoliciesPolicyIdDisablePostResponses];
+
+export type ListApprovalsApiV1ApprovalsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Scope
+         */
+        scope?: string;
+        /**
+         * Status
+         */
+        status?: string | null;
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+        /**
+         * Risk Class
+         */
+        risk_class?: string | null;
+    };
+    url: '/api/v1/approvals';
+};
+
+export type ListApprovalsApiV1ApprovalsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListApprovalsApiV1ApprovalsGetError = ListApprovalsApiV1ApprovalsGetErrors[keyof ListApprovalsApiV1ApprovalsGetErrors];
+
+export type ListApprovalsApiV1ApprovalsGetResponses = {
+    /**
+     * Response List Approvals Api V1 Approvals Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListApprovalsApiV1ApprovalsGetResponse = ListApprovalsApiV1ApprovalsGetResponses[keyof ListApprovalsApiV1ApprovalsGetResponses];
+
+export type GetApprovalApiV1ApprovalsApprovalIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Approval Id
+         */
+        approval_id: string;
+    };
+    query?: never;
+    url: '/api/v1/approvals/{approval_id}';
+};
+
+export type GetApprovalApiV1ApprovalsApprovalIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetApprovalApiV1ApprovalsApprovalIdGetError = GetApprovalApiV1ApprovalsApprovalIdGetErrors[keyof GetApprovalApiV1ApprovalsApprovalIdGetErrors];
+
+export type GetApprovalApiV1ApprovalsApprovalIdGetResponses = {
+    /**
+     * Response Get Approval Api V1 Approvals  Approval Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetApprovalApiV1ApprovalsApprovalIdGetResponse = GetApprovalApiV1ApprovalsApprovalIdGetResponses[keyof GetApprovalApiV1ApprovalsApprovalIdGetResponses];
+
+export type DecideApprovalApiV1ApprovalsApprovalIdDecidePostData = {
+    body: ApprovalDecideBody;
+    path: {
+        /**
+         * Approval Id
+         */
+        approval_id: string;
+    };
+    query?: never;
+    url: '/api/v1/approvals/{approval_id}:decide';
+};
+
+export type DecideApprovalApiV1ApprovalsApprovalIdDecidePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecideApprovalApiV1ApprovalsApprovalIdDecidePostError = DecideApprovalApiV1ApprovalsApprovalIdDecidePostErrors[keyof DecideApprovalApiV1ApprovalsApprovalIdDecidePostErrors];
+
+export type DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponses = {
+    /**
+     * Response Decide Approval Api V1 Approvals  Approval Id  Decide Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponse = DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponses[keyof DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponses];
+
+export type CancelApprovalApiV1ApprovalsApprovalIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Approval Id
+         */
+        approval_id: string;
+    };
+    query?: never;
+    url: '/api/v1/approvals/{approval_id}:cancel';
+};
+
+export type CancelApprovalApiV1ApprovalsApprovalIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelApprovalApiV1ApprovalsApprovalIdCancelPostError = CancelApprovalApiV1ApprovalsApprovalIdCancelPostErrors[keyof CancelApprovalApiV1ApprovalsApprovalIdCancelPostErrors];
+
+export type CancelApprovalApiV1ApprovalsApprovalIdCancelPostResponses = {
+    /**
+     * Response Cancel Approval Api V1 Approvals  Approval Id  Cancel Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CancelApprovalApiV1ApprovalsApprovalIdCancelPostResponse = CancelApprovalApiV1ApprovalsApprovalIdCancelPostResponses[keyof CancelApprovalApiV1ApprovalsApprovalIdCancelPostResponses];
+
+export type ListStandingApiV1StandingApprovalsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/standing-approvals';
+};
+
+export type ListStandingApiV1StandingApprovalsGetResponses = {
+    /**
+     * Response List Standing Api V1 Standing Approvals Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListStandingApiV1StandingApprovalsGetResponse = ListStandingApiV1StandingApprovalsGetResponses[keyof ListStandingApiV1StandingApprovalsGetResponses];
+
+export type GrantStandingApiV1StandingApprovalsPostData = {
+    body: StandingBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/standing-approvals';
+};
+
+export type GrantStandingApiV1StandingApprovalsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GrantStandingApiV1StandingApprovalsPostError = GrantStandingApiV1StandingApprovalsPostErrors[keyof GrantStandingApiV1StandingApprovalsPostErrors];
+
+export type GrantStandingApiV1StandingApprovalsPostResponses = {
+    /**
+     * Response Grant Standing Api V1 Standing Approvals Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GrantStandingApiV1StandingApprovalsPostResponse = GrantStandingApiV1StandingApprovalsPostResponses[keyof GrantStandingApiV1StandingApprovalsPostResponses];
+
+export type RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostData = {
+    body?: never;
+    path: {
+        /**
+         * Standing Approval Id
+         */
+        standing_approval_id: string;
+    };
+    query?: never;
+    url: '/api/v1/standing-approvals/{standing_approval_id}:revoke';
+};
+
+export type RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostError = RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostErrors[keyof RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostErrors];
+
+export type RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostResponses = {
+    /**
+     * Response Revoke Standing Api V1 Standing Approvals  Standing Approval Id  Revoke Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostResponse = RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostResponses[keyof RevokeStandingApiV1StandingApprovalsStandingApprovalIdRevokePostResponses];
+
+export type ListQueuesApiV1ReviewQueuesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review-queues';
+};
+
+export type ListQueuesApiV1ReviewQueuesGetResponses = {
+    /**
+     * Response List Queues Api V1 Review Queues Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListQueuesApiV1ReviewQueuesGetResponse = ListQueuesApiV1ReviewQueuesGetResponses[keyof ListQueuesApiV1ReviewQueuesGetResponses];
+
+export type CreateQueueApiV1ReviewQueuesPostData = {
+    body: QueueBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review-queues';
+};
+
+export type CreateQueueApiV1ReviewQueuesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateQueueApiV1ReviewQueuesPostError = CreateQueueApiV1ReviewQueuesPostErrors[keyof CreateQueueApiV1ReviewQueuesPostErrors];
+
+export type CreateQueueApiV1ReviewQueuesPostResponses = {
+    /**
+     * Response Create Queue Api V1 Review Queues Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateQueueApiV1ReviewQueuesPostResponse = CreateQueueApiV1ReviewQueuesPostResponses[keyof CreateQueueApiV1ReviewQueuesPostResponses];
+
+export type DeleteQueueApiV1ReviewQueuesQueueIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Queue Id
+         */
+        queue_id: string;
+    };
+    query?: never;
+    url: '/api/v1/review-queues/{queue_id}';
+};
+
+export type DeleteQueueApiV1ReviewQueuesQueueIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteQueueApiV1ReviewQueuesQueueIdDeleteError = DeleteQueueApiV1ReviewQueuesQueueIdDeleteErrors[keyof DeleteQueueApiV1ReviewQueuesQueueIdDeleteErrors];
+
+export type DeleteQueueApiV1ReviewQueuesQueueIdDeleteResponses = {
+    /**
+     * Response Delete Queue Api V1 Review Queues  Queue Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteQueueApiV1ReviewQueuesQueueIdDeleteResponse = DeleteQueueApiV1ReviewQueuesQueueIdDeleteResponses[keyof DeleteQueueApiV1ReviewQueuesQueueIdDeleteResponses];
+
+export type GetQueueApiV1ReviewQueuesQueueIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Queue Id
+         */
+        queue_id: string;
+    };
+    query?: never;
+    url: '/api/v1/review-queues/{queue_id}';
+};
+
+export type GetQueueApiV1ReviewQueuesQueueIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetQueueApiV1ReviewQueuesQueueIdGetError = GetQueueApiV1ReviewQueuesQueueIdGetErrors[keyof GetQueueApiV1ReviewQueuesQueueIdGetErrors];
+
+export type GetQueueApiV1ReviewQueuesQueueIdGetResponses = {
+    /**
+     * Response Get Queue Api V1 Review Queues  Queue Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetQueueApiV1ReviewQueuesQueueIdGetResponse = GetQueueApiV1ReviewQueuesQueueIdGetResponses[keyof GetQueueApiV1ReviewQueuesQueueIdGetResponses];
+
+export type PatchQueueApiV1ReviewQueuesQueueIdPatchData = {
+    body: QueuePatch;
+    path: {
+        /**
+         * Queue Id
+         */
+        queue_id: string;
+    };
+    query?: never;
+    url: '/api/v1/review-queues/{queue_id}';
+};
+
+export type PatchQueueApiV1ReviewQueuesQueueIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchQueueApiV1ReviewQueuesQueueIdPatchError = PatchQueueApiV1ReviewQueuesQueueIdPatchErrors[keyof PatchQueueApiV1ReviewQueuesQueueIdPatchErrors];
+
+export type PatchQueueApiV1ReviewQueuesQueueIdPatchResponses = {
+    /**
+     * Response Patch Queue Api V1 Review Queues  Queue Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchQueueApiV1ReviewQueuesQueueIdPatchResponse = PatchQueueApiV1ReviewQueuesQueueIdPatchResponses[keyof PatchQueueApiV1ReviewQueuesQueueIdPatchResponses];
+
+export type ListItemsApiV1ReviewItemsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Scope
+         */
+        scope?: string;
+        /**
+         * Status
+         */
+        status?: string | null;
+        /**
+         * Queue Id
+         */
+        queue_id?: string | null;
+    };
+    url: '/api/v1/review-items';
+};
+
+export type ListItemsApiV1ReviewItemsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListItemsApiV1ReviewItemsGetError = ListItemsApiV1ReviewItemsGetErrors[keyof ListItemsApiV1ReviewItemsGetErrors];
+
+export type ListItemsApiV1ReviewItemsGetResponses = {
+    /**
+     * Response List Items Api V1 Review Items Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListItemsApiV1ReviewItemsGetResponse = ListItemsApiV1ReviewItemsGetResponses[keyof ListItemsApiV1ReviewItemsGetResponses];
+
+export type OpenItemApiV1ReviewItemsPostData = {
+    body: ItemBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review-items';
+};
+
+export type OpenItemApiV1ReviewItemsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OpenItemApiV1ReviewItemsPostError = OpenItemApiV1ReviewItemsPostErrors[keyof OpenItemApiV1ReviewItemsPostErrors];
+
+export type OpenItemApiV1ReviewItemsPostResponses = {
+    /**
+     * Response Open Item Api V1 Review Items Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type OpenItemApiV1ReviewItemsPostResponse = OpenItemApiV1ReviewItemsPostResponses[keyof OpenItemApiV1ReviewItemsPostResponses];
+
+export type GetItemApiV1ReviewItemsReviewItemIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Review Item Id
+         */
+        review_item_id: string;
+    };
+    query?: never;
+    url: '/api/v1/review-items/{review_item_id}';
+};
+
+export type GetItemApiV1ReviewItemsReviewItemIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetItemApiV1ReviewItemsReviewItemIdGetError = GetItemApiV1ReviewItemsReviewItemIdGetErrors[keyof GetItemApiV1ReviewItemsReviewItemIdGetErrors];
+
+export type GetItemApiV1ReviewItemsReviewItemIdGetResponses = {
+    /**
+     * Response Get Item Api V1 Review Items  Review Item Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetItemApiV1ReviewItemsReviewItemIdGetResponse = GetItemApiV1ReviewItemsReviewItemIdGetResponses[keyof GetItemApiV1ReviewItemsReviewItemIdGetResponses];
+
+export type DecideItemApiV1ReviewItemsReviewItemIdDecidePostData = {
+    body: ReviewDecideBody;
+    path: {
+        /**
+         * Review Item Id
+         */
+        review_item_id: string;
+    };
+    query?: never;
+    url: '/api/v1/review-items/{review_item_id}:decide';
+};
+
+export type DecideItemApiV1ReviewItemsReviewItemIdDecidePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecideItemApiV1ReviewItemsReviewItemIdDecidePostError = DecideItemApiV1ReviewItemsReviewItemIdDecidePostErrors[keyof DecideItemApiV1ReviewItemsReviewItemIdDecidePostErrors];
+
+export type DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponses = {
+    /**
+     * Response Decide Item Api V1 Review Items  Review Item Id  Decide Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponse = DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponses[keyof DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponses];
+
+export type BulkDecideApiV1ReviewItemsBulkDecidePostData = {
+    body: BulkBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/review-items:bulk-decide';
+};
+
+export type BulkDecideApiV1ReviewItemsBulkDecidePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type BulkDecideApiV1ReviewItemsBulkDecidePostError = BulkDecideApiV1ReviewItemsBulkDecidePostErrors[keyof BulkDecideApiV1ReviewItemsBulkDecidePostErrors];
+
+export type BulkDecideApiV1ReviewItemsBulkDecidePostResponses = {
+    /**
+     * Response Bulk Decide Api V1 Review Items Bulk Decide Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type BulkDecideApiV1ReviewItemsBulkDecidePostResponse = BulkDecideApiV1ReviewItemsBulkDecidePostResponses[keyof BulkDecideApiV1ReviewItemsBulkDecidePostResponses];
+
+export type ListConstraintsApiV1SodConstraintsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/sod-constraints';
+};
+
+export type ListConstraintsApiV1SodConstraintsGetResponses = {
+    /**
+     * Response List Constraints Api V1 Sod Constraints Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListConstraintsApiV1SodConstraintsGetResponse = ListConstraintsApiV1SodConstraintsGetResponses[keyof ListConstraintsApiV1SodConstraintsGetResponses];
+
+export type CreateConstraintApiV1SodConstraintsPostData = {
+    body: ConstraintBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/sod-constraints';
+};
+
+export type CreateConstraintApiV1SodConstraintsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateConstraintApiV1SodConstraintsPostError = CreateConstraintApiV1SodConstraintsPostErrors[keyof CreateConstraintApiV1SodConstraintsPostErrors];
+
+export type CreateConstraintApiV1SodConstraintsPostResponses = {
+    /**
+     * Response Create Constraint Api V1 Sod Constraints Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateConstraintApiV1SodConstraintsPostResponse = CreateConstraintApiV1SodConstraintsPostResponses[keyof CreateConstraintApiV1SodConstraintsPostResponses];
+
+export type CheckConstraintApiV1SodConstraintsCheckPostData = {
+    body: CheckBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/sod-constraints:check';
+};
+
+export type CheckConstraintApiV1SodConstraintsCheckPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CheckConstraintApiV1SodConstraintsCheckPostError = CheckConstraintApiV1SodConstraintsCheckPostErrors[keyof CheckConstraintApiV1SodConstraintsCheckPostErrors];
+
+export type CheckConstraintApiV1SodConstraintsCheckPostResponses = {
+    /**
+     * Response Check Constraint Api V1 Sod Constraints Check Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CheckConstraintApiV1SodConstraintsCheckPostResponse = CheckConstraintApiV1SodConstraintsCheckPostResponses[keyof CheckConstraintApiV1SodConstraintsCheckPostResponses];
+
+export type DeleteConstraintApiV1SodConstraintsConstraintIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Constraint Id
+         */
+        constraint_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sod-constraints/{constraint_id}';
+};
+
+export type DeleteConstraintApiV1SodConstraintsConstraintIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteConstraintApiV1SodConstraintsConstraintIdDeleteError = DeleteConstraintApiV1SodConstraintsConstraintIdDeleteErrors[keyof DeleteConstraintApiV1SodConstraintsConstraintIdDeleteErrors];
+
+export type DeleteConstraintApiV1SodConstraintsConstraintIdDeleteResponses = {
+    /**
+     * Response Delete Constraint Api V1 Sod Constraints  Constraint Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteConstraintApiV1SodConstraintsConstraintIdDeleteResponse = DeleteConstraintApiV1SodConstraintsConstraintIdDeleteResponses[keyof DeleteConstraintApiV1SodConstraintsConstraintIdDeleteResponses];
+
+export type GetConstraintApiV1SodConstraintsConstraintIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Constraint Id
+         */
+        constraint_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sod-constraints/{constraint_id}';
+};
+
+export type GetConstraintApiV1SodConstraintsConstraintIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetConstraintApiV1SodConstraintsConstraintIdGetError = GetConstraintApiV1SodConstraintsConstraintIdGetErrors[keyof GetConstraintApiV1SodConstraintsConstraintIdGetErrors];
+
+export type GetConstraintApiV1SodConstraintsConstraintIdGetResponses = {
+    /**
+     * Response Get Constraint Api V1 Sod Constraints  Constraint Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetConstraintApiV1SodConstraintsConstraintIdGetResponse = GetConstraintApiV1SodConstraintsConstraintIdGetResponses[keyof GetConstraintApiV1SodConstraintsConstraintIdGetResponses];
+
+export type PatchConstraintApiV1SodConstraintsConstraintIdPatchData = {
+    body: ConstraintPatch;
+    path: {
+        /**
+         * Constraint Id
+         */
+        constraint_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sod-constraints/{constraint_id}';
+};
+
+export type PatchConstraintApiV1SodConstraintsConstraintIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchConstraintApiV1SodConstraintsConstraintIdPatchError = PatchConstraintApiV1SodConstraintsConstraintIdPatchErrors[keyof PatchConstraintApiV1SodConstraintsConstraintIdPatchErrors];
+
+export type PatchConstraintApiV1SodConstraintsConstraintIdPatchResponses = {
+    /**
+     * Response Patch Constraint Api V1 Sod Constraints  Constraint Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchConstraintApiV1SodConstraintsConstraintIdPatchResponse = PatchConstraintApiV1SodConstraintsConstraintIdPatchResponses[keyof PatchConstraintApiV1SodConstraintsConstraintIdPatchResponses];
+
+export type OpaBundleInternalV1OpaBundlesArTarGzGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/internal/v1/opa/bundles/ar.tar.gz';
+};
+
+export type OpaBundleInternalV1OpaBundlesArTarGzGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};

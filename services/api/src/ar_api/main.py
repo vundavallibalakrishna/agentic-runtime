@@ -14,6 +14,7 @@ from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, Rate
 from ar_api.ratelimit import MemoryTokenBucket
 from ar_api.routers.agents import router as agents_router
 from ar_api.routers.api_keys import router as api_keys_router
+from ar_api.routers.approvals import router as approvals_router
 from ar_api.routers.audit import router as audit_router
 from ar_api.routers.builder import router as builder_router
 from ar_api.routers.bundles import router as bundles_router
@@ -29,14 +30,19 @@ from ar_api.routers.m2 import router as m2_router
 from ar_api.routers.me import router as me_router
 from ar_api.routers.meta import router as meta_router
 from ar_api.routers.notifications import router as notifications_router
+from ar_api.routers.opa_bundle import router as opa_bundle_router
 from ar_api.routers.platform_plans import router as plans_router
 from ar_api.routers.platform_tenants import router as platform_router
+from ar_api.routers.policies import router as policies_router
+from ar_api.routers.reviews import router as reviews_router
 from ar_api.routers.roles import router as roles_router
 from ar_api.routers.scim import router as scim_router
 from ar_api.routers.scim_tokens import router as scim_tokens_router
 from ar_api.routers.secrets import router as secrets_router
 from ar_api.routers.service_accounts import router as service_accounts_router
 from ar_api.routers.signup import router as signup_router
+from ar_api.routers.sod import router as sod_router
+from ar_api.routers.standing_approvals import router as standing_router
 from ar_api.routers.support_access import router as support_router
 from ar_api.routers.teams import router as teams_router
 from ar_api.routers.tenant import router as tenant_router
@@ -69,6 +75,9 @@ class Settings(BaseServiceSettings):
     session_ttl_s: int = 43_200
     session_max_age_s: int = 604_800
     step_up_ttl_s: int = 600
+    opa_url: str = ""
+    opa_timeout_ms: int = 200
+    opa_bundle_token: SecretStr = SecretStr("")
     secrets_backend: str = "db_encrypted"
     db_encryption_keys: str = ""
     db_encryption_active_key: str = "k1"
@@ -143,6 +152,7 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
             session_id=value,
             csrf_token=data.csrf_token,
             roles=roles,
+            step_up_at=data.step_up_at,
         )
 
     return load
@@ -166,6 +176,12 @@ def _configure_chat(chat: ChatService, settings: Settings) -> None:
     loaded = orjson.loads(keys)
     if isinstance(loaded, dict):
         chat.pack_trusted_keys = {str(key): str(value) for key, value in loaded.items()}
+
+
+def _configure_policy(chat: ChatService, settings: Settings) -> None:
+    """An empty OPA URL keeps decisions in process (OQ-36)."""
+    chat.opa_url = settings.opa_url
+    chat.opa_timeout_ms = settings.opa_timeout_ms
 
 
 def create_application() -> FastAPI:
@@ -215,6 +231,12 @@ def create_application() -> FastAPI:
             providers_router,
             connections_router,
             data_connections_router,
+            policies_router,
+            approvals_router,
+            standing_router,
+            reviews_router,
+            sod_router,
+            opa_bundle_router,
         ],
         inner_middleware=inner,
         docs_url=docs,
@@ -235,6 +257,7 @@ def create_application() -> FastAPI:
         scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
     )
     _configure_chat(app.state.chat, settings)
+    _configure_policy(app.state.chat, settings)
     if settings.env in {EnvName.DEV, EnvName.CI}:
         app.state.chat.seed_showcase()
     app.state.demo_user_id = demo_id("admin")

@@ -106,7 +106,7 @@ test-integration:
 
 test:
 	uv run pytest -m "not e2e" -q --cov
-	opa test policies/ --coverage
+	opa test --ignore fixtures policies/ --coverage
 	pnpm --filter @ar/web test
 
 test-e2e:

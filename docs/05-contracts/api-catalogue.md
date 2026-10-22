@@ -276,22 +276,22 @@ Spec: [09-policy-approvals.md](../03-specs/09-policy-approvals.md)
 | Method | Path | Permission | Section |
 |---|---|---|---|
 | GET | [`/api/v1/policies`](../03-specs/09-policy-approvals.md#get-apiv1policies) | `policies:read` | 4. Policy API |
-| POST | [`/api/v1/policies`](../03-specs/09-policy-approvals.md#post-apiv1policies) | `policies:read` | 4. Policy API |
+| POST | [`/api/v1/policies`](../03-specs/09-policy-approvals.md#post-apiv1policies) | `policies:manage` | 4. Policy API |
 | GET | [`/api/v1/policies/{policy_id}`](../03-specs/09-policy-approvals.md#get-apiv1policiespolicy_id) | `policies:read` | 4. Policy API |
-| PATCH | [`/api/v1/policies/{policy_id}`](../03-specs/09-policy-approvals.md#patch-apiv1policiespolicy_id) | `policies:read` | 4. Policy API |
-| DELETE | [`/api/v1/policies/{policy_id}`](../03-specs/09-policy-approvals.md#delete-apiv1policiespolicy_id) | `policies:read` | 4. Policy API |
+| PATCH | [`/api/v1/policies/{policy_id}`](../03-specs/09-policy-approvals.md#patch-apiv1policiespolicy_id) | `policies:manage` | 4. Policy API |
+| DELETE | [`/api/v1/policies/{policy_id}`](../03-specs/09-policy-approvals.md#delete-apiv1policiespolicy_id) | `policies:manage` | 4. Policy API |
 | GET | [`/api/v1/policies/{policy_id}/versions`](../03-specs/09-policy-approvals.md#get-apiv1policiespolicy_idversions) | `policies:read` | 4. Policy API |
-| POST | [`/api/v1/policies/{policy_id}/versions`](../03-specs/09-policy-approvals.md#post-apiv1policiespolicy_idversions) | `policies:read` | 4. Policy API |
-| POST | [`/api/v1/policies/{policy_id}:activate`](../03-specs/09-policy-approvals.md#post-apiv1policiespolicy_idactivate) | `policies:read` | 4. Policy API |
-| POST | [`/api/v1/policies/{policy_id}:disable`](../03-specs/09-policy-approvals.md#post-apiv1policiespolicy_iddisable) | `policies:read` | 4. Policy API |
+| POST | [`/api/v1/policies/{policy_id}/versions`](../03-specs/09-policy-approvals.md#post-apiv1policiespolicy_idversions) | `policies:manage` | 4. Policy API |
+| POST | [`/api/v1/policies/{policy_id}:activate`](../03-specs/09-policy-approvals.md#post-apiv1policiespolicy_idactivate) | `policies:manage` | 4. Policy API |
+| POST | [`/api/v1/policies/{policy_id}:disable`](../03-specs/09-policy-approvals.md#post-apiv1policiespolicy_iddisable) | `policies:manage` | 4. Policy API |
 | POST | [`/api/v1/policies:simulate`](../03-specs/09-policy-approvals.md#post-apiv1policiessimulate) | `policies:read` | 4. Policy API |
-| GET | [`/api/v1/approvals`](../03-specs/09-policy-approvals.md#get-apiv1approvals) | `approvals:read_all` | 5. Approvals API |
-| GET | [`/api/v1/approvals/{approval_id}`](../03-specs/09-policy-approvals.md#get-apiv1approvalsapproval_id) | `approvals:read_all` | 5. Approvals API |
-| POST | [`/api/v1/approvals/{approval_id}:decide`](../03-specs/09-policy-approvals.md#post-apiv1approvalsapproval_iddecide) | object-level (see spec) | 5. Approvals API |
-| POST | [`/api/v1/approvals/{approval_id}:cancel`](../03-specs/09-policy-approvals.md#post-apiv1approvalsapproval_idcancel) | object-level (see spec) | 5. Approvals API |
+| GET | [`/api/v1/approvals`](../03-specs/09-policy-approvals.md#get-apiv1approvals) | `approvals:decide` | 5. Approvals API |
+| GET | [`/api/v1/approvals/{approval_id}`](../03-specs/09-policy-approvals.md#get-apiv1approvalsapproval_id) | `approvals:decide` | 5. Approvals API |
+| POST | [`/api/v1/approvals/{approval_id}:decide`](../03-specs/09-policy-approvals.md#post-apiv1approvalsapproval_iddecide) | `approvals:decide` | 5. Approvals API |
+| POST | [`/api/v1/approvals/{approval_id}:cancel`](../03-specs/09-policy-approvals.md#post-apiv1approvalsapproval_idcancel) | `chat:use` | 5. Approvals API |
 | GET | [`/api/v1/standing-approvals`](../03-specs/09-policy-approvals.md#get-apiv1standing-approvals) | `approvals:grant_standing` | 5. Approvals API |
 | POST | [`/api/v1/standing-approvals`](../03-specs/09-policy-approvals.md#post-apiv1standing-approvals) | `approvals:grant_standing` | 5. Approvals API |
-| POST | [`/api/v1/standing-approvals/{standing_approval_id}:revoke`](../03-specs/09-policy-approvals.md#post-apiv1standing-approvalsstanding_approval_idrevoke) | `tenant:manage` | 5. Approvals API |
+| POST | [`/api/v1/standing-approvals/{standing_approval_id}:revoke`](../03-specs/09-policy-approvals.md#post-apiv1standing-approvalsstanding_approval_idrevoke) | `approvals:grant_standing` | 5. Approvals API |
 
 ## Spec 10: Knowledge (`ar_domain.knowledge`, `ingest-worker`)
 
@@ -553,7 +553,7 @@ Spec: [03-specs/09-policy-approvals.md](../03-specs/09-policy-approvals.md)
 | GET | [`/api/v1/review-items/{review_item_id}`](../03-specs/09-policy-approvals.md#get-apiv1review-itemsreview_item_id) | object-level (see spec) |
 | POST | [`/api/v1/review-items/{review_item_id}:decide`](../03-specs/09-policy-approvals.md#post-apiv1review-itemsreview_item_iddecide) | see spec |
 | POST | [`/api/v1/review-items:bulk-decide`](../03-specs/09-policy-approvals.md#post-apiv1review-itemsbulk-decide) | see spec |
-| GET | [`/api/v1/sod-constraints`](../03-specs/09-policy-approvals.md#get-apiv1sod-constraints) | `sod:manage` |
+| GET | [`/api/v1/sod-constraints`](../03-specs/09-policy-approvals.md#get-apiv1sod-constraints) | `policies:read` |
 | POST | [`/api/v1/sod-constraints`](../03-specs/09-policy-approvals.md#post-apiv1sod-constraints) | `sod:manage` |
 | GET | [`/api/v1/sod-constraints/{constraint_id}`](../03-specs/09-policy-approvals.md#get-apiv1sod-constraintsconstraint_id) | `policies:read` |
 | PATCH | [`/api/v1/sod-constraints/{constraint_id}`](../03-specs/09-policy-approvals.md#patch-apiv1sod-constraintsconstraint_id) | `sod:manage` |

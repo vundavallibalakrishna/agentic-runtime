@@ -232,7 +232,8 @@ def test_w2_is_denied_until_approvals_exist() -> None:
             "model_call_id": "pet",
         }
     )
-    assert result["error"]["code"] == "policy_denied"
+    assert result["status"] == "awaiting_approval"
+    assert result.get("approval_id")
     dry = ToolPipeline(store).execute(
         {
             "tenant_id": demo_id("tenant"),

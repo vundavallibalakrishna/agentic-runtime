@@ -21,7 +21,7 @@ M5-T08 and M5-T09 are required for 1.0. They are not part of the Playwright scen
 - **Areas:** `policies/rego/ar/{policy.rego,jsonpath.rego,policy_test.rego,jsonpath_test.rego}`, `deploy/compose/opa/config.yaml`
 - **Spec:** [spec 09 §2–3](../03-specs/09-policy-approvals.md#2-defaults-by-risk-class-no-rule-matched)
 - **Do:** Decision `data.ar.policy.decision` implementing defaults by risk class, rule matching (agent, tool, server, risk class, user groups/teams, classification, argument JSONPath conditions, time windows, channel, trigger), combination deny > require_approval > allow > risk default, W3 allow → require_approval, approver selection output, reasons. Python fallback evaluator (spec 09 §3.3) for OPA outages limited to defaults + deny rules.
-- **Done when:** `opa test policies/` passes with ≥ 95 % coverage (`opa test --coverage`); Python fallback agrees with Rego on the shared fixture set.
+- **Done when:** `opa test --ignore fixtures policies/` passes with ≥ 95 % coverage (`opa test --coverage`); Python fallback agrees with Rego on the shared fixture set. Fixture JSON is input for that cross-check, so the OPA loader ignores the `fixtures` directory.
 - **Tests:** Rego unit tests; cross-check test running the same fixtures (`policies/fixtures/*.json`) through OPA and the fallback.
 
 ### M5-T03 · `mcp-gateway` policy and approval integration

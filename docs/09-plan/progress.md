@@ -72,3 +72,13 @@ M4-T07 | done | 6f82810 | mcp-sql and data connections
 M4-T08 | done | 6f82810 | connector SDK and ticketing example
 M4-T09 | done | 6f82810 | test console, call log, drift
 M4-T10 | done | 6f82810 | tools UI and visual test
+
+M5-T01 | done | 99000ef | policy tables, service, bundle, API
+M5-T02 | done | 99000ef | Rego package and Python fallback
+M5-T03 | done | 99000ef | gateway policy and approval integration
+M5-T04 | done | 99000ef | approvals API and standing approvals
+M5-T05 | done | 99000ef | runtime approval and user-input waits
+M5-T06 | done | 99000ef | policy simulation and embedded tests
+M5-T07 | done | 99000ef | web approvals, policies, chat card
+M5-T08 | done | 99000ef | reviews and sign-off
+M5-T09 | done | 99000ef | segregation of duties

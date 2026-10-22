@@ -54,7 +54,7 @@ class InterimPolicy:
 class ToolPipeline:
     def __init__(self, store: Any, policy: PolicyDecider | None = None) -> None:
         self.store = store
-        self.policy = policy or InterimPolicy()
+        self.policy = policy
 
     def resolve_catalog(
         self, *, agent_version_id: uuid.UUID, user_id: uuid.UUID, query: str = ""
@@ -136,29 +136,9 @@ class ToolPipeline:
                 version,
                 tool,
             )
-        decision, message = self.policy.decide(str(version.get("risk_class")))
-        if decision != "allow":
-            if request.get("dry_run") is True and str(version.get("risk_class")) in {"W2", "W3"}:
-                return self._stored(
-                    request,
-                    version,
-                    tool,
-                    "succeeded",
-                    decision,
-                    "dry run",
-                    False,
-                    started,
-                    {"code": "dry_run"},
-                )
-            return self._fail(
-                request,
-                "policy_denied",
-                message or "approvals are not enabled yet",
-                started,
-                version,
-                tool,
-                decision=decision,
-            )
+        held = self._gate(request, version, tool, server, arguments, started)
+        if held is not None:
+            return held
         token = ""
         if server_version.get("auth_mode") == "user_oauth":
             token = self._token(request, server_version)
@@ -221,7 +201,7 @@ class ToolPipeline:
             version,
             tool,
             status,
-            decision,
+            "allow",
             text,
             bool(outcome.get("is_error")),
             started,
@@ -229,6 +209,135 @@ class ToolPipeline:
             structured=outcome.get("structured"),
         )
         stored["wrapped"] = wrapped
+        return stored
+
+    def _gate(  # noqa: PLR0917
+        self,
+        request: dict[str, object],
+        version: dict[str, object],
+        tool: dict[str, object],
+        server: dict[str, object],
+        arguments: dict[str, object],
+        started: float,
+    ) -> dict[str, object] | None:
+        """Return a finished result, or None when the call may execute."""
+        risk = str(version.get("risk_class") or "")
+        if request.get("approval_id"):
+            from ar_domain.policy.engine import consume_granted  # noqa: PLC0415
+
+            problem = consume_granted(self.store, request)
+            if problem:
+                return self._fail(
+                    request,
+                    "approval_invalid",
+                    problem,
+                    started,
+                    version,
+                    tool,
+                    decision="deny",
+                )
+            return None
+        outcome: dict[str, object]
+        if self.policy is not None:
+            decision, message = self.policy.decide(risk)
+            outcome = {
+                "decision": decision,
+                "reasons": [message] if message else [],
+                "approval": None,
+            }
+        else:
+            from ar_domain.policy.engine import evaluate_call  # noqa: PLC0415
+
+            outcome = evaluate_call(self.store, request, version, tool, server)
+        decision = str(outcome.get("decision") or "deny")
+        if decision == "allow":
+            return None
+        if request.get("dry_run") is True and risk in {"W2", "W3"}:
+            return self._stored(
+                request,
+                version,
+                tool,
+                "succeeded",
+                decision,
+                "dry run",
+                False,
+                started,
+                {"code": "dry_run"},
+            )
+        reasons = outcome.get("reasons")
+        message = reasons[0] if isinstance(reasons, list) and reasons else "denied by policy"
+        if decision == "require_approval":
+            return self._hold(request, version, tool, arguments, started, outcome, str(message))
+        return self._fail(
+            request,
+            "policy_denied",
+            str(message),
+            started,
+            version,
+            tool,
+            decision="deny",
+        )
+
+    def _hold(  # noqa: PLR0917
+        self,
+        request: dict[str, object],
+        version: dict[str, object],
+        tool: dict[str, object],
+        arguments: dict[str, object],
+        started: float,
+        outcome: dict[str, object],
+        message: str,
+    ) -> dict[str, object]:
+        from ar_domain.approvals.logic import render_preview  # noqa: PLC0415
+        from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
+        from ar_domain.policy.metrics import APPROVALS_CREATED  # noqa: PLC0415
+
+        stored = self._stored(
+            request,
+            version,
+            tool,
+            "awaiting_approval",
+            "require_approval",
+            message,
+            False,
+            started,
+            None,
+        )
+        call_id = uuid.UUID(str(stored["tool_call_id"]))
+        requirement = outcome.get("approval")
+        if not isinstance(requirement, dict):
+            requirement = {}
+        reasons = outcome.get("reasons")
+        preview = render_preview(
+            version.get("approval_preview"),
+            arguments,
+            title=str(version.get("title") or version.get("qualified_name")),
+        )
+        tenant_id = request.get("tenant_id")
+        user_id = request.get("user_id")
+        run_raw = request.get("run_id")
+        agent_raw = request.get("agent_id")
+        approval = ApprovalBook(self.store).create_pending(
+            tenant_id=tenant_id if isinstance(tenant_id, uuid.UUID) else uuid.UUID(str(tenant_id)),
+            user_id=user_id if isinstance(user_id, uuid.UUID) else uuid.UUID(str(user_id)),
+            run_id=run_raw if isinstance(run_raw, uuid.UUID) else None,
+            agent_id=agent_raw if isinstance(agent_raw, uuid.UUID) else None,
+            tool_call_id=call_id,
+            qualified_name=str(version.get("qualified_name")),
+            risk_class=str(version.get("risk_class")),
+            args_hash=str(request.get("args_hash") or ""),
+            arguments=arguments,
+            requirement=requirement,
+            reasons=[str(item) for item in reasons] if isinstance(reasons, list) else [message],
+            preview=preview,
+        )
+        row = self.store.tool_calls.get(call_id)
+        if isinstance(row, dict):
+            row["approval_id"] = approval["id"]
+        APPROVALS_CREATED.labels(risk=str(version.get("risk_class"))).inc()
+        stored["approval_id"] = str(approval["id"])
+        stored["approval"] = ApprovalBook(self.store).summary(approval)
+        stored["result_preview"] = "Waiting for approval."
         return stored
 
     def _bound(self, slug: str, names: list[object], user_id: uuid.UUID) -> list[dict[str, object]]:
@@ -443,7 +552,8 @@ class ToolPipeline:
     ) -> dict[str, object]:
         latency = int((time.perf_counter() - started) * 1000)
         arguments = as_mapping(request.get("arguments"))
-        call_id = new_id()
+        existing = request.get("tool_call_id")
+        call_id = existing if isinstance(existing, uuid.UUID) else new_id()
         row = {
             "id": call_id,
             "tenant_id": request.get("tenant_id"),
@@ -467,8 +577,7 @@ class ToolPipeline:
             "latency_ms": latency,
             "created_at": utcnow(),
         }
-        if isinstance(request.get("run_id"), uuid.UUID):
-            self.store.tool_calls[call_id] = row
+        self.store.tool_calls[call_id] = row
         if status in {"succeeded", "failed", "denied"} and isinstance(
             request.get("tenant_id"), uuid.UUID
         ):

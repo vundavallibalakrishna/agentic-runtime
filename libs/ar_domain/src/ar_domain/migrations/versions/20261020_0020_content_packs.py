@@ -1,11 +1,11 @@
 """content_packs
 
 Revision ID: 0020
-Revises: 0011
+Revises: 0012
 Create Date: 2026-10-22
 
-0011 is spliced in front of this revision. 0020 revises 0011 until revisions
-0012-0019 exist (OQ-34). The published-version trigger allows the single
+0012 is spliced in front of this revision. 0020 revises 0012 until revisions
+0013-0019 exist (OQ-36). The published-version trigger allows the single
 transition published → superseded, which spec 05 requires.
 """
 
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 revision: str = "0020"
-down_revision: str | None = "0011"
+down_revision: str | None = "0012"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -1,8 +1,5 @@
-import { getTranslations } from "next-intl/server";
+import { ApprovalsScreen } from "@/components/approvals/approvals-screen";
 
-import { ComingSoon } from "@/components/coming-soon";
-
-export default async function ApprovalsPage() {
-  const t = await getTranslations("shell");
-  return <ComingSoon title={t("navApprovals")} />;
+export default function ApprovalsPage() {
+  return <ApprovalsScreen />;
 }

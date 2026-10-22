@@ -106,6 +106,10 @@ PERMISSIONS: tuple[Permission, ...] = (
     Permission("evals:run", "evals", "Run eval suites"),
     Permission("evals:manage", "evals", "Manage eval suites/cases; read feedback"),
     Permission("packs:manage", "agents", "Install, upgrade and uninstall content packs"),
+    Permission("reviews:read", "reviews", "Read review queues and items"),
+    Permission("reviews:decide", "reviews", "Sign or reject a review item"),
+    Permission("reviews:manage", "reviews", "Create and edit review queues"),
+    Permission("sod:manage", "policy", "Manage segregation-of-duties constraints"),
 )
 
 PERMISSION_KEYS: frozenset[str] = frozenset(item.key for item in PERMISSIONS)
@@ -144,13 +148,19 @@ SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     ),
     "tool_owner": _plus("tools:create"),
     "knowledge_manager": _plus("knowledge:manage"),
-    "approver": _plus("approvals:decide", "approvals:grant_standing"),
+    "approver": _plus(
+        "approvals:decide",
+        "approvals:grant_standing",
+        "reviews:read",
+        "reviews:decide",
+    ),
     "auditor": _plus(
         "audit:read",
         "audit:export",
         "approvals:read_all",
         "usage:read",
         "users:read",
+        "reviews:read",
     ),
     "tenant_admin": tuple(item.key for item in PERMISSIONS),
 }

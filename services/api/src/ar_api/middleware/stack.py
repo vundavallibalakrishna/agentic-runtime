@@ -21,6 +21,7 @@ _PUBLIC = frozenset(
         "/docs",
         "/api/docs",
         "/openapi.json",
+        "/internal/v1/opa/bundles/ar.tar.gz",
     }
 )
 _UNSAFE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
@@ -86,6 +87,11 @@ class CsrfMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope.get("method") not in _UNSAFE:
+            await self.app(scope, receive, send)
+            return
+        # Public routes stay usable with a leftover session cookie. The dev
+        # sign-in form switches users and does not carry the previous token.
+        if is_public(str(scope.get("path", ""))):
             await self.app(scope, receive, send)
             return
         state = scope.get("state", {})

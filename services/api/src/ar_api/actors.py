@@ -34,4 +34,7 @@ def actor_from(principal: Principal) -> Actor:
         permissions=principal.permissions,
         team_ids=teams,
         display_name=principal.display_name or principal.email or "User",
+        roles=principal.roles,
+        auth_method=principal.auth_method,
+        step_up_at=principal.step_up_at,
     )

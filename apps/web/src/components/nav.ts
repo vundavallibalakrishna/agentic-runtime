@@ -50,7 +50,6 @@ export const primaryNav: NavItem[] = [
     labelKey: "navApprovals",
     permission: "approvals:decide",
     icon: CheckCheck,
-    soon: true,
   },
   { href: "/runs", labelKey: "navRuns", permission: "chat:use", icon: Play, soon: true },
   { href: "/admin/models", labelKey: "navModels", permission: "models:read", icon: Shield },

@@ -11,6 +11,7 @@ from ar_domain.chat.service import ChatService
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.registry import ToolRegistry
+from ar_mcp_gateway.pipeline import execute
 
 router = APIRouter()
 
@@ -31,6 +32,9 @@ class ExecuteBody(ApiModel):
     model_call_id: str = "call"
     dry_run: bool = False
     synthetic: bool = False
+    approval_id: uuid.UUID | None = None
+    args_hash: str = ""
+    agent_id: uuid.UUID | None = None
 
 
 class DiscoverBody(ApiModel):
@@ -60,7 +64,7 @@ async def resolve_catalog(body: ResolveBody, request: Request) -> dict[str, obje
 
 @router.post("/internal/v1/tool-calls:execute")
 async def execute_call(body: ExecuteBody, request: Request) -> dict[str, object]:
-    return ToolPipeline(_store(request)).execute(body.model_dump(by_alias=False))
+    return execute(_store(request), body.model_dump(by_alias=False))
 
 
 @router.post("/internal/v1/tool-calls:test")

@@ -17,5 +17,13 @@ def notices_for(topic: str, payload: dict[str, object]) -> list[Notice]:
         email = str(payload.get("email", ""))
         return [Notice("system", "You are invited", f"Invitation for {email}", email or None)]
     if topic == "approval.requested":
-        return [Notice("approval_requested", "Approval requested", "A run is waiting", None)]
+        name = str(payload.get("qualified_name") or "a tool")
+        return [
+            Notice(
+                "approval_requested",
+                "Approval requested",
+                f"A run is waiting on {name}",
+                "approvals@dev.local",
+            )
+        ]
     return []

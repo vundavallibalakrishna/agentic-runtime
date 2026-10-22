@@ -1,0 +1,17 @@
+# OPA polls the API bundle. The compose service still serves the mounted
+# policies directory so a laptop without the API stays healthy.
+services:
+  ar:
+    url: http://api:8000/internal/v1/opa/bundles/ar.tar.gz
+    polling:
+      min_delay_seconds: 5
+      max_delay_seconds: 15
+bundles:
+  ar:
+    service: ar
+    resource: /
+    persist: false
+decision_logs:
+  console: false
+status:
+  console: false

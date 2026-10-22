@@ -1,5 +1,6 @@
 """Idempotent tool catalogue for the dev process and ``make seed``."""
 
+import hashlib
 from typing import TYPE_CHECKING, Any
 
 from ar_common.time import utcnow
@@ -83,19 +84,40 @@ def seed(store: Any) -> None:
     _echo(store, tenant, admin)
     _petstore(store, tenant, admin)
     _warehouse(store, tenant, admin)
-    _desk(store, tenant, admin)
+    _desk(store, tenant, demo_id("builder"))
+    _reviews(store, tenant)
     store.tools_seeded = True
 
 
 def _settings(store: Any, tenant: uuid.UUID) -> None:
-    store.tenant_settings.setdefault(
-        tenant,
-        {
-            "security": {"allow_self_review": True},
-            "features": {"web_fetch": True},
-            "egress_allowlist": ["example.com"],
-        },
-    )
+    current = store.tenant_settings.setdefault(tenant, {})
+    if not isinstance(current, dict):
+        return
+    security = current.setdefault("security", {})
+    if isinstance(security, dict):
+        security.setdefault("allow_self_review", True)
+        security.setdefault("require_step_up_for_w3", True)
+        security.setdefault("require_step_up_for_signoff", True)
+    features = current.setdefault("features", {})
+    if isinstance(features, dict):
+        features.setdefault("web_fetch", True)
+        features.setdefault("custom_rego", False)
+    approvals = current.setdefault("approvals", {})
+    if isinstance(approvals, dict):
+        approvals.setdefault("default_ttl_s", 86400)
+    current.setdefault("egress_allowlist", ["example.com"])
+    roles = getattr(store, "user_roles", None)
+    if isinstance(roles, dict):
+        roles.setdefault(demo_id("admin"), {"tenant_admin"})
+        roles.setdefault(demo_id("builder"), {"builder"})
+        roles.setdefault(demo_id("approver"), {"approver"})
+        roles.setdefault(demo_id("member"), {"member"})
+    names = getattr(store, "display_names", None)
+    if isinstance(names, dict):
+        names.setdefault(demo_id("admin"), "Dev Admin")
+        names.setdefault(demo_id("builder"), "Dev Builder")
+        names.setdefault(demo_id("approver"), "Dev Approver")
+        names.setdefault(demo_id("member"), "Dev Member")
 
 
 def _builtin(
@@ -267,6 +289,51 @@ def _warehouse(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
         tools=tools,
         config={"sql": {"data_connection_id": str(connection_id)}},
     )
+
+
+def _reviews(store: Any, tenant: uuid.UUID) -> None:
+    """One queue and one item so the reviews screen is not empty."""
+    queues = getattr(store, "review_queues", None)
+    items = getattr(store, "review_items", None)
+    if not isinstance(queues, dict) or not isinstance(items, dict):
+        return
+    queue_id = demo_id("queue-output")
+    if queue_id in queues:
+        return
+    now = utcnow()
+    subject_id = demo_id("sample-output")
+    statement = "I reviewed the sample output."
+    queues[queue_id] = {
+        "id": queue_id,
+        "tenant_id": tenant,
+        "slug": "output",
+        "name": "Output review",
+        "subject_type": "artifact",
+        "levels": [{"level": 1, "role_key": "", "required_count": 1}],
+        "statement_template": "I reviewed {title} ({content_hash}).",
+        "created_at": now,
+        "updated_at": now,
+    }
+    items[demo_id("review-sample")] = {
+        "id": demo_id("review-sample"),
+        "tenant_id": tenant,
+        "queue_id": queue_id,
+        "subject_type": "artifact",
+        "subject_id": subject_id,
+        "subject_ref": {},
+        "content_hash": hashlib.sha256(f"artifact:{subject_id}".encode()).hexdigest(),
+        "statement_text": statement,
+        "statement_hash": hashlib.sha256(statement.encode()).hexdigest(),
+        "status": "pending",
+        "current_level": 1,
+        "levels": [{"level": 1, "role_key": "", "required_count": 1}],
+        "preparer_principal_type": "user",
+        "preparer_principal_id": demo_id("builder"),
+        "agent_id": None,
+        "expires_at": None,
+        "created_at": now,
+        "updated_at": now,
+    }
 
 
 def _desk(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
