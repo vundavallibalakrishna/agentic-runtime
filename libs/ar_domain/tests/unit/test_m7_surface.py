@@ -194,7 +194,9 @@ def test_citations_plan_limits_and_gateway() -> None:
     }
     store.blobs[file_id] = b"hello"
     with pytest.raises(Exception):
-        book.add_documents(admin, uuid.UUID(str(created["id"])), {"file_ids": [str(file_id)]})
+        asyncio.run(
+            book.add_documents(admin, uuid.UUID(str(created["id"])), {"file_ids": [str(file_id)]})
+        )
     assert readable(store, admin, {"source_kind": "tool_result"})
     assert not readable(store, admin, {"source_kind": "knowledge", "document_id": "nope"})
     hit = ScoredChunk(
@@ -231,6 +233,12 @@ def test_citations_plan_limits_and_gateway() -> None:
     ranked = gateway.post("/v1/rerank", json={"query": "desk", "documents": ["desk opens"]})
     assert ranked.status_code == 200
     assert ranked.json()["results"][0]["relevance_score"] > 0
+    completed = gateway.post(
+        "/v1/chat/completions",
+        json={"messages": [{"role": "user", "content": "desk"}]},
+    )
+    assert completed.status_code == 200
+    assert completed.json()["choices"][0]["message"]["content"]
 
 
 def test_runtime_reexports_and_system_worker_when_temporal_is_down(

@@ -127,6 +127,24 @@ class RetrievalStore(Protocol):
     async def health(self) -> StoreHealth: ...
 
 
+def active_index(holder: object) -> RetrievalStore:
+    """pgvector when this process is bound to Postgres, otherwise the memory index."""
+    engine = getattr(holder, "durable_engine", None)
+    if getattr(holder, "durable", False) and engine is not None:
+        current = getattr(holder, "pg_index", None)
+        if current is not None:
+            return current  # type: ignore[return-value]
+        from sqlalchemy.ext.asyncio import async_sessionmaker  # noqa: PLC0415
+
+        from ar_domain.knowledge.store_pgvector import PgVectorStore  # noqa: PLC0415
+
+        created = PgVectorStore()
+        created.bind(async_sessionmaker(engine, expire_on_commit=False))
+        holder.pg_index = created  # type: ignore[attr-defined]
+        return created  # type: ignore[return-value]
+    return memory_index(holder)
+
+
 def memory_index(holder: object) -> RetrievalStore:
     """Return the process-store index, creating it on first use."""
     from ar_domain.knowledge.store_memory import MemoryRetrievalStore  # noqa: PLC0415

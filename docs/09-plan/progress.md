@@ -115,3 +115,5 @@ M9-T01 | done | 544422f | subagent delegation, child runs, children API
 M9-T02 | done | 544422f | revision 0016 and skills API
 M9-T03 | done | 544422f | skills.load, sandbox assets, loaded skills
 M9-T04 | done | 544422f | skills editor, trace graph, visual test
+
+M10-T00 | in_progress | - | durable process-store cutover

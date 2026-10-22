@@ -9,6 +9,7 @@ from pydantic import SecretStr
 
 from ar_api.auth.routes import router as auth_router
 from ar_api.auth.session import MemorySessionStore, session_key_bytes
+from ar_api.middleware.durable import DurableMiddleware
 from ar_api.middleware.idempotency import IdempotencyMiddleware, MemoryIdempotencyStore
 from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, RateLimitMiddleware
 from ar_api.ratelimit import MemoryTokenBucket
@@ -193,6 +194,7 @@ def create_application() -> FastAPI:
     settings = Settings()
     docs = None if settings.env is EnvName.PROD else "/api/docs"
     inner: list[tuple[type, dict[str, object]]] = [
+        (DurableMiddleware, {}),
         (AuthenticateMiddleware, {}),
         (CsrfMiddleware, {}),
         (RateLimitMiddleware, {}),
@@ -266,6 +268,7 @@ def create_application() -> FastAPI:
     )
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)
+    app.state.chat.model_gateway_url = settings.model_gateway_url
     if settings.env in {EnvName.DEV, EnvName.CI}:
         app.state.chat.seed_showcase()
     app.state.demo_user_id = demo_id("admin")

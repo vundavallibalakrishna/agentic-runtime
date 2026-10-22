@@ -44,6 +44,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DB_ENCRYPTION_ACTIVE_KEY` | `k1` | Active KEK id | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DB_ENCRYPTION_KEYS` | (secret) | KEKs for `db_encrypted` | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DEV_MODEL_BASE_URL` | (empty) | Dev only: `make seed` registers this OpenAI-compatible endpoint instead of `fake-llm` | [local-dev](local-dev.md) |
+| `AR_DURABLE_STATE` | (empty) | `postgres` binds HTTP state even under pytest; `memory` keeps the process cache. Empty uses Postgres outside pytest | M10 |
 | `AR_DEV_MODEL_API_KEY` | (empty) | Dev only: API key for `AR_DEV_MODEL_BASE_URL` | [local-dev](local-dev.md) |
 | `AR_DELTA_COALESCE_MS` | `50` | Token delta coalescing window for stream events | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_DEPLOYMENT_MODE` | `single_tenant` | `saas` or `single_tenant` | [spec 01](../03-specs/01-api-bff.md) |

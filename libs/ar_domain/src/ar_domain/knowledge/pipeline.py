@@ -4,6 +4,7 @@ Activities are idempotent. The dev API runs them inline; Temporal activities
 call the same functions.
 """
 
+import asyncio
 import hashlib
 import os
 import uuid
@@ -29,7 +30,12 @@ def max_bytes() -> int:
 
 
 def ingest_document(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
-    """Parse, chunk, embed and index. Returns the terminal status."""
+    """Parse, chunk, embed and index. Sync callers use this wrapper."""
+    return _run(ingest_document_async(store, document_id, raw))
+
+
+async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
+    """Parse, chunk, embed and index on the caller's event loop."""
     document = store.knowledge_documents.get(document_id)
     if not isinstance(document, dict):
         return "missing"
@@ -78,7 +84,7 @@ def ingest_document(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
         vectors = embed_texts(texts, model=model, dimensions=dims)
     index = _index(store)
     version = int(collection.get("index_version") or 1)
-    _replace_chunks(store, document, drafts, vectors, prefix, version, index)
+    await _replace_chunks(store, document, drafts, vectors, prefix, version, index)
     document["status"] = "indexed"
     document["indexed_at"] = utcnow()
     document["error"] = None
@@ -87,13 +93,50 @@ def ingest_document(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
     return "indexed"
 
 
+WORKFLOW_MAX_BYTES = 256 * 1024
+
+
+async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
+    """Index inline, or wait for the ingest worker when Temporal is connected."""
+    client = getattr(store, "temporal_client", None)
+    inline = (
+        client is None
+        or len(raw) > WORKFLOW_MAX_BYTES
+        or getattr(store, "_ingest_worker", False)
+    )
+    if inline or not hasattr(client, "start_workflow"):
+        return await ingest_document_async(store, document_id, raw)
+    import base64  # noqa: PLC0415
+
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.durable.hydrate import reload_document  # noqa: PLC0415
+
+    await flush_store(store)
+    digest = hashlib.sha256(raw).hexdigest()[:16]
+    handle = await client.start_workflow(
+        "IngestDocumentWorkflow",
+        {"document_id": str(document_id), "raw_b64": base64.b64encode(raw).decode("ascii")},
+        id=f"ingest-{document_id}-{digest}",
+        task_queue="ar-ingest",
+    )
+    try:
+        await asyncio.wait_for(handle.result(), timeout=20)
+    except TimeoutError:
+        return await ingest_document_async(store, document_id, raw)
+    await reload_document(store, document_id)
+    document = store.knowledge_documents.get(document_id)
+    if isinstance(document, dict):
+        return str(document.get("status") or "indexed")
+    return "missing"
+
+
 def _index(store: Any) -> Any:
-    from ar_domain.knowledge.store import memory_index  # noqa: PLC0415
+    from ar_domain.knowledge.store import active_index  # noqa: PLC0415
 
-    return memory_index(store)
+    return active_index(store)
 
 
-def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in one pass
+async def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in one pass
     store: Any,
     document: dict[str, object],
     drafts: list[Any],
@@ -108,6 +151,8 @@ def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in one p
     ]
     for key in stale:
         store.document_chunks.pop(key, None)
+    if getattr(store, "durable", False):
+        await _delete_stored_chunks(store, document_id)
     chunks: list[IndexedChunk] = []
     for draft, vector in zip(drafts, vectors, strict=False):
         chunk_id = uuid.uuid4()
@@ -149,19 +194,28 @@ def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in one p
                 modified_at=None,
             )
         )
-    # The memory store is async; the inline pipeline runs it to completion.
-    _run(
-        index.delete(
-            str(store.knowledge_collections[document["collection_id"]].get("store_collection")),
-            _delete_old(document, version),
+    if getattr(store, "durable", False):
+        from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+        await flush_store(store)
+    name = str(store.knowledge_collections[document["collection_id"]].get("store_collection"))
+    await index.delete(name, _delete_old(document, version))
+    await index.upsert(name, chunks)
+
+
+async def _delete_stored_chunks(store: Any, document_id: object) -> None:
+    """Drop a document's chunks so a re-ingest can insert the new ordinals."""
+    engine = getattr(store, "durable_engine", None)
+    if engine is None:
+        return
+    from sqlalchemy import text  # noqa: PLC0415
+    from sqlalchemy.ext.asyncio import AsyncSession  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        await session.execute(
+            text("DELETE FROM document_chunks WHERE document_id = :id"),
+            {"id": document_id},
         )
-    )
-    _run(
-        index.upsert(
-            str(store.knowledge_collections[document["collection_id"]].get("store_collection")),
-            chunks,
-        )
-    )
 
 
 def _delete_old(document: dict[str, object], version: int) -> Any:

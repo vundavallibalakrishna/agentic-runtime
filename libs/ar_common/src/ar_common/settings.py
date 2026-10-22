@@ -30,6 +30,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DATABASE_URL",
         "AR_DB_ENCRYPTION_ACTIVE_KEY",
         "AR_DB_ENCRYPTION_KEYS",
+        "AR_DURABLE_STATE",
         "AR_DEV_MODEL_API_KEY",
         "AR_DEV_MODEL_BASE_URL",
         "AR_DELTA_COALESCE_MS",
@@ -215,6 +216,9 @@ class BaseServiceSettings(BaseSettings):
     trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     valkey_url: str = "redis://localhost:6379/0"
     database_url: str = "postgresql+asyncpg://ar_app:ar_app@localhost:5432/agentic_runtime"
+    model_gateway_url: str = ""
+    temporal_address: str = ""
+    temporal_namespace: str = ""
     s3_endpoint: str = "http://localhost:8333"
     s3_public_endpoint: str = "http://localhost:8333"
     s3_region: str = "us-east-1"

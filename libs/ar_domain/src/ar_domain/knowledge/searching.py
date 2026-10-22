@@ -14,7 +14,7 @@ from ar_domain.knowledge.embedder import embed_texts
 from ar_domain.knowledge.fetchers import check_access
 from ar_domain.knowledge.metrics import SEARCH_HITS, SEARCH_SECONDS, UNANSWERABLE
 from ar_domain.knowledge.retrieval import answerable, apply_rerank
-from ar_domain.knowledge.store import StoreUnavailable, memory_index
+from ar_domain.knowledge.store import StoreUnavailable, active_index
 from ar_domain.knowledge.store_types import HybridQuery, SearchTarget
 from ar_domain.knowledge.syncutil import run_sync
 
@@ -47,7 +47,7 @@ def search(
         allowed_classifications=readable_classes(store, actor),
         fused_k=max(top_k, 20),
     )
-    index = memory_index(store)
+    index = active_index(store)
     try:
         with SEARCH_SECONDS.labels(stage="store").time():
             fused = run_sync(index.search(hybrid))
