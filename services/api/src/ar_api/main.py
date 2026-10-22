@@ -29,6 +29,7 @@ from ar_api.routers.invitations import router as invitations_router
 from ar_api.routers.knowledge import router as knowledge_router
 from ar_api.routers.m2 import router as m2_router
 from ar_api.routers.me import router as me_router
+from ar_api.routers.memory import router as memory_router
 from ar_api.routers.meta import router as meta_router
 from ar_api.routers.notifications import router as notifications_router
 from ar_api.routers.opa_bundle import router as opa_bundle_router
@@ -241,6 +242,7 @@ def create_application() -> FastAPI:
             opa_bundle_router,
             sandboxes_router,
             knowledge_router,
+            memory_router,
         ],
         inner_middleware=inner,
         docs_url=docs,

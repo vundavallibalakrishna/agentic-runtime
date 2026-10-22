@@ -51,6 +51,20 @@ export type AgentCreate = {
 };
 
 /**
+ * AgentMemoryBody
+ */
+export type AgentMemoryBody = {
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Category
+     */
+    category?: string | null;
+};
+
+/**
  * AgentPatch
  */
 export type AgentPatch = {
@@ -924,6 +938,52 @@ export type MePatch = {
     settings?: {
         [key: string]: unknown;
     } | null;
+};
+
+/**
+ * MemoryBody
+ */
+export type MemoryBody = {
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Scope
+     */
+    scope?: string;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+    /**
+     * Category
+     */
+    category?: string | null;
+};
+
+/**
+ * MemoryPatch
+ */
+export type MemoryPatch = {
+    /**
+     * Content
+     */
+    content?: string | null;
+    /**
+     * Category
+     */
+    category?: string | null;
+};
+
+/**
+ * MemorySettingsBody
+ */
+export type MemorySettingsBody = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
 };
 
 /**
@@ -11179,3 +11239,550 @@ export type SearchApiV1KnowledgeSearchPostResponses = {
 };
 
 export type SearchApiV1KnowledgeSearchPostResponse = SearchApiV1KnowledgeSearchPostResponses[keyof SearchApiV1KnowledgeSearchPostResponses];
+
+export type ForgetMemoryApiV1MemoryDeleteData = {
+    body?: never;
+    headers?: {
+        /**
+         * X-Confirm
+         */
+        'x-confirm'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+    };
+    url: '/api/v1/memory';
+};
+
+export type ForgetMemoryApiV1MemoryDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ForgetMemoryApiV1MemoryDeleteError = ForgetMemoryApiV1MemoryDeleteErrors[keyof ForgetMemoryApiV1MemoryDeleteErrors];
+
+export type ForgetMemoryApiV1MemoryDeleteResponses = {
+    /**
+     * Response Forget Memory Api V1 Memory Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: number;
+    };
+};
+
+export type ForgetMemoryApiV1MemoryDeleteResponse = ForgetMemoryApiV1MemoryDeleteResponses[keyof ForgetMemoryApiV1MemoryDeleteResponses];
+
+export type ListMemoryApiV1MemoryGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Scope
+         */
+        scope?: string | null;
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+        /**
+         * Category
+         */
+        category?: string | null;
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Status
+         */
+        status?: string;
+    };
+    url: '/api/v1/memory';
+};
+
+export type ListMemoryApiV1MemoryGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListMemoryApiV1MemoryGetError = ListMemoryApiV1MemoryGetErrors[keyof ListMemoryApiV1MemoryGetErrors];
+
+export type ListMemoryApiV1MemoryGetResponses = {
+    /**
+     * Response List Memory Api V1 Memory Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListMemoryApiV1MemoryGetResponse = ListMemoryApiV1MemoryGetResponses[keyof ListMemoryApiV1MemoryGetResponses];
+
+export type CreateMemoryApiV1MemoryPostData = {
+    body: MemoryBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/memory';
+};
+
+export type CreateMemoryApiV1MemoryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateMemoryApiV1MemoryPostError = CreateMemoryApiV1MemoryPostErrors[keyof CreateMemoryApiV1MemoryPostErrors];
+
+export type CreateMemoryApiV1MemoryPostResponses = {
+    /**
+     * Response Create Memory Api V1 Memory Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateMemoryApiV1MemoryPostResponse = CreateMemoryApiV1MemoryPostResponses[keyof CreateMemoryApiV1MemoryPostResponses];
+
+export type PatchMemorySettingsApiV1MemorySettingsPatchData = {
+    body: MemorySettingsBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/memory/settings';
+};
+
+export type PatchMemorySettingsApiV1MemorySettingsPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchMemorySettingsApiV1MemorySettingsPatchError = PatchMemorySettingsApiV1MemorySettingsPatchErrors[keyof PatchMemorySettingsApiV1MemorySettingsPatchErrors];
+
+export type PatchMemorySettingsApiV1MemorySettingsPatchResponses = {
+    /**
+     * Response Patch Memory Settings Api V1 Memory Settings Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchMemorySettingsApiV1MemorySettingsPatchResponse = PatchMemorySettingsApiV1MemorySettingsPatchResponses[keyof PatchMemorySettingsApiV1MemorySettingsPatchResponses];
+
+export type DeleteMemoryApiV1MemoryFactIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Fact Id
+         */
+        fact_id: string;
+    };
+    query?: never;
+    url: '/api/v1/memory/{fact_id}';
+};
+
+export type DeleteMemoryApiV1MemoryFactIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteMemoryApiV1MemoryFactIdDeleteError = DeleteMemoryApiV1MemoryFactIdDeleteErrors[keyof DeleteMemoryApiV1MemoryFactIdDeleteErrors];
+
+export type DeleteMemoryApiV1MemoryFactIdDeleteResponses = {
+    /**
+     * Response Delete Memory Api V1 Memory  Fact Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteMemoryApiV1MemoryFactIdDeleteResponse = DeleteMemoryApiV1MemoryFactIdDeleteResponses[keyof DeleteMemoryApiV1MemoryFactIdDeleteResponses];
+
+export type PatchMemoryApiV1MemoryFactIdPatchData = {
+    body: MemoryPatch;
+    path: {
+        /**
+         * Fact Id
+         */
+        fact_id: string;
+    };
+    query?: never;
+    url: '/api/v1/memory/{fact_id}';
+};
+
+export type PatchMemoryApiV1MemoryFactIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchMemoryApiV1MemoryFactIdPatchError = PatchMemoryApiV1MemoryFactIdPatchErrors[keyof PatchMemoryApiV1MemoryFactIdPatchErrors];
+
+export type PatchMemoryApiV1MemoryFactIdPatchResponses = {
+    /**
+     * Response Patch Memory Api V1 Memory  Fact Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchMemoryApiV1MemoryFactIdPatchResponse = PatchMemoryApiV1MemoryFactIdPatchResponses[keyof PatchMemoryApiV1MemoryFactIdPatchResponses];
+
+export type ListAgentMemoryApiV1AgentsAgentIdMemoryGetData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: {
+        /**
+         * Status
+         */
+        status?: string | null;
+    };
+    url: '/api/v1/agents/{agent_id}/memory';
+};
+
+export type ListAgentMemoryApiV1AgentsAgentIdMemoryGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAgentMemoryApiV1AgentsAgentIdMemoryGetError = ListAgentMemoryApiV1AgentsAgentIdMemoryGetErrors[keyof ListAgentMemoryApiV1AgentsAgentIdMemoryGetErrors];
+
+export type ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponses = {
+    /**
+     * Response List Agent Memory Api V1 Agents  Agent Id  Memory Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponse = ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponses[keyof ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponses];
+
+export type CreateAgentMemoryApiV1AgentsAgentIdMemoryPostData = {
+    body: AgentMemoryBody;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/memory';
+};
+
+export type CreateAgentMemoryApiV1AgentsAgentIdMemoryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateAgentMemoryApiV1AgentsAgentIdMemoryPostError = CreateAgentMemoryApiV1AgentsAgentIdMemoryPostErrors[keyof CreateAgentMemoryApiV1AgentsAgentIdMemoryPostErrors];
+
+export type CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponses = {
+    /**
+     * Response Create Agent Memory Api V1 Agents  Agent Id  Memory Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponse = CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponses[keyof CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponses];
+
+export type ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+        /**
+         * Fact Id
+         */
+        fact_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/memory/{fact_id}:approve';
+};
+
+export type ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostError = ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostErrors[keyof ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostErrors];
+
+export type ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponses = {
+    /**
+     * Response Approve Agent Memory Api V1 Agents  Agent Id  Memory  Fact Id  Approve Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponse = ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponses[keyof ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponses];
+
+export type RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+        /**
+         * Fact Id
+         */
+        fact_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/memory/{fact_id}:reject';
+};
+
+export type RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostError = RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostErrors[keyof RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostErrors];
+
+export type RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponses = {
+    /**
+     * Response Reject Agent Memory Api V1 Agents  Agent Id  Memory  Fact Id  Reject Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponse = RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponses[keyof RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponses];
+
+export type DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+        /**
+         * Fact Id
+         */
+        fact_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/memory/{fact_id}';
+};
+
+export type DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteError = DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteErrors[keyof DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteErrors];
+
+export type DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponses = {
+    /**
+     * Response Delete Agent Memory Api V1 Agents  Agent Id  Memory  Fact Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponse = DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponses[keyof DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponses];
+
+export type PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchData = {
+    body: MemoryPatch;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+        /**
+         * Fact Id
+         */
+        fact_id: string;
+    };
+    query?: never;
+    url: '/api/v1/agents/{agent_id}/memory/{fact_id}';
+};
+
+export type PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchError = PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchErrors[keyof PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchErrors];
+
+export type PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponses = {
+    /**
+     * Response Patch Agent Memory Api V1 Agents  Agent Id  Memory  Fact Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponse = PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponses[keyof PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponses];
+
+export type ListTeamMemoryApiV1TeamsTeamIdMemoryGetData = {
+    body?: never;
+    path: {
+        /**
+         * Team Id
+         */
+        team_id: string;
+    };
+    query?: never;
+    url: '/api/v1/teams/{team_id}/memory';
+};
+
+export type ListTeamMemoryApiV1TeamsTeamIdMemoryGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListTeamMemoryApiV1TeamsTeamIdMemoryGetError = ListTeamMemoryApiV1TeamsTeamIdMemoryGetErrors[keyof ListTeamMemoryApiV1TeamsTeamIdMemoryGetErrors];
+
+export type ListTeamMemoryApiV1TeamsTeamIdMemoryGetResponses = {
+    /**
+     * Response List Team Memory Api V1 Teams  Team Id  Memory Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListTeamMemoryApiV1TeamsTeamIdMemoryGetResponse = ListTeamMemoryApiV1TeamsTeamIdMemoryGetResponses[keyof ListTeamMemoryApiV1TeamsTeamIdMemoryGetResponses];
+
+export type CreateTeamMemoryApiV1TeamsTeamIdMemoryPostData = {
+    body: AgentMemoryBody;
+    path: {
+        /**
+         * Team Id
+         */
+        team_id: string;
+    };
+    query?: never;
+    url: '/api/v1/teams/{team_id}/memory';
+};
+
+export type CreateTeamMemoryApiV1TeamsTeamIdMemoryPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateTeamMemoryApiV1TeamsTeamIdMemoryPostError = CreateTeamMemoryApiV1TeamsTeamIdMemoryPostErrors[keyof CreateTeamMemoryApiV1TeamsTeamIdMemoryPostErrors];
+
+export type CreateTeamMemoryApiV1TeamsTeamIdMemoryPostResponses = {
+    /**
+     * Response Create Team Memory Api V1 Teams  Team Id  Memory Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateTeamMemoryApiV1TeamsTeamIdMemoryPostResponse = CreateTeamMemoryApiV1TeamsTeamIdMemoryPostResponses[keyof CreateTeamMemoryApiV1TeamsTeamIdMemoryPostResponses];
+
+export type DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Team Id
+         */
+        team_id: string;
+        /**
+         * Fact Id
+         */
+        fact_id: string;
+    };
+    query?: never;
+    url: '/api/v1/teams/{team_id}/memory/{fact_id}';
+};
+
+export type DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteError = DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteErrors[keyof DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteErrors];
+
+export type DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponses = {
+    /**
+     * Response Delete Team Memory Api V1 Teams  Team Id  Memory  Fact Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponse = DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponses[keyof DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponses];

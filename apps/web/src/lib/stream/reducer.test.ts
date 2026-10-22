@@ -45,4 +45,22 @@ describe("reduceStream", () => {
     });
     expect(next.tools[0]?.status).toBe("awaiting_approval");
   });
+
+  it("keeps a saved fact, a recall count and compaction after the run starts", () => {
+    let state = emptyStream;
+    state = reduceStream(state, { type: "run.started", seq: 1 });
+    state = reduceStream(state, { type: "memory.recalled", seq: 2, data: { count: 2 } });
+    state = reduceStream(state, {
+      type: "memory.saved",
+      seq: 3,
+      data: { factId: "fact-1", content: "Prefers bullets", scope: "user", status: "active" },
+    });
+    state = reduceStream(state, { type: "context.compacted", seq: 4 });
+    expect(state.recalled).toBe(2);
+    expect(state.memories).toEqual([
+      { factId: "fact-1", content: "Prefers bullets", scope: "user", status: "active" },
+    ]);
+    expect(state.compacted).toBe(true);
+    expect(state.status).toBe("streaming");
+  });
 });

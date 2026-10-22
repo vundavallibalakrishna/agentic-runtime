@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
+import { MemoryReview } from "@/components/agent-builder/MemoryReview";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -236,6 +237,7 @@ export function AgentEditor() {
         onChange={(event) => updateDefinition({ ...definition, instructions: event.target.value })}
         value={definition.instructions ?? ""}
       />
+      <MemoryReview agentId={agentId} />
       <div className="mt-3">
         <Button onClick={() => setAdvanced((current) => !current)} type="button" variant="outline">
           {advanced ? t("hideAdvanced") : t("showAdvanced")}

@@ -14,6 +14,10 @@ export type StreamEvent = {
     status?: string;
     resultPreview?: string;
     citation?: StreamCitation;
+    factId?: string;
+    content?: string;
+    scope?: string;
+    count?: number;
   };
 };
 
@@ -25,12 +29,22 @@ type StreamCitation = {
   documentId?: string;
 };
 
+export type StreamMemory = {
+  factId: string;
+  content: string;
+  scope: string;
+  status: string;
+};
+
 export type StreamState = {
   status: "idle" | "streaming" | "completed" | "cancelled" | "failed";
   text: string;
   lastSeq: number;
   tools: StreamTool[];
   citations: StreamCitation[];
+  memories: StreamMemory[];
+  recalled: number;
+  compacted: boolean;
 };
 
 export const emptyStream: StreamState = {
@@ -39,13 +53,22 @@ export const emptyStream: StreamState = {
   lastSeq: 0,
   tools: [],
   citations: [],
+  memories: [],
+  recalled: 0,
+  compacted: false,
 };
 
 export function reduceStream(state: StreamState, event: StreamEvent): StreamState {
   if (event.seq <= state.lastSeq) {
     return state;
   }
-  const next = { ...state, lastSeq: event.seq, tools: state.tools, citations: state.citations };
+  const next = {
+    ...state,
+    lastSeq: event.seq,
+    tools: state.tools,
+    citations: state.citations,
+    memories: state.memories,
+  };
   if (event.type === "citation.added") {
     const raw = event.data?.citation;
     if (!raw || typeof raw !== "object") {
@@ -81,6 +104,21 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
   }
   if (event.type === "run.failed") {
     return { ...next, status: "failed" };
+  }
+  if (event.type === "memory.saved" && event.data?.factId) {
+    const memory = {
+      factId: event.data.factId,
+      content: event.data.content ?? "",
+      scope: event.data.scope ?? "user",
+      status: event.data.status ?? "active",
+    };
+    return { ...next, memories: [...state.memories, memory] };
+  }
+  if (event.type === "memory.recalled") {
+    return { ...next, recalled: event.data?.count ?? 0 };
+  }
+  if (event.type === "context.compacted") {
+    return { ...next, compacted: true };
   }
   if (event.type === "run.started" || event.type === "run.queued") {
     return { ...next, status: "streaming" };

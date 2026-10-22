@@ -24,6 +24,7 @@ from .add_version_api_v1_policies_policy_id_versions_post_response_add_version_a
 )
 from .agent_create import AgentCreate
 from .agent_create_definition_type_0 import AgentCreateDefinitionType0
+from .agent_memory_body import AgentMemoryBody
 from .agent_patch import AgentPatch
 from .alias_body import AliasBody
 from .alias_test_body import AliasTestBody
@@ -35,6 +36,9 @@ from .apply_session_api_v1_builder_sessions_session_id_apply_post_response_apply
 )
 from .approval_decide_body import ApprovalDecideBody
 from .approval_decide_body_arguments_type_0 import ApprovalDecideBodyArgumentsType0
+from .approve_agent_memory_api_v1_agents_agent_id_memory_fact_id_approve_post_response_approve_agent_memory_api_v1_agents_agent_id_memory_fact_id_approve_post import (
+    ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponseApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePost,
+)
 from .approve_api_v1_tool_servers_server_id_versions_version_id_approve_post_response_approve_api_v1_tool_servers_server_id_versions_version_id_approve_post import (
     ApproveApiV1ToolServersServerIdVersionsVersionIdApprovePostResponseApproveApiV1ToolServersServerIdVersionsVersionIdApprovePost,
 )
@@ -87,6 +91,9 @@ from .conversation_sandbox_api_v1_conversations_conversation_id_sandbox_get_resp
 from .create_agent_api_v1_agents_post_response_create_agent_api_v1_agents_post import (
     CreateAgentApiV1AgentsPostResponseCreateAgentApiV1AgentsPost,
 )
+from .create_agent_memory_api_v1_agents_agent_id_memory_post_response_create_agent_memory_api_v1_agents_agent_id_memory_post import (
+    CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponseCreateAgentMemoryApiV1AgentsAgentIdMemoryPost,
+)
 from .create_alias_api_v1_model_aliases_post_response_create_alias_api_v1_model_aliases_post import (
     CreateAliasApiV1ModelAliasesPostResponseCreateAliasApiV1ModelAliasesPost,
 )
@@ -127,6 +134,9 @@ from .create_idp_api_v1_identity_providers_post_response_create_idp_api_v1_ident
 from .create_invitations_api_v1_invitations_post_response_200_item import (
     CreateInvitationsApiV1InvitationsPostResponse200Item,
 )
+from .create_memory_api_v1_memory_post_response_create_memory_api_v1_memory_post import (
+    CreateMemoryApiV1MemoryPostResponseCreateMemoryApiV1MemoryPost,
+)
 from .create_model_api_v1_models_post_response_create_model_api_v1_models_post import (
     CreateModelApiV1ModelsPostResponseCreateModelApiV1ModelsPost,
 )
@@ -166,6 +176,9 @@ from .create_source_api_v1_knowledge_collections_collection_id_sources_post_resp
 from .create_team_api_v1_teams_post_response_create_team_api_v1_teams_post import (
     CreateTeamApiV1TeamsPostResponseCreateTeamApiV1TeamsPost,
 )
+from .create_team_memory_api_v1_teams_team_id_memory_post_response_create_team_memory_api_v1_teams_team_id_memory_post import (
+    CreateTeamMemoryApiV1TeamsTeamIdMemoryPostResponseCreateTeamMemoryApiV1TeamsTeamIdMemoryPost,
+)
 from .create_template_api_v1_sandbox_templates_post_response_create_template_api_v1_sandbox_templates_post import (
     CreateTemplateApiV1SandboxTemplatesPostResponseCreateTemplateApiV1SandboxTemplatesPost,
 )
@@ -197,6 +210,9 @@ from .decide_item_api_v1_review_items_review_item_id_decide_post_response_decide
 )
 from .delete_agent_api_v1_agents_agent_id_delete_response_delete_agent_api_v1_agents_agent_id_delete import (
     DeleteAgentApiV1AgentsAgentIdDeleteResponseDeleteAgentApiV1AgentsAgentIdDelete,
+)
+from .delete_agent_memory_api_v1_agents_agent_id_memory_fact_id_delete_response_delete_agent_memory_api_v1_agents_agent_id_memory_fact_id_delete import (
+    DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponseDeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDelete,
 )
 from .delete_api_key_api_v1_api_keys_api_key_id_delete_response_delete_api_key_api_v1_api_keys_api_key_id_delete import (
     DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteResponseDeleteApiKeyApiV1ApiKeysApiKeyIdDelete,
@@ -237,6 +253,9 @@ from .delete_idp_api_v1_identity_providers_idp_id_delete_response_delete_idp_api
 from .delete_member_api_v1_groups_group_id_members_user_id_delete_response_delete_member_api_v1_groups_group_id_members_user_id_delete import (
     DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponseDeleteMemberApiV1GroupsGroupIdMembersUserIdDelete,
 )
+from .delete_memory_api_v1_memory_fact_id_delete_response_delete_memory_api_v1_memory_fact_id_delete import (
+    DeleteMemoryApiV1MemoryFactIdDeleteResponseDeleteMemoryApiV1MemoryFactIdDelete,
+)
 from .delete_model_api_v1_models_model_id_delete_response_delete_model_api_v1_models_model_id_delete import (
     DeleteModelApiV1ModelsModelIdDeleteResponseDeleteModelApiV1ModelsModelIdDelete,
 )
@@ -272,6 +291,9 @@ from .delete_source_api_v1_knowledge_sources_source_id_delete_response_delete_so
 )
 from .delete_team_api_v1_teams_team_id_delete_response_delete_team_api_v1_teams_team_id_delete import (
     DeleteTeamApiV1TeamsTeamIdDeleteResponseDeleteTeamApiV1TeamsTeamIdDelete,
+)
+from .delete_team_memory_api_v1_teams_team_id_memory_fact_id_delete_response_delete_team_memory_api_v1_teams_team_id_memory_fact_id_delete import (
+    DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponseDeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDelete,
 )
 from .delete_template_api_v1_sandbox_templates_template_id_delete_response_delete_template_api_v1_sandbox_templates_template_id_delete import (
     DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteResponseDeleteTemplateApiV1SandboxTemplatesTemplateIdDelete,
@@ -353,6 +375,9 @@ from .export_sandbox_file_api_v1_sandboxes_sandbox_id_files_export_post_response
 )
 from .favourite_body import FavouriteBody
 from .feedback_body import FeedbackBody
+from .forget_memory_api_v1_memory_delete_response_forget_memory_api_v1_memory_delete import (
+    ForgetMemoryApiV1MemoryDeleteResponseForgetMemoryApiV1MemoryDelete,
+)
 from .get_agent_api_v1_agents_agent_id_get_response_get_agent_api_v1_agents_agent_id_get import (
     GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet,
 )
@@ -467,6 +492,9 @@ from .item_body_subjectref import ItemBodySubjectref
 from .jwks_api_v1_well_known_jwks_json_get_response_jwks_api_v1_well_known_jwks_json_get import (
     JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet,
 )
+from .list_agent_memory_api_v1_agents_agent_id_memory_get_response_list_agent_memory_api_v1_agents_agent_id_memory_get import (
+    ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponseListAgentMemoryApiV1AgentsAgentIdMemoryGet,
+)
 from .list_agents_api_v1_agents_get_response_list_agents_api_v1_agents_get import (
     ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet,
 )
@@ -533,6 +561,9 @@ from .list_jobs_api_v1_knowledge_collections_collection_id_jobs_get_response_lis
 from .list_members_api_v1_groups_group_id_members_get_response_list_members_api_v1_groups_group_id_members_get import (
     ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet,
 )
+from .list_memory_api_v1_memory_get_response_list_memory_api_v1_memory_get import (
+    ListMemoryApiV1MemoryGetResponseListMemoryApiV1MemoryGet,
+)
 from .list_models_api_v1_models_get_response_list_models_api_v1_models_get import (
     ListModelsApiV1ModelsGetResponseListModelsApiV1ModelsGet,
 )
@@ -593,6 +624,9 @@ from .list_standing_api_v1_standing_approvals_get_response_list_standing_api_v1_
 from .list_steps_api_v1_runs_run_id_steps_get_response_list_steps_api_v1_runs_run_id_steps_get import (
     ListStepsApiV1RunsRunIdStepsGetResponseListStepsApiV1RunsRunIdStepsGet,
 )
+from .list_team_memory_api_v1_teams_team_id_memory_get_response_list_team_memory_api_v1_teams_team_id_memory_get import (
+    ListTeamMemoryApiV1TeamsTeamIdMemoryGetResponseListTeamMemoryApiV1TeamsTeamIdMemoryGet,
+)
 from .list_teams_api_v1_teams_get_response_list_teams_api_v1_teams_get import (
     ListTeamsApiV1TeamsGetResponseListTeamsApiV1TeamsGet,
 )
@@ -638,6 +672,9 @@ from .me_patch import MePatch
 from .me_patch_settings_type_0 import MePatchSettingsType0
 from .me_settings import MeSettings
 from .me_teams_item import MeTeamsItem
+from .memory_body import MemoryBody
+from .memory_patch import MemoryPatch
+from .memory_settings_body import MemorySettingsBody
 from .message_body import MessageBody
 from .message_grounding_api_v1_conversations_conversation_id_messages_message_id_grounding_get_response_message_grounding_api_v1_conversations_conversation_id_messages_message_id_grounding_get import (
     MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponseMessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGet,
@@ -659,6 +696,9 @@ from .openapi_document_api_v1_openapi_json_get_response_openapi_document_api_v1_
 from .patch_agent_api_v1_agents_agent_id_patch_response_patch_agent_api_v1_agents_agent_id_patch import (
     PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch,
 )
+from .patch_agent_memory_api_v1_agents_agent_id_memory_fact_id_patch_response_patch_agent_memory_api_v1_agents_agent_id_memory_fact_id_patch import (
+    PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponsePatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatch,
+)
 from .patch_collection_api_v1_knowledge_collections_collection_id_patch_response_patch_collection_api_v1_knowledge_collections_collection_id_patch import (
     PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponsePatchCollectionApiV1KnowledgeCollectionsCollectionIdPatch,
 )
@@ -677,6 +717,12 @@ from .patch_group_scim_v2_groups_group_id_patch_response_patch_group_scim_v2_gro
 )
 from .patch_idp_api_v1_identity_providers_idp_id_patch_response_patch_idp_api_v1_identity_providers_idp_id_patch import (
     PatchIdpApiV1IdentityProvidersIdpIdPatchResponsePatchIdpApiV1IdentityProvidersIdpIdPatch,
+)
+from .patch_memory_api_v1_memory_fact_id_patch_response_patch_memory_api_v1_memory_fact_id_patch import (
+    PatchMemoryApiV1MemoryFactIdPatchResponsePatchMemoryApiV1MemoryFactIdPatch,
+)
+from .patch_memory_settings_api_v1_memory_settings_patch_response_patch_memory_settings_api_v1_memory_settings_patch import (
+    PatchMemorySettingsApiV1MemorySettingsPatchResponsePatchMemorySettingsApiV1MemorySettingsPatch,
 )
 from .patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch import (
     PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch,
@@ -788,6 +834,9 @@ from .reindex_collection_api_v1_knowledge_collections_collection_id_reindex_post
 )
 from .reingest_document_api_v1_knowledge_documents_document_id_reingest_post_response_reingest_document_api_v1_knowledge_documents_document_id_reingest_post import (
     ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponseReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPost,
+)
+from .reject_agent_memory_api_v1_agents_agent_id_memory_fact_id_reject_post_response_reject_agent_memory_api_v1_agents_agent_id_memory_fact_id_reject_post import (
+    RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponseRejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPost,
 )
 from .reject_api_v1_tool_servers_server_id_versions_version_id_reject_post_response_reject_api_v1_tool_servers_server_id_versions_version_id_reject_post import (
     RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponseRejectApiV1ToolServersServerIdVersionsVersionIdRejectPost,
@@ -987,6 +1036,7 @@ __all__ = (
     "AddVersionApiV1PoliciesPolicyIdVersionsPostResponseAddVersionApiV1PoliciesPolicyIdVersionsPost",
     "AgentCreate",
     "AgentCreateDefinitionType0",
+    "AgentMemoryBody",
     "AgentPatch",
     "AliasBody",
     "AliasTestBody",
@@ -996,6 +1046,7 @@ __all__ = (
     "ApplySessionApiV1BuilderSessionsSessionIdApplyPostResponseApplySessionApiV1BuilderSessionsSessionIdApplyPost",
     "ApprovalDecideBody",
     "ApprovalDecideBodyArgumentsType0",
+    "ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponseApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePost",
     "ApproveApiV1ToolServersServerIdVersionsVersionIdApprovePostResponseApproveApiV1ToolServersServerIdVersionsVersionIdApprovePost",
     "ArchiveAgentApiV1AgentsAgentIdArchivePostResponseArchiveAgentApiV1AgentsAgentIdArchivePost",
     "AssignmentCreate",
@@ -1024,6 +1075,7 @@ __all__ = (
     "ConversationPatch",
     "ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponseConversationSandboxApiV1ConversationsConversationIdSandboxGet",
     "CreateAgentApiV1AgentsPostResponseCreateAgentApiV1AgentsPost",
+    "CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponseCreateAgentMemoryApiV1AgentsAgentIdMemoryPost",
     "CreateAliasApiV1ModelAliasesPostResponseCreateAliasApiV1ModelAliasesPost",
     "CreateApiKeyApiV1ApiKeysPostResponseCreateApiKeyApiV1ApiKeysPost",
     "CreateAssignmentApiV1RoleAssignmentsPostResponseCreateAssignmentApiV1RoleAssignmentsPost",
@@ -1038,6 +1090,7 @@ __all__ = (
     "CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost",
     "CreateIdpApiV1IdentityProvidersPostResponseCreateIdpApiV1IdentityProvidersPost",
     "CreateInvitationsApiV1InvitationsPostResponse200Item",
+    "CreateMemoryApiV1MemoryPostResponseCreateMemoryApiV1MemoryPost",
     "CreateModelApiV1ModelsPostResponseCreateModelApiV1ModelsPost",
     "CreatePlanApiV1PlatformPlansPostResponseCreatePlanApiV1PlatformPlansPost",
     "CreatePolicyApiV1PoliciesPostResponseCreatePolicyApiV1PoliciesPost",
@@ -1051,6 +1104,7 @@ __all__ = (
     "CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost",
     "CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostResponseCreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPost",
     "CreateTeamApiV1TeamsPostResponseCreateTeamApiV1TeamsPost",
+    "CreateTeamMemoryApiV1TeamsTeamIdMemoryPostResponseCreateTeamMemoryApiV1TeamsTeamIdMemoryPost",
     "CreateTemplateApiV1SandboxTemplatesPostResponseCreateTemplateApiV1SandboxTemplatesPost",
     "CreateTenantApiV1PlatformTenantsPostResponseCreateTenantApiV1PlatformTenantsPost",
     "CreateTokenApiV1ScimTokensPostResponseCreateTokenApiV1ScimTokensPost",
@@ -1065,6 +1119,7 @@ __all__ = (
     "DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponseDecideApprovalApiV1ApprovalsApprovalIdDecidePost",
     "DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponseDecideItemApiV1ReviewItemsReviewItemIdDecidePost",
     "DeleteAgentApiV1AgentsAgentIdDeleteResponseDeleteAgentApiV1AgentsAgentIdDelete",
+    "DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponseDeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDelete",
     "DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteResponseDeleteApiKeyApiV1ApiKeysApiKeyIdDelete",
     "DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete",
     "DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteResponseDeleteCollectionApiV1KnowledgeCollectionsCollectionIdDelete",
@@ -1078,6 +1133,7 @@ __all__ = (
     "DeleteGroupApiV1GroupsGroupIdDeleteResponseDeleteGroupApiV1GroupsGroupIdDelete",
     "DeleteIdpApiV1IdentityProvidersIdpIdDeleteResponseDeleteIdpApiV1IdentityProvidersIdpIdDelete",
     "DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponseDeleteMemberApiV1GroupsGroupIdMembersUserIdDelete",
+    "DeleteMemoryApiV1MemoryFactIdDeleteResponseDeleteMemoryApiV1MemoryFactIdDelete",
     "DeleteModelApiV1ModelsModelIdDeleteResponseDeleteModelApiV1ModelsModelIdDelete",
     "DeletePolicyApiV1PoliciesPolicyIdDeleteResponseDeletePolicyApiV1PoliciesPolicyIdDelete",
     "DeleteProviderApiV1CredentialProvidersProviderIdDeleteResponseDeleteProviderApiV1CredentialProvidersProviderIdDelete",
@@ -1090,6 +1146,7 @@ __all__ = (
     "DeleteShareApiV1ConversationsConversationIdSharesPrincipalTypePrincipalIdDeleteResponseDeleteShareApiV1ConversationsConversationIdSharesPrincipalTypePrincipalIdDelete",
     "DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteResponseDeleteSourceApiV1KnowledgeSourcesSourceIdDelete",
     "DeleteTeamApiV1TeamsTeamIdDeleteResponseDeleteTeamApiV1TeamsTeamIdDelete",
+    "DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponseDeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDelete",
     "DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteResponseDeleteTemplateApiV1SandboxTemplatesTemplateIdDelete",
     "DeleteTenantApiV1PlatformTenantsTenantIdDeletePostBody",
     "DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponseDeleteTenantApiV1PlatformTenantsTenantIdDeletePost",
@@ -1124,6 +1181,7 @@ __all__ = (
     "ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponseExportSandboxFileApiV1SandboxesSandboxIdFilesExportPost",
     "FavouriteBody",
     "FeedbackBody",
+    "ForgetMemoryApiV1MemoryDeleteResponseForgetMemoryApiV1MemoryDelete",
     "GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet",
     "GetApprovalApiV1ApprovalsApprovalIdGetResponseGetApprovalApiV1ApprovalsApprovalIdGet",
     "GetCollectionApiV1KnowledgeCollectionsCollectionIdGetResponseGetCollectionApiV1KnowledgeCollectionsCollectionIdGet",
@@ -1170,6 +1228,7 @@ __all__ = (
     "ItemBody",
     "ItemBodySubjectref",
     "JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet",
+    "ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponseListAgentMemoryApiV1AgentsAgentIdMemoryGet",
     "ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet",
     "ListAliasesApiV1ModelAliasesGetResponseListAliasesApiV1ModelAliasesGet",
     "ListApiKeysApiV1ApiKeysGetResponseListApiKeysApiV1ApiKeysGet",
@@ -1192,6 +1251,7 @@ __all__ = (
     "ListItemsApiV1ReviewItemsGetResponseListItemsApiV1ReviewItemsGet",
     "ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponseListJobsApiV1KnowledgeCollectionsCollectionIdJobsGet",
     "ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet",
+    "ListMemoryApiV1MemoryGetResponseListMemoryApiV1MemoryGet",
     "ListModelsApiV1ModelsGetResponseListModelsApiV1ModelsGet",
     "ListNotificationsApiV1NotificationsGetResponseListNotificationsApiV1NotificationsGet",
     "ListPacksApiV1ContentPacksGetResponseListPacksApiV1ContentPacksGet",
@@ -1212,6 +1272,7 @@ __all__ = (
     "ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponseListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGet",
     "ListStandingApiV1StandingApprovalsGetResponseListStandingApiV1StandingApprovalsGet",
     "ListStepsApiV1RunsRunIdStepsGetResponseListStepsApiV1RunsRunIdStepsGet",
+    "ListTeamMemoryApiV1TeamsTeamIdMemoryGetResponseListTeamMemoryApiV1TeamsTeamIdMemoryGet",
     "ListTeamsApiV1TeamsGetResponseListTeamsApiV1TeamsGet",
     "ListTemplatesApiV1SandboxTemplatesGetResponseListTemplatesApiV1SandboxTemplatesGet",
     "ListTenantsApiV1PlatformTenantsGetResponseListTenantsApiV1PlatformTenantsGet",
@@ -1227,6 +1288,9 @@ __all__ = (
     "MarkReadApiV1NotificationsNotificationIdReadPostResponseMarkReadApiV1NotificationsNotificationIdReadPost",
     "Me",
     "MeGroupsItem",
+    "MemoryBody",
+    "MemoryPatch",
+    "MemorySettingsBody",
     "MePatch",
     "MePatchSettingsType0",
     "MeSettings",
@@ -1240,6 +1304,7 @@ __all__ = (
     "OpenapiDocumentApiV1OpenapiJsonGetResponseOpenapiDocumentApiV1OpenapiJsonGet",
     "OpenItemApiV1ReviewItemsPostResponseOpenItemApiV1ReviewItemsPost",
     "PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch",
+    "PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponsePatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatch",
     "PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponsePatchCollectionApiV1KnowledgeCollectionsCollectionIdPatch",
     "PatchConnectionApiV1DataConnectionsConnectionIdPatchResponsePatchConnectionApiV1DataConnectionsConnectionIdPatch",
     "PatchConstraintApiV1SodConstraintsConstraintIdPatchResponsePatchConstraintApiV1SodConstraintsConstraintIdPatch",
@@ -1247,6 +1312,8 @@ __all__ = (
     "PatchGroupScimV2GroupsGroupIdPatchBody",
     "PatchGroupScimV2GroupsGroupIdPatchResponsePatchGroupScimV2GroupsGroupIdPatch",
     "PatchIdpApiV1IdentityProvidersIdpIdPatchResponsePatchIdpApiV1IdentityProvidersIdpIdPatch",
+    "PatchMemoryApiV1MemoryFactIdPatchResponsePatchMemoryApiV1MemoryFactIdPatch",
+    "PatchMemorySettingsApiV1MemorySettingsPatchResponsePatchMemorySettingsApiV1MemorySettingsPatch",
     "PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch",
     "PatchPolicyApiV1PoliciesPolicyIdPatchResponsePatchPolicyApiV1PoliciesPolicyIdPatch",
     "PatchProviderApiV1CredentialProvidersProviderIdPatchResponsePatchProviderApiV1CredentialProvidersProviderIdPatch",
@@ -1296,6 +1363,7 @@ __all__ = (
     "ReindexBodyChunkingType0",
     "ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostResponseReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPost",
     "ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponseReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPost",
+    "RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponseRejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPost",
     "RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponseRejectApiV1ToolServersServerIdVersionsVersionIdRejectPost",
     "RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponseRemoveMemberApiV1TeamsTeamIdMembersUserIdDelete",
     "ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet",
