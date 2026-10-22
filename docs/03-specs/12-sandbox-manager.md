@@ -55,7 +55,7 @@ As listed in [internal-apis §4](../05-contracts/internal-apis.md#4-sandbox-mana
 
 ## 5. Egress control
 
-- Squid 7.7 (`images/squid/`) with `external_acl_type ar_egress ttl=60 %LOGIN %DST /usr/local/bin/ar-egress-helper` calling `/internal/v1/egress/check`; CONNECT allowed only to port 443; no SSL bump (TLS end-to-end); access log to stdout (shipped to Loki) with sandbox id.
+- Squid (`images/squid/`) with a basic-auth helper. `%LOGIN` is invalid until that scheme exists, which is why the proxy refuses to start without it. The helper records `{sandbox_id}:{token}` as a note because Squid keeps the proxy username (`sbx-{sandbox_id}`) as `%LOGIN`. `external_acl_type ar_egress ttl=60 %LOGIN %note{user} %DST /usr/local/bin/ar-egress-helper` calls `/internal/v1/egress/check`. CONNECT is allowed only to port 443; no SSL bump (TLS end-to-end); access log to stdout (shipped to Loki) with sandbox id.
 - Allowed hosts for a sandbox = (template `egress_allowlist` ∪ agent `sandbox.extra_egress_allowlist`) ∩ tenant `settings.egress_allowlist` (when the tenant list is non-empty); plus platform package mirrors from `AR_SANDBOX_PACKAGE_MIRRORS` (e.g. internal PyPI/npm proxies) when the template has `allow_packages: true` in its config. `*` is rejected in prod.
 - Cloud metadata IPs, cluster CIDRs and RFC1918 ranges are always denied (`AR_EGRESS_DENY_CIDRS`), checked after DNS resolution by Squid ACLs.
 

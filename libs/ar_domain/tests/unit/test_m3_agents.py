@@ -153,7 +153,7 @@ def test_reference_kinds_filters_and_edges() -> None:
 def test_seeded_catalogue_and_builtin_guard() -> None:
     store, life, actor = _life()
     names = [str(row["slug"]) for row in life.list_agents(actor)]
-    assert names == ["assistant", "builder", "desk", "helpdesk"]
+    assert names == ["assistant", "builder", "desk", "helpdesk", "revenue-analyst"]
     builder = next(row for row in store.agents.values() if row["slug"] == "builder")
     with pytest.raises(ArError) as caught:
         life.delete(actor, builder["id"])

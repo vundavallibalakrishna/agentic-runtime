@@ -9,6 +9,7 @@ import { create } from "zustand";
 import { AppShell } from "@/components/app-shell";
 import { MarkdownView } from "@/components/chat/markdown-view";
 import { ToolCallCard } from "@/components/chat/tool-call-card";
+import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -69,8 +70,8 @@ export function ChatScreen() {
   const openedFromQuery = useRef(false);
 
   const greeting = useMemo(() => {
-    const agent = agents[0];
-    return typeof agent?.greeting === "string" ? agent.greeting : t("greeting");
+    const agent = agents.find((row) => row.slug === "assistant") ?? agents[0];
+    return typeof agent?.greeting === "string" && agent.greeting ? agent.greeting : t("greeting");
   }, [agents, t]);
 
   const reload = useCallback(async () => {
@@ -543,6 +544,9 @@ export function ChatScreen() {
               {banner}
             </p>
           ) : null}
+          {activeId ? (
+            <WorkspacePanel conversationId={activeId} revision={messages.length} />
+          ) : null}
           <form
             className="px-4 pb-4 md:px-8"
             onSubmit={(event) => {
@@ -614,7 +618,7 @@ export function ChatScreen() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <input
-                    accept="application/pdf,text/plain,image/png"
+                    accept="application/pdf,text/plain,text/csv,.csv,image/png"
                     aria-label={t("attach")}
                     className="sr-only"
                     onChange={(event) => {

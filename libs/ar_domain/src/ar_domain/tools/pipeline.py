@@ -79,7 +79,9 @@ class ToolPipeline:
             tools = _rank(tools, query)
         return {"tools": tools, "tool_search_active": active or len(tools) > 30}
 
-    def execute(self, request: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911, PLR0912
+    def execute(  # noqa: PLR0911, PLR0912, PLR0915
+        self, request: dict[str, object]
+    ) -> dict[str, object]:
         started = time.perf_counter()
         version = self.store.tool_versions.get(request.get("tool_version_id"))
         if not isinstance(version, dict):
@@ -163,13 +165,16 @@ class ToolPipeline:
             )
             if isinstance(run, dict) and isinstance(run.get("conversation_id"), uuid.UUID):
                 arguments["conversation_id"] = run["conversation_id"]
+        call_args = dict(arguments)
+        if endpoint.startswith("builtin://"):
+            call_args.update(self._sandbox_context(request))
         if endpoint.startswith(("https://", "http://")):
             try:
                 outcome = call_remote(
                     self.store,
                     endpoint,
                     str(version.get("name")),
-                    arguments,
+                    call_args,
                     token,
                     str(server_version.get("auth_mode") or "none"),
                 )
@@ -181,7 +186,8 @@ class ToolPipeline:
                     "code": "upstream_error",
                 }
         else:
-            outcome = dispatch(self.store, endpoint, str(version.get("name")), arguments, token)
+            outcome = dispatch(self.store, endpoint, str(version.get("name")), call_args, token)
+        self._emit_streams(request, outcome)
         plain = str(outcome.get("text") or "")
         wrapped = wrap_tool_result(
             tool=str(version.get("qualified_name")),
@@ -210,6 +216,51 @@ class ToolPipeline:
         )
         stored["wrapped"] = wrapped
         return stored
+
+    def _sandbox_context(self, request: dict[str, object]) -> dict[str, object]:
+        context: dict[str, object] = {
+            "_tenant_id": request.get("tenant_id"),
+            "_user_id": request.get("user_id"),
+            "_agent_id": request.get("agent_id"),
+            "_agent_version_id": request.get("agent_version_id"),
+            "_run_id": request.get("run_id"),
+            "_tool_call_id": request.get("model_call_id"),
+        }
+        run_id = request.get("run_id")
+        run = self.store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
+        if not isinstance(run, dict):
+            return context
+        context["_conversation_id"] = run.get("conversation_id")
+        if context.get("_agent_id") is None:
+            context["_agent_id"] = run.get("agent_id")
+        message = self.store.messages.get(run.get("input_message_id"))
+        if isinstance(message, dict) and isinstance(message.get("attachment_ids"), list):
+            context["_attachment_ids"] = message.get("attachment_ids")
+        return context
+
+    def _emit_streams(self, request: dict[str, object], outcome: dict[str, object]) -> None:
+        streams = outcome.get("streams")
+        if not isinstance(streams, list) or not hasattr(self.store, "_emit"):
+            return
+        run_id = request.get("run_id")
+        run = self.store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
+        if not isinstance(run, dict):
+            return
+        call_id = request.get("tool_call_id")
+        if not isinstance(call_id, uuid.UUID):
+            call_id = new_id()
+        for item in streams:
+            if not isinstance(item, dict):
+                continue
+            stream = item.get("stream")
+            text = str(item.get("text") or "")
+            if stream not in {"stdout", "stderr"} or not text:
+                continue
+            self.store._emit(
+                run,
+                "sandbox.output",
+                {"tool_call_id": str(call_id), "stream": stream, "text": text[:4000]},
+            )
 
     def _gate(  # noqa: PLR0917
         self,

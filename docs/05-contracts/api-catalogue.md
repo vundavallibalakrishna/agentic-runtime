@@ -357,12 +357,12 @@ Spec: [12-sandbox-manager.md](../03-specs/12-sandbox-manager.md)
 | PATCH | [`/api/v1/sandbox-templates/{template_id}`](../03-specs/12-sandbox-manager.md#patch-apiv1sandbox-templatestemplate_id) | `sandboxes:manage` | 6. Public API (served by `api`) |
 | DELETE | [`/api/v1/sandbox-templates/{template_id}`](../03-specs/12-sandbox-manager.md#delete-apiv1sandbox-templatestemplate_id) | `sandboxes:manage` | 6. Public API (served by `api`) |
 | GET | [`/api/v1/sandboxes`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxes) | `sandboxes:manage` | 6. Public API (served by `api`) |
-| GET | [`/api/v1/sandboxes/{sandbox_id}`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxessandbox_id) | `sandboxes:manage` | 6. Public API (served by `api`) |
-| POST | [`/api/v1/sandboxes/{sandbox_id}:terminate`](../03-specs/12-sandbox-manager.md#post-apiv1sandboxessandbox_idterminate) | `sandboxes:manage` | 6. Public API (served by `api`) |
-| GET | [`/api/v1/conversations/{conversation_id}/sandbox`](../03-specs/12-sandbox-manager.md#get-apiv1conversationsconversation_idsandbox) | `sandboxes:manage` | 6. Public API (served by `api`) |
-| GET | [`/api/v1/sandboxes/{sandbox_id}/files`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxessandbox_idfiles) | `sandboxes:manage` | 6. Public API (served by `api`) |
-| GET | [`/api/v1/sandboxes/{sandbox_id}/files/content`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxessandbox_idfilescontent) | `sandboxes:manage` | 6. Public API (served by `api`) |
-| POST | [`/api/v1/sandboxes/{sandbox_id}/files:export`](../03-specs/12-sandbox-manager.md#post-apiv1sandboxessandbox_idfilesexport) | `sandboxes:manage` | 6. Public API (served by `api`) |
+| GET | [`/api/v1/sandboxes/{sandbox_id}`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxessandbox_id) | `chat:use` | 6. Public API (served by `api`) |
+| POST | [`/api/v1/sandboxes/{sandbox_id}:terminate`](../03-specs/12-sandbox-manager.md#post-apiv1sandboxessandbox_idterminate) | `chat:use` | 6. Public API (served by `api`) |
+| GET | [`/api/v1/conversations/{conversation_id}/sandbox`](../03-specs/12-sandbox-manager.md#get-apiv1conversationsconversation_idsandbox) | `chat:use` | 6. Public API (served by `api`) |
+| GET | [`/api/v1/sandboxes/{sandbox_id}/files`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxessandbox_idfiles) | `chat:use` | 6. Public API (served by `api`) |
+| GET | [`/api/v1/sandboxes/{sandbox_id}/files/content`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxessandbox_idfilescontent) | `chat:use` | 6. Public API (served by `api`) |
+| POST | [`/api/v1/sandboxes/{sandbox_id}/files:export`](../03-specs/12-sandbox-manager.md#post-apiv1sandboxessandbox_idfilesexport) | `chat:use` | 6. Public API (served by `api`) |
 
 ## Spec 13: Files and artifacts (`ar_domain.files`)
 

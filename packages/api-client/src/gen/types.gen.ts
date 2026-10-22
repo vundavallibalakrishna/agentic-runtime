@@ -567,6 +567,20 @@ export type EditBody = {
 };
 
 /**
+ * ExportBody
+ */
+export type ExportBody = {
+    /**
+     * Path
+     */
+    path?: string;
+    /**
+     * Name
+     */
+    name?: string;
+};
+
+/**
  * FavouriteBody
  */
 export type FavouriteBody = {
@@ -1411,6 +1425,138 @@ export type TeamMemberCreate = {
      * Teamrole
      */
     teamRole?: string;
+};
+
+/**
+ * TemplateBody
+ */
+export type TemplateBody = {
+    /**
+     * Slug
+     */
+    slug?: string;
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Imageref
+     */
+    imageRef?: string;
+    /**
+     * Runtimeclass
+     */
+    runtimeClass?: string;
+    /**
+     * Cpumillis
+     */
+    cpuMillis?: number;
+    /**
+     * Memorymb
+     */
+    memoryMb?: number;
+    /**
+     * Diskgb
+     */
+    diskGb?: number;
+    /**
+     * Allowbrowser
+     */
+    allowBrowser?: boolean;
+    /**
+     * Allowpackages
+     */
+    allowPackages?: boolean;
+    /**
+     * Egressallowlist
+     */
+    egressAllowlist?: Array<string>;
+    /**
+     * Maxclassification
+     */
+    maxClassification?: string;
+    /**
+     * Idlesuspends
+     */
+    idleSuspendS?: number;
+    /**
+     * Maxlifetimes
+     */
+    maxLifetimeS?: number;
+    /**
+     * Exectimeouts
+     */
+    execTimeoutS?: number;
+    /**
+     * Retentiondays
+     */
+    retentionDays?: number;
+};
+
+/**
+ * TemplatePatch
+ */
+export type TemplatePatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Imageref
+     */
+    imageRef?: string | null;
+    /**
+     * Runtimeclass
+     */
+    runtimeClass?: string | null;
+    /**
+     * Cpumillis
+     */
+    cpuMillis?: number | null;
+    /**
+     * Memorymb
+     */
+    memoryMb?: number | null;
+    /**
+     * Diskgb
+     */
+    diskGb?: number | null;
+    /**
+     * Allowbrowser
+     */
+    allowBrowser?: boolean | null;
+    /**
+     * Allowpackages
+     */
+    allowPackages?: boolean | null;
+    /**
+     * Egressallowlist
+     */
+    egressAllowlist?: Array<string> | null;
+    /**
+     * Maxclassification
+     */
+    maxClassification?: string | null;
+    /**
+     * Idlesuspends
+     */
+    idleSuspendS?: number | null;
+    /**
+     * Maxlifetimes
+     */
+    maxLifetimeS?: number | null;
+    /**
+     * Exectimeouts
+     */
+    execTimeoutS?: number | null;
+    /**
+     * Retentiondays
+     */
+    retentionDays?: number | null;
+    /**
+     * Status
+     */
+    status?: string | null;
 };
 
 /**
@@ -6901,6 +7047,40 @@ export type FileContentApiV1FilesFileIdContentGetResponses = {
     200: unknown;
 };
 
+export type ListFilesApiV1FilesGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Conversationid
+         */
+        conversationId?: string | null;
+    };
+    url: '/api/v1/files';
+};
+
+export type ListFilesApiV1FilesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListFilesApiV1FilesGetError = ListFilesApiV1FilesGetErrors[keyof ListFilesApiV1FilesGetErrors];
+
+export type ListFilesApiV1FilesGetResponses = {
+    /**
+     * Response List Files Api V1 Files Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListFilesApiV1FilesGetResponse = ListFilesApiV1FilesGetResponses[keyof ListFilesApiV1FilesGetResponses];
+
 export type ListRunsApiV1RunsGetData = {
     body?: never;
     path?: never;
@@ -9565,3 +9745,348 @@ export type OpaBundleInternalV1OpaBundlesArTarGzGetResponses = {
      */
     200: unknown;
 };
+
+export type ListTemplatesApiV1SandboxTemplatesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/sandbox-templates';
+};
+
+export type ListTemplatesApiV1SandboxTemplatesGetResponses = {
+    /**
+     * Response List Templates Api V1 Sandbox Templates Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListTemplatesApiV1SandboxTemplatesGetResponse = ListTemplatesApiV1SandboxTemplatesGetResponses[keyof ListTemplatesApiV1SandboxTemplatesGetResponses];
+
+export type CreateTemplateApiV1SandboxTemplatesPostData = {
+    body: TemplateBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/sandbox-templates';
+};
+
+export type CreateTemplateApiV1SandboxTemplatesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateTemplateApiV1SandboxTemplatesPostError = CreateTemplateApiV1SandboxTemplatesPostErrors[keyof CreateTemplateApiV1SandboxTemplatesPostErrors];
+
+export type CreateTemplateApiV1SandboxTemplatesPostResponses = {
+    /**
+     * Response Create Template Api V1 Sandbox Templates Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateTemplateApiV1SandboxTemplatesPostResponse = CreateTemplateApiV1SandboxTemplatesPostResponses[keyof CreateTemplateApiV1SandboxTemplatesPostResponses];
+
+export type DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Template Id
+         */
+        template_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sandbox-templates/{template_id}';
+};
+
+export type DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteError = DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteErrors[keyof DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteErrors];
+
+export type DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteResponses = {
+    /**
+     * Response Delete Template Api V1 Sandbox Templates  Template Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteResponse = DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteResponses[keyof DeleteTemplateApiV1SandboxTemplatesTemplateIdDeleteResponses];
+
+export type PatchTemplateApiV1SandboxTemplatesTemplateIdPatchData = {
+    body: TemplatePatch;
+    path: {
+        /**
+         * Template Id
+         */
+        template_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sandbox-templates/{template_id}';
+};
+
+export type PatchTemplateApiV1SandboxTemplatesTemplateIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchTemplateApiV1SandboxTemplatesTemplateIdPatchError = PatchTemplateApiV1SandboxTemplatesTemplateIdPatchErrors[keyof PatchTemplateApiV1SandboxTemplatesTemplateIdPatchErrors];
+
+export type PatchTemplateApiV1SandboxTemplatesTemplateIdPatchResponses = {
+    /**
+     * Response Patch Template Api V1 Sandbox Templates  Template Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchTemplateApiV1SandboxTemplatesTemplateIdPatchResponse = PatchTemplateApiV1SandboxTemplatesTemplateIdPatchResponses[keyof PatchTemplateApiV1SandboxTemplatesTemplateIdPatchResponses];
+
+export type ListSandboxesApiV1SandboxesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/sandboxes';
+};
+
+export type ListSandboxesApiV1SandboxesGetResponses = {
+    /**
+     * Response List Sandboxes Api V1 Sandboxes Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListSandboxesApiV1SandboxesGetResponse = ListSandboxesApiV1SandboxesGetResponses[keyof ListSandboxesApiV1SandboxesGetResponses];
+
+export type GetSandboxApiV1SandboxesSandboxIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Sandbox Id
+         */
+        sandbox_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sandboxes/{sandbox_id}';
+};
+
+export type GetSandboxApiV1SandboxesSandboxIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSandboxApiV1SandboxesSandboxIdGetError = GetSandboxApiV1SandboxesSandboxIdGetErrors[keyof GetSandboxApiV1SandboxesSandboxIdGetErrors];
+
+export type GetSandboxApiV1SandboxesSandboxIdGetResponses = {
+    /**
+     * Response Get Sandbox Api V1 Sandboxes  Sandbox Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetSandboxApiV1SandboxesSandboxIdGetResponse = GetSandboxApiV1SandboxesSandboxIdGetResponses[keyof GetSandboxApiV1SandboxesSandboxIdGetResponses];
+
+export type TerminateSandboxApiV1SandboxesSandboxIdTerminatePostData = {
+    body?: never;
+    path: {
+        /**
+         * Sandbox Id
+         */
+        sandbox_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sandboxes/{sandbox_id}:terminate';
+};
+
+export type TerminateSandboxApiV1SandboxesSandboxIdTerminatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TerminateSandboxApiV1SandboxesSandboxIdTerminatePostError = TerminateSandboxApiV1SandboxesSandboxIdTerminatePostErrors[keyof TerminateSandboxApiV1SandboxesSandboxIdTerminatePostErrors];
+
+export type TerminateSandboxApiV1SandboxesSandboxIdTerminatePostResponses = {
+    /**
+     * Response Terminate Sandbox Api V1 Sandboxes  Sandbox Id  Terminate Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TerminateSandboxApiV1SandboxesSandboxIdTerminatePostResponse = TerminateSandboxApiV1SandboxesSandboxIdTerminatePostResponses[keyof TerminateSandboxApiV1SandboxesSandboxIdTerminatePostResponses];
+
+export type ConversationSandboxApiV1ConversationsConversationIdSandboxGetData = {
+    body?: never;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{conversation_id}/sandbox';
+};
+
+export type ConversationSandboxApiV1ConversationsConversationIdSandboxGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConversationSandboxApiV1ConversationsConversationIdSandboxGetError = ConversationSandboxApiV1ConversationsConversationIdSandboxGetErrors[keyof ConversationSandboxApiV1ConversationsConversationIdSandboxGetErrors];
+
+export type ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponses = {
+    /**
+     * Response Conversation Sandbox Api V1 Conversations  Conversation Id  Sandbox Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponse = ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponses[keyof ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponses];
+
+export type ListSandboxFilesApiV1SandboxesSandboxIdFilesGetData = {
+    body?: never;
+    path: {
+        /**
+         * Sandbox Id
+         */
+        sandbox_id: string;
+    };
+    query?: {
+        /**
+         * Path
+         */
+        path?: string;
+    };
+    url: '/api/v1/sandboxes/{sandbox_id}/files';
+};
+
+export type ListSandboxFilesApiV1SandboxesSandboxIdFilesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSandboxFilesApiV1SandboxesSandboxIdFilesGetError = ListSandboxFilesApiV1SandboxesSandboxIdFilesGetErrors[keyof ListSandboxFilesApiV1SandboxesSandboxIdFilesGetErrors];
+
+export type ListSandboxFilesApiV1SandboxesSandboxIdFilesGetResponses = {
+    /**
+     * Response List Sandbox Files Api V1 Sandboxes  Sandbox Id  Files Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListSandboxFilesApiV1SandboxesSandboxIdFilesGetResponse = ListSandboxFilesApiV1SandboxesSandboxIdFilesGetResponses[keyof ListSandboxFilesApiV1SandboxesSandboxIdFilesGetResponses];
+
+export type SandboxFileContentApiV1SandboxesSandboxIdFilesContentGetData = {
+    body?: never;
+    path: {
+        /**
+         * Sandbox Id
+         */
+        sandbox_id: string;
+    };
+    query?: {
+        /**
+         * Path
+         */
+        path?: string;
+    };
+    url: '/api/v1/sandboxes/{sandbox_id}/files/content';
+};
+
+export type SandboxFileContentApiV1SandboxesSandboxIdFilesContentGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SandboxFileContentApiV1SandboxesSandboxIdFilesContentGetError = SandboxFileContentApiV1SandboxesSandboxIdFilesContentGetErrors[keyof SandboxFileContentApiV1SandboxesSandboxIdFilesContentGetErrors];
+
+export type SandboxFileContentApiV1SandboxesSandboxIdFilesContentGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostData = {
+    body: ExportBody;
+    path: {
+        /**
+         * Sandbox Id
+         */
+        sandbox_id: string;
+    };
+    query?: never;
+    url: '/api/v1/sandboxes/{sandbox_id}/files:export';
+};
+
+export type ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostError = ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostErrors[keyof ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostErrors];
+
+export type ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponses = {
+    /**
+     * Response Export Sandbox File Api V1 Sandboxes  Sandbox Id  Files Export Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponse = ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponses[keyof ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponses];

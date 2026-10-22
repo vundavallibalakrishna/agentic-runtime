@@ -4,6 +4,7 @@ import {
   CheckCheck,
   Library,
   MessageSquare,
+  Monitor,
   Play,
   Repeat,
   Shield,
@@ -21,7 +22,8 @@ export type NavItem = {
     | "navApprovals"
     | "navRuns"
     | "navModels"
-    | "navUsers";
+    | "navUsers"
+    | "navComputers";
   permission: string;
   icon: LucideIcon;
   soon?: boolean;
@@ -53,5 +55,11 @@ export const primaryNav: NavItem[] = [
   },
   { href: "/runs", labelKey: "navRuns", permission: "chat:use", icon: Play, soon: true },
   { href: "/admin/models", labelKey: "navModels", permission: "models:read", icon: Shield },
+  {
+    href: "/admin/sandboxes",
+    labelKey: "navComputers",
+    permission: "sandboxes:manage",
+    icon: Monitor,
+  },
   { href: "/admin/users", labelKey: "navUsers", permission: "users:read", icon: Shield },
 ];

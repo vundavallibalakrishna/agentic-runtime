@@ -6986,6 +6986,55 @@
         }
       }
     },
+    "/api/v1/files": {
+      "get": {
+        "summary": "List Files",
+        "operationId": "list_files_api_v1_files_get",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conversationid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Files Api V1 Files Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/runs": {
       "get": {
         "summary": "List Runs",
@@ -10632,6 +10681,456 @@
           }
         }
       }
+    },
+    "/api/v1/sandbox-templates": {
+      "get": {
+        "summary": "List Templates",
+        "operationId": "list_templates_api_v1_sandbox_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Templates Api V1 Sandbox Templates Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Template",
+        "operationId": "create_template_api_v1_sandbox_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Template Api V1 Sandbox Templates Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sandbox-templates/{template_id}": {
+      "patch": {
+        "summary": "Patch Template",
+        "operationId": "patch_template_api_v1_sandbox_templates__template_id__patch",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplatePatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Template Api V1 Sandbox Templates  Template Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Template",
+        "operationId": "delete_template_api_v1_sandbox_templates__template_id__delete",
+        "parameters": [
+          {
+            "name": "template_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Template Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete Template Api V1 Sandbox Templates  Template Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sandboxes": {
+      "get": {
+        "summary": "List Sandboxes",
+        "operationId": "list_sandboxes_api_v1_sandboxes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Sandboxes Api V1 Sandboxes Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sandboxes/{sandbox_id}": {
+      "get": {
+        "summary": "Get Sandbox",
+        "operationId": "get_sandbox_api_v1_sandboxes__sandbox_id__get",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sandbox Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Sandbox Api V1 Sandboxes  Sandbox Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sandboxes/{sandbox_id}:terminate": {
+      "post": {
+        "summary": "Terminate Sandbox",
+        "operationId": "terminate_sandbox_api_v1_sandboxes__sandbox_id__terminate_post",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sandbox Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Terminate Sandbox Api V1 Sandboxes  Sandbox Id  Terminate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{conversation_id}/sandbox": {
+      "get": {
+        "summary": "Conversation Sandbox",
+        "operationId": "conversation_sandbox_api_v1_conversations__conversation_id__sandbox_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Conversation Sandbox Api V1 Conversations  Conversation Id  Sandbox Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sandboxes/{sandbox_id}/files": {
+      "get": {
+        "summary": "List Sandbox Files",
+        "operationId": "list_sandbox_files_api_v1_sandboxes__sandbox_id__files_get",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sandbox Id"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "/workspace",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Sandbox Files Api V1 Sandboxes  Sandbox Id  Files Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sandboxes/{sandbox_id}/files/content": {
+      "get": {
+        "summary": "Sandbox File Content",
+        "operationId": "sandbox_file_content_api_v1_sandboxes__sandbox_id__files_content_get",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sandbox Id"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "/workspace",
+              "title": "Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sandboxes/{sandbox_id}/files:export": {
+      "post": {
+        "summary": "Export Sandbox File",
+        "operationId": "export_sandbox_file_api_v1_sandboxes__sandbox_id__files_export_post",
+        "parameters": [
+          {
+            "name": "sandbox_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Sandbox Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Export Sandbox File Api V1 Sandboxes  Sandbox Id  Files Export Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11569,6 +12068,23 @@
         "type": "object",
         "required": ["text"],
         "title": "EditBody"
+      },
+      "ExportBody": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "default": ""
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExportBody"
       },
       "FavouriteBody": {
         "properties": {
@@ -12831,6 +13347,265 @@
         "type": "object",
         "required": ["userId"],
         "title": "TeamMemberCreate"
+      },
+      "TemplateBody": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "default": ""
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "imageRef": {
+            "type": "string",
+            "title": "Imageref",
+            "default": ""
+          },
+          "runtimeClass": {
+            "type": "string",
+            "title": "Runtimeclass",
+            "default": "gvisor"
+          },
+          "cpuMillis": {
+            "type": "integer",
+            "title": "Cpumillis",
+            "default": 2000
+          },
+          "memoryMb": {
+            "type": "integer",
+            "title": "Memorymb",
+            "default": 4096
+          },
+          "diskGb": {
+            "type": "integer",
+            "title": "Diskgb",
+            "default": 10
+          },
+          "allowBrowser": {
+            "type": "boolean",
+            "title": "Allowbrowser",
+            "default": false
+          },
+          "allowPackages": {
+            "type": "boolean",
+            "title": "Allowpackages",
+            "default": false
+          },
+          "egressAllowlist": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Egressallowlist"
+          },
+          "maxClassification": {
+            "type": "string",
+            "title": "Maxclassification",
+            "default": "confidential"
+          },
+          "idleSuspendS": {
+            "type": "integer",
+            "title": "Idlesuspends",
+            "default": 900
+          },
+          "maxLifetimeS": {
+            "type": "integer",
+            "title": "Maxlifetimes",
+            "default": 86400
+          },
+          "execTimeoutS": {
+            "type": "integer",
+            "title": "Exectimeouts",
+            "default": 120
+          },
+          "retentionDays": {
+            "type": "integer",
+            "title": "Retentiondays",
+            "default": 7
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TemplateBody"
+      },
+      "TemplatePatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "imageRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageref"
+          },
+          "runtimeClass": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtimeclass"
+          },
+          "cpuMillis": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpumillis"
+          },
+          "memoryMb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memorymb"
+          },
+          "diskGb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diskgb"
+          },
+          "allowBrowser": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowbrowser"
+          },
+          "allowPackages": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowpackages"
+          },
+          "egressAllowlist": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Egressallowlist"
+          },
+          "maxClassification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxclassification"
+          },
+          "idleSuspendS": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idlesuspends"
+          },
+          "maxLifetimeS": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxlifetimes"
+          },
+          "execTimeoutS": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exectimeouts"
+          },
+          "retentionDays": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retentiondays"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TemplatePatch"
       },
       "TenantCreate": {
         "properties": {

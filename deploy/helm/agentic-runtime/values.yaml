@@ -4,3 +4,7 @@ image:
 replicaCount: 1
 service:
   port: 8000
+sandboxes:
+  warmPool: default=4,browser=2
+  runtimeClass: gvisor
+  snapshotIntervalSeconds: "600"
