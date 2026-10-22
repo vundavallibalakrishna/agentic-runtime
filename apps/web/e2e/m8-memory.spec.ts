@@ -41,6 +41,11 @@ async function send(page: Page, text: string) {
   await page.getByRole("button", { name: "Send" }).click();
 }
 
+async function newChat(page: Page) {
+  await page.locator("aside").getByRole("button", { name: "New chat" }).first().click();
+  await expect(page.getByText("Memory updated:")).toHaveCount(0);
+}
+
 test("a preference is remembered, reviewed, and forgotten", async ({ page }) => {
   await signIn(page, "admin@dev.local");
   await page.goto("/memory");
@@ -54,7 +59,7 @@ test("a preference is remembered, reviewed, and forgotten", async ({ page }) => 
   await page.goto("/chat");
   await send(page, "Remember that I prefer answers in bullet points.");
   await expect(page.getByText("Memory updated:")).toBeVisible({ timeout: 30_000 });
-  await page.getByRole("button", { name: "New chat" }).click();
+  await newChat(page);
   await send(page, "Draft a short status update");
   await expect(page.getByText("bullet points")).toBeVisible({ timeout: 30_000 });
   await capture(page, "remembered");
@@ -64,7 +69,7 @@ test("a preference is remembered, reviewed, and forgotten", async ({ page }) => 
   await bullet.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("bullet points")).toHaveCount(0);
   await page.goto("/chat");
-  await page.getByRole("button", { name: "New chat" }).click();
+  await newChat(page);
   await send(page, "Draft a short status update");
   await expect(page.getByText("I kept this in bullet points")).toHaveCount(0, { timeout: 30_000 });
 
