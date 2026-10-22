@@ -182,6 +182,8 @@ class ChatService:
     team_roster: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     memory_extracted: set[object] = field(default_factory=set)
     memory_seeded: bool = False
+    skills: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    skill_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -234,6 +236,7 @@ class ChatService:
             self._seed_chart(tenant_id, user_id)
             self._seed_library(tenant_id, user_id)
             self._seed_memory(tenant_id, user_id)
+            self._seed_composition(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -344,6 +347,12 @@ class ChatService:
         self._seed_chart(tenant_id, user_id)
         self._seed_library(tenant_id, user_id)
         self._seed_memory(tenant_id, user_id)
+        self._seed_composition(tenant_id, user_id)
+
+    def _seed_composition(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.skills.showcase import seed_composition  # noqa: PLC0415
+
+        seed_composition(self, tenant_id, user_id)
 
     def _seed_memory(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.memory.showcase import seed_memory  # noqa: PLC0415
@@ -1050,6 +1059,9 @@ class ChatService:
             "input_message_id": message_id,
             "status": "queued",
             "trigger": trigger,
+            "parent_run_id": None,
+            "root_run_id": run_id,
+            "depth": 0,
             "label": "preview" if conversation.get("is_preview") else None,
             "temporal_workflow_id": f"run-{run_id}",
             "temporal_started": self.temporal_up,
@@ -1180,8 +1192,11 @@ class ChatService:
             "message.started",
             {"message_id": str(assistant_id), "role": "assistant", "model_alias": "reasoning"},
         )
+        from ar_domain.skills.turn import maybe_compose  # noqa: PLC0415
         from ar_domain.tools.chat_loop import maybe_tools  # noqa: PLC0415
 
+        if await maybe_compose(self, run, assistant, text):
+            return
         if await maybe_tools(self, run, assistant, text):
             return
         from ar_domain.knowledge.answer import compose  # noqa: PLC0415
@@ -1486,6 +1501,9 @@ class ChatService:
             self._emit(run, "run.cancelled", {"by": "user"})
             return self._public(run)
         self.cancel_flags.add(run_id)
+        from ar_domain.skills.delegate import cancel_children  # noqa: PLC0415
+
+        cancel_children(self, run_id)
         return self._public(run)
 
     def submit_input(
@@ -1550,6 +1568,17 @@ class ChatService:
     def list_steps(self, tenant_id: uuid.UUID, run_id: uuid.UUID) -> list[dict[str, object]]:
         self.get_run(tenant_id, run_id)
         return [self._public(row) for row in self.steps.values() if row.get("run_id") == run_id]
+
+    def list_children(self, tenant_id: uuid.UUID, run_id: uuid.UUID) -> list[dict[str, object]]:
+        """Child runs started by this run. A missing parent is 404."""
+        self.get_run(tenant_id, run_id)
+        listed = [
+            self._public(row)
+            for row in self.runs.values()
+            if row.get("tenant_id") == tenant_id and row.get("parent_run_id") == run_id
+        ]
+        listed.sort(key=lambda item: str(item.get("created_at") or ""))
+        return listed
 
     def create_api_run(
         self,

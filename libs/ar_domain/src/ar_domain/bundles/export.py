@@ -84,6 +84,8 @@ def export_bundle(
                 "spec": _spec(definition),
             }
         )
+        if ids is None or agent.get("id") in ids:
+            resources.extend(_skill_resources(store, actor, definition))
     for row in store.catalogue.values():
         if row.get("tenant_id") != actor.tenant_id:
             continue
@@ -113,6 +115,44 @@ def export_bundle(
         }
     )
     return document
+
+
+def _skill_resources(
+    store: Any, actor: Actor, definition: dict[str, object]
+) -> list[dict[str, object]]:
+    """Skills pinned by one exported agent."""
+    from ar_domain.skills.book import SkillBook  # noqa: PLC0415
+    from ar_domain.skills.logic import split_skill_ref  # noqa: PLC0415
+
+    book = SkillBook(store)
+    raw = definition.get("skills")
+    names = raw if isinstance(raw, list) else []
+    resources: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for item in names:
+        slug, _constraint = split_skill_ref(str(item))
+        if slug in seen:
+            continue
+        seen.add(slug)
+        skill = book.published_by_slug(actor.tenant_id, slug)
+        if skill is None:
+            continue
+        detail = book.detail(actor, uuid.UUID(str(skill["id"])))
+        published = detail.get("published")
+        content = published if isinstance(published, dict) else {}
+        resources.append(
+            {
+                "kind": "Skill",
+                "metadata": {"slug": slug, "name": skill.get("name")},
+                "spec": {
+                    "description": skill.get("description") or "",
+                    "visibility": skill.get("visibility") or "tenant",
+                    "instructionsMd": content.get("instructions_md") or "",
+                    "requiredTools": content.get("required_tools") or [],
+                },
+            }
+        )
+    return resources
 
 
 def to_yaml(document: dict[str, object]) -> str:

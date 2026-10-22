@@ -672,8 +672,7 @@ async def tool_calls(run_id: uuid.UUID, request: Request) -> dict[str, object]:
 @expose(public=False, permission="chat:use")
 async def child_runs(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    _chat(request).get_run(_tenant(principal), run_id)
-    return _page([])
+    return _page(_chat(request).list_children(_tenant(principal), run_id))
 
 
 @router.post("/api/v1/runs/{run_id}:input", dependencies=[Depends(require_permission("chat:use"))])

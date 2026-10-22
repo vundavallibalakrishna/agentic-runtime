@@ -122,6 +122,7 @@ export function ChatScreen() {
       setMessages([]);
       setStream(emptyStream);
       setBanner("");
+      setRunId("");
     }
     window.addEventListener("ar-new-chat", onNew);
     return () => window.removeEventListener("ar-new-chat", onNew);
@@ -281,7 +282,6 @@ export function ChatScreen() {
       const fresh = await api<{ items: Item[] }>("/api/v1/conversations");
       setConversations(fresh.items ?? []);
       runRef.current = "";
-      setRunId("");
       setAttachmentId("");
       setAttachmentName("");
     } catch (error) {
@@ -311,7 +311,6 @@ export function ChatScreen() {
     setRunId(posted.run.id);
     const streamed = await readStream(posted.run.id);
     runRef.current = "";
-    setRunId("");
     await openConversation(activeId, streamed);
   }
 
@@ -398,7 +397,10 @@ export function ChatScreen() {
                   aria-current={selected ? "true" : undefined}
                   className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${selected ? "bg-[var(--muted)]" : "hover:bg-[var(--muted)]"}`}
                   key={id}
-                  onClick={() => void openConversation(id)}
+                  onClick={() => {
+                    setRunId("");
+                    void openConversation(id);
+                  }}
                   type="button"
                 >
                   {String(conversation.title || t("untitled"))}
@@ -608,6 +610,13 @@ export function ChatScreen() {
                   ))}
                 </ul>
               </section>
+            ) : null}
+            {runId ? (
+              <p className="mx-auto mb-2 max-w-2xl text-sm">
+                <a className="underline" href={`/runs/${runId}`}>
+                  {t("viewTrace")}
+                </a>
+              </p>
             ) : null}
             <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2">
               <label className="sr-only" htmlFor="agent-picker">

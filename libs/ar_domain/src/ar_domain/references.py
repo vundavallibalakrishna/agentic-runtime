@@ -23,6 +23,13 @@ class ResolveContext:
     tool_servers: set[str] = field(default_factory=set)
     sandbox_templates: set[str] = field(default_factory=set)
     knowledge_collections: set[str] = field(default_factory=set)
+    published_agents: set[str] = field(default_factory=set)
+    published_skills: dict[str, str] = field(default_factory=dict)
+    skill_versions: dict[str, tuple[int, ...]] = field(default_factory=dict)
+    skill_version_ids: dict[str, dict[int, str]] = field(default_factory=dict)
+    subagent_edges: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    publishing_slug: str = ""
+    subagent_max_depth: int = 1
     treat_unknown_as_warning: bool = False
 
 

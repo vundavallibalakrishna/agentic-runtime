@@ -110,3 +110,8 @@ M8-T02 | done | a70a7bd | memory tools and recall
 M8-T03 | done | a70a7bd | extraction workflow
 M8-T04 | done | a70a7bd | compaction
 M8-T05 | done | a70a7bd | memory settings, review queue, chat indicator
+
+M9-T01 | done | 544422f | subagent delegation, child runs, children API
+M9-T02 | done | 544422f | revision 0016 and skills API
+M9-T03 | done | 544422f | skills.load, sandbox assets, loaded skills
+M9-T04 | done | 544422f | skills editor, trace graph, visual test

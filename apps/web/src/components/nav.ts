@@ -9,6 +9,7 @@ import {
   Play,
   Repeat,
   Shield,
+  Sparkles,
   Wrench,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ export type NavItem = {
     | "navTools"
     | "navKnowledge"
     | "navMemory"
+    | "navSkills"
     | "navRoutines"
     | "navApprovals"
     | "navRuns"
@@ -42,6 +44,7 @@ export const primaryNav: NavItem[] = [
     icon: Library,
   },
   { href: "/memory", labelKey: "navMemory", permission: "chat:use", icon: Brain },
+  { href: "/skills", labelKey: "navSkills", permission: "skills:read", icon: Sparkles },
   {
     href: "/routines",
     labelKey: "navRoutines",
@@ -55,7 +58,7 @@ export const primaryNav: NavItem[] = [
     permission: "approvals:decide",
     icon: CheckCheck,
   },
-  { href: "/runs", labelKey: "navRuns", permission: "chat:use", icon: Play, soon: true },
+  { href: "/runs", labelKey: "navRuns", permission: "chat:use", icon: Play },
   { href: "/admin/models", labelKey: "navModels", permission: "models:read", icon: Shield },
   {
     href: "/admin/sandboxes",

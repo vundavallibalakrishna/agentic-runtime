@@ -4,6 +4,8 @@ export type Definition = {
   starterPrompts?: string[];
   model?: { alias?: string; fastAlias?: string };
   tools?: { server?: string; version?: string; include?: string[] }[];
+  skills?: string[];
+  subagents?: { allowed?: string[]; maxDepth?: number; maxParallel?: number };
   budget?: { maxSteps?: number; maxTokens?: number };
 };
 

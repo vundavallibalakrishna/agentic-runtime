@@ -70,6 +70,7 @@ def seed(store: Any) -> None:
     """Insert built-ins, the ticket server, petstore and the warehouse."""
     import ar_domain.knowledge.resolver  # noqa: PLC0415
     import ar_domain.sandboxes.resolver  # noqa: PLC0415
+    import ar_domain.skills.resolver  # noqa: PLC0415
     import ar_domain.tools.resolvers  # noqa: F401, PLC0415
     from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
 
@@ -94,6 +95,7 @@ def seed(store: Any) -> None:
     _browser_server(store)
     _knowledge_server(store)
     _memory_server(store)
+    _skills_server(store)
     _analyst(store, tenant, admin)
     store.tools_seeded = True
 
@@ -606,6 +608,28 @@ def _knowledge_server(store: Any) -> None:
                 {"type": "object", "properties": {}},
                 "R0",
             ),
+        ],
+    )
+
+
+def _skills_server(store: Any) -> None:
+    _builtin(
+        store,
+        "skills",
+        "Skills",
+        "builtin://skills",
+        [
+            _tool(
+                "load",
+                "Load a skill",
+                "Load a skill's instructions and copy its assets onto the computer.",
+                {
+                    "type": "object",
+                    "properties": {"skill": {"type": "string"}},
+                    "required": ["skill"],
+                },
+                "R0",
+            )
         ],
     )
 

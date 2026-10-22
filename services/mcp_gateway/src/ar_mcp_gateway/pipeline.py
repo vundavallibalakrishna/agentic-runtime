@@ -14,6 +14,7 @@ def execute(store: Any, request: dict[str, object]) -> dict[str, object]:
     from ar_mcp_gateway.builtins.knowledge import forward as forward_knowledge  # noqa: PLC0415
     from ar_mcp_gateway.builtins.memory import forward as forward_memory  # noqa: PLC0415
     from ar_mcp_gateway.builtins.sandbox import forward as forward_sandbox  # noqa: PLC0415
+    from ar_mcp_gateway.builtins.skills import forward as forward_skills  # noqa: PLC0415
 
     result = ToolPipeline(store).execute(request)
     qualified = str(request.get("qualified_name") or "")
@@ -25,4 +26,6 @@ def execute(store: Any, request: dict[str, object]) -> dict[str, object]:
         result["forwarded"] = forward_knowledge.__name__
     elif qualified.startswith("memory."):
         result["forwarded"] = forward_memory.__name__
+    elif qualified.startswith("skills."):
+        result["forwarded"] = forward_skills.__name__
     return result

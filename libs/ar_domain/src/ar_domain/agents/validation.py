@@ -6,6 +6,8 @@ from pydantic.alias_generators import to_camel
 from ar_contracts.definitions import AgentDefinition
 from ar_domain.agents.defaults import apply_definition_defaults
 from ar_domain.references import ReferenceIssue, ResolveContext, resolve_reference
+from ar_domain.skills.logic import highest_match, split_skill_ref
+from ar_domain.skills.resolver import depth_issue
 
 
 def _loc(parts: tuple[object, ...]) -> tuple[str | int, ...]:
@@ -52,7 +54,7 @@ def _strings(value: object) -> list[str]:
     return [str(item) for item in value]
 
 
-def reference_issues(
+def reference_issues(  # noqa: PLR0912
     definition: dict[str, object],
     ctx: ResolveContext,
 ) -> tuple[list[ReferenceIssue], dict[str, object]]:
@@ -89,14 +91,24 @@ def reference_issues(
     allowed = subagents.get("allowed") if isinstance(subagents, dict) else []
     for index, slug in enumerate(_strings(allowed)):
         issues.extend(resolve_reference("subagent", ctx, slug, ("subagents", "allowed", index)))
+    issues.extend(depth_issue(ctx, _strings(allowed), ("subagents", "maxDepth")))
     sandbox = definition.get("sandbox")
     if isinstance(sandbox, dict) and sandbox.get("enabled") is True:
         template = str(sandbox.get("template") or "default")
         issues.extend(resolve_reference("sandbox_template", ctx, template, ("sandbox", "template")))
+    resolved_skills: list[dict[str, str]] = []
+    for raw in _strings(definition.get("skills")):
+        slug, constraint = split_skill_ref(raw)
+        matched = highest_match(ctx.skill_versions.get(slug, ()), constraint or "*")
+        version_id = ctx.skill_version_ids.get(slug, {}).get(matched or 0, "")
+        if not version_id:
+            version_id = ctx.published_skills.get(slug, "")
+        if version_id:
+            resolved_skills.append({"slug": slug, "skill_version_id": version_id})
     resolved: dict[str, object] = {
         "tools": [],
         "model": {"alias": alias},
-        "skills": [],
+        "skills": resolved_skills,
         "knowledge": [],
     }
     return issues, resolved

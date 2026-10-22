@@ -582,7 +582,7 @@
       "items": {
         "type": "string"
       },
-      "maxItems": 50,
+      "maxItems": 30,
       "title": "Skills",
       "type": "array"
     },

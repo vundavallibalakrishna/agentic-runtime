@@ -186,7 +186,7 @@ export type Autoretrieve = boolean;
 export type Topk1 = number;
 export type Minscore = number;
 /**
- * @maxItems 50
+ * @maxItems 30
  */
 export type Skills = string[];
 export type Enabled = boolean;

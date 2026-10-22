@@ -1,4 +1,9 @@
 - match:
+    system_contains: "sentence case"
+    contains: "brief"
+  respond:
+    text: "One-page brief. The name stays in sentence case."
+- match:
     system_contains: "bullet points"
     contains: "status"
   respond:

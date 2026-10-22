@@ -89,14 +89,90 @@ class AgentLifecycle:
         return names
 
     def context(self, actor: Actor, *, warnings: bool = False) -> ResolveContext:
+        skills, versions, version_ids = self._skill_maps(actor.tenant_id)
+        agents, edges = self._agent_graph(actor.tenant_id)
         return ResolveContext(
             tenant_id=str(actor.tenant_id),
             alias_names=self.aliases(actor.tenant_id),
             tool_servers=self._approved_servers(actor.tenant_id),
             sandbox_templates=self._sandbox_templates(actor.tenant_id),
             knowledge_collections=self._knowledge_collections(actor.tenant_id),
+            published_agents=agents,
+            published_skills=skills,
+            skill_versions=versions,
+            skill_version_ids=version_ids,
+            subagent_edges=edges,
             treat_unknown_as_warning=warnings,
         )
+
+    def _for_publish(
+        self,
+        actor: Actor,
+        agent: dict[str, object],
+        definition: dict[str, object],
+        *,
+        warnings: bool,
+    ) -> ResolveContext:
+        ctx = self.context(actor, warnings=warnings)
+        ctx.publishing_slug = str(agent.get("slug") or "")
+        subagents = definition.get("subagents")
+        if isinstance(subagents, dict):
+            depth = subagents.get("max_depth")
+            if isinstance(depth, int) and not isinstance(depth, bool):
+                ctx.subagent_max_depth = depth
+        return ctx
+
+    def _skill_maps(
+        self, tenant_id: uuid.UUID
+    ) -> tuple[dict[str, str], dict[str, tuple[int, ...]], dict[str, dict[int, str]]]:
+        published: dict[str, str] = {}
+        versions: dict[str, tuple[int, ...]] = {}
+        version_ids: dict[str, dict[int, str]] = {}
+        rows = getattr(self.store, "skills", {})
+        stored = getattr(self.store, "skill_versions", {})
+        if not isinstance(rows, dict) or not isinstance(stored, dict):
+            return published, versions, version_ids
+        for skill in rows.values():
+            if not isinstance(skill, dict) or skill.get("tenant_id") != tenant_id:
+                continue
+            if skill.get("status") != "published":
+                continue
+            slug = str(skill.get("slug") or "")
+            numbers: list[int] = []
+            mapping: dict[int, str] = {}
+            for version in stored.values():
+                if not isinstance(version, dict) or version.get("skill_id") != skill.get("id"):
+                    continue
+                number = version.get("version")
+                if not isinstance(number, int) or isinstance(number, bool) or number < 1:
+                    continue
+                numbers.append(number)
+                mapping[number] = str(version.get("id"))
+            versions[slug] = tuple(sorted(numbers))
+            version_ids[slug] = mapping
+            current = skill.get("published_version_id")
+            published[slug] = str(current) if current else ""
+        return published, versions, version_ids
+
+    def _agent_graph(self, tenant_id: uuid.UUID) -> tuple[set[str], dict[str, tuple[str, ...]]]:
+        slugs: set[str] = set()
+        edges: dict[str, tuple[str, ...]] = {}
+        for agent in self.store.agents.values():
+            if agent.get("tenant_id") != tenant_id or agent.get("status") != "published":
+                continue
+            slug = str(agent.get("slug") or "")
+            slugs.add(slug)
+            version_id = agent.get("published_version_id")
+            definition: dict[str, object] = {}
+            if isinstance(version_id, uuid.UUID):
+                raw = self.store.versions.get(version_id, {}).get("definition")
+                if isinstance(raw, dict):
+                    definition = raw
+            subagents = definition.get("subagents")
+            allowed = subagents.get("allowed") if isinstance(subagents, dict) else []
+            names = tuple(str(item) for item in allowed) if isinstance(allowed, list) else ()
+            edges[slug] = names
+        return slugs, edges
 
     def _knowledge_collections(self, tenant_id: uuid.UUID) -> set[str]:
         names: set[str] = set()
@@ -242,24 +318,27 @@ class AgentLifecycle:
     ) -> None:
         model = definition.get("model")
         alias = model.get("alias") if isinstance(model, dict) else None
-        if not isinstance(alias, str):
-            return
         alias_id = None
-        for row in self.store.aliases.values():
-            if str(row.get("alias")) == alias:
-                alias_id = row.get("id")
-                break
-        target = alias_id if isinstance(alias_id, uuid.UUID) else uuid.UUID(int=0)
-        self.store.bindings[(version_id, "model_alias", str(target), alias)] = {
-            "tenant_id": tenant_id,
-            "agent_version_id": version_id,
-            "kind": "model_alias",
-            "target_id": target,
-            "target_key": alias,
-        }
+        if isinstance(alias, str):
+            for row in self.store.aliases.values():
+                if str(row.get("alias")) == alias:
+                    alias_id = row.get("id")
+                    break
+        if isinstance(alias, str):
+            target = alias_id if isinstance(alias_id, uuid.UUID) else uuid.UUID(int=0)
+            self.store.bindings[(version_id, "model_alias", str(target), alias)] = {
+                "tenant_id": tenant_id,
+                "agent_version_id": version_id,
+                "kind": "model_alias",
+                "target_id": target,
+                "target_key": alias,
+            }
         tools = definition.get("tools")
-        if not isinstance(tools, list):
-            return
+        if isinstance(tools, list):
+            self._bind_tools(tenant_id, version_id, tools)
+        self._bind_composition(tenant_id, version_id, definition)
+
+    def _bind_tools(self, tenant_id: uuid.UUID, version_id: uuid.UUID, tools: list[object]) -> None:
         for binding in tools:
             if not isinstance(binding, dict):
                 continue
@@ -272,6 +351,49 @@ class AgentLifecycle:
                 "kind": "tool_server",
                 "target_id": server,
                 "target_key": server,
+            }
+
+    def _bind_composition(
+        self, tenant_id: uuid.UUID, version_id: uuid.UUID, definition: dict[str, object]
+    ) -> None:
+        from ar_domain.skills.book import SkillBook  # noqa: PLC0415
+        from ar_domain.skills.logic import split_skill_ref  # noqa: PLC0415
+
+        book = SkillBook(self.store)
+        for raw in _skill_names(definition.get("skills")):
+            slug, _constraint = split_skill_ref(raw)
+            skill = book.published_by_slug(tenant_id, slug)
+            target = skill.get("id") if isinstance(skill, dict) else None
+            pinned = target if isinstance(target, uuid.UUID) else uuid.UUID(int=0)
+            self.store.bindings[(version_id, "skill", str(pinned), slug)] = {
+                "tenant_id": tenant_id,
+                "agent_version_id": version_id,
+                "kind": "skill",
+                "target_id": pinned,
+                "target_key": slug,
+            }
+        subagents = definition.get("subagents")
+        allowed = subagents.get("allowed") if isinstance(subagents, dict) else []
+        if not isinstance(allowed, list):
+            return
+        for slug in allowed:
+            name = str(slug)
+            match = next(
+                (
+                    row
+                    for row in self.store.agents.values()
+                    if row.get("tenant_id") == tenant_id and row.get("slug") == name
+                ),
+                None,
+            )
+            target = match.get("id") if isinstance(match, dict) else None
+            pinned = target if isinstance(target, uuid.UUID) else uuid.UUID(int=0)
+            self.store.bindings[(version_id, "subagent", str(pinned), name)] = {
+                "tenant_id": tenant_id,
+                "agent_version_id": version_id,
+                "kind": "subagent",
+                "target_id": pinned,
+                "target_key": name,
             }
 
     def _agent(self, actor: Actor, agent_id: uuid.UUID) -> dict[str, object]:
@@ -622,7 +744,9 @@ class AgentLifecycle:
                 "warnings": [],
                 "resolved": {},
             }
-        issues, resolved = reference_issues(normalised, self.context(actor, warnings=True))
+        issues, resolved = reference_issues(
+            normalised, self._for_publish(actor, agent, normalised, warnings=True)
+        )
         errors, warnings = split_issues(issues)
         return {
             "valid": not errors,
@@ -655,7 +779,9 @@ class AgentLifecycle:
             raise ValidationFailedError(
                 "definition is invalid", errors=[_issue(item) for item in schema]
             )
-        issues, resolved = reference_issues(normalised, self.context(actor, warnings=False))
+        issues, resolved = reference_issues(
+            normalised, self._for_publish(actor, agent, normalised, warnings=False)
+        )
         errors, _warnings = split_issues(issues)
         if errors:
             raise ArError(
@@ -720,7 +846,9 @@ class AgentLifecycle:
             raise ValidationFailedError(
                 "definition is invalid", errors=[_issue(item) for item in schema]
             )
-        issues, _resolved = reference_issues(normalised, self.context(actor))
+        issues, _resolved = reference_issues(
+            normalised, self._for_publish(actor, agent, normalised, warnings=False)
+        )
         errors, _warnings = split_issues(issues)
         if errors:
             raise ArError(
@@ -913,3 +1041,9 @@ class AgentLifecycle:
         self.store.domain_events.append(
             {"topic": topic, "payload": payload, "at": utcnow().isoformat()}
         )
+
+
+def _skill_names(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item)]

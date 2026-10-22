@@ -13,7 +13,15 @@ import { api } from "@/lib/api";
 
 import type { AgentDetail, Definition, ValidationReport } from "./types";
 
-const ADVANCED = ["instructions", "model", "tools", "knowledge", "yaml"] as const;
+const ADVANCED = [
+  "instructions",
+  "model",
+  "tools",
+  "knowledge",
+  "skills",
+  "subagents",
+  "yaml",
+] as const;
 
 export function AgentEditor() {
   const t = useTranslations("agents");
@@ -288,6 +296,94 @@ export function AgentEditor() {
             </p>
           ) : null}
           {tab === "knowledge" ? <p className="mt-3 text-sm">{t("knowledgeDefault")}</p> : null}
+          {tab === "skills" ? (
+            <div className="mt-3">
+              <label className="block text-sm" htmlFor="skill-slugs">
+                {t("skillSlugs")}
+              </label>
+              <textarea
+                className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                id="skill-slugs"
+                onChange={(event) =>
+                  updateDefinition({
+                    ...definition,
+                    skills: event.target.value
+                      .split("\n")
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  })
+                }
+                value={(definition.skills ?? []).join("\n")}
+              />
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("skillsHelp")}</p>
+            </div>
+          ) : null}
+          {tab === "subagents" ? (
+            <div className="mt-3">
+              <label className="block text-sm" htmlFor="subagent-slugs">
+                {t("subagentSlugs")}
+              </label>
+              <textarea
+                className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                id="subagent-slugs"
+                onChange={(event) =>
+                  updateDefinition({
+                    ...definition,
+                    subagents: {
+                      ...definition.subagents,
+                      allowed: event.target.value
+                        .split("\n")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    },
+                  })
+                }
+                value={(definition.subagents?.allowed ?? []).join("\n")}
+              />
+              <div className="mt-3 flex gap-3">
+                <label className="text-sm" htmlFor="max-depth">
+                  {t("maxDepth")}
+                  <Input
+                    className="mt-1 w-24"
+                    id="max-depth"
+                    min={1}
+                    max={3}
+                    onChange={(event) =>
+                      updateDefinition({
+                        ...definition,
+                        subagents: {
+                          ...definition.subagents,
+                          maxDepth: Number(event.target.value) || 1,
+                        },
+                      })
+                    }
+                    type="number"
+                    value={definition.subagents?.maxDepth ?? 1}
+                  />
+                </label>
+                <label className="text-sm" htmlFor="max-parallel">
+                  {t("maxParallel")}
+                  <Input
+                    className="mt-1 w-24"
+                    id="max-parallel"
+                    min={1}
+                    onChange={(event) =>
+                      updateDefinition({
+                        ...definition,
+                        subagents: {
+                          ...definition.subagents,
+                          maxParallel: Number(event.target.value) || 1,
+                        },
+                      })
+                    }
+                    type="number"
+                    value={definition.subagents?.maxParallel ?? 1}
+                  />
+                </label>
+              </div>
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("subagentsHelp")}</p>
+            </div>
+          ) : null}
           {tab === "yaml" ? (
             <textarea
               aria-label={t("yaml")}
