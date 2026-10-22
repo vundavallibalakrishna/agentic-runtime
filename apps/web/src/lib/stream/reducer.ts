@@ -17,7 +17,7 @@ export type StreamEvent = {
   };
 };
 
-export type StreamCitation = {
+type StreamCitation = {
   index: number;
   title: string;
   snippet: string;

@@ -9,7 +9,6 @@ import time
 import uuid
 
 import pytest
-from qdrant_client import QdrantClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -24,6 +23,9 @@ from ar_domain.knowledge.store_types import (
     PhysicalCollectionSpec,
     SearchTarget,
 )
+
+qdrant_client = pytest.importorskip("qdrant_client")
+QdrantClient = qdrant_client.QdrantClient
 
 pytestmark = pytest.mark.qdrant
 

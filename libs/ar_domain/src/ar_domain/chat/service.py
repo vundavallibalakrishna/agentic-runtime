@@ -1123,7 +1123,8 @@ class ChatService:
         grounded: dict[str, object],
     ) -> None:
         answer = str(grounded.get("text") or "")
-        citations = grounded.get("citations") if isinstance(grounded.get("citations"), list) else []
+        raw_citations = grounded.get("citations")
+        citations: list[object] = raw_citations if isinstance(raw_citations, list) else []
         assistant_id = assistant["id"]
         for citation in citations:
             if isinstance(citation, dict):

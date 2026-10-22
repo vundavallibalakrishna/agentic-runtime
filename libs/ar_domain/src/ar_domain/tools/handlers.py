@@ -312,18 +312,21 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
     raw_ids = arguments.get("collection_ids")
     if not isinstance(raw_ids, list) or not raw_ids:
         raw_ids = [row["id"] for row in book.list_collections(actor)]
+    raw_top = arguments.get("top_k")
+    top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
     try:
         found = book.search(
             actor,
             {
                 "query": str(arguments.get("query") or ""),
                 "collection_ids": raw_ids,
-                "top_k": int(arguments.get("top_k") or 8),
+                "top_k": top_k,
             },
         )
     except (ValueError, TypeError, ArError) as exc:
         return _error("validation_failed", str(exc))
-    hits = found.get("hits") if isinstance(found.get("hits"), list) else []
+    raw_hits = found.get("hits")
+    hits: list[object] = raw_hits if isinstance(raw_hits, list) else []
     if not found.get("answerable"):
         return {
             "text": "No sufficiently relevant documents were found.",
@@ -333,6 +336,7 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
     lines = [
         f"[{index}] {hit.get('title')}: {hit.get('snippet')}"
         for index, hit in enumerate(hits, start=1)
+        if isinstance(hit, dict)
     ]
     return {"text": "\n".join(str(line) for line in lines), "structured": found, "is_error": False}
 
