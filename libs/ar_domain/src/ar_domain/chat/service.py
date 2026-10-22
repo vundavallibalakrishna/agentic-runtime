@@ -1255,7 +1255,7 @@ class ChatService:
             return [prefix + remote]
         body = f"fake: {text}"
         if "bullet points" in system.lower():
-            body = f"- {body}"
+            body = "- I kept this in bullet points because you asked me to."
         return [prefix + body]
 
     async def _remote_completion(self, text: str, system: str = "") -> str | None:

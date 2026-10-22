@@ -158,7 +158,7 @@ export function ChatScreen() {
     node.scrollTop = node.scrollHeight;
   }, [pin]);
 
-  async function openConversation(id: string) {
+  async function openConversation(id: string, keep?: StreamState) {
     setActiveId(id);
     const params = new URLSearchParams(window.location.search);
     params.set("conversation", id);
@@ -167,7 +167,16 @@ export function ChatScreen() {
     const body = await api<Item & { messages?: Item[] }>(`/api/v1/conversations/${id}`);
     setMessages(body.messages ?? []);
     setPlan(Array.isArray(body.plan) ? body.plan.map((item) => String(item)) : []);
-    setStream(emptyStream);
+    setStream(
+      keep
+        ? {
+            ...emptyStream,
+            memories: keep.memories,
+            recalled: keep.recalled,
+            compacted: keep.compacted,
+          }
+        : emptyStream,
+    );
     stickRef.current = true;
     setStuck(false);
   }
@@ -182,7 +191,7 @@ export function ChatScreen() {
     await openConversation(id);
   }
 
-  async function readStream(id: string) {
+  async function readStream(id: string): Promise<StreamState> {
     const response = await fetch(`/api/v1/runs/${id}/events`, { credentials: "include" });
     if (!response.ok || !response.body) {
       throw new Error(t("error"));
@@ -218,6 +227,7 @@ export function ChatScreen() {
       }
       parser.feed(decoder.decode(chunk.value, { stream: true }));
     }
+    return state;
   }
 
   async function undoMemory(factId: string) {
@@ -266,8 +276,8 @@ export function ChatScreen() {
       );
       runRef.current = posted.run.id;
       setRunId(posted.run.id);
-      await readStream(posted.run.id);
-      await openConversation(conversationId);
+      const streamed = await readStream(posted.run.id);
+      await openConversation(conversationId, streamed);
       const fresh = await api<{ items: Item[] }>("/api/v1/conversations");
       setConversations(fresh.items ?? []);
       runRef.current = "";
@@ -299,10 +309,10 @@ export function ChatScreen() {
     );
     runRef.current = posted.run.id;
     setRunId(posted.run.id);
-    await readStream(posted.run.id);
+    const streamed = await readStream(posted.run.id);
     runRef.current = "";
     setRunId("");
-    await openConversation(activeId);
+    await openConversation(activeId, streamed);
   }
 
   async function onUpload(file: File) {
@@ -508,14 +518,6 @@ export function ChatScreen() {
                           conversationId={activeId}
                           messageId={id}
                         />
-                        {row.index === visible.length - 1 && message.role === "assistant" ? (
-                          <MemoryIndicator
-                            compacted={stream.compacted}
-                            memories={stream.memories}
-                            onUndo={(factId) => void undoMemory(factId)}
-                            recalled={stream.recalled}
-                          />
-                        ) : null}
                         {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
                       </div>
                     </div>
@@ -571,6 +573,14 @@ export function ChatScreen() {
               {banner}
             </p>
           ) : null}
+          <div className="mx-auto w-full max-w-2xl px-4 md:px-8">
+            <MemoryIndicator
+              compacted={stream.compacted}
+              memories={stream.memories}
+              onUndo={(factId) => void undoMemory(factId)}
+              recalled={stream.recalled}
+            />
+          </div>
           {activeId ? (
             <WorkspacePanel conversationId={activeId} revision={messages.length} />
           ) : null}
