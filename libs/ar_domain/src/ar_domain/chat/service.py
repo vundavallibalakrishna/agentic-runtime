@@ -49,6 +49,7 @@ from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys, record_usage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+
 def _iso(value: datetime | None) -> str | None:
     return None if value is None else value.isoformat()
 

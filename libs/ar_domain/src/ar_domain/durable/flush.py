@@ -98,8 +98,12 @@ def _snapshot(store: object) -> dict[str, list[dict[str, Any]]]:
                 if isinstance(value, dict):
                     rows.append({str(item): value[item] for item in value})
                 elif isinstance(value, list):
-                    rows.append({"_key": key,
-                        "_events": [dict(item) for item in value if isinstance(item, dict)]})
+                    rows.append(
+                        {
+                            "_key": key,
+                            "_events": [dict(item) for item in value if isinstance(item, dict)],
+                        }
+                    )
         found[name] = rows
     return found
 
@@ -341,8 +345,9 @@ async def _collections(session: AsyncSession, rows: list[dict[str, Any]]) -> Non
                 "embedding_alias": as_text(row.get("embedding_alias"), "embed"),
                 "index_version": as_int(row.get("index_version"), 1),
                 "store_backend": as_text(row.get("store_backend"), "pgvector"),
-                "store_collection": as_text(row.get("store_collection"),
-                    f"col-{collection_id.hex[:8]}"),
+                "store_collection": as_text(
+                    row.get("store_collection"), f"col-{collection_id.hex[:8]}"
+                ),
                 "text_search_config": as_text(row.get("text_search_config"), "simple"),
                 "chunking": as_json(row.get("chunking"), {"target_tokens": 512, "overlap_pct": 12}),
                 "stats": as_json(row.get("stats"), {}),
@@ -420,8 +425,9 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         source_id = as_uuid(row.get("source_id"))
         if None in {document_id, tenant_id, collection_id, source_id}:
             continue
-        principals = row.get("acl_principals") if isinstance(row.get("acl_principals"),
-            list) else []
+        principals = (
+            row.get("acl_principals") if isinstance(row.get("acl_principals"), list) else []
+        )
         now = utcnow()
         await _one(
             session,
@@ -487,8 +493,9 @@ async def _chunks(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "text": as_text(row.get("text"), ""),
                 "context_prefix": as_text(row.get("context_prefix"), ""),
                 "heading_path": [str(item) for item in headings],
-                "page_from": row.get("page_from") if isinstance(row.get("page_from"),
-                    int) else None,
+                "page_from": row.get("page_from")
+                if isinstance(row.get("page_from"), int)
+                else None,
                 "page_to": row.get("page_to") if isinstance(row.get("page_to"), int) else None,
                 "token_count": as_int(row.get("token_count")),
                 "index_version": as_int(row.get("index_version"), 1),
@@ -582,8 +589,9 @@ async def _tool_servers(session: AsyncSession, rows: list[dict[str, Any]]) -> No
                 "owner_user_id": as_uuid(row.get("owner_user_id")),
                 "status": as_text(row.get("status"), "approved"),
                 "disabled_at": as_dt(row.get("disabled_at")),
-                "disabled_reason": row.get("disabled_reason") if
-                    isinstance(row.get("disabled_reason"), str) else None,
+                "disabled_reason": row.get("disabled_reason")
+                if isinstance(row.get("disabled_reason"), str)
+                else None,
                 "current_version_id": as_uuid(row.get("current_version_id")),
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
@@ -660,11 +668,13 @@ async def _tools(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "tenant_id": as_uuid(row.get("tenant_id")),
                 "tool_server_id": server_id,
                 "name": as_text(row.get("name"), "tool"),
-                "qualified_name": as_text(row.get("qualified_name"), as_text(row.get("name"),
-                    "tool")),
+                "qualified_name": as_text(
+                    row.get("qualified_name"), as_text(row.get("name"), "tool")
+                ),
                 "disabled_at": as_dt(row.get("disabled_at")),
-                "disabled_reason": row.get("disabled_reason") if
-                    isinstance(row.get("disabled_reason"), str) else None,
+                "disabled_reason": row.get("disabled_reason")
+                if isinstance(row.get("disabled_reason"), str)
+                else None,
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
             },
@@ -835,19 +845,23 @@ async def _runs(session: AsyncSession, store: object, rows: list[dict[str, Any]]
                 "trigger": trigger,
                 "routine_id": as_uuid(row.get("routine_id")),
                 "user_id": user_id,
-                "initiator_type": as_text(row.get("initiator_type"),
-                    "routine" if trigger == "routine" else "user"),
+                "initiator_type": as_text(
+                    row.get("initiator_type"), "routine" if trigger == "routine" else "user"
+                ),
                 "initiator_id": as_uuid(row.get("initiator_id")) or user_id,
                 "status": as_text(row.get("status"), "queued"),
                 "temporal_workflow_id": as_text(row.get("temporal_workflow_id"), f"run-{run_id}"),
                 "budget": as_json(row.get("budget"), {}),
-                "callback_url": row.get("callback_url") if isinstance(row.get("callback_url"),
-                    str) else None,
+                "callback_url": row.get("callback_url")
+                if isinstance(row.get("callback_url"), str)
+                else None,
                 "usage": as_json(row.get("usage"), {}),
-                "result_summary": row.get("result_summary") if
-                    isinstance(row.get("result_summary"), str) else None,
-                "error": as_json(row.get("error"), {}) if isinstance(row.get("error"),
-                    dict) else None,
+                "result_summary": row.get("result_summary")
+                if isinstance(row.get("result_summary"), str)
+                else None,
+                "error": as_json(row.get("error"), {})
+                if isinstance(row.get("error"), dict)
+                else None,
                 "started_at": as_dt(row.get("started_at")),
                 "ended_at": as_dt(row.get("ended_at")),
                 "created_at": as_dt(row.get("created_at")) or now,

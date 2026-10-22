@@ -100,9 +100,7 @@ async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> s
     """Index inline, or wait for the ingest worker when Temporal is connected."""
     client = getattr(store, "temporal_client", None)
     inline = (
-        client is None
-        or len(raw) > WORKFLOW_MAX_BYTES
-        or getattr(store, "_ingest_worker", False)
+        client is None or len(raw) > WORKFLOW_MAX_BYTES or getattr(store, "_ingest_worker", False)
     )
     if inline or not hasattr(client, "start_workflow"):
         return await ingest_document_async(store, document_id, raw)

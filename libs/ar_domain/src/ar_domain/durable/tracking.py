@@ -66,8 +66,9 @@ class TrackedDict(dict[object, object]):
 
     def __setitem__(self, key: object, value: object) -> None:
         if isinstance(value, list):
-            stored: object = value if isinstance(value, TrackedList) else TrackedList(self,
-                key, value)
+            stored: object = (
+                value if isinstance(value, TrackedList) else TrackedList(self, key, value)
+            )
             super().__setitem__(key, stored)
         elif isinstance(value, dict):
             stored = value if isinstance(value, TrackedRow) else TrackedRow(self, key, value)

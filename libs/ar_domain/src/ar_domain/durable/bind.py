@@ -146,9 +146,7 @@ def _remap_value(value: object, mapping: dict[uuid.UUID, uuid.UUID]) -> object:
 async def _remap_agents(store: object, engine: AsyncEngine, tenant_id: uuid.UUID) -> None:
     async with AsyncSession(engine, expire_on_commit=False) as session:
         result = await session.execute(
-            text(
-                "SELECT id, slug, published_version_id FROM agents WHERE tenant_id = :tenant_id"
-            ),
+            text("SELECT id, slug, published_version_id FROM agents WHERE tenant_id = :tenant_id"),
             {"tenant_id": tenant_id},
         )
         by_slug = {str(slug): (agent_id, version_id) for agent_id, slug, version_id in result}

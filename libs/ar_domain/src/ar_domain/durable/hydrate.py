@@ -66,8 +66,10 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session:
             run = (
-                await session.execute(text("SELECT * FROM runs WHERE id = :id"), {"id": run_id})
-            ).mappings().first()
+                (await session.execute(text("SELECT * FROM runs WHERE id = :id"), {"id": run_id}))
+                .mappings()
+                .first()
+            )
             if run is None:
                 return
             _merge(store, "runs", run_id, dict(run))
@@ -81,8 +83,9 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
                 body = dict(message)
                 body["text"] = _text_of(body.get("content"))
                 _merge(store, "messages", body["id"], body)
-            await _events_for(session, store, run_id, run.get("conversation_id"),
-                run.get("tenant_id"))
+            await _events_for(
+                session, store, run_id, run.get("conversation_id"), run.get("tenant_id")
+            )
     finally:
         store.reloading = False  # type: ignore[attr-defined]
         events = getattr(store, "events", None)
@@ -138,8 +141,9 @@ async def _sources(session: AsyncSession, store: object, tenant_id: uuid.UUID) -
 
 
 async def _documents(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
-    for row in await _rows(session, "SELECT * FROM documents WHERE tenant_id = :tenant_id",
-        tenant_id):
+    for row in await _rows(
+        session, "SELECT * FROM documents WHERE tenant_id = :tenant_id", tenant_id
+    ):
         _merge(store, "knowledge_documents", row["id"], row)
 
 
@@ -159,10 +163,14 @@ async def reload_document(store: object, document_id: uuid.UUID) -> None:
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session:
             document = (
-                await session.execute(
-                    text("SELECT * FROM documents WHERE id = :id"), {"id": document_id}
+                (
+                    await session.execute(
+                        text("SELECT * FROM documents WHERE id = :id"), {"id": document_id}
+                    )
                 )
-            ).mappings().first()
+                .mappings()
+                .first()
+            )
             if document is None:
                 return
             body = dict(document)
@@ -170,11 +178,15 @@ async def reload_document(store: object, document_id: uuid.UUID) -> None:
             collection_id = body.get("collection_id")
             if collection_id is not None:
                 collection = (
-                    await session.execute(
-                        text("SELECT * FROM knowledge_collections WHERE id = :id"),
-                        {"id": collection_id},
+                    (
+                        await session.execute(
+                            text("SELECT * FROM knowledge_collections WHERE id = :id"),
+                            {"id": collection_id},
+                        )
                     )
-                ).mappings().first()
+                    .mappings()
+                    .first()
+                )
                 if collection is not None:
                     _merge(store, "knowledge_collections", collection_id, dict(collection))
             chunks = await session.execute(
@@ -246,8 +258,9 @@ async def _runs(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> N
 
 
 async def _messages(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
-    for row in await _rows(session, "SELECT * FROM messages WHERE tenant_id = :tenant_id",
-        tenant_id):
+    for row in await _rows(
+        session, "SELECT * FROM messages WHERE tenant_id = :tenant_id", tenant_id
+    ):
         row["text"] = _text_of(row.get("content"))
         _merge(store, "messages", row["id"], row)
 
@@ -296,8 +309,9 @@ async def _events_for(  # noqa: PLR0917 - the event row needs the run, conversat
             "run_id": str(run_id),
             "conversation_id": "" if conversation_id is None else str(conversation_id),
             "data": row.get("data") or {},
-            "ts": row["created_at"].isoformat() if hasattr(row.get("created_at"),
-                "isoformat") else "",
+            "ts": row["created_at"].isoformat()
+            if hasattr(row.get("created_at"), "isoformat")
+            else "",
             "tenant_id": as_uuid(tenant_id) or row.get("tenant_id"),
         }
         for row in events
