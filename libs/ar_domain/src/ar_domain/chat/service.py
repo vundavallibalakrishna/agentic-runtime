@@ -44,7 +44,7 @@ from ar_domain.models.logic import (
     valid_alias,
 )
 from ar_domain.runs.logic import assemble_context, budget_exceeded, tools_not_supported
-from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys, record_usage
+from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -69,6 +69,13 @@ def _string_tuple(value: object) -> tuple[str, ...]:
 def _seq(event: dict[str, object]) -> int:
     seq = event["seq"]
     return seq if isinstance(seq, int) else int(str(seq))
+
+
+def _parent_text(row: dict[str, object]) -> str | None:
+    parent = row.get("parent_message_id")
+    if parent is None:
+        return None
+    return str(parent)
 
 
 def _preview(mime_type: str, data: bytes) -> dict[str, object]:
@@ -197,6 +204,10 @@ class ChatService:
     durable_engine: object | None = None
     dev_binding: object | None = None
     reloading: bool = False
+    quotas: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    quota_counters: dict[str, tuple[int, datetime]] = field(default_factory=dict)
+    quota_lock: threading.Lock = field(default_factory=threading.Lock)
+    usage_daily: dict[tuple[str, ...], object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -252,6 +263,7 @@ class ChatService:
             self._seed_composition(tenant_id, user_id)
             self._seed_routines(tenant_id, user_id)
             self._seed_channels(tenant_id, user_id)
+            self._seed_usage(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -365,6 +377,12 @@ class ChatService:
         self._seed_composition(tenant_id, user_id)
         self._seed_routines(tenant_id, user_id)
         self._seed_channels(tenant_id, user_id)
+        self._seed_usage(tenant_id, user_id)
+
+    def _seed_usage(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.usage.showcase import seed_usage  # noqa: PLC0415
+
+        seed_usage(self, tenant_id, user_id)
 
     def _seed_channels(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.channels.showcase import seed_channels  # noqa: PLC0415
@@ -973,10 +991,8 @@ class ChatService:
         nodes = [
             MessageNode(
                 id=str(row["id"]),
-                parent_id=(
-                    None if row["parent_message_id"] is None else str(row["parent_message_id"])
-                ),
-                is_active=bool(row["is_active_branch"]),
+                parent_id=_parent_text(row),
+                is_active=bool(row.get("is_active_branch")),
             )
             for row in self.messages.values()
             if row["conversation_id"] == conversation_id
@@ -1011,6 +1027,9 @@ class ChatService:
             run = self.runs.get(active)
             if run is not None and run_is_active(str(run["status"])):
                 raise ArError(ErrorCode.RUN_IN_PROGRESS, "a run is already in progress")
+        from ar_domain.usage.service import UsageBook  # noqa: PLC0415
+
+        UsageBook(self).assert_run(tenant_id, user_id, agent_id)
         names = self._attachment_names(tenant_id, user_id, attachment_ids or [])
         now = utcnow()
         message_id = new_id()
@@ -1076,6 +1095,14 @@ class ChatService:
         callback_url: str | None = None,
         on_behalf_of: uuid.UUID | None = None,
     ) -> dict[str, object]:
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        active = sum(
+            1
+            for item in self.runs.values()
+            if item.get("tenant_id") == tenant_id and run_is_active(str(item.get("status")))
+        )
+        guard(self, tenant_id, "max_concurrent_runs", 1, current=active)
         now = utcnow()
         run = {
             "id": run_id,
@@ -1272,11 +1299,24 @@ class ChatService:
         self._emit_memory(run, user_text, answer)
         self._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": usage})
 
-    async def generate(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:  # noqa: PLR0915
+    async def generate(  # noqa: PLR0911, PLR0915
+        self, run_id: uuid.UUID, text: str, names: list[str]
+    ) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
         conversation = self.conversations[uuid.UUID(str(run["conversation_id"]))]
         agent = self.agents[uuid.UUID(str(conversation["agent_id"]))]
+        from ar_common.errors import QuotaExceededError  # noqa: PLC0415
+        from ar_domain.usage.service import UsageBook  # noqa: PLC0415
+
+        try:
+            UsageBook(self).assert_model(
+                uuid.UUID(str(run["tenant_id"])), run.get("user_id"), run.get("agent_id")
+            )
+        except QuotaExceededError as exc:
+            assistant_id = uuid.UUID(str(run["assistant_message_id"]))
+            self._fail_quota(run, conversation, self.messages[assistant_id], exc)
+            return
         self._prepare_run(run, conversation, agent, text, names)
         assistant_id = uuid.UUID(str(run["assistant_message_id"]))
         assistant = self.messages[assistant_id]
@@ -1394,12 +1434,16 @@ class ChatService:
             return None
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
+        from ar_domain.usage.service import note  # noqa: PLC0415
+
         request_id = str(run["id"])
         keys = gateway_dedupe_keys(request_id)
         tenant = str(run["tenant_id"])
         now = utcnow()
-        record_usage(
-            self.usage,
+        user = str(run["user_id"]) if run.get("user_id") else None
+        agent = str(run["agent_id"]) if run.get("agent_id") else None
+        note(
+            self,
             UsageRecord(
                 tenant,
                 now,
@@ -1407,11 +1451,14 @@ class ChatService:
                 usage["tokens_in"],
                 0,
                 keys[0],
+                user_id=user,
+                agent_id=agent,
+                model_alias="reasoning",
                 source="model-gateway",
             ),
         )
-        record_usage(
-            self.usage,
+        note(
+            self,
             UsageRecord(
                 tenant,
                 now,
@@ -1419,7 +1466,28 @@ class ChatService:
                 usage["tokens_out"],
                 0,
                 keys[1],
+                user_id=user,
+                agent_id=agent,
+                model_alias="reasoning",
                 source="model-gateway",
+            ),
+        )
+
+    def _meter_run(self, run: dict[str, object]) -> None:
+        from ar_domain.usage.service import note  # noqa: PLC0415
+
+        note(
+            self,
+            UsageRecord(
+                str(run["tenant_id"]),
+                utcnow(),
+                "runs",
+                1,
+                0,
+                f"run:{run['id']}",
+                user_id=str(run["user_id"]) if run.get("user_id") else None,
+                agent_id=str(run["agent_id"]) if run.get("agent_id") else None,
+                source="runtime-worker",
             ),
         )
 
@@ -1492,9 +1560,27 @@ class ChatService:
         conversation["active_run_id"] = None
         self._emit(run, "run.failed", {"error": run["error"]})
 
+    def _fail_quota(
+        self,
+        run: dict[str, object],
+        conversation: dict[str, object],
+        assistant: dict[str, object],
+        exc: object,
+    ) -> None:
+        message = str(exc)
+        assistant["status"] = "completed"
+        assistant["text"] = message
+        run["status"] = "failed"
+        run["ended_at"] = utcnow()
+        run["error"] = {"code": "quota_exceeded", "message": message}
+        conversation["active_run_id"] = None
+        self._emit(run, "run.failed", {"error": run["error"]})
+
     def _emit(self, run: dict[str, object], event_type: str, data: dict[str, object]) -> None:
         run_id = uuid.UUID(str(run["id"]))
         seq = len(self.events[run_id]) + 1
+        if event_type == "run.completed":
+            self._meter_run(run)
         event = {
             "id": f"{run_id}:{seq}",
             "seq": seq,
@@ -1751,10 +1837,8 @@ class ChatService:
         nodes = [
             MessageNode(
                 id=str(row["id"]),
-                parent_id=(
-                    None if row["parent_message_id"] is None else str(row["parent_message_id"])
-                ),
-                is_active=bool(row["is_active_branch"]),
+                parent_id=_parent_text(row),
+                is_active=bool(row.get("is_active_branch")),
             )
             for row in self.messages.values()
             if row["conversation_id"] == conversation_id
@@ -1914,6 +1998,16 @@ class ChatService:
             raise ArError(ErrorCode.UNSUPPORTED_MEDIA_TYPE, "file type is not allowed")
         if len(data) > MAX_UPLOAD_BYTES:
             raise ArError(ErrorCode.PAYLOAD_TOO_LARGE, "file is too large")
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        existing = 0
+        for row in self.files.values():
+            if row.get("tenant_id") != tenant_id or row.get("deleted_at") is not None:
+                continue
+            size = row.get("size_bytes")
+            if isinstance(size, int) and not isinstance(size, bool):
+                existing += size
+        guard(self, tenant_id, "max_storage_gb", len(data), current=existing)
         file_id = new_id()
         now = utcnow()
         verdict = scan_bytes(data, scanner=self.scanner)

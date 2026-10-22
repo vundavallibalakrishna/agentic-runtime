@@ -131,3 +131,8 @@ M11-T05 | done | bba37e5 | email accept, SPF check, SMTP reply (OQ-42 in-process
 M11-T06 | done | bba37e5 | OpenAI chat facade and widget session
 M11-T07 | done | bba37e5 | notification fan-out to channel DMs, email fallback
 M11-T08 | done | bba37e5 | admin channels page and profile linking
+
+M12-T01 | done | c259bc9 | quotas API, counters, enforcement hooks
+M12-T02 | done | c259bc9 | plan limit check on every creation path
+M12-T03 | done | c259bc9 | usage summary, CSV, me and platform reports
+M12-T04 | done | c259bc9 | usage and quotas screens, my usage, quota chat state

@@ -35,7 +35,6 @@ from ar_domain.agents.validation import reference_issues, schema_errors, split_i
 from ar_domain.references import ReferenceIssue, ResolveContext
 
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
-_MAX_AGENTS = 200
 _MAX_BYTES = 256 * 1024
 
 
@@ -548,11 +547,12 @@ class AgentLifecycle:
             and not actor.has("agents:manage_all")
         ):
             raise ArError(ErrorCode.FORBIDDEN, "tenant visibility requires agents:publish")
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
         count = sum(
             1 for row in self.store.agents.values() if row.get("tenant_id") == actor.tenant_id
         )
-        if count >= _MAX_AGENTS:
-            raise ArError(ErrorCode.PLAN_LIMIT_REACHED, "max_agents")
+        guard(self.store, actor.tenant_id, "max_agents", 1, current=count)
         if any(
             row.get("tenant_id") == actor.tenant_id and row.get("slug") == slug
             for row in self.store.agents.values()

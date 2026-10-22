@@ -2,6 +2,7 @@
 
 import uvicorn
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from ar_common.host_ports import fake_llm_base_url, listen_port
 from ar_common.settings import BaseServiceSettings
@@ -51,11 +52,16 @@ def create_application() -> FastAPI:
         ]
         return {"model": "rerank", "results": scored}
 
-    @app.post("/v1/chat/completions")
-    async def chat_completions(request: Request) -> dict[str, object]:
+    @app.post("/v1/chat/completions", response_model=None)
+    async def chat_completions(request: Request) -> dict[str, object] | JSONResponse:
         """Forward a chat completion to fake-llm, with a local echo if it is down."""
         import httpx  # noqa: PLC0415
 
+        from ar_model_gateway.quota import guard_model_call  # noqa: PLC0415
+
+        blocked = guard_model_call(request)
+        if blocked is not None:
+            return blocked
         payload = await request.json()
         body = payload if isinstance(payload, dict) else {}
         headers = {}

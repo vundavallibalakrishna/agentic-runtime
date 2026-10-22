@@ -43,7 +43,9 @@ def test_templates_chart_message_and_html_download() -> None:
         "/api/v1/sandbox-templates",
         json={"slug": "huge", "name": "Huge", "cpuMillis": 999999},
     )
-    assert huge.status_code == 422
+    assert huge.status_code == 409
+    assert huge.json()["code"] == "plan_limit_reached"
+    assert huge.json()["detail"] == "max_sandbox_cpu_millis"
     agents = client.get("/api/v1/agents")
     analyst = next(row for row in agents.json()["items"] if row["slug"] == "revenue-analyst")
     created = client.post("/api/v1/conversations", json={"agentId": analyst["id"]})

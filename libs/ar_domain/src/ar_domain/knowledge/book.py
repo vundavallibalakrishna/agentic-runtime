@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
-from ar_contracts.tenants import PlanLimits
 from ar_domain.audit.memory import remember
 from ar_domain.knowledge.access import can_manage, can_read_document, can_see
 from ar_domain.knowledge.acl import collection_acl
@@ -627,27 +626,27 @@ class KnowledgeBook:
         return row, collection
 
     def _limits(self, actor: Actor, *, adding: int) -> None:
-        limits = _plan(self.store, actor.tenant_id)
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
         owned = [
             row
             for row in self.store.knowledge_collections.values()
             if row.get("tenant_id") == actor.tenant_id
         ]
-        if limits.max_collections is not None and len(owned) + adding > limits.max_collections:
-            raise ArError(ErrorCode.PLAN_LIMIT_REACHED, "collection limit reached")
+        if adding:
+            guard(self.store, actor.tenant_id, "max_collections", adding, current=len(owned))
 
     def _byte_limit(self, actor: Actor, extra: int) -> None:
-        limits = _plan(self.store, actor.tenant_id)
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
         documents = [
             row
             for row in self.store.knowledge_documents.values()
             if row.get("tenant_id") == actor.tenant_id and row.get("status") != "deleted"
         ]
-        if len(documents) + 1 > limits.max_knowledge_documents:
-            raise ArError(ErrorCode.PLAN_LIMIT_REACHED, "document limit reached")
-        total = sum(int(row.get("size_bytes") or 0) for row in documents) + extra
-        if total > limits.max_knowledge_bytes:
-            raise ArError(ErrorCode.PLAN_LIMIT_REACHED, "knowledge byte limit reached")
+        total = sum(int(row.get("size_bytes") or 0) for row in documents)
+        guard(self.store, actor.tenant_id, "max_knowledge_documents", 1, current=len(documents))
+        guard(self.store, actor.tenant_id, "max_knowledge_bytes", extra, current=total)
 
     def _bound(self, collection: dict[str, object]) -> bool:
         slug = str(collection.get("slug"))
@@ -763,11 +762,3 @@ def _chunking(value: object) -> dict[str, object]:
         "overlap_pct": overlap,
         "contextual": bool(raw.get("contextual") or False),
     }
-
-
-def _plan(store: Any, tenant_id: uuid.UUID) -> PlanLimits:
-    settings = getattr(store, "tenant_settings", {}).get(tenant_id, {})
-    raw = settings.get("plan_limits") if isinstance(settings, dict) else None
-    if isinstance(raw, dict):
-        return PlanLimits.model_validate(raw)
-    return PlanLimits()

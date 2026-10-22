@@ -86,6 +86,12 @@ class ToolRegistry:
             raise ValidationFailedError("slug must be a short lowercase name")
         if self._slug_taken(actor.tenant_id, slug):
             raise ConflictError("a tool server with that slug already exists")
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        servers = sum(
+            1 for row in self.store.tool_servers.values() if row.get("tenant_id") == actor.tenant_id
+        )
+        guard(self.store, actor.tenant_id, "max_tool_servers", 1, current=servers)
         version = body.get("version")
         if not isinstance(version, dict):
             raise ValidationFailedError("version is required")

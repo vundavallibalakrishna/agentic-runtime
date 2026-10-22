@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import jmespath
 import orjson
-from pydantic import ValidationError
 
 from ar_common.errors import (
     ArError,
@@ -19,7 +18,6 @@ from ar_common.errors import (
 from ar_common.ids import new_id
 from ar_common.settings import BaseServiceSettings
 from ar_common.time import utcnow
-from ar_contracts.tenants import PlanLimits
 from ar_domain.agents.logic import AgentView, can_see_agent
 from ar_domain.audit.memory import remember
 from ar_domain.routines.engine import (
@@ -39,7 +37,6 @@ if TYPE_CHECKING:
     from ar_domain.agents.access import Actor
 
 _MAX_PER_USER = 50
-_DEFAULT_TENANT = 500
 _MIN_INTERVAL_S = 300
 _INSTRUCTION_LIMIT = 20_000
 _TRIGGERS = {
@@ -430,8 +427,11 @@ class RoutineBook:
         tenant_rows = sum(
             1 for row in self._rows().values() if row.get("tenant_id") == actor.tenant_id
         )
-        if owned >= _MAX_PER_USER or tenant_rows >= _tenant_cap(self.store, actor.tenant_id):
+        from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        if owned >= _MAX_PER_USER:
             raise ArError(ErrorCode.PLAN_LIMIT_REACHED, "routine limit reached")
+        guard(self.store, actor.tenant_id, "max_routines", 1, current=tenant_rows)
         if str(trigger.get("type") or "") != "schedule":
             return
         gap = min_gap_seconds(str(trigger.get("cron") or ""), str(trigger.get("timezone") or "UTC"))
@@ -719,17 +719,6 @@ def _iso(value: object) -> str | None:
 
 def _min_interval() -> int:
     return int(BaseServiceSettings().routine_min_interval_s)
-
-
-def _tenant_cap(store: Any, tenant_id: uuid.UUID) -> int:
-    settings = getattr(store, "tenant_settings", None)
-    raw = settings.get(tenant_id) if isinstance(settings, dict) else None
-    if isinstance(raw, dict) and isinstance(raw.get("plan_limits"), dict):
-        try:
-            return int(PlanLimits.model_validate(raw["plan_limits"]).max_routines)
-        except ValidationError:
-            return _DEFAULT_TENANT
-    return _DEFAULT_TENANT
 
 
 def _path_value(row: dict[str, object], body: bytes) -> str:

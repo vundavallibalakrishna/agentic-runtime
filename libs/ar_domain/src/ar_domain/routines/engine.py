@@ -454,10 +454,12 @@ def _open_run(
         "id": message_id,
         "tenant_id": routine.get("tenant_id"),
         "conversation_id": conversation_id,
+        "parent_message_id": None,
         "role": "user",
         "text": text,
         "content": [{"type": "text", "text": text}],
         "status": "completed",
+        "is_active_branch": True,
         "created_at": now,
     }
     run = {

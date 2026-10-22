@@ -6,6 +6,7 @@ from pydantic.alias_generators import to_snake
 
 from ar_common.errors import PlanLimitReachedError, ValidationFailedError
 from ar_contracts.tenants import PlanLimits, TenantSettings
+from ar_domain.identity.plan_limits import LimitContext, check
 
 _DOMAIN = re.compile(
     r"^(\*\.)?[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?)+$"
@@ -15,11 +16,9 @@ _DOMAIN = re.compile(
 def validate_tenant_settings(settings: TenantSettings, limits: PlanLimits) -> TenantSettings:
     """Reject retention and features the plan does not allow."""
     retention = settings.retention
-    cap = limits.max_retention
-    if retention.conversations_days > cap.conversations_days:
-        raise PlanLimitReachedError("conversations retention exceeds the plan")
-    if retention.audit_years > cap.audit_years:
-        raise PlanLimitReachedError("audit retention exceeds the plan")
+    ctx = LimitContext(limits, {})
+    check(ctx, "max_retention.conversations_days", retention.conversations_days)
+    check(ctx, "max_retention.audit_years", retention.audit_years)
     for domain in settings.egress_allowlist:
         if _DOMAIN.fullmatch(domain) is None:
             raise ValidationFailedError(f"egress domain is invalid: {domain}")

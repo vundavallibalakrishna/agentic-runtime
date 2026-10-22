@@ -6,7 +6,7 @@ from datetime import timedelta
 
 import pytest
 
-from ar_common.errors import ConflictError, NotFoundError, ValidationFailedError
+from ar_common.errors import ConflictError, NotFoundError, PlanLimitReachedError
 from ar_common.sandboxkit import (
     confine,
     download_headers,
@@ -81,7 +81,7 @@ def test_template_limits_isolation_and_platform_lock() -> None:
     assert created["slug"] == "tiny"
     try:
         book.create_template(actor, {"slug": "huge", "name": "Huge", "cpu_millis": 999999})
-    except ValidationFailedError:
+    except PlanLimitReachedError:
         pass
     else:
         raise AssertionError("plan limit")

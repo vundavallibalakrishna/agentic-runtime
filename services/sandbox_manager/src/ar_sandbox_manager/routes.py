@@ -5,12 +5,14 @@ import uuid
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
 
+from ar_common.errors import QuotaExceededError
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.access import Actor
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.sandboxes.runtime import reap
 from ar_domain.sandboxes.service import SandboxBook
 from ar_sandbox_manager.egress import check
+from ar_sandbox_manager.service import assert_sandbox_start
 
 router = APIRouter()
 
@@ -35,6 +37,10 @@ def _actor(body: EnsureBody) -> Actor:
 
 @router.post("/internal/v1/sandboxes:ensure")
 async def ensure(body: EnsureBody, request: Request) -> dict[str, object]:
+    try:
+        assert_sandbox_start(request.app.state.chat, body.tenant_id, body.user_id, body.agent_id)
+    except QuotaExceededError as exc:
+        return {"status": "quota_exceeded", "detail": str(exc)}
     return _book(request).ensure(
         _actor(body),
         {

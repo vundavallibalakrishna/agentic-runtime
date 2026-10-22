@@ -35,6 +35,7 @@ from ar_domain.identity.models import (
     User,
 )
 from ar_domain.identity.permissions import PERMISSION_KEYS, SYSTEM_ROLE_NAMES
+from ar_domain.identity.plan_limits import LimitContext, check
 from ar_domain.identity.resolver import RoleGrant, resolve_access
 from ar_domain.identity.scim_ops import apply_user_patch, member_ids_from_patch, parse_eq_filter
 from ar_domain.identity.tokens import new_api_key, new_invitation_token, new_scim_token
@@ -180,6 +181,7 @@ class IdentityService:
     async def invite(self, emails: list[str], role_keys: list[str]) -> list[tuple[Invitation, str]]:
         if len(emails) > 100:
             raise ValidationFailedError("at most 100 invitations")
+        await self._enforce_user_cap(len(emails))
         for key in role_keys:
             if key not in SYSTEM_ROLE_NAMES and key not in PERMISSION_KEYS:
                 role = await self.store.get_role_by_key(key)
@@ -203,6 +205,26 @@ class IdentityService:
                 {"email": email, "role_keys": role_keys or ["member"]},
             )
         return created
+
+    async def _enforce_user_cap(self, delta: int) -> None:
+        """Count people only when the plan sets ``max_users``."""
+        tenant = await self.store.get_tenant()
+        plan_id = getattr(tenant, "plan_id", None)
+        if tenant is None or plan_id is None:
+            return
+        plan = await self.store.get_plan(plan_id)
+        if plan is None:
+            return
+        limits = PlanLimits.model_validate(plan.limits or {})
+        if limits.max_users is None:
+            return
+        people = await self.store.list_users(status=None, query=None)
+        pending = [
+            row
+            for row in await self.store.list_invitations()
+            if row.accepted_at is None and row.revoked_at is None
+        ]
+        check(LimitContext(limits, {"max_users": len(people) + len(pending)}), "max_users", delta)
 
     async def revoke_invitation(self, invitation_id: uuid.UUID) -> None:
         row = await self.store.get_invitation(invitation_id)

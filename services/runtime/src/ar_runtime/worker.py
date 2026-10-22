@@ -12,6 +12,7 @@ from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
+from ar_runtime.activities.start_run import start_run
 from ar_runtime.main import TASK_QUEUE
 from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow
 from ar_runtime.workflows.delegation import AgentRunWorkflow, ChildRunWorkflow
@@ -58,6 +59,7 @@ async def run_worker() -> None:
                 ],
                 activities=[
                     execute_chat_turn,
+                    start_run,
                     create_child_run,
                     expire_approval,
                     cancel_approval,

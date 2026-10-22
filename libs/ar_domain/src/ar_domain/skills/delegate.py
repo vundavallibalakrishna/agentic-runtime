@@ -216,6 +216,7 @@ def _insert_child(
         "tenant_id": parent.get("tenant_id"),
         "conversation_id": parent.get("conversation_id"),
         "run_id": child_id,
+        "parent_message_id": None,
         "role": "user",
         "content": [{"type": "text", "text": task}],
         "text": task,
