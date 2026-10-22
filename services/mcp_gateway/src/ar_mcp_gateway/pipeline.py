@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 def execute(store: Any, request: dict[str, object]) -> dict[str, object]:
     """Run one tool call with the live policy decider."""
     from ar_mcp_gateway.builtins.files import forward as forward_files  # noqa: PLC0415
+    from ar_mcp_gateway.builtins.knowledge import forward as forward_knowledge  # noqa: PLC0415
     from ar_mcp_gateway.builtins.sandbox import forward as forward_sandbox  # noqa: PLC0415
 
     result = ToolPipeline(store).execute(request)
@@ -19,4 +20,6 @@ def execute(store: Any, request: dict[str, object]) -> dict[str, object]:
         result["forwarded"] = forward_sandbox.__name__
     elif qualified.startswith("files."):
         result["forwarded"] = forward_files.__name__
+    elif qualified.startswith("knowledge."):
+        result["forwarded"] = forward_knowledge.__name__
     return result

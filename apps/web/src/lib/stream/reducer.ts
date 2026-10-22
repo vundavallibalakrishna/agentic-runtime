@@ -13,7 +13,16 @@ export type StreamEvent = {
     qualifiedName?: string;
     status?: string;
     resultPreview?: string;
+    citation?: StreamCitation;
   };
+};
+
+export type StreamCitation = {
+  index: number;
+  title: string;
+  snippet: string;
+  uri: string;
+  documentId?: string;
 };
 
 export type StreamState = {
@@ -21,15 +30,30 @@ export type StreamState = {
   text: string;
   lastSeq: number;
   tools: StreamTool[];
+  citations: StreamCitation[];
 };
 
-export const emptyStream: StreamState = { status: "idle", text: "", lastSeq: 0, tools: [] };
+export const emptyStream: StreamState = {
+  status: "idle",
+  text: "",
+  lastSeq: 0,
+  tools: [],
+  citations: [],
+};
 
 export function reduceStream(state: StreamState, event: StreamEvent): StreamState {
   if (event.seq <= state.lastSeq) {
     return state;
   }
-  const next = { ...state, lastSeq: event.seq, tools: state.tools };
+  const next = { ...state, lastSeq: event.seq, tools: state.tools, citations: state.citations };
+  if (event.type === "citation.added") {
+    const raw = event.data?.citation;
+    if (!raw || typeof raw !== "object") {
+      return next;
+    }
+    const citation = raw as StreamCitation;
+    return { ...next, citations: [...state.citations, citation] };
+  }
   if (
     event.type === "tool_call.completed" ||
     event.type === "tool_call.failed" ||

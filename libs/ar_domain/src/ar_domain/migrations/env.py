@@ -16,6 +16,7 @@ import ar_domain.conversations.tables
 import ar_domain.events.models
 import ar_domain.files.tables
 import ar_domain.identity.models
+import ar_domain.knowledge.tables
 import ar_domain.models.tables
 import ar_domain.policy.models
 import ar_domain.sandboxes.tables

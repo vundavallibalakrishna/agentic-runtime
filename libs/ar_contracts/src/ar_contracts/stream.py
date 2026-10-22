@@ -8,7 +8,7 @@ from pydantic import ConfigDict, Field
 
 from ar_contracts.api_model import ApiModel
 from ar_contracts.budget import RunBudget, RunUsage
-from ar_contracts.messages import Citation, ContentPart
+from ar_contracts.messages import Citation, ContentPart, GroundingReport
 
 
 class _Event(ApiModel):
@@ -160,6 +160,17 @@ class CitationAddedData(_Data):
 class CitationAdded(_Event):
     type: Literal["citation.added"]
     data: CitationAddedData
+
+
+class GroundingCheckedData(_Data):
+    message_id: uuid.UUID
+    mode: Literal["off", "preferred", "strict"]
+    report: GroundingReport
+
+
+class GroundingChecked(_Event):
+    type: Literal["message.grounding_checked"]
+    data: GroundingCheckedData
 
 
 class ToolCallStartedData(_Data):
@@ -406,6 +417,7 @@ RunEvent = Annotated[
     | ReasoningDelta
     | MessageCompleted
     | CitationAdded
+    | GroundingChecked
     | ToolCallStarted
     | ToolCallProgress
     | ToolCallApprovalRequired

@@ -169,6 +169,15 @@ class ChatService:
     sandbox_templates: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     sandboxes: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     sandbox_locks: dict[str, threading.Lock] = field(default_factory=dict)
+    knowledge_collections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    knowledge_sources: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    knowledge_documents: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    document_chunks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    ingestion_jobs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    knowledge_blobs: dict[uuid.UUID, bytes] = field(default_factory=dict)
+    user_emails: dict[uuid.UUID, str] = field(default_factory=dict)
+    user_clearance: dict[uuid.UUID, str] = field(default_factory=dict)
+    group_keys: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -219,6 +228,7 @@ class ChatService:
         marker = demo_id("showcase-status")
         if marker in self.conversations:
             self._seed_chart(tenant_id, user_id)
+            self._seed_library(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -327,6 +337,12 @@ class ChatService:
                 "created_at": created,
             }
         self._seed_chart(tenant_id, user_id)
+        self._seed_library(tenant_id, user_id)
+
+    def _seed_library(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.knowledge.showcase import seed_library  # noqa: PLC0415
+
+        seed_library(self, tenant_id, user_id)
 
     def _seed_chart(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
@@ -1099,6 +1115,44 @@ class ChatService:
             run["steps"] = steps
         steps.append({"kind": "model", "detail": {"prompt_hash": digest}})
 
+    async def _finish_grounded(
+        self,
+        run: dict[str, object],
+        assistant: dict[str, object],
+        conversation: dict[str, object],
+        grounded: dict[str, object],
+    ) -> None:
+        answer = str(grounded.get("text") or "")
+        citations = grounded.get("citations") if isinstance(grounded.get("citations"), list) else []
+        assistant_id = assistant["id"]
+        for citation in citations:
+            if isinstance(citation, dict):
+                self._emit(
+                    run,
+                    "citation.added",
+                    {"message_id": str(assistant_id), "citation": citation},
+                )
+        report = grounded.get("report")
+        if isinstance(report, dict):
+            self._emit(
+                run,
+                "message.grounding_checked",
+                {"message_id": str(assistant_id), "mode": report.get("mode"), "report": report},
+            )
+        parts = grounded.get("parts") if isinstance(grounded.get("parts"), list) else []
+        assistant["content"] = parts
+        assistant["text"] = answer
+        assistant["status"] = "completed"
+        run["ended_at"] = utcnow()
+        run["status"] = "completed"
+        run["result_summary"] = answer[:8000]
+        conversation["active_run_id"] = None
+        usage = {"tokens_in": 1, "tokens_out": max(1, len(answer.split()))}
+        run["usage"] = usage
+        self._meter(run, usage)
+        self._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
+        self._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": usage})
+
     async def generate(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
@@ -1116,6 +1170,12 @@ class ChatService:
         from ar_domain.tools.chat_loop import maybe_tools  # noqa: PLC0415
 
         if await maybe_tools(self, run, assistant, text):
+            return
+        from ar_domain.knowledge.answer import compose  # noqa: PLC0415
+
+        grounded = compose(self, run, text)
+        if grounded is not None:
+            await self._finish_grounded(run, assistant, conversation, grounded)
             return
         slow = "slow" in text.lower()
         tokens = await self._tokens(text, names, slow=slow)

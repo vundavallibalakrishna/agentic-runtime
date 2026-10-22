@@ -46,7 +46,7 @@ jobs:
         run: |
           curl -fsSL -o /usr/local/bin/opa "https://github.com/open-policy-agent/opa/releases/download/v1.21.3/opa_linux_amd64_static"
           chmod +x /usr/local/bin/opa
-      - run: uv run pytest -m "not integration and not e2e" -q --cov
+      - run: uv run pytest -m "not integration and not e2e and not qdrant" -q --cov
 
   python-integration:
     runs-on: ubuntu-latest
@@ -286,6 +286,45 @@ jobs:
       - name: Stop
         if: always()
         run: make down
+
+  conformance-qdrant:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_USER: ar_owner
+          POSTGRES_PASSWORD: ar_owner
+          POSTGRES_DB: agentic_runtime
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ar_owner -d agentic_runtime"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      qdrant:
+        image: qdrant/qdrant:v1.19.2
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --all-extras --frozen
+      - name: Qdrant conformance and backend round trip
+        env:
+          AR_QDRANT_URL: http://127.0.0.1:6333
+          AR_DATABASE_URL: postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5432/agentic_runtime
+        run: uv run pytest -m qdrant -q
 
   security:
     runs-on: ubuntu-latest
