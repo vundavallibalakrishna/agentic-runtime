@@ -1,0 +1,127 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import { HttpResponse, http } from "msw";
+import { NextIntlClientProvider } from "next-intl";
+import type { ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { ToolCallCard } from "@/components/chat/tool-call-card";
+import { ConnectionsScreen } from "@/components/tools/connections-screen";
+import { ToolsScreen } from "@/components/tools/tools-screen";
+import messages from "@/messages/en.json";
+import { server } from "@/test/server";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: () => undefined }),
+}));
+
+function wrap(children: ReactNode) {
+  return (
+    <NextIntlClientProvider locale="en" messages={messages}>
+      {children}
+    </NextIntlClientProvider>
+  );
+}
+
+describe("tool screens", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("shows a tool result and a connect link", () => {
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "tickets.create_ticket",
+            status: "succeeded",
+            resultPreview: "TCK-1001",
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByText("tickets.create_ticket")).toBeTruthy();
+    expect(screen.getByText("TCK-1001")).toBeTruthy();
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "tickets.create_ticket",
+            status: "failed",
+            error: { connectUrl: "https://tickets.example/authorize" },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByRole("link", { name: "Connect account" }).getAttribute("href")).toBe(
+      "https://tickets.example/authorize",
+    );
+  });
+
+  it("lists servers and a recent call", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () => HttpResponse.json({ permissions: ["tools:read"] })),
+      http.get("*/api/v1/tool-servers", () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "s1",
+              name: "Tickets",
+              slug: "tickets",
+              kind: "remote_mcp",
+              status: "approved",
+            },
+          ],
+        }),
+      ),
+      http.get("*/api/v1/tool-calls", () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "c1",
+              qualifiedName: "tickets.create_ticket",
+              status: "succeeded",
+              resultPreview: "TCK-1001",
+            },
+          ],
+        }),
+      ),
+    );
+    render(wrap(<ToolsScreen />));
+    expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
+    expect(screen.getByText("tickets.create_ticket")).toBeTruthy();
+    expect(screen.getByLabelText("Short name")).toBeTruthy();
+  });
+
+  it("shows the tools error state", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () => HttpResponse.json({})),
+      http.get("*/api/v1/tool-servers", () => new HttpResponse(null, { status: 500 })),
+      http.get("*/api/v1/tool-calls", () => new HttpResponse(null, { status: 500 })),
+    );
+    render(wrap(<ToolsScreen />));
+    expect(await screen.findByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
+  it("shows a connected account and the warehouse", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () => HttpResponse.json({})),
+      http.get("*/api/v1/connections", () =>
+        HttpResponse.json({
+          items: [{ id: "g1", providerId: "p1", status: "active" }],
+        }),
+      ),
+      http.get("*/api/v1/credential-providers", () =>
+        HttpResponse.json({ items: [{ id: "p1", name: "Tickets", slug: "tickets" }] }),
+      ),
+      http.get("*/api/v1/data-connections", () =>
+        HttpResponse.json({ items: [{ id: "d1", name: "Warehouse", engine: "postgres" }] }),
+      ),
+    );
+    render(wrap(<ConnectionsScreen />));
+    expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
+    expect(screen.getByText("Connected")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Warehouse" })).toBeTruthy();
+  });
+});

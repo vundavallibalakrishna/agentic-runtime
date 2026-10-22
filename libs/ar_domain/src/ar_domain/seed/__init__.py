@@ -19,6 +19,7 @@ _MODEL_MODULES = (
     "ar_domain.identity.models",
     "ar_domain.models.tables",
     "ar_domain.secrets.models",
+    "ar_domain.tools.tables",
     "ar_domain.usage.tables",
 )
 

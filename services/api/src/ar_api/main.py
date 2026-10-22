@@ -17,7 +17,10 @@ from ar_api.routers.api_keys import router as api_keys_router
 from ar_api.routers.audit import router as audit_router
 from ar_api.routers.builder import router as builder_router
 from ar_api.routers.bundles import router as bundles_router
+from ar_api.routers.connections import router as connections_router
 from ar_api.routers.content_packs import router as packs_router
+from ar_api.routers.credential_providers import router as providers_router
+from ar_api.routers.data_connections import router as data_connections_router
 from ar_api.routers.domains import router as domains_router
 from ar_api.routers.groups import router as groups_router
 from ar_api.routers.identity_providers import router as idp_router
@@ -37,6 +40,8 @@ from ar_api.routers.signup import router as signup_router
 from ar_api.routers.support_access import router as support_router
 from ar_api.routers.teams import router as teams_router
 from ar_api.routers.tenant import router as tenant_router
+from ar_api.routers.tool_servers import router as tool_servers_router
+from ar_api.routers.tools import router as tools_router
 from ar_api.routers.users import router as users_router
 from ar_api.routers.webhooks import router as webhooks_router
 from ar_api.secrets_runtime import MemorySecretApi
@@ -205,6 +210,11 @@ def create_application() -> FastAPI:
             packs_router,
             builder_router,
             m2_router,
+            tool_servers_router,
+            tools_router,
+            providers_router,
+            connections_router,
+            data_connections_router,
         ],
         inner_middleware=inner,
         docs_url=docs,

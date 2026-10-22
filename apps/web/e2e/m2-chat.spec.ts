@@ -20,7 +20,7 @@ test("sign in, chat, stop, empty and error states", async ({ page }) => {
   await expect(page.getByText("Weekly status for the platform")).toBeVisible();
   await page.screenshot({ path: `${shots}/02-empty-chat.png`, fullPage: true });
 
-  await page.getByRole("button", { name: "Draft a short status update" }).click();
+  await page.locator("button.h-9", { hasText: "Draft a short status update" }).click();
   await expect(page.getByText(/fake:/i).first()).toBeVisible({ timeout: 20_000 });
   await page.screenshot({ path: `${shots}/03-streamed-reply.png`, fullPage: true });
   await page.getByRole("button", { name: "Regenerate" }).click();

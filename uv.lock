@@ -586,6 +586,7 @@ dependencies = [
     { name = "ar-domain" },
     { name = "fastapi" },
     { name = "mcp" },
+    { name = "pydantic" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -595,6 +596,7 @@ requires-dist = [
     { name = "ar-domain", editable = "libs/ar_domain" },
     { name = "fastapi", specifier = "==0.151.0" },
     { name = "mcp", specifier = "==2.3.0" },
+    { name = "pydantic", specifier = "==2.14.1" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
 ]
 
@@ -606,7 +608,9 @@ dependencies = [
     { name = "ar-common" },
     { name = "ar-connector-sdk" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "mcp" },
+    { name = "orjson" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -615,7 +619,9 @@ requires-dist = [
     { name = "ar-common", editable = "libs/ar_common" },
     { name = "ar-connector-sdk", editable = "libs/ar_connector_sdk" },
     { name = "fastapi", specifier = "==0.151.0" },
+    { name = "httpx", specifier = "==0.28.1" },
     { name = "mcp", specifier = "==2.3.0" },
+    { name = "orjson", specifier = "==3.13.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
 ]
 
@@ -628,6 +634,8 @@ dependencies = [
     { name = "ar-connector-sdk" },
     { name = "fastapi" },
     { name = "mcp" },
+    { name = "pydantic" },
+    { name = "sqlglot" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -637,6 +645,8 @@ requires-dist = [
     { name = "ar-connector-sdk", editable = "libs/ar_connector_sdk" },
     { name = "fastapi", specifier = "==0.151.0" },
     { name = "mcp", specifier = "==2.3.0" },
+    { name = "pydantic", specifier = "==2.14.1" },
+    { name = "sqlglot", specifier = "==30.23.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
 ]
 

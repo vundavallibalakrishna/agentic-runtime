@@ -117,6 +117,23 @@ class ChatService:
     builder_strict: bool = False
     pack_signature_required: bool = False
     pack_trusted_keys: dict[str, str] = field(default_factory=dict)
+    tool_servers: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    tool_server_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    tool_defs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    tool_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    tool_calls: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    data_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    credential_providers: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    credential_grants: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    oauth_states: dict[str, dict[str, object]] = field(default_factory=dict)
+    token_cache: dict[str, bytes] = field(default_factory=dict)
+    secret_values: dict[uuid.UUID, bytes] = field(default_factory=dict)
+    tenant_settings: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    tickets: list[dict[str, object]] = field(default_factory=list)
+    pets: list[dict[str, object]] = field(default_factory=lambda: [{"id": 1, "name": "doggie"}])
+    rate_buckets: dict[str, list[float]] = field(default_factory=dict)
+    tools_seeded: bool = False
+    notifications: list[dict[str, object]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -152,6 +169,9 @@ class ChatService:
             self.aliases[alias_id] = self._alias(alias_id, None, alias, kind, model_id)
         self.ensure_assistant(demo_id("tenant"), demo_id("admin"))
         AgentLifecycle(self).ensure_builtins(demo_id("tenant"), demo_id("admin"))
+        from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
+
+        ToolRegistry(self).ensure_seed()
 
     def seed_showcase(self) -> None:
         """Example threads for the dev admin so the first screen is not empty.
@@ -741,6 +761,7 @@ class ChatService:
             "is_preview": False,
             "agent_version_id": agent.get("published_version_id"),
             "active_run_id": None,
+            "plan": [],
             "created_at": now,
             "updated_at": now,
             "deleted_at": None,
@@ -1008,6 +1029,7 @@ class ChatService:
             attachment_names=names,
         )
         self._store_prompt(run, definition, text, names)
+        run["agent_version_id"] = version.get("id")
         run["status"] = "running"
         run["started_at"] = utcnow()
 
@@ -1048,6 +1070,10 @@ class ChatService:
             "message.started",
             {"message_id": str(assistant_id), "role": "assistant", "model_alias": "reasoning"},
         )
+        from ar_domain.tools.chat_loop import maybe_tools  # noqa: PLC0415
+
+        if await maybe_tools(self, run, assistant, text):
+            return
         slow = "slow" in text.lower()
         tokens = await self._tokens(text, names, slow=slow)
         built: list[str] = []

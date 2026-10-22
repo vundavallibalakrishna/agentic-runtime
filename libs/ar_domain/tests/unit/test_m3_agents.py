@@ -153,7 +153,7 @@ def test_reference_kinds_filters_and_edges() -> None:
 def test_seeded_catalogue_and_builtin_guard() -> None:
     store, life, actor = _life()
     names = [str(row["slug"]) for row in life.list_agents(actor)]
-    assert names == ["assistant", "builder", "helpdesk"]
+    assert names == ["assistant", "builder", "desk", "helpdesk"]
     builder = next(row for row in store.agents.values() if row["slug"] == "builder")
     with pytest.raises(ArError) as caught:
         life.delete(actor, builder["id"])
@@ -190,7 +190,7 @@ def _store_audit(life: AgentLifecycle, action: str) -> bool:
 
 def test_disable_cancels_and_blocks_runs() -> None:
     store, life, actor = _life()
-    created = life.create(actor, slug="desk", name="Desk", template="support")
+    created = life.create(actor, slug="desk-maint", name="Desk", template="support")
     agent_id = uuid.UUID(str(created["id"]))
     life.publish(actor, agent_id, change_note="live")
     run_id = uuid.uuid4()
@@ -211,7 +211,7 @@ def test_unknown_tool_is_a_warning_until_publish() -> None:
         agent_id,
         {
             "instructions": "Read the attached file and list the gaps.",
-            "tools": [{"server": "files", "version": "*", "include": ["*"]}],
+            "tools": [{"server": "not-a-server", "version": "*", "include": ["*"]}],
         },
     )
     report = life.validate(actor, agent_id)
@@ -262,8 +262,10 @@ async def test_builder_apply_does_not_publish() -> None:
     session = await BuilderService(store).start(actor, sentence)
     read = BuilderService(store).read(actor, uuid.UUID(session["session_id"]))
     proposal = read["proposal"]
-    assert proposal["resources"][0]["spec"]["tools"]
-    assert read["validation"]["warnings"]
+    tools = proposal["resources"][0]["spec"]["tools"]
+    assert any(item.get("server") == "files" for item in tools)
+    warnings = read["validation"]["warnings"]
+    assert not any(item.get("type") == "unknown_reference" for item in warnings)
     applied = BuilderService(store).apply(
         actor, uuid.UUID(session["session_id"]), mode="create", agent_id=None
     )

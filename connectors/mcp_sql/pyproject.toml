@@ -11,8 +11,10 @@ dependencies = [
     "ar-connector-sdk",
     "ar-common",
     "fastapi==0.151.0",
+    "pydantic==2.14.1",
     "uvicorn[standard]==0.54.0",
     "mcp==2.3.0",
+    "sqlglot==30.23.0",
 ]
 
 [project.scripts]
@@ -49,4 +51,4 @@ ar-mcp-openapi = "ar_mcp_openapi"
 ar-fake-llm = "ar_fake_llm"
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["mcp", 'ar-connector-sdk']
+DEP002 = ["mcp", "ar-connector-sdk"]

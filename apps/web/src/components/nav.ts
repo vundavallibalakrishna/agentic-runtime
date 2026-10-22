@@ -30,7 +30,7 @@ export type NavItem = {
 export const primaryNav: NavItem[] = [
   { href: "/chat", labelKey: "navChat", permission: "chat:use", icon: MessageSquare },
   { href: "/agents", labelKey: "navAgents", permission: "agents:read", icon: Bot },
-  { href: "/tools", labelKey: "navTools", permission: "tools:read", icon: Wrench, soon: true },
+  { href: "/tools", labelKey: "navTools", permission: "tools:read", icon: Wrench },
   {
     href: "/knowledge",
     labelKey: "navKnowledge",

@@ -17,6 +17,7 @@ import ar_domain.files.tables
 import ar_domain.identity.models
 import ar_domain.models.tables
 import ar_domain.secrets.models
+import ar_domain.tools.tables
 import ar_domain.usage.tables  # noqa: F401
 from ar_common.host_ports import find_env_file, parse_env
 from ar_domain.db import metadata

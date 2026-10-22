@@ -1,12 +1,12 @@
 """content_packs
 
 Revision ID: 0020
-Revises: 0010
+Revises: 0011
 Create Date: 2026-10-22
 
-0020 revises 0010 until revisions 0011-0019 exist. The next migration task
-points this revision at the new head (OQ-34). The published-version trigger
-allows the single transition published → superseded, which spec 05 requires.
+0011 is spliced in front of this revision. 0020 revises 0011 until revisions
+0012-0019 exist (OQ-34). The published-version trigger allows the single
+transition published → superseded, which spec 05 requires.
 """
 
 from typing import TYPE_CHECKING
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 revision: str = "0020"
-down_revision: str | None = "0010"
+down_revision: str | None = "0011"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

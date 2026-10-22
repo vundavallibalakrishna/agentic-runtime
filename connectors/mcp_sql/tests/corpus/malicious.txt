@@ -1,0 +1,210 @@
+DROP TABLE public.orders
+drop table public.orders
+/* comment */ DROP TABLE public.orders
+SELECT 1; DROP TABLE public.orders
+DELETE FROM public.orders
+delete from public.orders
+/* comment */ DELETE FROM public.orders
+SELECT 1; DELETE FROM public.orders
+INSERT INTO public.orders (id) VALUES (1)
+insert into public.orders (id) values (1)
+/* comment */ INSERT INTO public.orders (id) VALUES (1)
+SELECT 1; INSERT INTO public.orders (id) VALUES (1)
+UPDATE public.orders SET sku='x'
+update public.orders set sku='x'
+/* comment */ UPDATE public.orders SET sku='x'
+SELECT 1; UPDATE public.orders SET sku='x'
+CREATE TABLE public.evil (id int)
+create table public.evil (id int)
+/* comment */ CREATE TABLE public.evil (id int)
+SELECT 1; CREATE TABLE public.evil (id int)
+ALTER TABLE public.orders ADD COLUMN x int
+alter table public.orders add column x int
+/* comment */ ALTER TABLE public.orders ADD COLUMN x int
+SELECT 1; ALTER TABLE public.orders ADD COLUMN x int
+TRUNCATE public.orders
+truncate public.orders
+/* comment */ TRUNCATE public.orders
+SELECT 1; TRUNCATE public.orders
+GRANT SELECT ON public.orders TO public
+grant select on public.orders to public
+/* comment */ GRANT SELECT ON public.orders TO public
+SELECT 1; GRANT SELECT ON public.orders TO public
+COPY public.orders TO STDOUT
+copy public.orders to stdout
+/* comment */ COPY public.orders TO STDOUT
+SELECT 1; COPY public.orders TO STDOUT
+MERGE INTO public.orders USING public.orders AS s ON true WHEN MATCHED THEN DELETE
+merge into public.orders using public.orders as s on true when matched then delete
+/* comment */ MERGE INTO public.orders USING public.orders AS s ON true WHEN MATCHED THEN DELETE
+SELECT 1; MERGE INTO public.orders USING public.orders AS s ON true WHEN MATCHED THEN DELETE
+SELECT pg_sleep(1)
+SELECT pg_sleep(1) FROM public.orders
+WITH c AS (SELECT pg_sleep(1)) SELECT * FROM c
+SELECT pg_sleep_for('1 second')
+SELECT pg_sleep_for('1 second') FROM public.orders
+WITH c AS (SELECT pg_sleep_for('1 second')) SELECT * FROM c
+SELECT dblink('host', 'select 1')
+SELECT dblink('host', 'select 1') FROM public.orders
+WITH c AS (SELECT dblink('host', 'select 1')) SELECT * FROM c
+SELECT lo_import('/etc/passwd')
+SELECT lo_import('/etc/passwd') FROM public.orders
+WITH c AS (SELECT lo_import('/etc/passwd')) SELECT * FROM c
+SELECT lo_export(1, '/tmp/x')
+SELECT lo_export(1, '/tmp/x') FROM public.orders
+WITH c AS (SELECT lo_export(1, '/tmp/x')) SELECT * FROM c
+SELECT xp_cmdshell('dir')
+SELECT xp_cmdshell('dir') FROM public.orders
+WITH c AS (SELECT xp_cmdshell('dir')) SELECT * FROM c
+SELECT benchmark(1, 1)
+SELECT benchmark(1, 1) FROM public.orders
+WITH c AS (SELECT benchmark(1, 1)) SELECT * FROM c
+SELECT sleep(1)
+SELECT sleep(1) FROM public.orders
+WITH c AS (SELECT sleep(1)) SELECT * FROM c
+SELECT load_file('/etc/passwd')
+SELECT load_file('/etc/passwd') FROM public.orders
+WITH c AS (SELECT load_file('/etc/passwd')) SELECT * FROM c
+SELECT * FROM public.orders FOR UPDATE
+SELECT id INTO public.backup FROM public.orders
+SELECT id FROM public.orders; SELECT id FROM public.orders
+SELECT id FROM secret.passwords
+SELECT id FROM public.users
+SELECT password FROM public.orders
+
+not sql at all
+WITH evil AS (DELETE FROM public.orders RETURNING id) SELECT * FROM evil
+DROP TABLE IF EXISTS public.t0
+DELETE FROM public.t0 WHERE id = 0
+UPDATE public.t0 SET sku = '0'
+INSERT INTO public.t0 VALUES (0)
+SELECT pg_sleep(0) ; SELECT 1
+DROP TABLE IF EXISTS public.t1
+DELETE FROM public.t1 WHERE id = 1
+UPDATE public.t1 SET sku = '1'
+INSERT INTO public.t1 VALUES (1)
+SELECT pg_sleep(1) ; SELECT 1
+DROP TABLE IF EXISTS public.t2
+DELETE FROM public.t2 WHERE id = 2
+UPDATE public.t2 SET sku = '2'
+INSERT INTO public.t2 VALUES (2)
+SELECT pg_sleep(2) ; SELECT 1
+DROP TABLE IF EXISTS public.t3
+DELETE FROM public.t3 WHERE id = 3
+UPDATE public.t3 SET sku = '3'
+INSERT INTO public.t3 VALUES (3)
+SELECT pg_sleep(3) ; SELECT 1
+DROP TABLE IF EXISTS public.t4
+DELETE FROM public.t4 WHERE id = 4
+UPDATE public.t4 SET sku = '4'
+INSERT INTO public.t4 VALUES (4)
+SELECT pg_sleep(4) ; SELECT 1
+DROP TABLE IF EXISTS public.t5
+DELETE FROM public.t5 WHERE id = 5
+UPDATE public.t5 SET sku = '5'
+INSERT INTO public.t5 VALUES (5)
+SELECT pg_sleep(0) ; SELECT 1
+DROP TABLE IF EXISTS public.t6
+DELETE FROM public.t6 WHERE id = 6
+UPDATE public.t6 SET sku = '6'
+INSERT INTO public.t6 VALUES (6)
+SELECT pg_sleep(1) ; SELECT 1
+DROP TABLE IF EXISTS public.t7
+DELETE FROM public.t7 WHERE id = 7
+UPDATE public.t7 SET sku = '7'
+INSERT INTO public.t7 VALUES (7)
+SELECT pg_sleep(2) ; SELECT 1
+DROP TABLE IF EXISTS public.t8
+DELETE FROM public.t8 WHERE id = 8
+UPDATE public.t8 SET sku = '8'
+INSERT INTO public.t8 VALUES (8)
+SELECT pg_sleep(3) ; SELECT 1
+DROP TABLE IF EXISTS public.t9
+DELETE FROM public.t9 WHERE id = 9
+UPDATE public.t9 SET sku = '9'
+INSERT INTO public.t9 VALUES (9)
+SELECT pg_sleep(4) ; SELECT 1
+DROP TABLE IF EXISTS public.t10
+DELETE FROM public.t10 WHERE id = 10
+UPDATE public.t10 SET sku = '10'
+INSERT INTO public.t10 VALUES (10)
+SELECT pg_sleep(0) ; SELECT 1
+DROP TABLE IF EXISTS public.t11
+DELETE FROM public.t11 WHERE id = 11
+UPDATE public.t11 SET sku = '11'
+INSERT INTO public.t11 VALUES (11)
+SELECT pg_sleep(1) ; SELECT 1
+DROP TABLE IF EXISTS public.t12
+DELETE FROM public.t12 WHERE id = 12
+UPDATE public.t12 SET sku = '12'
+INSERT INTO public.t12 VALUES (12)
+SELECT pg_sleep(2) ; SELECT 1
+DROP TABLE IF EXISTS public.t13
+DELETE FROM public.t13 WHERE id = 13
+UPDATE public.t13 SET sku = '13'
+INSERT INTO public.t13 VALUES (13)
+SELECT pg_sleep(3) ; SELECT 1
+DROP TABLE IF EXISTS public.t14
+DELETE FROM public.t14 WHERE id = 14
+UPDATE public.t14 SET sku = '14'
+INSERT INTO public.t14 VALUES (14)
+SELECT pg_sleep(4) ; SELECT 1
+DROP TABLE IF EXISTS public.t15
+DELETE FROM public.t15 WHERE id = 15
+UPDATE public.t15 SET sku = '15'
+INSERT INTO public.t15 VALUES (15)
+SELECT pg_sleep(0) ; SELECT 1
+DROP TABLE IF EXISTS public.t16
+DELETE FROM public.t16 WHERE id = 16
+UPDATE public.t16 SET sku = '16'
+INSERT INTO public.t16 VALUES (16)
+SELECT pg_sleep(1) ; SELECT 1
+DROP TABLE IF EXISTS public.t17
+DELETE FROM public.t17 WHERE id = 17
+UPDATE public.t17 SET sku = '17'
+INSERT INTO public.t17 VALUES (17)
+SELECT pg_sleep(2) ; SELECT 1
+DROP TABLE IF EXISTS public.t18
+DELETE FROM public.t18 WHERE id = 18
+UPDATE public.t18 SET sku = '18'
+INSERT INTO public.t18 VALUES (18)
+SELECT pg_sleep(3) ; SELECT 1
+DROP TABLE IF EXISTS public.t19
+DELETE FROM public.t19 WHERE id = 19
+UPDATE public.t19 SET sku = '19'
+INSERT INTO public.t19 VALUES (19)
+SELECT pg_sleep(4) ; SELECT 1
+DROP TABLE IF EXISTS public.t20
+DELETE FROM public.t20 WHERE id = 20
+UPDATE public.t20 SET sku = '20'
+INSERT INTO public.t20 VALUES (20)
+SELECT pg_sleep(0) ; SELECT 1
+DROP TABLE IF EXISTS public.t21
+DELETE FROM public.t21 WHERE id = 21
+UPDATE public.t21 SET sku = '21'
+INSERT INTO public.t21 VALUES (21)
+SELECT pg_sleep(1) ; SELECT 1
+DROP TABLE IF EXISTS public.t22
+DELETE FROM public.t22 WHERE id = 22
+UPDATE public.t22 SET sku = '22'
+INSERT INTO public.t22 VALUES (22)
+SELECT pg_sleep(2) ; SELECT 1
+DROP TABLE IF EXISTS public.t23
+DELETE FROM public.t23 WHERE id = 23
+UPDATE public.t23 SET sku = '23'
+INSERT INTO public.t23 VALUES (23)
+SELECT pg_sleep(3) ; SELECT 1
+DROP TABLE IF EXISTS public.t24
+DELETE FROM public.t24 WHERE id = 24
+UPDATE public.t24 SET sku = '24'
+INSERT INTO public.t24 VALUES (24)
+SELECT pg_sleep(4) ; SELECT 1
+DROP TABLE IF EXISTS public.t25
+DELETE FROM public.t25 WHERE id = 25
+UPDATE public.t25 SET sku = '25'
+INSERT INTO public.t25 VALUES (25)
+SELECT pg_sleep(0) ; SELECT 1
+DROP TABLE IF EXISTS public.t26
+DELETE FROM public.t26 WHERE id = 26
+UPDATE public.t26 SET sku = '26'
+INSERT INTO public.t26 VALUES (26)
