@@ -88,10 +88,8 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
             )
     finally:
         store.reloading = False  # type: ignore[attr-defined]
-        events = getattr(store, "events", None)
-        runs = getattr(store, "runs", None)
-        messages = getattr(store, "messages", None)
-        for bucket in (events, runs, messages):
+        for name in ("events", "runs", "messages"):
+            bucket = getattr(store, name, None)
             if isinstance(bucket, TrackedDict):
                 bucket.dirty.discard(run_id)
 

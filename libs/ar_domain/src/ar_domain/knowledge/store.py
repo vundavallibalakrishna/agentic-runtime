@@ -1,7 +1,7 @@
 """RetrievalStore port. Spec: docs/03-specs/10-knowledge.md §6."""
 
 import uuid
-from typing import TYPE_CHECKING, ClassVar, Protocol
+from typing import TYPE_CHECKING, ClassVar, Protocol, cast
 
 from ar_domain.knowledge.store_types import (
     SUPPORTED_DIMS,
@@ -133,7 +133,7 @@ def active_index(holder: object) -> RetrievalStore:
     if getattr(holder, "durable", False) and engine is not None:
         current = getattr(holder, "pg_index", None)
         if current is not None:
-            return current  # type: ignore[return-value]
+            return cast("RetrievalStore", current)
         from sqlalchemy.ext.asyncio import async_sessionmaker  # noqa: PLC0415
 
         from ar_domain.knowledge.store_pgvector import PgVectorStore  # noqa: PLC0415
@@ -141,7 +141,7 @@ def active_index(holder: object) -> RetrievalStore:
         created = PgVectorStore()
         created.bind(async_sessionmaker(engine, expire_on_commit=False))
         holder.pg_index = created  # type: ignore[attr-defined]
-        return created  # type: ignore[return-value]
+        return cast("RetrievalStore", created)
     return memory_index(holder)
 
 

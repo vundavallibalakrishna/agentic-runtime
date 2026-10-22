@@ -1,9 +1,10 @@
 """Dicts that remember which rows a request changed."""
 
+from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any
+    from typing import Any, SupportsIndex
 
 
 class TrackedList(list[object]):
@@ -25,11 +26,15 @@ class TrackedList(list[object]):
         super().extend(items)  # type: ignore[arg-type]
         self._touch()
 
-    def __setitem__(self, index: object, value: object) -> None:
-        super().__setitem__(index, value)  # type: ignore[index, assignment]
+    def __setitem__(self, index: SupportsIndex | slice[Any, Any, Any], value: Any) -> None:
+        if isinstance(index, slice):
+            items = list(value) if isinstance(value, Iterable) else []
+            super().__setitem__(index, items)
+        else:
+            super().__setitem__(index, value)
         self._touch()
 
-    def pop(self, index: int = -1) -> object:
+    def pop(self, index: SupportsIndex = -1) -> object:
         found = super().pop(index)
         self._touch()
         return found

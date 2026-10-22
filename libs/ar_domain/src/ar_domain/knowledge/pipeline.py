@@ -31,7 +31,7 @@ def max_bytes() -> int:
 
 def ingest_document(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
     """Parse, chunk, embed and index. Sync callers use this wrapper."""
-    return _run(ingest_document_async(store, document_id, raw))
+    return str(_run(ingest_document_async(store, document_id, raw)))
 
 
 async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
@@ -99,10 +99,12 @@ WORKFLOW_MAX_BYTES = 256 * 1024
 async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
     """Index inline, or wait for the ingest worker when Temporal is connected."""
     client = getattr(store, "temporal_client", None)
-    inline = (
-        client is None or len(raw) > WORKFLOW_MAX_BYTES or getattr(store, "_ingest_worker", False)
-    )
-    if inline or not hasattr(client, "start_workflow"):
+    if (
+        client is None
+        or len(raw) > WORKFLOW_MAX_BYTES
+        or getattr(store, "_ingest_worker", False)
+        or not hasattr(client, "start_workflow")
+    ):
         return await ingest_document_async(store, document_id, raw)
     import base64  # noqa: PLC0415
 

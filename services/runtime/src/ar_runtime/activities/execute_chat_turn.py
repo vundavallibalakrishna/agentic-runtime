@@ -24,6 +24,7 @@ async def execute_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     names = [str(item) for item in raw_names] if isinstance(raw_names, list) else []
     await store.generate(run_id, text, names)
     await flush_store(store)
-    run = store.runs.get(run_id, {})
+    runs = getattr(store, "runs", None)
+    run = runs.get(run_id, {}) if isinstance(runs, dict) else {}
     status = str(run.get("status") or "completed") if isinstance(run, dict) else "completed"
     return {"status": status, "run_id": str(run_id)}

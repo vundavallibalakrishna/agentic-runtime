@@ -18,6 +18,18 @@ if TYPE_CHECKING:
 _log = get_logger(__name__)
 
 
+def _strings(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def _object_dict(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
 async def flush_store(store: object) -> None:
     """Flush dirty buckets. A second flush waits until the first commits."""
     engine = getattr(store, "durable_engine", None)
@@ -192,7 +204,7 @@ async def _versions(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         version_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
         agent_id = as_uuid(row.get("agent_id"))
-        definition = row.get("definition") if isinstance(row.get("definition"), dict) else {}
+        definition = _object_dict(row.get("definition"))
         if version_id is None or tenant_id is None or agent_id is None:
             continue
         now = utcnow()
@@ -283,7 +295,6 @@ async def _skill_versions(session: AsyncSession, rows: list[dict[str, Any]]) -> 
         skill_id = as_uuid(row.get("skill_id"))
         if version_id is None or tenant_id is None or skill_id is None:
             continue
-        tools = row.get("required_tools") if isinstance(row.get("required_tools"), list) else []
         await _one(
             session,
             sql,
@@ -294,7 +305,7 @@ async def _skill_versions(session: AsyncSession, rows: list[dict[str, Any]]) -> 
                 "version": as_int(row.get("version")),
                 "instructions_md": as_text(row.get("instructions_md"))[:50000],
                 "assets": as_json(row.get("assets"), []),
-                "required_tools": [str(item) for item in tools],
+                "required_tools": _strings(row.get("required_tools")),
                 "hash": as_text(row.get("hash"), "0"),
                 "created_by": as_uuid(row.get("created_by")),
                 "created_at": as_dt(row.get("created_at")) or utcnow(),
@@ -425,9 +436,7 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         source_id = as_uuid(row.get("source_id"))
         if None in {document_id, tenant_id, collection_id, source_id}:
             continue
-        principals = (
-            row.get("acl_principals") if isinstance(row.get("acl_principals"), list) else []
-        )
+        principals = _strings(row.get("acl_principals"))
         now = utcnow()
         await _one(
             session,
@@ -444,7 +453,7 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "version_hash": as_text(row.get("version_hash"), "0"),
                 "size_bytes": as_int(row.get("size_bytes")),
                 "classification": as_text(row.get("classification"), "internal"),
-                "acl_principals": [str(item) for item in principals],
+                "acl_principals": principals,
                 "acl_hash": as_text(row.get("acl_hash")),
                 "summary": as_text(row.get("summary")),
                 "status": _document_status(as_text(row.get("status"), "pending")),
@@ -481,7 +490,7 @@ async def _chunks(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         document_id = as_uuid(row.get("document_id"))
         if None in {chunk_id, tenant_id, document_id}:
             continue
-        headings = row.get("heading_path") if isinstance(row.get("heading_path"), list) else []
+        headings = _strings(row.get("heading_path"))
         await _one(
             session,
             sql,
@@ -492,7 +501,7 @@ async def _chunks(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "ordinal": as_int(row.get("ordinal")),
                 "text": as_text(row.get("text"), ""),
                 "context_prefix": as_text(row.get("context_prefix"), ""),
-                "heading_path": [str(item) for item in headings],
+                "heading_path": headings,
                 "page_from": row.get("page_from")
                 if isinstance(row.get("page_from"), int)
                 else None,

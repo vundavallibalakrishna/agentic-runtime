@@ -420,7 +420,7 @@ class KnowledgeBook:
                 kind="single_document",
                 triggered_by="upload",
             )
-            status = await ingest_or_enqueue(self.store, document["id"], raw)
+            status = await ingest_or_enqueue(self.store, uuid.UUID(str(document["id"])), raw)
             finish_job(job, status="failed" if status == "failed" else "succeeded")
             self.store.domain_events.append(
                 {
@@ -481,7 +481,7 @@ class KnowledgeBook:
         document, _collection = self._document(actor, document_id, manage=True)
         raw = bytes(self.store.knowledge_blobs.get(document["id"], b""))
         document["version_hash"] = ""
-        await ingest_or_enqueue(self.store, document["id"], raw)
+        await ingest_or_enqueue(self.store, uuid.UUID(str(document["id"])), raw)
         return self._document_view(document)
 
     def remove_document(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:

@@ -26,7 +26,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.conversations.logic import MessageNode, activate_branch, run_is_active
-from ar_domain.demo_ids import demo_id
+from ar_domain.demo_ids import demo_id as demo_id  # noqa: PLC0414
 from ar_domain.files.logic import (
     MAX_UPLOAD_BYTES,
     FileView,
