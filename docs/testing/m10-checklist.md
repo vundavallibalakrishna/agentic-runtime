@@ -33,4 +33,4 @@ The sample routine lives in the API process store. `make seed` writes Postgres r
 cd apps/web && E2E_SCREENSHOT_DIR=../../docs/testing/m10 pnpm exec playwright test e2e/m10-routines.spec.ts
 ```
 
-Screenshots land in `docs/testing/m10/` for light and dark, desktop (1280) and mobile (375). The walkthrough video is `docs/testing/m10/walkthrough.mp4`.
+The test signs in, checks Weekly digest, previews and creates Launch reminder, runs it, pauses, resumes, and expects zero axe violations. Screenshots land in `docs/testing/m10/` for light and dark, desktop (1280) and mobile (375). The walkthrough video is `docs/testing/m10/walkthrough.mp4`.

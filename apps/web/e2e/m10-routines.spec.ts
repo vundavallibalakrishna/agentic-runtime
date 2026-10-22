@@ -40,7 +40,7 @@ test("routines schedule, run now, and stay accessible", async ({ page }) => {
   await signIn(page);
   await page.goto("/routines");
   await expect(page.getByRole("heading", { name: "Routines" })).toBeVisible();
-  await expect(page.getByText("Weekly digest")).toBeVisible();
+  await expect(page.getByText("Weekly digest", { exact: true })).toBeVisible();
   await expect(page.getByText("Every Monday 09:00 IST")).toBeVisible();
   await capture(page, "list");
 
@@ -54,6 +54,13 @@ test("routines schedule, run now, and stay accessible", async ({ page }) => {
   await expect(page.getByText("Run started.")).toBeVisible();
   await expect(page.getByText("manual")).toBeVisible();
   await capture(page, "detail");
+
+  await page.getByRole("button", { name: "Pause" }).click();
+  await expect(page.getByText("Paused.")).toBeVisible();
+  await expect(page.getByText("paused · manual")).toBeVisible();
+  await page.getByRole("button", { name: "Resume" }).click();
+  await expect(page.getByText("Resumed.")).toBeVisible();
+  await expect(page.getByText("active", { exact: true })).toBeVisible();
 
   const result = await new AxeBuilder({ page }).analyze();
   expect(result.violations).toEqual([]);
