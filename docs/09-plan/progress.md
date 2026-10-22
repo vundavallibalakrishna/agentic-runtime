@@ -62,13 +62,13 @@ M3-T08 | done | 8d6d5b0 | catalogue, search, filters, favourites, chat
 M3-T09 | done | 8d6d5b0 | content packs, signatures, migration 0020
 M3-T10 | done | 8d6d5b0 | builder agent, sessions, apply creates a draft
 
-M4-T01 | in_progress | - | tool tables, registry API, seeded built-ins
-M4-T02 | in_progress | - | credential providers, connections, encrypted token cache
-M4-T03 | in_progress | - | mcp-gateway pipeline
-M4-T04 | in_progress | - | runtime tool turn
-M4-T05 | in_progress | - | built-in files, web, plan, tool search
-M4-T06 | in_progress | - | mcp-openapi
-M4-T07 | in_progress | - | mcp-sql and data connections
-M4-T08 | in_progress | - | connector SDK and ticketing example
-M4-T09 | in_progress | - | test console, call log, drift
-M4-T10 | in_progress | - | tools UI and visual test
+M4-T01 | done | 6f82810 | tool tables, registry API, seeded built-ins
+M4-T02 | done | 6f82810 | credential providers, connections, encrypted token cache
+M4-T03 | done | 6f82810 | mcp-gateway pipeline
+M4-T04 | done | 6f82810 | runtime tool turn
+M4-T05 | done | 6f82810 | built-in files, web, plan, tool search
+M4-T06 | done | 6f82810 | mcp-openapi
+M4-T07 | done | 6f82810 | mcp-sql and data connections
+M4-T08 | done | 6f82810 | connector SDK and ticketing example
+M4-T09 | done | 6f82810 | test console, call log, drift
+M4-T10 | done | 6f82810 | tools UI and visual test
