@@ -24,3 +24,9 @@ description = ".env.example placeholder. An empty ACTIVE_KEY= line lets the newl
 targetRules = ["generic-api-key"]
 regexTarget = "secret"
 regexes = ['''^AR_DB_ENCRYPTION_KEYS=generate$''']
+
+[[allowlists]]
+description = "M11 Slack adapter test, commit bba37e5. The value was a throwaway HMAC fixture, replaced in the working tree by demo-signing-secret. Allowlisted so history scans do not treat it as a live key."
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^8f742231b10e8888abcd99yyyzzz7777$''']

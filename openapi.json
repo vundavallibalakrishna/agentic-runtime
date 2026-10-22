@@ -14219,6 +14219,671 @@
           }
         }
       }
+    },
+    "/api/v1/channel-integrations": {
+      "get": {
+        "summary": "List Integrations",
+        "operationId": "list_integrations_api_v1_channel_integrations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Integrations Api V1 Channel Integrations Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Integration",
+        "operationId": "create_integration_api_v1_channel_integrations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Integration Api V1 Channel Integrations Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-integrations/{integration_id}": {
+      "get": {
+        "summary": "Get Integration",
+        "operationId": "get_integration_api_v1_channel_integrations__integration_id__get",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Integration Api V1 Channel Integrations  Integration Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Patch Integration",
+        "operationId": "patch_integration_api_v1_channel_integrations__integration_id__patch",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Integration Api V1 Channel Integrations  Integration Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Integration",
+        "operationId": "delete_integration_api_v1_channel_integrations__integration_id__delete",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-integrations/{integration_id}:test": {
+      "post": {
+        "summary": "Test Integration",
+        "operationId": "test_integration_api_v1_channel_integrations__integration_id__test_post",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Test Integration Api V1 Channel Integrations  Integration Id  Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-integrations/{integration_id}/manifest": {
+      "get": {
+        "summary": "Integration Manifest",
+        "operationId": "integration_manifest_api_v1_channel_integrations__integration_id__manifest_get",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-integrations/{integration_id}/identities": {
+      "get": {
+        "summary": "List Identities",
+        "operationId": "list_identities_api_v1_channel_integrations__integration_id__identities_get",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Identities Api V1 Channel Integrations  Integration Id  Identities Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/channel-integrations/{integration_id}/identities/{identity_id}": {
+      "delete": {
+        "summary": "Delete Identity",
+        "operationId": "delete_identity_api_v1_channel_integrations__integration_id__identities__identity_id__delete",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          },
+          {
+            "name": "identity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identity Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/channel-identities": {
+      "get": {
+        "summary": "My Identities",
+        "operationId": "my_identities_api_v1_me_channel_identities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response My Identities Api V1 Me Channel Identities Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/channel-identities:link": {
+      "post": {
+        "summary": "Link Identity",
+        "operationId": "link_identity_api_v1_me_channel_identities_link_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Link Identity Api V1 Me Channel Identities Link Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me/channel-identities/{identity_id}": {
+      "delete": {
+        "summary": "Unlink Identity",
+        "operationId": "unlink_identity_api_v1_me_channel_identities__identity_id__delete",
+        "parameters": [
+          {
+            "name": "identity_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identity Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/channels/integrations": {
+      "get": {
+        "summary": "Internal Integrations",
+        "operationId": "internal_integrations_internal_v1_channels_integrations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Internal Integrations Internal V1 Channels Integrations Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/channels/inbound": {
+      "post": {
+        "summary": "Internal Inbound",
+        "operationId": "internal_inbound_internal_v1_channels_inbound_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InboundBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Internal Inbound Internal V1 Channels Inbound Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/v1/channels/approval-decisions": {
+      "post": {
+        "summary": "Internal Approval",
+        "operationId": "internal_approval_internal_v1_channels_approval_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Internal Approval Internal V1 Channels Approval Decisions Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/openai/models": {
+      "get": {
+        "summary": "List Models",
+        "operationId": "list_models_api_v1_openai_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/openai/chat/completions": {
+      "post": {
+        "summary": "Chat Completions",
+        "operationId": "chat_completions_api_v1_openai_chat_completions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/integrations/{integration_id}": {
+      "get": {
+        "summary": "Widget Frame",
+        "description": "Public frame policy. The integration id is the capability.",
+        "operationId": "widget_frame_api_v1_widget_integrations__integration_id__get",
+        "parameters": [
+          {
+            "name": "integration_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Integration Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Widget Frame Api V1 Widget Integrations  Integration Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/sessions": {
+      "post": {
+        "summary": "Widget Session",
+        "operationId": "widget_session_api_v1_widget_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetSessionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -14494,6 +15159,45 @@
         "type": "object",
         "title": "ApplyBody"
       },
+      "ApprovalBody": {
+        "properties": {
+          "approvalId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Approvalid"
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "argsHash": {
+            "type": "string",
+            "title": "Argshash",
+            "default": ""
+          },
+          "externalUserId": {
+            "type": "string",
+            "title": "Externaluserid",
+            "default": ""
+          },
+          "integrationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Integrationid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["approvalId", "decision"],
+        "title": "ApprovalBody"
+      },
       "ApprovalDecideBody": {
         "properties": {
           "decision": {
@@ -14654,6 +15358,111 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ChannelEventBody"
+      },
+      "ChatMessage": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChatPart"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["role"],
+        "title": "ChatMessage"
+      },
+      "ChatPart": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "default": "text"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ChatPart"
+      },
+      "ChatRequest": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ChatMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "stream": {
+            "type": "boolean",
+            "title": "Stream",
+            "default": false
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          },
+          "tools": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tools"
+          },
+          "functions": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Functions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["model"],
+        "title": "ChatRequest"
       },
       "CheckBody": {
         "properties": {
@@ -15269,6 +16078,178 @@
         "type": "object",
         "title": "CredentialProviderPatch"
       },
+      "CredentialsBody": {
+        "properties": {
+          "botToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bottoken"
+          },
+          "signingSecret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signingsecret"
+          },
+          "appToken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apptoken"
+          },
+          "appId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appid"
+          },
+          "appPassword": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apppassword"
+          },
+          "tenantId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenantid"
+          },
+          "imapHost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imaphost"
+          },
+          "imapPort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imapport"
+          },
+          "smtpHost": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtphost"
+          },
+          "smtpPort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Smtpport"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "widgetSecret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Widgetsecret"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Secret"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CredentialsBody"
+      },
       "DeliveryBody": {
         "properties": {
           "type": {
@@ -15601,6 +16582,88 @@
         "type": "object",
         "title": "ImportBody"
       },
+      "InboundBody": {
+        "properties": {
+          "integrationId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Integrationid"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "eventId": {
+            "type": "string",
+            "title": "Eventid",
+            "default": ""
+          },
+          "externalUserId": {
+            "type": "string",
+            "title": "Externaluserid",
+            "default": ""
+          },
+          "externalUserEmail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Externaluseremail"
+          },
+          "externalChannelId": {
+            "type": "string",
+            "title": "Externalchannelid",
+            "default": ""
+          },
+          "externalThreadId": {
+            "type": "string",
+            "title": "Externalthreadid",
+            "default": ""
+          },
+          "externalMessageId": {
+            "type": "string",
+            "title": "Externalmessageid",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "isDm": {
+            "type": "boolean",
+            "title": "Isdm",
+            "default": false
+          },
+          "mentionsBot": {
+            "type": "boolean",
+            "title": "Mentionsbot",
+            "default": false
+          },
+          "command": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["integrationId", "kind"],
+        "title": "InboundBody"
+      },
       "InstallBody": {
         "properties": {
           "manifest": {
@@ -15635,6 +16698,135 @@
         "type": "object",
         "required": ["manifest"],
         "title": "InstallBody"
+      },
+      "IntegrationBody": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "credentials": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialsBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defaultAgentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultagentid"
+          },
+          "agentRouting": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Agentrouting"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "name"],
+        "title": "IntegrationBody"
+      },
+      "IntegrationPatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "credentials": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialsBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defaultAgentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultagentid"
+          },
+          "agentRouting": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agentrouting"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "IntegrationPatch"
       },
       "InvitationCreate": {
         "properties": {
@@ -15695,6 +16887,18 @@
         "type": "object",
         "required": ["queueId", "subjectId", "contentHash", "statementText"],
         "title": "ItemBody"
+      },
+      "LinkBody": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["token"],
+        "title": "LinkBody"
       },
       "Me": {
         "properties": {
@@ -18107,6 +19311,23 @@
         "type": "object",
         "required": ["name", "url", "topics"],
         "title": "WebhookCreate"
+      },
+      "WidgetSessionBody": {
+        "properties": {
+          "integrationId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Integrationid"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["integrationId", "token"],
+        "title": "WidgetSessionBody"
       }
     }
   }

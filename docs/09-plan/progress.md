@@ -122,3 +122,12 @@ M10-T02 | done | 29540c8 | routine run workflow
 M10-T03 | done | 29540c8 | webhooks, polls, channel events
 M10-T04 | done | 29540c8 | delivery tools
 M10-T05 | done | 29540c8 | routines web UI
+
+M11-T01 | done | bba37e5 | revision 0018, integration API, durable channel posts (OQ-41)
+M11-T02 | done | bba37e5 | inbound routing, threads, internal channel endpoints
+M11-T03 | done | bba37e5 | Slack events, commands, interactions, mrkdwn
+M11-T04 | done | bba37e5 | Teams activities, Bot Framework JWT, Adaptive Cards
+M11-T05 | done | bba37e5 | email accept, SPF check, SMTP reply (OQ-42 in-process mailbox)
+M11-T06 | done | bba37e5 | OpenAI chat facade and widget session
+M11-T07 | done | bba37e5 | notification fan-out to channel DMs, email fallback
+M11-T08 | done | bba37e5 | admin channels page and profile linking

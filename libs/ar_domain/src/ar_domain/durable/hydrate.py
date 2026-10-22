@@ -13,6 +13,34 @@ if TYPE_CHECKING:
     from typing import Any
 
 
+async def _channel_integrations(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    for row in await _rows(
+        session, "SELECT * FROM channel_integrations WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "channel_integrations", row["id"], row)
+
+
+async def _channel_identities(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    for row in await _rows(
+        session, "SELECT * FROM channel_identities WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "channel_identities", row["id"], row)
+
+
+async def _channel_threads(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    for row in await _rows(
+        session, "SELECT * FROM channel_threads WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "channel_threads", row["id"], row)
+
+
+async def _channel_posts(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    for row in await _rows(
+        session, "SELECT * FROM channel_posts WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "channel_posts", row["id"], row)
+
+
 def _text_of(content: object) -> str:
     if isinstance(content, list):
         parts = [str(item.get("text") or "") for item in content if isinstance(item, dict)]
@@ -49,6 +77,10 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
             await _runs(session, store, tenant_id)
             await _messages(session, store, tenant_id)
             await _events(session, store, tenant_id)
+            await _channel_integrations(session, store, tenant_id)
+            await _channel_identities(session, store, tenant_id)
+            await _channel_threads(session, store, tenant_id)
+            await _channel_posts(session, store, tenant_id)
     finally:
         store.reloading = False  # type: ignore[attr-defined]
         for name in BUCKETS:

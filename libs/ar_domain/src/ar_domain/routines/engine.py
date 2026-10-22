@@ -337,6 +337,37 @@ def _post(store: Any, routine: dict[str, object], call: dict[str, object]) -> di
         secret = str(arguments.get("secret") or "")
         payload = str(arguments.get("payload") or "")
         signed = hashlib.sha256(f"{secret}.{payload}".encode()).hexdigest()
+    from ar_domain.channels.posts import policy_decision, record_channel_post  # noqa: PLC0415
+
+    tool = str(call.get("tool") or "")
+    if policy_decision(store, routine.get("tenant_id"), tool) == "deny":
+        DELIVERY.labels(target=target or "unknown", result="denied").inc()
+        return {"target": target, "result": "denied", "signature": signed}
+    external = ""
+    client = getattr(store, "channels_client", None)
+    if callable(client):
+        sent = client(
+            {
+                "integration_id": arguments.get("integration"),
+                "text_markdown": str(arguments.get("text") or ""),
+                "kind": target,
+                "approved": True,
+            }
+        )
+        if isinstance(sent, dict):
+            external = str(sent.get("external_message_id") or "")
+    recorded = record_channel_post(
+        store,
+        tenant_id=routine.get("tenant_id"),
+        kind=target or "webhook",
+        body=str(arguments.get("text") or ""),
+        external_message_id=external,
+        detail={
+            "tool": tool,
+            "routine_id": str(routine.get("id") or ""),
+            "signature": signed,
+        },
+    )
     posts = getattr(store, "delivery_posts", None)
     if not isinstance(posts, list):
         posts = []
@@ -347,10 +378,16 @@ def _post(store: Any, routine: dict[str, object], call: dict[str, object]) -> di
             "target": target,
             "signed": signed,
             "routine_id": str(routine.get("id") or ""),
+            "post_id": str(recorded.get("id") or ""),
         }
     )
     DELIVERY.labels(target=target or "unknown", result="posted").inc()
-    return {"target": target, "result": "posted", "signature": signed}
+    return {
+        "target": target,
+        "result": "posted",
+        "signature": signed,
+        "post_id": str(recorded.get("id")),
+    }
 
 
 def _arguments(

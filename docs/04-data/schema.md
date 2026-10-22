@@ -1209,7 +1209,24 @@ CREATE TABLE channel_threads (
   created_at          timestamptz NOT NULL DEFAULT now(),
   UNIQUE (integration_id, external_channel_id, external_thread_id)
 );
+
+CREATE TABLE channel_posts (
+  id                  uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id           uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  integration_id      uuid REFERENCES channel_integrations(id) ON DELETE CASCADE,
+  thread_id           uuid REFERENCES channel_threads(id) ON DELETE SET NULL,
+  direction           text NOT NULL CHECK (direction IN ('inbound','outbound')),
+  kind                text NOT NULL CHECK (kind IN ('slack','teams','email','widget','webhook')),
+  external_message_id text,
+  body                text NOT NULL,
+  status              text NOT NULL DEFAULT 'posted' CHECK (status IN ('posted','failed','pending')),
+  detail              jsonb NOT NULL DEFAULT '{}',
+  created_at          timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX ix_channel_posts_tenant ON channel_posts(tenant_id, created_at);
 ```
+
+`channel_posts` is the durable record of a channel message (OQ-41). Credential bytes stay in the secret store; this table stores the post.
 
 ## 15. Audit and usage (`ar_domain.audit`, `ar_domain.usage`)
 
@@ -1463,7 +1480,7 @@ CREATE INDEX ix_idempotency_created ON idempotency_keys(created_at);   -- swept 
 | files | files | 11 |
 | skills, skill_versions | skills | 12 |
 | routines, routine_events | routines | 13 |
-| channel_integrations, channel_identities, channel_threads | channels | 14 |
+| channel_integrations, channel_identities, channel_threads, channel_posts | channels | 14 |
 | audit_events, usage_events, usage_daily, quotas | audit / usage | 15 |
 | eval_suites, eval_cases, eval_runs, eval_results | evals | 16 |
 | outbox_events, outbound_webhooks, webhook_deliveries, notifications, idempotency_keys | events | 17 |

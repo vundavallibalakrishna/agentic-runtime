@@ -13,11 +13,16 @@ dependencies = [
     "fastapi==0.151.0",
     "uvicorn[standard]==0.54.0",
     "slack-bolt==1.30.0",
+    "slack-sdk==3.45.0",
     "microsoft-agents-hosting-core==1.9.0",
     "microsoft-agents-hosting-aiohttp==1.9.0",
+    "microsoft-agents-activity==1.9.0",
     "aioimaplib==2.0.3",
     "aiosmtplib==5.1.3",
     "mistune==3.4.0",
+    "pyjwt[crypto]==2.15.1",
+    "httpx==0.28.1",
+    "orjson==3.13.0",
 ]
 
 [project.scripts]
@@ -54,4 +59,4 @@ ar-mcp-openapi = "ar_mcp_openapi"
 ar-fake-llm = "ar_fake_llm"
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["slack-bolt", "microsoft-agents-hosting-core", "microsoft-agents-hosting-aiohttp", "aioimaplib", "aiosmtplib", "mistune", "ar-contracts"]
+DEP002 = ["microsoft-agents-hosting-aiohttp", "microsoft-agents-hosting-core", "ar-contracts"]
