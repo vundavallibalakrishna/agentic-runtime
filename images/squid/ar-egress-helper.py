@@ -7,6 +7,16 @@ import urllib.parse
 import urllib.request
 
 
+def credentials(parts: list[str]) -> tuple[str, str]:
+    """Squid sends ``%LOGIN %note{user} %DST``. The note carries ``id:token``."""
+    if len(parts) >= 3:
+        login = parts[1] if parts[1] != "-" else parts[0]
+        return urllib.parse.unquote(login), urllib.parse.unquote(parts[2])
+    if len(parts) >= 2:
+        return urllib.parse.unquote(parts[0]), urllib.parse.unquote(parts[1])
+    return "", ""
+
+
 def verdict(login: str, host: str) -> str:
     """OK only when the manager allows this sandbox token to reach the host."""
     base = os.environ.get("AR_SANDBOX_MANAGER_URL", "").rstrip("/")
@@ -29,7 +39,8 @@ def main() -> None:
         if len(parts) < 2:
             print("ERR", flush=True)  # noqa: T201 - Squid reads the helper's stdout
             continue
-        print(verdict(parts[0], parts[1]), flush=True)  # noqa: T201
+        login, host = credentials(parts)
+        print(verdict(login, host), flush=True)  # noqa: T201
 
 
 if __name__ == "__main__":

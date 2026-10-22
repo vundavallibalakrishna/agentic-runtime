@@ -87,7 +87,7 @@ M6-T01 | done | c587f91 | sandbox templates and revision 0013
 M6-T02 | done | c587f91 | sandbox agent and image
 M6-T03 | done | c587f91 | sandbox-manager and local driver
 M6-T04 | done | c587f91 | pod spec, network policy, warm pool
-M6-T05 | done | c587f91 | egress allowlist and Squid helper
+M6-T05 | done | c587f91 | egress allowlist and Squid helper; proxy stays up under make up --wait
 M6-T06 | done | c587f91 | gateway routing and reaper
 M6-T07 | done | c587f91 | browser tools
 M6-T08 | done | c587f91 | file previews and download headers

@@ -20,11 +20,13 @@ def pod_spec(
     memory_mb: int,
     disk_gb: int,
     lifetime_s: int,
+    token: str,
 ) -> dict[str, Any]:
     """The pod the controller submits. No service-account token, no privilege."""
     short = sandbox_id.replace("-", "")[:12]
     quantity = f"{cpu_millis}m"
     memory = f"{memory_mb}Mi"
+    proxy = f"http://sbx-{sandbox_id}:{token}@squid.ar-system:3128"
     return {
         "apiVersion": "v1",
         "kind": "Pod",
@@ -61,8 +63,8 @@ def pod_spec(
                         "limits": {"cpu": quantity, "memory": memory},
                     },
                     "env": [
-                        {"name": "HTTP_PROXY", "value": "http://squid:3128"},
-                        {"name": "HTTPS_PROXY", "value": "http://squid:3128"},
+                        {"name": "HTTP_PROXY", "value": proxy},
+                        {"name": "HTTPS_PROXY", "value": proxy},
                         {"name": "NO_PROXY", "value": ""},
                     ],
                     "volumeMounts": [
