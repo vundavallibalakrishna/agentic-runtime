@@ -288,7 +288,12 @@ export function ChatScreen() {
       const message = error instanceof Error ? error.message : t("error");
       setBanner(message);
       if (message.toLowerCase().includes("quota")) {
-        setMessages((current) => current.filter((item) => !item.id.startsWith("local-")));
+        setMessages((current) =>
+          current.filter((item) => {
+            const id = item.id;
+            return typeof id !== "string" || !id.startsWith("local-");
+          }),
+        );
       }
       setStream((current) => ({ ...current, status: "failed" }));
     }

@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import Any  # noqa: TC003
 
 from temporalio import activity
 
 from ar_common.errors import QuotaExceededError
 from ar_domain.usage.service import UsageBook
 from ar_runtime.activities.expire_approval import current_store
-
-if TYPE_CHECKING:
-    from typing import Any
 
 
 def assert_start(store: Any, run_id: uuid.UUID) -> None:

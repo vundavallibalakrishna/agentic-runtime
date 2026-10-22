@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Meter } from "@/components/usage/meter";
 import { api } from "@/lib/api";
+import { formatCount } from "@/lib/format";
 
 type Scope = { id?: string; name?: string } | null;
 type Quota = {
@@ -236,7 +237,7 @@ export function QuotasScreen() {
                 </p>
               </div>
               <p className="text-sm">
-                {t("used")} {(row.used ?? 0).toLocaleString()} / {row.limitValue.toLocaleString()}
+                {t("used")} {formatCount(row.used ?? 0)} / {formatCount(row.limitValue)}
               </p>
             </div>
             <Meter limit={row.limitValue} used={row.used ?? 0} />

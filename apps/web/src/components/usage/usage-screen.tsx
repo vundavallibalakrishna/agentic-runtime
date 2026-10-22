@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { formatCount } from "@/lib/format";
 
 const UsageChart = dynamic(
   () => import("@/components/usage/usage-chart").then((mod) => mod.UsageChart),
@@ -152,9 +153,9 @@ export function UsageScreen() {
       {!loading && rows.length > 0 ? (
         <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
           <p className="text-sm text-[var(--muted-foreground)]">
-            {t("quantity")} {summary?.totals?.quantity?.toLocaleString() ?? 0}
+            {t("quantity")} {formatCount(summary?.totals?.quantity ?? 0)}
             {" · "}
-            {t("cost")} {summary?.totals?.costMicros?.toLocaleString() ?? 0} {summary?.currency}
+            {t("cost")} {formatCount(summary?.totals?.costMicros ?? 0)} {summary?.currency}
           </p>
           <UsageChart points={points} />
           <ul className="space-y-2">
@@ -169,7 +170,7 @@ export function UsageScreen() {
                     .join(" · ")}
                 </span>
                 <span className="text-[var(--muted-foreground)]">
-                  {(row.quantity ?? 0).toLocaleString()}
+                  {formatCount(row.quantity ?? 0)}
                 </span>
               </li>
             ))}

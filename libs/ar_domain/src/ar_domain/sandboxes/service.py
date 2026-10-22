@@ -364,6 +364,7 @@ class SandboxBook:
             "id": message_id,
             "tenant_id": tenant_id,
             "conversation_id": conversation_id,
+            "parent_message_id": None,
             "role": role,
             "content": [{"type": "text", "text": text}],
             "text": text,

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Meter } from "@/components/usage/meter";
 import { api } from "@/lib/api";
+import { formatCount } from "@/lib/format";
 
 type MineQuota = { id?: string; metric: string; period: string; limit: number; used: number };
 type Mine = {
@@ -103,8 +104,8 @@ export function ProfileScreen() {
         <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("usageBody")}</p>
         {usage ? (
           <p className="mt-3 text-sm">
-            {(usage.totals?.quantity ?? 0).toLocaleString()} · {usage.totals?.costMicros ?? 0}{" "}
-            {usage.currency}
+            {formatCount(usage.totals?.quantity ?? 0)} ·{" "}
+            {formatCount(usage.totals?.costMicros ?? 0)} {usage.currency}
           </p>
         ) : (
           <p className="mt-3 text-sm text-[var(--muted-foreground)]">{t("usageEmpty")}</p>
@@ -113,7 +114,7 @@ export function ProfileScreen() {
           {(usage?.quotas ?? []).map((row) => (
             <li key={row.id ?? `${row.metric}-${row.period}-${row.limit}`}>
               <p className="mb-1 text-sm">
-                {row.metric} · {row.used.toLocaleString()} / {row.limit.toLocaleString()}
+                {row.metric} · {formatCount(row.used)} / {formatCount(row.limit)}
               </p>
               <Meter limit={row.limit} used={row.used} />
             </li>

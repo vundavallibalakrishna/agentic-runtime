@@ -52,7 +52,7 @@ def create_application() -> FastAPI:
         ]
         return {"model": "rerank", "results": scored}
 
-    @app.post("/v1/chat/completions")
+    @app.post("/v1/chat/completions", response_model=None)
     async def chat_completions(request: Request) -> dict[str, object] | JSONResponse:
         """Forward a chat completion to fake-llm, with a local echo if it is down."""
         import httpx  # noqa: PLC0415

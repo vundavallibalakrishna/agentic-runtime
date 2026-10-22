@@ -71,6 +71,13 @@ def _seq(event: dict[str, object]) -> int:
     return seq if isinstance(seq, int) else int(str(seq))
 
 
+def _parent_text(row: dict[str, object]) -> str | None:
+    parent = row.get("parent_message_id")
+    if parent is None:
+        return None
+    return str(parent)
+
+
 def _preview(mime_type: str, data: bytes) -> dict[str, object]:
     if mime_type in {"text/csv", "application/csv"}:
         return {"kind": "csv", "rows": csv_rows(data)}
@@ -984,10 +991,8 @@ class ChatService:
         nodes = [
             MessageNode(
                 id=str(row["id"]),
-                parent_id=(
-                    None if row["parent_message_id"] is None else str(row["parent_message_id"])
-                ),
-                is_active=bool(row["is_active_branch"]),
+                parent_id=_parent_text(row),
+                is_active=bool(row.get("is_active_branch")),
             )
             for row in self.messages.values()
             if row["conversation_id"] == conversation_id
@@ -1832,10 +1837,8 @@ class ChatService:
         nodes = [
             MessageNode(
                 id=str(row["id"]),
-                parent_id=(
-                    None if row["parent_message_id"] is None else str(row["parent_message_id"])
-                ),
-                is_active=bool(row["is_active_branch"]),
+                parent_id=_parent_text(row),
+                is_active=bool(row.get("is_active_branch")),
             )
             for row in self.messages.values()
             if row["conversation_id"] == conversation_id
@@ -1997,11 +2000,13 @@ class ChatService:
             raise ArError(ErrorCode.PAYLOAD_TOO_LARGE, "file is too large")
         from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
 
-        existing = sum(
-            int(row.get("size_bytes") or 0)
-            for row in self.files.values()
-            if row.get("tenant_id") == tenant_id and row.get("deleted_at") is None
-        )
+        existing = 0
+        for row in self.files.values():
+            if row.get("tenant_id") != tenant_id or row.get("deleted_at") is not None:
+                continue
+            size = row.get("size_bytes")
+            if isinstance(size, int) and not isinstance(size, bool):
+                existing += size
         guard(self, tenant_id, "max_storage_gb", len(data), current=existing)
         file_id = new_id()
         now = utcnow()

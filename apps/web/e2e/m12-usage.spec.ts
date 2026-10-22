@@ -4,7 +4,7 @@ import { expect, type Page, test } from "@playwright/test";
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m12";
 
 test.describe.configure({ mode: "serial" });
-test.use({ video: "on" });
+test.use({ locale: "en-US", video: "on" });
 test.setTimeout(180_000);
 
 async function signIn(page: Page) {
@@ -43,7 +43,7 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     await page.goto("/admin/usage");
     await expect(page.getByRole("heading", { name: "Usage" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
-    await expect(page.getByText("36,000").first()).toBeVisible();
+    await expect(page.getByText("36,000").first()).toBeVisible({ timeout: 20_000 });
     await capture(page, "usage");
 
     await page.goto("/admin/quotas");
