@@ -27,6 +27,8 @@ _DEFAULT_BUDGET = {
     "max_tool_calls": 4,
     "max_parallel_tool_calls": 1,
 }
+
+
 def _as_int(value: object, default: int = 0) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         return default

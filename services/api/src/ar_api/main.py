@@ -39,13 +39,13 @@ from ar_api.routers.platform_tenants import router as platform_router
 from ar_api.routers.policies import router as policies_router
 from ar_api.routers.reviews import router as reviews_router
 from ar_api.routers.roles import router as roles_router
+from ar_api.routers.routines import router as routines_router
 from ar_api.routers.sandboxes import router as sandboxes_router
 from ar_api.routers.scim import router as scim_router
 from ar_api.routers.scim_tokens import router as scim_tokens_router
 from ar_api.routers.secrets import router as secrets_router
 from ar_api.routers.service_accounts import router as service_accounts_router
 from ar_api.routers.signup import router as signup_router
-from ar_api.routers.routines import router as routines_router
 from ar_api.routers.skills import router as skills_router
 from ar_api.routers.sod import router as sod_router
 from ar_api.routers.standing_approvals import router as standing_router
