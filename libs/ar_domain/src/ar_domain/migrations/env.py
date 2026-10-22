@@ -20,6 +20,7 @@ import ar_domain.knowledge.tables
 import ar_domain.memory.tables
 import ar_domain.models.tables
 import ar_domain.policy.models
+import ar_domain.routines.tables
 import ar_domain.sandboxes.tables
 import ar_domain.secrets.models
 import ar_domain.skills.tables
