@@ -230,6 +230,7 @@ class BaseServiceSettings(BaseSettings):
     internal_jwt_jwks: str = ""
     asgi_server: str = "uvicorn"
     service_name: str = "agentic-runtime"
+    routine_min_interval_s: int = 300
 
     @model_validator(mode="after")
     def apply_file_secrets_and_saas_default(self) -> BaseServiceSettings:

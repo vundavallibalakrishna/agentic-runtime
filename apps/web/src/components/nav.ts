@@ -50,7 +50,6 @@ export const primaryNav: NavItem[] = [
     labelKey: "navRoutines",
     permission: "routines:create",
     icon: Repeat,
-    soon: true,
   },
   {
     href: "/approvals",

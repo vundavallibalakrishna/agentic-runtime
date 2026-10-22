@@ -31,6 +31,8 @@ def is_public(path: str) -> bool:
     """Routes that do not require a principal."""
     if path in _PUBLIC or path.startswith("/api/docs"):
         return True
+    if path.startswith("/api/v1/hooks/routines/"):
+        return True
     return path.startswith("/api/v1/invitations/") and path.endswith(":accept")
 
 

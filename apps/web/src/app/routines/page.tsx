@@ -1,8 +1,5 @@
-import { getTranslations } from "next-intl/server";
+import { RoutinesScreen } from "@/components/routines/routines-screen";
 
-import { ComingSoon } from "@/components/coming-soon";
-
-export default async function RoutinesPage() {
-  const t = await getTranslations("shell");
-  return <ComingSoon title={t("navRoutines")} />;
+export default function RoutinesPage() {
+  return <RoutinesScreen />;
 }

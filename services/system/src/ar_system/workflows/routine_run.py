@@ -1,0 +1,111 @@
+"""RoutineRunWorkflow. Spec: docs/03-specs/15-routines-triggers.md §3."""
+
+from datetime import timedelta
+from typing import Any  # noqa: TC003
+
+from temporalio import activity, workflow
+
+with workflow.unsafe.imports_passed_through():
+    import uuid
+
+    from ar_domain.routines.engine import (
+        accept_routine_event,
+        complete_routine_event,
+        prepare_routine_run,
+        reconcile_schedules,
+    )
+    from ar_system.routines_store import current_store
+
+
+def _envelope(value: object) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): item for key, item in value.items()}
+
+
+@activity.defn(name="accept_routine_event")
+async def accept_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    store = current_store()
+    return accept_routine_event(
+        store,
+        routine_id=uuid.UUID(str(payload["routine_id"])),
+        source=str(payload.get("source") or "schedule"),
+        idempotency_key=str(payload.get("idempotency_key") or payload.get("event_id") or ""),
+        envelope=_envelope(payload.get("envelope")),
+    )
+
+
+@activity.defn(name="prepare_routine_run")
+async def prepare_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    return prepare_routine_run(
+        current_store(),
+        uuid.UUID(str(payload["routine_id"])),
+        uuid.UUID(str(payload["event_id"])),
+    )
+
+
+@activity.defn(name="complete_routine_event")
+async def complete_activity(payload: dict[str, Any]) -> dict[str, Any]:
+    return complete_routine_event(
+        current_store(),
+        uuid.UUID(str(payload["event_id"])),
+        run_status=str(payload.get("run_status") or "completed"),
+    )
+
+
+@activity.defn(name="reconcile_routine_schedules")
+async def reconcile_activity() -> dict[str, int]:
+    return reconcile_schedules(current_store())
+
+
+@workflow.defn(name="RoutineRunWorkflow")
+class RoutineRunWorkflow:
+    """Accept an event, run the agent, then record delivery."""
+
+    @workflow.run
+    async def run(self, payload: dict[str, Any]) -> dict[str, Any]:
+        accepted = await workflow.execute_activity(
+            accept_activity,
+            payload,
+            start_to_close_timeout=timedelta(seconds=30),
+        )
+        if not isinstance(accepted, dict) or accepted.get("status") != "accepted":
+            return accepted if isinstance(accepted, dict) else {"status": "missing"}
+        prepared = await workflow.execute_activity(
+            prepare_activity,
+            {"routine_id": payload["routine_id"], "event_id": accepted["event_id"]},
+            start_to_close_timeout=timedelta(seconds=30),
+        )
+        if not isinstance(prepared, dict) or prepared.get("status") != "ready":
+            return prepared if isinstance(prepared, dict) else {"status": "missing"}
+        queue = str(payload.get("runtime_queue") or "ar-runtime")
+        child = await workflow.execute_child_workflow(
+            "AgentRunWorkflow",
+            {
+                "run_id": prepared["run_id"],
+                "text": prepared.get("text") or "",
+                "names": [],
+            },
+            id=f"run-{prepared['run_id']}",
+            task_queue=queue,
+        )
+        status = "completed"
+        if isinstance(child, dict) and child.get("status"):
+            status = str(child["status"])
+        return await workflow.execute_activity(
+            complete_activity,
+            {"event_id": accepted["event_id"], "run_status": status},
+            start_to_close_timeout=timedelta(seconds=30),
+        )
+
+
+@workflow.defn(name="RoutineReconcileWorkflow")
+class RoutineReconcileWorkflow:
+    """Hourly repair of Temporal schedule ids."""
+
+    @workflow.run
+    async def run(self) -> dict[str, int]:
+        return await workflow.execute_activity(
+            reconcile_activity,
+            start_to_close_timeout=timedelta(seconds=30),
+        )

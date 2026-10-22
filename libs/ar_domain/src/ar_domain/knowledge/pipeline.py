@@ -90,6 +90,9 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
     document["error"] = None
     _stats(store, collection)
     INGEST_DOCUMENTS.labels(kind="upload", result="indexed").inc()
+    from ar_domain.routines.engine import on_document_changed  # noqa: PLC0415
+
+    on_document_changed(store, document)
     return "indexed"
 
 

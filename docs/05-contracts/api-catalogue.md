@@ -404,9 +404,9 @@ Spec: [15-routines-triggers.md](../03-specs/15-routines-triggers.md)
 | Method | Path | Permission | Section |
 |---|---|---|---|
 | GET | [`/api/v1/routines`](../03-specs/15-routines-triggers.md#get-apiv1routines) | `routines:create` | 5. Public API |
-| POST | [`/api/v1/routines`](../03-specs/15-routines-triggers.md#post-apiv1routines) | `routines:manage_all` | 5. Public API |
+| POST | [`/api/v1/routines`](../03-specs/15-routines-triggers.md#post-apiv1routines) | `routines:create` | 5. Public API |
 | GET | [`/api/v1/routines/{routine_id}`](../03-specs/15-routines-triggers.md#get-apiv1routinesroutine_id) | `routines:create` | 5. Public API |
-| PATCH | [`/api/v1/routines/{routine_id}`](../03-specs/15-routines-triggers.md#patch-apiv1routinesroutine_id) | `routines:manage_all` | 5. Public API |
+| PATCH | [`/api/v1/routines/{routine_id}`](../03-specs/15-routines-triggers.md#patch-apiv1routinesroutine_id) | `routines:create` | 5. Public API |
 | DELETE | [`/api/v1/routines/{routine_id}`](../03-specs/15-routines-triggers.md#delete-apiv1routinesroutine_id) | `routines:create` | 5. Public API |
 | POST | [`/api/v1/routines/{routine_id}:run`](../03-specs/15-routines-triggers.md#post-apiv1routinesroutine_idrun) | `routines:create` | 5. Public API |
 | POST | [`/api/v1/routines/{routine_id}:pause`](../03-specs/15-routines-triggers.md#post-apiv1routinesroutine_idpause) | `routines:create` | 5. Public API |
@@ -415,7 +415,7 @@ Spec: [15-routines-triggers.md](../03-specs/15-routines-triggers.md)
 | POST | [`/api/v1/routines/{routine_id}:rotate-webhook-secret`](../03-specs/15-routines-triggers.md#post-apiv1routinesroutine_idrotate-webhook-secret) | `routines:create` | 5. Public API |
 | GET | [`/api/v1/routines/{routine_id}/events`](../03-specs/15-routines-triggers.md#get-apiv1routinesroutine_idevents) | `routines:create` | 5. Public API |
 | POST | [`/api/v1/routines:preview-schedule`](../03-specs/15-routines-triggers.md#post-apiv1routinespreview-schedule) | `routines:create` | 5. Public API |
-| POST | [`/api/v1/hooks/routines/{token}`](../03-specs/15-routines-triggers.md#post-apiv1hooksroutinestoken) | `routines:create` | 5. Public API |
+| POST | [`/api/v1/hooks/routines/{token}`](../03-specs/15-routines-triggers.md#post-apiv1hooksroutinestoken) | public | 5. Public API |
 
 ## Spec 16: Channels (`channels`, `ar_domain.channels`)
 

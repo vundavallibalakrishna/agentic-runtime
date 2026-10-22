@@ -170,6 +170,9 @@ class IdentityService:
                 await self._revoke_user_keys(user_id)
                 await self.store.audit(AuditAction.USER_SUSPENDED, "user", str(user_id), {})
                 await self.store.emit("user.deprovisioned", {"user_id": str(user_id)})
+                from ar_domain.routines.engine import pause_for_owner  # noqa: PLC0415
+
+                pause_for_owner(self.store, user.tenant_id, user_id)
         if attributes is not None:
             user.attributes = {**user.attributes, **attributes}
         return user
