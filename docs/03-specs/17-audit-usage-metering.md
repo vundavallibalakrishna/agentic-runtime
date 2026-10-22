@@ -71,7 +71,7 @@ Temporal Schedule `usage-rollup` every 15 min: for each tenant with new events s
 `usage:read`. Same filters, `format=csv` (UTF-8, header row) streaming; columns `day, metric, user_email, team, agent_slug, model_alias, quantity, cost_micros, currency`. Used for chargeback/billing.
 
 #### GET /api/v1/me/usage
-Any user: own usage summary for the current month and applicable quotas (`{quotas: [{metric, period, limit, used, resets_at}]}`).
+Any user: own usage summary for the current month and applicable quotas (`{quotas: [{id, metric, period, limit, used, resets_at}]}`).
 
 #### GET /api/v1/quotas
 `usage:read`. Items `Quota {id, scope_type, scope: {id, name}|null, metric, period, limit_value, action, warn_at_pct, used, resets_at}`.

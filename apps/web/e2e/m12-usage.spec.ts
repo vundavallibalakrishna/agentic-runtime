@@ -68,10 +68,9 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     await page.goto("/chat");
     await page.getByLabel("Message").fill("Show the weekly numbers");
     await page.getByRole("button", { name: "Send" }).click();
-    await expect(page.getByRole("alert").filter({ hasText: "Quota reached" })).toBeVisible({
-      timeout: 20_000,
-    });
-    await expect(page.getByRole("alert")).toContainText("is 0");
+    const blocked = page.getByRole("alert").filter({ hasText: "Quota reached" });
+    await expect(blocked).toBeVisible({ timeout: 20_000 });
+    await expect(blocked).toContainText("is 0");
     await capture(page, "blocked");
 
     const result = await new AxeBuilder({ page }).analyze();

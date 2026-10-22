@@ -393,6 +393,7 @@ class UsageBook:
     def _mine_quota(self, actor: Any, row: dict[str, object]) -> dict[str, object]:
         now = utcnow()
         return {
+            "id": str(row["id"]),
             "metric": row["metric"],
             "period": row["period"],
             "limit": _count(row.get("limit_value")),

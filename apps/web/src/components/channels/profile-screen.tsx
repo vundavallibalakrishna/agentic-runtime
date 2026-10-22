@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Meter } from "@/components/usage/meter";
 import { api } from "@/lib/api";
 
-type MineQuota = { metric: string; period: string; limit: number; used: number };
+type MineQuota = { id?: string; metric: string; period: string; limit: number; used: number };
 type Mine = {
   currency?: string;
   totals?: { quantity?: number; costMicros?: number };
@@ -111,7 +111,7 @@ export function ProfileScreen() {
         )}
         <ul className="mt-3 space-y-3">
           {(usage?.quotas ?? []).map((row) => (
-            <li key={`${row.metric}-${row.period}`}>
+            <li key={row.id ?? `${row.metric}-${row.period}-${row.limit}`}>
               <p className="mb-1 text-sm">
                 {row.metric} · {row.used.toLocaleString()} / {row.limit.toLocaleString()}
               </p>
