@@ -101,6 +101,8 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
   await capture(page, "policies");
 
   await page.goto(`/chat?agent=desk&conversation=${conversation}`);
+  await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible();
+  await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
   await page.getByLabel("Message").fill("Delete pet 1");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Waiting for approval before this tool runs.").first()).toBeVisible({
