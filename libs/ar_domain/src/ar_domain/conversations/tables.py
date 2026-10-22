@@ -168,7 +168,9 @@ class Run(Base):
     root_run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     depth: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     trigger: Mapped[str] = mapped_column(Text, nullable=False)
-    routine_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    routine_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("routines.id", name="fk_runs_routine", ondelete="SET NULL")
+    )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )

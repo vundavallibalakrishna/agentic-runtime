@@ -117,3 +117,8 @@ M9-T03 | done | 544422f | skills.load, sandbox assets, loaded skills
 M9-T04 | done | 544422f | skills editor, trace graph, visual test
 
 M10-T00 | done | e5e55c3 | durable process-store cutover
+M10-T01 | done | 29540c8 | routines schema and API
+M10-T02 | done | 29540c8 | routine run workflow
+M10-T03 | done | 29540c8 | webhooks, polls, channel events
+M10-T04 | done | 29540c8 | delivery tools
+M10-T05 | done | 29540c8 | routines web UI

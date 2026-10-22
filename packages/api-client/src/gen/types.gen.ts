@@ -265,6 +265,28 @@ export type BulkItem = {
 };
 
 /**
+ * ChannelEventBody
+ */
+export type ChannelEventBody = {
+    /**
+     * Event
+     */
+    event?: string;
+    /**
+     * Integrationid
+     */
+    integrationId?: string;
+    /**
+     * Externaleventid
+     */
+    externalEventId?: string;
+    /**
+     * Messageid
+     */
+    messageId?: string;
+};
+
+/**
  * CheckBody
  */
 export type CheckBody = {
@@ -586,6 +608,34 @@ export type CredentialProviderPatch = {
     extra?: {
         [key: string]: unknown;
     } | null;
+};
+
+/**
+ * DeliveryBody
+ */
+export type DeliveryBody = {
+    /**
+     * Type
+     */
+    type: string;
+    /**
+     * Integration
+     */
+    integration?: string | null;
+    /**
+     * Channel
+     */
+    channel?: string | null;
+    /**
+     * Preapproved
+     */
+    preApproved?: boolean;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: string;
+    };
 };
 
 /**
@@ -1103,6 +1153,20 @@ export type PolicyPatch = {
 };
 
 /**
+ * PreviewBody
+ */
+export type PreviewBody = {
+    /**
+     * Cron
+     */
+    cron: string;
+    /**
+     * Timezone
+     */
+    timezone: string;
+};
+
+/**
  * ProbeBody
  */
 export type ProbeBody = {
@@ -1310,6 +1374,104 @@ export type RollbackBody = {
      * Changenote
      */
     changeNote?: string;
+};
+
+/**
+ * RoutineBody
+ */
+export type RoutineBody = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Agentid
+     */
+    agentId: string;
+    /**
+     * Agentversionid
+     */
+    agentVersionId?: string | null;
+    /**
+     * Instructions
+     */
+    instructions: string;
+    trigger: TriggerBody;
+    /**
+     * Eventfilter
+     */
+    eventFilter?: string | null;
+    /**
+     * Delivery
+     */
+    delivery?: Array<DeliveryBody>;
+    /**
+     * Budget
+     */
+    budget?: {
+        [key: string]: number;
+    } | null;
+    /**
+     * Maxrunsperday
+     */
+    maxRunsPerDay?: number | null;
+    /**
+     * Concurrencypolicy
+     */
+    concurrencyPolicy?: string | null;
+    /**
+     * Runas
+     */
+    runAs?: string | null;
+    /**
+     * Serviceaccountid
+     */
+    serviceAccountId?: string | null;
+};
+
+/**
+ * RoutinePatch
+ */
+export type RoutinePatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Instructions
+     */
+    instructions?: string | null;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+    trigger?: TriggerBody | null;
+    /**
+     * Delivery
+     */
+    delivery?: Array<DeliveryBody> | null;
+};
+
+/**
+ * RoutineRunBody
+ */
+export type RoutineRunBody = {
+    /**
+     * Input
+     */
+    input?: string | null;
+    /**
+     * Test
+     */
+    test?: boolean;
 };
 
 /**
@@ -2015,6 +2177,48 @@ export type ToolReasonBody = {
      * Reason
      */
     reason?: string;
+};
+
+/**
+ * TransferBody
+ */
+export type TransferBody = {
+    /**
+     * Newowneruserid
+     */
+    newOwnerUserId: string;
+};
+
+/**
+ * TriggerBody
+ */
+export type TriggerBody = {
+    /**
+     * Type
+     */
+    type: string;
+    /**
+     * Cron
+     */
+    cron?: string | null;
+    /**
+     * Timezone
+     */
+    timezone?: string | null;
+    /**
+     * Jitters
+     */
+    jitterS?: number;
+    /**
+     * Catchupwindows
+     */
+    catchupWindowS?: number;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: string;
+    };
 };
 
 /**
@@ -12233,3 +12437,470 @@ export type RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponse
 };
 
 export type RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponse = RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponses[keyof RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponses];
+
+export type ListRoutinesApiV1RoutinesGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Status
+         */
+        status?: string;
+        /**
+         * Owner
+         */
+        owner?: string;
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+        /**
+         * Trigger Type
+         */
+        trigger_type?: string;
+    };
+    url: '/api/v1/routines';
+};
+
+export type ListRoutinesApiV1RoutinesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListRoutinesApiV1RoutinesGetError = ListRoutinesApiV1RoutinesGetErrors[keyof ListRoutinesApiV1RoutinesGetErrors];
+
+export type ListRoutinesApiV1RoutinesGetResponses = {
+    /**
+     * Response List Routines Api V1 Routines Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListRoutinesApiV1RoutinesGetResponse = ListRoutinesApiV1RoutinesGetResponses[keyof ListRoutinesApiV1RoutinesGetResponses];
+
+export type CreateRoutineApiV1RoutinesPostData = {
+    body: RoutineBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/routines';
+};
+
+export type CreateRoutineApiV1RoutinesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateRoutineApiV1RoutinesPostError = CreateRoutineApiV1RoutinesPostErrors[keyof CreateRoutineApiV1RoutinesPostErrors];
+
+export type CreateRoutineApiV1RoutinesPostResponses = {
+    /**
+     * Response Create Routine Api V1 Routines Post
+     *
+     * Successful Response
+     */
+    201: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateRoutineApiV1RoutinesPostResponse = CreateRoutineApiV1RoutinesPostResponses[keyof CreateRoutineApiV1RoutinesPostResponses];
+
+export type PreviewScheduleApiV1RoutinesPreviewSchedulePostData = {
+    body: PreviewBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/routines:preview-schedule';
+};
+
+export type PreviewScheduleApiV1RoutinesPreviewSchedulePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PreviewScheduleApiV1RoutinesPreviewSchedulePostError = PreviewScheduleApiV1RoutinesPreviewSchedulePostErrors[keyof PreviewScheduleApiV1RoutinesPreviewSchedulePostErrors];
+
+export type PreviewScheduleApiV1RoutinesPreviewSchedulePostResponses = {
+    /**
+     * Response Preview Schedule Api V1 Routines Preview Schedule Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PreviewScheduleApiV1RoutinesPreviewSchedulePostResponse = PreviewScheduleApiV1RoutinesPreviewSchedulePostResponses[keyof PreviewScheduleApiV1RoutinesPreviewSchedulePostResponses];
+
+export type DeleteRoutineApiV1RoutinesRoutineIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}';
+};
+
+export type DeleteRoutineApiV1RoutinesRoutineIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteRoutineApiV1RoutinesRoutineIdDeleteError = DeleteRoutineApiV1RoutinesRoutineIdDeleteErrors[keyof DeleteRoutineApiV1RoutinesRoutineIdDeleteErrors];
+
+export type DeleteRoutineApiV1RoutinesRoutineIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteRoutineApiV1RoutinesRoutineIdDeleteResponse = DeleteRoutineApiV1RoutinesRoutineIdDeleteResponses[keyof DeleteRoutineApiV1RoutinesRoutineIdDeleteResponses];
+
+export type GetRoutineApiV1RoutinesRoutineIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}';
+};
+
+export type GetRoutineApiV1RoutinesRoutineIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetRoutineApiV1RoutinesRoutineIdGetError = GetRoutineApiV1RoutinesRoutineIdGetErrors[keyof GetRoutineApiV1RoutinesRoutineIdGetErrors];
+
+export type GetRoutineApiV1RoutinesRoutineIdGetResponses = {
+    /**
+     * Response Get Routine Api V1 Routines  Routine Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetRoutineApiV1RoutinesRoutineIdGetResponse = GetRoutineApiV1RoutinesRoutineIdGetResponses[keyof GetRoutineApiV1RoutinesRoutineIdGetResponses];
+
+export type PatchRoutineApiV1RoutinesRoutineIdPatchData = {
+    body: RoutinePatch;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}';
+};
+
+export type PatchRoutineApiV1RoutinesRoutineIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchRoutineApiV1RoutinesRoutineIdPatchError = PatchRoutineApiV1RoutinesRoutineIdPatchErrors[keyof PatchRoutineApiV1RoutinesRoutineIdPatchErrors];
+
+export type PatchRoutineApiV1RoutinesRoutineIdPatchResponses = {
+    /**
+     * Response Patch Routine Api V1 Routines  Routine Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchRoutineApiV1RoutinesRoutineIdPatchResponse = PatchRoutineApiV1RoutinesRoutineIdPatchResponses[keyof PatchRoutineApiV1RoutinesRoutineIdPatchResponses];
+
+export type RunRoutineApiV1RoutinesRoutineIdRunPostData = {
+    body: RoutineRunBody;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}:run';
+};
+
+export type RunRoutineApiV1RoutinesRoutineIdRunPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RunRoutineApiV1RoutinesRoutineIdRunPostError = RunRoutineApiV1RoutinesRoutineIdRunPostErrors[keyof RunRoutineApiV1RoutinesRoutineIdRunPostErrors];
+
+export type RunRoutineApiV1RoutinesRoutineIdRunPostResponses = {
+    /**
+     * Response Run Routine Api V1 Routines  Routine Id  Run Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type RunRoutineApiV1RoutinesRoutineIdRunPostResponse = RunRoutineApiV1RoutinesRoutineIdRunPostResponses[keyof RunRoutineApiV1RoutinesRoutineIdRunPostResponses];
+
+export type PauseRoutineApiV1RoutinesRoutineIdPausePostData = {
+    body?: never;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}:pause';
+};
+
+export type PauseRoutineApiV1RoutinesRoutineIdPausePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PauseRoutineApiV1RoutinesRoutineIdPausePostError = PauseRoutineApiV1RoutinesRoutineIdPausePostErrors[keyof PauseRoutineApiV1RoutinesRoutineIdPausePostErrors];
+
+export type PauseRoutineApiV1RoutinesRoutineIdPausePostResponses = {
+    /**
+     * Response Pause Routine Api V1 Routines  Routine Id  Pause Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PauseRoutineApiV1RoutinesRoutineIdPausePostResponse = PauseRoutineApiV1RoutinesRoutineIdPausePostResponses[keyof PauseRoutineApiV1RoutinesRoutineIdPausePostResponses];
+
+export type ResumeRoutineApiV1RoutinesRoutineIdResumePostData = {
+    body?: never;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}:resume';
+};
+
+export type ResumeRoutineApiV1RoutinesRoutineIdResumePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResumeRoutineApiV1RoutinesRoutineIdResumePostError = ResumeRoutineApiV1RoutinesRoutineIdResumePostErrors[keyof ResumeRoutineApiV1RoutinesRoutineIdResumePostErrors];
+
+export type ResumeRoutineApiV1RoutinesRoutineIdResumePostResponses = {
+    /**
+     * Response Resume Routine Api V1 Routines  Routine Id  Resume Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ResumeRoutineApiV1RoutinesRoutineIdResumePostResponse = ResumeRoutineApiV1RoutinesRoutineIdResumePostResponses[keyof ResumeRoutineApiV1RoutinesRoutineIdResumePostResponses];
+
+export type TransferRoutineApiV1RoutinesRoutineIdTransferPostData = {
+    body: TransferBody;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}:transfer';
+};
+
+export type TransferRoutineApiV1RoutinesRoutineIdTransferPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TransferRoutineApiV1RoutinesRoutineIdTransferPostError = TransferRoutineApiV1RoutinesRoutineIdTransferPostErrors[keyof TransferRoutineApiV1RoutinesRoutineIdTransferPostErrors];
+
+export type TransferRoutineApiV1RoutinesRoutineIdTransferPostResponses = {
+    /**
+     * Response Transfer Routine Api V1 Routines  Routine Id  Transfer Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TransferRoutineApiV1RoutinesRoutineIdTransferPostResponse = TransferRoutineApiV1RoutinesRoutineIdTransferPostResponses[keyof TransferRoutineApiV1RoutinesRoutineIdTransferPostResponses];
+
+export type RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostData = {
+    body?: never;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}:rotate-webhook-secret';
+};
+
+export type RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostError = RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostErrors[keyof RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostErrors];
+
+export type RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostResponses = {
+    /**
+     * Response Rotate Secret Api V1 Routines  Routine Id  Rotate Webhook Secret Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostResponse = RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostResponses[keyof RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostResponses];
+
+export type ListEventsApiV1RoutinesRoutineIdEventsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}/events';
+};
+
+export type ListEventsApiV1RoutinesRoutineIdEventsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListEventsApiV1RoutinesRoutineIdEventsGetError = ListEventsApiV1RoutinesRoutineIdEventsGetErrors[keyof ListEventsApiV1RoutinesRoutineIdEventsGetErrors];
+
+export type ListEventsApiV1RoutinesRoutineIdEventsGetResponses = {
+    /**
+     * Response List Events Api V1 Routines  Routine Id  Events Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListEventsApiV1RoutinesRoutineIdEventsGetResponse = ListEventsApiV1RoutinesRoutineIdEventsGetResponses[keyof ListEventsApiV1RoutinesRoutineIdEventsGetResponses];
+
+export type RoutineWebhookApiV1HooksRoutinesTokenPostData = {
+    body?: never;
+    path: {
+        /**
+         * Token
+         */
+        token: string;
+    };
+    query?: never;
+    url: '/api/v1/hooks/routines/{token}';
+};
+
+export type RoutineWebhookApiV1HooksRoutinesTokenPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RoutineWebhookApiV1HooksRoutinesTokenPostError = RoutineWebhookApiV1HooksRoutinesTokenPostErrors[keyof RoutineWebhookApiV1HooksRoutinesTokenPostErrors];
+
+export type RoutineWebhookApiV1HooksRoutinesTokenPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ChannelEventsInternalV1ChannelsEventsPostData = {
+    body: ChannelEventBody;
+    path?: never;
+    query?: never;
+    url: '/internal/v1/channels/events';
+};
+
+export type ChannelEventsInternalV1ChannelsEventsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChannelEventsInternalV1ChannelsEventsPostError = ChannelEventsInternalV1ChannelsEventsPostErrors[keyof ChannelEventsInternalV1ChannelsEventsPostErrors];
+
+export type ChannelEventsInternalV1ChannelsEventsPostResponses = {
+    /**
+     * Response Channel Events Internal V1 Channels Events Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ChannelEventsInternalV1ChannelsEventsPostResponse = ChannelEventsInternalV1ChannelsEventsPostResponses[keyof ChannelEventsInternalV1ChannelsEventsPostResponses];

@@ -155,6 +155,13 @@ class ChatService:
     user_groups: dict[uuid.UUID, list[str]] = field(default_factory=dict)
     display_names: dict[uuid.UUID, str] = field(default_factory=dict)
     routines: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    routine_events: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    routine_daily: dict[str, int] = field(default_factory=dict)
+    user_statuses: dict[uuid.UUID, str] = field(default_factory=dict)
+    reauth_users: set[uuid.UUID] = field(default_factory=set)
+    delegation_tokens: set[uuid.UUID] = field(default_factory=set)
+    temporal_schedules: dict[str, dict[str, object]] = field(default_factory=dict)
+    delivery_posts: list[dict[str, object]] = field(default_factory=list)
     approval_lock: threading.Lock = field(default_factory=threading.Lock)
     opa_url: str = ""
     opa_timeout_ms: int = 200
@@ -239,6 +246,7 @@ class ChatService:
             self._seed_library(tenant_id, user_id)
             self._seed_memory(tenant_id, user_id)
             self._seed_composition(tenant_id, user_id)
+            self._seed_routines(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -350,6 +358,12 @@ class ChatService:
         self._seed_library(tenant_id, user_id)
         self._seed_memory(tenant_id, user_id)
         self._seed_composition(tenant_id, user_id)
+        self._seed_routines(tenant_id, user_id)
+
+    def _seed_routines(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.routines.showcase import seed_routines  # noqa: PLC0415
+
+        seed_routines(self, tenant_id, user_id)
 
     def _seed_composition(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.skills.showcase import seed_composition  # noqa: PLC0415

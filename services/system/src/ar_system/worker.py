@@ -25,6 +25,15 @@ async def run_worker() -> None:
 
     from ar_system.main import TASK_QUEUE  # noqa: PLC0415
     from ar_system.workflows.memory_extraction import MemoryExtractionWorkflow  # noqa: PLC0415
+    from ar_system.workflows.routine_poll import RoutinePollWorkflow, poll_activity  # noqa: PLC0415
+    from ar_system.workflows.routine_run import (  # noqa: PLC0415
+        RoutineReconcileWorkflow,
+        RoutineRunWorkflow,
+        accept_activity,
+        complete_activity,
+        prepare_activity,
+        reconcile_activity,
+    )
     from ar_system.workflows.sandbox_reaper import SandboxReaperWorkflow, reap_sandboxes  # noqa: PLC0415
 
     while True:
@@ -33,8 +42,21 @@ async def run_worker() -> None:
             worker = Worker(
                 client,
                 task_queue=TASK_QUEUE,
-                workflows=[SandboxReaperWorkflow, MemoryExtractionWorkflow],
-                activities=[reap_sandboxes],
+                workflows=[
+                    SandboxReaperWorkflow,
+                    MemoryExtractionWorkflow,
+                    RoutineRunWorkflow,
+                    RoutinePollWorkflow,
+                    RoutineReconcileWorkflow,
+                ],
+                activities=[
+                    reap_sandboxes,
+                    accept_activity,
+                    prepare_activity,
+                    complete_activity,
+                    poll_activity,
+                    reconcile_activity,
+                ],
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)
             await worker.run()

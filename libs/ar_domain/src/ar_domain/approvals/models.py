@@ -135,7 +135,9 @@ class StandingApproval(Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE")
     )
-    routine_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    routine_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("routines.id", name="fk_sa_routine", ondelete="CASCADE")
+    )
     tool_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tools.id", ondelete="CASCADE"), nullable=False
     )
