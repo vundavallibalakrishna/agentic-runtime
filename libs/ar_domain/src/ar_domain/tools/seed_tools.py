@@ -68,6 +68,7 @@ PETSTORE: dict[str, object] = {
 
 def seed(store: Any) -> None:
     """Insert built-ins, the ticket server, petstore and the warehouse."""
+    import ar_domain.knowledge.resolver  # noqa: PLC0415
     import ar_domain.sandboxes.resolver  # noqa: PLC0415
     import ar_domain.tools.resolvers  # noqa: F401, PLC0415
     from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
@@ -91,6 +92,7 @@ def seed(store: Any) -> None:
     _reviews(store, tenant)
     _sandbox_server(store)
     _browser_server(store)
+    _knowledge_server(store)
     _analyst(store, tenant, admin)
     store.tools_seeded = True
 
@@ -561,6 +563,50 @@ def _file_tools() -> list[dict[str, object]]:
             "W1",
         ),
     ]
+
+
+def _knowledge_server(store: Any) -> None:
+    _builtin(
+        store,
+        "knowledge",
+        "Knowledge",
+        "builtin://knowledge",
+        [
+            _tool(
+                "search",
+                "Search knowledge",
+                "Search collections the signed-in person can read.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "collection_ids": {"type": "array", "items": {"type": "string"}},
+                        "top_k": {"type": "integer"},
+                    },
+                    "required": ["query"],
+                },
+                "R0",
+            ),
+            _tool(
+                "get_document",
+                "Read a document",
+                "Read the summary of a document the person can access.",
+                {
+                    "type": "object",
+                    "properties": {"document_id": {"type": "string"}},
+                    "required": ["document_id"],
+                },
+                "R0",
+            ),
+            _tool(
+                "list_collections",
+                "List collections",
+                "List knowledge collections the person can see.",
+                {"type": "object", "properties": {}},
+                "R0",
+            ),
+        ],
+    )
 
 
 def _sandbox_server(store: Any) -> None:

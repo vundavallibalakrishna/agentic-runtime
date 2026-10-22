@@ -273,6 +273,92 @@ export type CheckBody = {
 };
 
 /**
+ * CollectionBody
+ */
+export type CollectionBody = {
+    /**
+     * Slug
+     */
+    slug?: string;
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Visibility
+     */
+    visibility?: string;
+    /**
+     * Ownerteamid
+     */
+    ownerTeamId?: string | null;
+    /**
+     * Aclmode
+     */
+    aclMode?: string;
+    /**
+     * Sensitivity
+     */
+    sensitivity?: string;
+    /**
+     * Classification
+     */
+    classification?: string;
+    /**
+     * Embeddingalias
+     */
+    embeddingAlias?: string;
+    /**
+     * Textsearchconfig
+     */
+    textSearchConfig?: string;
+    /**
+     * Chunking
+     */
+    chunking?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Dims
+     */
+    dims?: number;
+};
+
+/**
+ * CollectionPatch
+ */
+export type CollectionPatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Visibility
+     */
+    visibility?: string | null;
+    /**
+     * Ownerteamid
+     */
+    ownerTeamId?: string | null;
+    /**
+     * Sensitivity
+     */
+    sensitivity?: string | null;
+    /**
+     * Classification
+     */
+    classification?: string | null;
+};
+
+/**
  * ConnectionBody
  */
 export type ConnectionBody = {
@@ -514,6 +600,20 @@ export type DisableBody = {
      * Cancelactive
      */
     cancelActive?: boolean;
+};
+
+/**
+ * DocumentBody
+ */
+export type DocumentBody = {
+    /**
+     * Fileids
+     */
+    fileIds?: Array<string>;
+    /**
+     * Aclprincipals
+     */
+    aclPrincipals?: Array<string> | null;
 };
 
 /**
@@ -1053,6 +1153,30 @@ export type ReasonBody = {
 };
 
 /**
+ * ReindexBody
+ */
+export type ReindexBody = {
+    /**
+     * Embeddingalias
+     */
+    embeddingAlias?: string | null;
+    /**
+     * Chunking
+     */
+    chunking?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Textsearchconfig
+     */
+    textSearchConfig?: string | null;
+    /**
+     * Targetbackend
+     */
+    targetBackend?: string | null;
+};
+
+/**
  * ReviewDecideBody
  */
 export type ReviewDecideBody = {
@@ -1156,6 +1280,28 @@ export type RunBody = {
      * Wait
      */
     wait?: boolean;
+};
+
+/**
+ * SearchBody
+ */
+export type SearchBody = {
+    /**
+     * Query
+     */
+    query?: string;
+    /**
+     * Collectionids
+     */
+    collectionIds?: Array<string>;
+    /**
+     * Topk
+     */
+    topK?: number;
+    /**
+     * Debug
+     */
+    debug?: boolean;
 };
 
 /**
@@ -1364,6 +1510,62 @@ export type SimulateBody = {
 };
 
 /**
+ * SourceBody
+ */
+export type SourceBody = {
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Kind
+     */
+    kind?: string;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Secretid
+     */
+    secretId?: string | null;
+    /**
+     * Dataconnectionid
+     */
+    dataConnectionId?: string | null;
+    /**
+     * Syncschedule
+     */
+    syncSchedule?: string | null;
+    /**
+     * Aclsyncschedule
+     */
+    aclSyncSchedule?: string | null;
+};
+
+/**
+ * SourcePatch
+ */
+export type SourcePatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Syncschedule
+     */
+    syncSchedule?: string | null;
+};
+
+/**
  * StandingBody
  */
 export type StandingBody = {
@@ -1393,6 +1595,16 @@ export type StandingBody = {
      * Expiresat
      */
     expiresAt: string;
+};
+
+/**
+ * SyncBody
+ */
+export type SyncBody = {
+    /**
+     * Mode
+     */
+    mode?: string;
 };
 
 /**
@@ -6705,6 +6917,44 @@ export type ActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActi
 
 export type ActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActivatePostResponse = ActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActivatePostResponses[keyof ActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActivatePostResponses];
 
+export type MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetData = {
+    body?: never;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+        /**
+         * Message Id
+         */
+        message_id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{conversation_id}/messages/{message_id}/grounding';
+};
+
+export type MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetError = MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetErrors[keyof MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetErrors];
+
+export type MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponses = {
+    /**
+     * Response Message Grounding Api V1 Conversations  Conversation Id  Messages  Message Id  Grounding Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponse = MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponses[keyof MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponses];
+
 export type DeleteFeedbackApiV1MessagesMessageIdFeedbackDeleteData = {
     body?: never;
     path: {
@@ -10090,3 +10340,842 @@ export type ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponses = {
 };
 
 export type ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponse = ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponses[keyof ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponses];
+
+export type ListCollectionsApiV1KnowledgeCollectionsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/knowledge/collections';
+};
+
+export type ListCollectionsApiV1KnowledgeCollectionsGetResponses = {
+    /**
+     * Response List Collections Api V1 Knowledge Collections Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListCollectionsApiV1KnowledgeCollectionsGetResponse = ListCollectionsApiV1KnowledgeCollectionsGetResponses[keyof ListCollectionsApiV1KnowledgeCollectionsGetResponses];
+
+export type CreateCollectionApiV1KnowledgeCollectionsPostData = {
+    body: CollectionBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/knowledge/collections';
+};
+
+export type CreateCollectionApiV1KnowledgeCollectionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateCollectionApiV1KnowledgeCollectionsPostError = CreateCollectionApiV1KnowledgeCollectionsPostErrors[keyof CreateCollectionApiV1KnowledgeCollectionsPostErrors];
+
+export type CreateCollectionApiV1KnowledgeCollectionsPostResponses = {
+    /**
+     * Response Create Collection Api V1 Knowledge Collections Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateCollectionApiV1KnowledgeCollectionsPostResponse = CreateCollectionApiV1KnowledgeCollectionsPostResponses[keyof CreateCollectionApiV1KnowledgeCollectionsPostResponses];
+
+export type DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}';
+};
+
+export type DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteError = DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteErrors[keyof DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteErrors];
+
+export type DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteResponses = {
+    /**
+     * Response Delete Collection Api V1 Knowledge Collections  Collection Id  Delete
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteResponse = DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteResponses[keyof DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteResponses];
+
+export type GetCollectionApiV1KnowledgeCollectionsCollectionIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}';
+};
+
+export type GetCollectionApiV1KnowledgeCollectionsCollectionIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetCollectionApiV1KnowledgeCollectionsCollectionIdGetError = GetCollectionApiV1KnowledgeCollectionsCollectionIdGetErrors[keyof GetCollectionApiV1KnowledgeCollectionsCollectionIdGetErrors];
+
+export type GetCollectionApiV1KnowledgeCollectionsCollectionIdGetResponses = {
+    /**
+     * Response Get Collection Api V1 Knowledge Collections  Collection Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetCollectionApiV1KnowledgeCollectionsCollectionIdGetResponse = GetCollectionApiV1KnowledgeCollectionsCollectionIdGetResponses[keyof GetCollectionApiV1KnowledgeCollectionsCollectionIdGetResponses];
+
+export type PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchData = {
+    body: CollectionPatch;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}';
+};
+
+export type PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchError = PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchErrors[keyof PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchErrors];
+
+export type PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponses = {
+    /**
+     * Response Patch Collection Api V1 Knowledge Collections  Collection Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponse = PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponses[keyof PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponses];
+
+export type ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostData = {
+    body: ReindexBody;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}:reindex';
+};
+
+export type ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostError = ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostErrors[keyof ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostErrors];
+
+export type ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostResponses = {
+    /**
+     * Response Reindex Collection Api V1 Knowledge Collections  Collection Id  Reindex Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostResponse = ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostResponses[keyof ReindexCollectionApiV1KnowledgeCollectionsCollectionIdReindexPostResponses];
+
+export type ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetData = {
+    body?: never;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}/sources';
+};
+
+export type ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetError = ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetErrors[keyof ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetErrors];
+
+export type ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponses = {
+    /**
+     * Response List Sources Api V1 Knowledge Collections  Collection Id  Sources Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponse = ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponses[keyof ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponses];
+
+export type CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostData = {
+    body: SourceBody;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}/sources';
+};
+
+export type CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostError = CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostErrors[keyof CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostErrors];
+
+export type CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostResponses = {
+    /**
+     * Response Create Source Api V1 Knowledge Collections  Collection Id  Sources Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostResponse = CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostResponses[keyof CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostResponses];
+
+export type DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/sources/{source_id}';
+};
+
+export type DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteError = DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteErrors[keyof DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteErrors];
+
+export type DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteResponses = {
+    /**
+     * Response Delete Source Api V1 Knowledge Sources  Source Id  Delete
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteResponse = DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteResponses[keyof DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteResponses];
+
+export type GetSourceApiV1KnowledgeSourcesSourceIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/sources/{source_id}';
+};
+
+export type GetSourceApiV1KnowledgeSourcesSourceIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSourceApiV1KnowledgeSourcesSourceIdGetError = GetSourceApiV1KnowledgeSourcesSourceIdGetErrors[keyof GetSourceApiV1KnowledgeSourcesSourceIdGetErrors];
+
+export type GetSourceApiV1KnowledgeSourcesSourceIdGetResponses = {
+    /**
+     * Response Get Source Api V1 Knowledge Sources  Source Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetSourceApiV1KnowledgeSourcesSourceIdGetResponse = GetSourceApiV1KnowledgeSourcesSourceIdGetResponses[keyof GetSourceApiV1KnowledgeSourcesSourceIdGetResponses];
+
+export type PatchSourceApiV1KnowledgeSourcesSourceIdPatchData = {
+    body: SourcePatch;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/sources/{source_id}';
+};
+
+export type PatchSourceApiV1KnowledgeSourcesSourceIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchSourceApiV1KnowledgeSourcesSourceIdPatchError = PatchSourceApiV1KnowledgeSourcesSourceIdPatchErrors[keyof PatchSourceApiV1KnowledgeSourcesSourceIdPatchErrors];
+
+export type PatchSourceApiV1KnowledgeSourcesSourceIdPatchResponses = {
+    /**
+     * Response Patch Source Api V1 Knowledge Sources  Source Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchSourceApiV1KnowledgeSourcesSourceIdPatchResponse = PatchSourceApiV1KnowledgeSourcesSourceIdPatchResponses[keyof PatchSourceApiV1KnowledgeSourcesSourceIdPatchResponses];
+
+export type TestSourceApiV1KnowledgeSourcesSourceIdTestPostData = {
+    body?: never;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/sources/{source_id}:test';
+};
+
+export type TestSourceApiV1KnowledgeSourcesSourceIdTestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TestSourceApiV1KnowledgeSourcesSourceIdTestPostError = TestSourceApiV1KnowledgeSourcesSourceIdTestPostErrors[keyof TestSourceApiV1KnowledgeSourcesSourceIdTestPostErrors];
+
+export type TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponses = {
+    /**
+     * Response Test Source Api V1 Knowledge Sources  Source Id  Test Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponse = TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponses[keyof TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponses];
+
+export type SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostData = {
+    body: SyncBody;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/sources/{source_id}:sync';
+};
+
+export type SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostError = SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostErrors[keyof SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostErrors];
+
+export type SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostResponses = {
+    /**
+     * Response Sync Source Api V1 Knowledge Sources  Source Id  Sync Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostResponse = SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostResponses[keyof SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostResponses];
+
+export type PauseSourceApiV1KnowledgeSourcesSourceIdPausePostData = {
+    body?: never;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/sources/{source_id}:pause';
+};
+
+export type PauseSourceApiV1KnowledgeSourcesSourceIdPausePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PauseSourceApiV1KnowledgeSourcesSourceIdPausePostError = PauseSourceApiV1KnowledgeSourcesSourceIdPausePostErrors[keyof PauseSourceApiV1KnowledgeSourcesSourceIdPausePostErrors];
+
+export type PauseSourceApiV1KnowledgeSourcesSourceIdPausePostResponses = {
+    /**
+     * Response Pause Source Api V1 Knowledge Sources  Source Id  Pause Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PauseSourceApiV1KnowledgeSourcesSourceIdPausePostResponse = PauseSourceApiV1KnowledgeSourcesSourceIdPausePostResponses[keyof PauseSourceApiV1KnowledgeSourcesSourceIdPausePostResponses];
+
+export type ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostData = {
+    body?: never;
+    path: {
+        /**
+         * Source Id
+         */
+        source_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/sources/{source_id}:resume';
+};
+
+export type ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostError = ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostErrors[keyof ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostErrors];
+
+export type ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponses = {
+    /**
+     * Response Resume Source Api V1 Knowledge Sources  Source Id  Resume Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponse = ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponses[keyof ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponses];
+
+export type ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: {
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Status
+         */
+        status?: string;
+        /**
+         * Source Id
+         */
+        source_id?: string | null;
+    };
+    url: '/api/v1/knowledge/collections/{collection_id}/documents';
+};
+
+export type ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetError = ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetErrors[keyof ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetErrors];
+
+export type ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetResponses = {
+    /**
+     * Response List Documents Api V1 Knowledge Collections  Collection Id  Documents Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetResponse = ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetResponses[keyof ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetResponses];
+
+export type AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostData = {
+    body: DocumentBody;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}/documents';
+};
+
+export type AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostError = AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostErrors[keyof AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostErrors];
+
+export type AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponses = {
+    /**
+     * Response Add Documents Api V1 Knowledge Collections  Collection Id  Documents Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponse = AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponses[keyof AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponses];
+
+export type DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{document_id}';
+};
+
+export type DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteError = DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteErrors[keyof DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteErrors];
+
+export type DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteResponses = {
+    /**
+     * Response Delete Document Api V1 Knowledge Documents  Document Id  Delete
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteResponse = DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteResponses[keyof DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteResponses];
+
+export type GetDocumentApiV1KnowledgeDocumentsDocumentIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{document_id}';
+};
+
+export type GetDocumentApiV1KnowledgeDocumentsDocumentIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDocumentApiV1KnowledgeDocumentsDocumentIdGetError = GetDocumentApiV1KnowledgeDocumentsDocumentIdGetErrors[keyof GetDocumentApiV1KnowledgeDocumentsDocumentIdGetErrors];
+
+export type GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponses = {
+    /**
+     * Response Get Document Api V1 Knowledge Documents  Document Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponse = GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponses[keyof GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponses];
+
+export type DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{document_id}/chunks';
+};
+
+export type DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetError = DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetErrors[keyof DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetErrors];
+
+export type DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetResponses = {
+    /**
+     * Response Document Chunks Api V1 Knowledge Documents  Document Id  Chunks Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetResponse = DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetResponses[keyof DocumentChunksApiV1KnowledgeDocumentsDocumentIdChunksGetResponses];
+
+export type ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{document_id}:reingest';
+};
+
+export type ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostError = ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostErrors[keyof ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostErrors];
+
+export type ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponses = {
+    /**
+     * Response Reingest Document Api V1 Knowledge Documents  Document Id  Reingest Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponse = ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponses[keyof ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponses];
+
+export type ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}/jobs';
+};
+
+export type ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetError = ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetErrors[keyof ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetErrors];
+
+export type ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponses = {
+    /**
+     * Response List Jobs Api V1 Knowledge Collections  Collection Id  Jobs Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponse = ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponses[keyof ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponses];
+
+export type GetJobApiV1KnowledgeJobsJobIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/jobs/{job_id}';
+};
+
+export type GetJobApiV1KnowledgeJobsJobIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetJobApiV1KnowledgeJobsJobIdGetError = GetJobApiV1KnowledgeJobsJobIdGetErrors[keyof GetJobApiV1KnowledgeJobsJobIdGetErrors];
+
+export type GetJobApiV1KnowledgeJobsJobIdGetResponses = {
+    /**
+     * Response Get Job Api V1 Knowledge Jobs  Job Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetJobApiV1KnowledgeJobsJobIdGetResponse = GetJobApiV1KnowledgeJobsJobIdGetResponses[keyof GetJobApiV1KnowledgeJobsJobIdGetResponses];
+
+export type CancelJobApiV1KnowledgeJobsJobIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/jobs/{job_id}:cancel';
+};
+
+export type CancelJobApiV1KnowledgeJobsJobIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelJobApiV1KnowledgeJobsJobIdCancelPostError = CancelJobApiV1KnowledgeJobsJobIdCancelPostErrors[keyof CancelJobApiV1KnowledgeJobsJobIdCancelPostErrors];
+
+export type CancelJobApiV1KnowledgeJobsJobIdCancelPostResponses = {
+    /**
+     * Response Cancel Job Api V1 Knowledge Jobs  Job Id  Cancel Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CancelJobApiV1KnowledgeJobsJobIdCancelPostResponse = CancelJobApiV1KnowledgeJobsJobIdCancelPostResponses[keyof CancelJobApiV1KnowledgeJobsJobIdCancelPostResponses];
+
+export type SearchApiV1KnowledgeSearchPostData = {
+    body: SearchBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/knowledge/search';
+};
+
+export type SearchApiV1KnowledgeSearchPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SearchApiV1KnowledgeSearchPostError = SearchApiV1KnowledgeSearchPostErrors[keyof SearchApiV1KnowledgeSearchPostErrors];
+
+export type SearchApiV1KnowledgeSearchPostResponses = {
+    /**
+     * Response Search Api V1 Knowledge Search Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SearchApiV1KnowledgeSearchPostResponse = SearchApiV1KnowledgeSearchPostResponses[keyof SearchApiV1KnowledgeSearchPostResponses];

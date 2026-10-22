@@ -1,9 +1,6 @@
 """Deterministic OpenAI-compatible server. Spec: docs/08-quality/testing-strategy.md §4."""
 
 import asyncio
-import hashlib
-import math
-import random
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -15,6 +12,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
 from ar_common.settings import BaseServiceSettings
+from ar_common.vectors import lexical_score, unit_vector
 from ar_common.web import create_app
 from ar_fake_llm.scripts import ChatTurn, Script, ScriptResponse, select, token_count
 
@@ -132,24 +130,6 @@ def _content_text(content: str | list[object] | None) -> str:
         elif isinstance(item, dict) and item.get("type") == "text":
             parts.append(str(item.get("text", "")))
     return "".join(parts)
-
-
-def unit_vector(text: str, dimensions: int) -> list[float]:
-    """SHA-256-seeded unit vector. Stable for the same text and dimension."""
-    seed = int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "big")
-    rng = random.Random(seed)  # noqa: S311 — deterministic embeddings, not secrets
-    raw = [rng.uniform(-1.0, 1.0) for _ in range(dimensions)]
-    norm = math.sqrt(sum(item * item for item in raw)) or 1.0
-    return [item / norm for item in raw]
-
-
-def lexical_score(query: str, document: str) -> float:
-    """Overlap of whitespace tokens, normalised by the query length."""
-    left = set(query.lower().split())
-    right = set(document.lower().split())
-    if not left:
-        return 0.0
-    return len(left & right) / len(left)
 
 
 def create_application() -> FastAPI:

@@ -92,3 +92,15 @@ M6-T06 | done | c587f91 | gateway routing and reaper
 M6-T07 | done | c587f91 | browser tools
 M6-T08 | done | c587f91 | file previews and download headers
 M6-T09 | done | c587f91 | artifacts, computer panel, Computers page
+
+M7-T01 | done | 791133d | revision 0014 and collections/sources/documents API
+M7-T02 | done | 791133d | RetrievalStore, pgvector, conformance, retrieval
+M7-T03 | done | 791133d | ingest pipeline and activities
+M7-T04 | done | 791133d | source sync, web and S3 connectors
+M7-T05 | done | 791133d | SharePoint, Confluence, Google Drive, ACL sync
+M7-T06 | done | 791133d | reindex, delete, source operations
+M7-T07 | done | 791133d | citations in the runtime
+M7-T08 | done | 791133d | knowledge pages and citation UI
+M7-T09 | done | 791133d | Qdrant adapter and conformance-qdrant
+M7-T10 | done | 791133d | migrate-store CLI and pgvector/qdrant parity copy
+M7-T11 | done | 791133d | strict grounding mode

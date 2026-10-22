@@ -94,8 +94,17 @@ class AgentLifecycle:
             alias_names=self.aliases(actor.tenant_id),
             tool_servers=self._approved_servers(actor.tenant_id),
             sandbox_templates=self._sandbox_templates(actor.tenant_id),
+            knowledge_collections=self._knowledge_collections(actor.tenant_id),
             treat_unknown_as_warning=warnings,
         )
+
+    def _knowledge_collections(self, tenant_id: uuid.UUID) -> set[str]:
+        names: set[str] = set()
+        rows = getattr(self.store, "knowledge_collections", {})
+        for row in rows.values():
+            if row.get("tenant_id") == tenant_id:
+                names.add(str(row.get("slug")))
+        return names
 
     def _sandbox_templates(self, tenant_id: uuid.UUID) -> set[str]:
         names: set[str] = set()

@@ -3,6 +3,7 @@
 import uuid
 from typing import Any
 
+from ar_common.errors import ArError
 from ar_domain.tools.logic import as_int
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 
@@ -50,6 +51,8 @@ def dispatch(  # noqa: PLR0911
         return _web(store, arguments)
     if endpoint == "builtin://control":
         return _control(store, name, arguments)
+    if endpoint == "builtin://knowledge":
+        return _knowledge(store, name, arguments)
     return {
         "text": "upstream server is not reachable",
         "structured": {},
@@ -277,6 +280,65 @@ def _connection(store: Any, arguments: dict[str, object]) -> dict[str, object]:
                     "row_limit": row.get("row_limit") or 1000,
                 }
     return {"tables": ["public.orders"], "columns_deny": [], "row_limit": 1000}
+
+
+def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.knowledge.book import KnowledgeBook  # noqa: PLC0415
+
+    tenant = arguments.get("_tenant_id")
+    user = arguments.get("_user_id")
+    if not isinstance(tenant, uuid.UUID) or not isinstance(user, uuid.UUID):
+        return _error("validation_failed", "knowledge search needs a signed-in person")
+    actor = Actor(tenant, user, frozenset({"knowledge:read"}))
+    book = KnowledgeBook(store)
+    if name == "list_collections":
+        rows = book.list_collections(actor)
+        lines = [f"{row['slug']}: {row['name']}" for row in rows]
+        text = "\n".join(lines) or "No collections."
+        return {"text": text, "structured": {"collections": rows}, "is_error": False}
+    if name == "get_document":
+        try:
+            document = book.get_document(actor, uuid.UUID(str(arguments.get("document_id"))))
+        except ValueError, TypeError, ArError:
+            return _error("not_found", "document was not found")
+        return {
+            "text": str(document.get("summary") or document.get("title") or ""),
+            "structured": document,
+            "is_error": False,
+        }
+    if name != "search":
+        return _error("unknown_tool", f"unknown tool {name}")
+    raw_ids = arguments.get("collection_ids")
+    if not isinstance(raw_ids, list) or not raw_ids:
+        raw_ids = [row["id"] for row in book.list_collections(actor)]
+    raw_top = arguments.get("top_k")
+    top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
+    try:
+        found = book.search(
+            actor,
+            {
+                "query": str(arguments.get("query") or ""),
+                "collection_ids": raw_ids,
+                "top_k": top_k,
+            },
+        )
+    except (ValueError, TypeError, ArError) as exc:
+        return _error("validation_failed", str(exc))
+    raw_hits = found.get("hits")
+    hits: list[object] = raw_hits if isinstance(raw_hits, list) else []
+    if not found.get("answerable"):
+        return {
+            "text": "No sufficiently relevant documents were found.",
+            "structured": {"hits": [], "answerable": False},
+            "is_error": False,
+        }
+    lines = [
+        f"[{index}] {hit.get('title')}: {hit.get('snippet')}"
+        for index, hit in enumerate(hits, start=1)
+        if isinstance(hit, dict)
+    ]
+    return {"text": "\n".join(str(line) for line in lines), "structured": found, "is_error": False}
 
 
 def _settings(store: Any) -> dict[str, object]:

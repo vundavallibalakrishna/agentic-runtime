@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
 import { AppShell } from "@/components/app-shell";
+import { CitationList, citationsOf } from "@/components/chat/citations";
 import { MarkdownView } from "@/components/chat/markdown-view";
 import { ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
@@ -489,6 +490,15 @@ export function ChatScreen() {
                               );
                             })
                           : null}
+                        <CitationList
+                          citations={
+                            streamingHere && stream.citations.length
+                              ? stream.citations
+                              : citationsOf(message)
+                          }
+                          conversationId={activeId}
+                          messageId={id}
+                        />
                         {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
                       </div>
                     </div>

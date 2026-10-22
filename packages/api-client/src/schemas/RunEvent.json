@@ -197,36 +197,86 @@
     },
     "Citation": {
       "additionalProperties": false,
-      "description": "A knowledge citation attached to an assistant message.",
+      "description": "A citation attached to an assistant message.\n\n``source_kind`` is ``knowledge``, ``tool_result`` or ``evidence_item``.\nDocument fields are omitted for tool results and evidence items.",
       "properties": {
         "index": {
           "title": "Index",
           "type": "integer"
         },
-        "documentId": {
-          "format": "uuid",
-          "title": "Documentid",
+        "sourceKind": {
+          "default": "knowledge",
+          "enum": [
+            "knowledge",
+            "tool_result",
+            "evidence_item"
+          ],
+          "title": "Sourcekind",
           "type": "string"
+        },
+        "documentId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Documentid"
         },
         "chunkId": {
-          "format": "uuid",
-          "title": "Chunkid",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunkid"
         },
         "collectionId": {
-          "format": "uuid",
-          "title": "Collectionid",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Collectionid"
+        },
+        "evidenceId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidenceid"
         },
         "title": {
+          "default": "",
           "title": "Title",
           "type": "string"
         },
         "uri": {
+          "default": "",
           "title": "Uri",
           "type": "string"
         },
         "snippet": {
+          "default": "",
           "title": "Snippet",
           "type": "string"
         },
@@ -269,13 +319,7 @@
         }
       },
       "required": [
-        "index",
-        "documentId",
-        "chunkId",
-        "collectionId",
-        "title",
-        "uri",
-        "snippet"
+        "index"
       ],
       "title": "Citation",
       "type": "object"
@@ -493,6 +537,195 @@
         "mimeType"
       ],
       "title": "FilePart",
+      "type": "object"
+    },
+    "GroundingChecked": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "runId": {
+          "format": "uuid",
+          "title": "Runid",
+          "type": "string"
+        },
+        "rootRunId": {
+          "format": "uuid",
+          "title": "Rootrunid",
+          "type": "string"
+        },
+        "conversationId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversationid"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "message.grounding_checked",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/GroundingCheckedData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "runId",
+        "rootRunId",
+        "conversationId",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "GroundingChecked",
+      "type": "object"
+    },
+    "GroundingCheckedData": {
+      "additionalProperties": false,
+      "properties": {
+        "messageId": {
+          "format": "uuid",
+          "title": "Messageid",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "off",
+            "preferred",
+            "strict"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "report": {
+          "$ref": "#/$defs/GroundingReport"
+        }
+      },
+      "required": [
+        "messageId",
+        "mode",
+        "report"
+      ],
+      "title": "GroundingCheckedData",
+      "type": "object"
+    },
+    "GroundingClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "citationIndexes": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Citationindexes",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "grounded",
+            "removed",
+            "flagged"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "status"
+      ],
+      "title": "GroundingClaim",
+      "type": "object"
+    },
+    "GroundingPart": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "grounding",
+          "title": "Type",
+          "type": "string"
+        },
+        "report": {
+          "$ref": "#/$defs/GroundingReport"
+        }
+      },
+      "required": [
+        "type",
+        "report"
+      ],
+      "title": "GroundingPart",
+      "type": "object"
+    },
+    "GroundingReport": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "off",
+            "preferred",
+            "strict"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/GroundingClaim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "tools": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "approvals": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Approvals",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "GroundingReport",
       "type": "object"
     },
     "Heartbeat": {
@@ -1015,6 +1248,7 @@
               "mapping": {
                 "citation_ref": "#/$defs/CitationRefPart",
                 "file": "#/$defs/FilePart",
+                "grounding": "#/$defs/GroundingPart",
                 "image": "#/$defs/ImagePart",
                 "text": "#/$defs/TextPart",
                 "tool_result": "#/$defs/ToolResultPart",
@@ -1040,6 +1274,9 @@
               },
               {
                 "$ref": "#/$defs/ToolResultPart"
+              },
+              {
+                "$ref": "#/$defs/GroundingPart"
               }
             ]
           },
@@ -3367,6 +3604,7 @@
       "memory.saved": "#/$defs/MemorySaved",
       "message.completed": "#/$defs/MessageCompleted",
       "message.delta": "#/$defs/MessageDelta",
+      "message.grounding_checked": "#/$defs/GroundingChecked",
       "message.started": "#/$defs/MessageStarted",
       "plan.updated": "#/$defs/PlanUpdated",
       "reasoning.delta": "#/$defs/ReasoningDelta",
@@ -3431,6 +3669,9 @@
     },
     {
       "$ref": "#/$defs/CitationAdded"
+    },
+    {
+      "$ref": "#/$defs/GroundingChecked"
     },
     {
       "$ref": "#/$defs/ToolCallStarted"

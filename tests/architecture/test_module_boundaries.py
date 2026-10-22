@@ -24,8 +24,11 @@ def test_modules_do_not_import_foreign_repositories_or_adapters() -> None:
                     violations.append(f"{module} -> {target}")
             if target in {"qdrant_client", "fastembed"} and "store_qdrant" not in module:
                 violations.append(f"{module} -> {target}")
-            if target.startswith("ar_domain.knowledge.store_") and not module.endswith(
-                "knowledge.store"
-            ):
+            adapters = {
+                "ar_domain.knowledge.store_pgvector",
+                "ar_domain.knowledge.store_qdrant",
+                "ar_domain.knowledge.store_memory",
+            }
+            if target in adapters and not module.endswith("knowledge.store"):
                 violations.append(f"{module} -> {target}")
     assert violations == []

@@ -426,6 +426,32 @@ async def activate_message(
     return _chat(request).activate_message(_tenant(principal), conversation_id, message_id)
 
 
+@router.get(
+    "/api/v1/conversations/{conversation_id}/messages/{message_id}/grounding",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def message_grounding(
+    conversation_id: uuid.UUID, message_id: uuid.UUID, request: Request
+) -> dict[str, object]:
+    principal = _principal(request)
+    message = _chat(request).messages.get(message_id)
+    if (
+        not isinstance(message, dict)
+        or message.get("tenant_id") != _tenant(principal)
+        or message.get("conversation_id") != conversation_id
+    ):
+        raise NotFoundError()
+    content = message.get("content")
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "grounding":
+                report = part.get("report")
+                if isinstance(report, dict):
+                    return report
+    raise NotFoundError()
+
+
 @router.put(
     "/api/v1/messages/{message_id}/feedback",
     dependencies=[Depends(require_permission("chat:use"))],

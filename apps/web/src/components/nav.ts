@@ -38,7 +38,6 @@ export const primaryNav: NavItem[] = [
     labelKey: "navKnowledge",
     permission: "knowledge:read",
     icon: Library,
-    soon: true,
   },
   {
     href: "/routines",

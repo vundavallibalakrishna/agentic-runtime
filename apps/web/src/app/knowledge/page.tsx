@@ -1,8 +1,5 @@
-import { getTranslations } from "next-intl/server";
+import { KnowledgeScreen } from "@/components/knowledge/knowledge-screen";
 
-import { ComingSoon } from "@/components/coming-soon";
-
-export default async function KnowledgePage() {
-  const t = await getTranslations("shell");
-  return <ComingSoon title={t("navKnowledge")} />;
+export default function KnowledgePage() {
+  return <KnowledgeScreen />;
 }
