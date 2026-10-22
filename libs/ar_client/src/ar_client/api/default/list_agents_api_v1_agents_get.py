@@ -1,49 +1,53 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.http_validation_error import HTTPValidationError
 from ...models.list_agents_api_v1_agents_get_response_list_agents_api_v1_agents_get import (
     ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet,
 )
-from ...types import UNSET, Response, Unset
+from ...types import UNSET, Unset
+from typing import cast
 
 
 def _get_kwargs(
     *,
-    q: str | Unset | None = UNSET,
-    status: str | Unset | None = UNSET,
-    visibility: str | Unset | None = UNSET,
-    owner: str | Unset | None = UNSET,
+    q: None | str | Unset = UNSET,
+    status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
+    owner: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_q: str | Unset | None
+    json_q: None | str | Unset
     if isinstance(q, Unset):
         json_q = UNSET
     else:
         json_q = q
     params["q"] = json_q
 
-    json_status: str | Unset | None
+    json_status: None | str | Unset
     if isinstance(status, Unset):
         json_status = UNSET
     else:
         json_status = status
     params["status"] = json_status
 
-    json_visibility: str | Unset | None
+    json_visibility: None | str | Unset
     if isinstance(visibility, Unset):
         json_visibility = UNSET
     else:
         json_visibility = visibility
     params["visibility"] = json_visibility
 
-    json_owner: str | Unset | None
+    json_owner: None | str | Unset
     if isinstance(owner, Unset):
         json_owner = UNSET
     else:
@@ -78,7 +82,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(
@@ -95,10 +100,10 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    q: str | Unset | None = UNSET,
-    status: str | Unset | None = UNSET,
-    visibility: str | Unset | None = UNSET,
-    owner: str | Unset | None = UNSET,
+    q: None | str | Unset = UNSET,
+    status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
+    owner: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet]:
     """List Agents
 
@@ -133,10 +138,10 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    q: str | Unset | None = UNSET,
-    status: str | Unset | None = UNSET,
-    visibility: str | Unset | None = UNSET,
-    owner: str | Unset | None = UNSET,
+    q: None | str | Unset = UNSET,
+    status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
+    owner: None | str | Unset = UNSET,
 ) -> HTTPValidationError | ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet | None:
     """List Agents
 
@@ -166,10 +171,10 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    q: str | Unset | None = UNSET,
-    status: str | Unset | None = UNSET,
-    visibility: str | Unset | None = UNSET,
-    owner: str | Unset | None = UNSET,
+    q: None | str | Unset = UNSET,
+    status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
+    owner: None | str | Unset = UNSET,
 ) -> Response[HTTPValidationError | ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet]:
     """List Agents
 
@@ -202,10 +207,10 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    q: str | Unset | None = UNSET,
-    status: str | Unset | None = UNSET,
-    visibility: str | Unset | None = UNSET,
-    owner: str | Unset | None = UNSET,
+    q: None | str | Unset = UNSET,
+    status: None | str | Unset = UNSET,
+    visibility: None | str | Unset = UNSET,
+    owner: None | str | Unset = UNSET,
 ) -> HTTPValidationError | ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet | None:
     """List Agents
 

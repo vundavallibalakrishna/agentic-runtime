@@ -1,22 +1,26 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.http_validation_error import HTTPValidationError
-from ...types import UNSET, Response, Unset
+from ...types import UNSET, Unset
+from typing import cast
 
 
 def _get_kwargs(
     *,
-    ids: str | Unset | None = UNSET,
+    ids: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
 
-    json_ids: str | Unset | None
+    json_ids: None | str | Unset
     if isinstance(ids, Unset):
         json_ids = UNSET
     else:
@@ -48,7 +52,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(
@@ -65,7 +70,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    ids: str | Unset | None = UNSET,
+    ids: None | str | Unset = UNSET,
 ) -> Response[Any | HTTPValidationError]:
     """Export Agents
 
@@ -94,7 +99,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    ids: str | Unset | None = UNSET,
+    ids: None | str | Unset = UNSET,
 ) -> Any | HTTPValidationError | None:
     """Export Agents
 
@@ -118,7 +123,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    ids: str | Unset | None = UNSET,
+    ids: None | str | Unset = UNSET,
 ) -> Response[Any | HTTPValidationError]:
     """Export Agents
 
@@ -145,7 +150,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    ids: str | Unset | None = UNSET,
+    ids: None | str | Unset = UNSET,
 ) -> Any | HTTPValidationError | None:
     """Export Agents
 

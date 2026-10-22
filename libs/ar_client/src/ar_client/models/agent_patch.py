@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
-from uuid import UUID
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
+from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
+
+from ..types import UNSET, Unset
+from typing import cast
+from uuid import UUID
+
 
 T = TypeVar("T", bound="AgentPatch")
 
@@ -23,33 +28,33 @@ class AgentPatch:
         risk_tier (None | str | Unset):
     """
 
-    name: str | Unset | None = UNSET
-    description: str | Unset | None = UNSET
-    visibility: str | Unset | None = UNSET
-    owner_team_id: Unset | UUID | None = UNSET
-    owner_user_id: Unset | UUID | None = UNSET
-    risk_tier: str | Unset | None = UNSET
+    name: None | str | Unset = UNSET
+    description: None | str | Unset = UNSET
+    visibility: None | str | Unset = UNSET
+    owner_team_id: None | Unset | UUID = UNSET
+    owner_user_id: None | Unset | UUID = UNSET
+    risk_tier: None | str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
-        name: str | Unset | None
+        name: None | str | Unset
         if isinstance(self.name, Unset):
             name = UNSET
         else:
             name = self.name
 
-        description: str | Unset | None
+        description: None | str | Unset
         if isinstance(self.description, Unset):
             description = UNSET
         else:
             description = self.description
 
-        visibility: str | Unset | None
+        visibility: None | str | Unset
         if isinstance(self.visibility, Unset):
             visibility = UNSET
         else:
             visibility = self.visibility
 
-        owner_team_id: str | Unset | None
+        owner_team_id: None | str | Unset
         if isinstance(self.owner_team_id, Unset):
             owner_team_id = UNSET
         elif isinstance(self.owner_team_id, UUID):
@@ -57,7 +62,7 @@ class AgentPatch:
         else:
             owner_team_id = self.owner_team_id
 
-        owner_user_id: str | Unset | None
+        owner_user_id: None | str | Unset
         if isinstance(self.owner_user_id, Unset):
             owner_user_id = UNSET
         elif isinstance(self.owner_user_id, UUID):
@@ -65,7 +70,7 @@ class AgentPatch:
         else:
             owner_user_id = self.owner_user_id
 
-        risk_tier: str | Unset | None
+        risk_tier: None | str | Unset
         if isinstance(self.risk_tier, Unset):
             risk_tier = UNSET
         else:
@@ -93,34 +98,34 @@ class AgentPatch:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
 
-        def _parse_name(data: object) -> str | Unset | None:
+        def _parse_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast("None | str | Unset", data)
+            return cast(None | str | Unset, data)
 
         name = _parse_name(d.pop("name", UNSET))
 
-        def _parse_description(data: object) -> str | Unset | None:
+        def _parse_description(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast("None | str | Unset", data)
+            return cast(None | str | Unset, data)
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_visibility(data: object) -> str | Unset | None:
+        def _parse_visibility(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast("None | str | Unset", data)
+            return cast(None | str | Unset, data)
 
         visibility = _parse_visibility(d.pop("visibility", UNSET))
 
-        def _parse_owner_team_id(data: object) -> Unset | UUID | None:
+        def _parse_owner_team_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -133,11 +138,11 @@ class AgentPatch:
                 return owner_team_id_type_0
             except TypeError, ValueError, AttributeError, KeyError:
                 pass
-            return cast("None | Unset | UUID", data)
+            return cast(None | Unset | UUID, data)
 
         owner_team_id = _parse_owner_team_id(d.pop("ownerTeamId", UNSET))
 
-        def _parse_owner_user_id(data: object) -> Unset | UUID | None:
+        def _parse_owner_user_id(data: object) -> None | Unset | UUID:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -150,16 +155,16 @@ class AgentPatch:
                 return owner_user_id_type_0
             except TypeError, ValueError, AttributeError, KeyError:
                 pass
-            return cast("None | Unset | UUID", data)
+            return cast(None | Unset | UUID, data)
 
         owner_user_id = _parse_owner_user_id(d.pop("ownerUserId", UNSET))
 
-        def _parse_risk_tier(data: object) -> str | Unset | None:
+        def _parse_risk_tier(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast("None | str | Unset", data)
+            return cast(None | str | Unset, data)
 
         risk_tier = _parse_risk_tier(d.pop("riskTier", UNSET))
 

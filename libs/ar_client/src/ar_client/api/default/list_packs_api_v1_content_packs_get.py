@@ -1,14 +1,17 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.list_packs_api_v1_content_packs_get_response_list_packs_api_v1_content_packs_get import (
     ListPacksApiV1ContentPacksGetResponseListPacksApiV1ContentPacksGet,
 )
-from ...types import Response
+from typing import cast
 
 
 def _get_kwargs() -> dict[str, Any]:
@@ -33,7 +36,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(

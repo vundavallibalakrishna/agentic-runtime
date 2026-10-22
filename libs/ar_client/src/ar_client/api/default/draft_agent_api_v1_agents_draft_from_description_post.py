@@ -1,16 +1,19 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.description_body import DescriptionBody
 from ...models.draft_agent_api_v1_agents_draft_from_description_post_response_draft_agent_api_v1_agents_draft_from_description_post import (
     DraftAgentApiV1AgentsDraftFromDescriptionPostResponseDraftAgentApiV1AgentsDraftFromDescriptionPost,
 )
 from ...models.http_validation_error import HTTPValidationError
-from ...types import Response
+from typing import cast
 
 
 def _get_kwargs(
@@ -53,7 +56,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(

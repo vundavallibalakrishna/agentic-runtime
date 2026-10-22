@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
+from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
+
+from ..types import UNSET, Unset
+from typing import cast
 
 if TYPE_CHECKING:
     from ..models.import_body_bundle_type_0 import ImportBodyBundleType0
@@ -23,14 +27,14 @@ class ImportBody:
         dry_run (bool | Unset):  Default: False.
     """
 
-    bundle: ImportBodyBundleType0 | Unset | None = UNSET
-    yaml_text: str | Unset | None = UNSET
+    bundle: ImportBodyBundleType0 | None | Unset = UNSET
+    yaml_text: None | str | Unset = UNSET
     dry_run: bool | Unset = False
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.import_body_bundle_type_0 import ImportBodyBundleType0  # noqa: PLC0415
 
-        bundle: dict[str, Any] | Unset | None
+        bundle: dict[str, Any] | None | Unset
         if isinstance(self.bundle, Unset):
             bundle = UNSET
         elif isinstance(self.bundle, ImportBodyBundleType0):
@@ -38,7 +42,7 @@ class ImportBody:
         else:
             bundle = self.bundle
 
-        yaml_text: str | Unset | None
+        yaml_text: None | str | Unset
         if isinstance(self.yaml_text, Unset):
             yaml_text = UNSET
         else:
@@ -64,7 +68,7 @@ class ImportBody:
 
         d = dict(src_dict)
 
-        def _parse_bundle(data: object) -> ImportBodyBundleType0 | Unset | None:
+        def _parse_bundle(data: object) -> ImportBodyBundleType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -77,16 +81,16 @@ class ImportBody:
                 return bundle_type_0
             except TypeError, ValueError, AttributeError, KeyError:
                 pass
-            return cast("ImportBodyBundleType0 | None | Unset", data)
+            return cast(ImportBodyBundleType0 | None | Unset, data)
 
         bundle = _parse_bundle(d.pop("bundle", UNSET))
 
-        def _parse_yaml_text(data: object) -> str | Unset | None:
+        def _parse_yaml_text(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast("None | str | Unset", data)
+            return cast(None | str | Unset, data)
 
         yaml_text = _parse_yaml_text(d.pop("yamlText", UNSET))
 

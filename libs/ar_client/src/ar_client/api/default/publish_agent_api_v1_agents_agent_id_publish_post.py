@@ -1,25 +1,28 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
-from uuid import UUID
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.http_validation_error import HTTPValidationError
 from ...models.publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post import (
     PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost,
 )
 from ...models.publish_body import PublishBody
-from ...types import UNSET, Response, Unset
+from ...types import UNSET, Unset
+from typing import cast
+from uuid import UUID
 
 
 def _get_kwargs(
     agent_id: UUID,
     *,
-    body: PublishBody | Unset | None = UNSET,
-    if_match: str | Unset | None = UNSET,
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(if_match, Unset):
@@ -64,7 +67,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(
@@ -85,8 +89,8 @@ def sync_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: PublishBody | Unset | None = UNSET,
-    if_match: str | Unset | None = UNSET,
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> Response[
     HTTPValidationError
     | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
@@ -123,8 +127,8 @@ def sync(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: PublishBody | Unset | None = UNSET,
-    if_match: str | Unset | None = UNSET,
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> (
     HTTPValidationError
     | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
@@ -157,8 +161,8 @@ async def asyncio_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: PublishBody | Unset | None = UNSET,
-    if_match: str | Unset | None = UNSET,
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> Response[
     HTTPValidationError
     | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost
@@ -193,8 +197,8 @@ async def asyncio(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: PublishBody | Unset | None = UNSET,
-    if_match: str | Unset | None = UNSET,
+    body: None | PublishBody | Unset = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> (
     HTTPValidationError
     | PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost

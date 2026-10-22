@@ -1,25 +1,28 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
-from uuid import UUID
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.agent_patch import AgentPatch
 from ...models.http_validation_error import HTTPValidationError
 from ...models.patch_agent_api_v1_agents_agent_id_patch_response_patch_agent_api_v1_agents_agent_id_patch import (
     PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch,
 )
-from ...types import UNSET, Response, Unset
+from ...types import UNSET, Unset
+from typing import cast
+from uuid import UUID
 
 
 def _get_kwargs(
     agent_id: UUID,
     *,
     body: AgentPatch,
-    if_match: str | Unset | None = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
     if not isinstance(if_match, Unset):
@@ -63,7 +66,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(
@@ -84,7 +88,7 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AgentPatch,
-    if_match: str | Unset | None = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> Response[
     HTTPValidationError | PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch
 ]:
@@ -121,7 +125,7 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: AgentPatch,
-    if_match: str | Unset | None = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> (
     HTTPValidationError
     | PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch
@@ -155,7 +159,7 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AgentPatch,
-    if_match: str | Unset | None = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> Response[
     HTTPValidationError | PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch
 ]:
@@ -190,7 +194,7 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: AgentPatch,
-    if_match: str | Unset | None = UNSET,
+    if_match: None | str | Unset = UNSET,
 ) -> (
     HTTPValidationError
     | PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch

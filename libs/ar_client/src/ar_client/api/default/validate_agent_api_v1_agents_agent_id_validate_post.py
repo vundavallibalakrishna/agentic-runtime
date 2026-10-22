@@ -1,24 +1,27 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
-from uuid import UUID
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.http_validation_error import HTTPValidationError
 from ...models.validate_agent_api_v1_agents_agent_id_validate_post_response_validate_agent_api_v1_agents_agent_id_validate_post import (
     ValidateAgentApiV1AgentsAgentIdValidatePostResponseValidateAgentApiV1AgentsAgentIdValidatePost,
 )
 from ...models.validate_body import ValidateBody
-from ...types import UNSET, Response, Unset
+from ...types import UNSET, Unset
+from typing import cast
+from uuid import UUID
 
 
 def _get_kwargs(
     agent_id: UUID,
     *,
-    body: Unset | ValidateBody | None = UNSET,
+    body: None | Unset | ValidateBody = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -61,7 +64,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(
@@ -82,7 +86,7 @@ def sync_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: Unset | ValidateBody | None = UNSET,
+    body: None | Unset | ValidateBody = UNSET,
 ) -> Response[
     HTTPValidationError
     | ValidateAgentApiV1AgentsAgentIdValidatePostResponseValidateAgentApiV1AgentsAgentIdValidatePost
@@ -117,7 +121,7 @@ def sync(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: Unset | ValidateBody | None = UNSET,
+    body: None | Unset | ValidateBody = UNSET,
 ) -> (
     HTTPValidationError
     | ValidateAgentApiV1AgentsAgentIdValidatePostResponseValidateAgentApiV1AgentsAgentIdValidatePost
@@ -148,7 +152,7 @@ async def asyncio_detailed(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: Unset | ValidateBody | None = UNSET,
+    body: None | Unset | ValidateBody = UNSET,
 ) -> Response[
     HTTPValidationError
     | ValidateAgentApiV1AgentsAgentIdValidatePostResponseValidateAgentApiV1AgentsAgentIdValidatePost
@@ -181,7 +185,7 @@ async def asyncio(
     agent_id: UUID,
     *,
     client: AuthenticatedClient | Client,
-    body: Unset | ValidateBody | None = UNSET,
+    body: None | Unset | ValidateBody = UNSET,
 ) -> (
     HTTPValidationError
     | ValidateAgentApiV1AgentsAgentIdValidatePostResponseValidateAgentApiV1AgentsAgentIdValidatePost

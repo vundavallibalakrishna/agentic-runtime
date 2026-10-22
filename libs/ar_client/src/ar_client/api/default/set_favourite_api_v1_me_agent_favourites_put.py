@@ -1,16 +1,19 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
+from urllib.parse import quote
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.favourite_body import FavouriteBody
 from ...models.http_validation_error import HTTPValidationError
 from ...models.set_favourite_api_v1_me_agent_favourites_put_response_set_favourite_api_v1_me_agent_favourites_put import (
     SetFavouriteApiV1MeAgentFavouritesPutResponseSetFavouriteApiV1MeAgentFavouritesPut,
 )
-from ...types import Response
+from typing import cast
 
 
 def _get_kwargs(
@@ -53,7 +56,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(

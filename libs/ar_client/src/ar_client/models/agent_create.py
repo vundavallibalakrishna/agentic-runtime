@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
 
 from attrs import define as _attrs_define
+from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
+
+from ..types import UNSET, Unset
+from typing import cast
 
 if TYPE_CHECKING:
     from ..models.agent_create_definition_type_0 import AgentCreateDefinitionType0
@@ -32,8 +36,8 @@ class AgentCreate:
     description: str | Unset = ""
     visibility: str | Unset = "private"
     risk_tier: str | Unset = "low"
-    template: str | Unset | None = UNSET
-    definition: AgentCreateDefinitionType0 | Unset | None = UNSET
+    template: None | str | Unset = UNSET
+    definition: AgentCreateDefinitionType0 | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.agent_create_definition_type_0 import AgentCreateDefinitionType0  # noqa: PLC0415
@@ -48,13 +52,13 @@ class AgentCreate:
 
         risk_tier = self.risk_tier
 
-        template: str | Unset | None
+        template: None | str | Unset
         if isinstance(self.template, Unset):
             template = UNSET
         else:
             template = self.template
 
-        definition: dict[str, Any] | Unset | None
+        definition: dict[str, Any] | None | Unset
         if isinstance(self.definition, Unset):
             definition = UNSET
         elif isinstance(self.definition, AgentCreateDefinitionType0):
@@ -98,16 +102,16 @@ class AgentCreate:
 
         risk_tier = d.pop("riskTier", UNSET)
 
-        def _parse_template(data: object) -> str | Unset | None:
+        def _parse_template(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast("None | str | Unset", data)
+            return cast(None | str | Unset, data)
 
         template = _parse_template(d.pop("template", UNSET))
 
-        def _parse_definition(data: object) -> AgentCreateDefinitionType0 | Unset | None:
+        def _parse_definition(data: object) -> AgentCreateDefinitionType0 | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -120,7 +124,7 @@ class AgentCreate:
                 return definition_type_0
             except TypeError, ValueError, AttributeError, KeyError:
                 pass
-            return cast("AgentCreateDefinitionType0 | None | Unset", data)
+            return cast(AgentCreateDefinitionType0 | None | Unset, data)
 
         definition = _parse_definition(d.pop("definition", UNSET))
 

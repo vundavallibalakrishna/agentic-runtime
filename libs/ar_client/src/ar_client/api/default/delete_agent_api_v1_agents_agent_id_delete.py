@@ -1,17 +1,19 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
-from uuid import UUID
 
 import httpx
 
-from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...types import Response, UNSET
+from ... import errors
+
 from ...models.delete_agent_api_v1_agents_agent_id_delete_response_delete_agent_api_v1_agents_agent_id_delete import (
     DeleteAgentApiV1AgentsAgentIdDeleteResponseDeleteAgentApiV1AgentsAgentIdDelete,
 )
 from ...models.http_validation_error import HTTPValidationError
-from ...types import Response
+from typing import cast
+from uuid import UUID
 
 
 def _get_kwargs(
@@ -49,7 +51,8 @@ def _parse_response(
 
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
-    return None
+    else:
+        return None
 
 
 def _build_response(
