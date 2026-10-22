@@ -86,7 +86,7 @@ services:
   opa:
     profiles: [deps]
     image: openpolicyagent/opa:1.21.3-static
-    command: ["run", "--server", "--addr", "0.0.0.0:8181", "/policies"]
+    command: ["run", "--server", "--addr", "0.0.0.0:8181", "--ignore", "fixtures", "/policies"]
     volumes:
       - ./policies:/policies:ro
     ports: ["${AR_OPA_HOST_PORT:-8181}:8181"]
