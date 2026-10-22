@@ -64,9 +64,14 @@ async def test_skill_version_trigger_and_rls(database_url: str) -> None:
         await connection.execute(
             text(
                 "INSERT INTO users (id, tenant_id, idp_subject, email, display_name) "
-                "VALUES (:id, :tenant, :email, :email, 'A')"
+                "VALUES (:id, :tenant, :subject, :email, 'A')"
             ),
-            {"id": user_id, "tenant": tenant, "email": f"{user_id.hex[:8]}@example.com"},
+            {
+                "id": user_id,
+                "tenant": tenant,
+                "subject": f"{user_id.hex[:8]}@example.com",
+                "email": f"{user_id.hex[:8]}@example.com",
+            },
         )
         await connection.execute(
             text("SELECT set_config('app.tenant_id', :tenant, true)"), {"tenant": str(tenant)}

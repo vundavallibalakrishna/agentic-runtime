@@ -36,7 +36,16 @@ class Skill(Base):
     )
     visibility: Mapped[str] = mapped_column(Text, nullable=False, server_default="tenant")
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="draft")
-    published_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    published_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "skill_versions.id",
+            name="fk_skills_published",
+            deferrable=True,
+            initially="DEFERRED",
+            use_alter=True,
+        ),
+    )
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
 
