@@ -77,6 +77,10 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     });
     expect(agent.ok, agent.text).toBeTruthy();
     const agentId = (JSON.parse(agent.text) as { id: string }).id;
+    const published = await postJson(page, `/api/v1/agents/${agentId}:publish`, {
+      changeNote: "quota probe",
+    });
+    expect(published.ok, published.text).toBeTruthy();
     const quota = await postJson(page, "/api/v1/quotas", {
       scopeType: "agent",
       scopeId: agentId,
@@ -100,7 +104,9 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     await page.goto("/chat");
     await expect(page.locator("#agent-picker option", { hasText: "Quota probe" })).toBeAttached();
     await page.locator("#agent-picker").selectOption({ label: "Quota probe" });
+    const previous = page.url();
     await page.getByRole("button", { name: "New chat" }).click();
+    await expect.poll(() => page.url(), { timeout: 20_000 }).not.toBe(previous);
     await page.getByLabel("Message").fill("Show the weekly numbers");
     await page.getByRole("button", { name: "Send" }).click();
     const blocked = page.getByRole("alert").filter({ hasText: "Quota reached" });

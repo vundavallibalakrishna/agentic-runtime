@@ -101,6 +101,46 @@ def test_quota_crud_isolation_and_token_block() -> None:
     assert restored.status_code == 200
 
 
+def test_agent_quota_blocks_only_that_agent() -> None:
+    holder: dict[str, Principal | None] = {"principal": _principal()}
+    client = _app(holder)
+    created = client.post(
+        "/api/v1/agents",
+        json={"slug": "quota-probe", "name": "Quota probe", "description": "probe"},
+    )
+    assert created.status_code == 200
+    agent_id = created.json()["id"]
+    published = client.post(f"/api/v1/agents/{agent_id}:publish", json={"changeNote": "probe"})
+    assert published.status_code == 200
+    quota = client.post(
+        "/api/v1/quotas",
+        json={
+            "scopeType": "agent",
+            "scopeId": agent_id,
+            "metric": "model_tokens",
+            "period": "day",
+            "limitValue": 0,
+            "action": "block",
+        },
+    )
+    assert quota.status_code == 201
+    opened = client.post("/api/v1/conversations", json={"agentId": agent_id})
+    assert opened.status_code == 200
+    posted = client.post(
+        f"/api/v1/conversations/{opened.json()['id']}/messages",
+        json={"text": "hello"},
+    )
+    assert posted.status_code == 429
+    assert posted.json()["code"] == "quota_exceeded"
+    assistant = client.post("/api/v1/conversations", json={})
+    assert assistant.status_code == 200
+    allowed = client.post(
+        f"/api/v1/conversations/{assistant.json()['id']}/messages",
+        json={"text": "hello"},
+    )
+    assert allowed.status_code == 202
+
+
 def test_usage_export_matches_daily_and_platform_is_saas_only() -> None:
     holder: dict[str, Principal | None] = {"principal": _principal()}
     client = _app(holder)
