@@ -20,6 +20,7 @@ class ResolveContext:
 
     tenant_id: str
     alias_names: set[str] = field(default_factory=set)
+    tool_servers: set[str] = field(default_factory=set)
     treat_unknown_as_warning: bool = False
 
 

@@ -60,10 +60,10 @@ async def test_catalogue_agents_and_chat_ops() -> None:
     with pytest.raises(ArError):
         service.update_provider(tenant, platform_id, platform=False, name="nope")
 
-    agent = service.create_agent(tenant, user, "desk", "Desk")
+    agent = service.create_agent(tenant, user, "ops-desk", "Desk")
     agent_id = uuid.UUID(str(agent["id"]))
     with pytest.raises(ConflictError):
-        service.create_agent(tenant, user, "desk", "Again")
+        service.create_agent(tenant, user, "ops-desk", "Again")
     definition = assistant_definition()
     definition["tools"] = [{"name": "search"}]
     service.save_draft(tenant, agent_id, definition)
@@ -73,7 +73,7 @@ async def test_catalogue_agents_and_chat_ops() -> None:
     published = service.publish(tenant, agent_id, user)
     assert published["status"] == "published"
     assert service.list_versions(tenant, agent_id)
-    assert service.get_agent(tenant, agent_id)["slug"] == "desk"
+    assert service.get_agent(tenant, agent_id)["slug"] == "ops-desk"
 
     conversation = service.create_conversation(tenant, user, agent_id)
     conversation_id = uuid.UUID(str(conversation["id"]))

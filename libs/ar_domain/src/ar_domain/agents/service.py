@@ -92,8 +92,20 @@ class AgentLifecycle:
         return ResolveContext(
             tenant_id=str(actor.tenant_id),
             alias_names=self.aliases(actor.tenant_id),
+            tool_servers=self._approved_servers(actor.tenant_id),
             treat_unknown_as_warning=warnings,
         )
+
+    def _approved_servers(self, tenant_id: uuid.UUID) -> set[str]:
+        names: set[str] = set()
+        servers = getattr(self.store, "tool_servers", {})
+        for row in servers.values():
+            owner = row.get("tenant_id")
+            if owner is not None and owner != tenant_id:
+                continue
+            if row.get("status") == "approved" and row.get("disabled_at") is None:
+                names.add(str(row.get("slug")))
+        return names
 
     def ensure_builtins(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """Published assistant, Helpdesk and the built-in builder."""
@@ -224,6 +236,22 @@ class AgentLifecycle:
             "target_id": target,
             "target_key": alias,
         }
+        tools = definition.get("tools")
+        if not isinstance(tools, list):
+            return
+        for binding in tools:
+            if not isinstance(binding, dict):
+                continue
+            server = binding.get("server")
+            if not isinstance(server, str) or not server:
+                continue
+            self.store.bindings[(version_id, "tool_server", server, server)] = {
+                "tenant_id": tenant_id,
+                "agent_version_id": version_id,
+                "kind": "tool_server",
+                "target_id": server,
+                "target_key": server,
+            }
 
     def _agent(self, actor: Actor, agent_id: uuid.UUID) -> dict[str, object]:
         agent = self.store.agents.get(agent_id)

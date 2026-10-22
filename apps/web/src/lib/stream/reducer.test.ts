@@ -23,4 +23,17 @@ describe("reduceStream", () => {
     expect(reduceStream(emptyStream, { type: "run.cancelled", seq: 1 }).status).toBe("cancelled");
     expect(reduceStream(emptyStream, { type: "run.failed", seq: 1 }).status).toBe("failed");
   });
+
+  it("keeps a completed tool call on the stream", () => {
+    const next = reduceStream(emptyStream, {
+      type: "tool_call.completed",
+      seq: 1,
+      data: {
+        qualifiedName: "tickets.create_ticket",
+        status: "succeeded",
+        resultPreview: "TCK-1001",
+      },
+    });
+    expect(next.tools[0]?.name).toBe("tickets.create_ticket");
+  });
 });

@@ -1,8 +1,5 @@
-import { getTranslations } from "next-intl/server";
+import { ToolsScreen } from "@/components/tools/tools-screen";
 
-import { ComingSoon } from "@/components/coming-soon";
-
-export default async function ToolsPage() {
-  const t = await getTranslations("shell");
-  return <ComingSoon title={t("navTools")} />;
+export default function ToolsPage() {
+  return <ToolsScreen />;
 }

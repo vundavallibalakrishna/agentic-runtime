@@ -8,6 +8,7 @@ import { create } from "zustand";
 
 import { AppShell } from "@/components/app-shell";
 import { MarkdownView } from "@/components/chat/markdown-view";
+import { ToolCallCard } from "@/components/chat/tool-call-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -47,6 +48,8 @@ export function ChatScreen() {
   const [activeId, setActiveId] = useState<string>("");
   const [messages, setMessages] = useState<Item[]>([]);
   const [agents, setAgents] = useState<Item[]>([]);
+  const [agentId, setAgentId] = useState("");
+  const [plan, setPlan] = useState<string[]>([]);
   const draft = useComposer((state) => state.draft);
   const setDraft = useComposer((state) => state.setDraft);
   const [stream, setStream] = useState<StreamState>(emptyStream);
@@ -80,6 +83,13 @@ export function ChatScreen() {
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
       setConversations(listed.items ?? []);
       setAgents(agentPage.items ?? []);
+      const requested = new URLSearchParams(window.location.search).get("agent");
+      if (requested) {
+        const match = (agentPage.items ?? []).find((row) => row.slug === requested);
+        if (match?.id) {
+          setAgentId(String(match.id));
+        }
+      }
       if (!openedFromQuery.current) {
         const conversationId = new URLSearchParams(window.location.search).get("conversation");
         if (conversationId) {
@@ -150,6 +160,7 @@ export function ChatScreen() {
     setBanner("");
     const body = await api<Item & { messages?: Item[] }>(`/api/v1/conversations/${id}`);
     setMessages(body.messages ?? []);
+    setPlan(Array.isArray(body.plan) ? body.plan.map((item) => String(item)) : []);
     setStream(emptyStream);
     stickRef.current = true;
     setStuck(false);
@@ -158,7 +169,7 @@ export function ChatScreen() {
   async function startChat() {
     const created = await api<Item>("/api/v1/conversations", {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify(agentId ? { agentId } : {}),
     });
     const id = String(created.id);
     setConversations((current) => [created, ...current]);
@@ -208,7 +219,7 @@ export function ChatScreen() {
     if (!conversationId) {
       const created = await api<Item>("/api/v1/conversations", {
         method: "POST",
-        body: JSON.stringify({}),
+        body: JSON.stringify(agentId ? { agentId } : {}),
       });
       conversationId = String(created.id);
       setActiveId(conversationId);
@@ -462,6 +473,18 @@ export function ChatScreen() {
                       >
                         <p className="sr-only">{String(message.role)}</p>
                         <MarkdownView text={body} />
+                        {Array.isArray(message.toolCalls)
+                          ? message.toolCalls.map((call) => {
+                              const row =
+                                call && typeof call === "object"
+                                  ? (call as Record<string, unknown>)
+                                  : {};
+                              const toolKey = `${id}-${String(row.qualifiedName ?? "tool")}-${String(row.resultPreview ?? row.status ?? "")}`;
+                              return (
+                                <ToolCallCard call={row} key={toolKey} label={t("toolCall")} />
+                              );
+                            })
+                          : null}
                         {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
                       </div>
                     </div>
@@ -532,7 +555,33 @@ export function ChatScreen() {
               void send(text);
             }}
           >
+            {plan.length > 0 ? (
+              <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
+                <h2 className="font-medium">{t("plan")}</h2>
+                <ul>
+                  {plan.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
             <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+              <label className="sr-only" htmlFor="agent-picker">
+                {t("agent")}
+              </label>
+              <select
+                className="mb-1 max-w-xs bg-transparent text-sm text-[var(--muted-foreground)]"
+                id="agent-picker"
+                onChange={(event) => setAgentId(event.target.value)}
+                value={agentId}
+              >
+                <option value="">{t("agent")}</option>
+                {agents.map((agent) => (
+                  <option key={String(agent.id)} value={String(agent.id)}>
+                    {String(agent.name ?? agent.slug)}
+                  </option>
+                ))}
+              </select>
               {attachmentName ? (
                 <p className="px-1 pb-1 text-xs text-[var(--muted-foreground)]">
                   {t("attached")}: {attachmentName}

@@ -204,7 +204,7 @@ def test_catalogue_and_run_surface() -> None:
         json={"messages": [{"role": "user", "content": "ping"}]},
     )
     assert tested.status_code == 200
-    agent = client.post("/api/v1/agents", json={"slug": "desk", "name": "Desk"})
+    agent = client.post("/api/v1/agents", json={"slug": "ops-desk", "name": "Desk"})
     agent_id = agent.json()["id"]
     assert client.get(f"/api/v1/agents/{agent_id}").status_code == 200
     draft = client.put(

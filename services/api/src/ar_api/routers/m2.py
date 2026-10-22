@@ -610,8 +610,11 @@ async def list_steps(run_id: uuid.UUID, request: Request) -> dict[str, object]:
 @expose(public=False, permission="chat:use")
 async def tool_calls(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    _chat(request).get_run(_tenant(principal), run_id)
-    return _page([])
+    service = _chat(request)
+    service.get_run(_tenant(principal), run_id)
+    from ar_domain.tools.views import list_calls  # noqa: PLC0415
+
+    return _page(list_calls(service, _tenant(principal), run_id=run_id))
 
 
 @router.get(

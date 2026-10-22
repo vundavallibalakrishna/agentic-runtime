@@ -109,6 +109,7 @@ module = [
     "openai.*",
     "yaml.*",
     "polyfactory.*",
+    "jsonschema.*",
 ]
 ignore_missing_imports = true
 
