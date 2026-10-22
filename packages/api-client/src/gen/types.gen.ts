@@ -1570,6 +1570,102 @@ export type SimulateBody = {
 };
 
 /**
+ * SkillAsset
+ */
+export type SkillAsset = {
+    /**
+     * Path
+     */
+    path: string;
+    /**
+     * Fileid
+     */
+    fileId: string;
+};
+
+/**
+ * SkillBody
+ */
+export type SkillBody = {
+    /**
+     * Slug
+     */
+    slug: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Visibility
+     */
+    visibility?: string;
+    /**
+     * Ownerteamid
+     */
+    ownerTeamId?: string | null;
+    /**
+     * Instructionsmd
+     */
+    instructionsMd?: string;
+    /**
+     * Requiredtools
+     */
+    requiredTools?: Array<string>;
+    /**
+     * Assets
+     */
+    assets?: Array<SkillAsset>;
+};
+
+/**
+ * SkillPatch
+ */
+export type SkillPatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Visibility
+     */
+    visibility?: string | null;
+    /**
+     * Ownerteamid
+     */
+    ownerTeamId?: string | null;
+    /**
+     * Instructionsmd
+     */
+    instructionsMd?: string | null;
+    /**
+     * Requiredtools
+     */
+    requiredTools?: Array<string> | null;
+    /**
+     * Assets
+     */
+    assets?: Array<SkillAsset> | null;
+};
+
+/**
+ * SkillPublishBody
+ */
+export type SkillPublishBody = {
+    /**
+     * Changenote
+     */
+    changeNote?: string;
+};
+
+/**
  * SourceBody
  */
 export type SourceBody = {
@@ -11786,3 +11882,354 @@ export type DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponses = {
 };
 
 export type DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponse = DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponses[keyof DeleteTeamMemoryApiV1TeamsTeamIdMemoryFactIdDeleteResponses];
+
+export type ListSkillsApiV1SkillsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Status
+         */
+        status?: string;
+        /**
+         * Owner
+         */
+        owner?: string;
+        /**
+         * Team Id
+         */
+        team_id?: string | null;
+    };
+    url: '/api/v1/skills';
+};
+
+export type ListSkillsApiV1SkillsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSkillsApiV1SkillsGetError = ListSkillsApiV1SkillsGetErrors[keyof ListSkillsApiV1SkillsGetErrors];
+
+export type ListSkillsApiV1SkillsGetResponses = {
+    /**
+     * Response List Skills Api V1 Skills Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListSkillsApiV1SkillsGetResponse = ListSkillsApiV1SkillsGetResponses[keyof ListSkillsApiV1SkillsGetResponses];
+
+export type CreateSkillApiV1SkillsPostData = {
+    body: SkillBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/skills';
+};
+
+export type CreateSkillApiV1SkillsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateSkillApiV1SkillsPostError = CreateSkillApiV1SkillsPostErrors[keyof CreateSkillApiV1SkillsPostErrors];
+
+export type CreateSkillApiV1SkillsPostResponses = {
+    /**
+     * Response Create Skill Api V1 Skills Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateSkillApiV1SkillsPostResponse = CreateSkillApiV1SkillsPostResponses[keyof CreateSkillApiV1SkillsPostResponses];
+
+export type GetSkillApiV1SkillsSkillIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}';
+};
+
+export type GetSkillApiV1SkillsSkillIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSkillApiV1SkillsSkillIdGetError = GetSkillApiV1SkillsSkillIdGetErrors[keyof GetSkillApiV1SkillsSkillIdGetErrors];
+
+export type GetSkillApiV1SkillsSkillIdGetResponses = {
+    /**
+     * Response Get Skill Api V1 Skills  Skill Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetSkillApiV1SkillsSkillIdGetResponse = GetSkillApiV1SkillsSkillIdGetResponses[keyof GetSkillApiV1SkillsSkillIdGetResponses];
+
+export type PatchSkillApiV1SkillsSkillIdPatchData = {
+    body: SkillPatch;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}';
+};
+
+export type PatchSkillApiV1SkillsSkillIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchSkillApiV1SkillsSkillIdPatchError = PatchSkillApiV1SkillsSkillIdPatchErrors[keyof PatchSkillApiV1SkillsSkillIdPatchErrors];
+
+export type PatchSkillApiV1SkillsSkillIdPatchResponses = {
+    /**
+     * Response Patch Skill Api V1 Skills  Skill Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchSkillApiV1SkillsSkillIdPatchResponse = PatchSkillApiV1SkillsSkillIdPatchResponses[keyof PatchSkillApiV1SkillsSkillIdPatchResponses];
+
+export type PublishSkillApiV1SkillsSkillIdPublishPostData = {
+    body: SkillPublishBody;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}:publish';
+};
+
+export type PublishSkillApiV1SkillsSkillIdPublishPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PublishSkillApiV1SkillsSkillIdPublishPostError = PublishSkillApiV1SkillsSkillIdPublishPostErrors[keyof PublishSkillApiV1SkillsSkillIdPublishPostErrors];
+
+export type PublishSkillApiV1SkillsSkillIdPublishPostResponses = {
+    /**
+     * Response Publish Skill Api V1 Skills  Skill Id  Publish Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PublishSkillApiV1SkillsSkillIdPublishPostResponse = PublishSkillApiV1SkillsSkillIdPublishPostResponses[keyof PublishSkillApiV1SkillsSkillIdPublishPostResponses];
+
+export type ArchiveSkillApiV1SkillsSkillIdArchivePostData = {
+    body?: never;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}:archive';
+};
+
+export type ArchiveSkillApiV1SkillsSkillIdArchivePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ArchiveSkillApiV1SkillsSkillIdArchivePostError = ArchiveSkillApiV1SkillsSkillIdArchivePostErrors[keyof ArchiveSkillApiV1SkillsSkillIdArchivePostErrors];
+
+export type ArchiveSkillApiV1SkillsSkillIdArchivePostResponses = {
+    /**
+     * Response Archive Skill Api V1 Skills  Skill Id  Archive Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ArchiveSkillApiV1SkillsSkillIdArchivePostResponse = ArchiveSkillApiV1SkillsSkillIdArchivePostResponses[keyof ArchiveSkillApiV1SkillsSkillIdArchivePostResponses];
+
+export type ListVersionsApiV1SkillsSkillIdVersionsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}/versions';
+};
+
+export type ListVersionsApiV1SkillsSkillIdVersionsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListVersionsApiV1SkillsSkillIdVersionsGetError = ListVersionsApiV1SkillsSkillIdVersionsGetErrors[keyof ListVersionsApiV1SkillsSkillIdVersionsGetErrors];
+
+export type ListVersionsApiV1SkillsSkillIdVersionsGetResponses = {
+    /**
+     * Response List Versions Api V1 Skills  Skill Id  Versions Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListVersionsApiV1SkillsSkillIdVersionsGetResponse = ListVersionsApiV1SkillsSkillIdVersionsGetResponses[keyof ListVersionsApiV1SkillsSkillIdVersionsGetResponses];
+
+export type GetVersionApiV1SkillsSkillIdVersionsVersionGetData = {
+    body?: never;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+        /**
+         * Version
+         */
+        version: number;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}/versions/{version}';
+};
+
+export type GetVersionApiV1SkillsSkillIdVersionsVersionGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetVersionApiV1SkillsSkillIdVersionsVersionGetError = GetVersionApiV1SkillsSkillIdVersionsVersionGetErrors[keyof GetVersionApiV1SkillsSkillIdVersionsVersionGetErrors];
+
+export type GetVersionApiV1SkillsSkillIdVersionsVersionGetResponses = {
+    /**
+     * Response Get Version Api V1 Skills  Skill Id  Versions  Version  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetVersionApiV1SkillsSkillIdVersionsVersionGetResponse = GetVersionApiV1SkillsSkillIdVersionsVersionGetResponses[keyof GetVersionApiV1SkillsSkillIdVersionsVersionGetResponses];
+
+export type WhereUsedApiV1SkillsSkillIdWhereUsedGetData = {
+    body?: never;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}/where-used';
+};
+
+export type WhereUsedApiV1SkillsSkillIdWhereUsedGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WhereUsedApiV1SkillsSkillIdWhereUsedGetError = WhereUsedApiV1SkillsSkillIdWhereUsedGetErrors[keyof WhereUsedApiV1SkillsSkillIdWhereUsedGetErrors];
+
+export type WhereUsedApiV1SkillsSkillIdWhereUsedGetResponses = {
+    /**
+     * Response Where Used Api V1 Skills  Skill Id  Where Used Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WhereUsedApiV1SkillsSkillIdWhereUsedGetResponse = WhereUsedApiV1SkillsSkillIdWhereUsedGetResponses[keyof WhereUsedApiV1SkillsSkillIdWhereUsedGetResponses];
+
+export type RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostData = {
+    body?: never;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}:republish-dependants';
+};
+
+export type RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostError = RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostErrors[keyof RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostErrors];
+
+export type RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponses = {
+    /**
+     * Response Republish Dependants Api V1 Skills  Skill Id  Republish Dependants Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponse = RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponses[keyof RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponses];

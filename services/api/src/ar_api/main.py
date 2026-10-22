@@ -44,6 +44,7 @@ from ar_api.routers.scim_tokens import router as scim_tokens_router
 from ar_api.routers.secrets import router as secrets_router
 from ar_api.routers.service_accounts import router as service_accounts_router
 from ar_api.routers.signup import router as signup_router
+from ar_api.routers.skills import router as skills_router
 from ar_api.routers.sod import router as sod_router
 from ar_api.routers.standing_approvals import router as standing_router
 from ar_api.routers.support_access import router as support_router
@@ -243,6 +244,7 @@ def create_application() -> FastAPI:
             sandboxes_router,
             knowledge_router,
             memory_router,
+            skills_router,
         ],
         inner_middleware=inner,
         docs_url=docs,

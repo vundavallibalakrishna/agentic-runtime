@@ -45,6 +45,9 @@ from .approve_api_v1_tool_servers_server_id_versions_version_id_approve_post_res
 from .archive_agent_api_v1_agents_agent_id_archive_post_response_archive_agent_api_v1_agents_agent_id_archive_post import (
     ArchiveAgentApiV1AgentsAgentIdArchivePostResponseArchiveAgentApiV1AgentsAgentIdArchivePost,
 )
+from .archive_skill_api_v1_skills_skill_id_archive_post_response_archive_skill_api_v1_skills_skill_id_archive_post import (
+    ArchiveSkillApiV1SkillsSkillIdArchivePostResponseArchiveSkillApiV1SkillsSkillIdArchivePost,
+)
 from .assignment_create import AssignmentCreate
 from .body_upload_file_api_v1_files_upload_post import BodyUploadFileApiV1FilesUploadPost
 from .bulk_body import BulkBody
@@ -169,6 +172,9 @@ from .create_server_api_v1_tool_servers_post_response_create_server_api_v1_tool_
 )
 from .create_service_account_api_v1_service_accounts_post_response_create_service_account_api_v1_service_accounts_post import (
     CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost,
+)
+from .create_skill_api_v1_skills_post_response_create_skill_api_v1_skills_post import (
+    CreateSkillApiV1SkillsPostResponseCreateSkillApiV1SkillsPost,
 )
 from .create_source_api_v1_knowledge_collections_collection_id_sources_post_response_create_source_api_v1_knowledge_collections_collection_id_sources_post import (
     CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostResponseCreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPost,
@@ -432,6 +438,9 @@ from .get_secret_api_v1_secrets_secret_id_get_response_get_secret_api_v1_secrets
 from .get_server_api_v1_tool_servers_server_id_get_response_get_server_api_v1_tool_servers_server_id_get import (
     GetServerApiV1ToolServersServerIdGetResponseGetServerApiV1ToolServersServerIdGet,
 )
+from .get_skill_api_v1_skills_skill_id_get_response_get_skill_api_v1_skills_skill_id_get import (
+    GetSkillApiV1SkillsSkillIdGetResponseGetSkillApiV1SkillsSkillIdGet,
+)
 from .get_source_api_v1_knowledge_sources_source_id_get_response_get_source_api_v1_knowledge_sources_source_id_get import (
     GetSourceApiV1KnowledgeSourcesSourceIdGetResponseGetSourceApiV1KnowledgeSourcesSourceIdGet,
 )
@@ -455,6 +464,9 @@ from .get_user_scim_v2_users_user_id_get_response_get_user_scim_v2_users_user_id
 )
 from .get_version_api_v1_agents_agent_id_versions_version_ref_get_response_get_version_api_v1_agents_agent_id_versions_version_ref_get import (
     GetVersionApiV1AgentsAgentIdVersionsVersionRefGetResponseGetVersionApiV1AgentsAgentIdVersionsVersionRefGet,
+)
+from .get_version_api_v1_skills_skill_id_versions_version_get_response_get_version_api_v1_skills_skill_id_versions_version_get import (
+    GetVersionApiV1SkillsSkillIdVersionsVersionGetResponseGetVersionApiV1SkillsSkillIdVersionsVersionGet,
 )
 from .get_version_api_v1_tool_servers_server_id_versions_version_id_get_response_get_version_api_v1_tool_servers_server_id_versions_version_id_get import (
     GetVersionApiV1ToolServersServerIdVersionsVersionIdGetResponseGetVersionApiV1ToolServersServerIdVersionsVersionIdGet,
@@ -615,6 +627,9 @@ from .list_service_accounts_api_v1_service_accounts_get_response_list_service_ac
 from .list_shares_api_v1_conversations_conversation_id_shares_get_response_list_shares_api_v1_conversations_conversation_id_shares_get import (
     ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet,
 )
+from .list_skills_api_v1_skills_get_response_list_skills_api_v1_skills_get import (
+    ListSkillsApiV1SkillsGetResponseListSkillsApiV1SkillsGet,
+)
 from .list_sources_api_v1_knowledge_collections_collection_id_sources_get_response_list_sources_api_v1_knowledge_collections_collection_id_sources_get import (
     ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponseListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGet,
 )
@@ -656,6 +671,9 @@ from .list_versions_api_v1_agents_agent_id_versions_get_response_list_versions_a
 )
 from .list_versions_api_v1_policies_policy_id_versions_get_response_list_versions_api_v1_policies_policy_id_versions_get import (
     ListVersionsApiV1PoliciesPolicyIdVersionsGetResponseListVersionsApiV1PoliciesPolicyIdVersionsGet,
+)
+from .list_versions_api_v1_skills_skill_id_versions_get_response_list_versions_api_v1_skills_skill_id_versions_get import (
+    ListVersionsApiV1SkillsSkillIdVersionsGetResponseListVersionsApiV1SkillsSkillIdVersionsGet,
 )
 from .list_versions_api_v1_tool_servers_server_id_versions_get_response_list_versions_api_v1_tool_servers_server_id_versions_get import (
     ListVersionsApiV1ToolServersServerIdVersionsGetResponseListVersionsApiV1ToolServersServerIdVersionsGet,
@@ -751,6 +769,9 @@ from .patch_server_api_v1_tool_servers_server_id_patch_response_patch_server_api
 from .patch_service_account_api_v1_service_accounts_service_account_id_patch_response_patch_service_account_api_v1_service_accounts_service_account_id_patch import (
     PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchResponsePatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatch,
 )
+from .patch_skill_api_v1_skills_skill_id_patch_response_patch_skill_api_v1_skills_skill_id_patch import (
+    PatchSkillApiV1SkillsSkillIdPatchResponsePatchSkillApiV1SkillsSkillIdPatch,
+)
 from .patch_source_api_v1_knowledge_sources_source_id_patch_response_patch_source_api_v1_knowledge_sources_source_id_patch import (
     PatchSourceApiV1KnowledgeSourcesSourceIdPatchResponsePatchSourceApiV1KnowledgeSourcesSourceIdPatch,
 )
@@ -800,6 +821,9 @@ from .publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_a
     PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost,
 )
 from .publish_body import PublishBody
+from .publish_skill_api_v1_skills_skill_id_publish_post_response_publish_skill_api_v1_skills_skill_id_publish_post import (
+    PublishSkillApiV1SkillsSkillIdPublishPostResponsePublishSkillApiV1SkillsSkillIdPublishPost,
+)
 from .put_feedback_api_v1_messages_message_id_feedback_put_response_put_feedback_api_v1_messages_message_id_feedback_put import (
     PutFeedbackApiV1MessagesMessageIdFeedbackPutResponsePutFeedbackApiV1MessagesMessageIdFeedbackPut,
 )
@@ -843,6 +867,9 @@ from .reject_api_v1_tool_servers_server_id_versions_version_id_reject_post_respo
 )
 from .remove_member_api_v1_teams_team_id_members_user_id_delete_response_remove_member_api_v1_teams_team_id_members_user_id_delete import (
     RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponseRemoveMemberApiV1TeamsTeamIdMembersUserIdDelete,
+)
+from .republish_dependants_api_v1_skills_skill_id_republish_dependants_post_response_republish_dependants_api_v1_skills_skill_id_republish_dependants_post import (
+    RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponseRepublishDependantsApiV1SkillsSkillIdRepublishDependantsPost,
 )
 from .resource_types_scim_v2_resource_types_get_response_resource_types_scim_v2_resourcetypes_get import (
     ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet,
@@ -922,6 +949,10 @@ from .simulate_body_args import SimulateBodyArgs
 from .simulate_policy_api_v1_policies_simulate_post_response_simulate_policy_api_v1_policies_simulate_post import (
     SimulatePolicyApiV1PoliciesSimulatePostResponseSimulatePolicyApiV1PoliciesSimulatePost,
 )
+from .skill_asset import SkillAsset
+from .skill_body import SkillBody
+from .skill_patch import SkillPatch
+from .skill_publish_body import SkillPublishBody
 from .source_body import SourceBody
 from .source_body_config_type_0 import SourceBodyConfigType0
 from .source_patch import SourcePatch
@@ -1024,6 +1055,9 @@ from .webhook_create import WebhookCreate
 from .where_used_api_v1_agents_agent_id_where_used_get_response_where_used_api_v1_agents_agent_id_where_used_get import (
     WhereUsedApiV1AgentsAgentIdWhereUsedGetResponseWhereUsedApiV1AgentsAgentIdWhereUsedGet,
 )
+from .where_used_api_v1_skills_skill_id_where_used_get_response_where_used_api_v1_skills_skill_id_where_used_get import (
+    WhereUsedApiV1SkillsSkillIdWhereUsedGetResponseWhereUsedApiV1SkillsSkillIdWhereUsedGet,
+)
 
 __all__ = (
     "AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost",
@@ -1049,6 +1083,7 @@ __all__ = (
     "ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponseApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePost",
     "ApproveApiV1ToolServersServerIdVersionsVersionIdApprovePostResponseApproveApiV1ToolServersServerIdVersionsVersionIdApprovePost",
     "ArchiveAgentApiV1AgentsAgentIdArchivePostResponseArchiveAgentApiV1AgentsAgentIdArchivePost",
+    "ArchiveSkillApiV1SkillsSkillIdArchivePostResponseArchiveSkillApiV1SkillsSkillIdArchivePost",
     "AssignmentCreate",
     "BodyUploadFileApiV1FilesUploadPost",
     "BulkBody",
@@ -1102,6 +1137,7 @@ __all__ = (
     "CreateSecretApiV1SecretsPostResponseCreateSecretApiV1SecretsPost",
     "CreateServerApiV1ToolServersPostResponseCreateServerApiV1ToolServersPost",
     "CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost",
+    "CreateSkillApiV1SkillsPostResponseCreateSkillApiV1SkillsPost",
     "CreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPostResponseCreateSourceApiV1KnowledgeCollectionsCollectionIdSourcesPost",
     "CreateTeamApiV1TeamsPostResponseCreateTeamApiV1TeamsPost",
     "CreateTeamMemoryApiV1TeamsTeamIdMemoryPostResponseCreateTeamMemoryApiV1TeamsTeamIdMemoryPost",
@@ -1200,6 +1236,7 @@ __all__ = (
     "GetSandboxApiV1SandboxesSandboxIdGetResponseGetSandboxApiV1SandboxesSandboxIdGet",
     "GetSecretApiV1SecretsSecretIdGetResponseGetSecretApiV1SecretsSecretIdGet",
     "GetServerApiV1ToolServersServerIdGetResponseGetServerApiV1ToolServersServerIdGet",
+    "GetSkillApiV1SkillsSkillIdGetResponseGetSkillApiV1SkillsSkillIdGet",
     "GetSourceApiV1KnowledgeSourcesSourceIdGetResponseGetSourceApiV1KnowledgeSourcesSourceIdGet",
     "GetTeamApiV1TeamsTeamIdGetResponseGetTeamApiV1TeamsTeamIdGet",
     "GetTenantApiV1PlatformTenantsTenantIdGetResponseGetTenantApiV1PlatformTenantsTenantIdGet",
@@ -1208,6 +1245,7 @@ __all__ = (
     "GetUserApiV1UsersUserIdGetResponseGetUserApiV1UsersUserIdGet",
     "GetUserScimV2UsersUserIdGetResponseGetUserScimV2UsersUserIdGet",
     "GetVersionApiV1AgentsAgentIdVersionsVersionRefGetResponseGetVersionApiV1AgentsAgentIdVersionsVersionRefGet",
+    "GetVersionApiV1SkillsSkillIdVersionsVersionGetResponseGetVersionApiV1SkillsSkillIdVersionsVersionGet",
     "GetVersionApiV1ToolServersServerIdVersionsVersionIdGetResponseGetVersionApiV1ToolServersServerIdVersionsVersionIdGet",
     "GetWebhookApiV1WebhooksWebhookIdGetResponseGetWebhookApiV1WebhooksWebhookIdGet",
     "GrantCreate",
@@ -1269,6 +1307,7 @@ __all__ = (
     "ListServersApiV1ToolServersGetResponseListServersApiV1ToolServersGet",
     "ListServiceAccountsApiV1ServiceAccountsGetResponseListServiceAccountsApiV1ServiceAccountsGet",
     "ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet",
+    "ListSkillsApiV1SkillsGetResponseListSkillsApiV1SkillsGet",
     "ListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGetResponseListSourcesApiV1KnowledgeCollectionsCollectionIdSourcesGet",
     "ListStandingApiV1StandingApprovalsGetResponseListStandingApiV1StandingApprovalsGet",
     "ListStepsApiV1RunsRunIdStepsGetResponseListStepsApiV1RunsRunIdStepsGet",
@@ -1283,6 +1322,7 @@ __all__ = (
     "ListUsersScimV2UsersGetResponseListUsersScimV2UsersGet",
     "ListVersionsApiV1AgentsAgentIdVersionsGetResponseListVersionsApiV1AgentsAgentIdVersionsGet",
     "ListVersionsApiV1PoliciesPolicyIdVersionsGetResponseListVersionsApiV1PoliciesPolicyIdVersionsGet",
+    "ListVersionsApiV1SkillsSkillIdVersionsGetResponseListVersionsApiV1SkillsSkillIdVersionsGet",
     "ListVersionsApiV1ToolServersServerIdVersionsGetResponseListVersionsApiV1ToolServersServerIdVersionsGet",
     "ListWebhooksApiV1WebhooksGetResponseListWebhooksApiV1WebhooksGet",
     "MarkReadApiV1NotificationsNotificationIdReadPostResponseMarkReadApiV1NotificationsNotificationIdReadPost",
@@ -1323,6 +1363,7 @@ __all__ = (
     "PatchSecretApiV1SecretsSecretIdPatchResponsePatchSecretApiV1SecretsSecretIdPatch",
     "PatchServerApiV1ToolServersServerIdPatchResponsePatchServerApiV1ToolServersServerIdPatch",
     "PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchResponsePatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatch",
+    "PatchSkillApiV1SkillsSkillIdPatchResponsePatchSkillApiV1SkillsSkillIdPatch",
     "PatchSourceApiV1KnowledgeSourcesSourceIdPatchResponsePatchSourceApiV1KnowledgeSourcesSourceIdPatch",
     "PatchTeamApiV1TeamsTeamIdPatchResponsePatchTeamApiV1TeamsTeamIdPatch",
     "PatchTemplateApiV1SandboxTemplatesTemplateIdPatchResponsePatchTemplateApiV1SandboxTemplatesTemplateIdPatch",
@@ -1346,6 +1387,7 @@ __all__ = (
     "ProviderPatch",
     "PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost",
     "PublishBody",
+    "PublishSkillApiV1SkillsSkillIdPublishPostResponsePublishSkillApiV1SkillsSkillIdPublishPost",
     "PutFeedbackApiV1MessagesMessageIdFeedbackPutResponsePutFeedbackApiV1MessagesMessageIdFeedbackPut",
     "PutMemberApiV1GroupsGroupIdMembersUserIdPutResponsePutMemberApiV1GroupsGroupIdMembersUserIdPut",
     "PutUserScimV2UsersUserIdPutBody",
@@ -1366,6 +1408,7 @@ __all__ = (
     "RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponseRejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPost",
     "RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponseRejectApiV1ToolServersServerIdVersionsVersionIdRejectPost",
     "RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponseRemoveMemberApiV1TeamsTeamIdMembersUserIdDelete",
+    "RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponseRepublishDependantsApiV1SkillsSkillIdRepublishDependantsPost",
     "ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet",
     "ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost",
     "ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost",
@@ -1404,6 +1447,10 @@ __all__ = (
     "SimulateBody",
     "SimulateBodyArgs",
     "SimulatePolicyApiV1PoliciesSimulatePostResponseSimulatePolicyApiV1PoliciesSimulatePost",
+    "SkillAsset",
+    "SkillBody",
+    "SkillPatch",
+    "SkillPublishBody",
     "SourceBody",
     "SourceBodyConfigType0",
     "SourcePatch",
@@ -1458,4 +1505,5 @@ __all__ = (
     "VersionBodyConfigType0",
     "WebhookCreate",
     "WhereUsedApiV1AgentsAgentIdWhereUsedGetResponseWhereUsedApiV1AgentsAgentIdWhereUsedGet",
+    "WhereUsedApiV1SkillsSkillIdWhereUsedGetResponseWhereUsedApiV1SkillsSkillIdWhereUsedGet",
 )

@@ -47,6 +47,13 @@ def prepare_prompt(
     )
     run["memory"] = block
     run["recalled"] = [dict(item) for item in facts]
+    from ar_domain.skills.sections import capabilities_block, loaded_skills_block  # noqa: PLC0415
+
+    tenant = run.get("tenant_id")
+    run["capabilities"] = capabilities_block(
+        store, definition, tenant_id=tenant if isinstance(tenant, uuid.UUID) else None
+    )
+    run["skills"] = loaded_skills_block(store, conversation, run)
     bundle = build_prompt(
         {
             "definition": definition,
@@ -56,6 +63,8 @@ def prepare_prompt(
             "memory": block,
             "summary": str(conversation.get("rolling_summary") or ""),
             "documents": run.get("documents"),
+            "capabilities": run["capabilities"],
+            "skills": run["skills"],
         }
     )
     run["prompt_messages"] = [dict(item) for item in bundle.messages]

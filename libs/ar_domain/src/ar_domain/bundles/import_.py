@@ -13,13 +13,12 @@ from ar_domain.agents.service import AgentLifecycle
 from ar_domain.agents.validation import schema_errors
 from ar_domain.bundles.diff import classify, resource_hash
 
-_READY = frozenset({"Agent"})
+_READY = frozenset({"Agent", "Skill"})
 _SKIPPED = frozenset(
     {
         "ToolServer",
         "DataConnection",
         "KnowledgeCollection",
-        "Skill",
         "Policy",
         "Routine",
         "ModelAlias",
@@ -67,7 +66,7 @@ def _current_hash(store: Any, agent: dict[str, object]) -> str | None:
     return definition_hash(cleaned)
 
 
-def import_bundle(
+def import_bundle(  # noqa: PLR0912
     store: Any,
     actor: Actor,
     payload: object,
@@ -82,6 +81,9 @@ def import_bundle(
         key = _slug(resource)
         if kind in _SKIPPED:
             results.append({"kind": kind, "key": key, "action": "skipped"})
+            continue
+        if kind == "Skill":
+            results.append(_import_skill(store, actor, resource, key, dry_run=dry_run))
             continue
         if kind not in _READY:
             results.append(
@@ -151,6 +153,60 @@ def import_bundle(
             }
         )
     return {"results": results}
+
+
+def _text(spec: dict[str, object], *keys: str) -> str:
+    for key in keys:
+        value = spec.get(key)
+        if isinstance(value, str):
+            return value
+    return ""
+
+
+def _import_skill(
+    store: Any,
+    actor: Actor,
+    resource: dict[str, object],
+    key: str,
+    *,
+    dry_run: bool,
+) -> dict[str, object]:
+    """Plan or create a skill draft. Publish stays a separate step."""
+    from ar_domain.skills.book import SkillBook  # noqa: PLC0415
+
+    spec = resource.get("spec")
+    if not isinstance(spec, dict):
+        return {"kind": "Skill", "key": key, "action": "error", "errors": [{"msg": "missing spec"}]}
+    metadata = resource.get("metadata") if isinstance(resource.get("metadata"), dict) else {}
+    slug = str(metadata.get("slug") or key) if isinstance(metadata, dict) else key
+    name = str(metadata.get("name") or slug) if isinstance(metadata, dict) else slug
+    body = {
+        "slug": slug,
+        "name": name,
+        "description": _text(spec, "description"),
+        "visibility": _text(spec, "visibility") or "tenant",
+        "instructions_md": _text(spec, "instructions_md", "instructionsMd"),
+        "required_tools": spec.get("required_tools") or spec.get("requiredTools") or [],
+    }
+    existing = None
+    for row in getattr(store, "skills", {}).values():
+        if (
+            isinstance(row, dict)
+            and row.get("tenant_id") == actor.tenant_id
+            and row.get("slug") == slug
+        ):
+            existing = row
+            break
+    action = "unchanged" if existing is not None else "create"
+    result: dict[str, object] = {"kind": "Skill", "key": slug, "action": action}
+    if existing is not None:
+        result["id"] = str(existing.get("id"))
+        return result
+    if dry_run:
+        return result
+    created = SkillBook(store).create(actor, body)
+    result["id"] = created.get("id")
+    return result
 
 
 def bundle_yaml(document: dict[str, JsonValue]) -> str:

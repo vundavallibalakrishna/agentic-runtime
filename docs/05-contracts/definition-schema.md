@@ -130,7 +130,7 @@ spec:
 | `tool_search.mode` | enum | `auto`, `on`, `off`; `top_k` 4..32 |
 | `knowledge.collections` | slug[] | ≤ 20; caller must be able to see each at save time |
 | `knowledge.min_score` | number | 0..1 |
-| `skills` | slug[] | ≤ 50; published skills |
+| `skills` | slug[] | ≤ 30; published skills. A `slug@^1` constraint resolves at publish ([spec 14](../03-specs/14-skills.md)) |
 | `memory.read_scopes` | enum[] | subset of `user`, `agent`, `team`, `agent_user` |
 | `subagents.allowed` | slug[] | published agents; no cycles deeper than `max_depth` |
 | `subagents.max_depth` | int | 1..3 |

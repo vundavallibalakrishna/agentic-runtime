@@ -137,7 +137,7 @@ class AgentDefinition(_Model):
     tools: list[ToolBinding] = Field(default_factory=list)
     tool_search: ToolSearch = ToolSearch()
     knowledge: KnowledgeSpec = KnowledgeSpec()
-    skills: list[str] = Field(default_factory=list, max_length=50)
+    skills: list[str] = Field(default_factory=list, max_length=30)
     memory: MemorySpec = MemorySpec()
     subagents: SubagentSpec = SubagentSpec()
     sandbox: SandboxSpec = SandboxSpec()

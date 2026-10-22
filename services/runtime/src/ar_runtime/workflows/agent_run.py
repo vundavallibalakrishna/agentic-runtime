@@ -46,6 +46,13 @@ def workflow_id(run_id: str) -> str:
     return f"run-{run_id}"
 
 
+def delegation_workflow() -> type[object]:
+    """Temporal parent run that starts subagent children."""
+    from ar_runtime.workflows.delegation import AgentRunWorkflow  # noqa: PLC0415
+
+    return AgentRunWorkflow
+
+
 def approval_wait_workflow() -> type[object]:
     """The Temporal wait for approval and user input. The dev HTTP path stays in process."""
     from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow  # noqa: PLC0415

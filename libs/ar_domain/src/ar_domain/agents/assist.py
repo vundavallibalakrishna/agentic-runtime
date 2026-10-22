@@ -50,6 +50,16 @@ def scripted_definition(description: str) -> dict[str, object]:
             "tools": [{"server": "files", "version": "*", "include": ["*"]}],
         }
     )
+    lowered = description.lower()
+    if "skill" in lowered or "brand guideline" in lowered:
+        raw["skills"] = ["brand-guidelines"]
+    if "subagent" in lowered or "delegate" in lowered:
+        raw["subagents"] = {
+            "allowed": ["researcher"],
+            "allow_self_clone": False,
+            "max_depth": 2,
+            "max_parallel": 2,
+        }
     model = AgentDefinition.model_validate(raw)
     return model.model_dump(by_alias=True, mode="json")
 

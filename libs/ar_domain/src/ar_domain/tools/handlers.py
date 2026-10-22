@@ -19,7 +19,7 @@ def orders() -> list[dict[str, object]]:
     return [dict(row) for row in _ORDERS]
 
 
-def dispatch(  # noqa: PLR0911
+def dispatch(  # noqa: PLR0911, PLR0912
     store: Any, endpoint: str, name: str, arguments: dict[str, object], token: str
 ) -> dict[str, object]:
     """Run one in-process tool. Unknown endpoints are upstream errors."""
@@ -55,6 +55,8 @@ def dispatch(  # noqa: PLR0911
         return _knowledge(store, name, arguments)
     if endpoint == "builtin://memory":
         return _memory(store, name, arguments)
+    if endpoint == "builtin://skills":
+        return _skills(store, name, arguments)
     return {
         "text": "upstream server is not reachable",
         "structured": {},
@@ -385,6 +387,22 @@ def _strings(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item) for item in value]
+
+
+def _skills(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+    if name != "load":
+        return _error("unknown_tool", f"unknown tool {name}")
+    raw_run = arguments.get("_run_id")
+    try:
+        run_id = uuid.UUID(str(raw_run))
+    except ValueError:
+        return _error("validation_failed", "skill load needs a run")
+    run = store.runs.get(run_id)
+    if not isinstance(run, dict):
+        return _error("validation_failed", "skill load needs a run")
+    from ar_domain.skills.load import load_skill  # noqa: PLC0415
+
+    return load_skill(store, run, str(arguments.get("skill") or ""))
 
 
 def _error(code: str, message: str) -> dict[str, object]:

@@ -117,7 +117,27 @@ def test_reference_kinds_filters_and_edges() -> None:
         {"spec": {"resources": [{"kind": "Skill", "metadata": {"slug": "briefing"}}]}},
         dry_run=True,
     )
-    assert skipped["results"][0]["action"] == "skipped"
+    assert skipped["results"][0]["action"] == "error"
+    planned = import_bundle(
+        store,
+        actor,
+        {
+            "spec": {
+                "resources": [
+                    {
+                        "kind": "Skill",
+                        "metadata": {"slug": "briefing", "name": "Briefing"},
+                        "spec": {
+                            "description": "A short briefing.",
+                            "instructionsMd": "Write the briefing.",
+                        },
+                    }
+                ]
+            }
+        },
+        dry_run=True,
+    )
+    assert planned["results"][0]["action"] == "create"
     broken = import_bundle(
         store,
         actor,
