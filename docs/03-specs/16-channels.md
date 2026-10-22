@@ -68,6 +68,7 @@ Item `ChannelIntegration {id, kind, name, config (non-secret), default_agent: {i
 Body `{kind, name, config, credentials: {...} (stored as secret: Slack `bot_token`, `signing_secret`, `app_token`(socket); Teams `app_id`, `app_password`, `tenant_id`; email `imap_host`, `imap_port`, `smtp_host`, `smtp_port`, `username`, `password`, `address`), default_agent_id?, agent_routing?}`. Emits `ar:invalidate:channel_integration:{id}`; `channels` reloads.
 
 #### GET /api/v1/channel-integrations/{integration_id}
+The list item plus `recentPosts` (at most five, body truncated to 280 characters). Credentials are never returned.
 #### PATCH /api/v1/channel-integrations/{integration_id}
 #### DELETE /api/v1/channel-integrations/{integration_id}
 #### POST /api/v1/channel-integrations/{integration_id}:test
@@ -81,7 +82,7 @@ Linked users.
 #### DELETE /api/v1/channel-integrations/{integration_id}/identities/{identity_id}
 
 #### GET /api/v1/me/channel-identities
-The caller's links.
+The caller's links. Permission `chat:use` (a member links their own account; `channels:manage` stays on the admin catalogue). The install manifest uses `channels:manage`.
 #### POST /api/v1/me/channel-identities:link
 Body `{token}` (the signed link token from the bot message, `AR_CHANNEL_LINK_TTL_S=900`) → creates `channel_identities (match_method='manual_link', verified_at=now)`.
 #### DELETE /api/v1/me/channel-identities/{identity_id}
@@ -91,7 +92,7 @@ Body `{token}` (the signed link token from the bot message, `AR_CHANNEL_LINK_TTL
 - REST: `POST /api/v1/runs` and the conversation endpoints with API keys (`ark_…`) or service account keys. OpenAPI document at `GET /api/v1/openapi.json`; generated SDKs: Python `agentic-runtime-client` (from `openapi-python-client`, package `ar_client`) and TypeScript `@ar/api-client` (hey-api), published from CI.
 
 #### POST /api/v1/openai/chat/completions
-OpenAI Chat Completions-compatible facade for existing client libraries. Auth: API key. `model` = agent slug (must be published, visible, `channels.api: true`). The last `user` message becomes the input; earlier messages are used only when `X-AR-Conversation-Id` is absent and are prepended to the input as a transcript (`<prior_messages>` block, untrusted). `X-AR-Conversation-Id` continues a conversation. `stream: true` → OpenAI-style SSE chunks (`choices[0].delta.content`) mapped from `message.delta`; tool activity is not exposed (only final text; approvals cause `finish_reason: "approval_required"` with a `ar_approval_url` extension field). `tools`/`functions` in the request are rejected (400). Response includes `usage` and header `X-AR-Run-Id`.
+OpenAI Chat Completions-compatible facade for existing client libraries. Auth: API key, permission `chat:use`. The JSON for this facade stays snake_case (`finish_reason`, `data`) so the official SDK can read it; other public JSON stays camelCase. `model` = agent slug (must be published, visible, `channels.api: true`). The `user` field is ignored; the principal wins. The last `user` message becomes the input; earlier messages are used only when `X-AR-Conversation-Id` is absent and are prepended to the input as a transcript (`<prior_messages>` block, untrusted). `X-AR-Conversation-Id` continues a conversation. `stream: true` → OpenAI-style SSE chunks (`choices[0].delta.content`) mapped from `message.delta`; tool activity is not exposed (only final text; approvals cause `finish_reason: "approval_required"` with a `ar_approval_url` extension field). `tools`/`functions` in the request are rejected (400). Response includes `usage` and header `X-AR-Run-Id`.
 
 #### GET /api/v1/openai/models
 Agents usable via the facade (`{data: [{id: slug, object: "model", owned_by: "tenant"}]}`).

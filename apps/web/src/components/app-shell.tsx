@@ -245,6 +245,14 @@ export function AppShell({
                     {t(option)}
                   </button>
                 ))}
+                <Link
+                  className="mt-1 block w-full rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-[var(--muted)]"
+                  href="/settings/profile"
+                  onClick={() => setMenuOpen(false)}
+                  role="menuitem"
+                >
+                  {t("profile")}
+                </Link>
                 <button
                   className="mt-1 block w-full rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-[var(--muted)]"
                   onClick={() => void signOut()}

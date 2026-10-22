@@ -33,6 +33,8 @@ def is_public(path: str) -> bool:
         return True
     if path.startswith("/api/v1/hooks/routines/"):
         return True
+    if path == "/api/v1/widget/sessions" or path.startswith("/api/v1/widget/integrations/"):
+        return True
     return path.startswith("/api/v1/invitations/") and path.endswith(":accept")
 
 

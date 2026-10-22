@@ -162,6 +162,10 @@ class ChatService:
     delegation_tokens: set[uuid.UUID] = field(default_factory=set)
     temporal_schedules: dict[str, dict[str, object]] = field(default_factory=dict)
     delivery_posts: list[dict[str, object]] = field(default_factory=list)
+    channel_integrations: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    channel_identities: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    channel_threads: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    channel_posts: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     approval_lock: threading.Lock = field(default_factory=threading.Lock)
     opa_url: str = ""
     opa_timeout_ms: int = 200
@@ -247,6 +251,7 @@ class ChatService:
             self._seed_memory(tenant_id, user_id)
             self._seed_composition(tenant_id, user_id)
             self._seed_routines(tenant_id, user_id)
+            self._seed_channels(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -359,6 +364,12 @@ class ChatService:
         self._seed_memory(tenant_id, user_id)
         self._seed_composition(tenant_id, user_id)
         self._seed_routines(tenant_id, user_id)
+        self._seed_channels(tenant_id, user_id)
+
+    def _seed_channels(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.channels.showcase import seed_channels  # noqa: PLC0415
+
+        seed_channels(self, tenant_id, user_id)
 
     def _seed_routines(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.routines.showcase import seed_routines  # noqa: PLC0415

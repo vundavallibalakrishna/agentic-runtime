@@ -121,6 +121,10 @@ BUCKETS = (
     "tool_server_versions",
     "tool_defs",
     "tool_versions",
+    "channel_integrations",
+    "channel_identities",
+    "channel_threads",
+    "channel_posts",
 )
 
 

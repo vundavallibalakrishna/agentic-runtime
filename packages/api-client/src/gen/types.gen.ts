@@ -165,6 +165,32 @@ export type ApplyBody = {
 };
 
 /**
+ * ApprovalBody
+ */
+export type ApprovalBody = {
+    /**
+     * Approvalid
+     */
+    approvalId: string;
+    /**
+     * Decision
+     */
+    decision: string;
+    /**
+     * Argshash
+     */
+    argsHash?: string;
+    /**
+     * Externaluserid
+     */
+    externalUserId?: string;
+    /**
+     * Integrationid
+     */
+    integrationId?: string | null;
+};
+
+/**
  * ApprovalDecideBody
  */
 export type ApprovalDecideBody = {
@@ -284,6 +310,64 @@ export type ChannelEventBody = {
      * Messageid
      */
     messageId?: string;
+};
+
+/**
+ * ChatMessage
+ */
+export type ChatMessage = {
+    /**
+     * Role
+     */
+    role: string;
+    /**
+     * Content
+     */
+    content?: string | Array<ChatPart> | null;
+};
+
+/**
+ * ChatPart
+ */
+export type ChatPart = {
+    /**
+     * Type
+     */
+    type?: string;
+    /**
+     * Text
+     */
+    text?: string;
+};
+
+/**
+ * ChatRequest
+ */
+export type ChatRequest = {
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Messages
+     */
+    messages?: Array<ChatMessage>;
+    /**
+     * Stream
+     */
+    stream?: boolean;
+    /**
+     * User
+     */
+    user?: string | null;
+    /**
+     * Tools
+     */
+    tools?: Array<unknown> | null;
+    /**
+     * Functions
+     */
+    functions?: Array<unknown> | null;
 };
 
 /**
@@ -611,6 +695,72 @@ export type CredentialProviderPatch = {
 };
 
 /**
+ * CredentialsBody
+ */
+export type CredentialsBody = {
+    /**
+     * Bottoken
+     */
+    botToken?: string | null;
+    /**
+     * Signingsecret
+     */
+    signingSecret?: string | null;
+    /**
+     * Apptoken
+     */
+    appToken?: string | null;
+    /**
+     * Appid
+     */
+    appId?: string | null;
+    /**
+     * Apppassword
+     */
+    appPassword?: string | null;
+    /**
+     * Tenantid
+     */
+    tenantId?: string | null;
+    /**
+     * Imaphost
+     */
+    imapHost?: string | null;
+    /**
+     * Imapport
+     */
+    imapPort?: number | null;
+    /**
+     * Smtphost
+     */
+    smtpHost?: string | null;
+    /**
+     * Smtpport
+     */
+    smtpPort?: number | null;
+    /**
+     * Username
+     */
+    username?: string | null;
+    /**
+     * Password
+     */
+    password?: string | null;
+    /**
+     * Address
+     */
+    address?: string | null;
+    /**
+     * Widgetsecret
+     */
+    widgetSecret?: string | null;
+    /**
+     * Secret
+     */
+    secret?: string | null;
+};
+
+/**
  * DeliveryBody
  */
 export type DeliveryBody = {
@@ -859,6 +1009,62 @@ export type ImportBody = {
 };
 
 /**
+ * InboundBody
+ */
+export type InboundBody = {
+    /**
+     * Integrationid
+     */
+    integrationId: string;
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Eventid
+     */
+    eventId?: string;
+    /**
+     * Externaluserid
+     */
+    externalUserId?: string;
+    /**
+     * Externaluseremail
+     */
+    externalUserEmail?: string | null;
+    /**
+     * Externalchannelid
+     */
+    externalChannelId?: string;
+    /**
+     * Externalthreadid
+     */
+    externalThreadId?: string;
+    /**
+     * Externalmessageid
+     */
+    externalMessageId?: string;
+    /**
+     * Text
+     */
+    text?: string;
+    /**
+     * Isdm
+     */
+    isDm?: boolean;
+    /**
+     * Mentionsbot
+     */
+    mentionsBot?: boolean;
+    /**
+     * Command
+     */
+    command?: {
+        [key: string]: string;
+    } | null;
+};
+
+/**
  * InstallBody
  */
 export type InstallBody = {
@@ -876,6 +1082,68 @@ export type InstallBody = {
      * Keyid
      */
     keyId?: string | null;
+};
+
+/**
+ * IntegrationBody
+ */
+export type IntegrationBody = {
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: unknown;
+    };
+    credentials?: CredentialsBody | null;
+    /**
+     * Defaultagentid
+     */
+    defaultAgentId?: string | null;
+    /**
+     * Agentrouting
+     */
+    agentRouting?: Array<{
+        [key: string]: unknown;
+    }>;
+};
+
+/**
+ * IntegrationPatch
+ */
+export type IntegrationPatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: unknown;
+    } | null;
+    credentials?: CredentialsBody | null;
+    /**
+     * Defaultagentid
+     */
+    defaultAgentId?: string | null;
+    /**
+     * Agentrouting
+     */
+    agentRouting?: Array<{
+        [key: string]: unknown;
+    }> | null;
+    /**
+     * Status
+     */
+    status?: string | null;
 };
 
 /**
@@ -922,6 +1190,16 @@ export type ItemBody = {
      * Statementtext
      */
     statementText: string;
+};
+
+/**
+ * LinkBody
+ */
+export type LinkBody = {
+    /**
+     * Token
+     */
+    token: string;
 };
 
 /**
@@ -2357,6 +2635,20 @@ export type WebhookCreate = {
      * Topics
      */
     topics: Array<string>;
+};
+
+/**
+ * WidgetSessionBody
+ */
+export type WidgetSessionBody = {
+    /**
+     * Integrationid
+     */
+    integrationId: string;
+    /**
+     * Token
+     */
+    token: string;
 };
 
 export type HealthzHealthzGetData = {
@@ -12904,3 +13196,533 @@ export type ChannelEventsInternalV1ChannelsEventsPostResponses = {
 };
 
 export type ChannelEventsInternalV1ChannelsEventsPostResponse = ChannelEventsInternalV1ChannelsEventsPostResponses[keyof ChannelEventsInternalV1ChannelsEventsPostResponses];
+
+export type ListIntegrationsApiV1ChannelIntegrationsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/channel-integrations';
+};
+
+export type ListIntegrationsApiV1ChannelIntegrationsGetResponses = {
+    /**
+     * Response List Integrations Api V1 Channel Integrations Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListIntegrationsApiV1ChannelIntegrationsGetResponse = ListIntegrationsApiV1ChannelIntegrationsGetResponses[keyof ListIntegrationsApiV1ChannelIntegrationsGetResponses];
+
+export type CreateIntegrationApiV1ChannelIntegrationsPostData = {
+    body: IntegrationBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/channel-integrations';
+};
+
+export type CreateIntegrationApiV1ChannelIntegrationsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateIntegrationApiV1ChannelIntegrationsPostError = CreateIntegrationApiV1ChannelIntegrationsPostErrors[keyof CreateIntegrationApiV1ChannelIntegrationsPostErrors];
+
+export type CreateIntegrationApiV1ChannelIntegrationsPostResponses = {
+    /**
+     * Response Create Integration Api V1 Channel Integrations Post
+     *
+     * Successful Response
+     */
+    201: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateIntegrationApiV1ChannelIntegrationsPostResponse = CreateIntegrationApiV1ChannelIntegrationsPostResponses[keyof CreateIntegrationApiV1ChannelIntegrationsPostResponses];
+
+export type DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/channel-integrations/{integration_id}';
+};
+
+export type DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteError = DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteErrors[keyof DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteErrors];
+
+export type DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteResponse = DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteResponses[keyof DeleteIntegrationApiV1ChannelIntegrationsIntegrationIdDeleteResponses];
+
+export type GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/channel-integrations/{integration_id}';
+};
+
+export type GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetError = GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetErrors[keyof GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetErrors];
+
+export type GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponses = {
+    /**
+     * Response Get Integration Api V1 Channel Integrations  Integration Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponse = GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponses[keyof GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponses];
+
+export type PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchData = {
+    body: IntegrationPatch;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/channel-integrations/{integration_id}';
+};
+
+export type PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchError = PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchErrors[keyof PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchErrors];
+
+export type PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponses = {
+    /**
+     * Response Patch Integration Api V1 Channel Integrations  Integration Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponse = PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponses[keyof PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponses];
+
+export type TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostData = {
+    body?: never;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/channel-integrations/{integration_id}:test';
+};
+
+export type TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostError = TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostErrors[keyof TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostErrors];
+
+export type TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponses = {
+    /**
+     * Response Test Integration Api V1 Channel Integrations  Integration Id  Test Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponse = TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponses[keyof TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponses];
+
+export type IntegrationManifestApiV1ChannelIntegrationsIntegrationIdManifestGetData = {
+    body?: never;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/channel-integrations/{integration_id}/manifest';
+};
+
+export type IntegrationManifestApiV1ChannelIntegrationsIntegrationIdManifestGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type IntegrationManifestApiV1ChannelIntegrationsIntegrationIdManifestGetError = IntegrationManifestApiV1ChannelIntegrationsIntegrationIdManifestGetErrors[keyof IntegrationManifestApiV1ChannelIntegrationsIntegrationIdManifestGetErrors];
+
+export type IntegrationManifestApiV1ChannelIntegrationsIntegrationIdManifestGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetData = {
+    body?: never;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/channel-integrations/{integration_id}/identities';
+};
+
+export type ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetError = ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetErrors[keyof ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetErrors];
+
+export type ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetResponses = {
+    /**
+     * Response List Identities Api V1 Channel Integrations  Integration Id  Identities Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetResponse = ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetResponses[keyof ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetResponses];
+
+export type DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+        /**
+         * Identity Id
+         */
+        identity_id: string;
+    };
+    query?: never;
+    url: '/api/v1/channel-integrations/{integration_id}/identities/{identity_id}';
+};
+
+export type DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteError = DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteErrors[keyof DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteErrors];
+
+export type DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteResponse = DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteResponses[keyof DeleteIdentityApiV1ChannelIntegrationsIntegrationIdIdentitiesIdentityIdDeleteResponses];
+
+export type MyIdentitiesApiV1MeChannelIdentitiesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/channel-identities';
+};
+
+export type MyIdentitiesApiV1MeChannelIdentitiesGetResponses = {
+    /**
+     * Response My Identities Api V1 Me Channel Identities Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type MyIdentitiesApiV1MeChannelIdentitiesGetResponse = MyIdentitiesApiV1MeChannelIdentitiesGetResponses[keyof MyIdentitiesApiV1MeChannelIdentitiesGetResponses];
+
+export type LinkIdentityApiV1MeChannelIdentitiesLinkPostData = {
+    body: LinkBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/me/channel-identities:link';
+};
+
+export type LinkIdentityApiV1MeChannelIdentitiesLinkPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type LinkIdentityApiV1MeChannelIdentitiesLinkPostError = LinkIdentityApiV1MeChannelIdentitiesLinkPostErrors[keyof LinkIdentityApiV1MeChannelIdentitiesLinkPostErrors];
+
+export type LinkIdentityApiV1MeChannelIdentitiesLinkPostResponses = {
+    /**
+     * Response Link Identity Api V1 Me Channel Identities Link Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type LinkIdentityApiV1MeChannelIdentitiesLinkPostResponse = LinkIdentityApiV1MeChannelIdentitiesLinkPostResponses[keyof LinkIdentityApiV1MeChannelIdentitiesLinkPostResponses];
+
+export type UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Identity Id
+         */
+        identity_id: string;
+    };
+    query?: never;
+    url: '/api/v1/me/channel-identities/{identity_id}';
+};
+
+export type UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteError = UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteErrors[keyof UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteErrors];
+
+export type UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteResponse = UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteResponses[keyof UnlinkIdentityApiV1MeChannelIdentitiesIdentityIdDeleteResponses];
+
+export type InternalIntegrationsInternalV1ChannelsIntegrationsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/internal/v1/channels/integrations';
+};
+
+export type InternalIntegrationsInternalV1ChannelsIntegrationsGetResponses = {
+    /**
+     * Response Internal Integrations Internal V1 Channels Integrations Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type InternalIntegrationsInternalV1ChannelsIntegrationsGetResponse = InternalIntegrationsInternalV1ChannelsIntegrationsGetResponses[keyof InternalIntegrationsInternalV1ChannelsIntegrationsGetResponses];
+
+export type InternalInboundInternalV1ChannelsInboundPostData = {
+    body: InboundBody;
+    path?: never;
+    query?: never;
+    url: '/internal/v1/channels/inbound';
+};
+
+export type InternalInboundInternalV1ChannelsInboundPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InternalInboundInternalV1ChannelsInboundPostError = InternalInboundInternalV1ChannelsInboundPostErrors[keyof InternalInboundInternalV1ChannelsInboundPostErrors];
+
+export type InternalInboundInternalV1ChannelsInboundPostResponses = {
+    /**
+     * Response Internal Inbound Internal V1 Channels Inbound Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type InternalInboundInternalV1ChannelsInboundPostResponse = InternalInboundInternalV1ChannelsInboundPostResponses[keyof InternalInboundInternalV1ChannelsInboundPostResponses];
+
+export type InternalApprovalInternalV1ChannelsApprovalDecisionsPostData = {
+    body: ApprovalBody;
+    path?: never;
+    query?: never;
+    url: '/internal/v1/channels/approval-decisions';
+};
+
+export type InternalApprovalInternalV1ChannelsApprovalDecisionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InternalApprovalInternalV1ChannelsApprovalDecisionsPostError = InternalApprovalInternalV1ChannelsApprovalDecisionsPostErrors[keyof InternalApprovalInternalV1ChannelsApprovalDecisionsPostErrors];
+
+export type InternalApprovalInternalV1ChannelsApprovalDecisionsPostResponses = {
+    /**
+     * Response Internal Approval Internal V1 Channels Approval Decisions Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type InternalApprovalInternalV1ChannelsApprovalDecisionsPostResponse = InternalApprovalInternalV1ChannelsApprovalDecisionsPostResponses[keyof InternalApprovalInternalV1ChannelsApprovalDecisionsPostResponses];
+
+export type ListModelsApiV1OpenaiModelsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/openai/models';
+};
+
+export type ListModelsApiV1OpenaiModelsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ChatCompletionsApiV1OpenaiChatCompletionsPostData = {
+    body: ChatRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/openai/chat/completions';
+};
+
+export type ChatCompletionsApiV1OpenaiChatCompletionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ChatCompletionsApiV1OpenaiChatCompletionsPostError = ChatCompletionsApiV1OpenaiChatCompletionsPostErrors[keyof ChatCompletionsApiV1OpenaiChatCompletionsPostErrors];
+
+export type ChatCompletionsApiV1OpenaiChatCompletionsPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Integration Id
+         */
+        integration_id: string;
+    };
+    query?: never;
+    url: '/api/v1/widget/integrations/{integration_id}';
+};
+
+export type WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetError = WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetErrors[keyof WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetErrors];
+
+export type WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetResponses = {
+    /**
+     * Response Widget Frame Api V1 Widget Integrations  Integration Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetResponse = WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetResponses[keyof WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetResponses];
+
+export type WidgetSessionApiV1WidgetSessionsPostData = {
+    body: WidgetSessionBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/widget/sessions';
+};
+
+export type WidgetSessionApiV1WidgetSessionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetSessionApiV1WidgetSessionsPostError = WidgetSessionApiV1WidgetSessionsPostErrors[keyof WidgetSessionApiV1WidgetSessionsPostErrors];
+
+export type WidgetSessionApiV1WidgetSessionsPostResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type WidgetSessionApiV1WidgetSessionsPostResponse = WidgetSessionApiV1WidgetSessionsPostResponses[keyof WidgetSessionApiV1WidgetSessionsPostResponses];

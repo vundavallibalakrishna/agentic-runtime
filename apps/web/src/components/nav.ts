@@ -7,6 +7,7 @@ import {
   MessageSquare,
   Monitor,
   Play,
+  Radio,
   Repeat,
   Shield,
   Sparkles,
@@ -23,6 +24,7 @@ export type NavItem = {
     | "navMemory"
     | "navSkills"
     | "navRoutines"
+    | "navChannels"
     | "navApprovals"
     | "navRuns"
     | "navModels"
@@ -50,6 +52,12 @@ export const primaryNav: NavItem[] = [
     labelKey: "navRoutines",
     permission: "routines:create",
     icon: Repeat,
+  },
+  {
+    href: "/admin/channels",
+    labelKey: "navChannels",
+    permission: "channels:manage",
+    icon: Radio,
   },
   {
     href: "/approvals",

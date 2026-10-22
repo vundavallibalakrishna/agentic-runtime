@@ -29,7 +29,7 @@ The faces are loaded with `next/font`: Source Sans 3 for the interface, Source S
 `AppShell` is the signed-in frame.
 
 - A collapsible sidebar with the mark and the wordmark, the workspace name, and primary navigation.
-- Navigation items are Chat, Agents, Tools, Knowledge, Routines, Approvals, Runs, Models, Computers and Users. An item is hidden when the session lacks its permission. Sections that are not built yet stay in the list with a "Soon" mark and open a short holding page.
+- Navigation items are Chat, Agents, Tools, Knowledge, Memory, Skills, Routines, Channels, Approvals, Runs, Models, Computers and Users. An item is hidden when the session lacks its permission. Sections that are not built yet stay in the list with a "Soon" mark and open a short holding page.
 - The header shows the workspace and the signed-in email, a command palette (⌘K or Ctrl+K), and an account menu with the theme choice and sign-out.
 - ⌘⇧O (Ctrl+Shift+O) starts a new chat.
 - Below the `lg` breakpoint the sidebar becomes a panel over a scrim.

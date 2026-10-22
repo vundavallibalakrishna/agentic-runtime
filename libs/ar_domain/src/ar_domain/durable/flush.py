@@ -95,6 +95,10 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:
         await _messages(session, pending["messages"])
         await _link_runs(session, pending["runs"], pending["conversations"])
         await _events(session, store, pending["events"])
+        await _channel_integrations(session, pending["channel_integrations"])
+        await _channel_identities(session, pending["channel_identities"])
+        await _channel_threads(session, pending["channel_threads"])
+        await _channel_posts(session, pending["channel_posts"])
 
 
 def _snapshot(store: object) -> dict[str, list[dict[str, Any]]]:
@@ -991,6 +995,153 @@ async def _events(session: AsyncSession, store: object, rows: list[dict[str, Any
                     "created_at": as_dt(event.get("ts")) or utcnow(),
                 },
             )
+
+
+async def _channel_integrations(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO channel_integrations (
+            id, tenant_id, kind, name, config, secret_ref_id, default_agent_id,
+            agent_routing, status, status_detail, created_by, created_at, updated_at
+        ) VALUES (
+            :id, :tenant_id, :kind, :name, CAST(:config AS jsonb), NULL,
+            :default_agent_id, CAST(:agent_routing AS jsonb), :status, :status_detail,
+            :created_by, :created_at, :updated_at
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            config = EXCLUDED.config,
+            default_agent_id = EXCLUDED.default_agent_id,
+            agent_routing = EXCLUDED.agent_routing,
+            status = EXCLUDED.status,
+            status_detail = EXCLUDED.status_detail,
+            updated_at = EXCLUDED.updated_at
+    """
+    for row in rows:
+        integration_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        if integration_id is None or tenant_id is None:
+            continue
+        now = utcnow()
+        await _one(
+            session,
+            sql,
+            {
+                "id": integration_id,
+                "tenant_id": tenant_id,
+                "kind": as_text(row.get("kind"), "slack"),
+                "name": as_text(row.get("name"), "Channel"),
+                "config": as_json(row.get("config"), {}),
+                "default_agent_id": as_uuid(row.get("default_agent_id")),
+                "agent_routing": as_json(row.get("agent_routing"), []),
+                "status": as_text(row.get("status"), "active"),
+                "status_detail": as_text(row.get("status_detail"), ""),
+                "created_by": as_uuid(row.get("created_by")),
+                "created_at": as_dt(row.get("created_at")) or now,
+                "updated_at": as_dt(row.get("updated_at")) or now,
+            },
+        )
+
+
+async def _channel_identities(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO channel_identities (
+            id, tenant_id, integration_id, external_user_id, user_id,
+            match_method, verified_at, created_at
+        ) VALUES (
+            :id, :tenant_id, :integration_id, :external_user_id, :user_id,
+            :match_method, :verified_at, :created_at
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            user_id = EXCLUDED.user_id,
+            match_method = EXCLUDED.match_method,
+            verified_at = EXCLUDED.verified_at
+    """
+    for row in rows:
+        identity_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        integration_id = as_uuid(row.get("integration_id"))
+        user_id = as_uuid(row.get("user_id"))
+        if None in {identity_id, tenant_id, integration_id, user_id}:
+            continue
+        await _one(
+            session,
+            sql,
+            {
+                "id": identity_id,
+                "tenant_id": tenant_id,
+                "integration_id": integration_id,
+                "external_user_id": as_text(row.get("external_user_id")),
+                "user_id": user_id,
+                "match_method": as_text(row.get("match_method"), "manual_link"),
+                "verified_at": as_dt(row.get("verified_at")),
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
+            },
+        )
+
+
+async def _channel_threads(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO channel_threads (
+            id, tenant_id, integration_id, external_channel_id, external_thread_id,
+            conversation_id, created_at
+        ) VALUES (
+            :id, :tenant_id, :integration_id, :external_channel_id, :external_thread_id,
+            :conversation_id, :created_at
+        )
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        thread_id = as_uuid(row.get("id"))
+        if thread_id is None or as_uuid(row.get("conversation_id")) is None:
+            continue
+        await _one(
+            session,
+            sql,
+            {
+                "id": thread_id,
+                "tenant_id": as_uuid(row.get("tenant_id")),
+                "integration_id": as_uuid(row.get("integration_id")),
+                "external_channel_id": as_text(row.get("external_channel_id")),
+                "external_thread_id": as_text(row.get("external_thread_id")),
+                "conversation_id": as_uuid(row.get("conversation_id")),
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
+            },
+        )
+
+
+async def _channel_posts(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO channel_posts (
+            id, tenant_id, integration_id, thread_id, direction, kind,
+            external_message_id, body, status, detail, created_at
+        ) VALUES (
+            :id, :tenant_id, :integration_id, :thread_id, :direction, :kind,
+            :external_message_id, :body, :status, CAST(:detail AS jsonb), :created_at
+        )
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        post_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        if post_id is None or tenant_id is None:
+            continue
+        await _one(
+            session,
+            sql,
+            {
+                "id": post_id,
+                "tenant_id": tenant_id,
+                "integration_id": as_uuid(row.get("integration_id")),
+                "thread_id": as_uuid(row.get("thread_id")),
+                "direction": as_text(row.get("direction"), "outbound"),
+                "kind": as_text(row.get("kind"), "slack"),
+                "external_message_id": as_text(row.get("external_message_id")),
+                "body": as_text(row.get("body")),
+                "status": as_text(row.get("status"), "posted"),
+                "detail": as_json(row.get("detail"), {}),
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
+            },
+        )
 
 
 def mark_all_dirty(store: object) -> None:

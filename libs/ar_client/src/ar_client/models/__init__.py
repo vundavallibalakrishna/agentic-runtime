@@ -34,6 +34,7 @@ from .apply_body import ApplyBody
 from .apply_session_api_v1_builder_sessions_session_id_apply_post_response_apply_session_api_v1_builder_sessions_session_id_apply_post import (
     ApplySessionApiV1BuilderSessionsSessionIdApplyPostResponseApplySessionApiV1BuilderSessionsSessionIdApplyPost,
 )
+from .approval_body import ApprovalBody
 from .approval_decide_body import ApprovalDecideBody
 from .approval_decide_body_arguments_type_0 import ApprovalDecideBodyArgumentsType0
 from .approve_agent_memory_api_v1_agents_agent_id_memory_fact_id_approve_post_response_approve_agent_memory_api_v1_agents_agent_id_memory_fact_id_approve_post import (
@@ -68,6 +69,9 @@ from .channel_event_body import ChannelEventBody
 from .channel_events_internal_v1_channels_events_post_response_channel_events_internal_v1_channels_events_post import (
     ChannelEventsInternalV1ChannelsEventsPostResponseChannelEventsInternalV1ChannelsEventsPost,
 )
+from .chat_message import ChatMessage
+from .chat_part import ChatPart
+from .chat_request import ChatRequest
 from .check_body import CheckBody
 from .check_constraint_api_v1_sod_constraints_check_post_response_check_constraint_api_v1_sod_constraints_check_post import (
     CheckConstraintApiV1SodConstraintsCheckPostResponseCheckConstraintApiV1SodConstraintsCheckPost,
@@ -137,6 +141,9 @@ from .create_group_scim_v2_groups_post_response_create_group_scim_v2_groups_post
 )
 from .create_idp_api_v1_identity_providers_post_response_create_idp_api_v1_identity_providers_post import (
     CreateIdpApiV1IdentityProvidersPostResponseCreateIdpApiV1IdentityProvidersPost,
+)
+from .create_integration_api_v1_channel_integrations_post_response_create_integration_api_v1_channel_integrations_post import (
+    CreateIntegrationApiV1ChannelIntegrationsPostResponseCreateIntegrationApiV1ChannelIntegrationsPost,
 )
 from .create_invitations_api_v1_invitations_post_response_200_item import (
     CreateInvitationsApiV1InvitationsPostResponse200Item,
@@ -215,6 +222,7 @@ from .credential_provider_body import CredentialProviderBody
 from .credential_provider_body_extra_type_0 import CredentialProviderBodyExtraType0
 from .credential_provider_patch import CredentialProviderPatch
 from .credential_provider_patch_extra_type_0 import CredentialProviderPatchExtraType0
+from .credentials_body import CredentialsBody
 from .decide_approval_api_v1_approvals_approval_id_decide_post_response_decide_approval_api_v1_approvals_approval_id_decide_post import (
     DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponseDecideApprovalApiV1ApprovalsApprovalIdDecidePost,
 )
@@ -420,6 +428,9 @@ from .get_event_api_v1_audit_events_event_id_get_response_get_event_api_v1_audit
 from .get_file_api_v1_files_file_id_get_response_get_file_api_v1_files_file_id_get import (
     GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet,
 )
+from .get_integration_api_v1_channel_integrations_integration_id_get_response_get_integration_api_v1_channel_integrations_integration_id_get import (
+    GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponseGetIntegrationApiV1ChannelIntegrationsIntegrationIdGet,
+)
 from .get_item_api_v1_review_items_review_item_id_get_response_get_item_api_v1_review_items_review_item_id_get import (
     GetItemApiV1ReviewItemsReviewItemIdGetResponseGetItemApiV1ReviewItemsReviewItemIdGet,
 )
@@ -502,10 +513,27 @@ from .import_agents_api_v1_bundles_import_post_response_import_agents_api_v1_bun
 )
 from .import_body import ImportBody
 from .import_body_bundle_type_0 import ImportBodyBundleType0
+from .inbound_body import InboundBody
+from .inbound_body_command_type_0 import InboundBodyCommandType0
 from .install_body import InstallBody
 from .install_body_manifest import InstallBodyManifest
 from .install_pack_api_v1_content_packs_install_post_response_install_pack_api_v1_content_packs_install_post import (
     InstallPackApiV1ContentPacksInstallPostResponseInstallPackApiV1ContentPacksInstallPost,
+)
+from .integration_body import IntegrationBody
+from .integration_body_agent_routing_item import IntegrationBodyAgentRoutingItem
+from .integration_body_config import IntegrationBodyConfig
+from .integration_patch import IntegrationPatch
+from .integration_patch_agent_routing_type_0_item import IntegrationPatchAgentRoutingType0Item
+from .integration_patch_config_type_0 import IntegrationPatchConfigType0
+from .internal_approval_internal_v1_channels_approval_decisions_post_response_internal_approval_internal_v1_channels_approval_decisions_post import (
+    InternalApprovalInternalV1ChannelsApprovalDecisionsPostResponseInternalApprovalInternalV1ChannelsApprovalDecisionsPost,
+)
+from .internal_inbound_internal_v1_channels_inbound_post_response_internal_inbound_internal_v1_channels_inbound_post import (
+    InternalInboundInternalV1ChannelsInboundPostResponseInternalInboundInternalV1ChannelsInboundPost,
+)
+from .internal_integrations_internal_v1_channels_integrations_get_response_internal_integrations_internal_v1_channels_integrations_get import (
+    InternalIntegrationsInternalV1ChannelsIntegrationsGetResponseInternalIntegrationsInternalV1ChannelsIntegrationsGet,
 )
 from .internal_test_internal_v1_connections_test_post_response_internal_test_internal_v1_connections_test_post import (
     InternalTestInternalV1ConnectionsTestPostResponseInternalTestInternalV1ConnectionsTestPost,
@@ -515,6 +543,10 @@ from .item_body import ItemBody
 from .item_body_subjectref import ItemBodySubjectref
 from .jwks_api_v1_well_known_jwks_json_get_response_jwks_api_v1_well_known_jwks_json_get import (
     JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet,
+)
+from .link_body import LinkBody
+from .link_identity_api_v1_me_channel_identities_link_post_response_link_identity_api_v1_me_channel_identities_link_post import (
+    LinkIdentityApiV1MeChannelIdentitiesLinkPostResponseLinkIdentityApiV1MeChannelIdentitiesLinkPost,
 )
 from .list_agent_memory_api_v1_agents_agent_id_memory_get_response_list_agent_memory_api_v1_agents_agent_id_memory_get import (
     ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponseListAgentMemoryApiV1AgentsAgentIdMemoryGet,
@@ -573,8 +605,14 @@ from .list_groups_api_v1_groups_get_response_list_groups_api_v1_groups_get impor
 from .list_groups_scim_v2_groups_get_response_list_groups_scim_v2_groups_get import (
     ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet,
 )
+from .list_identities_api_v1_channel_integrations_integration_id_identities_get_response_list_identities_api_v1_channel_integrations_integration_id_identities_get import (
+    ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetResponseListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGet,
+)
 from .list_idps_api_v1_identity_providers_get_response_list_idps_api_v1_identity_providers_get import (
     ListIdpsApiV1IdentityProvidersGetResponseListIdpsApiV1IdentityProvidersGet,
+)
+from .list_integrations_api_v1_channel_integrations_get_response_list_integrations_api_v1_channel_integrations_get import (
+    ListIntegrationsApiV1ChannelIntegrationsGetResponseListIntegrationsApiV1ChannelIntegrationsGet,
 )
 from .list_invitations_api_v1_invitations_get_response_list_invitations_api_v1_invitations_get import (
     ListInvitationsApiV1InvitationsGetResponseListInvitationsApiV1InvitationsGet,
@@ -719,6 +757,9 @@ from .meta_api_v1_meta_get_response_meta_api_v1_meta_get import (
     MetaApiV1MetaGetResponseMetaApiV1MetaGet,
 )
 from .model_body import ModelBody
+from .my_identities_api_v1_me_channel_identities_get_response_my_identities_api_v1_me_channel_identities_get import (
+    MyIdentitiesApiV1MeChannelIdentitiesGetResponseMyIdentitiesApiV1MeChannelIdentitiesGet,
+)
 from .notes_body import NotesBody
 from .oauth_callback_api_v1_connections_oauth_callback_get_response_oauth_callback_api_v1_connections_oauth_callback_get import (
     OauthCallbackApiV1ConnectionsOauthCallbackGetResponseOauthCallbackApiV1ConnectionsOauthCallbackGet,
@@ -753,6 +794,9 @@ from .patch_group_scim_v2_groups_group_id_patch_response_patch_group_scim_v2_gro
 )
 from .patch_idp_api_v1_identity_providers_idp_id_patch_response_patch_idp_api_v1_identity_providers_idp_id_patch import (
     PatchIdpApiV1IdentityProvidersIdpIdPatchResponsePatchIdpApiV1IdentityProvidersIdpIdPatch,
+)
+from .patch_integration_api_v1_channel_integrations_integration_id_patch_response_patch_integration_api_v1_channel_integrations_integration_id_patch import (
+    PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponsePatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatch,
 )
 from .patch_memory_api_v1_memory_fact_id_patch_response_patch_memory_api_v1_memory_fact_id_patch import (
     PatchMemoryApiV1MemoryFactIdPatchResponsePatchMemoryApiV1MemoryFactIdPatch,
@@ -1044,6 +1088,9 @@ from .test_body_arguments import TestBodyArguments
 from .test_connection_api_v1_data_connections_connection_id_test_post_response_test_connection_api_v1_data_connections_connection_id_test_post import (
     TestConnectionApiV1DataConnectionsConnectionIdTestPostResponseTestConnectionApiV1DataConnectionsConnectionIdTestPost,
 )
+from .test_integration_api_v1_channel_integrations_integration_id_test_post_response_test_integration_api_v1_channel_integrations_integration_id_test_post import (
+    TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponseTestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPost,
+)
 from .test_provider_api_v1_model_providers_provider_id_test_post_response_test_provider_api_v1_model_providers_provider_id_test_post import (
     TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost,
 )
@@ -1105,6 +1152,10 @@ from .where_used_api_v1_agents_agent_id_where_used_get_response_where_used_api_v
 from .where_used_api_v1_skills_skill_id_where_used_get_response_where_used_api_v1_skills_skill_id_where_used_get import (
     WhereUsedApiV1SkillsSkillIdWhereUsedGetResponseWhereUsedApiV1SkillsSkillIdWhereUsedGet,
 )
+from .widget_frame_api_v1_widget_integrations_integration_id_get_response_widget_frame_api_v1_widget_integrations_integration_id_get import (
+    WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetResponseWidgetFrameApiV1WidgetIntegrationsIntegrationIdGet,
+)
+from .widget_session_body import WidgetSessionBody
 
 __all__ = (
     "AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost",
@@ -1125,6 +1176,7 @@ __all__ = (
     "ApiKeyCreate",
     "ApplyBody",
     "ApplySessionApiV1BuilderSessionsSessionIdApplyPostResponseApplySessionApiV1BuilderSessionsSessionIdApplyPost",
+    "ApprovalBody",
     "ApprovalDecideBody",
     "ApprovalDecideBodyArgumentsType0",
     "ApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePostResponseApproveAgentMemoryApiV1AgentsAgentIdMemoryFactIdApprovePost",
@@ -1141,6 +1193,9 @@ __all__ = (
     "CancelRunApiV1RunsRunIdCancelPostResponseCancelRunApiV1RunsRunIdCancelPost",
     "ChannelEventBody",
     "ChannelEventsInternalV1ChannelsEventsPostResponseChannelEventsInternalV1ChannelsEventsPost",
+    "ChatMessage",
+    "ChatPart",
+    "ChatRequest",
     "CheckBody",
     "CheckConstraintApiV1SodConstraintsCheckPostResponseCheckConstraintApiV1SodConstraintsCheckPost",
     "ChildRunsApiV1RunsRunIdChildrenGetResponseChildRunsApiV1RunsRunIdChildrenGet",
@@ -1173,6 +1228,7 @@ __all__ = (
     "CreateGroupScimV2GroupsPostBody",
     "CreateGroupScimV2GroupsPostResponseCreateGroupScimV2GroupsPost",
     "CreateIdpApiV1IdentityProvidersPostResponseCreateIdpApiV1IdentityProvidersPost",
+    "CreateIntegrationApiV1ChannelIntegrationsPostResponseCreateIntegrationApiV1ChannelIntegrationsPost",
     "CreateInvitationsApiV1InvitationsPostResponse200Item",
     "CreateMemoryApiV1MemoryPostResponseCreateMemoryApiV1MemoryPost",
     "CreateModelApiV1ModelsPostResponseCreateModelApiV1ModelsPost",
@@ -1202,6 +1258,7 @@ __all__ = (
     "CredentialProviderBodyExtraType0",
     "CredentialProviderPatch",
     "CredentialProviderPatchExtraType0",
+    "CredentialsBody",
     "DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponseDecideApprovalApiV1ApprovalsApprovalIdDecidePost",
     "DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponseDecideItemApiV1ReviewItemsReviewItemIdDecidePost",
     "DeleteAgentApiV1AgentsAgentIdDeleteResponseDeleteAgentApiV1AgentsAgentIdDelete",
@@ -1279,6 +1336,7 @@ __all__ = (
     "GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponseGetDocumentApiV1KnowledgeDocumentsDocumentIdGet",
     "GetEventApiV1AuditEventsEventIdGetResponseGetEventApiV1AuditEventsEventIdGet",
     "GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet",
+    "GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponseGetIntegrationApiV1ChannelIntegrationsIntegrationIdGet",
     "GetItemApiV1ReviewItemsReviewItemIdGetResponseGetItemApiV1ReviewItemsReviewItemIdGet",
     "GetJobApiV1KnowledgeJobsJobIdGetResponseGetJobApiV1KnowledgeJobsJobIdGet",
     "GetPackApiV1ContentPacksPackIdGetResponseGetPackApiV1ContentPacksPackIdGet",
@@ -1311,14 +1369,27 @@ __all__ = (
     "ImportAgentsApiV1BundlesImportPostResponseImportAgentsApiV1BundlesImportPost",
     "ImportBody",
     "ImportBodyBundleType0",
+    "InboundBody",
+    "InboundBodyCommandType0",
     "InstallBody",
     "InstallBodyManifest",
     "InstallPackApiV1ContentPacksInstallPostResponseInstallPackApiV1ContentPacksInstallPost",
+    "IntegrationBody",
+    "IntegrationBodyAgentRoutingItem",
+    "IntegrationBodyConfig",
+    "IntegrationPatch",
+    "IntegrationPatchAgentRoutingType0Item",
+    "IntegrationPatchConfigType0",
+    "InternalApprovalInternalV1ChannelsApprovalDecisionsPostResponseInternalApprovalInternalV1ChannelsApprovalDecisionsPost",
+    "InternalInboundInternalV1ChannelsInboundPostResponseInternalInboundInternalV1ChannelsInboundPost",
+    "InternalIntegrationsInternalV1ChannelsIntegrationsGetResponseInternalIntegrationsInternalV1ChannelsIntegrationsGet",
     "InternalTestInternalV1ConnectionsTestPostResponseInternalTestInternalV1ConnectionsTestPost",
     "InvitationCreate",
     "ItemBody",
     "ItemBodySubjectref",
     "JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet",
+    "LinkBody",
+    "LinkIdentityApiV1MeChannelIdentitiesLinkPostResponseLinkIdentityApiV1MeChannelIdentitiesLinkPost",
     "ListAgentMemoryApiV1AgentsAgentIdMemoryGetResponseListAgentMemoryApiV1AgentsAgentIdMemoryGet",
     "ListAgentsApiV1AgentsGetResponseListAgentsApiV1AgentsGet",
     "ListAliasesApiV1ModelAliasesGetResponseListAliasesApiV1ModelAliasesGet",
@@ -1338,7 +1409,9 @@ __all__ = (
     "ListGrantsApiV1TenantSupportAccessGetResponseListGrantsApiV1TenantSupportAccessGet",
     "ListGroupsApiV1GroupsGetResponseListGroupsApiV1GroupsGet",
     "ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet",
+    "ListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGetResponseListIdentitiesApiV1ChannelIntegrationsIntegrationIdIdentitiesGet",
     "ListIdpsApiV1IdentityProvidersGetResponseListIdpsApiV1IdentityProvidersGet",
+    "ListIntegrationsApiV1ChannelIntegrationsGetResponseListIntegrationsApiV1ChannelIntegrationsGet",
     "ListInvitationsApiV1InvitationsGetResponseListInvitationsApiV1InvitationsGet",
     "ListItemsApiV1ReviewItemsGetResponseListItemsApiV1ReviewItemsGet",
     "ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponseListJobsApiV1KnowledgeCollectionsCollectionIdJobsGet",
@@ -1394,6 +1467,7 @@ __all__ = (
     "MetaApiV1MetaGetResponseMetaApiV1MetaGet",
     "MeTeamsItem",
     "ModelBody",
+    "MyIdentitiesApiV1MeChannelIdentitiesGetResponseMyIdentitiesApiV1MeChannelIdentitiesGet",
     "NotesBody",
     "OauthCallbackApiV1ConnectionsOauthCallbackGetResponseOauthCallbackApiV1ConnectionsOauthCallbackGet",
     "OpenapiDocumentApiV1OpenapiJsonGetResponseOpenapiDocumentApiV1OpenapiJsonGet",
@@ -1407,6 +1481,7 @@ __all__ = (
     "PatchGroupScimV2GroupsGroupIdPatchBody",
     "PatchGroupScimV2GroupsGroupIdPatchResponsePatchGroupScimV2GroupsGroupIdPatch",
     "PatchIdpApiV1IdentityProvidersIdpIdPatchResponsePatchIdpApiV1IdentityProvidersIdpIdPatch",
+    "PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponsePatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatch",
     "PatchMemoryApiV1MemoryFactIdPatchResponsePatchMemoryApiV1MemoryFactIdPatch",
     "PatchMemorySettingsApiV1MemorySettingsPatchResponsePatchMemorySettingsApiV1MemorySettingsPatch",
     "PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch",
@@ -1545,6 +1620,7 @@ __all__ = (
     "TestBody",
     "TestBodyArguments",
     "TestConnectionApiV1DataConnectionsConnectionIdTestPostResponseTestConnectionApiV1DataConnectionsConnectionIdTestPost",
+    "TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponseTestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPost",
     "TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost",
     "TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponseTestSourceApiV1KnowledgeSourcesSourceIdTestPost",
     "TestToolApiV1ToolsToolIdTestPostResponseTestToolApiV1ToolsToolIdTestPost",
@@ -1576,4 +1652,6 @@ __all__ = (
     "WebhookCreate",
     "WhereUsedApiV1AgentsAgentIdWhereUsedGetResponseWhereUsedApiV1AgentsAgentIdWhereUsedGet",
     "WhereUsedApiV1SkillsSkillIdWhereUsedGetResponseWhereUsedApiV1SkillsSkillIdWhereUsedGet",
+    "WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetResponseWidgetFrameApiV1WidgetIntegrationsIntegrationIdGet",
+    "WidgetSessionBody",
 )

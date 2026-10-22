@@ -139,6 +139,10 @@ class CamelJsonMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        path = str(scope.get("path") or "")
+        if path.startswith("/api/v1/openai/"):
+            await self.app(scope, receive, send)
+            return
         start: Message | None = None
         chunks: list[bytes] = []
 

@@ -19,6 +19,7 @@ from ar_api.routers.approvals import router as approvals_router
 from ar_api.routers.audit import router as audit_router
 from ar_api.routers.builder import router as builder_router
 from ar_api.routers.bundles import router as bundles_router
+from ar_api.routers.channels import router as channels_router
 from ar_api.routers.connections import router as connections_router
 from ar_api.routers.content_packs import router as packs_router
 from ar_api.routers.credential_providers import router as providers_router
@@ -34,6 +35,7 @@ from ar_api.routers.memory import router as memory_router
 from ar_api.routers.meta import router as meta_router
 from ar_api.routers.notifications import router as notifications_router
 from ar_api.routers.opa_bundle import router as opa_bundle_router
+from ar_api.routers.openai_compat import router as openai_router
 from ar_api.routers.platform_plans import router as plans_router
 from ar_api.routers.platform_tenants import router as platform_router
 from ar_api.routers.policies import router as policies_router
@@ -56,6 +58,7 @@ from ar_api.routers.tool_servers import router as tool_servers_router
 from ar_api.routers.tools import router as tools_router
 from ar_api.routers.users import router as users_router
 from ar_api.routers.webhooks import router as webhooks_router
+from ar_api.routers.widget import router as widget_router
 from ar_api.secrets_runtime import MemorySecretApi
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
 from ar_common.host_ports import listen_port
@@ -249,6 +252,9 @@ def create_application() -> FastAPI:
             memory_router,
             skills_router,
             routines_router,
+            channels_router,
+            openai_router,
+            widget_router,
         ],
         inner_middleware=inner,
         docs_url=docs,

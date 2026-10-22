@@ -433,14 +433,15 @@ Spec: [16-channels.md](../03-specs/16-channels.md)
 | PATCH | [`/api/v1/channel-integrations/{integration_id}`](../03-specs/16-channels.md#patch-apiv1channel-integrationsintegration_id) | `channels:manage` | 5. Integration management API (served by `api`) |
 | DELETE | [`/api/v1/channel-integrations/{integration_id}`](../03-specs/16-channels.md#delete-apiv1channel-integrationsintegration_id) | `channels:manage` | 5. Integration management API (served by `api`) |
 | POST | [`/api/v1/channel-integrations/{integration_id}:test`](../03-specs/16-channels.md#post-apiv1channel-integrationsintegration_idtest) | `channels:manage` | 5. Integration management API (served by `api`) |
-| GET | [`/api/v1/channel-integrations/{integration_id}/manifest`](../03-specs/16-channels.md#get-apiv1channel-integrationsintegration_idmanifest) | `users:read` | 5. Integration management API (served by `api`) |
+| GET | [`/api/v1/channel-integrations/{integration_id}/manifest`](../03-specs/16-channels.md#get-apiv1channel-integrationsintegration_idmanifest) | `channels:manage` | 5. Integration management API (served by `api`) |
 | GET | [`/api/v1/channel-integrations/{integration_id}/identities`](../03-specs/16-channels.md#get-apiv1channel-integrationsintegration_ididentities) | `channels:manage` | 5. Integration management API (served by `api`) |
 | DELETE | [`/api/v1/channel-integrations/{integration_id}/identities/{identity_id}`](../03-specs/16-channels.md#delete-apiv1channel-integrationsintegration_ididentitiesidentity_id) | `channels:manage` | 5. Integration management API (served by `api`) |
-| GET | [`/api/v1/me/channel-identities`](../03-specs/16-channels.md#get-apiv1mechannel-identities) | `channels:manage` | 5. Integration management API (served by `api`) |
-| POST | [`/api/v1/me/channel-identities:link`](../03-specs/16-channels.md#post-apiv1mechannel-identitieslink) | `channels:manage` | 5. Integration management API (served by `api`) |
-| DELETE | [`/api/v1/me/channel-identities/{identity_id}`](../03-specs/16-channels.md#delete-apiv1mechannel-identitiesidentity_id) | `channels:manage` | 5. Integration management API (served by `api`) |
-| POST | [`/api/v1/openai/chat/completions`](../03-specs/16-channels.md#post-apiv1openaichatcompletions) | object-level (see spec) | 6. API channel |
-| GET | [`/api/v1/openai/models`](../03-specs/16-channels.md#get-apiv1openaimodels) | object-level (see spec) | 6. API channel |
+| GET | [`/api/v1/me/channel-identities`](../03-specs/16-channels.md#get-apiv1mechannel-identities) | `chat:use` | 5. Integration management API (served by `api`) |
+| POST | [`/api/v1/me/channel-identities:link`](../03-specs/16-channels.md#post-apiv1mechannel-identitieslink) | `chat:use` | 5. Integration management API (served by `api`) |
+| DELETE | [`/api/v1/me/channel-identities/{identity_id}`](../03-specs/16-channels.md#delete-apiv1mechannel-identitiesidentity_id) | `chat:use` | 5. Integration management API (served by `api`) |
+| POST | [`/api/v1/openai/chat/completions`](../03-specs/16-channels.md#post-apiv1openaichatcompletions) | `chat:use` | 6. API channel |
+| GET | [`/api/v1/openai/models`](../03-specs/16-channels.md#get-apiv1openaimodels) | `chat:use` | 6. API channel |
+| GET | [`/api/v1/widget/integrations/{integration_id}`](../03-specs/16-channels.md#7-web-widget-feature-widget) | public (integration id) | 7. Web widget (feature `widget`) |
 | POST | [`/api/v1/widget/sessions`](../03-specs/16-channels.md#post-apiv1widgetsessions) | host-signed widget JWT | 7. Web widget (feature `widget`) |
 
 ## Spec 17: Audit, usage metering, quotas and retention (`ar_domain.audit`, `ar_domain.usage`)

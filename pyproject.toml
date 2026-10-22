@@ -112,6 +112,7 @@ module = [
     "jsonschema.*",
     "jmespath.*",
     "croniter.*",
+    "aioimaplib.*",
 ]
 ignore_missing_imports = true
 
