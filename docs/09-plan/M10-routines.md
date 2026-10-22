@@ -6,6 +6,14 @@ Exit criteria: a weekly routine (cron, `Asia/Kolkata`) runs the agent as its own
 
 ---
 
+### M10-T00 · Durable process-store cutover
+- **Depends on:** M9-T04
+- **Areas:** `ar_domain/durable/**`, `ar_api`, `ar_runtime`, `ar_ingest`, `ar_system`, `ar_model_gateway`
+- **Spec:** [OQ-31](../open-questions.md), [OQ-34](../open-questions.md), [OQ-35](../open-questions.md), [OQ-36](../open-questions.md), [OQ-38](../open-questions.md), [OQ-39](../open-questions.md), [OQ-40](../open-questions.md)
+- **Do:** Move chat, tools, knowledge, memory and skills HTTP state onto the Postgres schemas. Route model calls through `model-gateway` `/v1/chat/completions` when `AR_MODEL_GATEWAY_URL` is set. Run turns on the runtime worker (`AgentRunWorkflow`), delegation as `DelegationWorkflow`, and document ingest on the ingest worker. Documents over 256 KiB stay inline.
+- **Done when:** a bound API flushes and reloads agents, knowledge collections, memory facts and skills; unit tests still run without Postgres.
+- **Tests:** `test_m10_durable` unit and integration.
+
 ### M10-T01 · Revision 0017 `routines` and routines API
 - **Depends on:** M5-T04, M9-T01
 - **Areas:** `ar_domain/routines/**`, migration 0017, `ar_api/routers/{routines.py,hooks.py}`

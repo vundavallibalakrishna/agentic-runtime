@@ -1,7 +1,9 @@
-"""Memory chat service. Specs 04-07 and 13. SQL tables are the durable schema.
+"""Product chat service. Specs 04-07 and 13.
 
-The API process serves this store so a laptop without Postgres can sign in and
-chat. ``make seed`` writes the same catalogue into Postgres for the real stack.
+HTTP uses Postgres when the database is up. Unit tests and a process with no
+database keep this cache in memory. Model calls use the model gateway when
+``model_gateway_url`` is set, and fake-llm otherwise. A connected Temporal
+client runs each turn on the runtime worker.
 """
 
 import asyncio
@@ -24,6 +26,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.conversations.logic import MessageNode, activate_branch, run_is_active
+from ar_domain.demo_ids import demo_id as demo_id  # noqa: PLC0414
 from ar_domain.files.logic import (
     MAX_UPLOAD_BYTES,
     FileView,
@@ -45,13 +48,6 @@ from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys, record_usage
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-
-DEMO_NS = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
-
-
-def demo_id(name: str) -> uuid.UUID:
-    """Stable id for the in-process demo catalogue."""
-    return uuid.uuid5(DEMO_NS, f"ar-dev-{name}")
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -88,7 +84,7 @@ def _preview(mime_type: str, data: bytes) -> dict[str, object]:
 
 @dataclass
 class ChatService:
-    """Tenant-scoped product behaviour backed by process memory."""
+    """Tenant-scoped product behaviour. Postgres backs this cache when bound."""
 
     allow_loopback: bool = True
     scanner: str = "none"
@@ -184,6 +180,12 @@ class ChatService:
     memory_seeded: bool = False
     skills: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     skill_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    model_gateway_url: str = ""
+    temporal_client: object | None = None
+    durable: bool = False
+    durable_engine: object | None = None
+    dev_binding: object | None = None
+    reloading: bool = False
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -1063,8 +1065,9 @@ class ChatService:
             "root_run_id": run_id,
             "depth": 0,
             "label": "preview" if conversation.get("is_preview") else None,
+            "agent_version_id": self._agent_version_id(conversation),
             "temporal_workflow_id": f"run-{run_id}",
-            "temporal_started": self.temporal_up,
+            "temporal_started": self.temporal_client is not None or self.temporal_up,
             "callback_url": callback_url,
             "usage": {"tokens_in": 0, "tokens_out": 0, "model_calls": 0, "cost_micros": 0},
             "error": None,
@@ -1081,12 +1084,82 @@ class ChatService:
         )
         return run
 
+    def _agent_version_id(self, conversation: dict[str, object]) -> uuid.UUID | None:
+        version_id = conversation.get("agent_version_id")
+        if isinstance(version_id, uuid.UUID):
+            return version_id
+        agent_id = conversation.get("agent_id")
+        agent = self.agents.get(agent_id) if isinstance(agent_id, uuid.UUID) else None
+        if not isinstance(agent, dict):
+            return None
+        published = agent.get("published_version_id")
+        if isinstance(published, uuid.UUID):
+            return published
+        draft = agent.get("draft_version_id")
+        return draft if isinstance(draft, uuid.UUID) else None
+
+    def completion_url(self) -> str:
+        """Chat completions. The gateway wins when it is configured."""
+        base = (self.model_gateway_url or self.fake_llm_url).rstrip("/")
+        return base + "/chat/completions"
+
+    def flush_soon(self) -> None:
+        """Persist dirty rows without blocking the caller."""
+        from ar_domain.durable.flush import schedule_flush  # noqa: PLC0415
+
+        schedule_flush(self)
+
     def _schedule(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             return
-        self.tasks.append(loop.create_task(self.generate(run_id, text, names)))
+        self.tasks.append(loop.create_task(self._start_turn(run_id, text, names)))
+
+    async def _start_turn(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
+        """Run on the runtime worker when Temporal is connected."""
+        client = self.temporal_client
+        if client is None:
+            await self.generate(run_id, text, names)
+            return
+        from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+        await flush_store(self)
+        start = getattr(client, "start_workflow", None)
+        if not callable(start):
+            await self.generate(run_id, text, names)
+            return
+        try:
+            await start(
+                "AgentRunWorkflow",
+                {"run_id": str(run_id), "text": text, "names": names},
+                id=f"run-{run_id}",
+                task_queue="ar-runtime",
+            )
+        except Exception:  # noqa: BLE001 — a down worker still answers in this process
+            await self.generate(run_id, text, names)
+            return
+        await self._watch(run_id)
+
+    async def _watch(self, run_id: uuid.UUID) -> None:
+        """Copy worker events into the SSE queues for this process."""
+        from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
+
+        seen = max((_seq(event) for event in self.events.get(run_id, [])), default=0)
+        for _ in range(240):
+            await reload_run(self, run_id)
+            for event in self.events.get(run_id, []):
+                seq = _seq(event)
+                if seq <= seen:
+                    continue
+                seen = seq
+                for queue in self.subscribers.get(run_id, []):
+                    queue.put_nowait(event)
+            run = self.runs.get(run_id)
+            status = str(run.get("status") if isinstance(run, dict) else "completed")
+            if not run_is_active(status):
+                return
+            await asyncio.sleep(0.25)
 
     def _prepare_run(
         self,
@@ -1281,7 +1354,7 @@ class ChatService:
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
                 response = await client.post(
-                    self.fake_llm_url.rstrip("/") + "/chat/completions",
+                    self.completion_url(),
                     json={"model": "fake-chat", "messages": messages},
                     headers={"X-Fake-Script-Set": "echo"},
                 )
@@ -1405,6 +1478,7 @@ class ChatService:
             "conversation_id": str(run["conversation_id"]),
             "data": data,
             "ts": utcnow().isoformat(),
+            "tenant_id": str(run.get("tenant_id") or ""),
         }
         if event_type not in {"message.delta", "reasoning.delta"}:
             self.events[run_id].append(event)
@@ -1412,6 +1486,8 @@ class ChatService:
             self.events[run_id].append(event)
         for queue in self.subscribers.get(run_id, []):
             queue.put_nowait(event)
+        if not self.reloading:
+            self.flush_soon()
 
     def events_after(
         self, tenant_id: uuid.UUID, run_id: uuid.UUID, after: int

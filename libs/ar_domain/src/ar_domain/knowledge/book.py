@@ -1,7 +1,7 @@
 """Collections, sources and documents for the dev API.
 
-Postgres tables are revision 0014. This book is the process store the dev API
-serves (OQ-38). It uses the same ingest and retrieval functions as the worker.
+Postgres tables are revision 0014. A bound process flushes this cache (OQ-38).
+It uses the same ingest and retrieval functions as the worker.
 """
 
 import hashlib
@@ -17,7 +17,7 @@ from ar_domain.audit.memory import remember
 from ar_domain.knowledge.access import can_manage, can_read_document, can_see
 from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.fetchers import check
-from ar_domain.knowledge.pipeline import ingest_document
+from ar_domain.knowledge.pipeline import ingest_or_enqueue
 from ar_domain.knowledge.searching import search as run_search
 from ar_domain.knowledge.store import memory_index
 from ar_domain.knowledge.store_types import SUPPORTED_DIMS, PhysicalCollectionSpec
@@ -374,7 +374,7 @@ class KnowledgeBook:
             found.append(view)
         return found
 
-    def add_documents(
+    async def add_documents(
         self, actor: Actor, collection_id: uuid.UUID, body: dict[str, object]
     ) -> dict[str, object]:
         collection = self._managed(actor, collection_id)
@@ -420,7 +420,7 @@ class KnowledgeBook:
                 kind="single_document",
                 triggered_by="upload",
             )
-            status = ingest_document(self.store, document["id"], raw)  # type: ignore[arg-type]
+            status = await ingest_or_enqueue(self.store, uuid.UUID(str(document["id"])), raw)
             finish_job(job, status="failed" if status == "failed" else "succeeded")
             self.store.domain_events.append(
                 {
@@ -477,11 +477,11 @@ class KnowledgeBook:
         rows.sort(key=lambda item: int(item["ordinal"]))
         return rows
 
-    def reingest(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
+    async def reingest(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         document, _collection = self._document(actor, document_id, manage=True)
         raw = bytes(self.store.knowledge_blobs.get(document["id"], b""))
         document["version_hash"] = ""
-        ingest_document(self.store, document["id"], raw)  # type: ignore[arg-type]
+        await ingest_or_enqueue(self.store, uuid.UUID(str(document["id"])), raw)
         return self._document_view(document)
 
     def remove_document(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:

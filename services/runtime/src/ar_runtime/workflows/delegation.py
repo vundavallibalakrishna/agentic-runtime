@@ -60,7 +60,7 @@ class ChildRunWorkflow:
         }
 
 
-@workflow.defn
+@workflow.defn(name="DelegationWorkflow")
 class AgentRunWorkflow:
     """Start parallel children and merge their results. Closing the parent cancels them."""
 

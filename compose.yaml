@@ -6,6 +6,8 @@ x-app-env: &app-env
   AR_DEPLOYMENT_MODE: single_tenant
   AR_DATABASE_URL: postgresql+asyncpg://ar_app:ar_app@postgres:5432/agentic_runtime
   AR_VALKEY_URL: redis://valkey:6379/0
+  AR_MODEL_GATEWAY_URL: http://model-gateway:8001
+  AR_TEMPORAL_ADDRESS: temporal:7233
   AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
 
 services:

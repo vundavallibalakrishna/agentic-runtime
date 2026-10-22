@@ -297,7 +297,7 @@ def test_collection_acl_search_and_delete_at_source() -> None:
         "mime_type": "text/markdown",
     }
     store.blobs[file_id] = b"# Note\n\nBring a badge."
-    added = book.add_documents(admin, collection_id, {"file_ids": [str(file_id)]})
+    added = asyncio.run(book.add_documents(admin, collection_id, {"file_ids": [str(file_id)]}))
     document_id = uuid.UUID(str(added["documents"][0]["id"]))
     assert book.chunks(admin, document_id)
     again = ingest_document(store, document_id, store.knowledge_blobs[document_id])
@@ -384,7 +384,9 @@ def test_embedder_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> 
         "mime_type": "text/markdown",
     }
     store.blobs[file_id] = b"The visitor desk opens at 08:30."
-    added = book.add_documents(admin, uuid.UUID(str(created["id"])), {"file_ids": [str(file_id)]})
+    added = asyncio.run(
+        book.add_documents(admin, uuid.UUID(str(created["id"])), {"file_ids": [str(file_id)]})
+    )
     bind_store(store)
     status = asyncio.run(
         ingest_document_activity(

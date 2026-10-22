@@ -1,12 +1,13 @@
 """Idempotent ingest activities. The dev API calls the same domain functions."""
 
+import base64
 import uuid
 from typing import TYPE_CHECKING
 
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from ar_domain.knowledge.pipeline import ingest_document
+from ar_domain.knowledge.pipeline import ingest_document_async
 from ar_domain.knowledge.syncing import acl_sync, delete_document, reindex, sync_source
 
 if TYPE_CHECKING:
@@ -31,8 +32,17 @@ def _store() -> Any:
 async def ingest_document_activity(payload: dict[str, object]) -> dict[str, object]:
     store = _store()
     document_id = uuid.UUID(str(payload["document_id"]))
+    raw_b64 = payload.get("raw_b64")
+    if isinstance(raw_b64, str) and raw_b64:
+        store.knowledge_blobs[document_id] = base64.b64decode(raw_b64)
+    from ar_domain.durable.hydrate import reload_document  # noqa: PLC0415
+
+    await reload_document(store, document_id)
     raw = bytes(store.knowledge_blobs.get(document_id, b""))
-    status = ingest_document(store, document_id, raw)
+    status = await ingest_document_async(store, document_id, raw)
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+    await flush_store(store)
     document = store.knowledge_documents.get(document_id, {})
     error = str(document.get("error") or "")
     if status == "failed" and error in _NON_RETRYABLE:

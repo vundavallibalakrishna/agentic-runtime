@@ -85,7 +85,12 @@ async def dev_login(request: Request) -> RedirectResponse:
     user = catalogue().get(await _dev_email(request))
     if user is None:
         return RedirectResponse("/login?error=unknown_user", status_code=303)
-    session_id, data = new_session(DEV_TENANT_ID, user.user_id)
+    from ar_domain.durable.bind import binding_from, user_for_email  # noqa: PLC0415
+
+    binding = binding_from(request.app.state.chat)
+    tenant_id = binding.tenant_id if binding is not None else DEV_TENANT_ID
+    user_id = user_for_email(binding, user.email) or user.user_id
+    session_id, data = new_session(tenant_id, user_id)
     remember_profile(
         data,
         email=user.email,

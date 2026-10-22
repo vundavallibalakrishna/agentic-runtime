@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from ar_common.ids import new_id
 from ar_contracts.tenants import PlanLimits, TenantSettings
+from ar_domain.demo_ids import demo_id
 from ar_domain.identity.models import Plan, Role, RoleAssignment, Team, TeamMember, Tenant, User
 from ar_domain.identity.permissions import SYSTEM_ROLE_NAMES, SYSTEM_ROLE_PERMISSIONS
 
@@ -123,7 +124,7 @@ async def _tenant(session: AsyncSession, plan_id: uuid.UUID) -> Tenant:
     row = await session.scalar(select(Tenant).where(Tenant.slug == "dev"))
     if row is None:
         row = Tenant(
-            id=new_id(),
+            id=demo_id("tenant"),
             slug="dev",
             name="Dev",
             status="active",
@@ -142,7 +143,7 @@ async def _users(session: AsyncSession, tenant_id: uuid.UUID, roles: dict[str, R
         )
         if user is None:
             user = User(
-                id=new_id(),
+                id=demo_id(email.split("@", 1)[0]),
                 tenant_id=tenant_id,
                 idp_subject=email,
                 email=email,

@@ -7,6 +7,7 @@ from temporalio.worker import Worker
 from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.workflows.agent_run import delegation_workflow
 from ar_runtime.workflows.delegation import AgentRunWorkflow, ChildRunWorkflow
+from ar_runtime.workflows.turn import TurnWorkflow
 
 pytestmark = pytest.mark.asyncio
 
@@ -29,6 +30,10 @@ def _payload(**extra: object) -> dict[str, object]:
 
 async def test_parallel_children_budget_cancel_and_approval(temporal_env: object) -> None:
     assert delegation_workflow() is AgentRunWorkflow
+    definition = AgentRunWorkflow.__temporal_workflow_definition  # type: ignore[attr-defined]
+    assert definition.name == "DelegationWorkflow"
+    turn = TurnWorkflow.__temporal_workflow_definition  # type: ignore[attr-defined]
+    assert turn.name == "AgentRunWorkflow"
     client = temporal_env.client  # type: ignore[attr-defined]
     async with Worker(
         client,

@@ -3,7 +3,7 @@
 import uvicorn
 from fastapi import FastAPI, Request
 
-from ar_common.host_ports import listen_port
+from ar_common.host_ports import fake_llm_base_url, listen_port
 from ar_common.settings import BaseServiceSettings
 from ar_common.web import create_app
 
@@ -50,6 +50,33 @@ def create_application() -> FastAPI:
             for index, document in enumerate(rows)
         ]
         return {"model": "rerank", "results": scored}
+
+    @app.post("/v1/chat/completions")
+    async def chat_completions(request: Request) -> dict[str, object]:
+        """Forward a chat completion to fake-llm, with a local echo if it is down."""
+        import httpx  # noqa: PLC0415
+
+        payload = await request.json()
+        body = payload if isinstance(payload, dict) else {}
+        headers = {}
+        script = request.headers.get("x-fake-script-set")
+        if script:
+            headers["X-Fake-Script-Set"] = script
+        upstream = fake_llm_base_url().rstrip("/") + "/chat/completions"
+        try:
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                response = await client.post(upstream, json=body, headers=headers)
+            if response.status_code < 300:
+                parsed = response.json()
+                if isinstance(parsed, dict):
+                    return parsed
+        except httpx.HTTPError:
+            pass
+        messages = body.get("messages") if isinstance(body.get("messages"), list) else []
+        text = ""
+        if messages and isinstance(messages[-1], dict):
+            text = str(messages[-1].get("content") or "")
+        return {"choices": [{"message": {"role": "assistant", "content": f"fake: {text}"}}]}
 
     return app
 

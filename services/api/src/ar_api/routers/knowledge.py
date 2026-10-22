@@ -256,7 +256,7 @@ async def list_documents(
 async def add_documents(
     collection_id: uuid.UUID, body: DocumentBody, request: Request
 ) -> dict[str, object]:
-    return _book(request).add_documents(actor(request), collection_id, dump(body))
+    return await _book(request).add_documents(actor(request), collection_id, dump(body))
 
 
 @router.get(
@@ -284,7 +284,7 @@ async def document_chunks(document_id: uuid.UUID, request: Request) -> dict[str,
 )
 @expose(public=False, permission="knowledge:read")
 async def reingest_document(document_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return _book(request).reingest(actor(request), document_id)
+    return await _book(request).reingest(actor(request), document_id)
 
 
 @router.delete(

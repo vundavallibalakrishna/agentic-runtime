@@ -1,5 +1,7 @@
 """Temporal worker entrypoint for runtime-worker. The worker loop arrives with its workflows."""
 
+import asyncio
+
 import temporalio.client
 import uvicorn
 from fastapi import FastAPI
@@ -29,9 +31,18 @@ def create_application() -> FastAPI:
 
 
 def main() -> None:
-    """Listen on ``AR_RUNTIME_HOST_PORT`` (default 8012)."""
-    uvicorn.run(
+    """Listen on ``AR_RUNTIME_HOST_PORT`` (default 8012) and poll Temporal."""
+    from ar_runtime.worker import run_worker  # noqa: PLC0415
+
+    asyncio.run(_serve(run_worker))
+
+
+async def _serve(worker: object) -> None:
+    config = uvicorn.Config(
         create_application(),
         host="0.0.0.0",  # noqa: S104
         port=listen_port("AR_RUNTIME_HOST_PORT", LISTEN_PORT),
     )
+    server = uvicorn.Server(config)
+    runner = worker() if callable(worker) else worker
+    await asyncio.gather(server.serve(), runner)  # type: ignore[arg-type]
