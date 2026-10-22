@@ -10,6 +10,7 @@ from pydantic import Field
 from ar_api.actors import actor_from
 from ar_api.deps import expose, require_permission
 from ar_common.errors import ArError, ErrorCode, NotFoundError
+from ar_common.sandboxkit import download_headers
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.access import can_edit
 from ar_domain.agents.service import AgentLifecycle
@@ -554,8 +555,30 @@ async def get_file(file_id: uuid.UUID, request: Request) -> dict[str, object]:
 @expose(public=False, permission="chat:use")
 async def file_content(file_id: uuid.UUID, request: Request) -> Response:
     principal = _principal(request)
-    data, mime = _chat(request).file_bytes(_tenant(principal), uuid.UUID(principal.id), file_id)
-    return Response(content=data, media_type=mime)
+    service = _chat(request)
+    tenant = _tenant(principal)
+    user = uuid.UUID(principal.id)
+    row = service.get_file(tenant, user, file_id)
+    data, mime = service.file_bytes(tenant, user, file_id)
+    headers = download_headers(str(row.get("name") or "download"), mime, inline=True)
+    media = headers.get("Content-Type", mime)
+    return Response(content=data, media_type=media, headers=headers)
+
+
+@router.get("/api/v1/files", dependencies=[Depends(require_permission("chat:use"))])
+@expose(public=False, permission="chat:use")
+async def list_files(
+    request: Request,
+    conversation_id: Annotated[uuid.UUID | None, Query(alias="conversationId")] = None,
+) -> dict[str, object]:
+    principal = _principal(request)
+    return {
+        "data": _chat(request).list_files(
+            _tenant(principal),
+            uuid.UUID(principal.id),
+            conversation_id=conversation_id,
+        )
+    }
 
 
 @router.delete("/api/v1/files/{file_id}", dependencies=[Depends(require_permission("chat:use"))])

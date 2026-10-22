@@ -35,7 +35,15 @@ def dispatch(  # noqa: PLR0911
     if endpoint == "memory://warehouse":
         return _sql(store, name, arguments)
     if endpoint == "builtin://files":
+        if name == "attach_to_sandbox":
+            from ar_domain.sandboxes.runtime import run_tool  # noqa: PLC0415
+
+            return run_tool(store, name, arguments)
         return _files(store, name, arguments)
+    if endpoint in {"builtin://sandbox", "builtin://browser"}:
+        from ar_domain.sandboxes.runtime import run_tool  # noqa: PLC0415
+
+        return run_tool(store, name, arguments)
     if endpoint == "builtin://conversations":
         return _history(store, name, arguments)
     if endpoint == "builtin://web":

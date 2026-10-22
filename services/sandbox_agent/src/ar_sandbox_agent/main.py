@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from ar_common.host_ports import listen_port
 from ar_common.settings import BaseServiceSettings
 from ar_common.web import create_app
+from ar_sandbox_agent.mcp import router as mcp_router
 
 LISTEN_PORT = 8080
 
@@ -16,7 +17,9 @@ class Settings(BaseServiceSettings):
 
 def create_application() -> FastAPI:
     """Build the ASGI app."""
-    return create_app("sandbox-agent", Settings())
+    app = create_app("sandbox-agent", Settings())
+    app.include_router(mcp_router)
+    return app
 
 
 def main() -> None:

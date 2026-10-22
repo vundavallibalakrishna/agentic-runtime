@@ -68,8 +68,11 @@ PETSTORE: dict[str, object] = {
 
 def seed(store: Any) -> None:
     """Insert built-ins, the ticket server, petstore and the warehouse."""
+    import ar_domain.sandboxes.resolver  # noqa: PLC0415
     import ar_domain.tools.resolvers  # noqa: F401, PLC0415
+    from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
 
+    SandboxBook(store).ensure_platform()
     if getattr(store, "tools_seeded", False):
         return
     tenant = demo_id("tenant")
@@ -86,6 +89,9 @@ def seed(store: Any) -> None:
     _warehouse(store, tenant, admin)
     _desk(store, tenant, demo_id("builder"))
     _reviews(store, tenant)
+    _sandbox_server(store)
+    _browser_server(store)
+    _analyst(store, tenant, admin)
     store.tools_seeded = True
 
 
@@ -543,7 +549,127 @@ def _file_tools() -> list[dict[str, object]]:
             },
             "R0",
         ),
+        _tool(
+            "attach_to_sandbox",
+            "Attach a file",
+            "Copy a file into the computer workspace.",
+            {
+                "type": "object",
+                "properties": {"file_id": {"type": "string"}, "path": {"type": "string"}},
+                "required": ["file_id"],
+            },
+            "W1",
+        ),
     ]
+
+
+def _sandbox_server(store: Any) -> None:
+    _builtin(store, "sandbox", "Computer", "builtin://sandbox", _sandbox_tools())
+
+
+def _browser_server(store: Any) -> None:
+    _builtin(store, "browser", "Browser", "builtin://browser", _browser_tools())
+
+
+def _sandbox_tools() -> list[dict[str, object]]:
+    command: dict[str, object] = {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string"},
+            "cwd": {"type": "string"},
+            "timeout_s": {"type": "integer"},
+            "env": {"type": "object"},
+        },
+        "required": ["command"],
+    }
+    path: dict[str, object] = {
+        "type": "object",
+        "properties": {"path": {"type": "string"}},
+        "required": ["path"],
+    }
+    return [
+        _tool("exec", "Run a command", "Run a command on the computer.", command, "W1"),
+        _tool("read_file", "Read a file", "Read a file from the computer.", path, "W1"),
+        _tool(
+            "write_file",
+            "Write a file",
+            "Write a file on the computer.",
+            {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                    "append": {"type": "boolean"},
+                },
+                "required": ["path", "content"],
+            },
+            "W1",
+        ),
+        _tool("list_files", "List files", "List files on the computer.", path, "W1"),
+        _tool("export_file", "Export a file", "Save a computer file as an artifact.", path, "W1"),
+    ]
+
+
+def _browser_tools() -> list[dict[str, object]]:
+    url: dict[str, object] = {
+        "type": "object",
+        "properties": {"url": {"type": "string"}},
+        "required": ["url"],
+    }
+    ref: dict[str, object] = {
+        "type": "object",
+        "properties": {"ref": {"type": "string"}, "text": {"type": "string"}},
+    }
+    return [
+        _tool("navigate", "Open a page", "Open an allowlisted page.", url, "R0"),
+        _tool("snapshot", "Read the page", "Read the page as an accessibility tree.", ref, "R0"),
+        _tool("click", "Click", "Click an element on the page.", ref, "R0"),
+        _tool("type", "Type", "Type into an element on the page.", ref, "W1"),
+        _tool("press", "Press a key", "Press a key on the page.", ref, "R0"),
+        _tool("scroll", "Scroll", "Scroll the page.", ref, "R0"),
+        _tool("screenshot", "Screenshot", "Save a screenshot of the page.", ref, "R0"),
+        _tool("submit_form", "Submit a form", "Submit a form on the page.", ref, "W2"),
+    ]
+
+
+def _analyst(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
+    from ar_domain.agents.service import AgentLifecycle  # noqa: PLC0415
+
+    for agent in store.agents.values():
+        if agent.get("tenant_id") == tenant and agent.get("slug") == "revenue-analyst":
+            return
+    AgentLifecycle(store)._insert(
+        tenant,
+        admin,
+        slug="revenue-analyst",
+        name="Revenue analyst",
+        description="Charts a spreadsheet on the computer.",
+        visibility="tenant",
+        published=True,
+        definition={
+            "persona": {
+                "display_name": "Revenue analyst",
+                "greeting": "Attach a spreadsheet and I will chart it.",
+            },
+            "instructions": "Use the computer to chart the attached spreadsheet.",
+            "starter_prompts": ["Analyse the attached CSV and chart revenue by month"],
+            "model": {"alias": "reasoning", "fast_alias": "fast", "vision_alias": "vision"},
+            "tools": [
+                {"server": "sandbox", "include": ["*"]},
+                {"server": "files", "include": ["*"]},
+                {"server": "browser", "include": ["*"]},
+            ],
+            "sandbox": {"enabled": True, "template": "python-data", "scope": "conversation"},
+            "budget": {
+                "max_steps": 8,
+                "max_tokens": 16000,
+                "max_cost_micros": 1_000_000,
+                "max_wall_clock_s": 120,
+                "max_tool_calls": 4,
+                "max_parallel_tool_calls": 1,
+            },
+        },
+    )
 
 
 def _history_tools() -> list[dict[str, object]]:

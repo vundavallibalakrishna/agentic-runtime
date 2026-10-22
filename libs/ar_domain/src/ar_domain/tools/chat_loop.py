@@ -19,6 +19,7 @@ _TICKET = re.compile(r"(?i)(?:file|create)\s+a\s+ticket[:\s]+(.+)")
 _ORDERS = re.compile(r"(?i)how many orders|orders are in the warehouse|count the orders")
 _PET = re.compile(r"(?i)(?:create|add)\s+(?:a\s+)?pet(?:\s+named)?\s+([A-Za-z0-9][\w .'-]{0,40})")
 _DELETE = re.compile(r"(?i)delete\s+(?:the\s+)?pet(?:\s+(?:number\s+)?(\d+))?")
+_CHART = re.compile(r"(?i)chart|analyse the attached csv|analyze the attached csv|revenue by month")
 _ASK = re.compile(r"(?i)\bask me\b")
 _TOOL = re.compile(r"^/tool\s+(\S+)(?:\s+(\{.*\}))?\s*$", re.DOTALL)
 
@@ -146,6 +147,10 @@ def _plan(store: Any, run: dict[str, object], text: str) -> list[dict[str, Any]]
     deleted = _DELETE.search(text)
     if deleted and "petstore" in servers:
         return _by_name(store, "petstore.delete_pet", "", pet_id=int(deleted.group(1) or "1"))
+    if _CHART.search(text) and "sandbox" in servers:
+        from ar_domain.sandboxes.runtime import chart_command  # noqa: PLC0415
+
+        return _by_name(store, "sandbox.exec", "", command=chart_command())
     return []
 
 
@@ -158,6 +163,7 @@ def _by_name(
     sql: str = "",
     body: dict[str, object] | None = None,
     pet_id: int | None = None,
+    command: str = "",
 ) -> list[dict[str, Any]]:
     import orjson  # noqa: PLC0415
 
@@ -168,6 +174,8 @@ def _by_name(
         arguments = {"petId": pet_id}
     elif title:
         arguments = {"title": title}
+    elif command:
+        arguments = {"command": command, "cwd": "/workspace", "timeout_s": 60}
     elif sql:
         arguments = {"sql": sql}
     elif raw_json.strip():

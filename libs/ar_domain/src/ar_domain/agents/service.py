@@ -93,8 +93,20 @@ class AgentLifecycle:
             tenant_id=str(actor.tenant_id),
             alias_names=self.aliases(actor.tenant_id),
             tool_servers=self._approved_servers(actor.tenant_id),
+            sandbox_templates=self._sandbox_templates(actor.tenant_id),
             treat_unknown_as_warning=warnings,
         )
+
+    def _sandbox_templates(self, tenant_id: uuid.UUID) -> set[str]:
+        names: set[str] = set()
+        templates = getattr(self.store, "sandbox_templates", {})
+        for row in templates.values():
+            owner = row.get("tenant_id")
+            if owner is not None and owner != tenant_id:
+                continue
+            if row.get("status") == "active":
+                names.add(str(row.get("slug")))
+        return names
 
     def _approved_servers(self, tenant_id: uuid.UUID) -> set[str]:
         names: set[str] = set()

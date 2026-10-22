@@ -36,6 +36,7 @@ from ar_api.routers.platform_tenants import router as platform_router
 from ar_api.routers.policies import router as policies_router
 from ar_api.routers.reviews import router as reviews_router
 from ar_api.routers.roles import router as roles_router
+from ar_api.routers.sandboxes import router as sandboxes_router
 from ar_api.routers.scim import router as scim_router
 from ar_api.routers.scim_tokens import router as scim_tokens_router
 from ar_api.routers.secrets import router as secrets_router
@@ -237,6 +238,7 @@ def create_application() -> FastAPI:
             reviews_router,
             sod_router,
             opa_bundle_router,
+            sandboxes_router,
         ],
         inner_middleware=inner,
         docs_url=docs,

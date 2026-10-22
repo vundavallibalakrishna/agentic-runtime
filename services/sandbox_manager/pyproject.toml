@@ -50,4 +50,4 @@ ar-mcp-openapi = "ar_mcp_openapi"
 ar-fake-llm = "ar_fake_llm"
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["kubernetes-asyncio", "aiodocker", 'ar-domain']
+DEP002 = ["kubernetes-asyncio"]

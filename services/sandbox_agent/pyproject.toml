@@ -11,6 +11,7 @@ dependencies = [
     "ar-contracts",
     "ar-common",
     "fastapi==0.151.0",
+    "pydantic==2.14.1",
     "uvicorn[standard]==0.54.0",
 ]
 
@@ -48,4 +49,4 @@ ar-mcp-openapi = "ar_mcp_openapi"
 ar-fake-llm = "ar_fake_llm"
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ['ar-contracts']
+DEP002 = []

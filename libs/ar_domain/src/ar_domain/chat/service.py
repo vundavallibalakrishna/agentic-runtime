@@ -18,6 +18,7 @@ import httpx
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
 from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
+from ar_common.sandboxkit import csv_rows, xlsx_rows
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
@@ -73,6 +74,17 @@ def _string_tuple(value: object) -> tuple[str, ...]:
 def _seq(event: dict[str, object]) -> int:
     seq = event["seq"]
     return seq if isinstance(seq, int) else int(str(seq))
+
+
+def _preview(mime_type: str, data: bytes) -> dict[str, object]:
+    if mime_type in {"text/csv", "application/csv"}:
+        return {"kind": "csv", "rows": csv_rows(data)}
+    if mime_type in {
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }:
+        return {"kind": "xlsx", "rows": xlsx_rows(data)}
+    return {}
 
 
 @dataclass
@@ -154,6 +166,9 @@ class ChatService:
     opa_bundle: bytes = b""
     opa_etag: str = ""
     input_responses: dict[uuid.UUID, str] = field(default_factory=dict)
+    sandbox_templates: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    sandboxes: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    sandbox_locks: dict[str, threading.Lock] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -203,6 +218,7 @@ class ChatService:
         user_id = demo_id("admin")
         marker = demo_id("showcase-status")
         if marker in self.conversations:
+            self._seed_chart(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -310,6 +326,12 @@ class ChatService:
                 "is_active_branch": True,
                 "created_at": created,
             }
+        self._seed_chart(tenant_id, user_id)
+
+    def _seed_chart(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
+
+        SandboxBook(self).seed_chart(tenant_id, user_id)
 
     def ensure_assistant(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> dict[str, object]:
         """Create the published ``assistant`` agent for a tenant once."""
@@ -943,6 +965,7 @@ class ChatService:
             "status": "completed",
             "is_active_branch": True,
             "attachments": names,
+            "attachment_ids": list(attachment_ids or []),
             "created_at": now,
             "author_user_id": user_id,
         }
@@ -1620,10 +1643,12 @@ class ChatService:
             if verdict == "infected"
             else ("skipped" if verdict == "skipped" else "clean")
         )
+        preview = _preview(mime_type, data)
         row = {
             "id": file_id,
             "tenant_id": tenant_id,
             "owner_user_id": user_id,
+            "kind": "upload",
             "name": name,
             "mime_type": mime_type,
             "size_bytes": len(data),
@@ -1633,11 +1658,35 @@ class ChatService:
             ),
             "status": status,
             "scan_status": scan_status,
+            "preview": preview,
             "created_at": now,
         }
         self.files[file_id] = row
         self.blobs[file_id] = data
         return self._public(row)
+
+    def list_files(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        conversation_id: uuid.UUID | None = None,
+    ) -> list[dict[str, object]]:
+        """Files the person uploaded or the computer saved, newest last."""
+        found: list[dict[str, object]] = []
+        for row in self.files.values():
+            if row.get("tenant_id") != tenant_id or row.get("deleted_at") is not None:
+                continue
+            if row.get("status") == "deleted":
+                continue
+            if conversation_id is not None and row.get("conversation_id") != conversation_id:
+                continue
+            owner = row.get("owner_user_id")
+            if owner not in {None, user_id} and conversation_id is None:
+                continue
+            found.append(self._public(row))
+        found.sort(key=lambda item: str(item.get("created_at")))
+        return found
 
     def get_file(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, file_id: uuid.UUID

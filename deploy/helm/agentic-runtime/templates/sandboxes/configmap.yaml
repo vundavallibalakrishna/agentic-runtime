@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-sandboxes
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+data:
+  warmPool: {{ .Values.sandboxes.warmPool | quote }}
+  runtimeClass: {{ .Values.sandboxes.runtimeClass | quote }}
+  snapshotIntervalSeconds: {{ .Values.sandboxes.snapshotIntervalSeconds | quote }}
