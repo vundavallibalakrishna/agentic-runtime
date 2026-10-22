@@ -42,6 +42,10 @@ jobs:
           enable-cache: true
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
+      - name: Install OPA
+        run: |
+          curl -fsSL -o /usr/local/bin/opa "https://github.com/open-policy-agent/opa/releases/download/v1.21.3/opa_linux_amd64_static"
+          chmod +x /usr/local/bin/opa
       - run: uv run pytest -m "not integration and not e2e" -q --cov
 
   python-integration:
@@ -127,8 +131,8 @@ jobs:
           curl -fsSL -o /usr/local/bin/opa "https://github.com/open-policy-agent/opa/releases/download/v1.21.3/opa_linux_amd64_static"
           chmod +x /usr/local/bin/opa
       - run: opa fmt --diff policies/
-      - run: opa check --strict policies/
-      - run: opa test policies/ --coverage
+      - run: opa check --strict --ignore fixtures policies/
+      - run: opa test --ignore fixtures policies/ --coverage
 
   migrations:
     runs-on: ubuntu-latest

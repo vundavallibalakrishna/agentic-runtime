@@ -157,6 +157,9 @@ export function ChatScreen() {
 
   async function openConversation(id: string) {
     setActiveId(id);
+    const params = new URLSearchParams(window.location.search);
+    params.set("conversation", id);
+    window.history.replaceState(null, "", `/chat?${params.toString()}`);
     setBanner("");
     const body = await api<Item & { messages?: Item[] }>(`/api/v1/conversations/${id}`);
     setMessages(body.messages ?? []);

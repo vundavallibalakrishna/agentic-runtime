@@ -1,0 +1,28 @@
+{
+  "input": {
+    "tenant_id": "t",
+    "tool": {
+      "qualified_name": "petstore.create_pet",
+      "name": "create_pet",
+      "server_slug": "petstore",
+      "risk_class": "W2"
+    },
+    "agent": {"id": "a", "slug": "desk", "overrides": {}},
+    "run": {"id": "r", "trigger": "chat", "channel": "web"},
+    "user": {"id": "u", "groups": [], "teams": []},
+    "args": {"body": {"name": "Fido"}},
+    "rules": [
+      {
+        "id": "d",
+        "effect": "deny",
+        "message": "no pets",
+        "match": {"tools": ["petstore.create_pet"]}
+      }
+    ],
+    "settings": {
+      "approvals": {"default_ttl_s": 86400},
+      "security": {"require_step_up_for_w3": true}
+    }
+  },
+  "expect": {"decision": "deny", "reasons": ["no pets"]}
+}

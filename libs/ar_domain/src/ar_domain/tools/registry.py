@@ -350,6 +350,10 @@ class ToolRegistry:
             tool["disabled_reason"] = reason
             self._audit(actor, "tool.disabled", tool_id, {"reason": reason})
         tool["updated_at"] = utcnow()
+        if not enabled:
+            from ar_domain.policy.bundle import store_bundle  # noqa: PLC0415
+
+            store_bundle(self.store)
         version = self._current_tool_version(tool)
         if version is None:
             raise NotFoundError()

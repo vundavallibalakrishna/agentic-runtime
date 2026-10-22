@@ -72,7 +72,7 @@ def _tickets(store: Any, name: str, arguments: dict[str, object], token: str) ->
     return {"text": f"Filed ticket {row['id']}.", "structured": row, "is_error": False}
 
 
-def _pets(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+def _pets(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
     pets: list[dict[str, object]] = store.pets
     if name == "list_pets":
         return {
@@ -92,6 +92,17 @@ def _pets(store: Any, name: str, arguments: dict[str, object]) -> dict[str, obje
         pet = {"id": len(pets) + 1, "name": str(name_value or "pet")}
         pets.append(pet)
         return {"text": f"Created pet {pet['id']}.", "structured": pet, "is_error": False}
+    if name == "delete_pet":
+        pet_id = arguments.get("petId")
+        for index, pet in enumerate(list(pets)):
+            if pet["id"] == pet_id or str(pet["id"]) == str(pet_id):
+                pets.pop(index)
+                return {
+                    "text": f"Deleted pet {pet_id}.",
+                    "structured": {"id": pet_id},
+                    "is_error": False,
+                }
+        return _error("not_found", "pet was not found")
     return _error("unknown_tool", f"unknown tool {name}")
 
 

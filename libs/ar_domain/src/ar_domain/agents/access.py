@@ -18,6 +18,9 @@ class Actor:
     permissions: frozenset[str]
     team_ids: frozenset[str] = frozenset()
     display_name: str = "User"
+    roles: frozenset[str] = frozenset()
+    auth_method: str = "bearer"
+    step_up_at: object | None = None
 
     def has(self, permission: str) -> bool:
         return permission in self.permissions

@@ -36,4 +36,13 @@ describe("reduceStream", () => {
     });
     expect(next.tools[0]?.name).toBe("tickets.create_ticket");
   });
+
+  it("keeps a tool that is waiting for approval", () => {
+    const next = reduceStream(emptyStream, {
+      type: "tool_call.approval_required",
+      seq: 1,
+      data: { qualifiedName: "petstore.create_pet", status: "awaiting_approval" },
+    });
+    expect(next.tools[0]?.status).toBe("awaiting_approval");
+  });
 });

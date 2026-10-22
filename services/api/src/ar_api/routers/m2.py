@@ -629,10 +629,17 @@ async def child_runs(run_id: uuid.UUID, request: Request) -> dict[str, object]:
 
 @router.post("/api/v1/runs/{run_id}:input", dependencies=[Depends(require_permission("chat:use"))])
 @expose(public=False, permission="chat:use")
-async def run_input(run_id: uuid.UUID, request: Request) -> dict[str, str]:
+async def run_input(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    _chat(request).get_run(_tenant(principal), run_id)
-    raise ArError(ErrorCode.INVALID_STATE, "run input is not available yet")
+    raw = await request.body()
+    text = ""
+    if raw:
+        import orjson  # noqa: PLC0415
+
+        loaded = orjson.loads(raw)
+        if isinstance(loaded, dict):
+            text = str(loaded.get("text") or "")
+    return _chat(request).submit_input(_tenant(principal), uuid.UUID(principal.id), run_id, text)
 
 
 @router.post("/api/v1/runs/{run_id}:cancel", dependencies=[Depends(require_permission("chat:use"))])

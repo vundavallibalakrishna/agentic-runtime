@@ -12,7 +12,11 @@ router = APIRouter()
 @router.get("/api/v1/audit-events", dependencies=[Depends(require_permission("audit:read"))])
 @expose(public=False, permission="audit:read")
 async def list_events(request: Request) -> dict[str, object]:
-    data = await request.app.state.audit_api.list_events()
+    data = list(await request.app.state.audit_api.list_events())
+    chat = getattr(request.app.state, "chat", None)
+    rows = getattr(chat, "audit_log", None)
+    if isinstance(rows, list):
+        data.extend(rows)
     return {"data": data, "next_cursor": None}
 
 
@@ -22,6 +26,11 @@ async def list_events(request: Request) -> dict[str, object]:
 @expose(public=False, permission="audit:read")
 async def get_event(event_id: int, request: Request) -> dict[str, object]:
     found = await request.app.state.audit_api.get(event_id)
+    if found is None:
+        chat = getattr(request.app.state, "chat", None)
+        rows = getattr(chat, "audit_log", None)
+        if isinstance(rows, list):
+            found = next((row for row in rows if row.get("id") == event_id), None)
     if found is None:
         raise NotFoundError("audit event not found")
     return as_object(found)

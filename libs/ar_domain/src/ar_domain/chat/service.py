@@ -6,6 +6,7 @@ chat. ``make seed`` writes the same catalogue into Postgres for the real stack.
 
 import asyncio
 import hashlib
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -134,6 +135,25 @@ class ChatService:
     rate_buckets: dict[str, list[float]] = field(default_factory=dict)
     tools_seeded: bool = False
     notifications: list[dict[str, object]] = field(default_factory=list)
+    policies: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    policy_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    approvals: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    approval_decisions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    standing_approvals: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    review_queues: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    review_items: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    signoffs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    sod_constraints: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    user_roles: dict[uuid.UUID, set[str]] = field(default_factory=dict)
+    user_groups: dict[uuid.UUID, list[str]] = field(default_factory=dict)
+    display_names: dict[uuid.UUID, str] = field(default_factory=dict)
+    routines: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    approval_lock: threading.Lock = field(default_factory=threading.Lock)
+    opa_url: str = ""
+    opa_timeout_ms: int = 200
+    opa_bundle: bytes = b""
+    opa_etag: str = ""
+    input_responses: dict[uuid.UUID, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -1253,6 +1273,8 @@ class ChatService:
                     "run.failed",
                     "run.cancelled",
                     "run.budget_exceeded",
+                    "tool_call.approval_required",
+                    "input.required",
                 }:
                     return
         except TimeoutError:
@@ -1268,7 +1290,65 @@ class ChatService:
             raise NotFoundError()
         if not run_is_active(str(run["status"])):
             raise ArError(ErrorCode.INVALID_STATE, "run is not active")
+        status = str(run["status"])
+        if status == "waiting_approval":
+            pending = run.get("pending_approval")
+            approval_id = pending.get("approval_id") if isinstance(pending, dict) else None
+            if isinstance(approval_id, uuid.UUID):
+                from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
+
+                ApprovalBook(self).cancel(Actor(tenant_id, user_id, frozenset()), approval_id)
+            return self._public(self.runs[run_id])
+        if status == "waiting_input":
+            run["status"] = "cancelled"
+            run["ended_at"] = utcnow()
+            conversation_id = run.get("conversation_id")
+            conversation = (
+                self.conversations.get(conversation_id)
+                if isinstance(conversation_id, uuid.UUID)
+                else None
+            )
+            if isinstance(conversation, dict):
+                conversation["active_run_id"] = None
+            self._emit(run, "run.cancelled", {"by": "user"})
+            return self._public(run)
         self.cancel_flags.add(run_id)
+        return self._public(run)
+
+    def submit_input(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, run_id: uuid.UUID, text: str
+    ) -> dict[str, object]:
+        """Accept a reply while a run is waiting for the person."""
+        run = self.runs.get(run_id)
+        if run is None or run["tenant_id"] != tenant_id or run["user_id"] != user_id:
+            raise NotFoundError()
+        if str(run["status"]) != "waiting_input":
+            raise ArError(ErrorCode.INVALID_STATE, "run input is not available yet")
+        answer = text.strip() or "Using what you sent."
+        self.input_responses[run_id] = answer
+        self._emit(run, "input.resolved", {"length": len(answer)})
+        assistant_id = run.get("assistant_message_id")
+        assistant = self.messages.get(assistant_id) if isinstance(assistant_id, uuid.UUID) else None
+        if isinstance(assistant, dict):
+            assistant["text"] = answer
+            assistant["content"] = [{"type": "text", "text": answer}]
+            assistant["status"] = "completed"
+        run["status"] = "completed"
+        run["ended_at"] = utcnow()
+        run["result_summary"] = answer[:8000]
+        conversation_id = run.get("conversation_id")
+        conversation = (
+            self.conversations.get(conversation_id)
+            if isinstance(conversation_id, uuid.UUID)
+            else None
+        )
+        if isinstance(conversation, dict):
+            conversation["active_run_id"] = None
+        if isinstance(assistant, dict):
+            self._emit(
+                run, "message.completed", {"message_id": str(assistant.get("id")), "text": answer}
+            )
+        self._emit(run, "run.completed", {"final_message_id": str(assistant_id)})
         return self._public(run)
 
     def get_run(self, tenant_id: uuid.UUID, run_id: uuid.UUID) -> dict[str, object]:

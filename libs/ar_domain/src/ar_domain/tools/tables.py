@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Text,
@@ -263,6 +264,13 @@ class ToolCall(Base):
         UniqueConstraint("tenant_id", "idempotency_key", name="uq_tool_calls_idempotency"),
         Index("ix_tool_calls_run", "tenant_id", "run_id"),
         Index("ix_tool_calls_tool", "tenant_id", "tool_id", "created_at"),
+        ForeignKeyConstraint(
+            ["approval_id"],
+            ["approvals.id"],
+            name="fk_tool_calls_approval",
+            ondelete="SET NULL",
+            use_alter=True,
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()

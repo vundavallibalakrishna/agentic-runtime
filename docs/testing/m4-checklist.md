@@ -26,7 +26,7 @@ Seeded servers: Files, Conversations, Web, Control, Tickets, Petstore, Warehouse
 6. Send `How many orders are in the warehouse?`. The reply is `3`.
 7. Return to **Tools**. Recent calls lists both calls with redacted arguments.
 8. A second tenant cannot see the echo server (the API returns 404).
-9. Creating a pet through Petstore is refused until approvals exist. The call is denied with `policy_denied`.
+9. Creating a pet through Petstore waits for approval. A dry run still succeeds. The pet is created once an approver approves the exact arguments.
 
 ## Light, dark, and narrow
 

@@ -30,7 +30,12 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
     return state;
   }
   const next = { ...state, lastSeq: event.seq, tools: state.tools };
-  if (event.type === "tool_call.completed" || event.type === "tool_call.failed") {
+  if (
+    event.type === "tool_call.completed" ||
+    event.type === "tool_call.failed" ||
+    event.type === "tool_call.approval_required" ||
+    event.type === "tool_call.approval_resolved"
+  ) {
     const tool = {
       name: event.data?.qualifiedName ?? "tool",
       status: event.data?.status ?? event.type,

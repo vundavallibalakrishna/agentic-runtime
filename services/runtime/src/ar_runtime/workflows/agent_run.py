@@ -44,3 +44,10 @@ def advance(request: RunRequest, budget: dict[str, int]) -> str:
 def workflow_id(run_id: str) -> str:
     """Temporal workflow id ``run-{run_id}``."""
     return f"run-{run_id}"
+
+
+def approval_wait_workflow() -> type[object]:
+    """The Temporal wait for approval and user input. The dev HTTP path stays in process."""
+    from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow  # noqa: PLC0415
+
+    return ApprovalWaitWorkflow
