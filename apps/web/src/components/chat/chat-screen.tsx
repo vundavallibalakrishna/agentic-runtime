@@ -2,6 +2,18 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { createParser } from "eventsource-parser";
+import {
+  ArrowUp,
+  ArrowUpRight,
+  FileText,
+  History,
+  Lightbulb,
+  MessageSquare,
+  Paperclip,
+  PenLine,
+  Plus,
+  Sparkles,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
@@ -16,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { emptyStream, reduceStream, type StreamState } from "@/lib/stream/reducer";
+import { cn } from "@/lib/utils";
 
 type Item = Record<string, unknown>;
 
@@ -63,6 +76,7 @@ export function ChatScreen() {
   const [offline, setOffline] = useState(false);
   const [live, setLive] = useState("");
   const [stuck, setStuck] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [copiedId, setCopiedId] = useState("");
   const parentRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -376,24 +390,34 @@ export function ChatScreen() {
 
   return (
     <AppShell flush>
-      <div className="grid h-full min-h-0 min-w-0 grid-cols-1 md:grid-cols-[16rem_1fr]">
+      <div className="flex h-full min-h-0 min-w-0 flex-col md:flex-row">
         <aside
           aria-label={t("conversations")}
-          className="flex max-h-40 min-h-0 min-w-0 flex-col overflow-hidden border-b border-[var(--border)] md:max-h-none md:border-b-0 md:border-r"
+          className={cn(
+            "shrink-0 min-h-0 min-w-0 flex-col overflow-hidden border-b border-[var(--border)] bg-[var(--card)] md:flex md:w-52 md:border-b-0 md:border-r xl:w-60",
+            historyOpen ? "flex max-h-44 md:max-h-none" : "hidden",
+          )}
         >
-          <div className="px-2 pt-3">
+          <div className="px-4 pt-5">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]">
+              {t("recent")}
+            </p>
             <Button
-              className="h-8 w-full justify-start px-2 text-[13px] font-normal"
-              onClick={() => void startChat()}
+              className="h-9 w-full justify-start gap-2 border border-dashed border-[var(--border)] px-2 text-[13px] font-normal"
+              onClick={() => {
+                void startChat();
+                setHistoryOpen(false);
+              }}
               type="button"
               variant="ghost"
             >
+              <Plus size={14} aria-hidden="true" />
               {t("newChat")}
             </Button>
           </div>
           <nav
             aria-label={t("conversations")}
-            className="mt-1 flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2 pb-3"
+            className="mt-4 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3"
           >
             {conversations.length === 0 && !loading ? (
               <p className="text-sm text-[var(--muted-foreground)]">{t("noConversations")}</p>
@@ -404,21 +428,40 @@ export function ChatScreen() {
               return (
                 <button
                   aria-current={selected ? "true" : undefined}
-                  className={`truncate rounded-md px-2 py-1.5 text-left text-[13px] ${selected ? "bg-[var(--muted)]" : "hover:bg-[var(--muted)]"}`}
+                  className={cn(
+                    "flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px]",
+                    selected
+                      ? "bg-[var(--muted)] font-medium"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]",
+                  )}
                   key={id}
                   onClick={() => {
                     setRunId("");
                     void openConversation(id);
+                    setHistoryOpen(false);
                   }}
                   type="button"
                 >
-                  {String(conversation.title || t("untitled"))}
+                  <MessageSquare size={14} className="shrink-0" aria-hidden="true" />
+                  <span className="truncate">{String(conversation.title || t("untitled"))}</span>
                 </button>
               );
             })}
           </nav>
         </aside>
-        <section className="flex min-h-0 min-w-0 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-2 md:hidden">
+            <span className="text-xs font-medium">{t("title")}</span>
+            <button
+              className="flex items-center gap-2 rounded-lg p-2 text-xs text-[var(--muted-foreground)]"
+              aria-expanded={historyOpen}
+              onClick={() => setHistoryOpen((open) => !open)}
+              type="button"
+            >
+              <History size={14} aria-hidden="true" />
+              {historyOpen ? t("hideHistory") : t("historyToggle")}
+            </button>
+          </div>
           <h1 className="sr-only">{t("title")}</h1>
           <p className="sr-only">{session?.tenant?.name ?? t("tenant")}</p>
           <div className="sr-only" aria-atomic="false" aria-live="polite">
@@ -449,28 +492,59 @@ export function ChatScreen() {
             </div>
           ) : null}
           {!loading && !loadError && visible.length === 0 ? (
-            <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center px-6 pb-8">
-              <h2 className="font-serif text-[2rem] leading-tight tracking-tight">{greeting}</h2>
-              <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--muted-foreground)]">
+            <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto px-5 py-6 md:px-10">
+              <div className="mb-5 flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-xs)]">
+                <Sparkles size={24} strokeWidth={1.4} aria-hidden="true" />
+              </div>
+              <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                {t("eyebrow")}
+              </p>
+              <h2 className="font-serif text-[clamp(1.8rem,3.2vw,2.75rem)] leading-[1.15] tracking-tight">
+                {t("welcomeTitle")}
+              </h2>
+              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[var(--muted-foreground)]">
                 {t("empty")}
               </p>
-              <div className="mt-8 flex flex-col items-start gap-1">
-                {[t("starter1"), t("starter2"), t("starter3")].map((prompt) => (
-                  <Button
-                    className="h-9 px-2 font-normal text-[var(--muted-foreground)]"
+              <p className="sr-only">{greeting}</p>
+              <div className="mt-7 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                {[
+                  { prompt: t("starter1"), label: t("starterLabel1"), icon: PenLine },
+                  { prompt: t("starter2"), label: t("starterLabel2"), icon: Lightbulb },
+                  { prompt: t("starter3"), label: t("starterLabel3"), icon: FileText },
+                ].map(({ prompt, label, icon: Icon }) => (
+                  <button
+                    className="group flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-left shadow-[var(--shadow-xs)] hover:border-[var(--muted-foreground)] sm:block sm:p-4"
                     key={prompt}
                     onClick={() => void send(prompt)}
                     type="button"
-                    variant="ghost"
                   >
-                    {prompt}
-                  </Button>
+                    <Icon
+                      size={18}
+                      strokeWidth={1.5}
+                      className="shrink-0 text-[var(--muted-foreground)]"
+                      aria-hidden="true"
+                    />
+                    <span className="block sm:mt-4">
+                      <span className="block text-xs font-semibold">{label}</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-[var(--muted-foreground)]">
+                        {prompt}
+                      </span>
+                    </span>
+                    <ArrowUpRight
+                      size={14}
+                      className="ml-auto shrink-0 text-[var(--muted-foreground)] sm:hidden"
+                      aria-hidden="true"
+                    />
+                  </button>
                 ))}
               </div>
             </div>
           ) : null}
           <div
-            className="min-h-0 flex-1 overflow-auto px-4 md:px-8"
+            className={cn(
+              "min-h-0 overflow-auto px-5 md:px-10",
+              visible.length ? "flex-1 py-5" : "h-0",
+            )}
             onScroll={onScroll}
             ref={parentRef}
           >
@@ -596,7 +670,7 @@ export function ChatScreen() {
             <WorkspacePanel conversationId={activeId} revision={messages.length} />
           ) : null}
           <form
-            className="px-4 pb-4 md:px-8"
+            className="shrink-0 px-4 pb-4 md:px-8 md:pb-6"
             onSubmit={(event) => {
               event.preventDefault();
               const text = draft.trim();
@@ -627,17 +701,17 @@ export function ChatScreen() {
                 </a>
               </p>
             ) : null}
-            <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+            <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow-composer)] focus-within:border-[var(--muted-foreground)] md:p-4">
               <label className="sr-only" htmlFor="agent-picker">
                 {t("agent")}
               </label>
               <select
-                className="mb-1 max-w-xs bg-transparent text-sm text-[var(--muted-foreground)]"
+                className="mb-2 w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
                 id="agent-picker"
                 onChange={(event) => setAgentId(event.target.value)}
                 value={agentId}
               >
-                <option value="">{t("agent")}</option>
+                <option value="">{t("defaultAgent")}</option>
                 {agents.map((agent) => (
                   <option key={String(agent.id)} value={String(agent.id)}>
                     {String(agent.name ?? agent.slug)}
@@ -691,7 +765,8 @@ export function ChatScreen() {
                     type="button"
                     variant="ghost"
                   >
-                    {t("attach")}
+                    <Paperclip size={15} aria-hidden="true" />
+                    <span className="ml-1.5">{t("attach")}</span>
                   </Button>
                   <p className="hidden text-xs text-[var(--muted-foreground)] sm:block">
                     {t("hint")}
@@ -707,12 +782,20 @@ export function ChatScreen() {
                     {t("stop")}
                   </Button>
                 ) : (
-                  <Button className="h-8 px-3 text-xs" type="submit">
-                    {t("send")}
+                  <Button
+                    aria-label={t("send")}
+                    className="size-9 rounded-xl p-0"
+                    disabled={!draft.trim() || loading || Boolean(loadError)}
+                    type="submit"
+                  >
+                    <ArrowUp size={18} aria-hidden="true" />
                   </Button>
                 )}
               </div>
             </div>
+            <p className="mt-3 text-center text-[10px] text-[var(--muted-foreground)]">
+              {t("privateNote")}
+            </p>
           </form>
         </section>
       </div>

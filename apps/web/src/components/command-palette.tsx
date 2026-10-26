@@ -1,6 +1,8 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
+import { Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 
 export type PaletteCommand = {
@@ -11,6 +13,7 @@ export type PaletteCommand = {
 };
 
 export function CommandPalette({ commands }: { commands: PaletteCommand[] }) {
+  const t = useTranslations("shell");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -23,13 +26,13 @@ export function CommandPalette({ commands }: { commands: PaletteCommand[] }) {
       }
       if (meta && event.shiftKey && event.key.toLowerCase() === "o") {
         event.preventDefault();
-        window.dispatchEvent(new Event("ar-new-chat"));
+        commands.find((command) => command.id === "new-chat")?.run();
         setOpen(false);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [commands]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -51,30 +54,32 @@ export function CommandPalette({ commands }: { commands: PaletteCommand[] }) {
     >
       <Dialog.Trigger asChild>
         <button
-          className="hidden items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-[var(--muted-foreground)] hover:bg-[var(--muted)] md:inline-flex"
+          aria-label={`${t("search")} ⌘K`}
+          className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
           type="button"
         >
-          Search
-          <kbd className="rounded bg-[var(--muted)] px-1.5 text-xs">⌘K</kbd>
+          <Search size={14} aria-hidden="true" />
+          <span className="hidden md:inline">{t("search")}</span>
+          <kbd className="hidden rounded border border-[var(--border)] bg-[var(--card)] px-1 text-[10px] md:inline">
+            ⌘K
+          </kbd>
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-[var(--scrim)]" />
-        <Dialog.Content className="fixed left-1/2 top-[12vh] w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow)]">
-          <Dialog.Title className="sr-only">Command palette</Dialog.Title>
-          <Dialog.Description className="sr-only">
-            Jump to a page or start a new chat.
-          </Dialog.Description>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[var(--scrim)]" />
+        <Dialog.Content className="fixed z-50 left-1/2 top-[12vh] w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 rounded-[var(--radius)] border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow)]">
+          <Dialog.Title className="sr-only">{t("paletteTitle")}</Dialog.Title>
+          <Dialog.Description className="sr-only">{t("paletteDescription")}</Dialog.Description>
           <input
-            aria-label="Command"
+            aria-label={t("command")}
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm"
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Jump to…"
+            placeholder={t("jumpTo")}
             value={query}
           />
           <ul className="mt-2 max-h-80 overflow-auto">
             {visible.length === 0 ? (
-              <li className="px-2 py-3 text-sm text-[var(--muted-foreground)]">No matches.</li>
+              <li className="px-2 py-3 text-sm text-[var(--muted-foreground)]">{t("noMatches")}</li>
             ) : null}
             {visible.map((command) => (
               <li key={command.id}>

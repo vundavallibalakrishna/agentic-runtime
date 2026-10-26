@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import messages from "@/messages/en.json";
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/chat",
   useRouter: () => ({ push: () => undefined }),
 }));
 

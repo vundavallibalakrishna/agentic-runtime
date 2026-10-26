@@ -1,6 +1,6 @@
 # Design system
 
-The web app is a neutral surface with one ink accent. Type, spacing and a hairline do the work. Linear, Vercel and Claude are the reference for restraint. Source Serif is used once, on the sign-in title and the empty chat greeting. Everything else is Source Sans. The product stays industry-agnostic. GRC vocabulary does not appear in this chrome.
+The web app is a warm neutral surface with one ink accent. Type, spacing and a hairline do the work. Linear, Vercel and Claude are the reference for restraint. Source Serif is used once, on the sign-in title and the empty chat greeting. Everything else is Source Sans. The product stays industry-agnostic. GRC vocabulary does not appear in this chrome.
 
 ## Tokens
 
@@ -15,7 +15,8 @@ All colour, type, radius, shadow and motion values live in `apps/web/src/app/glo
 | `--border`, `--ring` | Hairlines and the focus ring |
 | `--destructive` | A failed action |
 | `--scrim` | The layer behind a menu or the command palette |
-| `--shadow`, `--radius` | Elevation and corners |
+| `--shadow`, `--shadow-xs`, `--shadow-composer`, `--radius` | Menus, subtle card elevation, composer elevation and corners |
+| `--nav-active` | Selected navigation surface |
 | `--motion` | Short transitions |
 
 Light and dark are both specified. The theme choice is `system`, `light` or `dark`, stored in `localStorage` under `ar-theme`. The default is `system`. A small script in the document head applies the choice before paint. `prefers-reduced-motion: reduce` shortens animation and transitions.
@@ -28,11 +29,13 @@ The faces are loaded with `next/font`: Source Sans 3 for the interface, Source S
 
 `AppShell` is the signed-in frame.
 
-- A collapsible sidebar with the mark and the wordmark, the workspace name, and primary navigation.
+- A collapsible sidebar with a layered mark and wordmark, a new-chat action, and navigation grouped into Workspace, Resources and Manage. The workspace name appears in the header breadcrumb.
+- Navigation remains hidden until the session grants the matching permission. A create-agent shortcut is visible only to builders.
 - Navigation items are Chat, Agents, Tools, Knowledge, Memory, Skills, Routines, Channels, Approvals, Runs, Models, Computers and Users. An item is hidden when the session lacks its permission. Sections that are not built yet stay in the list with a "Soon" mark and open a short holding page.
 - The header shows the workspace and the signed-in email, a command palette (⌘K or Ctrl+K), and an account menu with the theme choice and sign-out.
 - ⌘⇧O (Ctrl+Shift+O) starts a new chat.
-- Below the `lg` breakpoint the sidebar becomes a panel over a scrim.
+- Below the `lg` breakpoint the sidebar becomes a focus-trapped dialog over a scrim. Escape closes it and restores focus. Account choices use a keyboard-accessible menu.
+- Search remains reachable on mobile. A skip link moves keyboard focus to the main content.
 
 ## Settings detail
 
@@ -40,7 +43,11 @@ Where a form has a simple path and extra fields, the page offers Simple and Adva
 
 ## Chat
 
-The thread sits in a centred column. The composer grows with the text, accepts a file, and sends on Enter. Shift+Enter inserts a line. Streaming keeps a caret, announces text through `aria-live="polite"` about twice a second, and does not pull the scroll position when the reader has moved up. Markdown, including fenced code with a copy control, is rendered in the thread. Copy and regenerate sit on the message.
+The thread sits in a centred column. The welcome state pairs a serif heading with three starter cards. Conversation history has a separate quiet column on desktop and a disclosure on mobile. The composer uses subtle elevation and a labelled send control that is disabled for an empty message. The composer grows with the text, accepts a file, and sends on Enter. Shift+Enter inserts a line. Streaming keeps a caret, announces text through `aria-live="polite"` about twice a second, and does not pull the scroll position when the reader has moved up. Markdown, including fenced code with a copy control, is rendered in the thread. Copy and regenerate sit on the message.
+
+## Agent catalogue
+
+A prominent description-based builder entry appears only for users with `agents:create`. Agent cards show their description, status, version, owner, favourite toggle and available chat action. Search and status filters share one toolbar. Loading uses card-shaped skeletons, an empty filtered result offers Clear filters, and an error offers Try again. Disabled agents do not offer chat.
 
 ## Sign-in
 

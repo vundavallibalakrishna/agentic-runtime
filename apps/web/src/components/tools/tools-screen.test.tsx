@@ -11,6 +11,7 @@ import messages from "@/messages/en.json";
 import { server } from "@/test/server";
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/chat",
   useRouter: () => ({ push: () => undefined }),
 }));
 
