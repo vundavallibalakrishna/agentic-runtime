@@ -4,6 +4,9 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { ActionStatus } from "@/components/common/detail-state";
+import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +22,7 @@ export function ToolsScreen() {
   const [servers, setServers] = useState<Row[]>([]);
   const [calls, setCalls] = useState<Row[]>([]);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [advanced, setAdvanced] = useState(false);
   const [slug, setSlug] = useState("echo");
@@ -58,6 +62,8 @@ export function ToolsScreen() {
   }
 
   async function register() {
+    if (busy) return;
+    setBusy(true);
     setNotice("");
     setError("");
     try {
@@ -101,128 +107,135 @@ export function ToolsScreen() {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <AppShell>
-      <PageHeader body={t("body")} title={t("title")} />
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <fieldset className="flex gap-1 border-0 p-0">
-          <legend className="sr-only">{t("modeLabel")}</legend>
-          <Button
-            onClick={() => chooseMode(false)}
-            type="button"
-            variant={advanced ? "ghost" : "outline"}
-          >
-            {t("simple")}
+      <ActionStatus busy={busy} />
+      <fieldset disabled={busy} className="min-w-0">
+        <PageHeader
+          title={t("title")}
+          body={t("body")}
+          actions={<SettingsMode advanced={advanced} onChange={chooseMode} />}
+        />
+        <div className="mb-6 flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <a href="/connections">{t("connections")}</a>
           </Button>
-          <Button
-            onClick={() => chooseMode(true)}
-            type="button"
-            variant={advanced ? "outline" : "ghost"}
-          >
-            {t("advanced")}
-          </Button>
-        </fieldset>
-        <a className="text-sm underline" href="/connections">
-          {t("connections")}
-        </a>
-        <a className="text-sm underline" href="/chat?agent=desk">
-          {t("desk")}
-        </a>
-      </div>
-      {loading ? (
-        <div aria-busy="true" className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-24 w-full" />
-          <p className="sr-only">{t("loading")}</p>
-        </div>
-      ) : null}
-      {error ? (
-        <div className="mb-4" role="alert">
-          <p>{error}</p>
-          <Button onClick={() => void load()} type="button" variant="outline">
-            {t("retry")}
+          <Button asChild variant="ghost">
+            <a href="/chat?agent=desk">{t("desk")}</a>
           </Button>
         </div>
-      ) : null}
-      {!loading && !error && servers.length === 0 ? <p>{t("empty")}</p> : null}
-      {!loading && servers.length > 0 ? (
-        <ul className="mb-8 grid gap-3">
-          {servers.map((server) => (
-            <li
-              className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
-              key={String(server.id)}
+        <ManagementLayout
+          title={t("listTitle")}
+          formTitle={t("register")}
+          form={
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void register();
+              }}
             >
-              <h2 className="text-lg font-medium">{String(server.name)}</h2>
-              <p className="text-sm text-[var(--muted-foreground)]">
-                {String(server.slug)} · {String(server.kind)} · {String(server.status)}
-              </p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <form
-        className="mb-8 max-w-xl space-y-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void register();
-        }}
-      >
-        <h2 className="text-lg font-medium">{t("register")}</h2>
-        <label className="block text-sm" htmlFor="tool-slug">
-          {t("slug")}
-          <Input id="tool-slug" onChange={(event) => setSlug(event.target.value)} value={slug} />
-        </label>
-        <label className="block text-sm" htmlFor="tool-name">
-          {t("name")}
-          <Input id="tool-name" onChange={(event) => setName(event.target.value)} value={name} />
-        </label>
-        <label className="block text-sm" htmlFor="tool-address">
-          {t("address")}
-          <Input
-            id="tool-address"
-            onChange={(event) => setAddress(event.target.value)}
-            value={address}
-          />
-        </label>
-        {advanced ? (
-          <label className="block text-sm" htmlFor="tool-kind">
-            {t("kind")}
-            <select
-              className="mt-1 w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-2"
-              id="tool-kind"
-              onChange={(event) => setKind(event.target.value)}
-              value={kind}
-            >
-              <option value="remote_mcp">{t("remote")}</option>
-              <option value="openapi">{t("openapi")}</option>
-              <option value="sql">{t("sql")}</option>
-            </select>
-          </label>
-        ) : null}
-        <Button type="submit">{t("save")}</Button>
-        {notice ? <p role="status">{notice}</p> : null}
-      </form>
-      <section>
-        <h2 className="mb-2 text-lg font-medium">{t("calls")}</h2>
-        {calls.length === 0 ? (
-          <p className="text-sm text-[var(--muted-foreground)]">{t("noCalls")}</p>
-        ) : null}
-        <ul className="space-y-2">
-          {calls.slice(0, 8).map((call) => (
-            <li
-              className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
-              key={String(call.id)}
-            >
-              <p>{String(call.qualifiedName ?? "")}</p>
-              <p className="text-[var(--muted-foreground)]">{String(call.status ?? "")}</p>
-              <p>{String(call.resultPreview ?? "")}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
+              <label className="block text-sm" htmlFor="tool-slug">
+                {t("slug")}
+                <Input
+                  id="tool-slug"
+                  onChange={(event) => setSlug(event.target.value)}
+                  value={slug}
+                />
+              </label>
+              <label className="block text-sm" htmlFor="tool-name">
+                {t("name")}
+                <Input
+                  id="tool-name"
+                  onChange={(event) => setName(event.target.value)}
+                  value={name}
+                />
+              </label>
+              <label className="block text-sm" htmlFor="tool-address">
+                {t("address")}
+                <Input
+                  id="tool-address"
+                  onChange={(event) => setAddress(event.target.value)}
+                  value={address}
+                />
+              </label>
+              {advanced ? (
+                <label className="block text-sm" htmlFor="tool-kind">
+                  {t("kind")}
+                  <select
+                    className="mt-1 w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-2"
+                    id="tool-kind"
+                    onChange={(event) => setKind(event.target.value)}
+                    value={kind}
+                  >
+                    <option value="remote_mcp">{t("remote")}</option>
+                    <option value="openapi">{t("openapi")}</option>
+                    <option value="sql">{t("sql")}</option>
+                  </select>
+                </label>
+              ) : null}
+              <Button type="submit">{t("save")}</Button>
+              {notice ? <p role="status">{notice}</p> : null}
+            </form>
+          }
+        >
+          {loading ? (
+            <div aria-busy="true" className="space-y-2">
+              <Skeleton className="h-8 w-48" />
+              <Skeleton className="h-24 w-full" />
+              <p className="sr-only">{t("loading")}</p>
+            </div>
+          ) : null}
+          {error ? (
+            <div className="mb-4" role="alert">
+              <p>{error}</p>
+              <Button onClick={() => void load()} type="button" variant="outline">
+                {t("retry")}
+              </Button>
+            </div>
+          ) : null}
+          {!loading && !error && servers.length === 0 ? <EmptyState title={t("empty")} /> : null}
+          {!loading && servers.length > 0 ? (
+            <ul className="mb-8 grid gap-3">
+              {servers.map((server) => (
+                <li
+                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
+                  key={String(server.id)}
+                >
+                  <h2 className="text-lg font-medium">{String(server.name)}</h2>
+                  <p className="text-sm text-[var(--muted-foreground)]">
+                    {String(server.slug)} · {String(server.kind)} · {String(server.status)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          <section>
+            <h2 className="mb-2 text-lg font-medium">{t("calls")}</h2>
+            {calls.length === 0 ? (
+              <p className="text-sm text-[var(--muted-foreground)]">{t("noCalls")}</p>
+            ) : null}
+            <ul className="space-y-2">
+              {calls.slice(0, 8).map((call) => (
+                <li
+                  className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
+                  key={String(call.id)}
+                >
+                  <p>{String(call.qualifiedName ?? "")}</p>
+                  <p className="text-[var(--muted-foreground)]">{String(call.status ?? "")}</p>
+                  <p>{String(call.resultPreview ?? "")}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </ManagementLayout>
+      </fieldset>
     </AppShell>
   );
 }

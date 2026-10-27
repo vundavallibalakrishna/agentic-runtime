@@ -4,7 +4,9 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 
@@ -36,10 +38,15 @@ export function ReviewsScreen() {
 
   return (
     <AppShell>
-      <PageHeader title={t("title")} body={t("body")} />
-      <a className="mb-4 inline-block underline" href="/approvals">
-        {shell("navApprovals")}
-      </a>
+      <PageHeader
+        title={t("title")}
+        body={t("body")}
+        actions={
+          <Button asChild variant="outline">
+            <a href="/approvals">{shell("navApprovals")}</a>
+          </Button>
+        }
+      />
       {error ? (
         <p role="alert">
           {error}{" "}
@@ -54,10 +61,13 @@ export function ReviewsScreen() {
           <Skeleton className="h-24 w-full" />
         </div>
       ) : null}
-      {!loading && rows.length === 0 ? <p>{t("empty")}</p> : null}
+      {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
       <ul className="space-y-3">
         {rows.map((row) => (
-          <li key={String(row.id)} className="rounded-xl border border-[var(--border)] p-4">
+          <li
+            key={String(row.id)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
+          >
             <a className="font-medium underline" href={`/reviews/${String(row.id)}`}>
               {String(row.subjectType)} · {String(row.status)}
             </a>

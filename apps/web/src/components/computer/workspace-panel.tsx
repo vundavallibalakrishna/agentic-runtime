@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+import { DetailState } from "@/components/common/detail-state";
 import { ArtifactView } from "@/components/computer/artifact-view";
 import { api } from "@/lib/api";
 
@@ -21,6 +22,7 @@ export function WorkspacePanel({
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [refresh, setRefresh] = useState(0);
   const [tab, setTab] = useState<"files" | "computer">("files");
 
   useEffect(() => {
@@ -28,6 +30,10 @@ export function WorkspacePanel({
       return;
     }
     void revision;
+    void refresh;
+    setFiles([]);
+    setTree([]);
+    setStatus("");
     let gone = false;
     setLoading(true);
     setError("");
@@ -64,7 +70,7 @@ export function WorkspacePanel({
     return () => {
       gone = true;
     };
-  }, [conversationId, revision, t]);
+  }, [conversationId, revision, refresh, t]);
 
   if (!conversationId) {
     return null;
@@ -79,20 +85,29 @@ export function WorkspacePanel({
         {status ? <p className="text-xs text-[var(--muted-foreground)]">{status}</p> : null}
       </div>
       <div className="mb-3 flex gap-2">
-        <button className="text-sm underline" onClick={() => setTab("files")} type="button">
+        <button
+          className="text-sm underline"
+          aria-pressed={tab === "files"}
+          onClick={() => setTab("files")}
+          type="button"
+        >
           {t("artifacts")}
         </button>
-        <button className="text-sm underline" onClick={() => setTab("computer")} type="button">
+        <button
+          className="text-sm underline"
+          aria-pressed={tab === "computer"}
+          onClick={() => setTab("computer")}
+          type="button"
+        >
           {t("workspace")}
         </button>
       </div>
-      {loading ? <p className="text-sm text-[var(--muted-foreground)]">{t("loading")}</p> : null}
-      {error ? (
-        <p className="text-sm" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {!loading && tab === "files" && files.length === 0 ? (
+      <DetailState
+        loading={loading}
+        error={error}
+        onRetry={() => setRefresh((current) => current + 1)}
+      />
+      {!loading && !error && tab === "files" && files.length === 0 ? (
         <p className="text-sm text-[var(--muted-foreground)]">{t("empty")}</p>
       ) : null}
       {tab === "files"
@@ -110,7 +125,7 @@ export function WorkspacePanel({
             </div>
           ))
         : null}
-      {tab === "computer" && tree.length === 0 && !loading ? (
+      {tab === "computer" && tree.length === 0 && !loading && !error ? (
         <p className="text-sm text-[var(--muted-foreground)]">{t("emptyWorkspace")}</p>
       ) : null}
       {tab === "computer" ? (

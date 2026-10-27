@@ -1,9 +1,19 @@
 export type Session = {
-  user?: { email?: string; displayName?: string };
+  user?: { id?: string; email?: string; displayName?: string };
   tenant?: { name?: string; slug?: string; id?: string };
   permissions?: string[];
   roles?: string[];
 };
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 function csrfToken(): string {
   const match = document.cookie.match(/(?:^|; )ar_csrf=([^;]*)/);
@@ -28,7 +38,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       detail = response.statusText;
     }
-    throw new Error(detail || "Request failed");
+    throw new ApiError(detail || "Request failed", response.status);
   }
   if (response.status === 204) {
     return undefined as T;

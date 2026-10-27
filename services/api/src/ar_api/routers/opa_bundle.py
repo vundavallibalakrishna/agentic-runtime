@@ -1,7 +1,10 @@
 """OPA bundle. Spec: docs/03-specs/09-policy-approvals.md §3.2."""
 
+import hmac
+
 from fastapi import APIRouter, Request
 from fastapi.responses import Response
+from pydantic import SecretStr
 
 from ar_api.deps import expose
 from ar_api.routers.tooling import chat
@@ -15,10 +18,15 @@ router = APIRouter()
 @expose(public=True, permission=None)
 async def opa_bundle(request: Request) -> Response:
     settings = request.app.state.settings
-    expected = str(getattr(settings, "opa_bundle_token", "") or "")
+    configured = getattr(settings, "opa_bundle_token", "")
+    expected = (
+        configured.get_secret_value()
+        if isinstance(configured, SecretStr)
+        else str(configured or "")
+    )
     if expected:
         header = request.headers.get("authorization", "")
-        if header != f"Bearer {expected}":
+        if not hmac.compare_digest(header.encode(), f"Bearer {expected}".encode()):
             raise UnauthenticatedError()
     store = chat(request)
     raw = store.opa_bundle

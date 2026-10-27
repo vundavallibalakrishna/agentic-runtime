@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,6 +98,7 @@ export function PoliciesScreen() {
         method: "POST",
         body: JSON.stringify({ version: Number(row.latestVersion ?? 1) }),
       });
+      setNotice(t("activated"));
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
@@ -104,26 +107,19 @@ export function PoliciesScreen() {
 
   return (
     <AppShell>
-      <PageHeader title={t("title")} body={t("body")} />
-      <a className="mb-4 inline-block underline" href="/approvals">
-        {shell("navApprovals")}
-      </a>
-      <div className="mb-4 flex gap-2">
-        <Button
-          type="button"
-          variant={advanced ? "outline" : "default"}
-          onClick={() => setAdvanced(false)}
-        >
-          {t("simple")}
-        </Button>
-        <Button
-          type="button"
-          variant={advanced ? "default" : "outline"}
-          onClick={() => setAdvanced(true)}
-        >
-          {t("advanced")}
-        </Button>
-      </div>
+      <PageHeader
+        title={t("title")}
+        body={t("body")}
+        actions={
+          <>
+            <Button asChild variant="ghost">
+              <a href="/approvals">{shell("navApprovals")}</a>
+            </Button>
+            <SettingsMode advanced={advanced} onChange={setAdvanced} />
+          </>
+        }
+      />
+
       {error ? (
         <p role="alert">
           {error}{" "}
@@ -133,87 +129,106 @@ export function PoliciesScreen() {
         </p>
       ) : null}
       {notice ? <p role="status">{notice}</p> : null}
-      <form
-        className="mb-6 grid max-w-xl gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <label htmlFor="policy-name">
-          {t("name")}
-          <Input id="policy-name" value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label htmlFor="policy-tool">
-          {t("tool")}
-          <Input id="policy-tool" value={tool} onChange={(event) => setTool(event.target.value)} />
-        </label>
-        <label htmlFor="policy-effect">
-          {t("effect")}
-          <select
-            id="policy-effect"
-            className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
-            value={effect}
-            onChange={(event) => setEffect(event.target.value)}
+
+      <ManagementLayout
+        title={t("listTitle")}
+        formTitle={t("createTitle")}
+        form={
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void save();
+            }}
           >
-            <option value="requireApproval">requireApproval</option>
-            <option value="deny">deny</option>
-            <option value="allow">allow</option>
-          </select>
-        </label>
-        <label htmlFor="policy-message">
-          {t("message")}
-          <Input
-            id="policy-message"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-          />
-        </label>
-        {advanced ? (
-          <label htmlFor="policy-document">
-            {t("yaml")}
-            <textarea
-              id="policy-document"
-              className="mt-1 h-40 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 font-mono text-xs"
-              value={documentText}
-              onChange={(event) => setDocumentText(event.target.value)}
-            />
-          </label>
-        ) : null}
-        <div className="flex gap-2">
-          <Button type="submit">{t("save")}</Button>
-          <Button type="button" variant="outline" onClick={() => void simulate()}>
-            {t("simulate")}
-          </Button>
-        </div>
-        {decision ? (
-          <p>
-            {t("decision")}: {decision}
-          </p>
-        ) : null}
-      </form>
-      {loading ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("loading")}</span>
-          <Skeleton className="h-24 w-full" />
-        </div>
-      ) : null}
-      {!loading && rows.length === 0 ? <p>{t("empty")}</p> : null}
-      <ul className="space-y-3">
-        {rows.map((row) => (
-          <li key={String(row.id)} className="rounded-xl border border-[var(--border)] p-4">
-            <h2 className="font-medium">{String(row.name)}</h2>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              {String(row.status)} · {t("versions")} {String(row.latestVersion ?? "")}
-            </p>
-            {row.status !== "active" ? (
-              <Button className="mt-3" type="button" onClick={() => void activate(row)}>
-                {t("activate")}
-              </Button>
+            <label htmlFor="policy-name">
+              {t("name")}
+              <Input
+                id="policy-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <label htmlFor="policy-tool">
+              {t("tool")}
+              <Input
+                id="policy-tool"
+                value={tool}
+                onChange={(event) => setTool(event.target.value)}
+              />
+            </label>
+            <label htmlFor="policy-effect">
+              {t("effect")}
+              <select
+                id="policy-effect"
+                className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
+                value={effect}
+                onChange={(event) => setEffect(event.target.value)}
+              >
+                <option value="requireApproval">requireApproval</option>
+                <option value="deny">deny</option>
+                <option value="allow">allow</option>
+              </select>
+            </label>
+            <label htmlFor="policy-message">
+              {t("message")}
+              <Input
+                id="policy-message"
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+              />
+            </label>
+            {advanced ? (
+              <label htmlFor="policy-document">
+                {t("yaml")}
+                <textarea
+                  id="policy-document"
+                  className="mt-1 h-40 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 font-mono text-xs"
+                  value={documentText}
+                  onChange={(event) => setDocumentText(event.target.value)}
+                />
+              </label>
             ) : null}
-          </li>
-        ))}
-      </ul>
+            <div className="flex gap-2">
+              <Button type="submit">{t("save")}</Button>
+              <Button type="button" variant="outline" onClick={() => void simulate()}>
+                {t("simulate")}
+              </Button>
+            </div>
+            {decision ? (
+              <p>
+                {t("decision")}: {decision}
+              </p>
+            ) : null}
+          </form>
+        }
+      >
+        {loading ? (
+          <div aria-busy="true">
+            <span className="sr-only">{t("loading")}</span>
+            <Skeleton className="h-24 w-full" />
+          </div>
+        ) : null}
+        {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+        <ul className="space-y-3">
+          {rows.map((row) => (
+            <li
+              key={String(row.id)}
+              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
+            >
+              <h2 className="font-medium">{String(row.name)}</h2>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {String(row.status)} · {t("versions")} {String(row.latestVersion ?? "")}
+              </p>
+              {row.status !== "active" ? (
+                <Button className="mt-3" type="button" onClick={() => void activate(row)}>
+                  {t("activate")}
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </ManagementLayout>
     </AppShell>
   );
 }

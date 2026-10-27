@@ -21,6 +21,7 @@ export function MemoryReview({ agentId }: { agentId: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [lesson, setLesson] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -42,19 +43,36 @@ export function MemoryReview({ agentId }: { agentId: string }) {
   }, [load]);
 
   async function approve(id: string) {
-    setNotice("");
-    await api(`/api/v1/agents/${agentId}/memory/${id}:approve`, { method: "POST" });
-    setNotice(t("approved"));
-    await load();
+    setBusy(true);
+    setError("");
+    try {
+      setNotice("");
+      await api(`/api/v1/agents/${agentId}/memory/${id}:approve`, { method: "POST" });
+      setNotice(t("approved"));
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("reviewError"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function reject(id: string) {
-    setNotice("");
-    await api(`/api/v1/agents/${agentId}/memory/${id}:reject`, { method: "POST" });
-    await load();
+    setBusy(true);
+    setError("");
+    try {
+      setNotice("");
+      await api(`/api/v1/agents/${agentId}/memory/${id}:reject`, { method: "POST" });
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("reviewError"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function addLesson() {
+    setBusy(true);
     setError("");
     setNotice("");
     try {
@@ -67,6 +85,8 @@ export function MemoryReview({ agentId }: { agentId: string }) {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("reviewError"));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -75,7 +95,7 @@ export function MemoryReview({ agentId }: { agentId: string }) {
       aria-label={t("reviewTitle")}
       className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
     >
-      <h2 className="font-serif text-xl">{t("reviewTitle")}</h2>
+      <h2 className="text-base font-semibold">{t("reviewTitle")}</h2>
       <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("reviewBody")}</p>
       {error ? (
         <p className="mt-3 text-sm text-[var(--destructive)]" role="alert">
@@ -95,17 +115,22 @@ export function MemoryReview({ agentId }: { agentId: string }) {
         <p className="mt-3 text-sm text-[var(--muted-foreground)]">{t("reviewEmpty")}</p>
       ) : null}
       <ul className="mt-3 grid gap-2">
-        {rows.map((row) => (
+        {(!loading && !error ? rows : []).map((row) => (
           <li
             className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--border)] p-3"
             key={row.id}
           >
             <p>{row.content}</p>
             <div className="flex gap-2">
-              <Button onClick={() => void approve(row.id)} type="button">
+              <Button disabled={busy} onClick={() => void approve(row.id)} type="button">
                 {t("approve")}
               </Button>
-              <Button onClick={() => void reject(row.id)} type="button" variant="outline">
+              <Button
+                disabled={busy}
+                onClick={() => void reject(row.id)}
+                type="button"
+                variant="outline"
+              >
                 {t("reject")}
               </Button>
             </div>
@@ -127,7 +152,9 @@ export function MemoryReview({ agentId }: { agentId: string }) {
             value={lesson}
           />
         </label>
-        <Button type="submit">{t("addLesson")}</Button>
+        <Button className="justify-self-start" disabled={busy || !lesson.trim()} type="submit">
+          {t("addLesson")}
+        </Button>
       </form>
     </section>
   );

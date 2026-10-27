@@ -4,6 +4,9 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { ActionStatus } from "@/components/common/detail-state";
+import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +34,7 @@ export function MemoryScreen() {
   const [rows, setRows] = useState<Fact[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [enabled, setEnabled] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -85,6 +89,8 @@ export function MemoryScreen() {
   }
 
   async function toggle(next: boolean) {
+    if (busy) return;
+    setBusy(true);
     setEnabled(next);
     setError("");
     try {
@@ -95,10 +101,14 @@ export function MemoryScreen() {
     } catch (caught) {
       setEnabled(!next);
       setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function save() {
+    if (busy) return;
+    setBusy(true);
     setError("");
     setNotice("");
     try {
@@ -111,28 +121,48 @@ export function MemoryScreen() {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function saveEdit(id: string) {
-    setError("");
-    await api(`/api/v1/memory/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ content: draft }),
-    });
-    setEditing("");
-    setNotice(t("saved"));
-    await load();
+    if (busy) return;
+    setBusy(true);
+    try {
+      setError("");
+      await api(`/api/v1/memory/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ content: draft }),
+      });
+      setEditing("");
+      setNotice(t("saved"));
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function remove(id: string) {
-    setError("");
-    await api(`/api/v1/memory/${id}`, { method: "DELETE" });
-    setNotice(t("deleted"));
-    await load();
+    if (busy) return;
+    setBusy(true);
+    try {
+      setError("");
+      await api(`/api/v1/memory/${id}`, { method: "DELETE" });
+      setNotice(t("deleted"));
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function forgetAll() {
+    if (busy) return;
+    setBusy(true);
     setError("");
     try {
       await api("/api/v1/memory", {
@@ -144,195 +174,198 @@ export function MemoryScreen() {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <AppShell>
-      <PageHeader body={t("body")} title={t("title")} />
-      <div className="mb-4 flex gap-2">
-        <Button
-          onClick={() => choose(false)}
-          type="button"
-          variant={advanced ? "outline" : "default"}
-        >
-          {t("simple")}
-        </Button>
-        <Button
-          onClick={() => choose(true)}
-          type="button"
-          variant={advanced ? "default" : "outline"}
-        >
-          {t("advanced")}
-        </Button>
-      </div>
-      <label className="mb-4 flex items-center gap-2 text-sm">
-        <input
-          checked={enabled}
-          onChange={(event) => void toggle(event.target.checked)}
-          type="checkbox"
+      <ActionStatus busy={busy} />
+      <fieldset disabled={busy} className="min-w-0">
+        <PageHeader
+          title={t("title")}
+          body={t("body")}
+          actions={<SettingsMode advanced={advanced} onChange={choose} />}
         />
-        {t("enabled")}
-      </label>
-      {error ? (
-        <p role="alert">
-          {error}{" "}
-          <button className="underline" onClick={() => void load()} type="button">
-            {t("retry")}
-          </button>
-        </p>
-      ) : null}
-      {notice ? <p role="status">{notice}</p> : null}
-      <form
-        className="mb-6 grid max-w-xl gap-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void save();
-        }}
-      >
-        <label htmlFor="memory-content">
-          {t("content")}
-          <Input
-            id="memory-content"
-            onChange={(event) => setContent(event.target.value)}
-            value={content}
-          />
-        </label>
-        <Button type="submit">{t("save")}</Button>
-      </form>
-      {advanced ? (
-        <div className="mb-6 flex flex-wrap gap-2">
-          <label className="text-sm" htmlFor="memory-scope">
-            {t("scope")}
-            <select
-              className="ml-2 h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2"
-              id="memory-scope"
-              onChange={(event) => setScope(event.target.value)}
-              value={scope}
-            >
-              <option value="">All</option>
-              <option value="user">user</option>
-              <option value="agent_user">agent_user</option>
-            </select>
-          </label>
-          <label className="text-sm" htmlFor="memory-category">
-            {t("category")}
-            <select
-              className="ml-2 h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2"
-              id="memory-category"
-              onChange={(event) => setCategory(event.target.value)}
-              value={category}
-            >
-              <option value="">All</option>
-              <option value="preference">preference</option>
-              <option value="fact">fact</option>
-              <option value="instruction">instruction</option>
-              <option value="lesson">lesson</option>
-            </select>
-          </label>
-          <Input
-            aria-label={t("search")}
-            className="max-w-xs"
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("search")}
-            value={query}
-          />
-        </div>
-      ) : null}
-      {loading ? <Skeleton className="h-24 w-full max-w-xl" /> : null}
-      {!loading && !error && rows.length === 0 ? <p>{t("empty")}</p> : null}
-      <h2 className="mb-2 font-serif text-xl">{t("yours")}</h2>
-      <ul className="grid max-w-3xl gap-3">
-        {rows.map((row) => (
-          <li
-            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-            key={row.id}
-          >
-            {editing === row.id ? (
+
+        {error ? (
+          <p role="alert">
+            {error}{" "}
+            <button className="underline" onClick={() => void load()} type="button">
+              {t("retry")}
+            </button>
+          </p>
+        ) : null}
+        {notice ? <p role="status">{notice}</p> : null}
+
+        <ManagementLayout
+          formTitle={t("createTitle")}
+          form={
+            <>
+              <label className="mb-4 flex items-center gap-2 text-sm">
+                <input
+                  checked={enabled}
+                  onChange={(event) => void toggle(event.target.checked)}
+                  type="checkbox"
+                />
+                {t("enabled")}
+              </label>
               <form
-                className="grid gap-2"
+                className="grid gap-4"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void saveEdit(row.id);
+                  void save();
                 }}
               >
-                <Input
-                  aria-label={t("content")}
-                  onChange={(event) => setDraft(event.target.value)}
-                  value={draft}
-                />
+                <label htmlFor="memory-content">
+                  {t("content")}
+                  <Input
+                    id="memory-content"
+                    onChange={(event) => setContent(event.target.value)}
+                    value={content}
+                  />
+                </label>
                 <Button type="submit">{t("save")}</Button>
               </form>
-            ) : (
-              <>
-                <p>{row.content}</p>
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                  {row.category}
-                  {row.status === "pending_review" ? ` · ${t("pending")}` : ""}
-                </p>
-                <div className="mt-3 flex gap-2">
-                  <Button
-                    onClick={() => {
-                      setEditing(row.id);
-                      setDraft(row.content);
-                    }}
-                    type="button"
-                    variant="outline"
-                  >
-                    {t("edit")}
-                  </Button>
-                  <Button onClick={() => void remove(row.id)} type="button" variant="outline">
-                    {t("delete")}
-                  </Button>
-                </div>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-6">
-        {confirmForget ? (
-          <div className="flex gap-2">
-            <Button
-              className="text-[var(--destructive)]"
-              onClick={() => void forgetAll()}
-              type="button"
-              variant="outline"
-            >
-              {t("confirmForget")}
-            </Button>
-            <Button onClick={() => setConfirmForget(false)} type="button" variant="outline">
-              {t("cancel")}
-            </Button>
-          </div>
-        ) : (
-          <Button onClick={() => setConfirmForget(true)} type="button" variant="outline">
-            {t("forget")}
-          </Button>
-        )}
-      </div>
-      {teams.map((team) => (
-        <section className="mt-8" key={team.id}>
-          <h2 className="font-serif text-xl">
-            {t("team")}: {team.name}
-          </h2>
-          {team.items.length === 0 ? (
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("teamEmpty")}</p>
-          ) : (
-            <ul className="mt-3 grid max-w-3xl gap-3">
-              {team.items.map((row) => (
-                <li
-                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-                  key={row.id}
+            </>
+          }
+        >
+          {advanced ? (
+            <div className="mb-6 flex flex-wrap gap-2">
+              <label className="text-sm" htmlFor="memory-scope">
+                {t("scope")}
+                <select
+                  className="ml-2 h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2"
+                  id="memory-scope"
+                  onChange={(event) => setScope(event.target.value)}
+                  value={scope}
                 >
-                  <p>{row.content}</p>
-                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">{row.category}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
+                  <option value="">All</option>
+                  <option value="user">user</option>
+                  <option value="agent_user">agent_user</option>
+                </select>
+              </label>
+              <label className="text-sm" htmlFor="memory-category">
+                {t("category")}
+                <select
+                  className="ml-2 h-10 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2"
+                  id="memory-category"
+                  onChange={(event) => setCategory(event.target.value)}
+                  value={category}
+                >
+                  <option value="">All</option>
+                  <option value="preference">preference</option>
+                  <option value="fact">fact</option>
+                  <option value="instruction">instruction</option>
+                  <option value="lesson">lesson</option>
+                </select>
+              </label>
+              <Input
+                aria-label={t("search")}
+                className="max-w-xs"
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("search")}
+                value={query}
+              />
+            </div>
+          ) : null}
+          {loading ? <Skeleton className="h-24 w-full max-w-xl" /> : null}
+          {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+          <h2 className="mb-2 text-base font-semibold">{t("yours")}</h2>
+          <ul className="grid max-w-3xl gap-3">
+            {rows.map((row) => (
+              <li
+                className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                key={row.id}
+              >
+                {editing === row.id ? (
+                  <form
+                    className="grid gap-2"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveEdit(row.id);
+                    }}
+                  >
+                    <Input
+                      aria-label={t("content")}
+                      onChange={(event) => setDraft(event.target.value)}
+                      value={draft}
+                    />
+                    <Button type="submit">{t("save")}</Button>
+                  </form>
+                ) : (
+                  <>
+                    <p>{row.content}</p>
+                    <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                      {row.category}
+                      {row.status === "pending_review" ? ` · ${t("pending")}` : ""}
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        onClick={() => {
+                          setEditing(row.id);
+                          setDraft(row.content);
+                        }}
+                        type="button"
+                        variant="outline"
+                      >
+                        {t("edit")}
+                      </Button>
+                      <Button onClick={() => void remove(row.id)} type="button" variant="outline">
+                        {t("delete")}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6">
+            {confirmForget ? (
+              <div className="flex gap-2">
+                <Button
+                  className="text-[var(--destructive)]"
+                  onClick={() => void forgetAll()}
+                  type="button"
+                  variant="outline"
+                >
+                  {t("confirmForget")}
+                </Button>
+                <Button onClick={() => setConfirmForget(false)} type="button" variant="outline">
+                  {t("cancel")}
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setConfirmForget(true)} type="button" variant="outline">
+                {t("forget")}
+              </Button>
+            )}
+          </div>
+          {teams.map((team) => (
+            <section className="mt-8" key={team.id}>
+              <h2 className="text-base font-semibold">
+                {t("team")}: {team.name}
+              </h2>
+              {team.items.length === 0 ? (
+                <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("teamEmpty")}</p>
+              ) : (
+                <ul className="mt-3 grid max-w-3xl gap-3">
+                  {team.items.map((row) => (
+                    <li
+                      className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                      key={row.id}
+                    >
+                      <p>{row.content}</p>
+                      <p className="mt-1 text-xs text-[var(--muted-foreground)]">{row.category}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ))}
+        </ManagementLayout>
+      </fieldset>
     </AppShell>
   );
 }

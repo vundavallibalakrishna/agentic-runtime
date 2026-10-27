@@ -49,7 +49,7 @@ test("company library answers only from documents the reader can open", async ({
   await expect(page.getByText("Visitor guide")).toBeVisible();
   await expect(page.getByText("Payroll calendar")).toBeVisible();
   await expect(page.getByText("hidden from you")).toBeVisible();
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("tab", { name: "Search", exact: true }).click();
   await page.getByRole("button", { name: "Ask the library" }).click();
   await expect(page.getByText("The library can answer this.")).toBeVisible();
   await expect(page.getByText("Visitor guide").first()).toBeVisible();
@@ -77,7 +77,7 @@ test("company library answers only from documents the reader can open", async ({
   await page.getByRole("link", { name: /Company library/ }).click();
   await expect(page.getByText("On-call roster")).toBeVisible();
   await expect(page.getByText("Payroll calendar")).toHaveCount(0);
-  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("tab", { name: "Search", exact: true }).click();
   await page.getByLabel("Question").fill("When is payroll released?");
   await page.getByRole("button", { name: "Ask the library" }).click();
   await expect(page.getByText("Payroll calendar")).toHaveCount(0);

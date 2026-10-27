@@ -39,7 +39,9 @@ async function capture(page: Page, name: string) {
 test("routines schedule, run now, and stay accessible", async ({ page }) => {
   await signIn(page);
   await page.goto("/routines");
-  await expect(page.getByRole("heading", { name: "Routines" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Routines", exact: true, level: 1 }),
+  ).toBeVisible();
   await expect(page.getByText("Weekly digest", { exact: true })).toBeVisible();
   await expect(page.getByText("Every Monday 09:00 IST")).toBeVisible();
   await capture(page, "list");

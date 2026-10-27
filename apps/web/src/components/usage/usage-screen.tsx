@@ -5,12 +5,13 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { formatCount } from "@/lib/format";
+import { formatCost, formatCount } from "@/lib/format";
 
 const UsageChart = dynamic(
   () => import("@/components/usage/usage-chart").then((mod) => mod.UsageChart),
@@ -95,8 +96,16 @@ export function UsageScreen() {
 
   return (
     <AppShell>
-      <PageHeader body={t("body")} title={t("title")} />
-      <div className="mb-4 grid gap-3 sm:grid-cols-4">
+      <PageHeader
+        body={t("body")}
+        title={t("title")}
+        actions={
+          <Button onClick={() => void download()} type="button" variant="outline">
+            {t("export")}
+          </Button>
+        }
+      />
+      <div className="mb-6 grid gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 sm:grid-cols-3">
         <label className="text-sm" htmlFor="usage-from">
           {t("from")}
           <Input
@@ -132,11 +141,6 @@ export function UsageScreen() {
             <option value="metric">metric</option>
           </select>
         </label>
-        <div className="flex items-end">
-          <Button onClick={() => void download()} type="button" variant="outline">
-            {t("export")}
-          </Button>
-        </div>
       </div>
       {error ? (
         <p className="mb-3 text-sm text-[var(--destructive)]" role="alert">
@@ -147,15 +151,13 @@ export function UsageScreen() {
         </p>
       ) : null}
       {loading ? <Skeleton className="h-56 w-full" /> : null}
-      {!loading && rows.length === 0 ? (
-        <p className="text-sm text-[var(--muted-foreground)]">{t("empty")}</p>
-      ) : null}
+      {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
       {!loading && rows.length > 0 ? (
-        <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+        <section className="space-y-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
           <p className="text-sm text-[var(--muted-foreground)]">
             {t("quantity")} {formatCount(summary?.totals?.quantity ?? 0)}
             {" · "}
-            {t("cost")} {formatCount(summary?.totals?.costMicros ?? 0)} {summary?.currency}
+            {t("cost")} {formatCost(summary?.totals?.costMicros ?? 0, summary?.currency)}
           </p>
           <UsageChart points={points} />
           <ul className="space-y-2">

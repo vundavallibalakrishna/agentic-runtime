@@ -74,8 +74,10 @@ test("a preference is remembered, reviewed, and forgotten", async ({ page }) => 
   await expect(page.getByText("I kept this in bullet points")).toHaveCount(0, { timeout: 30_000 });
 
   await page.goto("/agents");
-  const assistant = page.getByRole("listitem").filter({ hasText: "Assistant" });
-  await assistant.getByRole("button", { name: "Open" }).click();
+  const assistant = page.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: "Assistant", exact: true }),
+  });
+  await assistant.getByRole("link", { name: "View agent" }).click();
   await expect(page.getByText("08:30 opening")).toBeVisible();
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.getByText("08:30 opening")).toHaveCount(0);

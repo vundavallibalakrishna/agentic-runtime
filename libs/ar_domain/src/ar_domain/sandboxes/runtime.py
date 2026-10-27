@@ -95,7 +95,7 @@ png += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
 print("wrote revenue-by-month.png")
 """
 
-_ROOT = Path(tempfile.gettempdir()) / "ar-sandboxes"
+_ROOT = Path(tempfile.gettempdir()).resolve() / "ar-sandboxes"
 _LIVE = frozenset({"pending", "starting", "ready", "suspending", "suspended", "resuming"})
 
 

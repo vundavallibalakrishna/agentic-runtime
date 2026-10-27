@@ -128,7 +128,7 @@
     "simple": "Simple",
     "advanced": "Advanced",
     "loading": "Loading memory",
-    "empty": "Nothing is remembered yet. Tell the assistant what to keep, or add it below.",
+    "empty": "Nothing is remembered yet. Tell the assistant what to keep, or add a memory here.",
     "error": "Memory could not be loaded.",
     "retry": "Try again",
     "enabled": "Remember what I tell the assistant",
@@ -157,11 +157,12 @@
     "reject": "Reject",
     "lesson": "Add a shared lesson",
     "addLesson": "Add lesson",
-    "approved": "Approved."
+    "approved": "Approved.",
+    "createTitle": "Add a memory"
   },
   "knowledge": {
     "title": "Knowledge",
-    "body": "A collection is a shelf of documents the assistant can cite. Simple mode adds a file. Advanced connects a source.",
+    "body": "Give your assistants a shared library of documents and sources to draw from.",
     "simple": "Simple",
     "advanced": "Advanced",
     "name": "Name",
@@ -191,7 +192,8 @@
     "sync": "Sync now",
     "status": "Status",
     "hidden": "hidden from you",
-    "url": "URL"
+    "url": "URL",
+    "listTitle": "Collections"
   },
   "computer": {
     "title": "Computer",
@@ -204,7 +206,7 @@
   },
   "computers": {
     "title": "Computers",
-    "body": "A template is a kind of computer. Simple mode names it. Advanced sets the size and whether packages can be installed.",
+    "body": "Manage the computers your assistants use and the templates they start from.",
     "simple": "Simple",
     "advanced": "Advanced",
     "name": "Name",
@@ -222,7 +224,9 @@
     "emptyLive": "No computers are running.",
     "terminate": "Terminate",
     "error": "Computers could not be loaded.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "listTitle": "Templates",
+    "createTitle": "Create a template"
   },
   "models": {
     "title": "Models",
@@ -243,7 +247,8 @@
     "back": "Back to chat",
     "simple": "Simple",
     "advanced": "Advanced",
-    "modeLabel": "Settings detail"
+    "modeLabel": "Settings detail",
+    "retry": "Try again"
   },
   "platform": {
     "healthTitle": "Platform health",
@@ -361,7 +366,8 @@
     "catalogueLoading": "Loading agents",
     "details": "View agent",
     "noDescription": "An assistant ready to help with your work.",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "save": "Save draft"
   },
   "tools": {
     "title": "Tools",
@@ -394,7 +400,8 @@
     "advanced": "Advanced",
     "modeLabel": "Settings detail",
     "status": "Status",
-    "risk": "Risk"
+    "risk": "Risk",
+    "listTitle": "Connected tools"
   },
   "connections": {
     "title": "Connections",
@@ -411,7 +418,7 @@
   },
   "approvals": {
     "title": "Approvals",
-    "body": "A tool is waiting. Read the preview, then approve the exact request or reject it.",
+    "body": "Review requests and decide what your assistants can do next.",
     "loading": "Loading approvals",
     "empty": "Nothing is waiting for you.",
     "error": "Approvals could not be loaded.",
@@ -428,6 +435,11 @@
     "standing": "Standing approvals",
     "revoke": "Revoke",
     "noStanding": "No standing approvals yet.",
+    "unavailableTool": "Tool unavailable",
+    "standingExpires": "Expires: {date}",
+    "standingExpired": "Expired: {date}",
+    "viewRoutine": "View routine",
+    "revoked": "Revoked",
     "simple": "Simple",
     "advanced": "Advanced",
     "modeLabel": "Settings detail",
@@ -437,9 +449,13 @@
     "detail": "Approval",
     "detailBody": "This is the exact call that will run if you approve it.",
     "back": "Back to approvals",
-    "reasons": "Why this needs a decision"
+    "reasons": "Why this needs a decision",
+    "emptyHelp": "New requests will appear here when an action needs your approval.",
+    "refresh": "Refresh",
+    "scopeLabel": "Approval filters"
   },
   "policies": {
+    "activated": "Policy activated. Changes can take up to 15 seconds to reach tool checks.",
     "title": "Policies",
     "body": "Say what a tool may do. Activate a version when the checks pass.",
     "loading": "Loading policies",
@@ -458,7 +474,9 @@
     "advanced": "Advanced",
     "modeLabel": "Settings detail",
     "versions": "Versions",
-    "decision": "Decision"
+    "decision": "Decision",
+    "listTitle": "Workspace policies",
+    "createTitle": "Create a policy"
   },
   "reviews": {
     "title": "Reviews",
@@ -482,6 +500,7 @@
     "continue": "Continue as Dev"
   },
   "skills": {
+    "readOnly": "This skill is available to view. Editing requires ownership or administrator access, and an active skill.",
     "title": "Skills",
     "body": "A skill is a short procedure agents can load. Describe it in a sentence, then publish when it looks right.",
     "simple": "Simple",
@@ -519,7 +538,8 @@
     "updateAvailable": "Update available",
     "republish": "Republish dependants",
     "republished": "Dependants were republished.",
-    "republishPartial": "Some agents could not be republished."
+    "republishPartial": "Some agents could not be republished.",
+    "listTitle": "Your skills"
   },
   "routines": {
     "title": "Routines",
@@ -549,7 +569,8 @@
     "rotated": "Secret rotated. Copy it now; it is shown once.",
     "events": "Events",
     "noEvents": "No events yet.",
-    "seedDescription": "A scheduled task for this workspace."
+    "seedDescription": "A scheduled task for this workspace.",
+    "listTitle": "Scheduled routines"
   },
   "runs": {
     "title": "Runs",
@@ -589,7 +610,9 @@
     "saved": "Channel saved.",
     "plan": "This plan does not include that channel.",
     "identities": "Linked people",
-    "status": "Status"
+    "status": "Status",
+    "listTitle": "Connected channels",
+    "agent": "Agent"
   },
   "profile": {
     "title": "Profile",
@@ -651,6 +674,36 @@
     "tenant": "Workspace",
     "user": "Each person",
     "team": "Team",
-    "agent": "Agent"
+    "agent": "Agent",
+    "listTitle": "Workspace limits",
+    "createTitle": "Add a quota"
+  },
+  "layout": {
+    "settingsMode": "Settings detail",
+    "simple": "Simple",
+    "advanced": "Advanced"
+  },
+  "detail": {
+    "retry": "Try again",
+    "loading": "Loading details…",
+    "working": "Working…",
+    "back": "Back to agents",
+    "saved": "Draft saved.",
+    "noSources": "No connected sources yet. Connect a source to keep this collection up to date.",
+    "noJobs": "No ingestion jobs yet. Upload a document or sync a source to get started.",
+    "upcoming": "Upcoming runs",
+    "activity": "Activity",
+    "summary": "Summary",
+    "openRun": "Open run",
+    "noActivity": "No activity has been recorded for this run.",
+    "configuration": "Source configuration (JSON)",
+    "configurationHelp": "Use the configuration for this connector. Credentials belong in a saved secret, never in this field.",
+    "secretId": "Saved secret ID (optional)",
+    "dataConnectionId": "Data connection ID (optional)",
+    "invalidConfig": "Enter a JSON object for the source configuration.",
+    "sourceBody": "Connect a source to bring its documents into this collection.",
+    "uploadSuccess": "Document submitted for indexing.",
+    "syncSuccess": "Source sync started.",
+    "usageError": "Your usage could not be loaded. Try again."
   }
 }

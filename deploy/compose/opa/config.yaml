@@ -1,17 +1,16 @@
-# OPA polls the API bundle. The compose service still serves the mounted
-# policies directory so a laptop without the API stays healthy.
+# Compose supports a host-run API as well as its published container port.
+# Decisions fail closed until the authenticated tenant bundle is available.
 services:
   ar:
-    url: http://api:8000/internal/v1/opa/bundles/ar.tar.gz
-    polling:
-      min_delay_seconds: 5
-      max_delay_seconds: 15
+    url: "http://host.docker.internal:${AR_PORT}"
+    credentials:
+      bearer:
+        token: "${AR_OPA_BUNDLE_TOKEN}"
 bundles:
   ar:
     service: ar
-    resource: /
+    resource: /internal/v1/opa/bundles/ar.tar.gz
+    polling:
+      min_delay_seconds: 5
+      max_delay_seconds: 15
     persist: false
-decision_logs:
-  console: false
-status:
-  console: false

@@ -120,6 +120,22 @@ textarea {
   font-family: var(--font-source-serif), "Source Serif 4", Georgia, serif;
 }
 
+/* Management panels keep field widths and label spacing consistent. */
+.management-form label {
+  font-size: var(--text-sm);
+}
+
+.management-form :is(input:not([type="checkbox"]), select, textarea) {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin-top: var(--space-2);
+}
+
+.management-form button[type="submit"] {
+  justify-self: start;
+}
+
 .markdown {
   font-size: var(--text-sm);
   line-height: 1.65;
@@ -182,4 +198,13 @@ textarea {
     scroll-behavior: auto;
     transition-duration: 0.01ms;
   }
+}
+
+.detail-panel {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  padding: clamp(1.25rem, 3vw, 2rem);
+  overflow-wrap: anywhere;
 }

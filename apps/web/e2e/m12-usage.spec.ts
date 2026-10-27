@@ -60,7 +60,7 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     await page.goto("/admin/usage");
     await expect(page.getByRole("heading", { name: "Usage" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
-    await expect(page.getByText(/Quantity .+ INR/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Quantity .+ Cost/)).toBeVisible({ timeout: 20_000 });
     await capture(page, "usage");
 
     await page.goto("/admin/quotas");
@@ -105,7 +105,11 @@ test("usage charts, quotas, and a blocked chat stay accessible", async ({ page }
     await expect(page.locator("#agent-picker option", { hasText: "Quota probe" })).toBeAttached();
     await page.locator("#agent-picker").selectOption({ label: "Quota probe" });
     const previous = page.url();
-    await page.getByRole("button", { name: "New chat" }).click();
+    await page
+      .getByRole("complementary", { name: "Conversations", exact: true })
+      .getByRole("button", { name: "New chat", exact: true })
+      .first()
+      .click();
     await expect.poll(() => page.url(), { timeout: 20_000 }).not.toBe(previous);
     await page.getByLabel("Message").fill("Show the weekly numbers");
     await page.getByRole("button", { name: "Send" }).click();

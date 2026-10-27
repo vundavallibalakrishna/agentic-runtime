@@ -2,8 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { api } from "@/lib/api";
 
 export type CitationChip = {
@@ -77,27 +77,22 @@ export function CitationList({
         </Button>
       ) : null}
       {open ? (
-        <div
-          className="fixed inset-0 z-40 flex items-end justify-center bg-[var(--background)]/80 p-4 md:items-center"
-          role="presentation"
+        <Dialog
+          open={!!open}
+          onOpenChange={(next) => {
+            if (!next) setOpen(null);
+          }}
         >
-          <div
-            aria-labelledby="citation-title"
-            className="w-full max-w-lg rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-lg"
-            role="dialog"
-          >
-            <h3 className="font-serif text-xl" id="citation-title">
-              {open.title || t("source")}
-            </h3>
+          <DialogContent title={open.title || t("source")}>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{open.snippet}</p>
             {open.uri ? (
-              <p className="mt-2 text-xs text-[var(--muted-foreground)]">{open.uri}</p>
+              <p className="mt-2 break-all text-xs text-[var(--muted-foreground)]">{open.uri}</p>
             ) : null}
             <Button className="mt-4" onClick={() => setOpen(null)} type="button" variant="outline">
               {t("closePreview")}
             </Button>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       ) : null}
       {why ? (
         <pre className="mt-2 w-full overflow-auto rounded-lg bg-[var(--muted)] p-3 text-xs">

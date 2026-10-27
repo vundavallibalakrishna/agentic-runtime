@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,18 +58,19 @@ export function RunsScreen() {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : null}
-      {!loading && rows.length === 0 ? (
-        <p className="text-sm text-[var(--muted-foreground)]">{t("empty")}</p>
-      ) : null}
+      {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
       <ul className="space-y-2">
         {rows.map((run) => (
-          <li className="rounded-xl border border-[var(--border)] p-3" key={run.id}>
+          <li
+            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
+            key={run.id}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">
                   {run.trigger || t("title")} · {run.status}
                 </p>
-                <p className="mt-1 line-clamp-2 text-sm text-[var(--muted-foreground)]">
+                <p className="mt-2 line-clamp-2 text-sm text-[var(--muted-foreground)]">
                   {run.resultSummary || t("noSummary")}
                 </p>
               </div>

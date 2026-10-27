@@ -4,9 +4,10 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
+import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { confirmStepUp } from "@/lib/step-up";
 
@@ -21,12 +22,14 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
   const [loading, setLoading] = useState(true);
   const [advanced, setAdvanced] = useState(false);
   const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
   }, []);
 
   const load = useCallback(async () => {
+    setRow(null);
     setLoading(true);
     setError("");
     try {
@@ -43,9 +46,10 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
   }, [load]);
 
   async function decide(decision: "approve" | "reject") {
-    if (!row) {
+    if (!row || busy) {
       return;
     }
+    setBusy(true);
     setError("");
     try {
       if (row.stepUpRequired) {
@@ -62,6 +66,20 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function stepUp() {
+    setBusy(true);
+    setError("");
+    try {
+      await confirmStepUp();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -70,26 +88,26 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
 
   return (
     <AppShell>
-      <PageHeader title={t("detail")} body={t("detailBody")} />
-      <a className="mb-4 inline-block underline" href="/approvals">
-        {t("back")}
-      </a>
-      {error ? (
-        <p role="alert">
-          {error}{" "}
-          <button className="underline" type="button" onClick={() => void load()}>
-            {t("retry")}
-          </button>
-        </p>
-      ) : null}
-      {loading ? (
-        <div aria-busy="true">
-          <span className="sr-only">{t("loading")}</span>
-          <Skeleton className="h-40 w-full" />
-        </div>
-      ) : null}
+      <PageHeader
+        title={t("detail")}
+        body={t("detailBody")}
+        actions={
+          <>
+            <SettingsMode
+              advanced={advanced}
+              onChange={(next) => {
+                setAdvanced(next);
+                window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
+              }}
+            />
+            <BackButton href="/approvals">{t("back")}</BackButton>
+          </>
+        }
+      />
+      <DetailState loading={loading} error={error} onRetry={() => void load()} />
+      <ActionStatus busy={busy} />
       {row ? (
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+        <article className="mx-auto max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
           <h2 className="text-lg font-medium">{String(row.qualifiedName ?? "")}</h2>
           <p className="text-sm text-[var(--muted-foreground)]">
             {String(row.riskClass ?? "")} · {String(row.status ?? "")}
@@ -112,29 +130,41 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
             </pre>
           ) : null}
           {row.status === "pending" ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {row.stepUpRequired ? (
-                <Button type="button" variant="outline" onClick={() => void confirmStepUp()}>
-                  {t("stepUp")}
+            <fieldset disabled={busy} className="mt-6 border-t border-[var(--border)] pt-2">
+              <label className="mt-4 block text-sm" htmlFor="detail-comment">
+                {t("comment")}
+                <textarea
+                  id="detail-comment"
+                  className="mt-1 h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                  value={comment}
+                  onChange={(event) => setComment(event.target.value)}
+                />
+              </label>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {row.stepUpRequired ? (
+                  <Button
+                    disabled={busy}
+                    type="button"
+                    variant="outline"
+                    onClick={() => void stepUp()}
+                  >
+                    {t("stepUp")}
+                  </Button>
+                ) : null}
+                <Button disabled={busy} type="button" onClick={() => void decide("approve")}>
+                  {t("approve")}
                 </Button>
-              ) : null}
-              <Button type="button" onClick={() => void decide("approve")}>
-                {t("approve")}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => void decide("reject")}>
-                {t("reject")}
-              </Button>
-            </div>
+                <Button
+                  disabled={busy}
+                  type="button"
+                  variant="outline"
+                  onClick={() => void decide("reject")}
+                >
+                  {t("reject")}
+                </Button>
+              </div>
+            </fieldset>
           ) : null}
-          <label className="mt-4 block text-sm" htmlFor="detail-comment">
-            {t("comment")}
-            <textarea
-              id="detail-comment"
-              className="mt-1 h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-            />
-          </label>
         </article>
       ) : null}
     </AppShell>

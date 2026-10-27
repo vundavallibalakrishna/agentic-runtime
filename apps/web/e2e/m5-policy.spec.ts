@@ -76,7 +76,9 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
   await capture(page, "review-signed");
 
   await page.goto("/admin/policies");
-  await expect(page.getByRole("heading", { name: "Policies" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Policies", exact: true, level: 1 }),
+  ).toBeVisible();
   await page.getByLabel("Name").fill("Deletes wait");
   await page.getByRole("button", { name: "Advanced" }).click();
   await page.getByLabel("Document").fill(
@@ -99,6 +101,37 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
   const policies = await new AxeBuilder({ page }).analyze();
   expect(policies.violations).toEqual([]);
   await capture(page, "policies");
+
+  // The bundle contract permits up to 15 seconds for sidecar propagation.
+  const opaUrl = process.env.AR_OPA_URL;
+  if (opaUrl) {
+    const session = await (await page.request.get("/api/v1/auth/session")).json();
+    await expect
+      .poll(
+        async () => {
+          const response = await page.request.post(`${opaUrl}/v1/data/ar/policy/decision`, {
+            data: {
+              input: {
+                tenant_id: session.tenant.id,
+                tool: {
+                  qualified_name: "petstore.delete_pet",
+                  name: "delete_pet",
+                  server_slug: "petstore",
+                  risk_class: "W3",
+                },
+                user: { id: session.user.id, groups: [], teams: [] },
+                agent: { slug: "desk", overrides: {} },
+                run: { trigger: "chat", channel: "web" },
+                args: { petId: 1 },
+              },
+            },
+          });
+          return (await response.json()).result?.decision;
+        },
+        { timeout: 15_000, intervals: [250, 500, 1000] },
+      )
+      .toBe("require_approval");
+  }
 
   await page.goto(`/chat?agent=desk&conversation=${conversation}`);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible();

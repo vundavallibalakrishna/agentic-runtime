@@ -50,7 +50,7 @@ M2.5-T01 | done | e29016a | design system, shell, sign-in, chat, restyled pages
 M2.5-T02 | done | e29016a | Keycloak callback and local-run bugs
 M2.5-T03 | done | e29016a | fresh-clone CI job
 M2.5-T04 | done | e29016a | checklist, screenshots, walkthrough
-M2.5-T01a | in_progress | - | 2026-10-26 shell/chat/catalogue refinement implemented; 25 web tests, typecheck, build and UI/axe journeys pass; full-stack/backend gates remain blocked; docs/testing/workspace-polish.md
+M2.5-T01a | in_progress | - | 2026-10-27 workspace management/detail/state refinement implemented; web build/typecheck/lint/unit and light/dark mobile/desktop axe checks pass; make test passes (371 Python tests, 85.02%); make check unit-only coverage 84.75% remains below 85%; full Temporal startup and CI remain outside verification; docs/testing/detail-flow-review.md
 
 M3-T01 | done | 8d6d5b0 | lifecycle API, access rules, audit and domain events
 M3-T02 | done | 8d6d5b0 | schema then reference validation, definition hash

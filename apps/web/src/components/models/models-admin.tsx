@@ -4,6 +4,8 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,94 +100,98 @@ export function ModelsAdmin() {
 
   return (
     <AppShell>
-      <PageHeader body={t("body")} title={t("title")} />
-      <fieldset className="mb-4 flex gap-2 border-0 p-0">
-        <legend className="sr-only">{t("modeLabel")}</legend>
-        <Button
-          onClick={() => chooseMode(false)}
-          type="button"
-          variant={advanced ? "outline" : "default"}
-        >
-          {t("simple")}
-        </Button>
-        <Button
-          onClick={() => chooseMode(true)}
-          type="button"
-          variant={advanced ? "default" : "outline"}
-        >
-          {t("advanced")}
-        </Button>
-      </fieldset>
-      {loading ? (
-        <div aria-busy="true" className="space-y-2">
-          <p className="sr-only">{t("loading")}</p>
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : null}
-      {error ? (
-        <p className="mt-4" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {!loading && providers.length === 0 ? <p className="mt-4">{t("empty")}</p> : null}
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
-        <table className="w-full text-left text-sm">
-          <caption className="sr-only">{t("providers")}</caption>
-          <thead className="text-[var(--muted-foreground)]">
-            <tr>
-              <th className="p-3 font-medium">{t("name")}</th>
-              <th className="p-3 font-medium">{t("url")}</th>
-              <th className="p-3 font-medium">{t("scope")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {providers.map((row) => (
-              <tr className="border-t border-[var(--border)]" key={String(row.id)}>
-                <td className="p-3">{String(row.name)}</td>
-                <td className="p-3">{String(row.baseUrl)}</td>
-                <td className="p-3">{row.platform ? t("platform") : t("tenant")}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <form
-        className="mt-6 grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void registerProvider();
-        }}
-      >
-        <h2 className="font-medium">{t("register")}</h2>
-        <label className="text-sm" htmlFor="provider-name">
-          {t("name")}
-        </label>
-        <Input id="provider-name" onChange={(event) => setName(event.target.value)} value={name} />
-        {advanced ? (
-          <>
-            <label className="text-sm" htmlFor="provider-url">
-              {t("url")}
+      <PageHeader
+        title={t("title")}
+        body={t("body")}
+        actions={<SettingsMode advanced={advanced} onChange={chooseMode} />}
+      />
+
+      <ManagementLayout
+        title={t("providers")}
+        formTitle={t("register")}
+        form={
+          <form
+            className="grid gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void registerProvider();
+            }}
+          >
+            <label className="text-sm" htmlFor="provider-name">
+              {t("name")}
+              <Input
+                id="provider-name"
+                onChange={(event) => setName(event.target.value)}
+                value={name}
+              />
             </label>
-            <Input
-              id="provider-url"
-              onChange={(event) => setBaseUrl(event.target.value)}
-              value={baseUrl}
-            />
-          </>
+            {advanced ? (
+              <label className="text-sm" htmlFor="provider-url">
+                {t("url")}
+                <Input
+                  id="provider-url"
+                  onChange={(event) => setBaseUrl(event.target.value)}
+                  value={baseUrl}
+                />
+              </label>
+            ) : null}
+            <Button className="justify-self-start" type="submit">
+              {t("test")}
+            </Button>
+            {sample ? (
+              <p>
+                {t("sample")}: {sample}
+              </p>
+            ) : null}
+          </form>
+        }
+      >
+        {loading ? (
+          <div aria-busy="true" className="space-y-2">
+            <p className="sr-only">{t("loading")}</p>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
         ) : null}
-        <Button className="justify-self-start" type="submit">
-          {t("test")}
-        </Button>
-        {sample ? (
-          <p>
-            {t("sample")}: {sample}
+        {error ? (
+          <p className="mt-4" role="alert">
+            {error}{" "}
+            <Button variant="outline" onClick={() => void load()}>
+              {t("retry")}
+            </Button>
           </p>
         ) : null}
-      </form>
-      <p className="mt-4 text-sm text-[var(--muted-foreground)]">
-        {t("counts", { models: models.length, aliases: aliases.length })}
-      </p>
+        {!loading && !error && providers.length === 0 ? <EmptyState title={t("empty")} /> : null}
+        {!loading && !error && providers.length > 0 ? (
+          <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">{t("providers")}</caption>
+              <thead className="text-[var(--muted-foreground)]">
+                <tr>
+                  <th className="p-3 font-medium">{t("name")}</th>
+                  <th className="p-3 font-medium">{t("url")}</th>
+                  <th className="p-3 font-medium">{t("scope")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {providers.map((row) => (
+                  <tr className="border-t border-[var(--border)]" key={String(row.id)}>
+                    <td className="p-3">{String(row.name)}</td>
+                    <td className="p-3">{String(row.baseUrl)}</td>
+                    <td className="p-3">{row.platform ? t("platform") : t("tenant")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {!loading && !error ? (
+          <p className="mt-4 text-sm text-[var(--muted-foreground)]">
+            {t("counts", { models: models.length, aliases: aliases.length })}
+          </p>
+        ) : null}
+      </ManagementLayout>
     </AppShell>
   );
 }

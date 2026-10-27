@@ -42,13 +42,15 @@ Exact versions: [stack.md](../stack.md).
 ## 3. Compose stack
 
 `compose.yaml` profiles:
-- `deps` (default for `make up`): postgres (pgvector image, `shared_preload_libraries=pg_stat_statements`; the data volume is `/var/lib/postgresql`, which is the Postgres 18 data directory), valkey, temporal (`temporal server start-dev` with SQLite persistence, UI on 8233), keycloak (realm import from `deploy/compose/keycloak/agentic-runtime-realm.json`, login theme `agentic`, plain HTTP for local dev), seaweedfs (S3, buckets `ar-files`, `ar-audit-archive` with Object Lock created by an init container), openbao (dev mode, KV v2 + Transit enabled by init script), opa (serves `policies/rego` and ignores `policies/fixtures`, whose JSON files are cross-check input rather than Rego data), squid (egress proxy), mailpit.
+- `deps` (default for `make up`): postgres (pgvector image, `shared_preload_libraries=pg_stat_statements`; the data volume is `/var/lib/postgresql`, which is the Postgres 18 data directory), valkey, temporal (`temporal server start-dev` with SQLite persistence, UI on 8233), keycloak (realm import from `deploy/compose/keycloak/agentic-runtime-realm.json`, login theme `agentic`, plain HTTP for local dev), seaweedfs (S3, buckets `ar-files`, `ar-audit-archive` with Object Lock created by an init container), openbao (dev mode, KV v2 + Transit enabled by init script), opa (polls the authenticated API bundle for platform Rego and tenant policy data; `policies/fixtures` remains test input), squid (egress proxy), mailpit.
 - `obs`: OTel collector, Prometheus, Tempo, Loki, Grafana, Langfuse (`make up OBS=1`).
 - `scan`: ClamAV.
 - `qdrant`: Qdrant on 6333/6334, only for working on or testing the optional qdrant retrieval adapter (`make up QDRANT=1`, then set `AR_VECTOR_BACKEND=qdrant` and `AR_QDRANT_URL=http://localhost:6333` in `.env`). Knowledge retrieval uses Postgres + pgvector by default; nothing else needs Qdrant.
 - `apps`: also runs every app image (for testing images locally: `docker compose --profile apps up`).
 
 Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6-ports-local-development). Every host port is an env var with that number as the default. See [Host ports](#5-host-ports).
+
+The OPA service loads `deploy/compose/opa/config.yaml`. It contacts the API through `host.docker.internal` at `AR_PORT`, sends `AR_OPA_BUNDLE_TOKEN`, and polls the bundle every 5–15 seconds. Decisions fail closed until the first bundle arrives. Both the host API and Compose must use the same token. After changing the configuration, recreate only this sidecar with `docker compose up -d --no-deps opa`; check readiness with `curl -f "http://localhost:${AR_OPA_HOST_PORT:-8181}/health?bundles"`.
 
 ## 4. Day-to-day
 

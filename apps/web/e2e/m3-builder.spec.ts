@@ -54,18 +54,22 @@ test("build, publish, roll back and import a bundle", async ({ page }) => {
   await page.getByRole("button", { name: "Update draft" }).click();
   await expect(page.getByText(/report name/i)).toBeVisible();
   await page.getByRole("button", { name: "Use this draft" }).click();
-  await expect(page.getByLabel("Instructions")).toBeVisible();
-  await expect(page.getByLabel("Instructions")).toHaveValue(/SOC 2|report/i);
+  await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toHaveValue(
+    /SOC 2|report/i,
+  );
 
   await page.goto("/agents/new");
   await page.getByRole("button", { name: "Support" }).click();
-  await expect(page.getByLabel("Instructions")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toBeVisible();
   await page
-    .getByLabel("Instructions")
+    .getByRole("textbox", { name: "Instructions", exact: true })
     .fill("Help the person finish the request in one short reply.");
   await page.getByRole("button", { name: "Advanced" }).click();
   await page.getByRole("tab", { name: "YAML" }).click();
-  await expect(page.getByLabel("YAML")).toHaveValue(/one short reply/);
+  await expect(page.getByRole("textbox", { name: "YAML", exact: true })).toHaveValue(
+    /one short reply/,
+  );
   await page.getByLabel("Test message").fill("hello from the draft");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText(/fake:/i)).toBeVisible({ timeout: 20_000 });
@@ -73,7 +77,7 @@ test("build, publish, roll back and import a bundle", async ({ page }) => {
   await page.getByRole("button", { name: "Publish" }).click();
   await expect(page.getByText("v1 published")).toBeVisible();
   await page
-    .getByLabel("Instructions")
+    .getByRole("textbox", { name: "Instructions", exact: true })
     .fill("Help the person finish the request, then offer one next step.");
   await page.getByLabel("Change note").fill("second release");
   await page.getByRole("button", { name: "Publish" }).click();
@@ -103,6 +107,6 @@ test("catalogue, builder and editor in light and dark", async ({ page }) => {
   await expect(page.getByText("Tool: files")).toBeVisible();
   await capture(page, "builder");
   await page.getByRole("button", { name: "Support" }).click();
-  await expect(page.getByLabel("Instructions")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toBeVisible();
   await capture(page, "editor");
 });

@@ -45,7 +45,9 @@ test("channels list, test connection, link profile, and stay accessible", async 
   await capture(page, "profile");
 
   await page.goto("/admin/channels");
-  await expect(page.getByRole("heading", { name: "Channels" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Channels", exact: true, level: 1 }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Workspace Slack" })).toBeVisible();
   await expect(page.getByText("The weekly digest is ready for #platform.")).toBeVisible();
   await capture(page, "list");

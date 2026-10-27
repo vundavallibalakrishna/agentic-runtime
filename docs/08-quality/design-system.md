@@ -37,9 +37,21 @@ The faces are loaded with `next/font`: Source Sans 3 for the interface, Source S
 - Below the `lg` breakpoint the sidebar becomes a focus-trapped dialog over a scrim. Escape closes it and restores focus. Account choices use a keyboard-accessible menu.
 - Search remains reachable on mobile. A skip link moves keyboard focus to the main content.
 
+## Page layout
+
+Management pages use one `PageHeader`: title and description on the left, page actions or the compact Simple/Advanced selector on the right. At narrow widths actions wrap below the description. A divider separates the page introduction from the work.
+
+`common/ManagementLayout` puts existing items first in both DOM and visual order. At 1280px and above, a 320px creation panel sits beside the list, with a 32px gap. Below that breakpoint, the list and form stack. Form fields fill their panel, labels have consistent spacing, and submit buttons fit their text. Lists and tables retain a minimum width of zero so a long value cannot widen the page; tables use their own horizontal scroll region.
+
+`common/EmptyState` provides a contained, centred empty state. Errors must not simultaneously claim that the list is empty. Approvals shows a comment field only when pending work is loaded, and the empty queue offers Refresh. Knowledge and Memory section headings use the interface font; the serif face stays reserved for the chat greeting and sign-in.
+
 ## Settings detail
 
 Where a form has a simple path and extra fields, the page offers Simple and Advanced. The choice is stored in `localStorage` under `ar-settings-mode`. Simple is the default. On Models, Simple is the provider name and the register action. Advanced also shows the base URL.
+
+Detail screens put their Back action in the page header. Approvals, reviews and source creation use a bounded reading column; agent editing places instructions beside publishing, versions and test chat at desktop widths. On phones these panels stack. `detail-panel` supplies consistent padding, borders and wrapping. Radix tabs provide arrow-key navigation, and citation dialogs trap focus and close with Escape.
+
+`DetailState` separates loading, failed and ready views. A failed fetch offers retry without exposing stale decision controls. Mutations disable their controls while pending and announce progress with `ActionStatus`. Completed approvals and reviews retain their result without an editable decision form. Saving must succeed before publishing; a failed save preserves the draft. Skills that the signed-in person cannot edit remain readable, including their advanced fields, with mutations disabled.
 
 ## Chat
 
@@ -52,6 +64,8 @@ A prominent description-based builder entry appears only for users with `agents:
 ## Sign-in
 
 The sign-in page offers the organisation account and the four seeded roles (`admin`, `builder`, `member`, `approver` at `@dev.local`). The Keycloak login theme under `deploy/compose/keycloak/themes/agentic` uses the same paper, ink and teal. Those theme files are CSS for Keycloak and are the one place a hex value is expected, because Keycloak does not read the web tokens.
+
+The root route redirects to Chat, so SSO and direct visits enter the same workspace as development sign-in. A workspace session response of 401 sends signed-out visitors to Sign in, including direct links to detail pages. Network failures do not trigger sign-out.
 
 ## Bar
 

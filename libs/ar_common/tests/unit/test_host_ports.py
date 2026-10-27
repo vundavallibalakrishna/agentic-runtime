@@ -46,8 +46,11 @@ def test_default_port_resets_a_localhost_url() -> None:
     assert align_local_value("", template, 5432, 5432) == ""
 
 
-def test_settings_follow_an_explicit_host_port() -> None:
-    settings = BaseServiceSettings()
+def test_settings_follow_an_explicit_host_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("ar_common.host_ports.merged_env", lambda: {})
+    monkeypatch.delenv("AR_DATABASE_URL", raising=False)
+    monkeypatch.delenv("AR_VALKEY_URL", raising=False)
+    settings = BaseServiceSettings(_env_file=None)
     apply_host_ports(settings, {"AR_PG_HOST_PORT": "15432", "AR_PORT": "18000"})
     assert settings.database_url.endswith("@localhost:15432/agentic_runtime")
     assert settings.valkey_url == "redis://localhost:6379/0"

@@ -23,7 +23,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useMemo, useState } from "r
 import { CommandPalette, type PaletteCommand } from "@/components/command-palette";
 import { primaryNav } from "@/components/nav";
 import { useTheme } from "@/components/theme-provider";
-import { api, type Session } from "@/lib/api";
+import { ApiError, api, type Session } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_KEY = "ar-sidebar";
@@ -45,6 +45,7 @@ export function AppShell({
 }) {
   const t = useTranslations("shell");
   const router = useRouter();
+  const replaceRoute = router.replace;
   const path = usePathname();
   const { choice, setChoice } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
@@ -63,14 +64,17 @@ export function AppShell({
         rememberedSession = body;
         if (!cancelled) setSession(body);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         rememberedSession = null;
-        if (!cancelled) setSession(null);
+        if (!cancelled) {
+          setSession(null);
+          if (error instanceof ApiError && error.status === 401) replaceRoute("/login");
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [replaceRoute]);
 
   const items = useMemo(
     () => primaryNav.filter((item) => session?.permissions?.includes(item.permission)),

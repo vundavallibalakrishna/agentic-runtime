@@ -71,7 +71,7 @@ test("keycloak sign-in walks username and then password", async ({ page, context
     await page.getByRole("button", { name: /sign in/i }).click();
     await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(email)).toBeVisible();
-    await page.getByRole("button", { name: /Dev / }).click();
+    await page.getByRole("button", { name: /^Dev / }).click();
     await page.getByRole("menuitem", { name: "Sign out" }).click();
     await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   }

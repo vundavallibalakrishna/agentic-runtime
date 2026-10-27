@@ -5,9 +5,10 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
+import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 
 type Routine = {
@@ -33,6 +34,9 @@ type RoutineEvent = {
 
 export function RoutineDetail({ routineId }: { routineId: string }) {
   const t = useTranslations("routines");
+  const detail = useTranslations("detail");
+  const [busy, setBusy] = useState(false);
+  const [runId, setRunId] = useState("");
   const [routine, setRoutine] = useState<Routine | null>(null);
   const [events, setEvents] = useState<RoutineEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +45,7 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
   const [secret, setSecret] = useState("");
 
   const load = useCallback(async () => {
+    setRoutine(null);
     setLoading(true);
     setError("");
     try {
@@ -63,6 +68,9 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
 
   async function act(path: string, label: string) {
     setError("");
+    if (busy) return;
+    setBusy(true);
+    setRunId("");
     setNotice("");
     try {
       const result = await api<Record<string, string>>(`/api/v1/routines/${routineId}${path}`, {
@@ -73,6 +81,7 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
         setSecret(result.webhookSecret);
       }
       if (result.runId) {
+        setRunId(result.runId);
         setNotice(t("ran"));
       } else {
         setNotice(label);
@@ -80,24 +89,27 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <AppShell>
-      <PageHeader body={t("detailBody")} title={routine?.name || t("title")} />
-      <Button asChild className="mb-4" variant="outline">
-        <Link href="/routines">{t("back")}</Link>
-      </Button>
-      {error ? (
-        <p className="mb-3 text-sm text-[var(--destructive)]" role="alert">
-          {error}
-        </p>
+      <PageHeader
+        body={t("detailBody")}
+        title={routine?.name || t("title")}
+        actions={<BackButton href="/routines">{t("back")}</BackButton>}
+      />
+      <DetailState loading={loading} error={error} onRetry={() => void load()} />
+      <ActionStatus busy={busy} notice={notice} />
+      {runId ? (
+        <Button asChild variant="outline" className="mb-5">
+          <Link href={`/runs/${runId}`}>{detail("openRun")}</Link>
+        </Button>
       ) : null}
-      {notice ? <p className="mb-3 text-sm text-[var(--muted-foreground)]">{notice}</p> : null}
-      {loading ? <Skeleton className="h-32 w-full" /> : null}
       {routine ? (
-        <section className="rounded-xl border border-[var(--border)] p-4">
+        <fieldset disabled={busy} className="detail-panel">
           <p className="text-sm text-[var(--muted-foreground)]">{routine.triggerSummary}</p>
           <p className="mt-2 text-sm">
             {routine.status}
@@ -117,23 +129,25 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
           {routine.nextFires && routine.nextFires.length > 0 ? (
             <ul className="mt-3 list-disc pl-5 text-sm text-[var(--muted-foreground)]">
               {routine.nextFires.map((stamp) => (
-                <li key={stamp}>{stamp}</li>
+                <li key={stamp}>{new Date(stamp).toLocaleString()}</li>
               ))}
             </ul>
           ) : null}
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--border)] pt-5">
             <Button onClick={() => void act(":run", t("ran"))} type="button">
               {t("runNow")}
             </Button>
-            <Button onClick={() => void act(":pause", t("paused"))} type="button" variant="outline">
-              {t("pause")}
-            </Button>
             <Button
-              onClick={() => void act(":resume", t("resumed"))}
+              onClick={() =>
+                void act(
+                  routine.status === "paused" ? ":resume" : ":pause",
+                  routine.status === "paused" ? t("resumed") : t("paused"),
+                )
+              }
               type="button"
               variant="outline"
             >
-              {t("resume")}
+              {routine.status === "paused" ? t("resume") : t("pause")}
             </Button>
             {routine.webhookUrl ? (
               <Button
@@ -145,23 +159,29 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
               </Button>
             ) : null}
           </div>
+        </fieldset>
+      ) : null}
+      {!loading && routine ? (
+        <section className="detail-panel mt-6">
+          <h2 className="text-sm font-medium">{t("events")}</h2>
+          {events.length === 0 ? (
+            <EmptyState title={t("noEvents")} />
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {events.map((event) => (
+                <li className="rounded-xl border border-[var(--border)] p-3 text-sm" key={event.id}>
+                  {event.source} · {event.status}
+                  {event.runId ? (
+                    <Link className="ml-3 underline" href={`/runs/${event.runId}`}>
+                      {detail("openRun")}
+                    </Link>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       ) : null}
-      <section className="mt-6">
-        <h2 className="text-sm font-medium">{t("events")}</h2>
-        {events.length === 0 ? (
-          <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("noEvents")}</p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {events.map((event) => (
-              <li className="rounded-xl border border-[var(--border)] p-3 text-sm" key={event.id}>
-                {event.source} · {event.status}
-                {event.runId ? ` · ${event.runId}` : ""}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </AppShell>
   );
 }

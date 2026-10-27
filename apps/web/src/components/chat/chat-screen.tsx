@@ -82,6 +82,8 @@ export function ChatScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const runRef = useRef("");
+  const streamRequest = useRef<AbortController | null>(null);
+  const conversationRequest = useRef<AbortController | null>(null);
   const stickRef = useRef(true);
   const openedFromQuery = useRef(false);
 
@@ -111,12 +113,22 @@ export function ChatScreen() {
         const conversationId = new URLSearchParams(window.location.search).get("conversation");
         if (conversationId) {
           openedFromQuery.current = true;
-          const body = await api<Item & { messages?: Item[] }>(
-            `/api/v1/conversations/${conversationId}`,
-          );
-          setActiveId(conversationId);
-          setMessages(body.messages ?? []);
-          setStream(emptyStream);
+          const request = new AbortController();
+          conversationRequest.current?.abort();
+          conversationRequest.current = request;
+          try {
+            const body = await api<Item & { messages?: Item[] }>(
+              `/api/v1/conversations/${conversationId}`,
+              { signal: request.signal },
+            );
+            if (!request.signal.aborted) {
+              setActiveId(conversationId);
+              setMessages(body.messages ?? []);
+              setStream(emptyStream);
+            }
+          } catch (error) {
+            if (!request.signal.aborted) throw error;
+          }
         }
       }
     } catch (error) {
@@ -132,14 +144,27 @@ export function ChatScreen() {
 
   useEffect(() => {
     function onNew() {
+      streamRequest.current?.abort();
+      conversationRequest.current?.abort();
+      const params = new URLSearchParams(window.location.search);
+      params.delete("conversation");
+      window.history.replaceState(null, "", `/chat${params.size ? `?${params}` : ""}`);
+      runRef.current = "";
       setActiveId("");
       setMessages([]);
       setStream(emptyStream);
       setBanner("");
       setRunId("");
+      setPlan([]);
+      setAttachmentId("");
+      setAttachmentName("");
     }
     window.addEventListener("ar-new-chat", onNew);
-    return () => window.removeEventListener("ar-new-chat", onNew);
+    return () => {
+      window.removeEventListener("ar-new-chat", onNew);
+      streamRequest.current?.abort();
+      conversationRequest.current?.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -174,12 +199,34 @@ export function ChatScreen() {
   }, [pin]);
 
   async function openConversation(id: string, keep?: StreamState) {
+    const request = new AbortController();
+    conversationRequest.current?.abort();
+    conversationRequest.current = request;
+    if (!keep) {
+      streamRequest.current?.abort();
+      runRef.current = "";
+      setRunId("");
+      setMessages([]);
+      setPlan([]);
+      setStream(emptyStream);
+      setAttachmentId("");
+      setAttachmentName("");
+    }
     setActiveId(id);
     const params = new URLSearchParams(window.location.search);
     params.set("conversation", id);
     window.history.replaceState(null, "", `/chat?${params.toString()}`);
     setBanner("");
-    const body = await api<Item & { messages?: Item[] }>(`/api/v1/conversations/${id}`);
+    let body: Item & { messages?: Item[] };
+    try {
+      body = await api<Item & { messages?: Item[] }>(`/api/v1/conversations/${id}`, {
+        signal: request.signal,
+      });
+    } catch (error) {
+      if (request.signal.aborted) return;
+      throw error;
+    }
+    if (request.signal.aborted) return;
     setMessages(body.messages ?? []);
     setPlan(Array.isArray(body.plan) ? body.plan.map((item) => String(item)) : []);
     setStream(
@@ -197,17 +244,31 @@ export function ChatScreen() {
   }
 
   async function startChat() {
-    const created = await api<Item>("/api/v1/conversations", {
-      method: "POST",
-      body: JSON.stringify(agentId ? { agentId } : {}),
-    });
-    const id = String(created.id);
-    setConversations((current) => [created, ...current]);
-    await openConversation(id);
+    streamRequest.current?.abort();
+    conversationRequest.current?.abort();
+    const request = new AbortController();
+    conversationRequest.current = request;
+    runRef.current = "";
+    setRunId("");
+    setStream(emptyStream);
+    try {
+      const created = await api<Item>("/api/v1/conversations", {
+        method: "POST",
+        body: JSON.stringify(agentId ? { agentId } : {}),
+        signal: request.signal,
+      });
+      if (request.signal.aborted) return;
+      const id = String(created.id);
+      setConversations((current) => [created, ...current]);
+      await openConversation(id);
+    } catch (error) {
+      if (request.signal.aborted) return;
+      setBanner(error instanceof Error ? error.message : t("error"));
+    }
   }
 
-  async function readStream(id: string): Promise<StreamState> {
-    const response = await fetch(`/api/v1/runs/${id}/events`, { credentials: "include" });
+  async function readStream(id: string, signal: AbortSignal): Promise<StreamState> {
+    const response = await fetch(`/api/v1/runs/${id}/events`, { credentials: "include", signal });
     if (!response.ok || !response.body) {
       throw new Error(t("error"));
     }
@@ -216,6 +277,7 @@ export function ChatScreen() {
     let state = emptyStream;
     const parser = createParser({
       onEvent(event) {
+        if (signal.aborted) return;
         const payload = JSON.parse(event.data) as {
           type: string;
           seq: number;
@@ -246,39 +308,56 @@ export function ChatScreen() {
   }
 
   async function undoMemory(factId: string) {
-    await api(`/api/v1/memory/${factId}`, { method: "DELETE" });
-    setStream((current) => ({
-      ...current,
-      memories: current.memories.filter((item) => item.factId !== factId),
-    }));
+    try {
+      await api(`/api/v1/memory/${factId}`, { method: "DELETE" });
+      setStream((current) => ({
+        ...current,
+        memories: current.memories.filter((item) => item.factId !== factId),
+      }));
+    } catch (error) {
+      setBanner(error instanceof Error ? error.message : t("error"));
+    }
   }
 
   async function send(text: string) {
-    let conversationId = activeId;
-    if (!conversationId) {
-      const created = await api<Item>("/api/v1/conversations", {
-        method: "POST",
-        body: JSON.stringify(agentId ? { agentId } : {}),
-      });
-      conversationId = String(created.id);
-      setActiveId(conversationId);
-      setConversations((current) => [created, ...current]);
-    }
-    setBanner("");
-    stickRef.current = true;
-    setMessages((current) => [
-      ...current,
-      { id: `local-${Date.now()}`, role: "user", text, isActiveBranch: true },
-      {
-        id: `local-a-${Date.now()}`,
-        role: "assistant",
-        text: "",
-        status: "streaming",
-        isActiveBranch: true,
-      },
-    ]);
+    if (stream.status === "streaming" || !text.trim()) return;
+    const request = new AbortController();
+    streamRequest.current?.abort();
+    streamRequest.current = request;
+    runRef.current = "";
+    setRunId("");
     setStream({ ...emptyStream, status: "streaming" });
+    let conversationReady = Boolean(activeId);
     try {
+      let conversationId = activeId;
+      if (!conversationId) {
+        const created = await api<Item>("/api/v1/conversations", {
+          method: "POST",
+          body: JSON.stringify(agentId ? { agentId } : {}),
+        });
+        if (request.signal.aborted) return;
+        conversationId = String(created.id);
+        conversationReady = true;
+        const params = new URLSearchParams(window.location.search);
+        params.set("conversation", conversationId);
+        window.history.replaceState(null, "", `/chat?${params.toString()}`);
+        setActiveId(conversationId);
+        setConversations((current) => [created, ...current]);
+      }
+      setBanner("");
+      stickRef.current = true;
+      setMessages((current) => [
+        ...current,
+        { id: `local-${Date.now()}`, role: "user", text, isActiveBranch: true },
+        {
+          id: `local-a-${Date.now()}`,
+          role: "assistant",
+          text: "",
+          status: "streaming",
+          isActiveBranch: true,
+        },
+      ]);
+      setStream({ ...emptyStream, status: "streaming" });
       const posted = await api<{ run: { id: string } }>(
         `/api/v1/conversations/${conversationId}/messages`,
         {
@@ -289,16 +368,22 @@ export function ChatScreen() {
           }),
         },
       );
+      if (request.signal.aborted) return;
       runRef.current = posted.run.id;
       setRunId(posted.run.id);
-      const streamed = await readStream(posted.run.id);
+      const streamed = await readStream(posted.run.id, request.signal);
+      if (request.signal.aborted) return;
       await openConversation(conversationId, streamed);
+      if (request.signal.aborted) return;
       const fresh = await api<{ items: Item[] }>("/api/v1/conversations");
+      if (request.signal.aborted) return;
       setConversations(fresh.items ?? []);
       runRef.current = "";
       setAttachmentId("");
       setAttachmentName("");
     } catch (error) {
+      if (request.signal.aborted) return;
+      if (!conversationReady && !useComposer.getState().draft) setDraft(text);
       const message = error instanceof Error ? error.message : t("error");
       setBanner(message);
       if (message.toLowerCase().includes("quota")) {
@@ -314,27 +399,55 @@ export function ChatScreen() {
   }
 
   async function stop() {
-    const id = runRef.current || runId;
-    if (!id) {
-      return;
+    const id = runRef.current;
+    const request = streamRequest.current;
+    if (!id) return;
+    try {
+      await api(`/api/v1/runs/${id}:cancel`, { method: "POST", body: "{}" });
+    } catch (error) {
+      if (streamRequest.current !== request || request?.signal.aborted) return;
+      // A run may finish between showing Stop and receiving the cancellation.
+      try {
+        const run = await api<{ status: string }>(`/api/v1/runs/${id}`);
+        if (streamRequest.current !== request || request?.signal.aborted) return;
+        if (["completed", "failed", "cancelled"].includes(run.status)) {
+          setStream((current) => ({ ...current, status: "completed" }));
+          return;
+        }
+      } catch {
+        /* The cancellation error below remains the actionable failure. */
+      }
+      setBanner(error instanceof Error ? error.message : t("error"));
     }
-    await api(`/api/v1/runs/${id}:cancel`, { method: "POST", body: "{}" });
   }
 
   async function regenerate(messageId: string) {
-    if (!activeId || messageId.startsWith("local-")) {
-      return;
-    }
-    setStream({ ...emptyStream, status: "streaming" });
-    const posted = await api<{ run: { id: string } }>(
-      `/api/v1/conversations/${activeId}/messages/${messageId}:regenerate`,
-      { method: "POST", body: "{}" },
-    );
-    runRef.current = posted.run.id;
-    setRunId(posted.run.id);
-    const streamed = await readStream(posted.run.id);
+    if (!activeId || messageId.startsWith("local-") || stream.status === "streaming") return;
+    const request = new AbortController();
+    streamRequest.current?.abort();
+    streamRequest.current = request;
     runRef.current = "";
-    await openConversation(activeId, streamed);
+    setRunId("");
+    setBanner("");
+    setStream({ ...emptyStream, status: "streaming" });
+    try {
+      const posted = await api<{ run: { id: string } }>(
+        `/api/v1/conversations/${activeId}/messages/${messageId}:regenerate`,
+        { method: "POST", body: "{}" },
+      );
+      if (request.signal.aborted) return;
+      runRef.current = posted.run.id;
+      setRunId(posted.run.id);
+      const streamed = await readStream(posted.run.id, request.signal);
+      if (request.signal.aborted) return;
+      await openConversation(activeId, streamed);
+    } catch (error) {
+      if (request.signal.aborted) return;
+      setBanner(error instanceof Error ? error.message : t("error"));
+      setStream((current) => ({ ...current, status: "failed" }));
+    } finally {
+      if (streamRequest.current === request) runRef.current = "";
+    }
   }
 
   async function onUpload(file: File) {
@@ -361,9 +474,13 @@ export function ChatScreen() {
   }
 
   async function copyMessage(id: string, text: string) {
-    await navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    window.setTimeout(() => setCopiedId(""), 1200);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      window.setTimeout(() => setCopiedId(""), 1200);
+    } catch (error) {
+      setBanner(error instanceof Error ? error.message : t("error"));
+    }
   }
 
   function onScroll() {
@@ -437,7 +554,9 @@ export function ChatScreen() {
                   key={id}
                   onClick={() => {
                     setRunId("");
-                    void openConversation(id);
+                    void openConversation(id).catch((error: unknown) =>
+                      setBanner(error instanceof Error ? error.message : t("error")),
+                    );
                     setHistoryOpen(false);
                   }}
                   type="button"
@@ -728,6 +847,7 @@ export function ChatScreen() {
               </label>
               <textarea
                 className="max-h-44 min-h-12 w-full resize-none border-0 bg-transparent px-1 py-1 text-[15px]"
+                disabled={loading}
                 id="composer"
                 onChange={(event) => {
                   setDraft(event.target.value);
@@ -775,6 +895,7 @@ export function ChatScreen() {
                 {stream.status === "streaming" ? (
                   <Button
                     className="h-8 px-3 text-xs"
+                    disabled={!runId}
                     onClick={() => void stop()}
                     type="button"
                     variant="outline"

@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -100,23 +102,12 @@ export function SkillsScreen() {
 
   return (
     <AppShell>
-      <PageHeader body={t("body")} title={t("title")} />
-      <div className="mb-4 flex gap-2">
-        <Button
-          onClick={() => choose(false)}
-          type="button"
-          variant={advanced ? "outline" : "default"}
-        >
-          {t("simple")}
-        </Button>
-        <Button
-          onClick={() => choose(true)}
-          type="button"
-          variant={advanced ? "default" : "outline"}
-        >
-          {t("advanced")}
-        </Button>
-      </div>
+      <PageHeader
+        title={t("title")}
+        body={t("body")}
+        actions={<SettingsMode advanced={advanced} onChange={choose} />}
+      />
+
       {error ? (
         <p className="mb-3 text-sm text-[var(--destructive)]" role="alert">
           {error}{" "}
@@ -125,94 +116,105 @@ export function SkillsScreen() {
           </Button>
         </p>
       ) : null}
-      <section className="mb-6 rounded-xl border border-[var(--border)] p-4">
-        <h2 className="text-sm font-medium">{t("create")}</h2>
-        <label className="mt-3 block text-sm" htmlFor="skill-name">
-          {t("name")}
-        </label>
-        <Input
-          className="mt-1 max-w-md"
-          id="skill-name"
-          onChange={(event) => setName(event.target.value)}
-          value={name}
-        />
-        <label className="mt-3 block text-sm" htmlFor="skill-description">
-          {t("description")}
-        </label>
-        <Input
-          className="mt-1 max-w-xl"
-          id="skill-description"
-          onChange={(event) => setDescription(event.target.value)}
-          value={description}
-        />
-        <label className="mt-3 block text-sm" htmlFor="skill-instructions">
-          {t("instructions")}
-        </label>
-        <textarea
-          className="mt-1 min-h-28 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
-          id="skill-instructions"
-          onChange={(event) => setInstructions(event.target.value)}
-          value={instructions}
-        />
-        {advanced ? (
-          <div className="mt-3">
-            <label className="block text-sm" htmlFor="skill-slug">
-              {t("slug")}
+
+      <ManagementLayout
+        title={t("listTitle")}
+        formTitle={t("create")}
+        form={
+          <section className="space-y-1">
+            <label className="mt-3 block text-sm" htmlFor="skill-name">
+              {t("name")}
             </label>
             <Input
-              className="mt-1 max-w-xs"
-              id="skill-slug"
-              onChange={(event) => setSlug(event.target.value)}
-              value={slug}
+              className="mt-1 max-w-md"
+              id="skill-name"
+              onChange={(event) => setName(event.target.value)}
+              value={name}
             />
-            <label className="mt-3 block text-sm" htmlFor="skill-search">
-              {t("search")}
+            <label className="mt-3 block text-sm" htmlFor="skill-description">
+              {t("description")}
             </label>
             <Input
-              className="mt-1 max-w-xs"
-              id="skill-search"
-              onChange={(event) => setQuery(event.target.value)}
-              value={query}
+              className="mt-1 max-w-xl"
+              id="skill-description"
+              onChange={(event) => setDescription(event.target.value)}
+              value={description}
             />
+            <label className="mt-3 block text-sm" htmlFor="skill-instructions">
+              {t("instructions")}
+            </label>
+            <textarea
+              className="mt-1 min-h-28 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+              id="skill-instructions"
+              onChange={(event) => setInstructions(event.target.value)}
+              value={instructions}
+            />
+            {advanced ? (
+              <div className="mt-3">
+                <label className="block text-sm" htmlFor="skill-slug">
+                  {t("slug")}
+                </label>
+                <Input
+                  className="mt-1 max-w-xs"
+                  id="skill-slug"
+                  onChange={(event) => setSlug(event.target.value)}
+                  value={slug}
+                />
+              </div>
+            ) : null}
+            <Button
+              className="mt-3"
+              disabled={busy || !name.trim() || !description.trim()}
+              onClick={() => void createSkill()}
+              type="button"
+            >
+              {t("create")}
+            </Button>
+          </section>
+        }
+      >
+        <div className="mb-5">
+          <label className="sr-only" htmlFor="skill-search">
+            {t("search")}
+          </label>
+          <Input
+            className="w-full"
+            placeholder={t("search")}
+            id="skill-search"
+            onChange={(event) => setQuery(event.target.value)}
+            value={query}
+          />
+        </div>
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
           </div>
         ) : null}
-        <Button
-          className="mt-3"
-          disabled={busy || !name.trim() || !description.trim()}
-          onClick={() => void createSkill()}
-          type="button"
-        >
-          {t("create")}
-        </Button>
-      </section>
-      {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-16 w-full" />
-          <Skeleton className="h-16 w-full" />
-        </div>
-      ) : null}
-      {!loading && rows.length === 0 ? (
-        <p className="text-sm text-[var(--muted-foreground)]">{t("empty")}</p>
-      ) : null}
-      <ul className="space-y-2">
-        {rows.map((skill) => (
-          <li className="rounded-xl border border-[var(--border)] p-3" key={skill.id}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="font-medium">{skill.name}</p>
-                <p className="text-sm text-[var(--muted-foreground)]">{skill.description}</p>
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                  {skill.status}
-                  {skill.publishedVersion ? ` · v${skill.publishedVersion}` : ""}
-                </p>
+        {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
+        <ul className="space-y-2">
+          {rows.map((skill) => (
+            <li
+              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
+              key={skill.id}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-medium">{skill.name}</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">{skill.description}</p>
+                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    {skill.status}
+                    {skill.publishedVersion ? ` · v${skill.publishedVersion}` : ""}
+                  </p>
+                </div>
+                <Button asChild variant="outline">
+                  <Link href={`/skills/${skill.id}`}>{t("open")}</Link>
+                </Button>
               </div>
-              <Button asChild variant="outline">
-                <Link href={`/skills/${skill.id}`}>{t("open")}</Link>
-              </Button>
-            </div>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      </ManagementLayout>
     </AppShell>
   );
 }

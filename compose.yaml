@@ -88,9 +88,13 @@ services:
   opa:
     profiles: [deps]
     image: openpolicyagent/opa:1.21.3-static
-    command: ["run", "--server", "--addr", "0.0.0.0:8181", "--ignore", "fixtures", "/policies"]
+    command: ["run", "--server", "--addr", "0.0.0.0:8181", "--config-file", "/etc/opa/config.yaml"]
+    environment:
+      AR_PORT: ${AR_PORT:-8000}
+      AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
-      - ./policies:/policies:ro
+      - ./deploy/compose/opa/config.yaml:/etc/opa/config.yaml:ro
     ports: ["${AR_OPA_HOST_PORT:-8181}:8181"]
 
   mailpit:
