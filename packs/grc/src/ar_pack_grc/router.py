@@ -9,7 +9,8 @@ from fastapi import APIRouter, Request, Response
 
 from ar_api.deps import expose
 from ar_api.routers.tooling import actor, chat
-from ar_pack_grc import entities, evidence_links, frameworks, mappings
+from ar_pack_grc import ccm, entities, evidence_links, findings, frameworks, mappings
+from ar_pack_grc import tests as control_tests
 from ar_pack_grc.access import require_enabled, snake_body
 
 if TYPE_CHECKING:
@@ -200,6 +201,114 @@ async def create_evidence_link(request: Request, body: dict[str, Any]) -> dict[s
 async def delete_evidence_link(link_id: uuid.UUID, request: Request) -> Response:
     evidence_links.delete_link(chat(request), _caller(request, "grc.evidence:link"), link_id)
     return Response(status_code=204)
+
+
+@router.get("/control-tests")
+@expose(public=False, permission="grc.tests:read")
+async def list_control_tests(request: Request) -> dict[str, Any]:
+    return control_tests.list_tests(
+        chat(request), _caller(request, "grc.tests:read"), _query(request)
+    )
+
+
+@router.post("/control-tests")
+@expose(public=False, permission="grc.controls:manage")
+async def create_control_test(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    return control_tests.create_test(chat(request), _caller(request, "grc.controls:manage"), body)
+
+
+@router.patch("/control-tests/{test_id}")
+@expose(public=False, permission="grc.controls:manage")
+async def patch_control_test(
+    test_id: uuid.UUID, request: Request, body: dict[str, Any]
+) -> dict[str, Any]:
+    return control_tests.patch_test(
+        chat(request), _caller(request, "grc.controls:manage"), test_id, body
+    )
+
+
+@router.post("/control-tests/{test_id}:run", status_code=202)
+@expose(public=False, permission="grc.tests:run")
+async def run_control_test(test_id: uuid.UUID, request: Request) -> dict[str, Any]:
+    who = _caller(
+        request,
+        "grc.tests:run",
+        "grc.evidence:link",
+        "evidence:read",
+        "grc.findings:manage",
+    )
+    return ccm.run_test(chat(request), who, test_id)
+
+
+@router.get("/test-results")
+@expose(public=False, permission="grc.tests:read")
+async def list_test_results(request: Request) -> dict[str, Any]:
+    return control_tests.list_results(
+        chat(request), _caller(request, "grc.tests:read"), _query(request)
+    )
+
+
+@router.get("/findings")
+@expose(public=False, permission="grc.findings:read")
+async def list_findings(request: Request) -> dict[str, Any]:
+    return findings.list_findings(
+        chat(request), _caller(request, "grc.findings:read"), _query(request)
+    )
+
+
+@router.post("/findings")
+@expose(public=False, permission="grc.findings:manage")
+async def create_finding(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    return findings.create_finding(chat(request), _caller(request, "grc.findings:manage"), body)
+
+
+@router.get("/findings/{finding_id}")
+@expose(public=False, permission="grc.findings:read")
+async def get_finding(finding_id: uuid.UUID, request: Request) -> dict[str, Any]:
+    return findings.get_finding(chat(request), _caller(request, "grc.findings:read"), finding_id)
+
+
+@router.patch("/findings/{finding_id}")
+@expose(public=False, permission="grc.findings:manage")
+async def patch_finding(
+    finding_id: uuid.UUID, request: Request, body: dict[str, Any]
+) -> dict[str, Any]:
+    return findings.patch_finding(
+        chat(request), _caller(request, "grc.findings:manage"), finding_id, body
+    )
+
+
+@router.post("/findings/{finding_id}:close")
+@expose(public=False, permission="grc.findings:manage")
+async def close_finding(
+    finding_id: uuid.UUID, request: Request, body: dict[str, Any]
+) -> dict[str, Any]:
+    who = _caller(request, "grc.findings:manage", "evidence:read")
+    return findings.close_finding(chat(request), who, finding_id, body)
+
+
+@router.get("/issues")
+@expose(public=False, permission="grc.findings:read")
+async def list_issues(request: Request) -> dict[str, Any]:
+    return findings.list_issues(
+        chat(request), _caller(request, "grc.findings:read"), _query(request)
+    )
+
+
+@router.post("/issues")
+@expose(public=False, permission="grc.findings:manage")
+async def create_issue(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    return findings.create_issue(chat(request), _caller(request, "grc.findings:manage"), body)
+
+
+@router.patch("/issues/{issue_id}")
+@expose(public=False, permission="grc.findings:manage")
+async def patch_issue(
+    issue_id: uuid.UUID, request: Request, body: dict[str, Any]
+) -> dict[str, Any]:
+    return findings.patch_issue(
+        chat(request), _caller(request, "grc.findings:manage"), issue_id, body
+    )
 
 
 @router.get("/entities")

@@ -1,0 +1,80 @@
+{
+  "list_users": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_users-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_users-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_auth_methods": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_auth_methods-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_auth_methods-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_directory_roles": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_directory_roles-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_directory_roles-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "list_findings": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_findings-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_findings-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_iam_policy": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_iam_policy-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_iam_policy-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "list_protected_branches": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_protected_branches-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_protected_branches-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_approvals": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_approvals-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_approvals-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

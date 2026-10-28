@@ -1,0 +1,49 @@
+{
+  "get_records": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "get_records-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "get_records-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "create_record": {
+    "pages": [
+      {
+        "status": 201,
+        "body": {
+          "sys_id": "abc123",
+          "number": "INC001"
+        }
+      }
+    ]
+  },
+  "update_record": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "sys_id": "abc123"
+        }
+      }
+    ]
+  }
+}

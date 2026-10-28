@@ -18,6 +18,8 @@ from ar_domain.packs.registry import register_migrator
 from ar_domain.records.memory import bucket
 from ar_domain.tools.seed_tools import register_builtin_server
 from ar_pack_grc.access import owned
+from ar_pack_grc.ccm import seed_monitoring
+from ar_pack_grc.connectors.registry import install_servers, register_servers
 from ar_pack_grc.mappings import seed_common
 from ar_pack_grc.mcp_server import register, tool_definitions
 from ar_pack_grc.oscal import import_catalog, load_json
@@ -28,6 +30,20 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[2]
 CATALOGUES = ROOT / "catalogues"
 MANIFEST = ROOT / "manifest.yaml"
+_MONITOR_PERMISSIONS = frozenset(
+    {
+        "grc.controls:manage",
+        "grc.controls:read",
+        "grc.tests:read",
+        "grc.tests:run",
+        "grc.evidence:link",
+        "grc.findings:manage",
+        "grc.findings:read",
+        "evidence:read",
+        "evidence:capture",
+        "routines:create",
+    }
+)
 
 
 def bootstrap(app: Any) -> None:
@@ -37,6 +53,7 @@ def bootstrap(app: Any) -> None:
 
     include_pack(app, "grc", router)
     register()
+    register_servers()
     register_migrator("grc", _migrate)
     store = getattr(getattr(app, "state", None), "chat", None)
     if store is not None and _dev_install():
@@ -54,10 +71,11 @@ def install_dev(store: Any) -> None:
     actor = Actor(
         tenant_id=tenant_id,
         user_id=user_id,
-        permissions=PERMISSION_KEYS,
+        permissions=PERMISSION_KEYS | _MONITOR_PERMISSIONS,
         roles=frozenset({"tenant_admin"}),
     )
     install_for(store, actor)
+    seed_monitoring(store, actor)
 
 
 def install_for(store: Any, actor: Actor) -> dict[str, object]:
@@ -79,6 +97,7 @@ def install_for(store: Any, actor: Actor) -> dict[str, object]:
         tools=tool_definitions(),
     )
     _qualify(store)
+    install_servers(store, actor.user_id)
     return installed
 
 

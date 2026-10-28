@@ -1,4 +1,4 @@
-"""Read tools for the `grc` MCP server. Write tools arrive with later tasks."""
+"""Tools for the `grc` MCP server. Read tools are R0/R1. Writes are W1 or W2."""
 
 from __future__ import annotations
 
@@ -12,8 +12,11 @@ from ar_domain.agents.access import Actor
 from ar_domain.records.memory import bucket
 from ar_domain.tools.handlers import register_endpoint
 from ar_pack_grc.access import pack_enabled, present, same_tenant
+from ar_pack_grc.evidence_links import create_link
+from ar_pack_grc.findings import create_finding
 from ar_pack_grc.frameworks import get_control, list_controls
 from ar_pack_grc.mappings import suggest
+from ar_pack_grc.tests import record_result
 
 if TYPE_CHECKING:
     from typing import Any
@@ -27,8 +30,13 @@ READ_TOOLS = (
     "policies.search",
     "obligations.search",
 )
+WRITE_TOOLS = (
+    "evidence.attach",
+    "tests.record_result",
+    "findings.create",
+)
 # `tools.name` cannot contain a dot (`ck_tools_name`). Qualified names keep the spec form.
-_STORED = {name.replace(".", "_"): name for name in READ_TOOLS}
+_STORED = {name.replace(".", "_"): name for name in (*READ_TOOLS, *WRITE_TOOLS)}
 
 
 def register() -> None:
@@ -54,6 +62,38 @@ def tool_definitions() -> list[dict[str, object]]:
             "R0",
             {"q": _string(), "regulator": _string()},
         ),
+        (
+            "evidence_attach",
+            "Attach evidence to a control",
+            "W1",
+            {
+                "control_id": _string(),
+                "evidence_item_id": _string(),
+                "freshness_days": {"type": "integer"},
+            },
+        ),
+        (
+            "tests_record_result",
+            "Record a control test result",
+            "W1",
+            {
+                "test_id": _string(),
+                "outcome": _string(),
+                "summary": _string(),
+                "evidence_item_ids": {"type": "array"},
+            },
+        ),
+        (
+            "findings_create",
+            "Open a finding",
+            "W2",
+            {
+                "title": _string(),
+                "severity": _string(),
+                "control_id": _string(),
+                "evidence_item_id": _string(),
+            },
+        ),
     )
     tools: list[dict[str, object]] = []
     for name, title, risk, properties in specs:
@@ -78,7 +118,7 @@ def handle(store: Any, name: str, arguments: dict[str, object], token: str) -> d
     if tenant_id is None or user_id is None or not pack_enabled(store, tenant_id):
         return _error("tool_server_unavailable", "GRC pack is not enabled")
     actor = Actor(
-        tenant_id=tenant_id, user_id=user_id, permissions=_read_permissions(), kind="user"
+        tenant_id=tenant_id, user_id=user_id, permissions=_tool_permissions(), kind="user"
     )
     try:
         return _dispatch(store, actor, _STORED.get(name, name), arguments)
@@ -116,6 +156,12 @@ def _dispatch(  # noqa: PLR0911
                 )
             }
         )
+    if name == "evidence.attach":
+        return _ok(create_link(store, actor, _public_args(arguments)))
+    if name == "tests.record_result":
+        return _ok(record_result(store, actor, _public_args(arguments)))
+    if name == "findings.create":
+        return _ok(create_finding(store, actor, _public_args(arguments)))
     return _error("unknown_tool", f"unknown tool {name}")
 
 
@@ -247,6 +293,21 @@ def _read_permissions() -> frozenset[str]:
             "grc.policies:read",
             "grc.obligations:read",
             "grc.entities:read",
+        }
+    )
+
+
+def _tool_permissions() -> frozenset[str]:
+    return _read_permissions() | frozenset(
+        {
+            "grc.controls:manage",
+            "grc.evidence:link",
+            "evidence:read",
+            "evidence:capture",
+            "grc.tests:read",
+            "grc.tests:run",
+            "grc.findings:read",
+            "grc.findings:manage",
         }
     )
 

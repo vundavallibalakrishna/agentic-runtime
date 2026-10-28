@@ -1,18 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
+import { GrcNav } from "@/components/grc/grc-nav";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, api } from "@/lib/api";
-import { cn } from "@/lib/utils";
 
 type Framework = {
   id: string;
@@ -144,12 +143,6 @@ export function GrcScreen({ section }: { section: "frameworks" | "controls" | "e
     return null;
   }
 
-  const tabs = [
-    { href: "/grc", id: "frameworks", label: t("frameworks") },
-    { href: "/grc/controls", id: "controls", label: t("controls") },
-    { href: "/grc/evidence", id: "evidence", label: t("evidence") },
-  ] as const;
-
   return (
     <AppShell>
       <PageHeader
@@ -176,22 +169,7 @@ export function GrcScreen({ section }: { section: "frameworks" | "controls" | "e
           ) : null
         }
       />
-      <nav aria-label={t("title")} className="mb-6 flex gap-2">
-        {tabs.map((tab) => (
-          <Link
-            className={cn(
-              "rounded-lg px-3 py-2 text-sm",
-              section === tab.id
-                ? "bg-[var(--nav-active)] font-semibold"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]",
-            )}
-            href={tab.href}
-            key={tab.id}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
+      <GrcNav section={section} />
       {notice ? (
         <p className="mb-4 text-sm" role="status">
           {notice}

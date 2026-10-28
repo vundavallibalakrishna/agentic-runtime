@@ -100,6 +100,12 @@ from .check_constraint_api_v1_sod_constraints_check_post_response_check_constrai
 from .child_runs_api_v1_runs_run_id_children_get_response_child_runs_api_v1_runs_run_id_children_get import (
     ChildRunsApiV1RunsRunIdChildrenGetResponseChildRunsApiV1RunsRunIdChildrenGet,
 )
+from .close_finding_api_v1_ext_grc_findings_finding_id_close_post_body import (
+    CloseFindingApiV1ExtGrcFindingsFindingIdClosePostBody,
+)
+from .close_finding_api_v1_ext_grc_findings_finding_id_close_post_response_close_finding_api_v1_ext_grc_findings_finding_id_close_post import (
+    CloseFindingApiV1ExtGrcFindingsFindingIdClosePostResponseCloseFindingApiV1ExtGrcFindingsFindingIdClosePost,
+)
 from .collection_body import CollectionBody
 from .collection_body_chunking_type_0 import CollectionBodyChunkingType0
 from .collection_patch import CollectionPatch
@@ -159,6 +165,12 @@ from .create_control_api_v1_ext_grc_controls_post_body import (
 from .create_control_api_v1_ext_grc_controls_post_response_create_control_api_v1_ext_grc_controls_post import (
     CreateControlApiV1ExtGrcControlsPostResponseCreateControlApiV1ExtGrcControlsPost,
 )
+from .create_control_test_api_v1_ext_grc_control_tests_post_body import (
+    CreateControlTestApiV1ExtGrcControlTestsPostBody,
+)
+from .create_control_test_api_v1_ext_grc_control_tests_post_response_create_control_test_api_v1_ext_grc_control_tests_post import (
+    CreateControlTestApiV1ExtGrcControlTestsPostResponseCreateControlTestApiV1ExtGrcControlTestsPost,
+)
 from .create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post import (
     CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost,
 )
@@ -183,6 +195,12 @@ from .create_evidence_link_api_v1_ext_grc_evidence_links_post_body import (
 )
 from .create_evidence_link_api_v1_ext_grc_evidence_links_post_response_create_evidence_link_api_v1_ext_grc_evidence_links_post import (
     CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostResponseCreateEvidenceLinkApiV1ExtGrcEvidenceLinksPost,
+)
+from .create_finding_api_v1_ext_grc_findings_post_body import (
+    CreateFindingApiV1ExtGrcFindingsPostBody,
+)
+from .create_finding_api_v1_ext_grc_findings_post_response_create_finding_api_v1_ext_grc_findings_post import (
+    CreateFindingApiV1ExtGrcFindingsPostResponseCreateFindingApiV1ExtGrcFindingsPost,
 )
 from .create_framework_api_v1_ext_grc_frameworks_post_body import (
     CreateFrameworkApiV1ExtGrcFrameworksPostBody,
@@ -217,6 +235,10 @@ from .create_integration_api_v1_channel_integrations_post_response_create_integr
 )
 from .create_invitations_api_v1_invitations_post_response_200_item import (
     CreateInvitationsApiV1InvitationsPostResponse200Item,
+)
+from .create_issue_api_v1_ext_grc_issues_post_body import CreateIssueApiV1ExtGrcIssuesPostBody
+from .create_issue_api_v1_ext_grc_issues_post_response_create_issue_api_v1_ext_grc_issues_post import (
+    CreateIssueApiV1ExtGrcIssuesPostResponseCreateIssueApiV1ExtGrcIssuesPost,
 )
 from .create_mapping_api_v1_ext_grc_control_mappings_post_body import (
     CreateMappingApiV1ExtGrcControlMappingsPostBody,
@@ -561,6 +583,9 @@ from .get_evidence_api_v1_evidence_evidence_item_id_get_response_get_evidence_ap
 from .get_file_api_v1_files_file_id_get_response_get_file_api_v1_files_file_id_get import (
     GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet,
 )
+from .get_finding_api_v1_ext_grc_findings_finding_id_get_response_get_finding_api_v1_ext_grc_findings_finding_id_get import (
+    GetFindingApiV1ExtGrcFindingsFindingIdGetResponseGetFindingApiV1ExtGrcFindingsFindingIdGet,
+)
 from .get_framework_api_v1_ext_grc_frameworks_framework_id_get_response_get_framework_api_v1_ext_grc_frameworks_framework_id_get import (
     GetFrameworkApiV1ExtGrcFrameworksFrameworkIdGetResponseGetFrameworkApiV1ExtGrcFrameworksFrameworkIdGet,
 )
@@ -767,6 +792,9 @@ from .list_connections_api_v1_data_connections_get_response_list_connections_api
 from .list_constraints_api_v1_sod_constraints_get_response_list_constraints_api_v1_sod_constraints_get import (
     ListConstraintsApiV1SodConstraintsGetResponseListConstraintsApiV1SodConstraintsGet,
 )
+from .list_control_tests_api_v1_ext_grc_control_tests_get_response_list_control_tests_api_v1_ext_grc_control_tests_get import (
+    ListControlTestsApiV1ExtGrcControlTestsGetResponseListControlTestsApiV1ExtGrcControlTestsGet,
+)
 from .list_controls_api_v1_ext_grc_controls_get_response_list_controls_api_v1_ext_grc_controls_get import (
     ListControlsApiV1ExtGrcControlsGetResponseListControlsApiV1ExtGrcControlsGet,
 )
@@ -812,6 +840,9 @@ from .list_feedback_api_v1_feedback_get_response_list_feedback_api_v1_feedback_g
 from .list_files_api_v1_files_get_response_list_files_api_v1_files_get import (
     ListFilesApiV1FilesGetResponseListFilesApiV1FilesGet,
 )
+from .list_findings_api_v1_ext_grc_findings_get_response_list_findings_api_v1_ext_grc_findings_get import (
+    ListFindingsApiV1ExtGrcFindingsGetResponseListFindingsApiV1ExtGrcFindingsGet,
+)
 from .list_frameworks_api_v1_ext_grc_frameworks_get_response_list_frameworks_api_v1_ext_grc_frameworks_get import (
     ListFrameworksApiV1ExtGrcFrameworksGetResponseListFrameworksApiV1ExtGrcFrameworksGet,
 )
@@ -844,6 +875,9 @@ from .list_integrations_api_v1_channel_integrations_get_response_list_integratio
 )
 from .list_invitations_api_v1_invitations_get_response_list_invitations_api_v1_invitations_get import (
     ListInvitationsApiV1InvitationsGetResponseListInvitationsApiV1InvitationsGet,
+)
+from .list_issues_api_v1_ext_grc_issues_get_response_list_issues_api_v1_ext_grc_issues_get import (
+    ListIssuesApiV1ExtGrcIssuesGetResponseListIssuesApiV1ExtGrcIssuesGet,
 )
 from .list_items_api_v1_review_items_get_response_list_items_api_v1_review_items_get import (
     ListItemsApiV1ReviewItemsGetResponseListItemsApiV1ReviewItemsGet,
@@ -950,6 +984,9 @@ from .list_templates_api_v1_sandbox_templates_get_response_list_templates_api_v1
 from .list_tenants_api_v1_platform_tenants_get_response_list_tenants_api_v1_platform_tenants_get import (
     ListTenantsApiV1PlatformTenantsGetResponseListTenantsApiV1PlatformTenantsGet,
 )
+from .list_test_results_api_v1_ext_grc_test_results_get_response_list_test_results_api_v1_ext_grc_test_results_get import (
+    ListTestResultsApiV1ExtGrcTestResultsGetResponseListTestResultsApiV1ExtGrcTestResultsGet,
+)
 from .list_tokens_api_v1_scim_tokens_get_response_list_tokens_api_v1_scim_tokens_get import (
     ListTokensApiV1ScimTokensGetResponseListTokensApiV1ScimTokensGet,
 )
@@ -1046,8 +1083,20 @@ from .patch_control_api_v1_ext_grc_controls_control_id_patch_body import (
 from .patch_control_api_v1_ext_grc_controls_control_id_patch_response_patch_control_api_v1_ext_grc_controls_control_id_patch import (
     PatchControlApiV1ExtGrcControlsControlIdPatchResponsePatchControlApiV1ExtGrcControlsControlIdPatch,
 )
+from .patch_control_test_api_v1_ext_grc_control_tests_test_id_patch_body import (
+    PatchControlTestApiV1ExtGrcControlTestsTestIdPatchBody,
+)
+from .patch_control_test_api_v1_ext_grc_control_tests_test_id_patch_response_patch_control_test_api_v1_ext_grc_control_tests_test_id_patch import (
+    PatchControlTestApiV1ExtGrcControlTestsTestIdPatchResponsePatchControlTestApiV1ExtGrcControlTestsTestIdPatch,
+)
 from .patch_conversation_api_v1_conversations_conversation_id_patch_response_patch_conversation_api_v1_conversations_conversation_id_patch import (
     PatchConversationApiV1ConversationsConversationIdPatchResponsePatchConversationApiV1ConversationsConversationIdPatch,
+)
+from .patch_finding_api_v1_ext_grc_findings_finding_id_patch_body import (
+    PatchFindingApiV1ExtGrcFindingsFindingIdPatchBody,
+)
+from .patch_finding_api_v1_ext_grc_findings_finding_id_patch_response_patch_finding_api_v1_ext_grc_findings_finding_id_patch import (
+    PatchFindingApiV1ExtGrcFindingsFindingIdPatchResponsePatchFindingApiV1ExtGrcFindingsFindingIdPatch,
 )
 from .patch_framework_api_v1_ext_grc_frameworks_framework_id_patch_body import (
     PatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatchBody,
@@ -1067,6 +1116,12 @@ from .patch_incident_api_v1_ai_incidents_incident_id_patch_response_patch_incide
 )
 from .patch_integration_api_v1_channel_integrations_integration_id_patch_response_patch_integration_api_v1_channel_integrations_integration_id_patch import (
     PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponsePatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatch,
+)
+from .patch_issue_api_v1_ext_grc_issues_issue_id_patch_body import (
+    PatchIssueApiV1ExtGrcIssuesIssueIdPatchBody,
+)
+from .patch_issue_api_v1_ext_grc_issues_issue_id_patch_response_patch_issue_api_v1_ext_grc_issues_issue_id_patch import (
+    PatchIssueApiV1ExtGrcIssuesIssueIdPatchResponsePatchIssueApiV1ExtGrcIssuesIssueIdPatch,
 )
 from .patch_memory_api_v1_memory_fact_id_patch_response_patch_memory_api_v1_memory_fact_id_patch import (
     PatchMemoryApiV1MemoryFactIdPatchResponsePatchMemoryApiV1MemoryFactIdPatch,
@@ -1286,6 +1341,9 @@ from .routine_body_budget_type_0 import RoutineBodyBudgetType0
 from .routine_patch import RoutinePatch
 from .routine_run_body import RoutineRunBody
 from .run_body import RunBody
+from .run_control_test_api_v1_ext_grc_control_tests_test_id_run_post_response_run_control_test_api_v1_ext_grc_control_tests_test_id_run_post import (
+    RunControlTestApiV1ExtGrcControlTestsTestIdRunPostResponseRunControlTestApiV1ExtGrcControlTestsTestIdRunPost,
+)
 from .run_input_api_v1_runs_run_id_input_post_response_run_input_api_v1_runs_run_id_input_post import (
     RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost,
 )
@@ -1558,6 +1616,8 @@ __all__ = (
     "CheckBody",
     "CheckConstraintApiV1SodConstraintsCheckPostResponseCheckConstraintApiV1SodConstraintsCheckPost",
     "ChildRunsApiV1RunsRunIdChildrenGetResponseChildRunsApiV1RunsRunIdChildrenGet",
+    "CloseFindingApiV1ExtGrcFindingsFindingIdClosePostBody",
+    "CloseFindingApiV1ExtGrcFindingsFindingIdClosePostResponseCloseFindingApiV1ExtGrcFindingsFindingIdClosePost",
     "CollectionBody",
     "CollectionBodyChunkingType0",
     "CollectionPatch",
@@ -1585,6 +1645,8 @@ __all__ = (
     "CreateConstraintApiV1SodConstraintsPostResponseCreateConstraintApiV1SodConstraintsPost",
     "CreateControlApiV1ExtGrcControlsPostBody",
     "CreateControlApiV1ExtGrcControlsPostResponseCreateControlApiV1ExtGrcControlsPost",
+    "CreateControlTestApiV1ExtGrcControlTestsPostBody",
+    "CreateControlTestApiV1ExtGrcControlTestsPostResponseCreateControlTestApiV1ExtGrcControlTestsPost",
     "CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost",
     "CreateDomainApiV1TenantDomainsPostResponseCreateDomainApiV1TenantDomainsPost",
     "CreateEntityApiV1ExtGrcEntitiesPostBody",
@@ -1594,6 +1656,8 @@ __all__ = (
     "CreateEvidenceApiV1EvidencePostResponseCreateEvidenceApiV1EvidencePost",
     "CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostBody",
     "CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostResponseCreateEvidenceLinkApiV1ExtGrcEvidenceLinksPost",
+    "CreateFindingApiV1ExtGrcFindingsPostBody",
+    "CreateFindingApiV1ExtGrcFindingsPostResponseCreateFindingApiV1ExtGrcFindingsPost",
     "CreateFrameworkApiV1ExtGrcFrameworksPostBody",
     "CreateFrameworkApiV1ExtGrcFrameworksPostResponseCreateFrameworkApiV1ExtGrcFrameworksPost",
     "CreateGrantApiV1GuestsGuestIdGrantsPostResponseCreateGrantApiV1GuestsGuestIdGrantsPost",
@@ -1606,6 +1670,8 @@ __all__ = (
     "CreateIncidentApiV1AiIncidentsPostResponseCreateIncidentApiV1AiIncidentsPost",
     "CreateIntegrationApiV1ChannelIntegrationsPostResponseCreateIntegrationApiV1ChannelIntegrationsPost",
     "CreateInvitationsApiV1InvitationsPostResponse200Item",
+    "CreateIssueApiV1ExtGrcIssuesPostBody",
+    "CreateIssueApiV1ExtGrcIssuesPostResponseCreateIssueApiV1ExtGrcIssuesPost",
     "CreateMappingApiV1ExtGrcControlMappingsPostBody",
     "CreateMappingApiV1ExtGrcControlMappingsPostResponseCreateMappingApiV1ExtGrcControlMappingsPost",
     "CreateMemoryApiV1MemoryPostResponseCreateMemoryApiV1MemoryPost",
@@ -1737,6 +1803,7 @@ __all__ = (
     "GetEventApiV1AuditEventsEventIdGetResponseGetEventApiV1AuditEventsEventIdGet",
     "GetEvidenceApiV1EvidenceEvidenceItemIdGetResponseGetEvidenceApiV1EvidenceEvidenceItemIdGet",
     "GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet",
+    "GetFindingApiV1ExtGrcFindingsFindingIdGetResponseGetFindingApiV1ExtGrcFindingsFindingIdGet",
     "GetFrameworkApiV1ExtGrcFrameworksFrameworkIdGetResponseGetFrameworkApiV1ExtGrcFrameworksFrameworkIdGet",
     "GetGuestApiV1GuestsGuestIdGetResponseGetGuestApiV1GuestsGuestIdGet",
     "GetHoldApiV1LegalHoldsHoldIdGetResponseGetHoldApiV1LegalHoldsHoldIdGet",
@@ -1828,6 +1895,7 @@ __all__ = (
     "ListConnectionsApiV1DataConnectionsGetResponseListConnectionsApiV1DataConnectionsGet",
     "ListConstraintsApiV1SodConstraintsGetResponseListConstraintsApiV1SodConstraintsGet",
     "ListControlsApiV1ExtGrcControlsGetResponseListControlsApiV1ExtGrcControlsGet",
+    "ListControlTestsApiV1ExtGrcControlTestsGetResponseListControlTestsApiV1ExtGrcControlTestsGet",
     "ListConversationsApiV1ConversationsGetResponseListConversationsApiV1ConversationsGet",
     "ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetResponseListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGet",
     "ListDomainsApiV1TenantDomainsGetResponseListDomainsApiV1TenantDomainsGet",
@@ -1842,6 +1910,7 @@ __all__ = (
     "ListEvidenceLinksApiV1ExtGrcEvidenceLinksGetResponseListEvidenceLinksApiV1ExtGrcEvidenceLinksGet",
     "ListFeedbackApiV1FeedbackGetResponseListFeedbackApiV1FeedbackGet",
     "ListFilesApiV1FilesGetResponseListFilesApiV1FilesGet",
+    "ListFindingsApiV1ExtGrcFindingsGetResponseListFindingsApiV1ExtGrcFindingsGet",
     "ListFrameworksApiV1ExtGrcFrameworksGetResponseListFrameworksApiV1ExtGrcFrameworksGet",
     "ListGrantsApiV1TenantSupportAccessGetResponseListGrantsApiV1TenantSupportAccessGet",
     "ListGroupsApiV1GroupsGetResponseListGroupsApiV1GroupsGet",
@@ -1853,6 +1922,7 @@ __all__ = (
     "ListIncidentsApiV1AiIncidentsGetResponseListIncidentsApiV1AiIncidentsGet",
     "ListIntegrationsApiV1ChannelIntegrationsGetResponseListIntegrationsApiV1ChannelIntegrationsGet",
     "ListInvitationsApiV1InvitationsGetResponseListInvitationsApiV1InvitationsGet",
+    "ListIssuesApiV1ExtGrcIssuesGetResponseListIssuesApiV1ExtGrcIssuesGet",
     "ListItemsApiV1ReviewItemsGetResponseListItemsApiV1ReviewItemsGet",
     "ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponseListJobsApiV1KnowledgeCollectionsCollectionIdJobsGet",
     "ListMappingsApiV1ExtGrcControlMappingsGetResponseListMappingsApiV1ExtGrcControlMappingsGet",
@@ -1888,6 +1958,7 @@ __all__ = (
     "ListTeamsApiV1TeamsGetResponseListTeamsApiV1TeamsGet",
     "ListTemplatesApiV1SandboxTemplatesGetResponseListTemplatesApiV1SandboxTemplatesGet",
     "ListTenantsApiV1PlatformTenantsGetResponseListTenantsApiV1PlatformTenantsGet",
+    "ListTestResultsApiV1ExtGrcTestResultsGetResponseListTestResultsApiV1ExtGrcTestResultsGet",
     "ListTokensApiV1ScimTokensGetResponseListTokensApiV1ScimTokensGet",
     "ListToolCallsApiV1ToolCallsGetResponseListToolCallsApiV1ToolCallsGet",
     "ListToolsApiV1ToolsGetResponseListToolsApiV1ToolsGet",
@@ -1928,7 +1999,11 @@ __all__ = (
     "PatchConstraintApiV1SodConstraintsConstraintIdPatchResponsePatchConstraintApiV1SodConstraintsConstraintIdPatch",
     "PatchControlApiV1ExtGrcControlsControlIdPatchBody",
     "PatchControlApiV1ExtGrcControlsControlIdPatchResponsePatchControlApiV1ExtGrcControlsControlIdPatch",
+    "PatchControlTestApiV1ExtGrcControlTestsTestIdPatchBody",
+    "PatchControlTestApiV1ExtGrcControlTestsTestIdPatchResponsePatchControlTestApiV1ExtGrcControlTestsTestIdPatch",
     "PatchConversationApiV1ConversationsConversationIdPatchResponsePatchConversationApiV1ConversationsConversationIdPatch",
+    "PatchFindingApiV1ExtGrcFindingsFindingIdPatchBody",
+    "PatchFindingApiV1ExtGrcFindingsFindingIdPatchResponsePatchFindingApiV1ExtGrcFindingsFindingIdPatch",
     "PatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatchBody",
     "PatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatchResponsePatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatch",
     "PatchGroupScimV2GroupsGroupIdPatchBody",
@@ -1936,6 +2011,8 @@ __all__ = (
     "PatchIdpApiV1IdentityProvidersIdpIdPatchResponsePatchIdpApiV1IdentityProvidersIdpIdPatch",
     "PatchIncidentApiV1AiIncidentsIncidentIdPatchResponsePatchIncidentApiV1AiIncidentsIncidentIdPatch",
     "PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponsePatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatch",
+    "PatchIssueApiV1ExtGrcIssuesIssueIdPatchBody",
+    "PatchIssueApiV1ExtGrcIssuesIssueIdPatchResponsePatchIssueApiV1ExtGrcIssuesIssueIdPatch",
     "PatchMemoryApiV1MemoryFactIdPatchResponsePatchMemoryApiV1MemoryFactIdPatch",
     "PatchMemorySettingsApiV1MemorySettingsPatchResponsePatchMemorySettingsApiV1MemorySettingsPatch",
     "PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch",
@@ -2030,6 +2107,7 @@ __all__ = (
     "RoutinePatch",
     "RoutineRunBody",
     "RunBody",
+    "RunControlTestApiV1ExtGrcControlTestsTestIdRunPostResponseRunControlTestApiV1ExtGrcControlTestsTestIdRunPost",
     "RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost",
     "RunRoutineApiV1RoutinesRoutineIdRunPostResponseRunRoutineApiV1RoutinesRoutineIdRunPost",
     "SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut",
