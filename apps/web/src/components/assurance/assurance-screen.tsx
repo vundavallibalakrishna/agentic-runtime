@@ -56,9 +56,9 @@ export function AssuranceScreen() {
     try {
       const [items, holdPage, schedulePage, guestPage, binderPage, cardPage] = await Promise.all([
         api<{ items: Evidence[] }>("/api/v1/evidence").catch(() => ({ items: [] })),
-        api<{ items: Hold[]; officers?: Officer[] }>("/api/v1/legal-holds").catch(() => ({
-          items: [],
-        })),
+        api<{ items: Hold[]; officers?: Officer[] }>("/api/v1/legal-holds").catch(
+          (): { items: Hold[]; officers?: Officer[] } => ({ items: [] }),
+        ),
         api<{ items: Schedule[] }>("/api/v1/retention-schedules").catch(() => ({ items: [] })),
         api<{ items: Guest[] }>("/api/v1/guests").catch(() => ({ items: [] })),
         api<{ items: Binder[] }>("/api/v1/binders").catch(() => ({ items: [] })),
