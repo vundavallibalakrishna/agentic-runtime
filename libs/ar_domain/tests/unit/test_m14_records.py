@@ -16,6 +16,7 @@ from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.identity.guests import GuestBook, totp_matches
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.packs.alembic_env import alembic_env
+from ar_domain.pii.analyzer import _closed_span, redact
 from ar_domain.pii.recognizers_in import find_indian, verhoeff_ok
 from ar_domain.records.binders import BinderBook, build_zip
 from ar_domain.records.crypto import sign_manifest, verify_manifest
@@ -56,6 +57,15 @@ def test_verhoeff_and_recogniser_precision() -> None:
         found = any(item["text"] == value for item in find_indian(value))
         correct += int(found is expected)
     assert correct / len(labelled) >= 0.95
+
+
+def test_filename_suffix_is_not_redacted_as_a_url() -> None:
+    text = "wrote revenue-by-month.png"
+    assert redact(text) == text
+    assert _closed_span(text, {"entity": "url", "start": 6, "end": 25}) is False
+    assert _closed_span("see https://example.com", {"entity": "url", "start": 4, "end": 23}) is True
+    assert _closed_span("visit example.com today", {"entity": "url", "start": 6, "end": 17}) is True
+    assert _closed_span(text, {"entity": "person", "start": 0, "end": 5}) is True
 
 
 def test_evidence_signature_and_immutability_fields() -> None:

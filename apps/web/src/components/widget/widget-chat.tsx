@@ -8,12 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownView } from "@/components/chat/markdown-view";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
-import {
-  shouldResumeStatus,
-  shouldResumeStream,
-  streamHeaders,
-  waitForResume,
-} from "@/lib/stream/reconnect";
+import { shouldResumeStatus, streamHeaders, waitForResume } from "@/lib/stream/reconnect";
 import {
   emptyStream,
   reduceStream,
@@ -168,57 +163,58 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
     setStream({ ...emptyStream, status: "streaming" });
     let latest: StreamState = { ...emptyStream, status: "streaming" };
     let attempt = 0;
-    while (attempt < 4) {
-      const response = await fetch(`/api/v1/widget/runs/${runId}/events`, {
-        credentials: "include",
-        signal: controller.signal,
-        cache: "no-store",
-        headers: streamHeaders(latest.lastSeq),
-      });
-      if (!response.ok || !response.body) {
-        attempt += 1;
-        if (
-          !shouldResumeStatus(response.status, attempt) ||
-          !shouldResumeStream(latest.status, attempt)
-        ) {
-          throw new ApiError(t("streamFailed"), response.status);
-        }
-        await waitForResume(250 * attempt, controller.signal);
-        continue;
-      }
-      const parser = createParser({
-        onEvent(event) {
-          latest = reduceStream(latest, JSON.parse(event.data) as StreamEvent);
-          setStream(latest);
-        },
-      });
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+    while (attempt < 3) {
+      let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
       try {
+        const response = await fetch(`/api/v1/widget/runs/${runId}/events`, {
+          credentials: "include",
+          signal: controller.signal,
+          cache: "no-store",
+          headers: streamHeaders(latest.lastSeq),
+        });
+        if (!response.ok || !response.body) {
+          attempt += 1;
+          if (!shouldResumeStatus(response.status, attempt)) {
+            throw new ApiError(t("streamFailed"), response.status);
+          }
+          await waitForResume(250 * attempt, controller.signal);
+          continue;
+        }
+        const parser = createParser({
+          onEvent(event) {
+            latest = reduceStream(latest, JSON.parse(event.data) as StreamEvent);
+            setStream(latest);
+          },
+        });
+        reader = response.body.getReader();
+        const decoder = new TextDecoder();
         while (true) {
           const chunk = await reader.read();
-          if (chunk.done) {
-            attempt = 4;
-            break;
-          }
+          if (chunk.done) break;
           parser.feed(decoder.decode(chunk.value, { stream: true }));
         }
+        break;
       } catch (error) {
         if (controller.signal.aborted) throw error;
         attempt += 1;
-        if (!shouldResumeStream(latest.status, attempt)) throw error;
+        if (latest.status !== "streaming" || attempt >= 3) break;
         await waitForResume(250 * attempt, controller.signal);
       } finally {
-        reader.releaseLock();
+        reader?.releaseLock();
       }
     }
-    if (latest.status === "streaming") throw new Error(t("streamFailed"));
     const saved = await request<{ messages: Message[] }>(`/conversations/${id}`, {
       signal: controller.signal,
     });
     setMessages(saved.messages);
     setStream(emptyStream);
     if (latest.status === "failed") setError(t("runFailed"));
+    else if (
+      latest.status === "streaming" &&
+      !saved.messages.some((message) => message.role === "assistant" && message.text)
+    ) {
+      setError(t("streamFailed"));
+    }
   }
 
   async function recover() {
