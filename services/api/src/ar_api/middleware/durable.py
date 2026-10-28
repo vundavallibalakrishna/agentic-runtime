@@ -6,8 +6,10 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
+from ar_common.settings import EnvName
 
 _log = get_logger(__name__)
+_PROBE_PATHS = frozenset({"/healthz", "/readyz", "/metrics"})
 
 
 class DurableMiddleware:
@@ -39,6 +41,8 @@ class DurableMiddleware:
 
 
 async def _ensure(scope: Scope) -> None:
+    if str(scope.get("path", "")) in _PROBE_PATHS:
+        return
     chat = scope["app"].state.chat
     if getattr(chat, "_bind_attempted", False):
         return
@@ -48,24 +52,36 @@ async def _ensure(scope: Scope) -> None:
         chat._bind_lock = lock
     async with lock:
         if not getattr(chat, "_bind_attempted", False):
-            await _bind_once(scope)
-            chat._bind_attempted = True
+            finished = await _bind_once(scope)
+            if finished:
+                chat._bind_attempted = True
 
 
-async def _bind_once(scope: Scope) -> None:
+async def _bind_once(scope: Scope) -> bool:
+    """Return True when this attempt is final. A missing schema retries later."""
     chat = scope["app"].state.chat
     settings = scope["app"].state.settings
     chat.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
-    from ar_domain.durable.bind import bind_store, should_bind  # noqa: PLC0415
+    from ar_domain.durable.bind import SchemaNotReadyError, bind_store, should_bind  # noqa: PLC0415
 
     if not should_bind():
-        return
-    binding = await bind_store(chat, settings.database_url)
+        return True
+    try:
+        binding = await bind_store(chat, settings.database_url)
+    except SchemaNotReadyError:
+        # Compose starts the API before `migrate`. Health stays up; the next
+        # request tries again once `tenants` exists.
+        _log.info("durable_schema_not_ready")
+        return False
     if binding is None:
         # Postgres is optional for unit tests, Playwright and a laptop without Docker.
         # The memory cache stays (OQ-31). A live database still binds above.
         _log.info("durable_memory", reason="database_unavailable")
-        return
+        if getattr(settings, "env", None) in {EnvName.DEV, EnvName.CI} and hasattr(
+            chat, "seed_showcase"
+        ):
+            chat.seed_showcase()
+        return True
     scope["app"].state.demo_tenant_id = binding.tenant_id
     admin = binding.users.get("admin@dev.local")
     if admin is not None:
@@ -79,6 +95,7 @@ async def _bind_once(scope: Scope) -> None:
                 Actor(tenant_id=binding.tenant_id, user_id=admin, permissions=PERMISSION_KEYS)
             )
     await _attach_temporal(chat, settings)
+    return True
 
 
 async def _attach_temporal(chat: object, settings: object) -> None:
