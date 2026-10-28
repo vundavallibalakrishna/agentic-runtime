@@ -36,7 +36,7 @@ test("sign in, chat, stop, empty and error states", async ({ page }) => {
 
   await page.goto("/admin/models");
   await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
-  await expect(page.getByText("fake-llm")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "fake-llm" })).toBeVisible();
   await page.screenshot({ path: `${shots}/05-models.png`, fullPage: true });
 
   await page.route("**/api/v1/conversations", (route) => route.abort());

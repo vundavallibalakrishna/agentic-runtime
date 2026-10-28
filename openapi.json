@@ -25702,6 +25702,17 @@
           "baseUrl": {
             "type": "string",
             "title": "Baseurl"
+          },
+          "apiKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apikey"
           }
         },
         "additionalProperties": false,

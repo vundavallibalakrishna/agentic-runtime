@@ -1844,6 +1844,10 @@ export type ProviderBody = {
      * Baseurl
      */
     baseUrl: string;
+    /**
+     * Apikey
+     */
+    apiKey?: string | null;
 };
 
 /**

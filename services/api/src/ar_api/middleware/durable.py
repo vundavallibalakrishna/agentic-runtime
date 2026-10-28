@@ -22,6 +22,9 @@ class DurableMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        if str(scope.get("path", "")) in _PROBE_PATHS:
+            await self.app(scope, receive, send)
+            return
         await _ensure(scope)
         chat = scope["app"].state.chat
         from ar_domain.durable.flush import flush_store  # noqa: PLC0415

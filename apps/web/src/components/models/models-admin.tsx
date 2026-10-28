@@ -24,7 +24,10 @@ export function ModelsAdmin() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("Local fake");
+  const [kind, setKind] = useState("fake");
   const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:8099/v1");
+  const [apiKey, setApiKey] = useState("");
+  const [upstream, setUpstream] = useState("fake-chat");
   const [sample, setSample] = useState("");
   const [advanced, setAdvanced] = useState(false);
 
@@ -60,24 +63,51 @@ export function ModelsAdmin() {
     window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
   }
 
+  function chooseKind(next: string) {
+    setKind(next);
+    if (next === "openai_compatible" && baseUrl.includes("127.0.0.1")) {
+      setBaseUrl("https://api.deepinfra.com/v1/openai");
+    }
+    if (next === "openai_compatible" && upstream === "fake-chat") {
+      setUpstream("Qwen/Qwen3-32B");
+    }
+    if (next === "fake") {
+      setBaseUrl("http://127.0.0.1:8099/v1");
+      setUpstream("fake-chat");
+      setApiKey("");
+    }
+  }
+
   async function registerProvider() {
     setError("");
+    const secret = apiKey;
+    setApiKey("");
     try {
       const created = await api<Row>("/api/v1/model-providers", {
         method: "POST",
-        body: JSON.stringify({ name, kind: "fake", baseUrl }),
+        body: JSON.stringify({
+          name,
+          kind,
+          baseUrl,
+          ...(secret ? { apiKey: secret } : {}),
+        }),
       });
       const model = await api<Row>("/api/v1/models", {
         method: "POST",
         body: JSON.stringify({
           providerId: created.id,
           name: `${name} chat`,
-          upstreamModel: "fake-chat",
+          upstreamModel: upstream,
           kind: "chat",
         }),
       });
       const reasoning = aliases.find((row) => row.alias === "reasoning" && row.platform !== true);
-      if (!reasoning) {
+      if (reasoning && kind !== "fake") {
+        await api(`/api/v1/model-aliases/${String(reasoning.id)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ primaryModelId: model.id }),
+        });
+      } else if (!reasoning) {
         await api("/api/v1/model-aliases", {
           method: "POST",
           body: JSON.stringify({
@@ -126,14 +156,63 @@ export function ModelsAdmin() {
               />
             </label>
             {advanced ? (
-              <label className="text-sm" htmlFor="provider-url">
-                {t("url")}
-                <Input
-                  id="provider-url"
-                  onChange={(event) => setBaseUrl(event.target.value)}
-                  value={baseUrl}
-                />
-              </label>
+              <>
+                <fieldset className="grid gap-2">
+                  <legend className="text-sm">{t("kind")}</legend>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      aria-pressed={kind === "fake"}
+                      onClick={() => chooseKind("fake")}
+                      type="button"
+                      variant={kind === "fake" ? "default" : "outline"}
+                    >
+                      {t("fakeKind")}
+                    </Button>
+                    <Button
+                      aria-pressed={kind === "openai_compatible"}
+                      onClick={() => chooseKind("openai_compatible")}
+                      type="button"
+                      variant={kind === "openai_compatible" ? "default" : "outline"}
+                    >
+                      {t("openaiKind")}
+                    </Button>
+                  </div>
+                </fieldset>
+                <label className="text-sm" htmlFor="provider-url">
+                  {t("url")}
+                  <Input
+                    id="provider-url"
+                    onChange={(event) => setBaseUrl(event.target.value)}
+                    value={baseUrl}
+                  />
+                </label>
+                <label className="text-sm" htmlFor="provider-model">
+                  {t("upstream")}
+                  <Input
+                    id="provider-model"
+                    onChange={(event) => setUpstream(event.target.value)}
+                    value={upstream}
+                  />
+                </label>
+                {kind === "openai_compatible" ? (
+                  <div className="grid gap-1">
+                    <label className="text-sm" htmlFor="provider-key">
+                      {t("apiKey")}
+                      <Input
+                        aria-describedby="provider-key-hint"
+                        autoComplete="off"
+                        id="provider-key"
+                        onChange={(event) => setApiKey(event.target.value)}
+                        type="password"
+                        value={apiKey}
+                      />
+                    </label>
+                    <p className="text-sm text-[var(--muted-foreground)]" id="provider-key-hint">
+                      {t("apiKeyHint")}
+                    </p>
+                  </div>
+                ) : null}
+              </>
             ) : null}
             <Button className="justify-self-start" type="submit">
               {t("test")}
@@ -163,27 +242,47 @@ export function ModelsAdmin() {
         ) : null}
         {!loading && !error && providers.length === 0 ? <EmptyState title={t("empty")} /> : null}
         {!loading && !error && providers.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">{t("providers")}</caption>
-              <thead className="text-[var(--muted-foreground)]">
-                <tr>
-                  <th className="p-3 font-medium">{t("name")}</th>
-                  <th className="p-3 font-medium">{t("url")}</th>
-                  <th className="p-3 font-medium">{t("scope")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {providers.map((row) => (
-                  <tr className="border-t border-[var(--border)]" key={String(row.id)}>
-                    <td className="p-3">{String(row.name)}</td>
-                    <td className="p-3">{String(row.baseUrl)}</td>
-                    <td className="p-3">{row.platform ? t("platform") : t("tenant")}</td>
+          <>
+            <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)] md:hidden">
+              {providers.map((row) => (
+                <li className="px-4 py-3 text-sm" key={String(row.id)}>
+                  <p className="font-medium">{String(row.name)}</p>
+                  <p className="mt-1 break-all text-[var(--muted-foreground)]">
+                    {String(row.baseUrl)}
+                  </p>
+                  <p className="mt-1 text-[var(--muted-foreground)]">
+                    {String(row.kind ?? "")} · {row.platform ? t("platform") : t("tenant")} ·{" "}
+                    {row.hasApiKey ? t("keyStored") : t("noKey")}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)] md:block">
+              <table className="w-full text-left text-sm">
+                <caption className="sr-only">{t("providers")}</caption>
+                <thead className="text-[var(--muted-foreground)]">
+                  <tr>
+                    <th className="p-3 font-medium">{t("name")}</th>
+                    <th className="p-3 font-medium">{t("kind")}</th>
+                    <th className="p-3 font-medium">{t("url")}</th>
+                    <th className="p-3 font-medium">{t("scope")}</th>
+                    <th className="p-3 font-medium">{t("apiKey")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {providers.map((row) => (
+                    <tr className="border-t border-[var(--border)]" key={String(row.id)}>
+                      <td className="p-3">{String(row.name)}</td>
+                      <td className="p-3">{String(row.kind ?? "")}</td>
+                      <td className="max-w-xs truncate p-3">{String(row.baseUrl)}</td>
+                      <td className="p-3">{row.platform ? t("platform") : t("tenant")}</td>
+                      <td className="p-3">{row.hasApiKey ? t("keyStored") : t("noKey")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
 
         {!loading && !error ? (
