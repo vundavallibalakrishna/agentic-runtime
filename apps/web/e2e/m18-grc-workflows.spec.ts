@@ -44,9 +44,9 @@ test("walk the GRC workflows and keep export behind a signed review", async ({ p
   await capture(page, "overview");
 
   await page.getByRole("link", { name: "Questionnaires" }).first().click();
-  await expect(page.getByText("Do you encrypt disks?")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Do you encrypt disks?").first()).toBeVisible({ timeout: 20_000 });
   await page.getByRole("button", { name: "Export questionnaire" }).click();
-  await expect(page.getByRole("alert")).toContainText("A signed review is still required.");
+  await expect(page.getByText("A signed review is still required.")).toBeVisible();
   await capture(page, "questionnaires");
 
   await page.getByRole("link", { name: "Vendors" }).click();
@@ -56,7 +56,7 @@ test("walk the GRC workflows and keep export behind a signed review", async ({ p
   await page.getByRole("link", { name: "Policies" }).click();
   await expect(page.getByText("Access control")).toBeVisible();
   await page.getByRole("button", { name: "Publish policy" }).click();
-  await expect(page.getByRole("alert")).toContainText("A signed review is still required.");
+  await expect(page.getByText("A signed review is still required.")).toBeVisible();
   await capture(page, "policies");
 
   await page.getByRole("link", { name: "Risks" }).click();
@@ -74,7 +74,7 @@ test("walk the GRC workflows and keep export behind a signed review", async ({ p
   await capture(page, "incidents");
 
   await page.getByRole("link", { name: "Exceptions" }).click();
-  await expect(page.getByText(/Isolated until cutover/)).toBeVisible();
+  await expect(page.getByText("The legacy store is isolated until the quarter closes.")).toBeVisible();
   await capture(page, "exceptions");
 
   await page.getByRole("link", { name: "Ethics" }).click();

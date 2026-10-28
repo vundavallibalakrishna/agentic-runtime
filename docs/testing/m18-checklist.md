@@ -32,7 +32,7 @@ Earlier screens stay on Chat, Agents, Tools, Knowledge, Memory, Skills, Routines
 6. Open **Risks**. Expect Vendor outage, status open, score 12.
 7. Open **Regulatory**. Expect the DPDP circular, status new.
 8. Open **Incidents**. Expect “Laptop with customer extracts” and `dpdp 72h`.
-9. Open **Exceptions**. Expect the waiver rationale and status proposed.
+9. Open **Exceptions**. Expect “The legacy store is isolated until the quarter closes.” and status proposed.
 10. Open **Ethics**. Expect “Unsolicited gift from a supplier”, status open.
 11. Narrow to 375px and switch to dark. The same tokens stay. Empty and error states use the shared empty panel and the alert role.
 
