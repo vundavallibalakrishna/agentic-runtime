@@ -40,7 +40,9 @@ test("walk the audit desk and keep the board pack behind sign-off", async ({ pag
   await signIn(page);
   await page.goto("/grc/audit");
   await expect(page.getByRole("heading", { name: "Audit and reporting" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Requests" }).first()).toBeVisible();
+  await expect(
+    page.getByText("An auditor guest sees only the requests named in the grant."),
+  ).toBeVisible({ timeout: 20_000 });
   await capture(page, "overview");
 
   await page.getByRole("link", { name: "Requests" }).first().click();
