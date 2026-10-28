@@ -8,6 +8,7 @@ import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
 
 import { highlightCode, type Token } from "@/lib/highlight";
+import { filterMarkdown, linkRel } from "@/lib/markdown-exfil";
 
 import "katex/dist/katex.min.css";
 
@@ -15,7 +16,15 @@ export function MarkdownView({ text }: { text: string }) {
   return (
     <div className="markdown">
       <ReactMarkdown
+        rehypePlugins={[rehypeKatex, rehypeSanitize]}
         components={{
+          a({ href, children }) {
+            return (
+              <a href={href} rel={linkRel}>
+                {children}
+              </a>
+            );
+          },
           pre({ children }) {
             return <div className="contents">{children}</div>;
           },
@@ -27,10 +36,9 @@ export function MarkdownView({ text }: { text: string }) {
             return <CodeBlock className={className} value={value} />;
           },
         }}
-        rehypePlugins={[rehypeKatex, rehypeSanitize]}
         remarkPlugins={[remarkGfm]}
       >
-        {text}
+        {filterMarkdown(text)}
       </ReactMarkdown>
     </div>
   );

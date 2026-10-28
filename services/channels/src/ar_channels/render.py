@@ -4,9 +4,12 @@ import re
 
 import mistune
 
+from ar_common.markdown_exfil import filter_markdown
+
 
 def to_mrkdwn(markdown: str) -> str:
     """Slack mrkdwn. Bold and links are the forms the thread shows."""
+    markdown = filter_markdown(markdown)
     text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", markdown, flags=re.DOTALL)
     return re.sub(r"\[(.+?)\]\((.+?)\)", r"<\2|\1>", text)
 
@@ -84,7 +87,7 @@ def adaptive_card(
 
 
 def render_email_html(markdown: str) -> str:
-    html = str(mistune.html(markdown))
+    html = str(mistune.html(filter_markdown(markdown)))
     html = re.sub(r"(?is)<script.*?>.*?</script>", "", html)
     return re.sub(r"""(?is)\son\w+\s*=\s*(['"]).*?\1""", "", html)
 

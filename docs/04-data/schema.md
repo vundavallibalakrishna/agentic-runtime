@@ -1891,6 +1891,7 @@ CREATE TABLE tenant_pack_flags (
   tenant_id   uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   pack_id     text NOT NULL,
   enabled     boolean NOT NULL DEFAULT false,
+  settings    jsonb NOT NULL DEFAULT '{}',
   updated_at  timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, pack_id)
 );

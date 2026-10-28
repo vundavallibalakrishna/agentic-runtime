@@ -145,4 +145,18 @@ M13-T03 | done | aca3c20 | revision 0019 and eval catalogue API
 M13-T04 | done | aca3c20 | eval workflow, graders, publish gate, platform suites
 M13-T05 | done | aca3c20 | run inspector, evals UI, platform health
 M13-T06 | done | aca3c20 | feedback digest and alias-change re-runs
-M13-T07 | deferred | - | waits for M14-T08; not an M13 exit task (OQ-44)
+M13-T07 | done | pending | run records, replay, groundedness gate after the evidence vault
+
+M14-T01 | done | pending | guardrails, injection classifier, Indian PII recognisers
+M14-T02 | done | pending | retention sweep, erasure, data export
+M14-T03 | done | pending | audit export, SIEM fan-out, chain verification
+M14-T04 | done | pending | security headers, SSRF guard, upload limits
+M14-T05 | done | pending | signing-key envelope, supply-chain job already in CI
+M14-T06 | done | pending | metadata support grant cannot read content
+M14-T07 | done | pending | verification log; no accepted risks
+M14-T08 | done | pending | evidence vault, records tools, revision 0023
+M14-T09 | done | pending | legal hold, retention schedules, disposition certificates
+M14-T10 | done | pending | AI register cards, incidents, oversight, export
+M14-T11 | done | pending | guest principals, magic link, TOTP, watermark
+M14-T12 | done | pending | binder ZIP and stdlib verifier
+M14-T13 | done | pending | pack extension hooks, import-linter contract

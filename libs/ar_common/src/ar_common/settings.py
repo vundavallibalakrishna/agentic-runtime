@@ -15,6 +15,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_API_INTERNAL_URL",
         "AR_ASGI_SERVER",
         "AR_AUDIT_ARCHIVE_BUCKET",
+        "AR_BINDER_MAX_ITEMS",
         "AR_BILLING_CURRENCY",
         "AR_BOOTSTRAP_ADMIN_EMAIL",
         "AR_BOOTSTRAP_TENANT_NAME",
@@ -39,11 +40,20 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_EGRESS_PROXY_URL",
         "AR_ENV",
         "AR_EVAL_CONCURRENCY",
+        "AR_EVIDENCE_BUCKET",
+        "AR_EVIDENCE_DEFAULT_LOCK_DAYS",
+        "AR_EVIDENCE_LOCK_MODE",
+        "AR_EVIDENCE_SIGNING_KEY",
+        "AR_EVIDENCE_SIGNING_KEY_ID",
         "AR_FASTEMBED_CACHE_DIR",
         "AR_FILES_PROXY_DOWNLOADS",
         "AR_FILES_SCANNER",
+        "AR_GROUNDING_MAX_SENTENCES",
         "AR_GUARDRAIL_INPUT_ALIAS",
         "AR_GUARDRAIL_OUTPUT_ALIAS",
+        "AR_GUEST_MAGIC_LINK_TTL_S",
+        "AR_GUEST_MAX_TTL_DAYS",
+        "AR_GUEST_SESSION_TTL_S",
         "AR_INGEST_ACTIVITY_CONCURRENCY",
         "AR_INGEST_MAX_BYTES",
         "AR_INGEST_SYNC_CONCURRENCY",
@@ -81,6 +91,9 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_OPA_URL",
         "AR_OTEL_EXPORTER_OTLP_ENDPOINT",
         "AR_OUTBOX_BATCH_SIZE",
+        "AR_PACK_SIGNATURE_REQUIRED",
+        "AR_PACK_TRUSTED_KEYS",
+        "AR_PACKS_DIR",
         "AR_PGVECTOR_DIMENSIONS",
         "AR_PUBLIC_URL",
         "AR_QDRANT_API_KEY",
@@ -90,6 +103,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES",
         "AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS",
         "AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS",
+        "AR_RUN_RECORD_MAX_BLOB_BYTES",
         "AR_RUN_STREAM_TTL_S",
         "AR_S3_ACCESS_KEY_ID",
         "AR_S3_BUCKET",
@@ -134,6 +148,8 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_TOOL_DRIFT_INTERVAL",
         "AR_TOOL_RESULT_MAX_FILE_BYTES",
         "AR_TRACE_SAMPLE_RATIO",
+        "AR_TSA_TIMEOUT_MS",
+        "AR_TSA_URL",
         "AR_TRACE_UI_URL",
         "AR_USAGE_ROLLUP_INTERVAL",
         "AR_VALKEY_URL",
@@ -237,6 +253,26 @@ class BaseServiceSettings(BaseSettings):
     asgi_server: str = "uvicorn"
     service_name: str = "agentic-runtime"
     routine_min_interval_s: int = 300
+    binder_max_items: int = 5000
+    evidence_bucket: str = "ar-evidence"
+    evidence_default_lock_days: int = 2555
+    evidence_lock_mode: str = "compliance"
+    evidence_signing_key: SecretStr = SecretStr("")
+    evidence_signing_key_id: str = "evidence-k1"
+    grounding_max_sentences: int = 200
+    guest_magic_link_ttl_s: int = 900
+    guest_max_ttl_days: int = 90
+    guest_session_ttl_s: int = 28800
+    pack_signature_required: bool = False
+    pack_trusted_keys: SecretStr = SecretStr("")
+    packs_dir: str = "packs"
+    run_record_max_blob_bytes: int = 52_428_800
+    tsa_timeout_ms: int = 2000
+    tsa_url: str = ""
+    guardrail_input_alias: str = "fast"
+    guardrail_output_alias: str = "fast"
+    injection_classifier_timeout_ms: int = 1000
+    audit_archive_bucket: str = "ar-audit-archive"
 
     @model_validator(mode="after")
     def apply_file_secrets_and_saas_default(self) -> BaseServiceSettings:

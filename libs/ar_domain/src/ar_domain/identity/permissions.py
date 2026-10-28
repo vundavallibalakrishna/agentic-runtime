@@ -110,6 +110,18 @@ PERMISSIONS: tuple[Permission, ...] = (
     Permission("reviews:decide", "reviews", "Sign or reject a review item"),
     Permission("reviews:manage", "reviews", "Create and edit review queues"),
     Permission("sod:manage", "policy", "Manage segregation-of-duties constraints"),
+    Permission("evidence:read", "records", "Read evidence metadata and custody"),
+    Permission("evidence:capture", "records", "Capture evidence items"),
+    Permission("evidence:export", "records", "Download evidence bytes and exports"),
+    Permission("holds:manage", "records", "Create and release legal holds"),
+    Permission("retention:manage", "records", "Edit retention schedules"),
+    Permission("ai_governance:read", "records", "Read the AI governance register"),
+    Permission("ai_governance:manage", "records", "Update cards and incidents"),
+    Permission("guests:invite", "records", "Invite an external guest"),
+    Permission("guests:manage", "records", "Manage guest grants"),
+    Permission("binders:export", "records", "Build and download binders"),
+    Permission("run_records:read", "records", "Read sealed run records"),
+    Permission("run_records:replay", "records", "Replay a sealed run record"),
 )
 
 PERMISSION_KEYS: frozenset[str] = frozenset(item.key for item in PERMISSIONS)
@@ -161,6 +173,11 @@ SYSTEM_ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "usage:read",
         "users:read",
         "reviews:read",
+        "evidence:read",
+        "evidence:export",
+        "run_records:read",
+        "ai_governance:read",
+        "binders:export",
     ),
     "tenant_admin": tuple(item.key for item in PERMISSIONS),
 }

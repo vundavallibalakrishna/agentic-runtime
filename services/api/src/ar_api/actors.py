@@ -37,4 +37,6 @@ def actor_from(principal: Principal) -> Actor:
         roles=principal.roles,
         auth_method=principal.auth_method,
         step_up_at=principal.step_up_at,
+        kind=principal.kind,
+        support_level=principal.support_level,
     )

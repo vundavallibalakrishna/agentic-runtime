@@ -153,7 +153,9 @@ class PackService:
         parsed = self._parsed(manifest)
         digest_hex, used_key = self._check_signature(actor, manifest, signature, key_id)
         if parsed.spec.extension is not None:
-            raise ArError(ErrorCode.EXTENSION_UNAVAILABLE, "pack extensions are not available yet")
+            from ar_domain.packs.registry import apply_extension  # noqa: PLC0415
+
+            apply_extension(self.store, actor, parsed)
         existing = self._by_version(actor.tenant_id, parsed.metadata.id, parsed.metadata.version)
         if existing is not None and existing.get("status") == "installed":
             body = self._out(existing)
@@ -240,7 +242,9 @@ class PackService:
             raise ArError(ErrorCode.VALIDATION_FAILED, "manifest id does not match the pack")
         self._check_signature(actor, manifest, signature, key_id)
         if parsed.spec.extension is not None:
-            raise ArError(ErrorCode.EXTENSION_UNAVAILABLE, "pack extensions are not available yet")
+            from ar_domain.packs.registry import apply_extension  # noqa: PLC0415
+
+            apply_extension(self.store, actor, parsed)
         if _semver(parsed.metadata.version) <= _semver(str(current["version"])):
             raise ArError(ErrorCode.INVALID_STATE, "upgrade version must be strictly greater")
         preview = import_bundle(
@@ -273,9 +277,9 @@ class PackService:
         if not actor.has("packs:manage") and not actor.has("agents:manage_all"):
             raise ArError(ErrorCode.FORBIDDEN, "missing permission packs:manage")
         if drop_schema:
-            raise ArError(
-                ErrorCode.EXTENSION_UNAVAILABLE, "dropping a pack schema is not available yet"
-            )
+            from ar_domain.packs.registry import drop_pack_schema  # noqa: PLC0415
+
+            drop_pack_schema(self.store, actor, pack_id)
         row = self._current(actor, pack_id)
         row["status"] = "uninstalled"
         _audit(self.store, actor, "pack.uninstalled", pack_id, {"version": row.get("version")})

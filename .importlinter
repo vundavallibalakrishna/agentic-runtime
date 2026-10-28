@@ -65,6 +65,30 @@ forbidden_modules =
     ar_domain.*.repository
 allow_indirect_imports = true
 
+[importlinter:contract:packs-not-in-core]
+name = Core does not import pack packages
+type = forbidden
+source_modules =
+    ar_common
+    ar_contracts
+    ar_domain
+    ar_connector_sdk
+    ar_api
+    ar_runtime
+    ar_system
+    ar_ingest
+    ar_model_gateway
+    ar_mcp_gateway
+    ar_sandbox_manager
+    ar_sandbox_agent
+    ar_channels
+    ar_mcp_sql
+    ar_mcp_openapi
+    ar_fake_llm
+forbidden_modules =
+    ar_pack_grc
+    ar_pack_fixture
+
 [importlinter:contract:retrieval-adapters]
 name = Services never import retrieval store adapters or engine clients
 type = forbidden

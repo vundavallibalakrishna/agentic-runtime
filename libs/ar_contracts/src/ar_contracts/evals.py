@@ -31,6 +31,7 @@ class EvalInput(ApiModel):
     files: list[str] = Field(default_factory=list)
     as_user: EvalPrincipal | None = None
     variables: dict[str, object] = Field(default_factory=dict)
+    grounding: dict[str, object] | None = None
 
 
 class ContainsAssertion(ApiModel):

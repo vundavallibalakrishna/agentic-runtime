@@ -14,6 +14,7 @@ import {
   Radio,
   Repeat,
   Shield,
+  ShieldCheck,
   Sparkles,
   Wrench,
 } from "lucide-react";
@@ -37,7 +38,8 @@ export type NavItem = {
     | "navRuns"
     | "navModels"
     | "navUsers"
-    | "navComputers";
+    | "navComputers"
+    | "navAssurance";
   section: "workspace" | "resources" | "manage";
   permission: string;
   icon: LucideIcon;
@@ -150,6 +152,13 @@ export const primaryNav: NavItem[] = [
     labelKey: "navComputers",
     permission: "sandboxes:manage",
     icon: Monitor,
+  },
+  {
+    href: "/admin/assurance",
+    section: "manage",
+    labelKey: "navAssurance",
+    permission: "evidence:read",
+    icon: ShieldCheck,
   },
   {
     href: "/admin/users",

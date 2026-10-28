@@ -204,8 +204,8 @@ def test_builder_bundle_and_pack_routes() -> None:
     )
     assert upgraded.status_code == 200
     dropped = client.post("/api/v1/content-packs/notes:uninstall", json={"dropSchema": True})
-    assert dropped.status_code == 422
-    assert dropped.json()["code"] == "extension_unavailable"
+    assert dropped.status_code == 403
+    assert "step-up" in dropped.json()["detail"]
     removed = client.post("/api/v1/content-packs/notes:uninstall", json={"dropSchema": False})
     assert removed.status_code == 200
     hidden = _client(uuid.uuid4(), uuid.uuid4()).get("/api/v1/content-packs/notes")

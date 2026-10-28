@@ -46,13 +46,7 @@
 | 0020 | `content_packs` | §20 tables | M3-T09 |
 | 0021 | `reviews_signoffs` | §21 tables | M5-T08 |
 | 0022 | `sod_constraints` | §21 `sod_constraints` (split so M5-T09 owns the constraint seed) | M5-T09 |
-| 0023 | `run_records` | §22 tables, without the evidence FK | M13-T07 |
-| 0024 | `evidence_vault` | §23 tables + `fk_run_records_evidence` | M14-T08 |
-| 0025 | `legal_hold_retention` | §24 tables and the retention seed | M14-T09 |
-| 0026 | `ai_governance` | §25 tables | M14-T10 |
-| 0027 | `guest_principals` | §26 tables + `fk_guest_totp_secret` | M14-T11 |
-| 0028 | `binder_exports` | §27 table | M14-T12 |
-| 0029 | `pack_extension` | §28 tables | M14-T13 |
+| 0023 | `m14_records` | §22–§28 tables, RLS, immutability triggers, `fk_run_records_evidence` and `fk_guest_totp_secret`. One revision keeps a single Alembic head (OQ-47). | M13-T07, M14-T08–T13 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

@@ -373,6 +373,26 @@ class EvalBook:
                 found.append(row["id"])
         return found
 
+    def platform_gate_ids(self, actor: Actor, tag: str) -> list[uuid.UUID]:
+        """Platform suites whose gate names ``tag`` in ``must_pass_tags``."""
+        found: list[uuid.UUID] = []
+        for row in self.store.eval_suites.values():
+            if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
+                continue
+            if row.get("agent_id") is not None:
+                continue
+            gate = row.get("gate")
+            tags = gate.get("must_pass_tags") if isinstance(gate, dict) else None
+            if (
+                isinstance(gate, dict)
+                and gate.get("required")
+                and isinstance(tags, list)
+                and tag in tags
+                and isinstance(row.get("id"), uuid.UUID)
+            ):
+                found.append(row["id"])
+        return found
+
     def _import_text(self, actor: Actor, suite_id: uuid.UUID, text: str) -> dict[str, object]:
         imported = 0
         errors: list[dict[str, object]] = []

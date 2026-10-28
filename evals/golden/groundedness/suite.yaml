@@ -1,0 +1,22 @@
+name: Groundedness
+description: Claims in a strict answer stay tied to the sources.
+kind: functional
+gate:
+  required: true
+  min_pass_rate: 0.9
+  must_pass_tags:
+    - groundedness
+cases:
+  - name: cites-the-source
+    tags: [groundedness]
+    input:
+      messages:
+        - Answer from the cited source only.
+      grounding:
+        claims: 2
+        grounded_claims: 2
+        mode: strict
+    assertions:
+      - type: groundedness
+        min_grounded_ratio: 0.9
+        mode: strict
