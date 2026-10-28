@@ -80,8 +80,9 @@ def install_dev(store: Any) -> None:
     )
     install_for(store, actor)
     seed_monitoring(store, actor)
-    seed_workflows(store, actor)
-    seed_audit(store, actor)
+    if demo_rows_enabled():
+        seed_workflows(store, actor)
+        seed_audit(store, actor)
 
 
 def install_for(store: Any, actor: Actor) -> dict[str, object]:
@@ -196,6 +197,11 @@ def _skeleton_document(spec: dict[str, Any]) -> dict[str, Any]:
 def _migrate(store: Any, who: Any, schema: str) -> None:
     del who
     bucket(store, "pack_migrations")[schema] = {"schema": schema, "upgraded": True}
+
+
+def demo_rows_enabled() -> bool:
+    """Demo vendors and audit rows. Catalogues still install. Set ``AR_GRC_DEMO=0`` to skip them."""
+    return os.environ.get("AR_GRC_DEMO", "1").strip().lower() not in {"0", "false", "no"}
 
 
 def _dev_install() -> bool:

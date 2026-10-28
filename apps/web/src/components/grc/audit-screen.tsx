@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
+import { AuditForms } from "@/components/grc/audit-forms";
 import { GrcNav } from "@/components/grc/grc-nav";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -179,10 +180,16 @@ export function AuditScreen({ section }: { section: AuditSection }) {
             </li>
           ))}
         </ul>
-      ) : rows.length === 0 && section !== "reports" ? (
-        <EmptyState title={t(emptyKey)} />
       ) : (
         <div className="space-y-4">
+          <AuditForms
+            onChanged={load}
+            onNotice={setNotice}
+            onRender={renderReport}
+            rows={rows}
+            section={section}
+          />
+          {rows.length === 0 ? <EmptyState title={t(emptyKey)} /> : null}
           {rows.length === 0 ? null : (
             <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
               {rows.map((row) => (
@@ -210,20 +217,6 @@ export function AuditScreen({ section }: { section: AuditSection }) {
             <Button onClick={() => void startCampaign()} type="button">
               {t("startCampaign")}
             </Button>
-          ) : null}
-          {section === "reports" ? (
-            <div className="flex flex-wrap gap-2">
-              {templateKeys.map((key) => (
-                <Button
-                  key={key}
-                  onClick={() => void renderReport(key)}
-                  type="button"
-                  variant="outline"
-                >
-                  {t("renderReport", { name: t(key) })}
-                </Button>
-              ))}
-            </div>
           ) : null}
         </div>
       )}

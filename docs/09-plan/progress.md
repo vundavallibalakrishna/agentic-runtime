@@ -206,3 +206,7 @@ M20-T01 | done | 0cb867c | registered provider routing
 M20-T02 | done | 0cb867c | operator model screen
 M20-T03 | done | 0cb867c | full-stack certification run
 M20-T04 | done | 0cb867c | report, checklist and walkthrough
+
+M21-T01 | in_progress | - | 2026-10-28 GRC create and manage forms
+M21-T02 | in_progress | - | 2026-10-28 assistant tools, connections, unbacked claims
+M21-T03 | in_progress | - | 2026-10-28 certification addendum

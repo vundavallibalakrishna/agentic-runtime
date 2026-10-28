@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+import orjson
+
 _ALIAS = re.compile(r"^[a-z][a-z0-9_-]{1,40}$")
 _STRIPPED = frozenset({"model", "stream", "messages", "tools", "tool_choice"})
 DEFAULT_DENY_CIDRS = (
@@ -92,6 +94,73 @@ def strip_think(text: str) -> str:
     """Drop a reasoning model's private trace and keep the answer."""
     stripped = _THINK.sub("", text).strip()
     return stripped or text.strip()
+
+
+_TOOL_BLOCK = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+
+
+def completion_tool_calls(payload: object) -> list[dict[str, object]]:
+    """OpenAI tool_calls, or a Qwen ``<tool_call>`` JSON block in the message."""
+    message = _message(payload)
+    if message is None:
+        return []
+    found: list[dict[str, object]] = []
+    raw = message.get("tool_calls")
+    if isinstance(raw, list):
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            function = item.get("function")
+            if not isinstance(function, dict):
+                continue
+            name = str(function.get("name") or "")
+            if name:
+                found.append({"name": name, "arguments": _arguments(function.get("arguments"))})
+    if found:
+        return found
+    content = message.get("content")
+    text = content if isinstance(content, str) else ""
+    for match in _TOOL_BLOCK.finditer(text):
+        try:
+            parsed = orjson.loads(match.group(1))
+        except orjson.JSONDecodeError:
+            continue
+        if not isinstance(parsed, dict):
+            continue
+        name = str(parsed.get("name") or "")
+        if name:
+            found.append({"name": name, "arguments": _arguments(parsed.get("arguments"))})
+    return found
+
+
+def visible_answer(text: str) -> str:
+    """Drop a tool-call block so it is not shown as the assistant's reply."""
+    return _TOOL_BLOCK.sub("", text).strip()
+
+
+def _message(payload: object) -> dict[str, object] | None:
+    if not isinstance(payload, dict):
+        return None
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return None
+    message = choices[0].get("message")
+    if isinstance(message, dict):
+        return message
+    return None
+
+
+def _arguments(value: object) -> dict[str, object]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = orjson.loads(value)
+        except orjson.JSONDecodeError:
+            return {}
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
 
 
 def completion_text(payload: object) -> str:

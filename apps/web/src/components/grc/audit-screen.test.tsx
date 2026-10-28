@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -63,8 +63,28 @@ describe("GRC audit", () => {
       ),
     );
     render(wrap(<AuditScreen section="requests" />));
-    expect(await screen.findByText("SOC 2 population extract")).toBeTruthy();
+    expect((await screen.findAllByText("SOC 2 population extract")).length).toBeGreaterThan(0);
     expect(await screen.findByText("open")).toBeTruthy();
+  });
+
+  it("posts a prepared-by-client request from the form", async () => {
+    let body: unknown = null;
+    server.use(
+      session(),
+      pack(),
+      http.get("*/api/v1/ext/grc/pbc-requests", () => HttpResponse.json({ items: [] })),
+      http.post("*/api/v1/ext/grc/pbc-requests", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: "p2", title: "Population", status: "open" });
+      }),
+    );
+    render(wrap(<AuditScreen section="requests" />));
+    expect(await screen.findByText("No prepared-by-client requests yet.")).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: /Request title/ }), {
+      target: { value: "Population" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add request" }));
+    await waitFor(() => expect(body).toEqual({ title: "Population" }));
   });
 
   it("shows an error when reviews cannot be loaded", async () => {
