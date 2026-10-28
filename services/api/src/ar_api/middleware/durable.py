@@ -69,6 +69,13 @@ async def _bind_once(scope: Scope) -> None:
     admin = binding.users.get("admin@dev.local")
     if admin is not None:
         scope["app"].state.demo_user_id = admin
+        from ar_domain.agents.access import Actor  # noqa: PLC0415
+        from ar_domain.evals.book import EvalBook  # noqa: PLC0415
+        from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+
+        EvalBook(chat).ensure_platform(
+            Actor(tenant_id=binding.tenant_id, user_id=admin, permissions=PERMISSION_KEYS)
+        )
     await _attach_temporal(chat, settings)
 
 

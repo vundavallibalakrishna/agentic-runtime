@@ -261,7 +261,8 @@ class EvalBook:
         RUNS.labels(status="queued", trigger=trigger).inc()
         if _inline(self.store):
             execute_eval_run(self.store, run_id)
-        return self._run_view(row)
+        stored = self.store.eval_runs.get(run_id)
+        return self._run_view(stored if isinstance(stored, dict) else row)
 
     def list_runs(
         self,
@@ -510,8 +511,8 @@ class EvalBook:
 
 
 def _inline(store: Any) -> bool:
-    client = getattr(store, "temporal_client", None)
-    return client is None or not callable(getattr(client, "start_workflow", None))
+    """Score in this process unless a test is driving EvalRunWorkflow itself."""
+    return not getattr(store, "defer_eval_runs", False)
 
 
 def _optional_uuid(value: object) -> uuid.UUID | None:

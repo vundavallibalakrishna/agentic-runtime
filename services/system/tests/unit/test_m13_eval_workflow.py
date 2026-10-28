@@ -35,11 +35,7 @@ async def test_workflow_scores_a_suite(temporal_env) -> None:  # type: ignore[no
         },
     )
 
-    class _Client:
-        def start_workflow(self, *args: object, **kwargs: object) -> None:
-            del args, kwargs
-
-    store.temporal_client = _Client()
+    store.defer_eval_runs = True
     queued = book.start_run(
         actor,
         suite["id"],  # type: ignore[arg-type]

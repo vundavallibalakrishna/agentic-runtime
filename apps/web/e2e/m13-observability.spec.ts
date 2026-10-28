@@ -45,8 +45,11 @@ test("observability, evaluations and platform health stay accessible", async ({ 
 
   await page.goto("/admin/evals");
   await expect(page.getByRole("heading", { name: "Evaluation library" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Prompt injection" })).toBeVisible();
-  await page.getByRole("button", { name: "Run suite" }).first().click();
+  const injection = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("heading", { name: "Prompt injection" }) });
+  await expect(injection).toBeVisible();
+  await injection.getByRole("button", { name: "Run suite" }).click();
   await expect(page.getByText("tool-output-injection")).toBeVisible({ timeout: 20_000 });
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);

@@ -162,19 +162,24 @@ export function UsageScreen() {
           </Button>
         </p>
       ) : null}
-      <section aria-label={t("overview")} className="mb-6 grid gap-3 sm:grid-cols-3">
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-          <p className="text-sm text-[var(--muted-foreground)]">{t("runs")}</p>
-          <p className="mt-2 text-2xl font-medium">{formatCount(overview?.runs?.total ?? 0)}</p>
-        </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-          <p className="text-sm text-[var(--muted-foreground)]">{t("feedbackUp")}</p>
-          <p className="mt-2 text-2xl font-medium">{overview?.feedback?.up ?? 0}</p>
-        </article>
-        <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-          <p className="text-sm text-[var(--muted-foreground)]">{t("feedbackDown")}</p>
-          <p className="mt-2 text-2xl font-medium">{overview?.feedback?.down ?? 0}</p>
-        </article>
+      <section aria-labelledby="usage-overview" className="mb-6">
+        <h2 className="mb-3 text-sm font-medium" id="usage-overview">
+          {t("overview")}
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <p className="text-sm text-[var(--muted-foreground)]">{t("runs")}</p>
+            <p className="mt-2 text-2xl font-medium">{formatCount(overview?.runs?.total ?? 0)}</p>
+          </article>
+          <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <p className="text-sm text-[var(--muted-foreground)]">{t("feedbackUp")}</p>
+            <p className="mt-2 text-2xl font-medium">{overview?.feedback?.up ?? 0}</p>
+          </article>
+          <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+            <p className="text-sm text-[var(--muted-foreground)]">{t("feedbackDown")}</p>
+            <p className="mt-2 text-2xl font-medium">{overview?.feedback?.down ?? 0}</p>
+          </article>
+        </div>
       </section>
       {!loading && (overview?.runs?.total ?? 0) === 0 ? (
         <p className="mb-4 text-sm text-[var(--muted-foreground)]">{t("overviewEmpty")}</p>
