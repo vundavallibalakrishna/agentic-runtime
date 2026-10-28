@@ -74,7 +74,9 @@ test("walk the GRC workflows and keep export behind a signed review", async ({ p
   await capture(page, "incidents");
 
   await page.getByRole("link", { name: "Exceptions" }).click();
-  await expect(page.getByText("The legacy store is isolated until the quarter closes.")).toBeVisible();
+  await expect(
+    page.getByText("The legacy store is isolated until the quarter closes."),
+  ).toBeVisible();
   await capture(page, "exceptions");
 
   await page.getByRole("link", { name: "Ethics" }).click();
