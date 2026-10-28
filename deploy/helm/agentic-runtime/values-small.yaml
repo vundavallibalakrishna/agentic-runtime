@@ -1,0 +1,39 @@
+# Single-tenant preset for up to 500 users. Bundled stateful services.
+global:
+  deploymentMode: single_tenant
+  env: prod
+  publicUrl: https://agents.example.com
+bootstrap:
+  tenantSlug: default
+  tenantName: Default
+  adminEmail: admin@example.com
+postgres:
+  bundled: true
+  mode: cnpg
+  instances: 3
+  storage: 200Gi
+valkey:
+  bundled: true
+  mode: sentinel
+temporal:
+  bundled: true
+  ha: true
+  workerVersioning: true
+qdrant:
+  enabled: false
+objectStorage:
+  bundled: true
+  mode: single
+keycloak:
+  bundled: true
+  replicas: 2
+openbao:
+  bundled: true
+  replicas: 3
+sandboxes:
+  driver: kubernetes
+  falco: true
+networkPolicy:
+  enabled: true
+backup:
+  enabled: true

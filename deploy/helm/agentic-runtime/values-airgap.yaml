@@ -1,0 +1,12 @@
+# Air-gapped overlay. Combine with values-small.yaml.
+global:
+  imageRegistry: registry.example.internal/ar
+airgap:
+  lockdown: true
+sandboxes:
+  driver: kubernetes
+egress:
+  packageMirrors:
+    pypi: http://pypi.internal/simple
+    npm: http://npm.internal
+    apt: http://apt.internal

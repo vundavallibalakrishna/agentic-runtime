@@ -1,0 +1,81 @@
+# Dev preset: one replica, embedded dependencies, docker sandboxes allowed.
+global:
+  env: dev
+  imageTag: dev
+  publicUrl: http://localhost:3000
+bootstrap:
+  tenantSlug: dev
+  tenantName: Dev
+  adminEmail: admin@dev.local
+secrets:
+  backend: db_encrypted
+sandboxes:
+  driver: docker
+  runtimeClassInstall: false
+  falco: false
+postgres:
+  bundled: true
+  mode: statefulset
+  instances: 1
+  storage: 10Gi
+valkey:
+  bundled: true
+  mode: standalone
+temporal:
+  bundled: true
+  ha: false
+  workerVersioning: false
+keycloak:
+  bundled: true
+  replicas: 1
+openbao:
+  bundled: true
+  replicas: 1
+objectStorage:
+  bundled: true
+  mode: single
+autoscaling:
+  enabled: false
+keda:
+  enabled: false
+monitoring:
+  enabled: false
+gateway:
+  enabled: false
+networkPolicy:
+  enabled: false
+backup:
+  enabled: false
+fakeLlm:
+  enabled: true
+clamav:
+  enabled: false
+workloads:
+  web:
+    replicas: 1
+  api:
+    replicas: 1
+  runtime-worker:
+    replicas: 1
+  system-worker:
+    replicas: 1
+  ingest-worker:
+    replicas: 1
+  model-gateway:
+    replicas: 1
+  mcp-gateway:
+    replicas: 1
+  sandbox-manager:
+    replicas: 1
+  channels:
+    replicas: 1
+  mcp-sql:
+    replicas: 1
+  mcp-openapi:
+    replicas: 1
+  opa:
+    replicas: 1
+  squid:
+    replicas: 1
+  fake-llm:
+    replicas: 1

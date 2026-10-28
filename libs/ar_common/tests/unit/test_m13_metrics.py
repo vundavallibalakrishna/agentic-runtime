@@ -39,6 +39,11 @@ def test_every_alert_has_a_runbook_anchor() -> None:
         "ARAuditChainBroken": "rb-09-audit-chain-broken",
         "ARCertificateExpiry": "rb-10-certificates",
         "ARPostgresReplicationLag": "rb-11-postgres",
+        "ARPostgresWALArchiveLag": "rb-11-postgres",
+        "ARBackupMissing": "rb-11-postgres",
+        "ARQdrantSnapshotMissing": "rb-11-postgres",
+        "ARBaoSnapshotMissing": "rb-11-postgres",
+        "ARBackupVerificationFailed": "rb-11-postgres",
         "ARQueueDepthOutbox": "rb-13-outbox-backlog",
     }
     found = {}

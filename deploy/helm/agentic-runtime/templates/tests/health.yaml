@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-helm-test
+  labels:
+    app.kubernetes.io/name: helm-test
+  annotations:
+    helm.sh/hook: test
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: health
+      image: {{ include "ar.thirdPartyImage" (list . "ar-api" .Values.global.imageTag) }}
+      command:
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://{{ .Release.Name }}-api:8000/healthz"); urllib.request.urlopen("http://{{ .Release.Name }}-web:3000/healthz")
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]

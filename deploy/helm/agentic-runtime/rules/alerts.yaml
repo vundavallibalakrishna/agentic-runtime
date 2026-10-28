@@ -105,6 +105,46 @@ groups:
         annotations:
           summary: Postgres replication lag is above 30 seconds
           runbook_url: docs/07-ops/runbooks.md#rb-11-postgres
+      - alert: ARPostgresWALArchiveLag
+        expr: ar_postgres_wal_archive_lag_seconds > 600
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: Postgres WAL archive lag is above 10 minutes
+          runbook_url: docs/07-ops/runbooks.md#rb-11-postgres
+      - alert: ARBackupMissing
+        expr: time() - ar_backup_last_success_timestamp_seconds > 93600
+        for: 1h
+        labels:
+          severity: page
+        annotations:
+          summary: No Postgres base backup in 26 hours
+          runbook_url: docs/07-ops/runbooks.md#rb-11-postgres
+      - alert: ARQdrantSnapshotMissing
+        expr: time() - ar_qdrant_snapshot_timestamp_seconds > 28800
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: Qdrant snapshot is older than 8 hours
+          runbook_url: docs/07-ops/runbooks.md#rb-11-postgres
+      - alert: ARBaoSnapshotMissing
+        expr: time() - ar_openbao_snapshot_timestamp_seconds > 7200
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: OpenBao Raft snapshot is older than 2 hours
+          runbook_url: docs/07-ops/runbooks.md#rb-11-postgres
+      - alert: ARBackupVerificationFailed
+        expr: ar_backup_verification_failed > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Backup restore verification failed
+          runbook_url: docs/07-ops/runbooks.md#rb-11-postgres
       - alert: ARQueueDepthOutbox
         expr: ar_outbox_lag_seconds > 60
         for: 5m

@@ -1,0 +1,142 @@
+{{- if .Values.postgres.bundled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-pg-credentials
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+type: Opaque
+stringData:
+  username: {{ .Values.postgres.username | quote }}
+  password: {{ .Values.postgres.password | quote }}
+{{- end }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}-pg
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  instances: {{ .Values.postgres.instances }}
+  imageName: {{ include "ar.thirdPartyImage" (list . .Values.postgres.image.repository .Values.postgres.image.tag) }}
+  enableSuperuserAccess: true
+  postgresql:
+    parameters:
+      archive_timeout: "300"
+      shared_buffers: "256MB"
+  bootstrap:
+    initdb:
+      database: ar
+      owner: {{ .Values.postgres.username }}
+      postInitApplicationSQL:
+        - CREATE DATABASE temporal
+        - CREATE DATABASE temporal_visibility
+        - CREATE DATABASE keycloak
+        - CREATE DATABASE langfuse
+  storage:
+    size: {{ .Values.postgres.storage }}
+  backup:
+    retentionPolicy: {{ .Values.backup.retention | quote }}
+    barmanObjectStore:
+      destinationPath: {{ printf "s3://%s/postgres" .Values.backup.s3.bucket }}
+      endpointURL: {{ .Values.backup.s3.endpoint }}
+      s3Credentials:
+        accessKeyId:
+          name: {{ .Release.Name }}-backup
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: {{ .Release.Name }}-backup
+          key: ACCESS_SECRET_KEY
+      wal:
+        compression: gzip
+        maxParallel: 1
+      data:
+        compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: {{ .Release.Name }}-pg-pooler
+spec:
+  cluster:
+    name: {{ .Release.Name }}-pg
+  instances: 2
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+{{- end }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-postgres
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: {{ include "ar.thirdPartyImage" (list . .Values.postgres.image.repository .Values.postgres.image.tag) }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-pg-credentials
+                  key: password
+            - name: POSTGRES_DB
+              value: ar
+          readinessProbe:
+            tcpSocket:
+              port: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-postgres
+spec:
+  selector:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+{{- end }}

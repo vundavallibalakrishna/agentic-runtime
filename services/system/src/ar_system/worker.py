@@ -7,6 +7,7 @@ from temporalio.client import Client
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
 from ar_common.settings import get_settings
+from ar_common.temporal_worker import temporal_worker_kwargs
 
 _log = get_logger(__name__)
 
@@ -88,12 +89,14 @@ async def run_worker() -> None:
                     poll_activity,
                     reconcile_activity,
                 ],
+                **temporal_worker_kwargs(),
             )
             eval_worker = Worker(
                 client,
                 task_queue=EVAL_QUEUE,
                 workflows=[EvalRunWorkflow],
                 activities=[execute_eval_activity],
+                **temporal_worker_kwargs(),
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)
             await asyncio.gather(worker.run(), eval_worker.run())

@@ -77,10 +77,23 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
     const citation = raw as StreamCitation;
     return { ...next, citations: [...state.citations, citation] };
   }
+  if (event.type === "tool_call.approval_required") {
+    const preview = event.data?.resultPreview ?? event.data?.text ?? "";
+    const tool = {
+      name: event.data?.qualifiedName ?? "tool",
+      status: "awaiting_approval",
+      preview,
+    };
+    return {
+      ...next,
+      status: "streaming",
+      text: preview || state.text,
+      tools: [...state.tools, tool],
+    };
+  }
   if (
     event.type === "tool_call.completed" ||
     event.type === "tool_call.failed" ||
-    event.type === "tool_call.approval_required" ||
     event.type === "tool_call.approval_resolved"
   ) {
     const tool = {

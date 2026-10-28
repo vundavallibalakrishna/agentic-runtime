@@ -8,6 +8,7 @@ from temporalio.worker import Worker
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
 from ar_common.settings import get_settings
+from ar_common.temporal_worker import temporal_worker_kwargs
 from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
@@ -73,6 +74,7 @@ async def run_worker() -> None:
                     evaluate_control_tool,
                     record_user_input,
                 ],
+                **temporal_worker_kwargs(),
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)
             await worker.run()

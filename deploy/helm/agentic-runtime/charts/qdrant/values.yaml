@@ -1,0 +1,7 @@
+global:
+  imageRegistry: ""
+replicas: 3
+storage: 200Gi
+image:
+  repository: qdrant/qdrant
+  tag: v1.19.2
