@@ -52,13 +52,19 @@ def _request(store: ChatService) -> Request:
 @pytest.mark.parametrize("path", ["/healthz", "/readyz", "/metrics"])
 async def test_probes_do_not_bind(path: str, monkeypatch: pytest.MonkeyPatch) -> None:
     called = False
+    flushed = False
 
     async def bind_store(*_args: object, **_kwargs: object) -> None:
         nonlocal called
         called = True
 
+    async def flush_store(*_args: object, **_kwargs: object) -> None:
+        nonlocal flushed
+        flushed = True
+
     monkeypatch.setattr("ar_domain.durable.bind.should_bind", lambda: True)
     monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind_store)
+    monkeypatch.setattr("ar_domain.durable.flush.flush_store", flush_store)
     store = ChatService()
     sent: list[dict[str, object]] = []
 
@@ -72,6 +78,7 @@ async def test_probes_do_not_bind(path: str, monkeypatch: pytest.MonkeyPatch) ->
     await DurableMiddleware(app)(_scope(store, path), AsyncMock(), capture)
     assert sent and sent[0]["status"] == 200
     assert called is False
+    assert flushed is False
     assert getattr(store, "_bind_attempted", False) is False
 
 

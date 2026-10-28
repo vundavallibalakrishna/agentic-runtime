@@ -29,6 +29,7 @@ class ProviderBody(ApiModel):
     name: str
     kind: str = "openai_compatible"
     base_url: str
+    api_key: str | None = None
 
 
 class ProviderPatch(ApiModel):
@@ -132,6 +133,52 @@ async def _finish(
         await service.generate(uuid.UUID(run_id), text, names)
 
 
+async def _persist_provider(
+    service: ChatService,
+    created: dict[str, object],
+    api_key: str | None,
+    principal: Principal,
+) -> None:
+    from ar_domain.models.registry import save_provider  # noqa: PLC0415
+
+    provider_id = uuid.UUID(str(created["id"]))
+    await save_provider(
+        service.durable_engine,
+        service.providers[provider_id],
+        api_key=api_key,
+        actor_id=principal.id,
+        actor_type=principal.kind,
+    )
+
+
+async def _persist_model(
+    service: ChatService, created: dict[str, object], principal: Principal
+) -> None:
+    from ar_domain.models.registry import save_model  # noqa: PLC0415
+
+    model_id = uuid.UUID(str(created["id"]))
+    await save_model(
+        service.durable_engine,
+        service.models[model_id],
+        actor_id=principal.id,
+        actor_type=principal.kind,
+    )
+
+
+async def _persist_alias(
+    service: ChatService, created: dict[str, object], principal: Principal
+) -> None:
+    from ar_domain.models.registry import save_alias  # noqa: PLC0415
+
+    alias_id = uuid.UUID(str(created["id"]))
+    await save_alias(
+        service.durable_engine,
+        service.aliases[alias_id],
+        actor_id=principal.id,
+        actor_type=principal.kind,
+    )
+
+
 @router.get("/api/v1/model-providers", dependencies=[Depends(require_permission("models:read"))])
 @expose(public=False, permission="models:read")
 async def list_providers(request: Request) -> dict[str, object]:
@@ -143,9 +190,17 @@ async def list_providers(request: Request) -> dict[str, object]:
 @expose(public=False, permission="models:manage")
 async def create_provider(body: ProviderBody, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    return _chat(request).create_provider(
-        _tenant(principal), body.name, body.kind, body.base_url, platform=False
+    service = _chat(request)
+    created = service.create_provider(
+        _tenant(principal),
+        body.name,
+        body.kind,
+        body.base_url,
+        platform=False,
+        api_key=body.api_key,
     )
+    await _persist_provider(service, created, body.api_key, principal)
+    return service._public(service.providers[uuid.UUID(str(created["id"]))])
 
 
 @router.patch(
@@ -197,7 +252,8 @@ async def list_models(request: Request) -> dict[str, object]:
 @expose(public=False, permission="models:manage")
 async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    return _chat(request).create_model(
+    service = _chat(request)
+    created = service.create_model(
         _tenant(principal),
         body.provider_id,
         body.name,
@@ -205,6 +261,8 @@ async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
         body.kind,
         platform=False,
     )
+    await _persist_model(service, created, principal)
+    return created
 
 
 @router.delete(
@@ -228,7 +286,8 @@ async def list_aliases(request: Request) -> dict[str, object]:
 @expose(public=False, permission="models:manage")
 async def create_alias(body: AliasBody, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    return _chat(request).create_alias(
+    service = _chat(request)
+    created = service.create_alias(
         _tenant(principal),
         body.alias,
         body.kind,
@@ -236,6 +295,8 @@ async def create_alias(body: AliasBody, request: Request) -> dict[str, object]:
         platform=False,
         fallback_model_ids=body.fallback_model_ids,
     )
+    await _persist_alias(service, created, principal)
+    return created
 
 
 @router.patch(
@@ -247,9 +308,12 @@ async def update_alias(
     alias_id: uuid.UUID, body: AliasPatch, request: Request
 ) -> dict[str, object]:
     principal = _principal(request)
-    return _chat(request).update_alias(
+    service = _chat(request)
+    updated = service.update_alias(
         _tenant(principal), alias_id, body.primary_model_id, platform=False
     )
+    await _persist_alias(service, updated, principal)
+    return updated
 
 
 @router.post(
@@ -277,7 +341,12 @@ async def platform_providers(request: Request) -> dict[str, object]:
 async def platform_create_provider(body: ProviderBody, request: Request) -> dict[str, object]:
     principal = _principal(request)
     _platform(principal)
-    return _chat(request).create_provider(None, body.name, body.kind, body.base_url, platform=True)
+    service = _chat(request)
+    created = service.create_provider(
+        None, body.name, body.kind, body.base_url, platform=True, api_key=body.api_key
+    )
+    await _persist_provider(service, created, body.api_key, principal)
+    return service._public(service.providers[uuid.UUID(str(created["id"]))])
 
 
 @router.get("/api/v1/conversations", dependencies=[Depends(require_permission("chat:use"))])

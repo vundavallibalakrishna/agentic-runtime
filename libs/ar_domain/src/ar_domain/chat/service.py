@@ -39,6 +39,7 @@ from ar_domain.files.logic import (
 from ar_domain.models.logic import (
     DEFAULT_DENY_CIDRS,
     AliasRef,
+    completion_text,
     merge_params,
     provider_url_denied,
     resolve_alias,
@@ -598,7 +599,7 @@ class ChatService:
     def _public(self, row: dict[str, object]) -> dict[str, object]:
         out: dict[str, object] = {}
         for key, value in row.items():
-            if key == "blob":
+            if key in {"blob", "api_key"}:
                 continue
             if isinstance(value, datetime):
                 out[key] = value.isoformat()
@@ -606,6 +607,8 @@ class ChatService:
                 out[key] = str(value)
             else:
                 out[key] = value
+        if "base_url" in row:
+            out["has_api_key"] = bool(row.get("api_key") or row.get("has_api_key"))
         return out
 
     def _require(
@@ -630,6 +633,7 @@ class ChatService:
         base_url: str,
         *,
         platform: bool,
+        api_key: str | None = None,
     ) -> dict[str, object]:
         if provider_url_denied(base_url, self.deny_cidrs, allow_loopback=self.allow_loopback):
             raise ArError(ErrorCode.BAD_REQUEST, "provider URL is not allowed")
@@ -638,6 +642,11 @@ class ChatService:
         provider_id = new_id()
         owner = None if platform else tenant_id
         row = self._provider(provider_id, owner, name, kind, base_url)
+        if api_key:
+            row["api_key"] = api_key
+            row["has_api_key"] = True
+        else:
+            row["has_api_key"] = False
         self.providers[provider_id] = row
         return self._public(row)
 
@@ -660,7 +669,14 @@ class ChatService:
         self, tenant_id: uuid.UUID, provider_id: uuid.UUID
     ) -> dict[str, object]:
         row = self._require(self.providers, provider_id, tenant_id)
-        return await self._probe(str(row["base_url"]), "fake-chat")
+        if str(row.get("kind") or "") == "fake":
+            return await self._probe(str(row["base_url"]), "fake-chat")
+        key = str(row.get("api_key") or "")
+        if not key and self.durable_engine is not None:
+            from ar_domain.models.registry import read_api_key  # noqa: PLC0415
+
+            key = await read_api_key(self.durable_engine, provider_id)
+        return await self._probe_live(str(row["base_url"]), self._sample_upstream(provider_id), key)
 
     def list_models(self, tenant_id: uuid.UUID) -> list[dict[str, object]]:
         return self._owned(self.models, tenant_id)
@@ -778,6 +794,45 @@ class ChatService:
         if owner is not None and owner != tenant_id:
             raise NotFoundError()
         return row
+
+    def _sample_upstream(self, provider_id: uuid.UUID) -> str:
+        for row in self.models.values():
+            if row.get("provider_id") == provider_id and row.get("kind") == "chat":
+                return str(row.get("upstream_model") or "chat")
+        return "chat"
+
+    async def _probe_live(self, base_url: str, model: str, api_key: str) -> dict[str, object]:
+        """Ping a registered provider. The key stays in the request header."""
+        started = time.perf_counter()
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        body: dict[str, object] = {
+            "model": model,
+            "messages": [{"role": "user", "content": "Reply with the single word pong."}],
+            "max_tokens": 32,
+        }
+        if "qwen3" in model.lower():
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+        output = "provider test failed"
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    base_url.rstrip("/") + "/chat/completions", json=body, headers=headers
+                )
+            if response.status_code < 300:
+                output = completion_text(response.json()) or "provider test returned no text"
+            else:
+                output = f"provider test failed ({response.status_code})"
+        except httpx.HTTPError:
+            output = "provider test failed"
+        latency = int((time.perf_counter() - started) * 1000)
+        return {
+            "ok": output.startswith("pong") or "pong" in output.lower(),
+            "output": output,
+            "model_id": model,
+            "latency_ms": latency,
+            "ttft_ms": latency,
+            "usage": {"tokens_in": 1, "tokens_out": max(1, len(output.split()))},
+        }
 
     async def _probe(
         self, base_url: str, model: str, messages: list[dict[str, str]] | None = None
@@ -1252,6 +1307,55 @@ class ChatService:
             base += "/v1"
         return base + "/chat/completions"
 
+    async def refresh_models(self) -> None:
+        """Pull providers saved by another process. A down database keeps the cache."""
+        engine = self.durable_engine
+        if engine is None:
+            return
+        from ar_domain.models.registry import load_into  # noqa: PLC0415
+
+        try:
+            await load_into(engine, self)
+        except Exception:  # noqa: BLE001 — chat still runs on the cache
+            return
+
+    def _completion_call(self, tenant_id: uuid.UUID) -> tuple[str, dict[str, str], float, bool]:
+        """Model name, headers, timeout, and whether the provider is real."""
+        found = self._reasoning_target(tenant_id)
+        if found is None or str(found[0].get("kind")) == "fake":
+            return "fake-chat", {"X-Fake-Script-Set": "echo"}, 3.0, False
+        provider, model = found
+        raw_timeout = provider.get("timeout_s")
+        timeout = 120.0
+        if isinstance(raw_timeout, int | float) and not isinstance(raw_timeout, bool):
+            timeout = float(raw_timeout)
+        return str(model.get("upstream_model") or "reasoning"), {}, max(timeout, 30.0), True
+
+    def _reasoning_target(
+        self, tenant_id: uuid.UUID
+    ) -> tuple[dict[str, object], dict[str, object]] | None:
+        """Prefer a tenant non-fake ``reasoning`` alias over the platform fake."""
+        ranked: list[tuple[int, int, dict[str, object], dict[str, object]]] = []
+        for row in self.aliases.values():
+            if row.get("alias") != "reasoning" or row.get("status") != "active":
+                continue
+            owner = row.get("tenant_id")
+            if owner is not None and owner != tenant_id:
+                continue
+            model = self.models.get(uuid.UUID(str(row["primary_model_id"])))
+            if not isinstance(model, dict):
+                continue
+            provider = self.providers.get(uuid.UUID(str(model["provider_id"])))
+            if not isinstance(provider, dict):
+                continue
+            fake_rank = 1 if str(provider.get("kind")) == "fake" else 0
+            tenant_rank = 0 if owner == tenant_id else 1
+            ranked.append((fake_rank, tenant_rank, provider, model))
+        if not ranked:
+            return None
+        ranked.sort(key=lambda item: (item[0], item[1]))
+        return ranked[0][2], ranked[0][3]
+
     def flush_soon(self) -> None:
         """Persist dirty rows without blocking the caller."""
         from ar_domain.durable.flush import schedule_flush  # noqa: PLC0415
@@ -1414,6 +1518,7 @@ class ChatService:
             assistant_id = uuid.UUID(str(run["assistant_message_id"]))
             self._fail_quota(run, conversation, self.messages[assistant_id], exc)
             return
+        await self.refresh_models()
         self._prepare_run(run, conversation, agent, text, names)
         assistant_id = uuid.UUID(str(run["assistant_message_id"]))
         assistant = self.messages[assistant_id]
@@ -1441,7 +1546,13 @@ class ChatService:
             await self._finish_grounded(run, assistant, conversation, grounded)
             return
         slow = "slow" in text.lower()
-        tokens = await self._tokens(text, names, slow=slow, system=self._system_prompt(run))
+        tokens = await self._tokens(
+            text,
+            names,
+            slow=slow,
+            system=self._system_prompt(run),
+            tenant_id=uuid.UUID(str(run["tenant_id"])),
+        )
         built: list[str] = []
         for token in tokens:
             if run_id in self.cancel_flags:
@@ -1494,13 +1605,23 @@ class ChatService:
             )
 
     async def _tokens(
-        self, text: str, names: list[str], *, slow: bool, system: str = ""
+        self,
+        text: str,
+        names: list[str],
+        *,
+        slow: bool,
+        system: str = "",
+        tenant_id: uuid.UUID | None = None,
     ) -> list[str]:
         if slow:
             sentence = "This answer is intentionally slow so you can press stop. "
             return [sentence] * 12
         prefix = f"Attached {', '.join(names)}. " if names else ""
-        remote = await self._remote_completion(text, system)
+        owner = tenant_id or demo_id("tenant")
+        model, headers, timeout_s, real = self._completion_call(owner)
+        remote = await self._remote_completion(
+            text, system, model=model, headers=headers, timeout_s=timeout_s, real=real
+        )
         if remote:
             return [prefix + remote]
         body = f"fake: {text}"
@@ -1508,27 +1629,41 @@ class ChatService:
             body = "- I kept this in bullet points because you asked me to."
         return [prefix + body]
 
-    async def _remote_completion(self, text: str, system: str = "") -> str | None:
+    async def _remote_completion(
+        self,
+        text: str,
+        system: str = "",
+        *,
+        model: str = "fake-chat",
+        headers: dict[str, str] | None = None,
+        timeout_s: float = 3.0,
+        real: bool = False,
+    ) -> str | None:
         messages: list[dict[str, str]] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": text})
+        body: dict[str, object] = {"model": model, "messages": messages}
+        if real:
+            body["max_tokens"] = 700
+            if "qwen3" in model.lower():
+                body["chat_template_kwargs"] = {"enable_thinking": False}
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=timeout_s) as client:
                 response = await client.post(
                     self.completion_url(),
-                    json={"model": "fake-chat", "messages": messages},
-                    headers={"X-Fake-Script-Set": "echo"},
+                    json=body,
+                    headers=headers or {},
                 )
             if response.status_code >= 300:
-                return None
-            payload = response.json()
-            choices = payload.get("choices") or []
-            if not choices:
-                return None
-            return str(choices[0]["message"]["content"])
+                return "The model provider returned an error." if real else None
+            text_out = completion_text(response.json())
+            if text_out:
+                return text_out
         except httpx.HTTPError:
-            return None
+            return "The model provider did not answer." if real else None
+        else:
+            return "The model provider returned an empty answer." if real else None
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
         from ar_domain.usage.service import note  # noqa: PLC0415

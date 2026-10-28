@@ -83,3 +83,30 @@ def provider_url_denied(
     if allow_loopback and address.is_loopback:
         return False
     return any(address in ipaddress.ip_network(cidr, strict=False) for cidr in deny_cidrs)
+
+
+_THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def strip_think(text: str) -> str:
+    """Drop a reasoning model's private trace and keep the answer."""
+    stripped = _THINK.sub("", text).strip()
+    return stripped or text.strip()
+
+
+def completion_text(payload: object) -> str:
+    """Read assistant text, including a reasoning field when content is empty."""
+    if not isinstance(payload, dict):
+        return ""
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return ""
+    message = choices[0].get("message")
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    text = content if isinstance(content, str) else ""
+    if not text.strip():
+        reasoning = message.get("reasoning_content")
+        text = reasoning if isinstance(reasoning, str) else ""
+    return strip_think(text)

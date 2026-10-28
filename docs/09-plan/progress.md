@@ -201,3 +201,8 @@ M19-T05 | done | 15da601 | signed 1.1.0 upgrade keeps a control; pack revision 0
 M19-T06 | done | 15da601 | inspection room; guest grant is that binder only
 M19-T07 | done | 15da601 | DSAR erasure skips a hold; consent requires evidence
 M19-T08 | done | 15da601 | resilience fail needs evidence; model assets do not write agent cards
+
+M20-T01 | in_progress | - | 2026-10-28 registered provider routing
+M20-T02 | in_progress | - | 2026-10-28 operator model screen
+M20-T03 | in_progress | - | 2026-10-28 full-stack certification run
+M20-T04 | in_progress | - | 2026-10-28 report, checklist and walkthrough

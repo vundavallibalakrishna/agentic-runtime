@@ -64,6 +64,22 @@ def create_application() -> FastAPI:
             return blocked
         payload = await request.json()
         body = payload if isinstance(payload, dict) else {}
+        model_name = str(body.get("model") or "")
+        if model_name and not model_name.startswith("fake"):
+            from ar_model_gateway.upstream import forward_registered  # noqa: PLC0415
+
+            routed = await forward_registered(body, model_name)
+            if routed is not None:
+                return routed
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "error": {
+                        "code": "no_healthy_upstream",
+                        "message": "registered model is unavailable",
+                    }
+                },
+            )
         headers = {}
         script = request.headers.get("x-fake-script-set")
         if script:
