@@ -11,7 +11,9 @@ from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, dump, page
 from ar_common.errors import ConflictError
 from ar_contracts.api_model import ApiModel
+from ar_domain.durable.hydrate import reload_routines
 from ar_domain.routines.book import RoutineBook
+from ar_domain.routines.dispatch import client_for, start_run, sync_schedule
 
 router = APIRouter()
 
@@ -93,6 +95,7 @@ async def list_routines(  # noqa: PLR0917
     agent_id: Annotated[uuid.UUID | None, Query()] = None,
     trigger_type: Annotated[str, Query()] = "",
 ) -> dict[str, object]:
+    await reload_routines(chat(request))
     rows = _book(request).list_routines(
         actor(request),
         query=q,
@@ -111,7 +114,9 @@ async def list_routines(  # noqa: PLR0917
 )
 @expose(public=False, permission="routines:create")
 async def create_routine(body: RoutineBody, request: Request) -> dict[str, object]:
-    return _book(request).create(actor(request), dump(body))
+    result = _book(request).create(actor(request), dump(body))
+    await sync_schedule(chat(request), uuid.UUID(str(result["id"])))
+    return result
 
 
 @router.post(
@@ -129,6 +134,7 @@ async def preview_schedule(body: PreviewBody, request: Request) -> dict[str, obj
 )
 @expose(public=False, permission="routines:create")
 async def get_routine(routine_id: uuid.UUID, request: Request) -> dict[str, object]:
+    await reload_routines(chat(request))
     return _book(request).detail(actor(request), routine_id)
 
 
@@ -140,7 +146,9 @@ async def get_routine(routine_id: uuid.UUID, request: Request) -> dict[str, obje
 async def patch_routine(
     routine_id: uuid.UUID, body: RoutinePatch, request: Request
 ) -> dict[str, object]:
-    return _book(request).patch(actor(request), routine_id, dump(body))
+    result = _book(request).patch(actor(request), routine_id, dump(body))
+    await sync_schedule(chat(request), routine_id)
+    return result
 
 
 @router.delete(
@@ -150,6 +158,7 @@ async def patch_routine(
 )
 @expose(public=False, permission="routines:create")
 async def delete_routine(routine_id: uuid.UUID, request: Request) -> None:
+    await sync_schedule(chat(request), routine_id, deleted=True)
     _book(request).delete(actor(request), routine_id)
 
 
@@ -162,7 +171,14 @@ async def delete_routine(routine_id: uuid.UUID, request: Request) -> None:
 async def run_routine(
     routine_id: uuid.UUID, body: RoutineRunBody, request: Request
 ) -> dict[str, object]:
-    return _book(request).run_now(actor(request), routine_id, dump(body))
+    store = chat(request)
+    durable = store.durable_engine is not None
+    if durable:
+        client_for(store)
+    result = _book(request).run_now(actor(request), routine_id, dump(body), execute=not durable)
+    if durable:
+        await start_run(store, uuid.UUID(str(result["run_id"])))
+    return result
 
 
 @router.post(
@@ -171,7 +187,9 @@ async def run_routine(
 )
 @expose(public=False, permission="routines:create")
 async def pause_routine(routine_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return _book(request).pause(actor(request), routine_id)
+    result = _book(request).pause(actor(request), routine_id)
+    await sync_schedule(chat(request), routine_id)
+    return result
 
 
 @router.post(
@@ -180,7 +198,9 @@ async def pause_routine(routine_id: uuid.UUID, request: Request) -> dict[str, ob
 )
 @expose(public=False, permission="routines:create")
 async def resume_routine(routine_id: uuid.UUID, request: Request) -> dict[str, object]:
-    return _book(request).resume(actor(request), routine_id)
+    result = _book(request).resume(actor(request), routine_id)
+    await sync_schedule(chat(request), routine_id)
+    return result
 
 
 @router.post(
@@ -209,6 +229,7 @@ async def rotate_secret(routine_id: uuid.UUID, request: Request) -> dict[str, ob
 )
 @expose(public=False, permission="routines:create")
 async def list_events(routine_id: uuid.UUID, request: Request) -> dict[str, object]:
+    await reload_routines(chat(request))
     return page(_book(request).events(actor(request), routine_id))
 
 
@@ -218,10 +239,20 @@ async def routine_webhook(token: str, request: Request) -> JSONResponse:
     raw = await request.body()
     header = request.headers.get("x-ar-signature", "")
     idem = request.headers.get("x-idempotency-key", "")
+    store = chat(request)
+    durable = store.durable_engine is not None
+    if durable:
+        client_for(store)
     try:
-        result = _book(request).accept_webhook(token, raw, header, idempotency_header=idem)
+        result = _book(request).accept_webhook(
+            token, raw, header, idempotency_header=idem, execute=not durable
+        )
     except ConflictError as exc:
         return JSONResponse(status_code=409, content={"event_id": exc.detail})
+    if durable and result.get("status") == "accepted":
+        event = store.routine_events[uuid.UUID(str(result["event_id"]))]
+        if event.get("run_id"):
+            await start_run(store, uuid.UUID(str(event["run_id"])))
     return JSONResponse(status_code=202, content={"event_id": result.get("event_id")})
 
 

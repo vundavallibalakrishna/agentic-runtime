@@ -209,7 +209,7 @@ class RoutineBook:
         )
 
     def run_now(
-        self, actor: Actor, routine_id: uuid.UUID, body: dict[str, object]
+        self, actor: Actor, routine_id: uuid.UUID, body: dict[str, object], *, execute: bool = True
     ) -> dict[str, object]:
         row = self._owned(actor, routine_id)
         dry = body.get("test") is True
@@ -231,9 +231,10 @@ class RoutineBook:
         run_id = uuid.UUID(str(prepared["run_id"]))
         run = self.store.runs[run_id]
         run["dry_run"] = dry
-        run["status"] = "completed"
-        run["result_summary"] = extra or str(row.get("instructions") or "")
-        complete_routine_event(self.store, event_id)
+        if execute:
+            run["status"] = "completed"
+            run["result_summary"] = extra or str(row.get("instructions") or "")
+            complete_routine_event(self.store, event_id)
         remember(
             self.store,
             tenant_id=actor.tenant_id,
@@ -346,7 +347,13 @@ class RoutineBook:
         return preview_schedule(str(body.get("cron") or ""), str(body.get("timezone") or "UTC"))
 
     def accept_webhook(
-        self, token: str, body: bytes, header: str, *, idempotency_header: str = ""
+        self,
+        token: str,
+        body: bytes,
+        header: str,
+        *,
+        idempotency_header: str = "",
+        execute: bool = True,
     ) -> dict[str, object]:
         if len(body) > _WEBHOOK_BODY_LIMIT:
             raise ArError(ErrorCode.PAYLOAD_TOO_LARGE, "webhook body is too large")
@@ -379,7 +386,7 @@ class RoutineBook:
         if status == "accepted":
             event_id = uuid.UUID(str(accepted["event_id"]))
             prepared = prepare_routine_run(self.store, row["id"], event_id)  # type: ignore[arg-type]
-            if prepared.get("status") == "ready":
+            if prepared.get("status") == "ready" and execute:
                 run = self.store.runs[uuid.UUID(str(prepared["run_id"]))]
                 run["status"] = "completed"
                 run["result_summary"] = "Webhook accepted."

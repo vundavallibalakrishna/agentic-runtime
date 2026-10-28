@@ -99,12 +99,39 @@ Agents usable via the facade (`{data: [{id: slug, object: "model", owned_by: "te
 
 ## 7. Web widget (feature `widget`)
 
-- Embed: `<script src="{AR_PUBLIC_URL}/widget.js" data-integration="{id}"></script>` renders a launcher + iframe pointing at `/widget/{integration_id}` (Next.js route).
-- Auth: the host application signs a JWT (HS256 with the integration's widget secret or RS256 with registered JWKS URL in `config.jwks_url`) with claims `{sub: email, name, exp ≤ 10 min, aud: "ar-widget:{integration_id}"}`; the widget page posts it to `POST /api/v1/widget/sessions` → `api` maps email → user (must exist and be active; no anonymous users in v1), creates a session restricted to `chat:use` on the integration's agents (cookie `ar_widget_session`, `SameSite=None; Secure; Partitioned`).
-- `config.allowed_origins` drive `Content-Security-Policy: frame-ancestors`.
+The host embeds `<script src="{AR_PUBLIC_URL}/widget.js" data-integration="{id}"></script>`. The loader opens a minimal chat iframe at `/widget/{integration_id}` with loading, empty, error/retry, streaming, cancellation and reconnect states. Both themes follow the system preference. Escape closes the iframe and returns focus to the launcher.
+
+The host server signs a JWT using the integration's HS256 secret or RS256 key with registered HTTPS JWKS URL `config.jwksUrl`. Claims are `{sub: email, name, exp, aud: "ar-widget:{integration_id}"}`. Expiry must be in the future and no more than ten minutes away; future `iat`/`nbf`, unsupported algorithms and invalid signatures are rejected. The user and tenant must already exist and be active. JWKS fetching uses the shared SSRF guard and does not follow redirects.
+
+The host listens for `ar-widget:token-request` and calls `event.detail.respond(jwt)` after obtaining a short-lived token from its own authenticated backend. The signing secret never enters browser code. The iframe sends a nonce in `ar-widget:ready`; credentials are accepted only from `window.parent`, an exact configured origin and that nonce. The loader validates the iframe source and origin before answering. Tokens never enter URLs or browser storage.
+
+`config.allowedOrigins` contains exact HTTPS origins, or HTTP loopback origins for development. Paths, wildcards, credentials and CSP delimiters are invalid. The actual Next response sets `Content-Security-Policy: frame-ancestors` to this allowlist; unavailable policies deny framing. A browser origin cannot be granted by matching only a prefix.
+
+The server issues an opaque encrypted server-side session with `ar_widget_session; HttpOnly; Secure; SameSite=None; Partitioned; Path=/api/v1/widget`. Its lifetime cannot exceed the host token. The session grants only `chat:use` for configured default/routing agents and a single conversation created in that session. It is ignored on workspace endpoints. Workspace cookies cannot authenticate widget endpoints. Mutation requests require the session's CSRF token. Expiry, integration status, tenant and user status, and the agent allowlist are checked on every request. Reauthentication rotates the session; it does not expose historical workspace conversations. Successful authentication records `auth.login` with channel `widget` before releasing the cookie.
+
+#### GET /api/v1/widget/integrations/{integration_id}
+Public framing policy for an active enabled widget: `{allowedOrigins, name}`. Returns `404` for disabled or unavailable integrations.
 
 #### POST /api/v1/widget/sessions
-Body `{integration_id, token}` → `204` + cookie; errors `401`.
+Public host-token exchange. Body `{integrationId, token}` → `204` plus restricted cookie; invalid authentication returns `401`. No-store response.
+
+#### GET /api/v1/widget/session
+Permission `chat:use`, restricted widget session only. Returns `{integrationId, name, agents: [{id, name}], csrfToken, conversationId}`. No-store response.
+
+#### POST /api/v1/widget/conversations
+Permission `chat:use`. Body `{agentId}` creates the session's conversation. An agent outside the integration allowlist returns `404`. Updating the session does not extend its expiry.
+
+#### GET /api/v1/widget/conversations/{conversation_id}
+Permission `chat:use`. Returns the bound conversation and messages. Unrelated conversations, owners or tenants return `404`.
+
+#### POST /api/v1/widget/conversations/{conversation_id}/messages
+Permission `chat:use`. Body `{text}` (1–32000 characters) starts the ordinary agent workflow and returns `202` with `{message, run}`.
+
+#### GET /api/v1/widget/runs/{run_id}/events
+Permission `chat:use`. Streams the ordinary SSE run events, only for the session's conversation.
+
+#### POST /api/v1/widget/runs/{run_id}:cancel
+Permission `chat:use`. Signals cancellation through the ordinary run handler, only for the session's conversation.
 
 ## 8. Configuration (`channels`)
 

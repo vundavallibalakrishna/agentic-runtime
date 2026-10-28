@@ -5,6 +5,7 @@ including a Temporal workflow that calls the same steps.
 """
 
 from dataclasses import dataclass, field
+from typing import Any  # noqa: TC003
 
 from temporalio import workflow
 
@@ -108,7 +109,7 @@ class ToolTurnWorkflow:
     """Temporal shell. Activities receive the same planned calls the driver uses."""
 
     @workflow.run
-    async def run(self, payload: dict[str, object]) -> dict[str, object]:
+    async def run(self, payload: dict[str, Any]) -> dict[str, Any]:
         raw = payload.get("calls")
         calls = []
         if isinstance(raw, list):

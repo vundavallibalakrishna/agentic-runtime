@@ -1,13 +1,14 @@
 """Load Postgres rows back into the process cache."""
 
-import uuid  # noqa: TC003
+import uuid
 from typing import TYPE_CHECKING
 
+import orjson
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from ar_domain.durable.codec import as_uuid
-from ar_domain.durable.tracking import BUCKETS, TrackedDict
+from ar_domain.durable.codec import as_uuid, vector_values
+from ar_domain.durable.tracking import TrackedDict
 
 if TYPE_CHECKING:
     from typing import Any
@@ -18,6 +19,13 @@ async def _channel_integrations(session: AsyncSession, store: object, tenant_id:
         session, "SELECT * FROM channel_integrations WHERE tenant_id = :tenant_id", tenant_id
     ):
         _merge(store, "channel_integrations", row["id"], row)
+        secret_id = row.get("secret_ref_id")
+        if isinstance(secret_id, uuid.UUID):
+            from ar_domain.secrets.cached import load_cached_secret  # noqa: PLC0415
+
+            value = await load_cached_secret(session, tenant_id, secret_id)
+            if value is not None:
+                store.secret_values[secret_id] = value  # type: ignore[attr-defined]
 
 
 async def _channel_identities(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
@@ -55,38 +63,47 @@ def _merge(store: object, name: str, key: object, row: dict[str, Any]) -> None:
     current = bucket.get(key)
     base = {str(item): current[item] for item in current} if isinstance(current, dict) else {}
     base.update(row)
-    bucket[key] = base
+    _load(store, bucket, key, base)
+
+
+def _load(store: object, bucket: dict[object, object], key: object, value: object) -> None:
+    if isinstance(bucket, TrackedDict):
+        loading = getattr(store, "_initial_loaded", None)
+        if isinstance(loading, dict):
+            loading.setdefault(bucket.kind, set()).add(key)
+        if key in bucket.dirty:
+            return
+    was_reloading = getattr(store, "reloading", False)
+    store.reloading = True  # type: ignore[attr-defined]
+    try:
+        bucket[key] = value
+    finally:
+        store.reloading = was_reloading  # type: ignore[attr-defined]
 
 
 async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUID) -> None:
     """Merge one tenant's durable rows into the cache. Memory-only fields stay."""
-    store.reloading = True  # type: ignore[attr-defined]
-    try:
-        async with AsyncSession(engine, expire_on_commit=False) as session:
-            await _agents(session, store, tenant_id)
-            await _versions(session, store, tenant_id)
-            await _skills(session, store, tenant_id)
-            await _skill_versions(session, store, tenant_id)
-            await _collections(session, store, tenant_id)
-            await _sources(session, store, tenant_id)
-            await _documents(session, store, tenant_id)
-            await _chunks(session, store, tenant_id)
-            await _facts(session, store, tenant_id)
-            await _tools(session, store, tenant_id)
-            await _conversations(session, store, tenant_id)
-            await _runs(session, store, tenant_id)
-            await _messages(session, store, tenant_id)
-            await _events(session, store, tenant_id)
-            await _channel_integrations(session, store, tenant_id)
-            await _channel_identities(session, store, tenant_id)
-            await _channel_threads(session, store, tenant_id)
-            await _channel_posts(session, store, tenant_id)
-    finally:
-        store.reloading = False  # type: ignore[attr-defined]
-        for name in BUCKETS:
-            bucket = getattr(store, name, None)
-            if isinstance(bucket, TrackedDict):
-                bucket.dirty.clear()
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await _settings(session, store, tenant_id)
+        await _agents(session, store, tenant_id)
+        await _versions(session, store, tenant_id)
+        await _skills(session, store, tenant_id)
+        await _skill_versions(session, store, tenant_id)
+        await _collections(session, store, tenant_id)
+        await _sources(session, store, tenant_id)
+        await _documents(session, store, tenant_id)
+        await _chunks(session, store, tenant_id)
+        await _facts(session, store, tenant_id)
+        await _tools(session, store, tenant_id)
+        await _routines(session, store, tenant_id)
+        await _conversations(session, store, tenant_id)
+        await _runs(session, store, tenant_id)
+        await _messages(session, store, tenant_id)
+        await _events(session, store, tenant_id)
+        await _channel_integrations(session, store, tenant_id)
+        await _channel_identities(session, store, tenant_id)
+        await _channel_threads(session, store, tenant_id)
+        await _channel_posts(session, store, tenant_id)
 
 
 async def reload_run(store: object, run_id: uuid.UUID) -> None:
@@ -94,41 +111,54 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
     engine = getattr(store, "durable_engine", None)
     if not isinstance(engine, AsyncEngine):
         return
-    store.reloading = True  # type: ignore[attr-defined]
-    try:
-        async with AsyncSession(engine, expire_on_commit=False) as session:
-            run = (
-                (await session.execute(text("SELECT * FROM runs WHERE id = :id"), {"id": run_id}))
-                .mappings()
-                .first()
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        run = (
+            (await session.execute(text("SELECT * FROM runs WHERE id = :id"), {"id": run_id}))
+            .mappings()
+            .first()
+        )
+        if run is None:
+            return
+        _merge(store, "runs", run_id, dict(run))
+        tenant_id = run["tenant_id"]
+        await _conversations(session, store, tenant_id)
+        await _agents(session, store, tenant_id)
+        await _versions(session, store, tenant_id)
+        await _skills(session, store, tenant_id)
+        await _skill_versions(session, store, tenant_id)
+        await _facts(session, store, tenant_id)
+        await _tools(session, store, tenant_id)
+        messages = (
+            await session.execute(
+                text(
+                    "SELECT * FROM messages WHERE conversation_id = :id "
+                    "AND tenant_id = :tenant_id ORDER BY created_at"
+                ),
+                {"id": run["conversation_id"], "tenant_id": tenant_id},
             )
-            if run is None:
-                return
-            _merge(store, "runs", run_id, dict(run))
-            messages = (
-                await session.execute(
-                    text("SELECT * FROM messages WHERE run_id = :id ORDER BY created_at"),
-                    {"id": run_id},
-                )
-            ).mappings()
-            for message in messages:
-                body = dict(message)
-                body["text"] = _text_of(body.get("content"))
-                _merge(store, "messages", body["id"], body)
-            await _events_for(
-                session, store, run_id, run.get("conversation_id"), run.get("tenant_id")
-            )
-    finally:
-        store.reloading = False  # type: ignore[attr-defined]
-        for name in ("events", "runs", "messages"):
-            bucket = getattr(store, name, None)
-            if isinstance(bucket, TrackedDict):
-                bucket.dirty.discard(run_id)
+        ).mappings()
+        for message in messages:
+            body = dict(message)
+            body["text"] = _text_of(body.get("content"))
+            _merge(store, "messages", body["id"], body)
+            if body.get("run_id") == run_id and body.get("role") == "assistant":
+                _merge(store, "runs", run_id, {"assistant_message_id": body["id"]})
+        await _events_for(session, store, run_id, run.get("conversation_id"), run.get("tenant_id"))
 
 
 async def _rows(session: AsyncSession, sql: str, tenant_id: uuid.UUID) -> list[dict[str, Any]]:
     result = await session.execute(text(sql), {"tenant_id": tenant_id})
     return [dict(row) for row in result.mappings()]
+
+
+async def _settings(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    result = await session.execute(
+        text("SELECT settings FROM tenants WHERE id = :tenant_id"), {"tenant_id": tenant_id}
+    )
+    row = result.mappings().first()
+    settings = row.get("settings") if row is not None else None
+    if isinstance(settings, dict):
+        store.tenant_settings[tenant_id] = settings  # type: ignore[attr-defined]
 
 
 async def _agents(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
@@ -189,49 +219,41 @@ async def reload_document(store: object, document_id: uuid.UUID) -> None:
     engine = getattr(store, "durable_engine", None)
     if not isinstance(engine, AsyncEngine):
         return
-    store.reloading = True  # type: ignore[attr-defined]
-    try:
-        async with AsyncSession(engine, expire_on_commit=False) as session:
-            document = (
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        document = (
+            (
+                await session.execute(
+                    text("SELECT * FROM documents WHERE id = :id"), {"id": document_id}
+                )
+            )
+            .mappings()
+            .first()
+        )
+        if document is None:
+            return
+        body = dict(document)
+        _merge(store, "knowledge_documents", document_id, body)
+        collection_id = body.get("collection_id")
+        if collection_id is not None:
+            collection = (
                 (
                     await session.execute(
-                        text("SELECT * FROM documents WHERE id = :id"), {"id": document_id}
+                        text("SELECT * FROM knowledge_collections WHERE id = :id"),
+                        {"id": collection_id},
                     )
                 )
                 .mappings()
                 .first()
             )
-            if document is None:
-                return
-            body = dict(document)
-            _merge(store, "knowledge_documents", document_id, body)
-            collection_id = body.get("collection_id")
-            if collection_id is not None:
-                collection = (
-                    (
-                        await session.execute(
-                            text("SELECT * FROM knowledge_collections WHERE id = :id"),
-                            {"id": collection_id},
-                        )
-                    )
-                    .mappings()
-                    .first()
-                )
-                if collection is not None:
-                    _merge(store, "knowledge_collections", collection_id, dict(collection))
-            chunks = await session.execute(
-                text("SELECT * FROM document_chunks WHERE document_id = :id"),
-                {"id": document_id},
-            )
-            for chunk in chunks.mappings():
-                row = dict(chunk)
-                _merge(store, "document_chunks", row["id"], row)
-    finally:
-        store.reloading = False  # type: ignore[attr-defined]
-        for name in ("knowledge_documents", "knowledge_collections", "document_chunks"):
-            bucket = getattr(store, name, None)
-            if isinstance(bucket, TrackedDict):
-                bucket.dirty.discard(document_id)
+            if collection is not None:
+                _merge(store, "knowledge_collections", collection_id, dict(collection))
+        chunks = await session.execute(
+            text("SELECT * FROM document_chunks WHERE document_id = :id"),
+            {"id": document_id},
+        )
+        for chunk in chunks.mappings():
+            row = dict(chunk)
+            _merge(store, "document_chunks", row["id"], row)
 
 
 async def _facts(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
@@ -239,7 +261,7 @@ async def _facts(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> 
         session, "SELECT * FROM memory_facts WHERE tenant_id = :tenant_id", tenant_id
     ):
         if row.get("embedding") is not None:
-            row["embedding"] = list(row["embedding"])
+            row["embedding"] = vector_values(row["embedding"])
         _merge(store, "memory_facts", row["id"], row)
 
 
@@ -271,7 +293,7 @@ async def _tools(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> 
     for row in tool_versions.mappings():
         body = dict(row)
         if body.get("embedding") is not None:
-            body["embedding"] = list(body["embedding"])
+            body["embedding"] = vector_values(body["embedding"])
         _merge(store, "tool_versions", body["id"], body)
 
 
@@ -348,4 +370,45 @@ async def _events_for(  # noqa: PLR0917 - the event row needs the run, conversat
     ]
     bucket = getattr(store, "events", None)
     if isinstance(bucket, dict):
-        bucket[run_id] = shaped
+        _load(store, bucket, run_id, shaped)
+
+
+async def _routines(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    from ar_domain.secrets.cached import load_cached_secret  # noqa: PLC0415
+
+    statuses = getattr(store, "user_statuses", None)
+    if isinstance(statuses, dict):
+        for user in await _rows(
+            session, "SELECT id, status FROM users WHERE tenant_id = :tenant_id", tenant_id
+        ):
+            statuses[user["id"]] = user["status"]
+    for row in await _rows(
+        session, "SELECT * FROM routines WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        secret_id = row.get("webhook_secret_ref_id")
+        if isinstance(secret_id, uuid.UUID):
+            value = await load_cached_secret(session, tenant_id, secret_id)
+            if value is not None:
+                saved = orjson.loads(value)
+                row["webhook_secret"] = saved["current"]
+                row["webhook_secret_previous"] = saved.get("previous", "")
+                from ar_domain.durable.codec import as_dt  # noqa: PLC0415
+
+                row["webhook_secret_previous_until"] = as_dt(saved.get("previousUntil"))
+        _merge(store, "routines", row["id"], row)
+    for row in await _rows(
+        session, "SELECT * FROM routine_events WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        envelope = row.get("envelope")
+        row["dry_run"] = bool(envelope.get("dry_run")) if isinstance(envelope, dict) else False
+        _merge(store, "routine_events", row["id"], row)
+
+
+async def reload_routines(store: object) -> None:
+    from ar_domain.durable.bind import binding_from  # noqa: PLC0415
+
+    binding = binding_from(store)
+    engine = getattr(store, "durable_engine", None)
+    if binding is not None and isinstance(engine, AsyncEngine):
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            await _routines(session, store, binding.tenant_id)

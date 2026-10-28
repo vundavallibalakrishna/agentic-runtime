@@ -15391,7 +15391,6 @@
     "/api/v1/widget/integrations/{integration_id}": {
       "get": {
         "summary": "Widget Frame",
-        "description": "Public frame policy. The integration id is the capability.",
         "operationId": "widget_frame_api_v1_widget_integrations__integration_id__get",
         "parameters": [
           {
@@ -15448,6 +15447,240 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/session": {
+      "get": {
+        "summary": "Widget Context",
+        "operationId": "widget_context_api_v1_widget_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Widget Context Api V1 Widget Session Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/conversations": {
+      "post": {
+        "summary": "Widget Conversation",
+        "operationId": "widget_conversation_api_v1_widget_conversations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetConversationBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Widget Conversation Api V1 Widget Conversations Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/conversations/{conversation_id}": {
+      "get": {
+        "summary": "Widget Messages",
+        "operationId": "widget_messages_api_v1_widget_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Widget Messages Api V1 Widget Conversations  Conversation Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/conversations/{conversation_id}/messages": {
+      "post": {
+        "summary": "Widget Send",
+        "operationId": "widget_send_api_v1_widget_conversations__conversation_id__messages_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WidgetMessageBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Widget Send Api V1 Widget Conversations  Conversation Id  Messages Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/runs/{run_id}/events": {
+      "get": {
+        "summary": "Widget Events",
+        "operationId": "widget_events_api_v1_widget_runs__run_id__events_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/widget/runs/{run_id}:cancel": {
+      "post": {
+        "summary": "Widget Cancel",
+        "operationId": "widget_cancel_api_v1_widget_runs__run_id__cancel_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Widget Cancel Api V1 Widget Runs  Run Id  Cancel Post"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -19975,6 +20208,33 @@
         "required": ["name", "url", "topics"],
         "title": "WebhookCreate"
       },
+      "WidgetConversationBody": {
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Agentid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["agentId"],
+        "title": "WidgetConversationBody"
+      },
+      "WidgetMessageBody": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 32000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["text"],
+        "title": "WidgetMessageBody"
+      },
       "WidgetSessionBody": {
         "properties": {
           "integrationId": {
@@ -19984,6 +20244,8 @@
           },
           "token": {
             "type": "string",
+            "maxLength": 16384,
+            "minLength": 1,
             "title": "Token"
           }
         },

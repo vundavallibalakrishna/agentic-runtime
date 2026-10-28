@@ -4,7 +4,7 @@ import base64
 import hashlib
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import orjson
 
@@ -28,6 +28,8 @@ class SessionData:
     display_name: str = ""
     roles: list[str] | None = None
     permissions: list[str] | None = None
+    widget_integration_id: uuid.UUID | None = None
+    widget_conversation_id: uuid.UUID | None = None
 
     def to_json(self) -> bytes:
         return orjson.dumps(
@@ -44,6 +46,12 @@ class SessionData:
                 "display_name": self.display_name,
                 "roles": list(self.roles or []),
                 "permissions": list(self.permissions or []),
+                "widget_integration_id": str(self.widget_integration_id)
+                if self.widget_integration_id
+                else None,
+                "widget_conversation_id": str(self.widget_conversation_id)
+                if self.widget_conversation_id
+                else None,
             }
         )
 
@@ -64,6 +72,12 @@ class SessionData:
             display_name=str(payload.get("display_name", "")),
             roles=_strings(payload.get("roles")),
             permissions=_strings(payload.get("permissions")),
+            widget_integration_id=uuid.UUID(payload["widget_integration_id"])
+            if payload.get("widget_integration_id")
+            else None,
+            widget_conversation_id=uuid.UUID(payload["widget_conversation_id"])
+            if payload.get("widget_conversation_id")
+            else None,
         )
 
 
@@ -73,19 +87,30 @@ class MemorySessionStore:
     def __init__(self, key: bytes) -> None:
         self.key = key
         self._values: dict[str, bytes] = {}
+        self._expires: dict[str, datetime] = {}
 
     async def put(self, session_id: str, data: SessionData, ttl_s: int) -> None:
-        del ttl_s
+        self._expires[session_id] = utcnow() + timedelta(seconds=ttl_s)
         self._values[session_id] = seal(self.key, data.to_json())
 
     async def get(self, session_id: str) -> SessionData | None:
+        expiry = self._expires.get(session_id)
+        if expiry is None or expiry <= utcnow():
+            await self.delete(session_id)
+            return None
         blob = self._values.get(session_id)
         if blob is None:
             return None
         return SessionData.from_json(open_sealed(self.key, blob))
 
+    async def update(self, session_id: str, data: SessionData) -> None:
+        """Update session data without extending its original expiration."""
+        if await self.get(session_id) is not None:
+            self._values[session_id] = seal(self.key, data.to_json())
+
     async def delete(self, session_id: str) -> None:
         self._values.pop(session_id, None)
+        self._expires.pop(session_id, None)
 
 
 def session_key_bytes(raw_b64: str, fallback: str, *, prod: bool) -> bytes:

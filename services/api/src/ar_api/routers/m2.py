@@ -6,10 +6,11 @@ from typing import TYPE_CHECKING, Annotated
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
+from temporalio.service import RPCError
 
 from ar_api.actors import actor_from
 from ar_api.deps import expose, require_permission
-from ar_common.errors import ArError, ErrorCode, NotFoundError
+from ar_common.errors import ArError, ErrorCode, NotFoundError, UnavailableError
 from ar_common.sandboxkit import download_headers
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.access import can_edit
@@ -643,6 +644,9 @@ async def create_run(body: RunBody, request: Request) -> dict[str, object]:
 @expose(public=False, permission="chat:use")
 async def get_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     principal = _principal(request)
+    from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
+
+    await reload_run(_chat(request), run_id)
     return _chat(request).get_run(_tenant(principal), run_id)
 
 
@@ -694,7 +698,25 @@ async def run_input(run_id: uuid.UUID, request: Request) -> dict[str, object]:
 @expose(public=False, permission="chat:use")
 async def cancel_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     principal = _principal(request)
-    return _chat(request).cancel_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+    service = _chat(request)
+    run = service.get_run(_tenant(principal), run_id)
+    if str(run.get("user_id")) != principal.id:
+        raise NotFoundError()
+    if run.get("status") in {"completed", "failed", "cancelled"}:
+        raise ArError(ErrorCode.INVALID_STATE, "run is not active")
+    handle_for = getattr(service.temporal_client, "get_workflow_handle", None)
+    if callable(handle_for) and run.get("temporal_workflow_id"):
+        try:
+            await handle_for(str(run["temporal_workflow_id"])).signal("cancel")
+        except RPCError as exc:
+            from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
+
+            await reload_run(service, run_id)
+            run = service.get_run(_tenant(principal), run_id)
+            if run.get("status") not in {"completed", "failed", "cancelled"}:
+                raise UnavailableError("The agent could not be stopped. Please try again.") from exc
+        return run
+    return service.cancel_run(_tenant(principal), uuid.UUID(principal.id), run_id)
 
 
 @router.get("/api/v1/runs/{run_id}/events", dependencies=[Depends(require_permission("chat:use"))])
@@ -702,6 +724,10 @@ async def cancel_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
 async def run_events(run_id: uuid.UUID, request: Request) -> StreamingResponse:
     principal = _principal(request)
     service = _chat(request)
+    from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
+
+    await reload_run(service, run_id)
+    service.get_run(_tenant(principal), run_id)
     if not service.acquire_sse(principal.id, 20):
         raise ArError(ErrorCode.RATE_LIMITED, "too many streams")
     header = request.headers.get("last-event-id", "0")

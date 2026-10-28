@@ -13,7 +13,9 @@ def test_completion_url_prefers_the_gateway() -> None:
     service = ChatService()
     assert service.completion_url().endswith("/chat/completions")
     service.model_gateway_url = "http://gateway.test"
-    assert service.completion_url() == "http://gateway.test/chat/completions"
+    assert service.completion_url() == "http://gateway.test/v1/chat/completions"
+    service.model_gateway_url = "http://gateway.test/v1/"
+    assert service.completion_url() == "http://gateway.test/v1/chat/completions"
 
 
 def test_demo_id_is_stable() -> None:

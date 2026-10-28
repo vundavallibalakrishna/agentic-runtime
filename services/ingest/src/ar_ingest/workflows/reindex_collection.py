@@ -1,15 +1,18 @@
 """ReindexCollectionWorkflow. Spec: docs/03-specs/10-knowledge.md §4.5."""
 
+from typing import Any  # noqa: TC003
+
 from temporalio import workflow
 
-from ar_ingest.activities import reindex_activity
+with workflow.unsafe.imports_passed_through():
+    from ar_ingest.activities import reindex_activity
 from ar_ingest.workflows.common import RETRY, TIMEOUT
 
 
 @workflow.defn(name="ReindexCollectionWorkflow")
 class ReindexCollectionWorkflow:
     @workflow.run
-    async def run(self, payload: dict[str, object]) -> dict[str, object]:
+    async def run(self, payload: dict[str, Any]) -> dict[str, Any]:
         return await workflow.execute_activity(
             reindex_activity,
             payload,

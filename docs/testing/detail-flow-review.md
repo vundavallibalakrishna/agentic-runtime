@@ -1,5 +1,7 @@
 # Detail screens and flow review — 27 October 2026
 
+Follow-up: the local coverage, worker startup and embedded-chat gaps below are resolved in the [28 October full-stack review](full-stack-review.md). Hosted CI remains unverified.
+
 Task: M2.5-T01a. The review extends the management-page layout pass to implemented detail screens and their failure, pending, completed and read-only states.
 
 ## Changes

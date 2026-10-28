@@ -437,7 +437,7 @@ class KnowledgeBook:
                 target_id=document["id"],
                 detail={"title": document["title"]},
             )
-            view = self._document_view(document)
+            view = self._document_view(self.store.knowledge_documents[document["id"]])
             view["can_read"] = True
             documents.append(view)
         return {"documents": documents}

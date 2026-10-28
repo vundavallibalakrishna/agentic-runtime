@@ -70,6 +70,7 @@ from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.db.context import Principal
+from ar_domain.durable.bind import should_bind
 
 LISTEN_PORT = 8000
 
@@ -91,7 +92,7 @@ class Settings(BaseServiceSettings):
     opa_timeout_ms: int = 200
     opa_bundle_token: SecretStr = SecretStr("")
     secrets_backend: str = "db_encrypted"
-    db_encryption_keys: str = ""
+    db_encryption_keys: SecretStr = SecretStr("")
     db_encryption_active_key: str = "k1"
     secret_cache_ttl_s: int = 60
     saas_self_signup: bool = False
@@ -132,9 +133,9 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
     """Resolve ``ar_session`` to the person stored on that session."""
 
     async def load(kind: str, value: str) -> Principal | None:
-        if kind != "session":
+        if kind not in {"session", "widget"}:
             return None
-        sessions = app.state.sessions
+        sessions = app.state.widget_sessions if kind == "widget" else app.state.sessions
         data = await sessions.get(value)
         if data is None:
             return None
@@ -272,6 +273,7 @@ def create_application() -> FastAPI:
         prod=settings.env is EnvName.PROD,
     )
     app.state.sessions = MemorySessionStore(key)
+    app.state.widget_sessions = MemorySessionStore(key)
     app.state.login_states = {}
     app.state.complete_login = _complete_login
     app.state.resolve_principal = _resolve_principal
@@ -283,7 +285,7 @@ def create_application() -> FastAPI:
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)
     app.state.chat.model_gateway_url = settings.model_gateway_url
-    if settings.env in {EnvName.DEV, EnvName.CI}:
+    if settings.env in {EnvName.DEV, EnvName.CI} and not should_bind():
         app.state.chat.seed_showcase()
     app.state.demo_user_id = demo_id("admin")
     app.state.demo_tenant_id = demo_id("tenant")

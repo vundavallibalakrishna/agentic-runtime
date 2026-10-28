@@ -53,7 +53,13 @@ async def run_worker() -> None:
     """Connect and poll. A down frontend is logged and retried."""
     while True:
         try:
-            client = await asyncio.wait_for(Client.connect(_address()), timeout=0.5)
+            client = await asyncio.wait_for(
+                Client.connect(
+                    _address(),
+                    namespace=getattr(get_settings(), "temporal_namespace", "") or "default",
+                ),
+                timeout=5,
+            )
             await _prepare_store()
             worker = Worker(
                 client,

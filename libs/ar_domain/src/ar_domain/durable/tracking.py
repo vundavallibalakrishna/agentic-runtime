@@ -64,12 +64,14 @@ class TrackedDict(dict[object, object]):
         self.store = store
         self.kind = kind
         self.dirty: set[object] = set()
+        self.deleted: dict[object, object] = {}
 
     def touch(self, key: object) -> None:
         if not getattr(self.store, "reloading", False):
             self.dirty.add(key)
 
     def __setitem__(self, key: object, value: object) -> None:
+        self.deleted.pop(key, None)
         if isinstance(value, list):
             stored: object = (
                 value if isinstance(value, TrackedList) else TrackedList(self, key, value)
@@ -83,10 +85,13 @@ class TrackedDict(dict[object, object]):
         self.touch(key)
 
     def __delitem__(self, key: object) -> None:
+        self.deleted[key] = self[key]
         super().__delitem__(key)
         self.touch(key)
 
     def pop(self, key: object, default: object = None) -> object:
+        if key in self:
+            self.deleted[key] = self[key]
         found = super().pop(key, default)
         self.touch(key)
         return found
@@ -106,6 +111,8 @@ def _wrap(bucket: Any, key: object, value: object) -> object:
 BUCKETS = (
     "agents",
     "versions",
+    "routines",
+    "routine_events",
     "conversations",
     "messages",
     "runs",

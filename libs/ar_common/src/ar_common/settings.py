@@ -228,6 +228,12 @@ class BaseServiceSettings(BaseSettings):
     s3_presign_ttl_s: int = 300
     internal_jwt_private_key: SecretStr = SecretStr("")
     internal_jwt_jwks: str = ""
+    secrets_backend: str = "db_encrypted"
+    db_encryption_keys: SecretStr = SecretStr("")
+    db_encryption_active_key: str = "k1"
+    vault_addr: str = "http://localhost:8200"
+    vault_token: SecretStr = SecretStr("")
+    vault_kv_mount: str = "ar"
     asgi_server: str = "uvicorn"
     service_name: str = "agentic-runtime"
     routine_min_interval_s: int = 300

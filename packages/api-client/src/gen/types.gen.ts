@@ -2690,6 +2690,26 @@ export type WebhookCreate = {
 };
 
 /**
+ * WidgetConversationBody
+ */
+export type WidgetConversationBody = {
+    /**
+     * Agentid
+     */
+    agentId: string;
+};
+
+/**
+ * WidgetMessageBody
+ */
+export type WidgetMessageBody = {
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
  * WidgetSessionBody
  */
 export type WidgetSessionBody = {
@@ -14099,3 +14119,182 @@ export type WidgetSessionApiV1WidgetSessionsPostResponses = {
 };
 
 export type WidgetSessionApiV1WidgetSessionsPostResponse = WidgetSessionApiV1WidgetSessionsPostResponses[keyof WidgetSessionApiV1WidgetSessionsPostResponses];
+
+export type WidgetContextApiV1WidgetSessionGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/widget/session';
+};
+
+export type WidgetContextApiV1WidgetSessionGetResponses = {
+    /**
+     * Response Widget Context Api V1 Widget Session Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WidgetContextApiV1WidgetSessionGetResponse = WidgetContextApiV1WidgetSessionGetResponses[keyof WidgetContextApiV1WidgetSessionGetResponses];
+
+export type WidgetConversationApiV1WidgetConversationsPostData = {
+    body: WidgetConversationBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/widget/conversations';
+};
+
+export type WidgetConversationApiV1WidgetConversationsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetConversationApiV1WidgetConversationsPostError = WidgetConversationApiV1WidgetConversationsPostErrors[keyof WidgetConversationApiV1WidgetConversationsPostErrors];
+
+export type WidgetConversationApiV1WidgetConversationsPostResponses = {
+    /**
+     * Response Widget Conversation Api V1 Widget Conversations Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WidgetConversationApiV1WidgetConversationsPostResponse = WidgetConversationApiV1WidgetConversationsPostResponses[keyof WidgetConversationApiV1WidgetConversationsPostResponses];
+
+export type WidgetMessagesApiV1WidgetConversationsConversationIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/widget/conversations/{conversation_id}';
+};
+
+export type WidgetMessagesApiV1WidgetConversationsConversationIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetMessagesApiV1WidgetConversationsConversationIdGetError = WidgetMessagesApiV1WidgetConversationsConversationIdGetErrors[keyof WidgetMessagesApiV1WidgetConversationsConversationIdGetErrors];
+
+export type WidgetMessagesApiV1WidgetConversationsConversationIdGetResponses = {
+    /**
+     * Response Widget Messages Api V1 Widget Conversations  Conversation Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WidgetMessagesApiV1WidgetConversationsConversationIdGetResponse = WidgetMessagesApiV1WidgetConversationsConversationIdGetResponses[keyof WidgetMessagesApiV1WidgetConversationsConversationIdGetResponses];
+
+export type WidgetSendApiV1WidgetConversationsConversationIdMessagesPostData = {
+    body: WidgetMessageBody;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/widget/conversations/{conversation_id}/messages';
+};
+
+export type WidgetSendApiV1WidgetConversationsConversationIdMessagesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetSendApiV1WidgetConversationsConversationIdMessagesPostError = WidgetSendApiV1WidgetConversationsConversationIdMessagesPostErrors[keyof WidgetSendApiV1WidgetConversationsConversationIdMessagesPostErrors];
+
+export type WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponses = {
+    /**
+     * Response Widget Send Api V1 Widget Conversations  Conversation Id  Messages Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponse = WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponses[keyof WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponses];
+
+export type WidgetEventsApiV1WidgetRunsRunIdEventsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/widget/runs/{run_id}/events';
+};
+
+export type WidgetEventsApiV1WidgetRunsRunIdEventsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetEventsApiV1WidgetRunsRunIdEventsGetError = WidgetEventsApiV1WidgetRunsRunIdEventsGetErrors[keyof WidgetEventsApiV1WidgetRunsRunIdEventsGetErrors];
+
+export type WidgetEventsApiV1WidgetRunsRunIdEventsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type WidgetCancelApiV1WidgetRunsRunIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/widget/runs/{run_id}:cancel';
+};
+
+export type WidgetCancelApiV1WidgetRunsRunIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetCancelApiV1WidgetRunsRunIdCancelPostError = WidgetCancelApiV1WidgetRunsRunIdCancelPostErrors[keyof WidgetCancelApiV1WidgetRunsRunIdCancelPostErrors];
+
+export type WidgetCancelApiV1WidgetRunsRunIdCancelPostResponses = {
+    /**
+     * Response Widget Cancel Api V1 Widget Runs  Run Id  Cancel Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WidgetCancelApiV1WidgetRunsRunIdCancelPostResponse = WidgetCancelApiV1WidgetRunsRunIdCancelPostResponses[keyof WidgetCancelApiV1WidgetRunsRunIdCancelPostResponses];

@@ -3,15 +3,15 @@
 The dev API extracts in process. This driver is what the system worker runs.
 """
 
-from typing import TYPE_CHECKING
+from datetime import timedelta
+from typing import Any  # noqa: TC003
 
-from temporalio import workflow
+from temporalio import activity, workflow
+from temporalio.common import RetryPolicy
 
-from ar_domain.memory.book import MemoryBook
-from ar_domain.memory.extract import extraction_input, heuristic_ops, parse_ops
-
-if TYPE_CHECKING:
-    from typing import Any
+with workflow.unsafe.imports_passed_through():
+    from ar_domain.memory.book import MemoryBook
+    from ar_domain.memory.extract import extraction_input, heuristic_ops, parse_ops
 
 _STORE: Any = None
 
@@ -54,10 +54,27 @@ def drive_extraction(payload: dict[str, object], store: Any | None = None) -> di
     }
 
 
+@activity.defn(name="extract_memory")
+async def extract_memory(payload: dict[str, Any]) -> dict[str, Any]:
+    """Extract and persist facts outside Temporal's deterministic workflow sandbox."""
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+    result = drive_extraction(payload, _STORE)
+    if _STORE is not None:
+        await flush_store(_STORE)
+    return result
+
+
 @workflow.defn
 class MemoryExtractionWorkflow:
     """Temporal shell. The payload carries the turn, not tool output."""
 
     @workflow.run
-    async def run(self, payload: dict[str, object]) -> dict[str, object]:
-        return drive_extraction(payload, _STORE)
+    async def run(self, payload: dict[str, Any]) -> dict[str, Any]:
+        result = await workflow.execute_activity(
+            "extract_memory",
+            payload,
+            start_to_close_timeout=timedelta(seconds=60),
+            retry_policy=RetryPolicy(maximum_attempts=3),
+        )
+        return result if isinstance(result, dict) else {}

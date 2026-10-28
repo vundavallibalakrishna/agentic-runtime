@@ -403,10 +403,11 @@ async def test_flush_writes_each_bucket(monkeypatch: pytest.MonkeyPatch) -> None
     service = ChatService()
     _seed(service)
     service.durable_engine = engine
+    with pytest.raises(RuntimeError, match="row rejected"):
+        await flush_store(service)
+    assert service.agents.dirty
     await flush_store(service)
-    service._flushing = True
-    await flush_store(service)
-    assert service._flush_again is True
+    assert not service.agents.dirty
     await flush_store(SimpleNamespace())
     ran = event_tenant(service, _RUN)
     assert ran is None
@@ -546,6 +547,7 @@ async def test_bind_connects_and_waits_for_seed(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(bind_mod, "flush_store", _noop)
     monkeypatch.setattr(bind_mod, "hydrate_tenant", _noop)
     monkeypatch.setattr(bind_mod, "_remap_agents", _noop)
+    monkeypatch.setattr(bind_mod, "_remap_catalogues", _noop)
     _Lookup.tenant = None
     monkeypatch.setattr(bind_mod, "create_async_engine", lambda *_a, **_k: _Engine())
     missed = await bind_store(service, "postgresql+asyncpg://unused")
@@ -569,6 +571,7 @@ async def test_bind_store_hydrates_when_the_seed_exists(monkeypatch: pytest.Monk
     monkeypatch.setattr(bind_mod, "_connect", _ready)
     monkeypatch.setattr(bind_mod, "_lookup", _found)
     monkeypatch.setattr(bind_mod, "_remap_agents", _noop)
+    monkeypatch.setattr(bind_mod, "_remap_catalogues", _noop)
     monkeypatch.setattr(bind_mod, "flush_store", _noop)
     monkeypatch.setattr(bind_mod, "hydrate_tenant", _noop)
     service = ChatService()
@@ -891,3 +894,115 @@ def test_gateway_echoes_when_fake_llm_is_down(monkeypatch: pytest.MonkeyPatch) -
     _Client.mode = "ok"
     forwarded = client.post("/v1/chat/completions", json={"messages": []})
     assert forwarded.json()["choices"][0]["message"]["content"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_flush_waits_for_commit(monkeypatch: pytest.MonkeyPatch) -> None:
+    engine = _patch_engines(monkeypatch)
+    store = SimpleNamespace(durable_engine=engine)
+    entered, release = asyncio.Event(), asyncio.Event()
+    commits = []
+
+    async def commit(_store: object, _engine: object) -> None:
+        entered.set()
+        await release.wait()
+        commits.append(True)
+
+    monkeypatch.setattr(flush_mod, "_flush_once", commit)
+    first = asyncio.create_task(flush_store(store))
+    await entered.wait()
+    second = asyncio.create_task(flush_store(store))
+    await asyncio.sleep(0)
+    assert not second.done(), "A queued workflow must not start before its rows commit"
+    release.set()
+    await asyncio.gather(first, second)
+    assert len(commits) == 2
+
+
+def test_hydrating_another_row_does_not_discard_pending_edits() -> None:
+    store = ChatService()
+    install_tracking(store)
+    key = next(iter(store.agents))
+    store.agents[key]["name"] = "Pending administrator edit"
+    hydrate_mod._merge(store, "agents", key, {"name": "Stale database value"})
+    assert store.agents[key]["name"] == "Pending administrator edit"
+    assert key in store.agents.dirty
+    other = uuid.uuid4()
+    hydrate_mod._merge(store, "agents", other, {"id": other, "name": "Loaded"})
+    assert other not in store.agents.dirty
+    assert key in store.agents.dirty
+
+
+def test_pgvector_text_and_parent_rows_are_decoded_for_workers() -> None:
+    from ar_domain.durable.codec import vector_values
+
+    assert vector_values("[0.25,-0.5,1]") == [0.25, -0.5, 1.0]
+    assert vector_values([0.2, 0.4]) == [0.2, 0.4]
+    assert vector_values("broken") == []
+    assert vector_values(None) == []
+    rows = [{"id": "child", "parent": "parent"}, {"id": "parent", "parent": None}]
+    assert [row["id"] for row in flush_mod._parents_first(rows, "parent")] == ["parent", "child"]
+    with pytest.raises(ValueError, match="parent cycle"):
+        flush_mod._parents_first([{"id": "a", "parent": "b"}, {"id": "b", "parent": "a"}], "parent")
+
+
+async def test_deletion_retry_keeps_tombstone_and_commits_tenant_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import AsyncMock
+
+    engine = _patch_engines(monkeypatch)
+    store = ChatService()
+    install_tracking(store)
+    for bucket in flush_mod.BUCKETS:
+        getattr(store, bucket).dirty.clear()
+    store.durable_engine = engine
+    key = uuid.uuid4()
+    store.channel_integrations[key] = {"id": key, "tenant_id": _TENANT}
+    store.channel_integrations.dirty.clear()
+    store.channel_integrations.pop(key)
+    session = _Session()
+    session.execute = AsyncMock(side_effect=RuntimeError("database unavailable"))
+    monkeypatch.setattr(flush_mod, "AsyncSession", lambda *a, **k: session)
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        await flush_store(store)
+    assert key in store.channel_integrations.dirty
+    assert key in store.channel_integrations.deleted
+    session.execute = AsyncMock()
+    await flush_store(store)
+    assert key not in store.channel_integrations.dirty
+    assert key not in store.channel_integrations.deleted
+    sql, params = session.execute.call_args.args
+    assert "DELETE FROM channel_integrations" in str(sql)
+    assert "tenant_id = :tenant_id" in str(sql)
+    assert params == {"id": key, "tenant_id": _TENANT}
+
+
+async def test_cancelled_partial_text_preserves_non_text_content() -> None:
+    from unittest.mock import AsyncMock
+
+    import orjson
+
+    session = SimpleNamespace(execute=AsyncMock())
+    await flush_mod._messages(
+        session,
+        [
+            {
+                "id": uuid.uuid4(),
+                "tenant_id": _TENANT,
+                "conversation_id": uuid.uuid4(),
+                "role": "assistant",
+                "text": "Partial answer",
+                "status": "cancelled",
+                "content": [
+                    {"type": "text", "text": "old"},
+                    {"type": "file", "name": "report.pdf"},
+                ],
+            }
+        ],
+    )
+    content = orjson.loads(session.execute.call_args.args[1]["content"])
+    assert content == [
+        {"type": "text", "text": "Partial answer"},
+        {"type": "file", "name": "report.pdf"},
+    ]

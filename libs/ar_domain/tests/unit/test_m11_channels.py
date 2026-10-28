@@ -349,6 +349,7 @@ async def test_flush_and_hydrate_channel_rows() -> None:
     await _channel_integrations(
         session,  # type: ignore[arg-type]
         [{"id": integration, "tenant_id": tenant, "kind": "slack", "name": "Workspace Slack"}],
+        ChatService(),
     )
     await _channel_identities(session, [{"id": "not-a-uuid"}])  # type: ignore[arg-type]
     await _channel_posts(

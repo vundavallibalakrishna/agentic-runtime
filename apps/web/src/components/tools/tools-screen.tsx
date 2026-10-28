@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 
 type Row = Record<string, unknown>;
 
@@ -99,11 +99,16 @@ export function ToolsScreen() {
       await api(`/api/v1/tool-servers/${serverId}/versions/${versionId}:submit`, {
         method: "POST",
       });
-      await api(`/api/v1/tool-servers/${serverId}/versions/${versionId}:approve`, {
-        method: "POST",
-        body: JSON.stringify({ notes: "Confirmed from the simple wizard." }),
-      });
-      setNotice(t("approved"));
+      try {
+        await api(`/api/v1/tool-servers/${serverId}/versions/${versionId}:approve`, {
+          method: "POST",
+          body: JSON.stringify({ notes: "Confirmed from the simple wizard." }),
+        });
+        setNotice(t("approved"));
+      } catch (failure) {
+        if (!(failure instanceof ApiError) || failure.status !== 403) throw failure;
+        setNotice(t("submitted"));
+      }
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));

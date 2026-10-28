@@ -1,21 +1,22 @@
 """Write tracked product rows into the Postgres schema."""
 
+import asyncio
 import uuid  # noqa: TC003
 from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-from ar_common.logging import get_logger
 from ar_common.time import utcnow
 from ar_domain.agents.logic import definition_hash
 from ar_domain.durable.codec import as_bool, as_dt, as_int, as_json, as_text, as_uuid, as_vector
+from ar_domain.durable.routines import save_events, save_routines
 from ar_domain.durable.tracking import BUCKETS, TrackedDict
 
 if TYPE_CHECKING:
     from typing import Any
 
-_log = get_logger(__name__)
+    from ar_domain.audit.actions import AuditAction
 
 
 def _strings(value: object) -> list[str]:
@@ -31,28 +32,24 @@ def _object_dict(value: object) -> dict[str, object]:
 
 
 async def flush_store(store: object) -> None:
-    """Flush dirty buckets. A second flush waits until the first commits."""
+    """Wait for a committed flush, retaining dirty rows if the transaction fails."""
     engine = getattr(store, "durable_engine", None)
     if not isinstance(engine, AsyncEngine):
         return
-    if getattr(store, "_flushing", False):
-        store._flush_again = True  # type: ignore[attr-defined]
-        return
-    store._flushing = True  # type: ignore[attr-defined]
-    try:
+    lock = getattr(store, "_flush_lock", None)
+    if lock is None:
+        lock = asyncio.Lock()
+        store._flush_lock = lock  # type: ignore[attr-defined]
+    async with lock:
         while True:
             store._flush_again = False  # type: ignore[attr-defined]
             await _flush_once(store, engine)
             if not getattr(store, "_flush_again", False):
                 break
-    finally:
-        store._flushing = False  # type: ignore[attr-defined]
 
 
 def schedule_flush(store: object) -> None:
     """Queue a flush on the running loop. Sync callers use this."""
-    import asyncio  # noqa: PLC0415
-
     if getattr(store, "durable_engine", None) is None:
         return
     try:
@@ -74,31 +71,84 @@ def schedule_flush(store: object) -> None:
 
 async def _flush_once(store: object, engine: AsyncEngine) -> None:
     pending = _snapshot(store)
-    if not any(pending.values()):
+    audit_log = getattr(store, "audit_log", [])
+    audit_end = len(audit_log)
+    audit_start = getattr(store, "_durable_audit_index", 0)
+    audits = [
+        row for row in audit_log[audit_start:audit_end] if row.get("target_type") == "routine"
+    ]
+    if not any(pending.values()) and not audits:
         return
-    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
-        await _agents(session, pending["agents"])
-        await _versions(session, pending["versions"])
-        await _skills(session, pending["skills"])
-        await _skill_versions(session, pending["skill_versions"])
-        await _collections(session, pending["knowledge_collections"])
-        await _sources(session, pending["knowledge_sources"])
-        await _documents(session, pending["knowledge_documents"])
-        await _chunks(session, pending["document_chunks"])
-        await _facts(session, pending["memory_facts"])
-        await _tool_servers(session, pending["tool_servers"])
-        await _tool_server_versions(session, pending["tool_server_versions"])
-        await _tools(session, pending["tool_defs"])
-        await _tool_versions(session, pending["tool_versions"])
-        await _conversations(session, pending["conversations"])
-        await _runs(session, store, pending["runs"])
-        await _messages(session, pending["messages"])
-        await _link_runs(session, pending["runs"], pending["conversations"])
-        await _events(session, store, pending["events"])
-        await _channel_integrations(session, pending["channel_integrations"])
-        await _channel_identities(session, pending["channel_identities"])
-        await _channel_threads(session, pending["channel_threads"])
-        await _channel_posts(session, pending["channel_posts"])
+    original = {name: list(rows) for name, rows in pending.items()}
+    try:
+        async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+            await _deletions(session, pending)
+            await _agents(session, pending["agents"])
+            await _versions(session, pending["versions"])
+            await _skills(session, pending["skills"])
+            await _skill_versions(session, pending["skill_versions"])
+            await _collections(session, pending["knowledge_collections"])
+            await _sources(session, pending["knowledge_sources"])
+            await _documents(session, pending["knowledge_documents"])
+            await _chunks(session, pending["document_chunks"])
+            await _facts(session, pending["memory_facts"])
+            await _tool_servers(session, pending["tool_servers"])
+            await _tool_server_versions(session, pending["tool_server_versions"])
+            await _tools(session, pending["tool_defs"])
+            await _tool_versions(session, pending["tool_versions"])
+            await save_routines(session, pending["routines"])
+            await _conversations(session, pending["conversations"])
+            await _runs(session, store, pending["runs"])
+            await _messages(session, pending["messages"])
+            await save_events(session, pending["routine_events"])
+            await _link_runs(session, pending["runs"], pending["conversations"])
+            await _events(session, store, pending["events"])
+            await _channel_integrations(session, pending["channel_integrations"], store)
+            await _channel_identities(session, pending["channel_identities"])
+            await _channel_threads(session, pending["channel_threads"])
+            await _channel_posts(session, pending["channel_posts"])
+            await _routine_audits(session, audits)
+    except BaseException:
+        # The transaction rolled back; a retry must include every original row.
+        for name, rows in original.items():
+            bucket = getattr(store, name, None)
+            if isinstance(bucket, TrackedDict):
+                bucket.dirty.update(row.get("id", row.get("_key")) for row in rows)
+        raise
+    store._durable_audit_index = audit_end  # type: ignore[attr-defined]
+    for name, rows in original.items():
+        bucket = getattr(store, name, None)
+        if isinstance(bucket, TrackedDict):
+            for row in rows:
+                if row.get("_deleted"):
+                    bucket.deleted.pop(row["id"], None)
+
+
+async def _deletions(session: AsyncSession, pending: dict[str, list[dict[str, Any]]]) -> None:
+    tables = {
+        "versions": "agent_versions",
+        "knowledge_documents": "documents",
+        "tool_defs": "tools",
+        "events": "run_events",
+    }
+    for bucket, rows in reversed(list(pending.items())):
+        table = tables.get(bucket, bucket)
+        # Both identifiers come exclusively from the fixed BUCKETS catalogue.
+        for row in rows:
+            if row.get("_deleted") and row.get("tenant_id") is not None:
+                await session.execute(
+                    text(f"DELETE FROM {table} WHERE id = :id AND tenant_id = :tenant_id"),  # noqa: S608
+                    {"id": row["id"], "tenant_id": row["tenant_id"]},
+                )
+        pending[bucket] = [row for row in rows if not row.get("_deleted")]
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: _plain(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_plain(item) for item in value]
+    return value
 
 
 def _snapshot(store: object) -> dict[str, list[dict[str, Any]]]:
@@ -111,13 +161,18 @@ def _snapshot(store: object) -> dict[str, list[dict[str, Any]]]:
             bucket.dirty.clear()
             for key in keys:
                 value = bucket.get(key)
-                if isinstance(value, dict):
-                    rows.append({str(item): value[item] for item in value})
+                deleted = bucket.deleted.get(key)
+                if key not in bucket and isinstance(deleted, dict):
+                    rows.append(
+                        {"id": key, "tenant_id": deleted.get("tenant_id"), "_deleted": True}
+                    )
+                elif isinstance(value, dict):
+                    rows.append({str(item): _plain(value[item]) for item in value})
                 elif isinstance(value, list):
                     rows.append(
                         {
                             "_key": key,
-                            "_events": [dict(item) for item in value if isinstance(item, dict)],
+                            "_events": [_plain(item) for item in value if isinstance(item, dict)],
                         }
                     )
         found[name] = rows
@@ -125,11 +180,19 @@ def _snapshot(store: object) -> dict[str, list[dict[str, Any]]]:
 
 
 async def _one(session: AsyncSession, sql: str, params: dict[str, object]) -> None:
-    try:
-        async with session.begin_nested():
-            await session.execute(text(sql), params)
-    except Exception as exc:  # noqa: BLE001 — one bad row must not drop the rest
-        _log.warning("durable_row_skipped", error=type(exc).__name__)
+    await session.execute(text(sql), params)
+
+
+def _parents_first(rows: list[dict[str, Any]], parent_key: str) -> list[dict[str, Any]]:
+    """Insert parent rows before children regardless of dirty-set iteration order."""
+    pending = {row.get("id"): row for row in rows}
+    ordered: list[dict[str, Any]] = []
+    while pending:
+        ready = [key for key, row in pending.items() if row.get(parent_key) not in pending]
+        if not ready:
+            raise ValueError("durable rows contain a parent cycle")
+        ordered.extend(pending.pop(key) for key in ready)
+    return ordered
 
 
 async def _agents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
@@ -419,11 +482,11 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         INSERT INTO documents (
             id, tenant_id, collection_id, source_id, external_id, uri, title, mime_type,
             version_hash, size_bytes, classification, acl_principals, acl_hash, summary,
-            status, error, created_at, updated_at
+            status, error, indexed_at, created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :collection_id, :source_id, :external_id, :uri, :title, :mime_type,
             :version_hash, :size_bytes, :classification, :acl_principals, :acl_hash, :summary,
-            :status, :error, :created_at, :updated_at
+            :status, :error, :indexed_at, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
@@ -431,6 +494,11 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             status = EXCLUDED.status,
             summary = EXCLUDED.summary,
             error = EXCLUDED.error,
+            indexed_at = EXCLUDED.indexed_at,
+            acl_principals = EXCLUDED.acl_principals,
+            acl_hash = EXCLUDED.acl_hash,
+            classification = EXCLUDED.classification,
+            size_bytes = EXCLUDED.size_bytes,
             updated_at = EXCLUDED.updated_at
     """
     for row in rows:
@@ -462,6 +530,7 @@ async def _documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "summary": as_text(row.get("summary")),
                 "status": _document_status(as_text(row.get("status"), "pending")),
                 "error": row.get("error") if isinstance(row.get("error"), str) else None,
+                "indexed_at": as_dt(row.get("indexed_at")),
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
             },
@@ -833,7 +902,7 @@ async def _runs(session: AsyncSession, store: object, rows: list[dict[str, Any]]
             ended_at = EXCLUDED.ended_at,
             updated_at = EXCLUDED.updated_at
     """
-    for row in rows:
+    for row in _parents_first(rows, "parent_run_id"):
         run_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
         agent_id = as_uuid(row.get("agent_id"))
@@ -898,7 +967,7 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             status = EXCLUDED.status,
             updated_at = EXCLUDED.updated_at
     """
-    for row in rows:
+    for row in _parents_first(rows, "parent_message_id"):
         message_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
         conversation_id = as_uuid(row.get("conversation_id"))
@@ -907,6 +976,16 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
         content = row.get("content")
         if not isinstance(content, list):
             content = [{"type": "text", "text": as_text(row.get("text"))}]
+        elif row.get("role") == "assistant" and isinstance(row.get("text"), str):
+            # Streaming updates text before the final content array is assembled.
+            content = [
+                {"type": "text", "text": row["text"]},
+                *(
+                    part
+                    for part in content
+                    if not isinstance(part, dict) or part.get("type") != "text"
+                ),
+            ]
         now = utcnow()
         await _one(
             session,
@@ -997,19 +1076,22 @@ async def _events(session: AsyncSession, store: object, rows: list[dict[str, Any
             )
 
 
-async def _channel_integrations(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+async def _channel_integrations(
+    session: AsyncSession, rows: list[dict[str, Any]], store: object
+) -> None:
     sql = """
         INSERT INTO channel_integrations (
             id, tenant_id, kind, name, config, secret_ref_id, default_agent_id,
             agent_routing, status, status_detail, created_by, created_at, updated_at
         ) VALUES (
-            :id, :tenant_id, :kind, :name, CAST(:config AS jsonb), NULL,
+            :id, :tenant_id, :kind, :name, CAST(:config AS jsonb), :secret_ref_id,
             :default_agent_id, CAST(:agent_routing AS jsonb), :status, :status_detail,
             :created_by, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
             config = EXCLUDED.config,
+            secret_ref_id = EXCLUDED.secret_ref_id,
             default_agent_id = EXCLUDED.default_agent_id,
             agent_routing = EXCLUDED.agent_routing,
             status = EXCLUDED.status,
@@ -1021,6 +1103,18 @@ async def _channel_integrations(session: AsyncSession, rows: list[dict[str, Any]
         tenant_id = as_uuid(row.get("tenant_id"))
         if integration_id is None or tenant_id is None:
             continue
+        from ar_domain.secrets.cached import save_cached_secret  # noqa: PLC0415
+
+        secret_id = as_uuid(row.get("secret_ref_id"))
+        value = getattr(store, "secret_values", {}).get(secret_id)
+        if secret_id is not None and isinstance(value, bytes):
+            await save_cached_secret(
+                session,
+                tenant_id=tenant_id,
+                secret_id=secret_id,
+                value=value,
+                user_id=as_uuid(row.get("created_by")),
+            )
         now = utcnow()
         await _one(
             session,
@@ -1029,6 +1123,7 @@ async def _channel_integrations(session: AsyncSession, rows: list[dict[str, Any]
                 "id": integration_id,
                 "tenant_id": tenant_id,
                 "kind": as_text(row.get("kind"), "slack"),
+                "secret_ref_id": secret_id,
                 "name": as_text(row.get("name"), "Channel"),
                 "config": as_json(row.get("config"), {}),
                 "default_agent_id": as_uuid(row.get("default_agent_id")),
@@ -1164,3 +1259,23 @@ def event_tenant(store: object, run_id: uuid.UUID) -> None:
     for event in rows:
         if isinstance(event, dict) and "tenant_id" not in event:
             event["tenant_id"] = tenant_id
+
+
+async def _routine_audits(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    from typing import cast  # noqa: PLC0415
+
+    from ar_domain.audit.service import record  # noqa: PLC0415
+
+    for row in rows:
+        tenant_id = as_uuid(row.get("tenant_id"))
+        if tenant_id is not None:
+            await record(
+                session,
+                tenant_id=tenant_id,
+                actor_type="user",
+                actor_id=str(row["actor_id"]),
+                action=cast("AuditAction", row["action"]),
+                target_type="routine",
+                target_id=str(row["target_id"]),
+                detail=row.get("detail") or {},
+            )

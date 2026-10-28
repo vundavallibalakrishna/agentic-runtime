@@ -64,3 +64,19 @@ def row_dict(value: object) -> dict[str, Any]:
     if not isinstance(value, dict):
         return {}
     return {str(key): item for key, item in value.items()}
+
+
+def vector_values(value: object) -> list[float]:
+    """Text queries may return pgvector's JSON-shaped string instead of an array."""
+    if isinstance(value, str):
+        try:
+            value = orjson.loads(value)
+        except orjson.JSONDecodeError:
+            return []
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [
+        float(item)
+        for item in value
+        if isinstance(item, (int, float)) and not isinstance(item, bool)
+    ]

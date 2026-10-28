@@ -308,3 +308,5 @@ Events: `tenant.created`, `tenant.suspended`, `user.provisioned`, `user.deprovis
 ## 10. Guest principals (later milestone)
 
 External auditors and vendors are not `users` and are not created by any M1 task. Tables `guest_principals`, `guest_grants` and `guest_login_challenges` arrive in revision 0027 ([schema §26](../04-data/schema.md#26-guest-principals-ar_domainidentity)). Behaviour, grants and session rules: [spec 21 §4](21-records-governance.md#4-guest-principals), [ADR-0024](../02-architecture/adr/ADR-0024-guest-principals.md). M1 code must not require those tables.
+
+New Enterprise and Self-hosted plan seeds permit the widget capability. Tenant `features.widget` remains disabled by default and must be enabled by an administrator. Seeding preserves existing plan customisations; existing installations may enable the capability through platform plan management.

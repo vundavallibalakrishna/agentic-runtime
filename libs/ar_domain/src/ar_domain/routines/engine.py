@@ -92,6 +92,15 @@ def prepare_routine_run(
     event = _event(store, event_id)
     if routine is None or event is None:
         return {"status": "missing"}
+    prior = store.runs.get(event.get("run_id"))
+    if isinstance(prior, dict):
+        message = store.messages.get(prior.get("input_message_id"), {})
+        return {
+            "status": "ready",
+            "run_id": str(prior["id"]),
+            "conversation_id": str(prior["conversation_id"]),
+            "text": str(message.get("text") or ""),
+        }
     owner = routine.get("owner_user_id")
     statuses = getattr(store, "user_statuses", {})
     status = statuses.get(owner, "active") if isinstance(statuses, dict) else "active"
@@ -433,58 +442,25 @@ def _standing(store: Any, routine: dict[str, object], tool: str) -> bool:
 def _open_run(
     store: Any, routine: dict[str, object], event: dict[str, object]
 ) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
-    now = utcnow()
-    conversation_id = new_id()
-    message_id = new_id()
-    run_id = new_id()
     envelope = event.get("envelope") if isinstance(event.get("envelope"), dict) else {}
     wrapped = wrap_untrusted(source=str(event.get("source") or "routine"), content=str(envelope))
     text = f"{routine.get('instructions')}\n\n{wrapped}"
-    conversation = {
-        "id": conversation_id,
-        "tenant_id": routine.get("tenant_id"),
-        "user_id": routine.get("owner_user_id"),
-        "agent_id": routine.get("agent_id"),
-        "agent_version_id": routine.get("agent_version_id"),
-        "channel": "routine",
-        "title": f"{routine.get('name')} · {now.isoformat()}",
-        "created_at": now,
-    }
-    message = {
-        "id": message_id,
-        "tenant_id": routine.get("tenant_id"),
-        "conversation_id": conversation_id,
-        "parent_message_id": None,
-        "role": "user",
-        "text": text,
-        "content": [{"type": "text", "text": text}],
-        "status": "completed",
-        "is_active_branch": True,
-        "created_at": now,
-    }
-    run = {
-        "id": run_id,
-        "tenant_id": routine.get("tenant_id"),
-        "conversation_id": conversation_id,
-        "agent_id": routine.get("agent_id"),
-        "user_id": routine.get("owner_user_id"),
-        "input_message_id": message_id,
-        "status": "queued",
-        "trigger": "routine",
-        "routine_id": routine.get("id"),
-        "budget": routine.get("budget") or _DEFAULT_BUDGET,
-        "result_summary": "",
-        "error": None,
-        "dry_run": bool(event.get("dry_run")),
-        "created_at": now,
-    }
-    store.conversations[conversation_id] = conversation
-    store.messages[message_id] = message
-    store.runs[run_id] = run
-    if not isinstance(getattr(store, "events", None), dict):
-        store.events = {}
-    store.events.setdefault(run_id, [])
-    return conversation, message, run
+    tenant_id = uuid.UUID(str(routine["tenant_id"]))
+    owner_id = uuid.UUID(str(routine["owner_user_id"]))
+    created = store.create_conversation(tenant_id, owner_id, routine["agent_id"])
+    conversation_id = uuid.UUID(str(created["id"]))
+    conversation = store.conversations[conversation_id]
+    conversation["channel"] = "routine"
+    conversation["title"] = f"{routine.get('name')} · {utcnow().isoformat()}"
+    if routine.get("agent_version_id"):
+        conversation["agent_version_id"] = routine["agent_version_id"]
+    posted = store.post_message(tenant_id, owner_id, conversation_id, text, schedule=False)
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    run["trigger"] = "routine"
+    run["routine_id"] = routine["id"]
+    run["budget"] = routine.get("budget") or _DEFAULT_BUDGET
+    run["dry_run"] = bool(event.get("dry_run"))
+    return conversation, store.messages[run["input_message_id"]], run
 
 
 def _filter_allows(routine: dict[str, object], envelope: dict[str, object]) -> bool:
@@ -507,7 +483,17 @@ def _over_cap(store: Any, routine: dict[str, object]) -> bool:
     if not isinstance(counts, dict):
         counts = {}
         store.routine_daily = counts
-    return int(counts.get(key) or 0) >= cap
+    today = utcnow().date()
+    persisted = sum(
+        1
+        for event in _events(store).values()
+        if event.get("routine_id") == routine["id"]
+        and event.get("status") in {"accepted", "started"}
+        and isinstance(received := event.get("received_at"), datetime)
+        and received.date() == today
+    )
+    # The newly accepted event is already in the cache but has not consumed a slot.
+    return max(int(counts.get(key) or 0), 0, persisted - 1) >= cap
 
 
 def _count_run(store: Any, routine: dict[str, object]) -> None:
@@ -586,7 +572,7 @@ def _new_event(
         "detail": {},
     }
     _events(store)[event_id] = event
-    return event
+    return _events(store)[event_id]
 
 
 def _finish(event: dict[str, object], status: str, source: str) -> dict[str, object]:

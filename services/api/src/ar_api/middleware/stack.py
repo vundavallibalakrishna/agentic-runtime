@@ -190,6 +190,9 @@ def _plan_rpm(scope: Scope, principal: object, used: int, path: str) -> JSONResp
 
 def presented_credential(scope: Scope) -> tuple[str, str] | None:
     """Return the credential kind and value, if the request has one."""
+    if str(scope.get("path", "")).startswith("/api/v1/widget/"):
+        cookie = _cookie(scope, "ar_widget_session")
+        return ("widget", cookie) if cookie else None
     header = _header(scope, b"authorization")
     cookie = _cookie(scope, "ar_session")
     found = classify_authorization(header, cookie)

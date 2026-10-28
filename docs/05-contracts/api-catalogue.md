@@ -443,6 +443,12 @@ Spec: [16-channels.md](../03-specs/16-channels.md)
 | GET | [`/api/v1/openai/models`](../03-specs/16-channels.md#get-apiv1openaimodels) | `chat:use` | 6. API channel |
 | GET | [`/api/v1/widget/integrations/{integration_id}`](../03-specs/16-channels.md#7-web-widget-feature-widget) | public (integration id) | 7. Web widget (feature `widget`) |
 | POST | [`/api/v1/widget/sessions`](../03-specs/16-channels.md#post-apiv1widgetsessions) | host-signed widget JWT | 7. Web widget (feature `widget`) |
+| GET | [`/api/v1/widget/session`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
+| POST | [`/api/v1/widget/conversations`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
+| GET | [`/api/v1/widget/conversations/{conversation_id}`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
+| POST | [`/api/v1/widget/conversations/{conversation_id}/messages`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
+| GET | [`/api/v1/widget/runs/{run_id}/events`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
+| POST | [`/api/v1/widget/runs/{run_id}:cancel`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
 
 ## Spec 17: Audit, usage metering, quotas and retention (`ar_domain.audit`, `ar_domain.usage`)
 

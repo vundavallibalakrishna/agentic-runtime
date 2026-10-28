@@ -7,6 +7,7 @@ client runs each turn on the runtime worker.
 """
 
 import asyncio
+import contextlib
 import hashlib
 import threading
 import time
@@ -48,6 +49,8 @@ from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -201,7 +204,7 @@ class ChatService:
     model_gateway_url: str = ""
     temporal_client: object | None = None
     durable: bool = False
-    durable_engine: object | None = None
+    durable_engine: AsyncEngine | None = None
     dev_binding: object | None = None
     reloading: bool = False
     quotas: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -1051,6 +1054,18 @@ class ChatService:
             "created_at": now,
             "author_user_id": user_id,
         }
+        content: list[dict[str, object]] = [{"type": "text", "text": text}]
+        for file_id in attachment_ids or []:
+            file = self.files[file_id]
+            content.append(
+                {
+                    "type": "file",
+                    "file_id": str(file_id),
+                    "name": file["name"],
+                    "mime_type": file["mime_type"],
+                }
+            )
+        user_message["content"] = content
         self.messages[message_id] = user_message
         if conversation["title"] == "New chat":
             conversation["title"] = text[:80] or "New chat"
@@ -1134,7 +1149,7 @@ class ChatService:
             "run.queued",
             {"agent_id": str(conversation["agent_id"]), "input_message_id": str(message_id)},
         )
-        return run
+        return self.runs[run_id]
 
     def _agent_version_id(self, conversation: dict[str, object]) -> uuid.UUID | None:
         version_id = conversation.get("agent_version_id")
@@ -1153,6 +1168,8 @@ class ChatService:
     def completion_url(self) -> str:
         """Chat completions. The gateway wins when it is configured."""
         base = (self.model_gateway_url or self.fake_llm_url).rstrip("/")
+        if self.model_gateway_url and not base.endswith("/v1"):
+            base += "/v1"
         return base + "/chat/completions"
 
     def flush_soon(self) -> None:
@@ -1184,7 +1201,7 @@ class ChatService:
         try:
             await start(
                 "AgentRunWorkflow",
-                {"run_id": str(run_id), "text": text, "names": names},
+                {"run_id": str(run_id)},
                 id=f"run-{run_id}",
                 task_queue="ar-runtime",
             )
@@ -1632,16 +1649,21 @@ class ChatService:
         self, tenant_id: uuid.UUID, run_id: uuid.UUID, after: int
     ) -> AsyncIterator[dict[str, object]]:
         for event in self.events_after(tenant_id, run_id, after):
+            after = max(after, _seq(event))
             yield event
         run = self.runs.get(run_id)
         if run is not None and not run_is_active(str(run["status"])) and after > 0:
             return
         queue = self.subscribe(run_id)
+        watcher = (
+            asyncio.create_task(self._watch(run_id)) if self.durable_engine is not None else None
+        )
         try:
             while True:
                 event = await asyncio.wait_for(queue.get(), timeout=15)
                 if _seq(event) <= after:
                     continue
+                after = _seq(event)
                 yield event
                 if str(event["type"]) in {
                     "run.completed",
@@ -1655,6 +1677,10 @@ class ChatService:
         except TimeoutError:
             return
         finally:
+            if watcher is not None:
+                watcher.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await watcher
             self.unsubscribe(run_id, queue)
 
     def cancel_run(

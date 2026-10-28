@@ -2,11 +2,14 @@
 
 import base64
 import secrets
+import shlex
 from pathlib import Path
 
 import orjson
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from ar_common.internal_jwt import public_jwk
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV = ROOT / ".env"
@@ -44,6 +47,52 @@ def session_key() -> str:
     return base64.b64encode(secrets.token_bytes(32)).decode()
 
 
+def quote_json_settings(text: str) -> str:
+    """Preserve legacy JSON keys while making them safe for Honcho and shell loading."""
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if not line.startswith(("AR_DB_ENCRYPTION_KEYS=", "AR_INTERNAL_JWT_JWKS=")):
+            continue
+        key, raw = line.split("=", 1)
+        if raw.startswith("{"):
+            orjson.loads(raw)
+            lines[index] = f"{key}={shell_value(raw)}"
+    return "\n".join(lines) + "\n"
+
+
+def ensure_jwks(text: str) -> str:
+    """Derive the public JWKS from the retained private key, repairing legacy PEM-base64."""
+    values = {}
+    for line in text.splitlines():
+        if line.startswith("AR_INTERNAL_JWT_") and "=" in line:
+            key, value = line.split("=", 1)
+            parsed = shlex.split(value)
+            values[key] = parsed[0] if parsed else ""
+    private = serialization.load_pem_private_key(
+        values["AR_INTERNAL_JWT_PRIVATE_KEY"].replace("\\n", "\n").encode(), password=None
+    )
+    if not isinstance(private, Ed25519PrivateKey):
+        raise TypeError("The development service key must be Ed25519")
+    public = (
+        private.public_key()
+        .public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
+        .decode()
+    )
+    raw = values.get("AR_INTERNAL_JWT_JWKS", "")
+    try:
+        document = orjson.loads(raw)
+        if isinstance(document, dict) and isinstance(document.get("keys"), list):
+            return text
+    except orjson.JSONDecodeError:
+        pass
+    legacy = base64.b64encode(public.encode()).decode()
+    if raw not in {"", "change-me", "generate", legacy}:
+        raise ValueError("AR_INTERNAL_JWT_JWKS is invalid; the configured value was preserved")
+    value = shell_value(orjson.dumps({"keys": [public_jwk(public, "dev")]}).decode())
+    lines = [line for line in text.splitlines() if not line.startswith("AR_INTERNAL_JWT_JWKS=")]
+    return "\n".join([*lines, f"AR_INTERNAL_JWT_JWKS={value}"]) + "\n"
+
+
 def main() -> None:
     private = Ed25519PrivateKey.generate()
     private_pem = private.private_bytes(
@@ -51,14 +100,6 @@ def main() -> None:
         serialization.PrivateFormat.PKCS8,
         serialization.NoEncryption(),
     ).decode()
-    public = (
-        private.public_key()
-        .public_bytes(
-            serialization.Encoding.PEM,
-            serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
-        .decode()
-    )
     text = ENV.read_text(encoding="utf-8") if ENV.exists() else ""
     text = _ensure(text, "AR_SESSION_ENCRYPTION_KEY", session_key())
     text = _ensure(text, "AR_CURSOR_SECRET", secrets.token_urlsafe(32))
@@ -67,7 +108,7 @@ def main() -> None:
     text = _ensure(text, "AR_TOKEN_CACHE_KEY", session_key())
     escaped_pem = private_pem.replace("\n", "\\n")
     text = _ensure(text, "AR_INTERNAL_JWT_PRIVATE_KEY", shell_value(escaped_pem))
-    text = _ensure(text, "AR_INTERNAL_JWT_JWKS", base64.b64encode(public.encode()).decode())
+    text = ensure_jwks(quote_json_settings(text))
     ENV.write_text(text, encoding="utf-8")
     print(f"wrote dev keys to {ENV}")
 

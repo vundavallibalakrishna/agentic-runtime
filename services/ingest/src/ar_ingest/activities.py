@@ -2,16 +2,13 @@
 
 import base64
 import uuid
-from typing import TYPE_CHECKING
+from typing import Any  # noqa: TC003
 
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
 from ar_domain.knowledge.pipeline import ingest_document_async
 from ar_domain.knowledge.syncing import acl_sync, delete_document, reindex, sync_source
-
-if TYPE_CHECKING:
-    from typing import Any
 
 _STORE: Any = None
 _NON_RETRYABLE = frozenset({"unsupported_format", "too_large", "access_denied"})
@@ -29,7 +26,7 @@ def _store() -> Any:
 
 
 @activity.defn(name="ingest_document")
-async def ingest_document_activity(payload: dict[str, object]) -> dict[str, object]:
+async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     document_id = uuid.UUID(str(payload["document_id"]))
     raw_b64 = payload.get("raw_b64")
@@ -51,7 +48,7 @@ async def ingest_document_activity(payload: dict[str, object]) -> dict[str, obje
 
 
 @activity.defn(name="sync_source")
-async def sync_source_activity(payload: dict[str, object]) -> dict[str, object]:
+async def sync_source_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     source = store.knowledge_sources[uuid.UUID(str(payload["source_id"]))]
     job = sync_source(
@@ -64,7 +61,7 @@ async def sync_source_activity(payload: dict[str, object]) -> dict[str, object]:
 
 
 @activity.defn(name="acl_sync")
-async def acl_sync_activity(payload: dict[str, object]) -> dict[str, object]:
+async def acl_sync_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     source = store.knowledge_sources[uuid.UUID(str(payload["source_id"]))]
     job = acl_sync(store, source, actor_id=payload.get("actor_id"))
@@ -72,7 +69,7 @@ async def acl_sync_activity(payload: dict[str, object]) -> dict[str, object]:
 
 
 @activity.defn(name="delete_document")
-async def delete_document_activity(payload: dict[str, object]) -> dict[str, object]:
+async def delete_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     document = store.knowledge_documents[uuid.UUID(str(payload["document_id"]))]
     delete_document(store, document, actor_id=payload.get("actor_id"))
@@ -80,7 +77,7 @@ async def delete_document_activity(payload: dict[str, object]) -> dict[str, obje
 
 
 @activity.defn(name="reindex_collection")
-async def reindex_activity(payload: dict[str, object]) -> dict[str, object]:
+async def reindex_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     collection = store.knowledge_collections[uuid.UUID(str(payload["collection_id"]))]
     if payload.get("embedding_alias"):
@@ -92,7 +89,7 @@ async def reindex_activity(payload: dict[str, object]) -> dict[str, object]:
 
 
 @activity.defn(name="migrate_store")
-async def migrate_activity(payload: dict[str, object]) -> dict[str, object]:
+async def migrate_activity(payload: dict[str, Any]) -> dict[str, Any]:
     """Copy mode records the target and keeps serving the source until parity."""
     store = _store()
     collection = store.knowledge_collections[uuid.UUID(str(payload["collection_id"]))]
@@ -139,7 +136,7 @@ async def migrate_activity(payload: dict[str, object]) -> dict[str, object]:
 
 
 @activity.defn(name="audit_store")
-async def audit_activity(payload: dict[str, object]) -> dict[str, object]:
+async def audit_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     collection_id = str(payload.get("collection_id") or "")
     drift = 0

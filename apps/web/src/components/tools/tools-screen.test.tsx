@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -93,6 +93,30 @@ describe("tool screens", () => {
     expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
     expect(screen.getByText("tickets.create_ticket")).toBeTruthy();
     expect(screen.getByLabelText("Short name")).toBeTruthy();
+  });
+
+  it("keeps a submitted tool visible when a different reviewer is required", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () => HttpResponse.json({})),
+      http.get("*/api/v1/tool-servers", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/tool-calls", () => HttpResponse.json({ items: [] })),
+      http.post("*/api/v1/tool-servers", () =>
+        HttpResponse.json({ id: "server", versions: [{ id: "version" }] }),
+      ),
+      http.get("*/api/v1/tool-servers/server/versions/version", () =>
+        HttpResponse.json({ tools: [] }),
+      ),
+      http.post(/\/versions\/version:submit$/, () =>
+        HttpResponse.json({ reviewStatus: "pending" }),
+      ),
+      http.post(/\/versions\/version:approve$/, () =>
+        HttpResponse.json({ detail: "four_eyes" }, { status: 403 }),
+      ),
+    );
+    render(wrap(<ToolsScreen />));
+    fireEvent.click(await screen.findByRole("button", { name: "Register" }));
+    expect(await screen.findByText(/Submitted for review/)).toBeTruthy();
+    expect(screen.queryByText("four_eyes")).toBeNull();
   });
 
   it("shows the tools error state", async () => {

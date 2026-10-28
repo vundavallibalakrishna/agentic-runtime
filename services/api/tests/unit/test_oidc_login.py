@@ -198,3 +198,61 @@ def test_bootstrap_keyring_decodes_as_standard_base64() -> None:
     assert len(base64.b64decode(module.session_key())) == 32
     pem = "-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----\\n"
     assert module.shell_value(pem) == f"'{pem}'"
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "exchange",
+        "invalid_json",
+        "missing_token",
+        "certs",
+        "bad_jwks",
+        "nonce",
+        "email",
+        "organization",
+        "network",
+    ],
+)
+def test_callback_rejects_invalid_exchange_without_issuing_a_session(failure: str) -> None:
+    pem = _rsa_pem()
+    token = _id_token(
+        pem,
+        email="missing" if failure == "email" else "admin@dev.local",
+        nonce="wrong" if failure == "nonce" else "n1",
+        organization={"other" if failure == "organization" else "dev": {}},
+    )
+    app = create_application()
+    app.state.login_states["invalid"] = {
+        "verifier": "verifier",
+        "nonce": "n1",
+        "return_to": "/chat",
+        "tenant": None,
+    }
+    with respx.mock:
+        exchange = respx.post(f"{ISSUER}/protocol/openid-connect/token")
+        if failure == "network":
+            exchange.mock(side_effect=httpx.ConnectError("unavailable"))
+        elif failure == "exchange":
+            exchange.mock(return_value=httpx.Response(400, json={"error": "invalid_grant"}))
+        elif failure == "invalid_json":
+            exchange.mock(return_value=httpx.Response(400, text="Unavailable"))
+        else:
+            exchange.mock(
+                return_value=httpx.Response(
+                    200, json={} if failure == "missing_token" else {"id_token": token}
+                )
+            )
+        if failure not in {"network", "exchange", "invalid_json", "missing_token"}:
+            respx.get(f"{ISSUER}/protocol/openid-connect/certs").mock(
+                return_value=httpx.Response(
+                    503 if failure == "certs" else 200,
+                    json=[] if failure == "bad_jwks" else _jwks(pem),
+                )
+            )
+        client = TestClient(app)
+        result = client.get("/api/v1/auth/callback?code=bad&state=invalid", follow_redirects=False)
+    assert result.status_code == 302
+    assert result.headers["location"].startswith("/login?error=")
+    assert "ar_session" not in client.cookies
+    assert app.state.login_states == {}

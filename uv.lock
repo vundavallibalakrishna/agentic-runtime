@@ -491,6 +491,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "sqlglot" },
+    { name = "temporalio" },
 ]
 
 [package.optional-dependencies]
@@ -541,6 +542,7 @@ requires-dist = [
     { name = "qdrant-client", marker = "extra == 'qdrant'", specifier = "==1.19.1" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = "==2.1.5" },
     { name = "sqlglot", specifier = "==30.23.0" },
+    { name = "temporalio", specifier = "==1.34.0" },
     { name = "tiktoken", marker = "extra == 'ingest'", specifier = "==0.14.0" },
 ]
 provides-extras = ["ingest", "pii", "qdrant"]

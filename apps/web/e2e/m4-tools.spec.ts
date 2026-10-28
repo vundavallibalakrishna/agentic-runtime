@@ -47,7 +47,9 @@ test("register a server, connect, and let the desk agent act", async ({ page }) 
   await page.getByLabel("Name", { exact: true }).fill(slug);
   await page.getByLabel("Server address").fill("memory://echo");
   await page.getByRole("button", { name: "Register" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Approved" })).toHaveText("Approved");
+  await expect(
+    page.getByRole("status").filter({ hasText: /Approved|Submitted for review/ }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: slug, exact: true })).toBeVisible();
 
   await page.goto("/connections");

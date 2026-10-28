@@ -43,6 +43,10 @@ def plan_limits(key: str) -> dict[str, object]:
     elif key == "self_hosted":
         base["max_users"] = None
         base["api_rpm"] = 6000
+    if key in {"enterprise", "self_hosted"}:
+        features = dict(base["features"])
+        features["widget"] = True
+        base["features"] = features
     return base
 
 

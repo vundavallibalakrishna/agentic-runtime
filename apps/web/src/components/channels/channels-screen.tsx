@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { exactOrigins } from "@/lib/widget-origins";
 
 type Agent = { id: string; name: string };
 type Post = { id: string; body: string; status?: string };
@@ -37,6 +38,8 @@ export function ChannelsScreen() {
   const [name, setName] = useState("");
   const [kind, setKind] = useState("slack");
   const [token, setToken] = useState("");
+  const [origins, setOrigins] = useState("");
+  const [embed, setEmbed] = useState("");
   const [routing, setRouting] = useState("");
   const [agentId, setAgentId] = useState("");
   const [advanced, setAdvanced] = useState(false);
@@ -56,6 +59,7 @@ export function ChannelsScreen() {
       const people = agentPage.items ?? [];
       setAgents(people);
       setAgentId((current) => current || people[0]?.id || "");
+      setSelected(null);
       if (list[0]) {
         const detail = await api<Integration>(`/api/v1/channel-integrations/${list[0].id}`);
         setSelected(detail);
@@ -82,6 +86,13 @@ export function ChannelsScreen() {
     setError("");
     setNotice("");
     try {
+      const requestedOrigins = origins.split(/[\s,]+/).filter(Boolean);
+      const allowedOrigins = exactOrigins(requestedOrigins);
+      if (
+        kind === "widget" &&
+        (!allowedOrigins.length || allowedOrigins.length !== new Set(requestedOrigins).size)
+      )
+        throw new Error(t("invalidOrigins"));
       const credentials =
         kind === "slack"
           ? { botToken: token, signingSecret: "demo-signing-secret" }
@@ -90,7 +101,7 @@ export function ChannelsScreen() {
             : kind === "email"
               ? { username: "agent", password: token }
               : { widgetSecret: token };
-      await api("/api/v1/channel-integrations", {
+      const created = await api<Integration>("/api/v1/channel-integrations", {
         method: "POST",
         body: JSON.stringify({
           kind,
@@ -98,9 +109,15 @@ export function ChannelsScreen() {
           defaultAgentId: agentId || undefined,
           credentials,
           agentRouting: advanced && routing ? JSON.parse(routing) : [],
-          config: { command: "/agent", allowedChannelIds: [] },
+          config:
+            kind === "widget" ? { allowedOrigins } : { command: "/agent", allowedChannelIds: [] },
         }),
       });
+      setEmbed(
+        kind === "widget"
+          ? `<script src="${window.location.origin}/widget.js" data-integration="${created.id}"></script>`
+          : "",
+      );
       setName("");
       setToken("");
       setNotice(t("saved"));
@@ -131,6 +148,19 @@ export function ChannelsScreen() {
     }
   }
 
+  async function showPosts(id: string) {
+    setBusy(true);
+    setError("");
+    setSelected(null);
+    try {
+      setSelected(await api<Integration>(`/api/v1/channel-integrations/${id}`));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <AppShell>
       <ActionStatus busy={busy} />
@@ -150,6 +180,18 @@ export function ChannelsScreen() {
         ) : null}
         {notice ? <p className="mb-3 text-sm text-[var(--muted-foreground)]">{notice}</p> : null}
 
+        {embed && (
+          <section
+            className="mb-6 rounded-xl border border-border bg-card p-4"
+            aria-label={t("embedTitle")}
+          >
+            <h2 className="text-base font-medium">{t("embedTitle")}</h2>
+            <p className="mt-2 text-sm text-muted-foreground">{t("embedHelp")}</p>
+            <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-muted p-3 text-xs">
+              {embed}
+            </pre>
+          </section>
+        )}
         <ManagementLayout
           title={t("listTitle")}
           formTitle={t("create")}
@@ -179,7 +221,7 @@ export function ChannelsScreen() {
                 <option value="widget">Widget</option>
               </select>
               <label className="mt-3 block text-sm" htmlFor="channel-token">
-                {t("token")}
+                {kind === "widget" ? t("widgetSecret") : t("token")}
               </label>
               <Input
                 className="mt-1 max-w-md"
@@ -188,7 +230,23 @@ export function ChannelsScreen() {
                 type="password"
                 value={token}
               />
-              {advanced ? (
+              {kind === "widget" && (
+                <div className="mt-3">
+                  <label htmlFor="widget-origins" className="block text-sm">
+                    {t("origins")}
+                  </label>
+                  <textarea
+                    id="widget-origins"
+                    value={origins}
+                    onChange={(event) => setOrigins(event.target.value)}
+                    rows={2}
+                    className="mt-1 w-full max-w-xl rounded-lg border border-border bg-background p-3 text-sm"
+                    placeholder="https://portal.example.com"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">{t("originsHelp")}</p>
+                </div>
+              )}
+              {advanced || kind === "widget" ? (
                 <div className="mt-3">
                   <label className="block text-sm" htmlFor="channel-agent">
                     {t("agent")}
@@ -205,17 +263,23 @@ export function ChannelsScreen() {
                       </option>
                     ))}
                   </select>
-                  <label className="mt-3 block text-sm" htmlFor="channel-routing">
-                    {t("routing")}
-                  </label>
-                  <textarea
-                    className="mt-1 min-h-20 w-full max-w-xl rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
-                    id="channel-routing"
-                    onChange={(event) => setRouting(event.target.value)}
-                    placeholder='[{"match": {"keyword": "status"}, "agentId": ""}]'
-                    value={routing}
-                  />
-                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">{t("routingHelp")}</p>
+                  {advanced && (
+                    <>
+                      <label className="mt-3 block text-sm" htmlFor="channel-routing">
+                        {t("routing")}
+                      </label>
+                      <textarea
+                        className="mt-1 min-h-20 w-full max-w-xl rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                        id="channel-routing"
+                        onChange={(event) => setRouting(event.target.value)}
+                        placeholder='[{"match": {"keyword": "status"}, "agentId": ""}]'
+                        value={routing}
+                      />
+                      <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                        {t("routingHelp")}
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : null}
               <Button
@@ -265,6 +329,20 @@ export function ChannelsScreen() {
           {selected ? (
             <section className="mt-6">
               <h2 className="text-sm font-medium">{t("recent")}</h2>
+              <label className="mt-3 block text-sm">
+                {t("postChannel")}
+                <select
+                  className="ml-3 max-w-full rounded-md border border-border bg-background px-3 py-2 text-foreground"
+                  value={selected.id}
+                  onChange={(event) => void showPosts(event.target.value)}
+                >
+                  {rows.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               {(selected.recentPosts ?? []).length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("noPosts")}</p>
               ) : (

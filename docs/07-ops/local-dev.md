@@ -104,10 +104,14 @@ Then `make dev`. Or skip the edits: `make dev AUTO_PORTS=1`.
 | `make gen` diff in CI | Run `make gen` and commit the generated files |
 | Port in use | `make ports-check` prints the variable (`AR_PG_HOST_PORT`, `AR_VALKEY_HOST_PORT`, `AR_TEMPORAL_HOST_PORT`, `AR_PORT`, `AR_MG_PORT`, `AR_SYSTEM_HOST_PORT`, …). Set it in `.env` or run `make dev AUTO_PORTS=1`. One assignment updates the published port and the localhost URL. |
 | `NoSuchModuleError: driver` from Alembic | `AR_DATABASE_URL` was empty. Run `make bootstrap` so `.env` exists, then `make migrate` (it loads `.env`). |
-| Postgres exits with an unused data directory | The Postgres 18 volume must be mounted at `/var/lib/postgresql`, not `/var/lib/postgresql/data`. `compose.yaml` already does this. Recreate the volume if an older container left it on the wrong path. |
+| Postgres exits with an unused data directory | The Postgres 18 volume must be mounted at `/var/lib/postgresql`, not `/var/lib/postgresql/data`. `compose.yaml` already does this. Preserve existing data: inspect the cluster location and set a local Compose `PGDATA` override to that directory when needed. Do not recreate a populated volume to fix this error; see [full-stack recovery](../testing/full-stack-review.md#local-startup). |
 | `max_json_body_bytes` validation error on an empty string | Empty assignments in `.env` are ignored. Pull the current settings code and restart. |
 | `NoReferencedTableError` on `secret_refs` during seed | `make seed` imports every model module before it opens a session. Update and run `make seed` again. |
 | `Incorrect padding` from the encryption key | `AR_DB_ENCRYPTION_KEYS` must be a JSON keyring of standard base64. Run `make bootstrap` again (or delete the placeholder and let `scripts/dev_keys.py` rewrite it). |
 | Keycloak says HTTPS required | The dev realm uses `sslRequired: none` and the compose service disables the hostname HTTPS check. Re-import the realm (`docker compose down` the keycloak volume, then `make up`) if an older realm is still stored. |
 | Keycloak asks to update account information | The seeded users need a first and last name. Re-import the realm from `deploy/compose/keycloak/agentic-runtime-realm.json`. |
 | `/login?error=tenant_not_found` after a correct password | The API callback must exchange the code and map the Keycloak organisation `dev` (or an `@dev.local` address) onto the demo tenant. Check `AR_OIDC_ISSUER`, `AR_OIDC_CLIENT_SECRET` (default `ar-web-dev-secret`) and that the redirect URI matches `AR_PUBLIC_URL`. |
+
+## Full-stack verification
+
+`uv run python scripts/full_stack_smoke.py` verifies a published agent, a durable streamed reply, ingestion and real Temporal routine execution. It retains uniquely named review records and leaves the verification schedule paused. Full commands, coverage results, embedded-chat checks and visual steps are in [the recovery review](../testing/full-stack-review.md). Rerunning `scripts/dev_keys.py` repairs an old JWKS and quotes JSON settings without rotating retained private or encryption keys.

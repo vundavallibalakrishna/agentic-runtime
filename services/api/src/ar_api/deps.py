@@ -1,29 +1,29 @@
 """Request dependencies. Spec: docs/03-specs/01-api-bff.md §4."""
 
 import uuid
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, TypeVar
 
 from fastapi import Depends, Request
 
 from ar_common.errors import ForbiddenError, UnauthenticatedError
 from ar_domain.db.context import Principal, TenantContext
-from ar_domain.db.session import tenant_session
+from ar_domain.db.session import platform_session, tenant_session
 from ar_domain.identity.repository import IdentityRepository
 from ar_domain.identity.service import IdentityService
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
+Route = TypeVar("Route", bound="Callable[..., object]")
+
 PUBLIC = "public"
 AUTHENTICATED = "authenticated"
 
 
-def expose(
-    *, permission: str | None, public: bool
-) -> Callable[[Callable[..., object]], Callable[..., object]]:
+def expose(*, permission: str | None, public: bool) -> Callable[[Route], Route]:
     """Mark a route for the permission lint."""
 
-    def decorate(func: Callable[..., object]) -> Callable[..., object]:
+    def decorate(func: Route) -> Route:
         func.__public__ = public  # type: ignore[attr-defined]
         func.__permission__ = permission  # type: ignore[attr-defined]
         func.__authenticated__ = not public  # type: ignore[attr-defined]
@@ -68,3 +68,18 @@ async def get_identity(request: Request) -> AsyncIterator[IdentityService]:
 
 IdentityDep = Annotated[IdentityService, Depends(get_identity)]
 PrincipalDep = Annotated[Principal, Depends(current_principal)]
+
+
+async def get_tenant_writer(request: Request) -> AsyncIterator[IdentityService]:
+    """Global tenant rows require the audited platform transaction (RLS §3.4)."""
+    override = getattr(request.app.state, "identity_override", None)
+    if override is not None:
+        yield override
+        return
+    principal = current_principal(request)
+    ctx = TenantContext.from_principal(principal, str(request.state.request_id))
+    async with platform_session(f"tenant settings update: {ctx.tenant_id}") as session:
+        yield IdentityService(IdentityRepository(session, ctx))
+
+
+TenantWriterDep = Annotated[IdentityService, Depends(get_tenant_writer)]

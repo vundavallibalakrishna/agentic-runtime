@@ -10,7 +10,7 @@ from ar_common.logging import get_logger
 from ar_common.settings import get_settings
 from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
-from ar_runtime.activities.execute_chat_turn import execute_chat_turn
+from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
 from ar_runtime.activities.start_run import start_run
 from ar_runtime.main import TASK_QUEUE
@@ -45,7 +45,13 @@ async def run_worker() -> None:
     """Connect and poll. A down frontend is logged and retried."""
     while True:
         try:
-            client = await asyncio.wait_for(Client.connect(_address()), timeout=0.5)
+            client = await asyncio.wait_for(
+                Client.connect(
+                    _address(),
+                    namespace=getattr(get_settings(), "temporal_namespace", "") or "default",
+                ),
+                timeout=5,
+            )
             await _prepare_store()
             worker = Worker(
                 client,
@@ -59,6 +65,7 @@ async def run_worker() -> None:
                 ],
                 activities=[
                     execute_chat_turn,
+                    finish_chat_turn,
                     start_run,
                     create_child_run,
                     expire_approval,

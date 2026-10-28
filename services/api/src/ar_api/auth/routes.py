@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from ar_api.auth.complete import LoginError
-from ar_api.auth.dev_users import DEV_TENANT_ID, catalogue
+from ar_api.auth.complete import LoginError, login_result
+from ar_api.auth.dev_users import catalogue
+from ar_api.auth.identity import resolve_login_identity
 from ar_api.auth.oidc import authorize_url, new_pkce, safe_return_to
 from ar_api.auth.session import new_session, remember_profile
 from ar_api.deps import expose
@@ -85,18 +86,21 @@ async def dev_login(request: Request) -> RedirectResponse:
     user = catalogue().get(await _dev_email(request))
     if user is None:
         return RedirectResponse("/login?error=unknown_user", status_code=303)
-    from ar_domain.durable.bind import binding_from, user_for_email  # noqa: PLC0415
-
-    binding = binding_from(request.app.state.chat)
-    tenant_id = binding.tenant_id if binding is not None else DEV_TENANT_ID
-    user_id = user_for_email(binding, user.email) or user.user_id
-    session_id, data = new_session(tenant_id, user_id)
+    try:
+        result = await resolve_login_identity(
+            request, login_result(user, access_token="", refresh_token="")
+        )
+    except LoginError as exc:
+        return RedirectResponse(f"/login?error={exc.code}", status_code=303)
+    session_id, data = new_session(
+        uuid.UUID(str(result["tenant_id"])), uuid.UUID(str(result["user_id"]))
+    )
     remember_profile(
         data,
-        email=user.email,
-        display_name=user.display_name,
-        roles=user.roles,
-        permissions=sorted(user.permissions),
+        email=str(result["email"]),
+        display_name=str(result["display_name"]),
+        roles=_string_list(result["roles"]),
+        permissions=_string_list(result["permissions"]),
     )
     await request.app.state.sessions.put(session_id, data, int(settings.session_ttl_s))
     response = RedirectResponse("/chat", status_code=303)
@@ -115,6 +119,8 @@ async def callback(request: Request, code: str = "", state: str = "") -> Redirec
     completer = request.app.state.complete_login
     try:
         result = await completer(code, saved)
+        if not result.get("select_tenant"):
+            result = await resolve_login_identity(request, result)
     except LoginError as exc:
         return RedirectResponse(f"/login?error={exc.code}", status_code=302)
     except Exception:  # noqa: BLE001 - login failures become a redirect

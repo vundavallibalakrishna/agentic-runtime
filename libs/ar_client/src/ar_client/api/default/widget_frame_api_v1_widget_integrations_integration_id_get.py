@@ -79,8 +79,6 @@ def sync_detailed(
 ]:
     """Widget Frame
 
-     Public frame policy. The integration id is the capability.
-
     Args:
         integration_id (UUID):
 
@@ -114,8 +112,6 @@ def sync(
 ):
     """Widget Frame
 
-     Public frame policy. The integration id is the capability.
-
     Args:
         integration_id (UUID):
 
@@ -142,8 +138,6 @@ async def asyncio_detailed(
     | WidgetFrameApiV1WidgetIntegrationsIntegrationIdGetResponseWidgetFrameApiV1WidgetIntegrationsIntegrationIdGet
 ]:
     """Widget Frame
-
-     Public frame policy. The integration id is the capability.
 
     Args:
         integration_id (UUID):
@@ -175,8 +169,6 @@ async def asyncio(
     | None
 ):
     """Widget Frame
-
-     Public frame policy. The integration id is the capability.
 
     Args:
         integration_id (UUID):

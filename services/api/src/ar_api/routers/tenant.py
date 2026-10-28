@@ -1,8 +1,8 @@
 """Current tenant. Spec: docs/03-specs/02-identity-tenancy.md §3.1."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
-from ar_api.deps import IdentityDep, expose, require_permission
+from ar_api.deps import IdentityDep, TenantWriterDep, expose, require_permission
 from ar_contracts.api_model import ApiModel
 
 router = APIRouter()
@@ -40,6 +40,9 @@ async def get_tenant(identity: IdentityDep) -> dict[str, object]:
 
 @router.patch("/api/v1/tenant", dependencies=[Depends(require_permission("tenant:manage"))])
 @expose(public=False, permission="tenant:manage")
-async def patch_tenant(body: TenantPatch, identity: IdentityDep) -> dict[str, object]:
+async def patch_tenant(
+    body: TenantPatch, identity: TenantWriterDep, request: Request
+) -> dict[str, object]:
     tenant = await identity.update_tenant(name=body.name, settings_patch=body.settings)
+    request.app.state.chat.tenant_settings[tenant.id] = tenant.settings
     return {"id": str(tenant.id), "name": tenant.name, "settings": tenant.settings}
