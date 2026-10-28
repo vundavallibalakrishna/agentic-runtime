@@ -797,6 +797,10 @@ async def test_durable_middleware_binds_once(monkeypatch: pytest.MonkeyPatch) ->
                     temporal_address="",
                 ),
             )
+            self.routers: list[object] = []
+
+        def include_router(self, router: object) -> None:
+            self.routers.append(router)
 
     app = _App()
 

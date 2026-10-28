@@ -103,6 +103,9 @@ from .child_runs_api_v1_runs_run_id_children_get_response_child_runs_api_v1_runs
 from .collection_body import CollectionBody
 from .collection_body_chunking_type_0 import CollectionBodyChunkingType0
 from .collection_patch import CollectionPatch
+from .confirm_mapping_api_v1_ext_grc_control_mappings_mapping_id_confirm_post_response_confirm_mapping_api_v1_ext_grc_control_mappings_mapping_id_confirm_post import (
+    ConfirmMappingApiV1ExtGrcControlMappingsMappingIdConfirmPostResponseConfirmMappingApiV1ExtGrcControlMappingsMappingIdConfirmPost,
+)
 from .connection_body import ConnectionBody
 from .connection_body_allowlist_type_0 import ConnectionBodyAllowlistType0
 from .connection_patch import ConnectionPatch
@@ -150,11 +153,21 @@ from .create_connection_api_v1_data_connections_post_response_create_connection_
 from .create_constraint_api_v1_sod_constraints_post_response_create_constraint_api_v1_sod_constraints_post import (
     CreateConstraintApiV1SodConstraintsPostResponseCreateConstraintApiV1SodConstraintsPost,
 )
+from .create_control_api_v1_ext_grc_controls_post_body import (
+    CreateControlApiV1ExtGrcControlsPostBody,
+)
+from .create_control_api_v1_ext_grc_controls_post_response_create_control_api_v1_ext_grc_controls_post import (
+    CreateControlApiV1ExtGrcControlsPostResponseCreateControlApiV1ExtGrcControlsPost,
+)
 from .create_conversation_api_v1_conversations_post_response_create_conversation_api_v1_conversations_post import (
     CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost,
 )
 from .create_domain_api_v1_tenant_domains_post_response_create_domain_api_v1_tenant_domains_post import (
     CreateDomainApiV1TenantDomainsPostResponseCreateDomainApiV1TenantDomainsPost,
+)
+from .create_entity_api_v1_ext_grc_entities_post_body import CreateEntityApiV1ExtGrcEntitiesPostBody
+from .create_entity_api_v1_ext_grc_entities_post_response_create_entity_api_v1_ext_grc_entities_post import (
+    CreateEntityApiV1ExtGrcEntitiesPostResponseCreateEntityApiV1ExtGrcEntitiesPost,
 )
 from .create_eval_case_api_v1_eval_suites_suite_id_cases_post_response_create_eval_case_api_v1_eval_suites_suite_id_cases_post import (
     CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostResponseCreateEvalCaseApiV1EvalSuitesSuiteIdCasesPost,
@@ -164,6 +177,18 @@ from .create_eval_suite_api_v1_eval_suites_post_response_create_eval_suite_api_v
 )
 from .create_evidence_api_v1_evidence_post_response_create_evidence_api_v1_evidence_post import (
     CreateEvidenceApiV1EvidencePostResponseCreateEvidenceApiV1EvidencePost,
+)
+from .create_evidence_link_api_v1_ext_grc_evidence_links_post_body import (
+    CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostBody,
+)
+from .create_evidence_link_api_v1_ext_grc_evidence_links_post_response_create_evidence_link_api_v1_ext_grc_evidence_links_post import (
+    CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostResponseCreateEvidenceLinkApiV1ExtGrcEvidenceLinksPost,
+)
+from .create_framework_api_v1_ext_grc_frameworks_post_body import (
+    CreateFrameworkApiV1ExtGrcFrameworksPostBody,
+)
+from .create_framework_api_v1_ext_grc_frameworks_post_response_create_framework_api_v1_ext_grc_frameworks_post import (
+    CreateFrameworkApiV1ExtGrcFrameworksPostResponseCreateFrameworkApiV1ExtGrcFrameworksPost,
 )
 from .create_grant_api_v1_guests_guest_id_grants_post_response_create_grant_api_v1_guests_guest_id_grants_post import (
     CreateGrantApiV1GuestsGuestIdGrantsPostResponseCreateGrantApiV1GuestsGuestIdGrantsPost,
@@ -192,6 +217,12 @@ from .create_integration_api_v1_channel_integrations_post_response_create_integr
 )
 from .create_invitations_api_v1_invitations_post_response_200_item import (
     CreateInvitationsApiV1InvitationsPostResponse200Item,
+)
+from .create_mapping_api_v1_ext_grc_control_mappings_post_body import (
+    CreateMappingApiV1ExtGrcControlMappingsPostBody,
+)
+from .create_mapping_api_v1_ext_grc_control_mappings_post_response_create_mapping_api_v1_ext_grc_control_mappings_post import (
+    CreateMappingApiV1ExtGrcControlMappingsPostResponseCreateMappingApiV1ExtGrcControlMappingsPost,
 )
 from .create_memory_api_v1_memory_post_response_create_memory_api_v1_memory_post import (
     CreateMemoryApiV1MemoryPostResponseCreateMemoryApiV1MemoryPost,
@@ -449,6 +480,9 @@ from .enable_tool_api_v1_tools_tool_id_enable_post_response_enable_tool_api_v1_t
 from .enroll_totp_api_v1_auth_guest_totp_enroll_post_response_enroll_totp_api_v1_auth_guest_totp_enroll_post import (
     EnrollTotpApiV1AuthGuestTotpEnrollPostResponseEnrollTotpApiV1AuthGuestTotpEnrollPost,
 )
+from .entity_posture_api_v1_ext_grc_entities_entity_id_posture_get_response_entity_posture_api_v1_ext_grc_entities_entity_id_posture_get import (
+    EntityPostureApiV1ExtGrcEntitiesEntityIdPostureGetResponseEntityPostureApiV1ExtGrcEntitiesEntityIdPostureGet,
+)
 from .erase_user_api_v1_users_user_id_erase_post_response_erase_user_api_v1_users_user_id_erase_post import (
     EraseUserApiV1UsersUserIdErasePostResponseEraseUserApiV1UsersUserIdErasePost,
 )
@@ -468,6 +502,9 @@ from .export_governance_api_v1_ai_governance_export_post_response_export_governa
 )
 from .export_me_api_v1_me_export_get_response_export_me_api_v1_me_export_get import (
     ExportMeApiV1MeExportGetResponseExportMeApiV1MeExportGet,
+)
+from .export_oscal_api_v1_ext_grc_frameworks_framework_id_export_oscal_get_response_export_oscal_api_v1_ext_grc_frameworks_framework_id_export_oscal_get import (
+    ExportOscalApiV1ExtGrcFrameworksFrameworkIdExportOscalGetResponseExportOscalApiV1ExtGrcFrameworksFrameworkIdExportOscalGet,
 )
 from .export_sandbox_file_api_v1_sandboxes_sandbox_id_files_export_post_response_export_sandbox_file_api_v1_sandboxes_sandbox_id_files_export_post import (
     ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponseExportSandboxFileApiV1SandboxesSandboxIdFilesExportPost,
@@ -500,6 +537,9 @@ from .get_connection_api_v1_data_connections_connection_id_get_response_get_conn
 from .get_constraint_api_v1_sod_constraints_constraint_id_get_response_get_constraint_api_v1_sod_constraints_constraint_id_get import (
     GetConstraintApiV1SodConstraintsConstraintIdGetResponseGetConstraintApiV1SodConstraintsConstraintIdGet,
 )
+from .get_control_api_v1_ext_grc_controls_control_id_get_response_get_control_api_v1_ext_grc_controls_control_id_get import (
+    GetControlApiV1ExtGrcControlsControlIdGetResponseGetControlApiV1ExtGrcControlsControlIdGet,
+)
 from .get_conversation_api_v1_conversations_conversation_id_get_response_get_conversation_api_v1_conversations_conversation_id_get import (
     GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet,
 )
@@ -520,6 +560,9 @@ from .get_evidence_api_v1_evidence_evidence_item_id_get_response_get_evidence_ap
 )
 from .get_file_api_v1_files_file_id_get_response_get_file_api_v1_files_file_id_get import (
     GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet,
+)
+from .get_framework_api_v1_ext_grc_frameworks_framework_id_get_response_get_framework_api_v1_ext_grc_frameworks_framework_id_get import (
+    GetFrameworkApiV1ExtGrcFrameworksFrameworkIdGetResponseGetFrameworkApiV1ExtGrcFrameworksFrameworkIdGet,
 )
 from .get_guest_api_v1_guests_guest_id_get_response_get_guest_api_v1_guests_guest_id_get import (
     GetGuestApiV1GuestsGuestIdGetResponseGetGuestApiV1GuestsGuestIdGet,
@@ -547,6 +590,9 @@ from .get_queue_api_v1_review_queues_queue_id_get_response_get_queue_api_v1_revi
 )
 from .get_replay_api_v1_run_records_run_record_id_replays_replay_id_get_response_get_replay_api_v1_run_records_run_record_id_replays_replay_id_get import (
     GetReplayApiV1RunRecordsRunRecordIdReplaysReplayIdGetResponseGetReplayApiV1RunRecordsRunRecordIdReplaysReplayIdGet,
+)
+from .get_requirement_api_v1_ext_grc_requirements_requirement_id_get_response_get_requirement_api_v1_ext_grc_requirements_requirement_id_get import (
+    GetRequirementApiV1ExtGrcRequirementsRequirementIdGetResponseGetRequirementApiV1ExtGrcRequirementsRequirementIdGet,
 )
 from .get_routine_api_v1_routines_routine_id_get_response_get_routine_api_v1_routines_routine_id_get import (
     GetRoutineApiV1RoutinesRoutineIdGetResponseGetRoutineApiV1RoutinesRoutineIdGet,
@@ -630,6 +676,18 @@ from .import_body_bundle_type_0 import ImportBodyBundleType0
 from .import_eval_cases_api_v1_eval_suites_suite_id_cases_import_post_response_import_eval_cases_api_v1_eval_suites_suite_id_cases_import_post import (
     ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostResponseImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPost,
 )
+from .import_licensed_text_api_v1_ext_grc_frameworks_framework_id_import_licensed_text_post_body import (
+    ImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPostBody,
+)
+from .import_licensed_text_api_v1_ext_grc_frameworks_framework_id_import_licensed_text_post_response_import_licensed_text_api_v1_ext_grc_frameworks_framework_id_import_licensed_text_post import (
+    ImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPostResponseImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPost,
+)
+from .import_oscal_api_v1_ext_grc_frameworks_import_oscal_post_body import (
+    ImportOscalApiV1ExtGrcFrameworksImportOscalPostBody,
+)
+from .import_oscal_api_v1_ext_grc_frameworks_import_oscal_post_response_import_oscal_api_v1_ext_grc_frameworks_import_oscal_post import (
+    ImportOscalApiV1ExtGrcFrameworksImportOscalPostResponseImportOscalApiV1ExtGrcFrameworksImportOscalPost,
+)
 from .inbound_body import InboundBody
 from .inbound_body_command_type_0 import InboundBodyCommandType0
 from .incident_body import IncidentBody
@@ -709,6 +767,9 @@ from .list_connections_api_v1_data_connections_get_response_list_connections_api
 from .list_constraints_api_v1_sod_constraints_get_response_list_constraints_api_v1_sod_constraints_get import (
     ListConstraintsApiV1SodConstraintsGetResponseListConstraintsApiV1SodConstraintsGet,
 )
+from .list_controls_api_v1_ext_grc_controls_get_response_list_controls_api_v1_ext_grc_controls_get import (
+    ListControlsApiV1ExtGrcControlsGetResponseListControlsApiV1ExtGrcControlsGet,
+)
 from .list_conversations_api_v1_conversations_get_response_list_conversations_api_v1_conversations_get import (
     ListConversationsApiV1ConversationsGetResponseListConversationsApiV1ConversationsGet,
 )
@@ -717,6 +778,9 @@ from .list_documents_api_v1_knowledge_collections_collection_id_documents_get_re
 )
 from .list_domains_api_v1_tenant_domains_get_response_list_domains_api_v1_tenant_domains_get import (
     ListDomainsApiV1TenantDomainsGetResponseListDomainsApiV1TenantDomainsGet,
+)
+from .list_entities_api_v1_ext_grc_entities_get_response_list_entities_api_v1_ext_grc_entities_get import (
+    ListEntitiesApiV1ExtGrcEntitiesGetResponseListEntitiesApiV1ExtGrcEntitiesGet,
 )
 from .list_eval_cases_api_v1_eval_suites_suite_id_cases_get_response_list_eval_cases_api_v1_eval_suites_suite_id_cases_get import (
     ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetResponseListEvalCasesApiV1EvalSuitesSuiteIdCasesGet,
@@ -739,11 +803,17 @@ from .list_events_api_v1_routines_routine_id_events_get_response_list_events_api
 from .list_evidence_api_v1_evidence_get_response_list_evidence_api_v1_evidence_get import (
     ListEvidenceApiV1EvidenceGetResponseListEvidenceApiV1EvidenceGet,
 )
+from .list_evidence_links_api_v1_ext_grc_evidence_links_get_response_list_evidence_links_api_v1_ext_grc_evidence_links_get import (
+    ListEvidenceLinksApiV1ExtGrcEvidenceLinksGetResponseListEvidenceLinksApiV1ExtGrcEvidenceLinksGet,
+)
 from .list_feedback_api_v1_feedback_get_response_list_feedback_api_v1_feedback_get import (
     ListFeedbackApiV1FeedbackGetResponseListFeedbackApiV1FeedbackGet,
 )
 from .list_files_api_v1_files_get_response_list_files_api_v1_files_get import (
     ListFilesApiV1FilesGetResponseListFilesApiV1FilesGet,
+)
+from .list_frameworks_api_v1_ext_grc_frameworks_get_response_list_frameworks_api_v1_ext_grc_frameworks_get import (
+    ListFrameworksApiV1ExtGrcFrameworksGetResponseListFrameworksApiV1ExtGrcFrameworksGet,
 )
 from .list_grants_api_v1_tenant_support_access_get_response_list_grants_api_v1_tenant_support_access_get import (
     ListGrantsApiV1TenantSupportAccessGetResponseListGrantsApiV1TenantSupportAccessGet,
@@ -781,6 +851,9 @@ from .list_items_api_v1_review_items_get_response_list_items_api_v1_review_items
 from .list_jobs_api_v1_knowledge_collections_collection_id_jobs_get_response_list_jobs_api_v1_knowledge_collections_collection_id_jobs_get import (
     ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponseListJobsApiV1KnowledgeCollectionsCollectionIdJobsGet,
 )
+from .list_mappings_api_v1_ext_grc_control_mappings_get_response_list_mappings_api_v1_ext_grc_control_mappings_get import (
+    ListMappingsApiV1ExtGrcControlMappingsGetResponseListMappingsApiV1ExtGrcControlMappingsGet,
+)
 from .list_members_api_v1_groups_group_id_members_get_response_list_members_api_v1_groups_group_id_members_get import (
     ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet,
 )
@@ -816,6 +889,9 @@ from .list_queues_api_v1_review_queues_get_response_list_queues_api_v1_review_qu
 )
 from .list_quotas_api_v1_quotas_get_response_list_quotas_api_v1_quotas_get import (
     ListQuotasApiV1QuotasGetResponseListQuotasApiV1QuotasGet,
+)
+from .list_requirements_api_v1_ext_grc_frameworks_framework_id_requirements_get_response_list_requirements_api_v1_ext_grc_frameworks_framework_id_requirements_get import (
+    ListRequirementsApiV1ExtGrcFrameworksFrameworkIdRequirementsGetResponseListRequirementsApiV1ExtGrcFrameworksFrameworkIdRequirementsGet,
 )
 from .list_roles_api_v1_roles_get_response_list_roles_api_v1_roles_get import (
     ListRolesApiV1RolesGetResponseListRolesApiV1RolesGet,
@@ -964,8 +1040,20 @@ from .patch_connection_api_v1_data_connections_connection_id_patch_response_patc
 from .patch_constraint_api_v1_sod_constraints_constraint_id_patch_response_patch_constraint_api_v1_sod_constraints_constraint_id_patch import (
     PatchConstraintApiV1SodConstraintsConstraintIdPatchResponsePatchConstraintApiV1SodConstraintsConstraintIdPatch,
 )
+from .patch_control_api_v1_ext_grc_controls_control_id_patch_body import (
+    PatchControlApiV1ExtGrcControlsControlIdPatchBody,
+)
+from .patch_control_api_v1_ext_grc_controls_control_id_patch_response_patch_control_api_v1_ext_grc_controls_control_id_patch import (
+    PatchControlApiV1ExtGrcControlsControlIdPatchResponsePatchControlApiV1ExtGrcControlsControlIdPatch,
+)
 from .patch_conversation_api_v1_conversations_conversation_id_patch_response_patch_conversation_api_v1_conversations_conversation_id_patch import (
     PatchConversationApiV1ConversationsConversationIdPatchResponsePatchConversationApiV1ConversationsConversationIdPatch,
+)
+from .patch_framework_api_v1_ext_grc_frameworks_framework_id_patch_body import (
+    PatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatchBody,
+)
+from .patch_framework_api_v1_ext_grc_frameworks_framework_id_patch_response_patch_framework_api_v1_ext_grc_frameworks_framework_id_patch import (
+    PatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatchResponsePatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatch,
 )
 from .patch_group_scim_v2_groups_group_id_patch_body import PatchGroupScimV2GroupsGroupIdPatchBody
 from .patch_group_scim_v2_groups_group_id_patch_response_patch_group_scim_v2_groups_group_id_patch import (
@@ -1133,6 +1221,9 @@ from .reject_agent_memory_api_v1_agents_agent_id_memory_fact_id_reject_post_resp
 from .reject_api_v1_tool_servers_server_id_versions_version_id_reject_post_response_reject_api_v1_tool_servers_server_id_versions_version_id_reject_post import (
     RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponseRejectApiV1ToolServersServerIdVersionsVersionIdRejectPost,
 )
+from .reject_mapping_api_v1_ext_grc_control_mappings_mapping_id_reject_post_response_reject_mapping_api_v1_ext_grc_control_mappings_mapping_id_reject_post import (
+    RejectMappingApiV1ExtGrcControlMappingsMappingIdRejectPostResponseRejectMappingApiV1ExtGrcControlMappingsMappingIdRejectPost,
+)
 from .release_body import ReleaseBody
 from .release_hold_api_v1_legal_holds_hold_id_release_post_response_release_hold_api_v1_legal_holds_hold_id_release_post import (
     ReleaseHoldApiV1LegalHoldsHoldIdReleasePostResponseReleaseHoldApiV1LegalHoldsHoldIdReleasePost,
@@ -1264,6 +1355,12 @@ from .step_up_api_v1_auth_step_up_post_response_step_up_api_v1_auth_step_up_post
 )
 from .submit_api_v1_tool_servers_server_id_versions_version_id_submit_post_response_submit_api_v1_tool_servers_server_id_versions_version_id_submit_post import (
     SubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPostResponseSubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPost,
+)
+from .suggest_mappings_api_v1_ext_grc_control_mappings_suggest_post_body import (
+    SuggestMappingsApiV1ExtGrcControlMappingsSuggestPostBody,
+)
+from .suggest_mappings_api_v1_ext_grc_control_mappings_suggest_post_response_suggest_mappings_api_v1_ext_grc_control_mappings_suggest_post import (
+    SuggestMappingsApiV1ExtGrcControlMappingsSuggestPostResponseSuggestMappingsApiV1ExtGrcControlMappingsSuggestPost,
 )
 from .suite_body import SuiteBody
 from .suite_body_gate_type_0 import SuiteBodyGateType0
@@ -1464,6 +1561,7 @@ __all__ = (
     "CollectionBody",
     "CollectionBodyChunkingType0",
     "CollectionPatch",
+    "ConfirmMappingApiV1ExtGrcControlMappingsMappingIdConfirmPostResponseConfirmMappingApiV1ExtGrcControlMappingsMappingIdConfirmPost",
     "ConnectionBody",
     "ConnectionBodyAllowlistType0",
     "ConnectionPatch",
@@ -1485,11 +1583,19 @@ __all__ = (
     "CreateCollectionApiV1KnowledgeCollectionsPostResponseCreateCollectionApiV1KnowledgeCollectionsPost",
     "CreateConnectionApiV1DataConnectionsPostResponseCreateConnectionApiV1DataConnectionsPost",
     "CreateConstraintApiV1SodConstraintsPostResponseCreateConstraintApiV1SodConstraintsPost",
+    "CreateControlApiV1ExtGrcControlsPostBody",
+    "CreateControlApiV1ExtGrcControlsPostResponseCreateControlApiV1ExtGrcControlsPost",
     "CreateConversationApiV1ConversationsPostResponseCreateConversationApiV1ConversationsPost",
     "CreateDomainApiV1TenantDomainsPostResponseCreateDomainApiV1TenantDomainsPost",
+    "CreateEntityApiV1ExtGrcEntitiesPostBody",
+    "CreateEntityApiV1ExtGrcEntitiesPostResponseCreateEntityApiV1ExtGrcEntitiesPost",
     "CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostResponseCreateEvalCaseApiV1EvalSuitesSuiteIdCasesPost",
     "CreateEvalSuiteApiV1EvalSuitesPostResponseCreateEvalSuiteApiV1EvalSuitesPost",
     "CreateEvidenceApiV1EvidencePostResponseCreateEvidenceApiV1EvidencePost",
+    "CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostBody",
+    "CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostResponseCreateEvidenceLinkApiV1ExtGrcEvidenceLinksPost",
+    "CreateFrameworkApiV1ExtGrcFrameworksPostBody",
+    "CreateFrameworkApiV1ExtGrcFrameworksPostResponseCreateFrameworkApiV1ExtGrcFrameworksPost",
     "CreateGrantApiV1GuestsGuestIdGrantsPostResponseCreateGrantApiV1GuestsGuestIdGrantsPost",
     "CreateGrantApiV1TenantSupportAccessPostResponseCreateGrantApiV1TenantSupportAccessPost",
     "CreateGroupApiV1GroupsPostResponseCreateGroupApiV1GroupsPost",
@@ -1500,6 +1606,8 @@ __all__ = (
     "CreateIncidentApiV1AiIncidentsPostResponseCreateIncidentApiV1AiIncidentsPost",
     "CreateIntegrationApiV1ChannelIntegrationsPostResponseCreateIntegrationApiV1ChannelIntegrationsPost",
     "CreateInvitationsApiV1InvitationsPostResponse200Item",
+    "CreateMappingApiV1ExtGrcControlMappingsPostBody",
+    "CreateMappingApiV1ExtGrcControlMappingsPostResponseCreateMappingApiV1ExtGrcControlMappingsPost",
     "CreateMemoryApiV1MemoryPostResponseCreateMemoryApiV1MemoryPost",
     "CreateModelApiV1ModelsPostResponseCreateModelApiV1ModelsPost",
     "CreatePlanApiV1PlatformPlansPostResponseCreatePlanApiV1PlatformPlansPost",
@@ -1596,6 +1704,7 @@ __all__ = (
     "EnablePackApiV1TenantPacksPackIdEnablePostResponseEnablePackApiV1TenantPacksPackIdEnablePost",
     "EnableToolApiV1ToolsToolIdEnablePostResponseEnableToolApiV1ToolsToolIdEnablePost",
     "EnrollTotpApiV1AuthGuestTotpEnrollPostResponseEnrollTotpApiV1AuthGuestTotpEnrollPost",
+    "EntityPostureApiV1ExtGrcEntitiesEntityIdPostureGetResponseEntityPostureApiV1ExtGrcEntitiesEntityIdPostureGet",
     "EraseUserApiV1UsersUserIdErasePostResponseEraseUserApiV1UsersUserIdErasePost",
     "EvalImportBody",
     "EvalRunBody",
@@ -1606,6 +1715,7 @@ __all__ = (
     "ExportConversationApiV1ConversationsConversationIdExportGetResponseExportConversationApiV1ConversationsConversationIdExportGet",
     "ExportGovernanceApiV1AiGovernanceExportPostResponseExportGovernanceApiV1AiGovernanceExportPost",
     "ExportMeApiV1MeExportGetResponseExportMeApiV1MeExportGet",
+    "ExportOscalApiV1ExtGrcFrameworksFrameworkIdExportOscalGetResponseExportOscalApiV1ExtGrcFrameworksFrameworkIdExportOscalGet",
     "ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponseExportSandboxFileApiV1SandboxesSandboxIdFilesExportPost",
     "FavouriteBody",
     "FeedbackBody",
@@ -1619,6 +1729,7 @@ __all__ = (
     "GetCollectionApiV1KnowledgeCollectionsCollectionIdGetResponseGetCollectionApiV1KnowledgeCollectionsCollectionIdGet",
     "GetConnectionApiV1DataConnectionsConnectionIdGetResponseGetConnectionApiV1DataConnectionsConnectionIdGet",
     "GetConstraintApiV1SodConstraintsConstraintIdGetResponseGetConstraintApiV1SodConstraintsConstraintIdGet",
+    "GetControlApiV1ExtGrcControlsControlIdGetResponseGetControlApiV1ExtGrcControlsControlIdGet",
     "GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet",
     "GetDocumentApiV1KnowledgeDocumentsDocumentIdGetResponseGetDocumentApiV1KnowledgeDocumentsDocumentIdGet",
     "GetEvalRunApiV1EvalRunsEvalRunIdGetResponseGetEvalRunApiV1EvalRunsEvalRunIdGet",
@@ -1626,6 +1737,7 @@ __all__ = (
     "GetEventApiV1AuditEventsEventIdGetResponseGetEventApiV1AuditEventsEventIdGet",
     "GetEvidenceApiV1EvidenceEvidenceItemIdGetResponseGetEvidenceApiV1EvidenceEvidenceItemIdGet",
     "GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet",
+    "GetFrameworkApiV1ExtGrcFrameworksFrameworkIdGetResponseGetFrameworkApiV1ExtGrcFrameworksFrameworkIdGet",
     "GetGuestApiV1GuestsGuestIdGetResponseGetGuestApiV1GuestsGuestIdGet",
     "GetHoldApiV1LegalHoldsHoldIdGetResponseGetHoldApiV1LegalHoldsHoldIdGet",
     "GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponseGetIntegrationApiV1ChannelIntegrationsIntegrationIdGet",
@@ -1635,6 +1747,7 @@ __all__ = (
     "GetPolicyApiV1PoliciesPolicyIdGetResponseGetPolicyApiV1PoliciesPolicyIdGet",
     "GetQueueApiV1ReviewQueuesQueueIdGetResponseGetQueueApiV1ReviewQueuesQueueIdGet",
     "GetReplayApiV1RunRecordsRunRecordIdReplaysReplayIdGetResponseGetReplayApiV1RunRecordsRunRecordIdReplaysReplayIdGet",
+    "GetRequirementApiV1ExtGrcRequirementsRequirementIdGetResponseGetRequirementApiV1ExtGrcRequirementsRequirementIdGet",
     "GetRoutineApiV1RoutinesRoutineIdGetResponseGetRoutineApiV1RoutinesRoutineIdGet",
     "GetRunApiV1RunsRunIdGetResponseGetRunApiV1RunsRunIdGet",
     "GetRunRecordApiV1RunRecordsRunRecordIdGetResponseGetRunRecordApiV1RunRecordsRunRecordIdGet",
@@ -1673,6 +1786,10 @@ __all__ = (
     "ImportBody",
     "ImportBodyBundleType0",
     "ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostResponseImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPost",
+    "ImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPostBody",
+    "ImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPostResponseImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPost",
+    "ImportOscalApiV1ExtGrcFrameworksImportOscalPostBody",
+    "ImportOscalApiV1ExtGrcFrameworksImportOscalPostResponseImportOscalApiV1ExtGrcFrameworksImportOscalPost",
     "InboundBody",
     "InboundBodyCommandType0",
     "IncidentBody",
@@ -1710,9 +1827,11 @@ __all__ = (
     "ListConnectionsApiV1ConnectionsGetResponseListConnectionsApiV1ConnectionsGet",
     "ListConnectionsApiV1DataConnectionsGetResponseListConnectionsApiV1DataConnectionsGet",
     "ListConstraintsApiV1SodConstraintsGetResponseListConstraintsApiV1SodConstraintsGet",
+    "ListControlsApiV1ExtGrcControlsGetResponseListControlsApiV1ExtGrcControlsGet",
     "ListConversationsApiV1ConversationsGetResponseListConversationsApiV1ConversationsGet",
     "ListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGetResponseListDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsGet",
     "ListDomainsApiV1TenantDomainsGetResponseListDomainsApiV1TenantDomainsGet",
+    "ListEntitiesApiV1ExtGrcEntitiesGetResponseListEntitiesApiV1ExtGrcEntitiesGet",
     "ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetResponseListEvalCasesApiV1EvalSuitesSuiteIdCasesGet",
     "ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetResponseListEvalResultsApiV1EvalRunsEvalRunIdResultsGet",
     "ListEvalRunsApiV1EvalRunsGetResponseListEvalRunsApiV1EvalRunsGet",
@@ -1720,8 +1839,10 @@ __all__ = (
     "ListEventsApiV1AuditEventsGetResponseListEventsApiV1AuditEventsGet",
     "ListEventsApiV1RoutinesRoutineIdEventsGetResponseListEventsApiV1RoutinesRoutineIdEventsGet",
     "ListEvidenceApiV1EvidenceGetResponseListEvidenceApiV1EvidenceGet",
+    "ListEvidenceLinksApiV1ExtGrcEvidenceLinksGetResponseListEvidenceLinksApiV1ExtGrcEvidenceLinksGet",
     "ListFeedbackApiV1FeedbackGetResponseListFeedbackApiV1FeedbackGet",
     "ListFilesApiV1FilesGetResponseListFilesApiV1FilesGet",
+    "ListFrameworksApiV1ExtGrcFrameworksGetResponseListFrameworksApiV1ExtGrcFrameworksGet",
     "ListGrantsApiV1TenantSupportAccessGetResponseListGrantsApiV1TenantSupportAccessGet",
     "ListGroupsApiV1GroupsGetResponseListGroupsApiV1GroupsGet",
     "ListGroupsScimV2GroupsGetResponseListGroupsScimV2GroupsGet",
@@ -1734,6 +1855,7 @@ __all__ = (
     "ListInvitationsApiV1InvitationsGetResponseListInvitationsApiV1InvitationsGet",
     "ListItemsApiV1ReviewItemsGetResponseListItemsApiV1ReviewItemsGet",
     "ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetResponseListJobsApiV1KnowledgeCollectionsCollectionIdJobsGet",
+    "ListMappingsApiV1ExtGrcControlMappingsGetResponseListMappingsApiV1ExtGrcControlMappingsGet",
     "ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet",
     "ListMemoryApiV1MemoryGetResponseListMemoryApiV1MemoryGet",
     "ListModelsApiV1ModelsGetResponseListModelsApiV1ModelsGet",
@@ -1746,6 +1868,7 @@ __all__ = (
     "ListProvidersApiV1ModelProvidersGetResponseListProvidersApiV1ModelProvidersGet",
     "ListQueuesApiV1ReviewQueuesGetResponseListQueuesApiV1ReviewQueuesGet",
     "ListQuotasApiV1QuotasGetResponseListQuotasApiV1QuotasGet",
+    "ListRequirementsApiV1ExtGrcFrameworksFrameworkIdRequirementsGetResponseListRequirementsApiV1ExtGrcFrameworksFrameworkIdRequirementsGet",
     "ListRolesApiV1RolesGetResponseListRolesApiV1RolesGet",
     "ListRoutinesApiV1RoutinesGetResponseListRoutinesApiV1RoutinesGet",
     "ListRunRecordsApiV1RunRecordsGetResponseListRunRecordsApiV1RunRecordsGet",
@@ -1803,7 +1926,11 @@ __all__ = (
     "PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponsePatchCollectionApiV1KnowledgeCollectionsCollectionIdPatch",
     "PatchConnectionApiV1DataConnectionsConnectionIdPatchResponsePatchConnectionApiV1DataConnectionsConnectionIdPatch",
     "PatchConstraintApiV1SodConstraintsConstraintIdPatchResponsePatchConstraintApiV1SodConstraintsConstraintIdPatch",
+    "PatchControlApiV1ExtGrcControlsControlIdPatchBody",
+    "PatchControlApiV1ExtGrcControlsControlIdPatchResponsePatchControlApiV1ExtGrcControlsControlIdPatch",
     "PatchConversationApiV1ConversationsConversationIdPatchResponsePatchConversationApiV1ConversationsConversationIdPatch",
+    "PatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatchBody",
+    "PatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatchResponsePatchFrameworkApiV1ExtGrcFrameworksFrameworkIdPatch",
     "PatchGroupScimV2GroupsGroupIdPatchBody",
     "PatchGroupScimV2GroupsGroupIdPatchResponsePatchGroupScimV2GroupsGroupIdPatch",
     "PatchIdpApiV1IdentityProvidersIdpIdPatchResponsePatchIdpApiV1IdentityProvidersIdpIdPatch",
@@ -1874,6 +2001,7 @@ __all__ = (
     "ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponseReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPost",
     "RejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPostResponseRejectAgentMemoryApiV1AgentsAgentIdMemoryFactIdRejectPost",
     "RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponseRejectApiV1ToolServersServerIdVersionsVersionIdRejectPost",
+    "RejectMappingApiV1ExtGrcControlMappingsMappingIdRejectPostResponseRejectMappingApiV1ExtGrcControlMappingsMappingIdRejectPost",
     "ReleaseBody",
     "ReleaseHoldApiV1LegalHoldsHoldIdReleasePostResponseReleaseHoldApiV1LegalHoldsHoldIdReleasePost",
     "RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponseRemoveMemberApiV1TeamsTeamIdMembersUserIdDelete",
@@ -1942,6 +2070,8 @@ __all__ = (
     "StepUpApiV1AuthStepUpPostBodyType0",
     "StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost",
     "SubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPostResponseSubmitApiV1ToolServersServerIdVersionsVersionIdSubmitPost",
+    "SuggestMappingsApiV1ExtGrcControlMappingsSuggestPostBody",
+    "SuggestMappingsApiV1ExtGrcControlMappingsSuggestPostResponseSuggestMappingsApiV1ExtGrcControlMappingsSuggestPost",
     "SuiteBody",
     "SuiteBodyGateType0",
     "SuitePatch",
