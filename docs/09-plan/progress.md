@@ -207,7 +207,7 @@ M20-T02 | done | 0cb867c | operator model screen
 M20-T03 | done | 0cb867c | full-stack certification run
 M20-T04 | done | 0cb867c | report, checklist and walkthrough
 
-M21-T01 | in_progress | - | 2026-10-28 park the GRC pack
-M21-T02 | in_progress | - | 2026-10-28 chat-first workspace
-M21-T03 | in_progress | - | 2026-10-28 agent loop
-M21-T04 | in_progress | - | 2026-10-28 agent builder and model setup
+M21-T01 | done | 570ad4f | GRC pack parked behind AR_GRC_PACK_ENABLED, default off
+M21-T02 | done | 570ad4f | chat home, agent and model pickers, tool progress
+M21-T03 | done | 570ad4f | plan, act, check, retry; assistant max_tool_calls 8
+M21-T04 | done | 570ad4f | agent form, editor limits, model connection, real Qwen proof
