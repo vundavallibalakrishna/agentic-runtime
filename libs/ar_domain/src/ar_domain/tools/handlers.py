@@ -8,6 +8,7 @@ from ar_domain.tools.logic import as_int
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 
 Handler = Any
+_ENDPOINTS: dict[str, Handler] = {}
 _ORDERS = (
     {"id": 1, "sku": "paper", "quantity": 4},
     {"id": 2, "sku": "ink", "quantity": 2},
@@ -19,10 +20,26 @@ def orders() -> list[dict[str, object]]:
     return [dict(row) for row in _ORDERS]
 
 
+def register_endpoint(endpoint: str, handler: Handler) -> None:
+    """Let a pack serve an in-process endpoint. Core does not import the pack."""
+    _ENDPOINTS[endpoint] = handler
+
+
 def dispatch(  # noqa: PLR0911, PLR0912
     store: Any, endpoint: str, name: str, arguments: dict[str, object], token: str
 ) -> dict[str, object]:
     """Run one in-process tool. Unknown endpoints are upstream errors."""
+    extra = _ENDPOINTS.get(endpoint)
+    if extra is not None:
+        result = extra(store, name, arguments, token)
+        if isinstance(result, dict):
+            return result
+        return {
+            "text": "upstream server is not reachable",
+            "structured": {},
+            "is_error": True,
+            "code": "upstream_error",
+        }
     if endpoint == "memory://tickets":
         return _tickets(store, name, arguments, token)
     if endpoint == "memory://echo":

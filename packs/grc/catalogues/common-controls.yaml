@@ -1,0 +1,77 @@
+controls:
+  - key: CC-AC
+    title: Access control
+    statement: Access to systems and data is limited to people and services that need it for their work.
+    mappings:
+      - framework: nist-800-53
+        control: ac-2
+        confidence: 1
+        status: confirmed
+      - framework: nist-csf
+        control: pr.aa
+        confidence: 1
+        status: confirmed
+      - framework: iso-27001
+        control: a.5.15
+        confidence: 0.7
+        status: suggested
+      - framework: soc-2
+        control: cc6.1
+        confidence: 0.6
+        status: suggested
+      - framework: pci-dss
+        control: "8.1"
+        confidence: 0.5
+        status: suggested
+  - key: CC-LOG
+    title: Logging
+    statement: Security-relevant events are logged and the logs are reviewed.
+    mappings:
+      - framework: nist-800-53
+        control: au-2
+        confidence: 1
+        status: confirmed
+      - framework: nist-csf
+        control: de.cm
+        confidence: 1
+        status: confirmed
+      - framework: iso-27001
+        control: a.8.15
+        confidence: 0.7
+        status: suggested
+      - framework: pci-dss
+        control: "10.1"
+        confidence: 0.5
+        status: suggested
+  - key: CC-IR
+    title: Incident response
+    statement: Security incidents are handled and recovered from a written plan.
+    mappings:
+      - framework: nist-800-53
+        control: ir-4
+        confidence: 1
+        status: confirmed
+      - framework: nist-csf
+        control: rs.ma
+        confidence: 1
+        status: confirmed
+      - framework: iso-27001
+        control: a.5.24
+        confidence: 0.7
+        status: suggested
+      - framework: soc-2
+        control: cc7.2
+        confidence: 0.6
+        status: suggested
+  - key: CC-VM
+    title: Vulnerability management
+    statement: Technical flaws are identified and corrected on a defined timetable.
+    mappings:
+      - framework: nist-800-53
+        control: si-2
+        confidence: 1
+        status: confirmed
+      - framework: iso-27001
+        control: a.8.8
+        confidence: 0.7
+        status: suggested

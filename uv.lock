@@ -23,6 +23,7 @@ members = [
     "ar-mcp-openapi",
     "ar-mcp-sql",
     "ar-model-gateway",
+    "ar-pack-grc",
     "ar-runtime",
     "ar-sandbox-agent",
     "ar-sandbox-manager",
@@ -687,6 +688,33 @@ requires-dist = [
     { name = "httpx", specifier = "==0.28.1" },
     { name = "openai", specifier = "==3.35.1" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
+]
+
+[[package]]
+name = "ar-pack-grc"
+version = "1.0.0"
+source = { editable = "packs/grc" }
+dependencies = [
+    { name = "alembic" },
+    { name = "ar-api" },
+    { name = "ar-common" },
+    { name = "ar-domain" },
+    { name = "fastapi" },
+    { name = "orjson" },
+    { name = "pyyaml" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = "==1.20.0" },
+    { name = "ar-api", editable = "services/api" },
+    { name = "ar-common", editable = "libs/ar_common" },
+    { name = "ar-domain", editable = "libs/ar_domain" },
+    { name = "fastapi", specifier = "==0.151.0" },
+    { name = "orjson", specifier = "==3.13.0" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = "==2.1.5" },
 ]
 
 [[package]]

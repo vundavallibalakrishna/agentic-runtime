@@ -1,0 +1,29 @@
+obligations:
+  - regulator: DPDP
+    citation: "Act 2023 s.8(5)"
+    statement: A data fiduciary protects personal data with reasonable security safeguards to prevent a breach.
+  - regulator: DPDP
+    citation: "Rules 2025 rule 7"
+    statement: A personal data breach is intimated to the Board in the form and within the time the rules require.
+  - regulator: CERT-In
+    citation: "Directions 2022 para ii"
+    statement: Specified cyber incidents are reported to CERT-In within six hours of noticing them.
+  - regulator: CERT-In
+    citation: "Directions 2022 logs"
+    statement: ICT system logs are retained securely for a rolling period of 180 days within India.
+  - regulator: CSCRF
+    citation: "SEBI CSCRF governance"
+    statement: The regulated entity designates responsibility for the cyber security and cyber resilience framework.
+feeds:
+  - regulator: RBI
+    url: https://www.rbi.org.in/Scripts/BS_ViewMasterCirculars.aspx
+  - regulator: SEBI
+    url: https://www.sebi.gov.in/sebiweb/home/HomeAction.do?doListing=yes&sid=1&ssid=1&smid=0
+  - regulator: CERT-In
+    url: https://www.cert-in.org.in/
+  - regulator: MeitY / DPB
+    url: https://www.meity.gov.in/documents
+  - regulator: IRDAI
+    url: https://irdai.gov.in/circulars
+  - regulator: EUR-Lex
+    url: https://eur-lex.europa.eu/homepage.html

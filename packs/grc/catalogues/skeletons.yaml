@@ -1,0 +1,45 @@
+frameworks:
+  - key: iso-27001
+    name: ISO/IEC 27001:2022 Annex A
+    version: "2022"
+    licence: skeleton
+    requirements:
+      - key: a.5
+        title: Organizational controls
+    controls:
+      - key: a.5.1
+        title: Policies for information security
+      - key: a.5.15
+        title: Access control
+      - key: a.5.24
+        title: Information security incident management planning and preparation
+      - key: a.8.8
+        title: Management of technical vulnerabilities
+      - key: a.8.15
+        title: Logging
+  - key: soc-2
+    name: SOC 2 Trust Services Criteria
+    version: "2017"
+    licence: skeleton
+    controls:
+      - key: cc1.1
+        title: CC1.1
+      - key: cc6.1
+        title: CC6.1
+      - key: cc7.2
+        title: CC7.2
+      - key: a1.1
+        title: A1.1
+  - key: pci-dss
+    name: PCI DSS
+    version: 4.0.1
+    licence: skeleton
+    controls:
+      - key: "1.1"
+        title: "1.1"
+      - key: "3.1"
+        title: "3.1"
+      - key: "8.1"
+        title: "8.1"
+      - key: "10.1"
+        title: "10.1"

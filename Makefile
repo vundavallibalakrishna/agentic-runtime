@@ -23,7 +23,7 @@ endif
 PY_PKGS := libs/ar_common libs/ar_contracts libs/ar_domain libs/ar_connector_sdk libs/ar_testing libs/ar_client \
 	services/api services/runtime services/system services/ingest services/model_gateway services/mcp_gateway \
 	services/sandbox_manager services/sandbox_agent services/channels services/fake_llm \
-	connectors/mcp_sql connectors/mcp_openapi
+	connectors/mcp_sql connectors/mcp_openapi packs/grc
 
 .PHONY: help bootstrap up down migrate seed ports-check dev dev-min fmt lint typecheck test \
 	test-unit test-integration test-e2e check gen eval reset-db kind-up kind-down images \

@@ -95,6 +95,9 @@ async def _bind_once(scope: Scope) -> bool:
                 Actor(tenant_id=binding.tenant_id, user_id=admin, permissions=PERMISSION_KEYS)
             )
     await _attach_temporal(chat, settings)
+    from ar_api.plugins import attach_packs  # noqa: PLC0415
+
+    attach_packs(scope["app"])
     return True
 
 

@@ -513,6 +513,34 @@ def _approved(
         }
 
 
+def register_builtin_server(
+    store: Any,
+    *,
+    tenant_id: uuid.UUID | None,
+    owner: uuid.UUID | None,
+    slug: str,
+    name: str,
+    description: str,
+    endpoint: str,
+    tools: list[dict[str, object]],
+) -> None:
+    """Register one in-process server. A second call with the same slug is a no-op."""
+    _approved(
+        store,
+        tenant_id=tenant_id,
+        owner=owner,
+        slug=slug,
+        name=name,
+        description=description,
+        kind="builtin",
+        endpoint=endpoint,
+        auth_mode="none",
+        provider_id=None,
+        tools=tools,
+        config={},
+    )
+
+
 def _tool(  # noqa: PLR0917
     name: str,
     title: str,
