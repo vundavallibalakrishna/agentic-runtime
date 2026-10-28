@@ -167,7 +167,8 @@ def test_reference_kinds_filters_and_edges() -> None:
     packs = PackService(store)
     with pytest.raises(ArError) as dropped:
         packs.uninstall(actor, "missing", drop_schema=True)
-    assert dropped.value.code is ErrorCode.EXTENSION_UNAVAILABLE
+    assert dropped.value.code is ErrorCode.FORBIDDEN
+    assert "step-up" in str(dropped.value)
 
 
 def test_seeded_catalogue_and_builtin_guard() -> None:
