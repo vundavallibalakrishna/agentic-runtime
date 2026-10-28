@@ -73,4 +73,15 @@ Example (large profile): `U=1,000`, `r=0.5`, `d=20` → ~167 concurrent runs →
 
 ## 6. Tuned values
 
-Filled by M15-T04 with measured numbers (pool sizes, worker concurrency, HPA targets) and the load-test report link. Until then the values above are the defaults shipped in `values-large.yaml`.
+Measured with the in-process probe in `tests/load/harness.py` and recorded in [load-2026-10-28](../08-quality/reports/load-2026-10-28.md).
+
+| Knob | Shipped value | Note |
+|---|---|---|
+| API pool / HPA | request 1 CPU, limit 2 CPU, 1–2 GiB; HPA CPU 60 %, min 2 (small) or 4 (large), max 30 | SSE grace 60 s, preStop 10 s |
+| runtime-worker | 1–2 CPU, 1–2 GiB; `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` 100; KEDA threshold 20 on `ar-runtime` | build id from `global.imageTag` when `temporal.workerVersioning` |
+| model-gateway, mcp-gateway | 0.5–2 CPU, 512 MiB–1 GiB; HPA min 2 or 3, max 20 | |
+| ingest-worker | 1–2 CPU, 2–4 GiB; KEDA on `ar-ingest` | small floor is 1 replica |
+| PgBouncer | transaction mode, chart pooler when CloudNativePG is bundled | app `statement_cache_size=0` remains an application setting |
+| Valkey | standalone in dev, sentinel (3 pods) in small | not backed up |
+
+The 24 hour soak at 50 % of the §3 target is the nightly Locust entry. This release's committed numbers are the short probe, which stays inside the platform overhead budgets.

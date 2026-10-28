@@ -1,0 +1,103 @@
+{{- if .Values.keycloak.bundled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-keycloak-realm
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  realm.json: |
+{{ .Files.Get "files/keycloak-realm.json" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-keycloak
+  labels:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.keycloak.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: keycloak
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: keycloak
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak
+          image: {{ include "ar.thirdPartyImage" (list . .Values.keycloak.image.repository .Values.keycloak.image.tag) }}
+          args: ["start", "--import-realm", "--http-enabled=true", "--hostname-strict=false"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              value: install-time
+            - name: KC_DB
+              value: postgres
+            - name: KC_DB_URL
+              value: {{ printf "jdbc:postgresql://%s-pg-pooler:5432/keycloak" .Release.Name | quote }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+          volumeMounts:
+            - name: realm
+              mountPath: /opt/keycloak/data/import
+      volumes:
+        - name: realm
+          configMap:
+            name: {{ .Release.Name }}-keycloak-realm
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-keycloak
+spec:
+  selector:
+    app.kubernetes.io/name: keycloak
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-keycloak-import
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: import
+          image: {{ include "ar.thirdPartyImage" (list . .Values.keycloak.image.repository .Values.keycloak.image.tag) }}
+          args: ["import", "--file", "/import/realm.json"]
+          volumeMounts:
+            - name: realm
+              mountPath: /import
+      volumes:
+        - name: realm
+          configMap:
+            name: {{ .Release.Name }}-keycloak-realm
+{{- end }}

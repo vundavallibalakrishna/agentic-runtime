@@ -1,0 +1,20 @@
+# Bring-your-own stateful services. Connection values come from the existing secret.
+postgres:
+  bundled: false
+valkey:
+  bundled: false
+temporal:
+  bundled: false
+keycloak:
+  bundled: false
+openbao:
+  bundled: false
+objectStorage:
+  bundled: false
+qdrant:
+  enabled: false
+  external: true
+  url: http://qdrant.example:6333
+secrets:
+  create: false
+  existingSecret: ar-secrets

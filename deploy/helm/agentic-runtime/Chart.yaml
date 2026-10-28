@@ -1,6 +1,12 @@
 apiVersion: v2
 name: agentic-runtime
-description: Umbrella chart skeleton. The full chart arrives in M15.
+description: Umbrella chart for single-tenant and SaaS installs of Agentic Runtime.
 type: application
-version: 0.1.0
-appVersion: 0.1.0
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.33.0-0"
+dependencies:
+  - name: qdrant
+    version: 1.0.0
+    repository: file://charts/qdrant
+    condition: qdrant.enabled

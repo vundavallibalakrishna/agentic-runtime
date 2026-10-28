@@ -1,0 +1,8 @@
+{
+  "rows": {"tenants": 1, "users": 4, "audit_events": 2, "document_chunks": 3},
+  "wal_archive_timeout_s": 300,
+  "audit": [
+    {"action": "tenant.created", "target_id": "dev", "hash": "4c0d0e2a6d1e4a0a0e5a0c2a6b7e8f9012345678abcdef0123456789abcdef01"},
+    {"action": "user.created", "target_id": "admin", "hash": "pending"}
+  ]
+}

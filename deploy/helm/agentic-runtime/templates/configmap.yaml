@@ -1,8 +1,84 @@
+{{- if and (eq .Values.global.deploymentMode "single_tenant") (not .Values.bootstrap.adminEmail) }}
+{{- fail "bootstrap.adminEmail is required when global.deploymentMode=single_tenant" }}
+{{- end }}
+{{- if and (eq .Values.global.env "prod") (eq .Values.sandboxes.driver "docker") }}
+{{- fail "sandboxes.driver=docker is refused when global.env=prod" }}
+{{- end }}
+{{- $overrides := dict
+  "AR_DEPLOYMENT_MODE" .Values.global.deploymentMode
+  "AR_ENV" .Values.global.env
+  "AR_PUBLIC_URL" .Values.global.publicUrl
+  "AR_BOOTSTRAP_TENANT_SLUG" .Values.bootstrap.tenantSlug
+  "AR_BOOTSTRAP_TENANT_NAME" .Values.bootstrap.tenantName
+  "AR_BOOTSTRAP_ADMIN_EMAIL" .Values.bootstrap.adminEmail
+  "AR_VECTOR_BACKEND" .Values.retrieval.backend
+  "AR_VECTOR_PG_EF_SEARCH" (printf "%v" .Values.retrieval.efSearch)
+  "AR_SANDBOX_DRIVER" .Values.sandboxes.driver
+  "AR_SANDBOX_DEFAULT_RUNTIME_CLASS" .Values.sandboxes.runtimeClass
+  "AR_SANDBOX_NAMESPACE" .Values.sandboxes.namespace
+  "AR_SANDBOX_WARM_POOL" .Values.sandboxes.warmPool
+  "AR_SANDBOX_SNAPSHOT_INTERVAL_S" (printf "%v" .Values.sandboxes.snapshotIntervalSeconds)
+  "AR_SECRETS_BACKEND" .Values.secrets.backend
+  "AR_API_INTERNAL_URL" (printf "http://%s-api:8000" .Release.Name)
+  "AR_MODEL_GATEWAY_URL" (printf "http://%s-model-gateway:8001" .Release.Name)
+  "AR_MCP_GATEWAY_URL" (printf "http://%s-mcp-gateway:8002" .Release.Name)
+  "AR_MCP_SQL_URL" (printf "http://%s-mcp-sql:8010/mcp" .Release.Name)
+  "AR_MCP_OPENAPI_URL" (printf "http://%s-mcp-openapi:8011/mcp" .Release.Name)
+  "AR_SANDBOX_MANAGER_URL" (printf "http://%s-sandbox-manager:8003" .Release.Name)
+  "AR_OPA_URL" (printf "http://%s-opa:8181" .Release.Name)
+  "AR_EGRESS_PROXY_URL" (printf "http://%s-squid:3128" .Release.Name)
+  "AR_INTERNAL_JWT_JWKS" (printf "http://%s-api:8000/internal/v1/.well-known/jwks.json" .Release.Name)
+  "AR_SANDBOX_PACKAGE_MIRRORS" (.Values.egress.packageMirrors | toJson)
+  "AR_EGRESS_DENY_CIDRS" (join "," .Values.egress.denyCidrs)
+  "AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES" "100"
+}}
+{{- if .Values.valkey.bundled }}
+{{- $_ := set $overrides "AR_VALKEY_URL" (printf "redis://%s-valkey:6379/0" .Release.Name) }}
+{{- end }}
+{{- if .Values.temporal.bundled }}
+{{- $_ := set $overrides "AR_TEMPORAL_ADDRESS" (printf "%s-temporal:7233" .Release.Name) }}
+{{- $_ := set $overrides "AR_TEMPORAL_NAMESPACE" .Values.temporal.namespace }}
+{{- end }}
+{{- if .Values.objectStorage.bundled }}
+{{- $_ := set $overrides "AR_S3_ENDPOINT" (printf "http://%s-seaweedfs:8333" .Release.Name) }}
+{{- $_ := set $overrides "AR_S3_PUBLIC_ENDPOINT" (printf "http://%s-seaweedfs:8333" .Release.Name) }}
+{{- $_ := set $overrides "AR_S3_BUCKET" .Values.objectStorage.bucket }}
+{{- $_ := set $overrides "AR_AUDIT_ARCHIVE_BUCKET" .Values.objectStorage.auditBucket }}
+{{- end }}
+{{- if .Values.keycloak.bundled }}
+{{- $_ := set $overrides "AR_OIDC_ISSUER" (printf "http://%s-keycloak:8080/realms/agentic-runtime" .Release.Name) }}
+{{- end }}
+{{- if .Values.openbao.bundled }}
+{{- $_ := set $overrides "AR_VAULT_ADDR" (printf "http://%s-openbao:8200" .Release.Name) }}
+{{- end }}
+{{- if .Values.qdrant.external }}
+{{- $_ := set $overrides "AR_QDRANT_URL" .Values.qdrant.url }}
+{{- else if and .Values.qdrant.enabled (not .Values.qdrant.external) }}
+{{- $_ := set $overrides "AR_QDRANT_URL" (printf "http://%s-qdrant:6333" .Release.Name) }}
+{{- end }}
+{{- if .Values.clamav.enabled }}
+{{- $_ := set $overrides "AR_CLAMAV_ADDRESS" (printf "%s-clamav:3310" .Release.Name) }}
+{{- end }}
+{{- if eq .Values.global.deploymentMode "saas" }}
+{{- $_ := set $overrides "AR_LOG_HASH_USER_IDS" "true" }}
+{{- end }}
+{{- if eq .Values.global.env "prod" }}
+{{- $_ := set $overrides "AR_FILES_SCANNER" "clamav" }}
+{{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "true" }}
+{{- else }}
+{{- $_ := set $overrides "AR_FILES_SCANNER" "none" }}
+{{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "false" }}
+{{- end }}
+{{- $cfg := merge $overrides .Values.config }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Chart.Name }}
+  name: {{ .Release.Name }}-config
   labels:
     app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: agentic-runtime
 data:
-  note: "Skeleton chart for helm lint. Workloads arrive in M15."
+{{- range $key, $value := $cfg }}
+  {{ $key }}: {{ $value | toString | quote }}
+{{- end }}

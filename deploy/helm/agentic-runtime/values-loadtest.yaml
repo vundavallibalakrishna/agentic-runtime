@@ -1,0 +1,32 @@
+# Load-test preset. fake-llm stands in for model latency. Based on the large floors.
+global:
+  env: staging
+  publicUrl: http://loadtest.agentic-runtime.svc
+fakeLlm:
+  enabled: true
+postgres:
+  bundled: true
+  mode: statefulset
+  instances: 1
+valkey:
+  bundled: true
+  mode: standalone
+temporal:
+  bundled: true
+  ha: false
+  workerVersioning: true
+monitoring:
+  enabled: false
+gateway:
+  enabled: false
+workloads:
+  api:
+    replicas: 4
+    hpa:
+      min: 4
+      max: 30
+  runtime-worker:
+    replicas: 4
+  fake-llm:
+    enabled: true
+    replicas: 2
