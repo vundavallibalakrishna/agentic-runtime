@@ -139,10 +139,10 @@ M12-T02 | done | c259bc9 | plan limit check on every creation path
 M12-T03 | done | c259bc9 | usage summary, CSV, me and platform reports
 M12-T04 | done | c259bc9 | usage and quotas screens, my usage, quota chat state
 
-M13-T01 | in_progress | - | telemetry, dashboards, alerts
-M13-T02 | in_progress | - | overview, health, trace links
-M13-T03 | in_progress | - | eval schema and catalogue API
-M13-T04 | in_progress | - | eval workflow, graders, publish gate
-M13-T05 | in_progress | - | run inspector, evals UI, health
-M13-T06 | in_progress | - | feedback digest and alias re-runs
-M13-T07 | deferred | - | waits for M14-T08; not an M13 exit task
+M13-T01 | done | aca3c20 | telemetry, dashboards, alerts, no-content spans
+M13-T02 | done | aca3c20 | overview, platform health, trace links
+M13-T03 | done | aca3c20 | revision 0019 and eval catalogue API
+M13-T04 | done | aca3c20 | eval workflow, graders, publish gate, platform suites
+M13-T05 | done | aca3c20 | run inspector, evals UI, platform health
+M13-T06 | done | aca3c20 | feedback digest and alias-change re-runs
+M13-T07 | deferred | - | waits for M14-T08; not an M13 exit task (OQ-44)
