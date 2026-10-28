@@ -66,6 +66,21 @@ def _merge(store: object, name: str, key: object, row: dict[str, Any]) -> None:
     _load(store, bucket, key, base)
 
 
+_AHEAD = frozenset({"running", "waiting_approval", "waiting_input"})
+_DONE = frozenset({"completed", "failed", "cancelled", "budget_exceeded"})
+
+
+def _merge_live(current: dict[str, object], incoming: dict[str, object]) -> None:
+    """Fold a database row into the live run without moving a turn backwards."""
+    current_status = str(current.get("status") or "")
+    incoming_status = str(incoming.get("status") or "")
+    if current_status in _DONE and incoming_status not in _DONE:
+        return
+    if current_status in _AHEAD and incoming_status == "queued":
+        return
+    current.update(incoming)
+
+
 def _load(store: object, bucket: dict[object, object], key: object, value: object) -> None:
     if isinstance(bucket, TrackedDict):
         loading = getattr(store, "_initial_loaded", None)
@@ -73,6 +88,13 @@ def _load(store: object, bucket: dict[object, object], key: object, value: objec
             loading.setdefault(bucket.kind, set()).add(key)
         if key in bucket.dirty:
             return
+    current = bucket.get(key)
+    if isinstance(current, dict) and isinstance(value, dict):
+        if bucket is getattr(store, "runs", None):
+            _merge_live(current, value)
+        else:
+            current.update(value)
+        return
     was_reloading = getattr(store, "reloading", False)
     store.reloading = True  # type: ignore[attr-defined]
     try:
@@ -111,17 +133,6 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
     engine = getattr(store, "durable_engine", None)
     if not isinstance(engine, AsyncEngine):
         return
-    runs = getattr(store, "runs", None)
-    if isinstance(runs, dict):
-        existing = runs.get(run_id)
-        if isinstance(existing, dict) and str(existing.get("status")) in {
-            "queued",
-            "running",
-            "waiting_approval",
-            "waiting_input",
-        }:
-            # This process owns the turn. A stale row would detach that task.
-            return
     async with AsyncSession(engine, expire_on_commit=False) as session:
         run = (
             (await session.execute(text("SELECT * FROM runs WHERE id = :id"), {"id": run_id}))

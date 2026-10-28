@@ -266,6 +266,8 @@ async def _versions(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             published_at = EXCLUDED.published_at,
             published_by = EXCLUDED.published_by,
             updated_at = EXCLUDED.updated_at
+        WHERE agent_versions.state <> 'published'
+           OR EXCLUDED.state = 'superseded'
     """
     for row in rows:
         version_id = as_uuid(row.get("id"))
