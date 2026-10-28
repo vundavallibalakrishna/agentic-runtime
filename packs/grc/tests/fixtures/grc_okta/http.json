@@ -1,0 +1,80 @@
+{
+  "list_users": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_users-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_users-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_factors": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_factors-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_factors-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_admin_roles": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_admin_roles-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_admin_roles-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

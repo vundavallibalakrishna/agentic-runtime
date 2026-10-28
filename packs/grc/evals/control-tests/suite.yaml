@@ -1,0 +1,53 @@
+name: GRC control tests
+description: A pass records the outcome. A fail also opens a finding. Both keep the evidence hash.
+kind: functional
+gate:
+  required: true
+  min_pass_rate: 1
+  must_pass_tags:
+    - evidence
+cases:
+  - name: passing-test
+    tags: [evidence]
+    input:
+      messages:
+        - '{"evidenceHash":"a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3","outcome":"pass","finding":"none"}'
+    tool_mocks:
+      - tool: grc.tests.record_result
+        result:
+          evidenceHash: a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3
+          outcome: pass
+    assertions:
+      - type: json_schema
+        schema:
+          type: object
+          required: [evidenceHash, outcome]
+      - type: contains
+        value: pass
+      - type: tool_called
+        tool: grc.tests.record_result
+      - type: tool_not_called
+        tool: grc.findings.create
+  - name: failing-test-opens-finding
+    tags: [evidence]
+    input:
+      messages:
+        - '{"evidenceHash":"b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9","outcome":"fail","finding":"open"}'
+    tool_mocks:
+      - tool: grc.tests.record_result
+        result:
+          evidenceHash: b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+          outcome: fail
+      - tool: grc.findings.create
+        result:
+          evidenceHash: b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+          id: finding-1
+    assertions:
+      - type: json_schema
+        schema:
+          type: object
+          required: [evidenceHash, outcome, finding]
+      - type: contains
+        value: fail
+      - type: tool_called
+        tool: grc.findings.create

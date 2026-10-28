@@ -1,0 +1,43 @@
+name: GRC evidence collectors
+description: The evidence collector keeps a stable hash for each captured page.
+kind: functional
+gate:
+  required: true
+  min_pass_rate: 1
+  must_pass_tags:
+    - evidence
+cases:
+  - name: aws-config-hash
+    tags: [evidence]
+    input:
+      messages:
+        - '{"evidenceHash":"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08","outcome":"captured","sourceSystem":"grc_aws"}'
+    tool_mocks:
+      - tool: grc_aws.list_config_rules
+        result:
+          evidenceHash: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+          text: captured
+    assertions:
+      - type: json_schema
+        schema:
+          type: object
+          required: [evidenceHash, outcome]
+      - type: contains
+        value: 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
+      - type: tool_called
+        tool: grc_aws.list_config_rules
+  - name: okta-users-hash
+    tags: [evidence]
+    input:
+      messages:
+        - '{"evidenceHash":"60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752","outcome":"captured","sourceSystem":"grc_okta"}'
+    tool_mocks:
+      - tool: grc_okta.list_users
+        result:
+          evidenceHash: 60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752
+          text: captured
+    assertions:
+      - type: contains
+        value: 60303ae22b998861bce3b28f33eec1be758a213c86c93c076dbe9f558c11c752
+      - type: tool_called
+        tool: grc_okta.list_users

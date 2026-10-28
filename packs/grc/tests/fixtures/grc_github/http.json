@@ -1,0 +1,54 @@
+{
+  "list_branch_protection": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_branch_protection-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_branch_protection-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_pr_reviews": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_pr_reviews-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_pr_reviews-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

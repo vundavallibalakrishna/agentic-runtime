@@ -1,0 +1,50 @@
+{
+  "search_issues": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "search_issues-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "search_issues-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "create_issue": {
+    "pages": [
+      {
+        "status": 201,
+        "body": {
+          "id": "10001",
+          "key": "SEC-14"
+        }
+      }
+    ]
+  },
+  "update_issue": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "id": "10001",
+          "key": "SEC-14"
+        }
+      }
+    ]
+  }
+}

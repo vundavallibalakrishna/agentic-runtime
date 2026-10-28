@@ -176,3 +176,10 @@ M16-T04 | done | cb85ca9 | evidence links, freshness, cross-tenant 404
 M16-T05 | done | cb85ca9 | grc read tools; disabled tenant is tool_server_unavailable
 M16-T06 | done | cb85ca9 | /grc frameworks, controls and evidence screens
 M16-T07 | done | cb85ca9 | entity tree and posture in pack revision 0001
+
+M17-T01 | done | 6636c87 | connector kit, page cap, backoff, stable request hash
+M17-T02 | done | 6636c87 | AWS, Azure and GCP read collectors and evidence capture
+M17-T03 | done | 6636c87 | Okta, Entra and Google Workspace collectors
+M17-T04 | done | 6636c87 | GitHub, GitLab, Jira and ServiceNow; W2 writes store external_ref
+M17-T05 | done | 6636c87 | control tests, findings, grc-ccm, close guard; HTTP stays on the process store (OQ-50)
+M17-T06 | done | 6636c87 | collector and control-test evals; a missing evidence hash fails the gate

@@ -1,0 +1,106 @@
+{
+  "list_policy_states": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_policy_states-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_policy_states-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_users": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_users-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_users-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_role_assignments": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_role_assignments-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_role_assignments-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "list_defender_alerts": {
+    "pages": [
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_defender_alerts-1"
+            }
+          ],
+          "nextCursor": "n"
+        }
+      },
+      {
+        "status": 200,
+        "body": {
+          "items": [
+            {
+              "id": "list_defender_alerts-2",
+              "compliant": true
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
