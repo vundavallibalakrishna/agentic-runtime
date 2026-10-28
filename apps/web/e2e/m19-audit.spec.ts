@@ -40,6 +40,7 @@ test("walk the audit desk and keep the board pack behind sign-off", async ({ pag
   await signIn(page);
   await page.goto("/grc/audit");
   await expect(page.getByRole("heading", { name: "Audit and reporting" })).toBeVisible();
+  // Wait for the cards. The heading renders before the counts load.
   await expect(
     page.getByText("An auditor guest sees only the requests named in the grant."),
   ).toBeVisible({ timeout: 20_000 });
