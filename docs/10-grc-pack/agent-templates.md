@@ -288,6 +288,7 @@ Installed with the templates. Each names an agent slug above. `reviewBeforeSend`
 | Slug | Trigger | Agent | Delivery |
 |---|---|---|---|
 | `grc-ccm` | schedule from `control_tests.schedule` | `control-tester` | none; the agent writes the result |
+| `grc-exception-expiry` | daily 05:00 tenant TZ | `risk-analyst` | none; the sweep marks `expired` |
 | `grc-evidence-freshness` | daily 06:00 tenant TZ | `evidence-collector` | in-app to the control owner when links are stale |
 | `grc-regulatory-poll` | daily 07:00 tenant TZ | `regulatory-watcher` | in-app to obligation owners |
 | `grc-sla-nudge` | daily 08:00 tenant TZ | `remediation-tracker` | Slack or email to the issue owner |

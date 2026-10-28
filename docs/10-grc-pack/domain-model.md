@@ -4,6 +4,8 @@ Postgres schema `grc`. Alembic environment `packs/grc`, version table `grc_alemb
 
 The pack must not add columns to core tables. `evidence_links.evidence_item_id` references `evidence_items(id)` as a cross-schema foreign key granted to `ar_app`.
 
+M18 workflow rows stay on the process store. Pack revision `0001` is not extended, and `make migrate` does not upgrade schema `grc` ([OQ-51](../open-questions.md)). The SQL below remains the shape those rows take when a later revision projects them.
+
 ## Tables
 
 ```sql

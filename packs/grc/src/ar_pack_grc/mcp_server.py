@@ -15,7 +15,12 @@ from ar_pack_grc.access import pack_enabled, present, same_tenant
 from ar_pack_grc.evidence_links import create_link
 from ar_pack_grc.findings import create_finding
 from ar_pack_grc.frameworks import get_control, list_controls
+from ar_pack_grc.incidents import update_draft
 from ar_pack_grc.mappings import suggest
+from ar_pack_grc.policies import search_published
+from ar_pack_grc.questionnaires import draft_text, search_answers
+from ar_pack_grc.regulatory import search_obligations
+from ar_pack_grc.risks import propose
 from ar_pack_grc.tests import record_result
 
 if TYPE_CHECKING:
@@ -26,6 +31,7 @@ READ_TOOLS = (
     "controls.get",
     "mapping.suggest",
     "questionnaire.search_answers",
+    "questionnaire.draft_answer",
     "vendors.get",
     "policies.search",
     "obligations.search",
@@ -34,6 +40,8 @@ WRITE_TOOLS = (
     "evidence.attach",
     "tests.record_result",
     "findings.create",
+    "risks.propose",
+    "incidents.update_draft",
 )
 # `tools.name` cannot contain a dot (`ck_tools_name`). Qualified names keep the spec form.
 _STORED = {name.replace(".", "_"): name for name in (*READ_TOOLS, *WRITE_TOOLS)}
@@ -54,6 +62,12 @@ def tool_definitions() -> list[dict[str, object]]:
             {"from_framework_id": _string(), "to_framework_id": _string()},
         ),
         ("questionnaire_search_answers", "Search approved answers", "R0", {"q": _string()}),
+        (
+            "questionnaire_draft_answer",
+            "Draft a grounded answer",
+            "R1",
+            {"question": _string()},
+        ),
         ("vendors_get", "Get a vendor", "R0", {"vendor_id": _string()}),
         ("policies_search", "Search published policies", "R0", {"q": _string()}),
         (
@@ -94,6 +108,23 @@ def tool_definitions() -> list[dict[str, object]]:
                 "evidence_item_id": _string(),
             },
         ),
+        (
+            "risks_propose",
+            "Propose a risk",
+            "W1",
+            {
+                "title": _string(),
+                "statement": _string(),
+                "likelihood": {"type": "integer"},
+                "impact": {"type": "integer"},
+            },
+        ),
+        (
+            "incidents_update_draft",
+            "Update a breach notification draft",
+            "W2",
+            {"incident_id": _string(), "body_md": _string()},
+        ),
     )
     tools: list[dict[str, object]] = []
     for name, title, risk, properties in specs:
@@ -127,7 +158,7 @@ def handle(store: Any, name: str, arguments: dict[str, object], token: str) -> d
         return _error(code, exc.detail)
 
 
-def _dispatch(  # noqa: PLR0911
+def _dispatch(  # noqa: PLR0911, PLR0912
     store: Any, actor: Actor, name: str, arguments: dict[str, object]
 ) -> dict[str, object]:
     if name == "controls.search":
@@ -140,15 +171,17 @@ def _dispatch(  # noqa: PLR0911
     if name == "mapping.suggest":
         return _ok(suggest(store, actor, _public_args(arguments), agent=True))
     if name == "questionnaire.search_answers":
-        return _ok({"items": _answers(store, actor, str(arguments.get("q") or ""))})
+        return _ok({"items": search_answers(store, actor, str(arguments.get("q") or ""))})
+    if name == "questionnaire.draft_answer":
+        return _ok(draft_text(store, actor, str(arguments.get("question") or "")))
     if name == "vendors.get":
         return _vendor(store, actor, arguments.get("vendor_id"))
     if name == "policies.search":
-        return _ok({"items": _policies(store, actor, str(arguments.get("q") or ""))})
+        return _ok({"items": search_published(store, actor, str(arguments.get("q") or ""))})
     if name == "obligations.search":
         return _ok(
             {
-                "items": _obligations(
+                "items": search_obligations(
                     store,
                     actor,
                     str(arguments.get("q") or ""),
@@ -162,6 +195,10 @@ def _dispatch(  # noqa: PLR0911
         return _ok(record_result(store, actor, _public_args(arguments)))
     if name == "findings.create":
         return _ok(create_finding(store, actor, _public_args(arguments)))
+    if name == "risks.propose":
+        return _ok(propose(store, actor, _public_args(arguments)))
+    if name == "incidents.update_draft":
+        return _ok(update_draft(store, actor, _public_args(arguments)))
     return _error("unknown_tool", f"unknown tool {name}")
 
 
@@ -219,21 +256,6 @@ def put_answer(
     return row
 
 
-def _answers(store: Any, actor: Actor, query: str) -> list[dict[str, Any]]:
-    now = utcnow()
-    found = []
-    for row in bucket(store, "grc_answers").values():
-        if not same_tenant(row, actor.tenant_id) or row.get("status") != "approved":
-            continue
-        expires = row.get("expires_at")
-        if isinstance(expires, type(now)) and expires <= now:
-            continue
-        if query and query.lower() not in str(row.get("question")).lower():
-            continue
-        found.append(present(row))
-    return found
-
-
 def _vendor(store: Any, actor: Actor, vendor_id: object) -> dict[str, object]:
     item_id = _uuid(vendor_id)
     row = bucket(store, "grc_vendors").get(item_id) if item_id else None
@@ -247,36 +269,6 @@ def _vendor(store: Any, actor: Actor, vendor_id: object) -> dict[str, object]:
     body = present(row)
     body["assessments"] = assessments
     return _ok(body)
-
-
-def _policies(store: Any, actor: Actor, query: str) -> list[dict[str, Any]]:
-    published = {
-        row["policy_id"]
-        for row in bucket(store, "grc_policy_versions").values()
-        if same_tenant(row, actor.tenant_id) and row.get("state") == "published"
-    }
-    found = []
-    for row in bucket(store, "grc_policies").values():
-        if not same_tenant(row, actor.tenant_id) or row["id"] not in published:
-            continue
-        if query and query.lower() not in str(row.get("title")).lower():
-            continue
-        found.append(present(row))
-    return found
-
-
-def _obligations(store: Any, actor: Actor, query: str, regulator: str) -> list[dict[str, Any]]:
-    found = []
-    for row in bucket(store, "grc_obligations").values():
-        if not same_tenant(row, actor.tenant_id):
-            continue
-        if regulator and str(row.get("regulator")) != regulator:
-            continue
-        text = f"{row.get('citation')} {row.get('statement')}".lower()
-        if query and query.lower() not in text:
-            continue
-        found.append(present(row))
-    return found
 
 
 def _public_args(arguments: dict[str, object]) -> dict[str, Any]:
@@ -308,6 +300,9 @@ def _tool_permissions() -> frozenset[str]:
             "grc.tests:run",
             "grc.findings:read",
             "grc.findings:manage",
+            "grc.risks:manage",
+            "grc.incidents:manage",
+            "grc.questionnaires:manage",
         }
     )
 

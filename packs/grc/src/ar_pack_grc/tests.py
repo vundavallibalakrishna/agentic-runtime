@@ -125,6 +125,7 @@ def record_result(store: Any, actor: Actor, payload: dict[str, Any]) -> dict[str
             "evidence_item_ids": [str(item) for item in evidence_ids],
         },
         "created_at": utcnow(),
+        "exception_id": _covering(store, actor, test.get("control_id")),
     }
     bucket_rows(store, "grc_test_results")[item_id] = row
     record(
@@ -135,6 +136,16 @@ def record_result(store: Any, actor: Actor, payload: dict[str, Any]) -> dict[str
         {"outcome": outcome, "test_id": str(test["id"])},
     )
     return _result_view(row)
+
+
+def _covering(store: Any, actor: Actor, control_id: object) -> uuid.UUID | None:
+    from ar_pack_grc.exceptions import covering_exception  # noqa: PLC0415
+
+    row = covering_exception(store, actor, control_id)
+    if row is None:
+        return None
+    found = row.get("id")
+    return found if isinstance(found, uuid.UUID) else None
 
 
 def _test_view(row: dict[str, Any]) -> dict[str, Any]:

@@ -1,0 +1,4 @@
+Period: 1 January 2025 to 31 December 2025
+Exception: Backup jobs missed the nightly window for three days in June.
+CUEC: The customer reviews new administrator accounts each quarter.
+Bridge gap: No bridge letter covers January 2026.

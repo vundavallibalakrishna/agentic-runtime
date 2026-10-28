@@ -189,7 +189,7 @@ async def test_pack_suites_pass_and_a_missing_hash_fails(temporal_env: object) -
 
     store, actor = _ready()
     bind_store(store)
-    assert len(documents()) == 2
+    assert len(documents()) == 3
     routine = ensure_routine(store, actor)
     agent_id = uuid.UUID(str(routine["agent_id"]))
     summaries = run_suites(store, actor, agent_id)

@@ -183,3 +183,12 @@ M17-T03 | done | 6636c87 | Okta, Entra and Google Workspace collectors
 M17-T04 | done | 6636c87 | GitHub, GitLab, Jira and ServiceNow; W2 writes store external_ref
 M17-T05 | done | 6636c87 | control tests, findings, grc-ccm, close guard; HTTP stays on the process store (OQ-50)
 M17-T06 | done | 6636c87 | collector and control-test evals; a missing evidence hash fails the gate
+
+M18-T01 | in_progress | - | 2026-10-28
+M18-T02 | in_progress | - | 2026-10-28
+M18-T03 | in_progress | - | 2026-10-28
+M18-T04 | in_progress | - | 2026-10-28
+M18-T05 | in_progress | - | 2026-10-28
+M18-T06 | in_progress | - | 2026-10-28
+M18-T07 | in_progress | - | 2026-10-28
+M18-T08 | in_progress | - | 2026-10-28
