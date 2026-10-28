@@ -66,6 +66,10 @@ def dispatch(  # noqa: PLR0911, PLR0912
         return _history(store, name, arguments)
     if endpoint == "builtin://web":
         return _web(store, arguments)
+    if endpoint == "builtin://general":
+        from ar_domain.tools.general import dispatch_general  # noqa: PLC0415
+
+        return dispatch_general(store, name, arguments)
     if endpoint == "builtin://control":
         return _control(store, name, arguments)
     if endpoint == "builtin://knowledge":

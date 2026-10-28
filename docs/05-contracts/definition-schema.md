@@ -127,6 +127,11 @@ spec:
 | `tools[].include` | string[] | tool names on that server or `["*"]` |
 | `tools[].overrides.<tool>.require_approval` | enum | `always`, `policy` |
 | `tools[].overrides.<tool>.pinned` | bool | default false; pinned tools are always loaded when tool search is active ([spec 07 §8](../03-specs/07-agent-runtime.md#8-tool-search)) |
+| `tools[].overrides.<tool>.timeoutS` | int | 1..120. Per-tool time limit for general code, shell, fetch and HTTP |
+| `tools[].overrides.<tool>.maxOutputBytes` | int | 256..65536 |
+| `tools[].overrides.<tool>.maxFileBytes` | int | 1024..5242880 |
+| `tools[].overrides.<tool>.network` | bool | Sandbox network. Off unless set. On still requires the egress allow list |
+| `tools[].overrides.<tool>.allowHosts` | string[] | Extra hosts for `general.fetch` and `general.http` |
 | `tool_search.mode` | enum | `auto`, `on`, `off`; `top_k` 4..32 |
 | `knowledge.collections` | slug[] | ≤ 20; caller must be able to see each at save time |
 | `knowledge.min_score` | number | 0..1 |

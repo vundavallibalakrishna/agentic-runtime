@@ -160,6 +160,7 @@ class ChatService:
     oauth_states: dict[str, dict[str, object]] = field(default_factory=dict)
     token_cache: dict[str, bytes] = field(default_factory=dict)
     secret_values: dict[uuid.UUID, bytes] = field(default_factory=dict)
+    named_secrets: dict[tuple[str, str], bytes] = field(default_factory=dict)
     tenant_settings: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     tickets: list[dict[str, object]] = field(default_factory=list)
     pets: list[dict[str, object]] = field(default_factory=lambda: [{"id": 1, "name": "doggie"}])
@@ -1321,6 +1322,21 @@ class ChatService:
         draft = agent.get("draft_version_id")
         return draft if isinstance(draft, uuid.UUID) else None
 
+    def _completion_url_for(self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]) -> str:
+        """Call the provider directly when its key is still on the in-memory row."""
+        found = self._alias_target(tenant_id, alias)
+        if found is None:
+            return self.completion_url()
+        provider, _model = found
+        key = provider.get("api_key")
+        base = provider.get("base_url")
+        if not isinstance(key, str) or not key or not isinstance(base, str) or not base:
+            return self.completion_url()
+        if str(provider.get("kind")) == "fake":
+            return self.completion_url()
+        headers["Authorization"] = f"Bearer {key}"
+        return base.rstrip("/") + "/chat/completions"
+
     def completion_url(self) -> str:
         """Chat completions. The gateway wins when it is configured."""
         base = (self.model_gateway_url or self.fake_llm_url).rstrip("/")
@@ -1707,12 +1723,13 @@ class ChatService:
             body["tools"] = tools
             body["tool_choice"] = "auto"
         if real:
-            body["max_tokens"] = 800
+            body["max_tokens"] = 1500 if tools else 800
             if "qwen3" in model.lower():
                 body["chat_template_kwargs"] = {"enable_thinking": False}
+        url = self._completion_url_for(tenant_id, model_alias, headers)
         try:
             async with httpx.AsyncClient(timeout=timeout_s) as client:
-                response = await client.post(self.completion_url(), json=body, headers=headers)
+                response = await client.post(url, json=body, headers=headers)
         except httpx.HTTPError:
             if not real:
                 return None

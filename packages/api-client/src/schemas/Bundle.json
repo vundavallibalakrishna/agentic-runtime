@@ -1904,6 +1904,67 @@
           "default": false,
           "title": "Pinned",
           "type": "boolean"
+        },
+        "timeoutS": {
+          "anyOf": [
+            {
+              "maximum": 120,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeouts"
+        },
+        "maxOutputBytes": {
+          "anyOf": [
+            {
+              "maximum": 65536,
+              "minimum": 256,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxoutputbytes"
+        },
+        "maxFileBytes": {
+          "anyOf": [
+            {
+              "maximum": 5242880,
+              "minimum": 1024,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxfilebytes"
+        },
+        "network": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Network"
+        },
+        "allowHosts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowhosts",
+          "type": "array"
         }
       },
       "title": "ToolOverride",

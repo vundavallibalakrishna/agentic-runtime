@@ -120,6 +120,43 @@ export function AgentEditor() {
     });
   }
 
+  const generalTools = [
+    "code",
+    "shell",
+    "read_file",
+    "write_file",
+    "list_files",
+    "fetch",
+    "search",
+    "http",
+  ] as const;
+  const general = (definition.tools ?? []).find((tool) => tool.server === "general");
+  const generalInclude = general?.include ?? [];
+
+  function setGeneral(include: string[], overrides = general?.overrides) {
+    const rest = (definition.tools ?? []).filter((tool) => tool.server !== "general");
+    updateDefinition({
+      ...definition,
+      tools:
+        include.length === 0
+          ? rest
+          : [...rest, { server: "general", version: "*", include, overrides }],
+    });
+  }
+
+  function toggleGeneral(name: string) {
+    const selected = new Set(generalInclude.filter((item) => item !== "*"));
+    if (generalInclude.includes("*") || generalInclude.includes(name)) {
+      if (generalInclude.includes("*")) {
+        for (const item of generalTools) selected.add(item);
+      }
+      selected.delete(name);
+    } else {
+      selected.add(name);
+    }
+    setGeneral([...selected]);
+  }
+
   function updateDefinition(next: Definition) {
     setReport(null);
     setDefinition(next);
@@ -384,6 +421,85 @@ export function AgentEditor() {
                       ))}
                     </div>
                   )}
+                </fieldset>
+                <fieldset className="mt-4">
+                  <legend className="text-sm font-medium">{t("generalTools")}</legend>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("generalHelp")}</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {generalTools.map((name) => (
+                      <label className="flex items-center gap-2 text-sm" key={name}>
+                        <input
+                          checked={generalInclude.includes("*") || generalInclude.includes(name)}
+                          onChange={() => toggleGeneral(name)}
+                          type="checkbox"
+                        />
+                        {t(`tool_${name}`)}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm" htmlFor="general-timeout">
+                      {t("toolTimeout")}
+                      <Input
+                        className="mt-1"
+                        id="general-timeout"
+                        min={1}
+                        max={120}
+                        onChange={(event) => {
+                          const timeoutS = Number(event.target.value) || 30;
+                          const include = generalInclude.length ? generalInclude : ["code"];
+                          setGeneral(include.includes("*") ? [...generalTools] : include, {
+                            ...general?.overrides,
+                            code: { ...general?.overrides?.code, timeoutS },
+                            shell: { ...general?.overrides?.shell, timeoutS },
+                          });
+                        }}
+                        type="number"
+                        value={general?.overrides?.code?.timeoutS ?? 30}
+                      />
+                    </label>
+                    <label
+                      className="mt-6 flex items-center gap-2 text-sm"
+                      htmlFor="general-network"
+                    >
+                      <input
+                        checked={general?.overrides?.code?.network === true}
+                        id="general-network"
+                        onChange={(event) => {
+                          const include = generalInclude.length
+                            ? generalInclude
+                            : ["code", "shell"];
+                          setGeneral(include.includes("*") ? [...generalTools] : include, {
+                            ...general?.overrides,
+                            code: { ...general?.overrides?.code, network: event.target.checked },
+                            shell: { ...general?.overrides?.shell, network: event.target.checked },
+                          });
+                        }}
+                        type="checkbox"
+                      />
+                      {t("toolNetwork")}
+                    </label>
+                  </div>
+                  <label className="mt-3 block text-sm" htmlFor="general-hosts">
+                    {t("allowHosts")}
+                    <textarea
+                      className="mt-1 min-h-16 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                      id="general-hosts"
+                      onChange={(event) => {
+                        const allowHosts = event.target.value
+                          .split("\n")
+                          .map((item) => item.trim())
+                          .filter(Boolean);
+                        const include = generalInclude.length ? generalInclude : ["fetch", "http"];
+                        setGeneral(include.includes("*") ? [...generalTools] : include, {
+                          ...general?.overrides,
+                          fetch: { ...general?.overrides?.fetch, allowHosts },
+                          http: { ...general?.overrides?.http, allowHosts },
+                        });
+                      }}
+                      value={(general?.overrides?.fetch?.allowHosts ?? []).join("\n")}
+                    />
+                  </label>
                 </fieldset>
                 <label className="mt-4 block text-sm font-medium" htmlFor="editor-skills">
                   {t("skillSlugs")}

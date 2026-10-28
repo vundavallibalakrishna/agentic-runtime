@@ -96,6 +96,11 @@ class PrivacySettings(_Model):
     grievance_contact: GrievanceContact = Field(default_factory=GrievanceContact)
 
 
+class SearchSettings(_Model):
+    provider: Literal["none", "brave", "tavily"] = "none"
+    secret_name: str = ""
+
+
 class TenantSettings(_Model):
     default_timezone: str = "Asia/Kolkata"
     default_locale: str = "en-IN"
@@ -111,6 +116,7 @@ class TenantSettings(_Model):
     audit: AuditSettings = Field(default_factory=AuditSettings)
     observability: ObservabilitySettings = Field(default_factory=ObservabilitySettings)
     privacy: PrivacySettings = Field(default_factory=PrivacySettings)
+    search: SearchSettings = Field(default_factory=SearchSettings)
 
 
 class MaxRetention(_Model):

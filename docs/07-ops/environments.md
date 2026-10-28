@@ -124,6 +124,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SANDBOX_PACKAGE_MIRRORS` | empty | JSON `{pypi,npm,apt}` mirror URLs | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_SNAPSHOT_INTERVAL_S` | `600` | Periodic workspace snapshot interval while active | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_WARM_POOL` | `default=4,browser=2` | Warm pods per template | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SEARCH_API_KEY` | (empty) | Key for the configured web search provider. Never logged or returned | [M21b](../09-plan/M21b-general-tools.md) |
+| `AR_SEARCH_PROVIDER` | `none` | `none`, `brave` or `tavily`. Empty results until a provider answers | [M21b](../09-plan/M21b-general-tools.md) |
 | `AR_SECRETS_BACKEND` | `db_encrypted` (local) / `vault` (prod) | Backend selection | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_SECRET_CACHE_TTL_S` | `60` | In-process cache | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_SESSION_ENCRYPTION_KEY` | (secret, 32 bytes b64) | Encrypt tokens stored in sessions | [spec 01](../03-specs/01-api-bff.md) |

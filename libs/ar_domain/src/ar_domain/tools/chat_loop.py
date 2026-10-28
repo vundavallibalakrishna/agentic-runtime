@@ -85,15 +85,17 @@ async def maybe_tools(
                 "latency_ms": result.get("latency_ms"),
             },
         )
-        previews.append(
-            {
-                "qualified_name": call["qualified_name"],
-                "status": result.get("status"),
-                "arguments": result.get("arguments_redacted") or arguments,
-                "result_preview": result.get("result_preview"),
-                "error": result.get("error"),
-            }
-        )
+        preview = {
+            "qualified_name": call["qualified_name"],
+            "status": result.get("status"),
+            "arguments": result.get("arguments_redacted") or arguments,
+            "result_preview": result.get("result_preview"),
+            "error": result.get("error"),
+        }
+        structured = result.get("structured")
+        if isinstance(structured, dict) and isinstance(structured.get("presentation"), dict):
+            preview["presentation"] = structured["presentation"]
+        previews.append(preview)
         parts.append(str(result.get("result_preview") or ""))
     answer = _answer(text, parts)
     assistant["text"] = answer

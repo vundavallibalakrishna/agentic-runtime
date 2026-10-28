@@ -12,6 +12,16 @@ import { api } from "@/lib/api";
 import type { Definition } from "./types";
 
 const TEMPLATES = ["blank", "assistant", "researcher", "analyst", "support"] as const;
+const GENERAL_TOOLS = [
+  "code",
+  "shell",
+  "read_file",
+  "write_file",
+  "list_files",
+  "fetch",
+  "search",
+  "http",
+] as const;
 
 type Proposal = {
   resources?: { spec?: Definition; metadata?: { name?: string } }[];
@@ -35,6 +45,9 @@ export function BuilderScreen() {
   const [formName, setFormName] = useState("");
   const [formInstructions, setFormInstructions] = useState("");
   const [formModel, setFormModel] = useState("reasoning");
+  const [enabledTools, setEnabledTools] = useState<string[]>([...GENERAL_TOOLS]);
+  const [toolTimeout, setToolTimeout] = useState(30);
+  const [toolNetwork, setToolNetwork] = useState(false);
 
   const spec = view?.proposal?.resources?.[0]?.spec;
 
@@ -115,6 +128,19 @@ export function BuilderScreen() {
             model: { alias: formModel },
             tools: [
               { server: "control", version: "*", include: ["plan_update", "search", "checkpoint"] },
+              ...(enabledTools.length
+                ? [
+                    {
+                      server: "general",
+                      version: "*",
+                      include: enabledTools,
+                      overrides: {
+                        code: { timeoutS: toolTimeout, network: toolNetwork },
+                        shell: { timeoutS: toolTimeout, network: toolNetwork },
+                      },
+                    },
+                  ]
+                : []),
             ],
             budget: {
               maxSteps: 8,
@@ -283,6 +309,49 @@ export function BuilderScreen() {
             <option value="reasoning">reasoning</option>
             <option value="fast">fast</option>
           </select>
+          <fieldset className="mt-4">
+            <legend className="text-sm font-medium">{t("generalTools")}</legend>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("generalHelp")}</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {GENERAL_TOOLS.map((name) => (
+                <label className="flex items-center gap-2 text-sm" key={name}>
+                  <input
+                    checked={enabledTools.includes(name)}
+                    onChange={() =>
+                      setEnabledTools((current) =>
+                        current.includes(name)
+                          ? current.filter((item) => item !== name)
+                          : [...current, name],
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  {t(`tool_${name}`)}
+                </label>
+              ))}
+            </div>
+            <label className="mt-3 block text-sm" htmlFor="create-timeout">
+              {t("toolTimeout")}
+              <input
+                className="mt-1 w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                id="create-timeout"
+                min={1}
+                max={120}
+                onChange={(event) => setToolTimeout(Number(event.target.value) || 30)}
+                type="number"
+                value={toolTimeout}
+              />
+            </label>
+            <label className="mt-3 flex items-center gap-2 text-sm" htmlFor="create-network">
+              <input
+                checked={toolNetwork}
+                id="create-network"
+                onChange={(event) => setToolNetwork(event.target.checked)}
+                type="checkbox"
+              />
+              {t("toolNetwork")}
+            </label>
+          </fieldset>
           <Button
             className="mt-3"
             disabled={busy || formName.trim().length < 2 || formInstructions.trim().length < 8}

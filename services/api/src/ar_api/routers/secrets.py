@@ -48,6 +48,7 @@ async def create_secret(body: SecretCreate, request: Request) -> dict[str, objec
     created = await request.app.state.secret_api.create(
         body.name, body.kind, body.value, body.description
     )
+    _remember(request, body.name, body.value)
     return _out(created)
 
 
@@ -95,4 +96,16 @@ async def rotate_secret(
     found = await request.app.state.secret_api.rotate(secret_id, body.value)
     if found is None:
         raise NotFoundError("secret not found")
+    _remember(request, found.name, body.value)
     return _out(found)
+
+
+def _remember(request: Request, name: str, value: str) -> None:
+    """Copy a secret onto the chat store by name. The value is not logged."""
+    from ar_domain.tools.general import remember_named_secret  # noqa: PLC0415
+
+    principal = getattr(request.state, "principal", None)
+    tenant_id = getattr(principal, "tenant_id", None)
+    if not isinstance(tenant_id, uuid.UUID):
+        return
+    remember_named_secret(request.app.state.chat, tenant_id, name, value)

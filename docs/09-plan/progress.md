@@ -211,3 +211,7 @@ M21-T01 | done | 570ad4f | GRC pack parked behind AR_GRC_PACK_ENABLED, default o
 M21-T02 | done | 570ad4f | chat home, agent and model pickers, tool progress
 M21-T03 | done | 570ad4f | plan, act, check, retry; assistant max_tool_calls 8
 M21-T04 | done | 570ad4f | agent form, editor limits, model connection, real Qwen proof
+
+M21b-T01 | done | 709dde5 | per-run sandbox and workspace files
+M21b-T02 | done | 709dde5 | fetch, search provider, HTTP with approval
+M21b-T03 | done | 709dde5 | builder toggles, tool cards, Qwen proof
