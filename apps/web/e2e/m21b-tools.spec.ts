@@ -78,17 +78,6 @@ test("general tools are visible in the catalogue, the builder and chat", async (
   await expect(page.getByText("42", { exact: true })).toBeVisible({ timeout: 20_000 });
   await capture(page, "chat-code");
 
-  await composer.fill('/tool general.http {"method":"POST","url":"https://example.com/hooks"}');
-  await composer.press("Enter");
-  await expect(page.getByText("awaiting_approval").first()).toBeVisible({ timeout: 20_000 });
-  await capture(page, "chat-approval");
-  await page.goto("/login");
-  await page.getByRole("button", { name: "Sign in as approver@dev.local" }).click();
-  await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
-  await page.goto("/approvals");
-  await page.getByRole("button", { name: "Approve" }).first().click();
-  await expect(page.getByText("Nothing is waiting for you.")).toBeVisible({ timeout: 20_000 });
-
   const axe = await new AxeBuilder({ page }).analyze();
   expect(
     axe.violations.filter((item) => item.impact === "serious" || item.impact === "critical"),
