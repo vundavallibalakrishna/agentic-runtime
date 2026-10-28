@@ -894,4 +894,26 @@ def _control_tools() -> list[dict[str, object]]:
             {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
             "R0",
         ),
+        _tool(
+            "checkpoint",
+            "Save a checkpoint",
+            "Save a short note. The first call in a run can fail; retry with confirm set to true.",
+            {
+                "type": "object",
+                "properties": {"note": {"type": "string"}, "confirm": {"type": "boolean"}},
+                "required": ["note"],
+            },
+            "R0",
+        ),
+        _tool(
+            "propose_change",
+            "Propose a change",
+            "Record a change to stored data. This waits for approval before it is saved.",
+            {
+                "type": "object",
+                "properties": {"summary": {"type": "string"}},
+                "required": ["summary"],
+            },
+            "W2",
+        ),
     ]

@@ -714,6 +714,10 @@ export type ConversationBody = {
      * Agentversionid
      */
     agentVersionId?: string | null;
+    /**
+     * Modelalias
+     */
+    modelAlias?: string | null;
 };
 
 /**
@@ -728,6 +732,10 @@ export type ConversationPatch = {
      * Pinned
      */
     pinned?: boolean | null;
+    /**
+     * Modelalias
+     */
+    modelAlias?: string | null;
 };
 
 /**

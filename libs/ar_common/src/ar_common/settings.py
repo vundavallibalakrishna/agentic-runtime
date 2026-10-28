@@ -49,6 +49,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_FILES_PROXY_DOWNLOADS",
         "AR_FILES_SCANNER",
         "AR_GRC_CONNECTOR_MAX_PAGES",
+        "AR_GRC_PACK_ENABLED",
         "AR_GROUNDING_MAX_SENTENCES",
         "AR_GUARDRAIL_INPUT_ALIAS",
         "AR_GUARDRAIL_OUTPUT_ALIAS",
@@ -261,6 +262,7 @@ class BaseServiceSettings(BaseSettings):
     evidence_signing_key: SecretStr = SecretStr("")
     evidence_signing_key_id: str = "evidence-k1"
     grc_connector_max_pages: int = 50
+    grc_pack_enabled: bool = False
     grounding_max_sentences: int = 200
     guest_magic_link_ttl_s: int = 900
     guest_max_ttl_days: int = 90

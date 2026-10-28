@@ -51,15 +51,19 @@ def can_start_run(agent: AgentView, *, can_see: bool) -> bool:
 
 
 def assistant_definition() -> dict[str, object]:
-    """Published default agent. No tools, so the v1 loop stays on model steps."""
+    """Published default agent. Read-only control tools, with a safe call budget."""
     return {
         "persona": {
             "display_name": "Assistant",
-            "greeting": "Hello. I can help with writing, summaries and questions.",
+            "greeting": "Hello. Ask me to look something up, plan the work, or draft an answer.",
         },
         "instructions": (
-            "You are a helpful corporate assistant. Answer clearly and briefly. "
-            "When the user attaches a file, mention its name in the answer."
+            "You are a helpful assistant. Answer clearly and briefly. "
+            "When the user attaches a file, mention its name in the answer. "
+            "Use tools when they help. Read each tool result before you answer. "
+            "If a tool call fails, correct the arguments and try again. "
+            "Do not claim a tool succeeded when it failed. "
+            "Anything that sends, deletes, spends or changes stored data must wait for approval."
         ),
         "starter_prompts": [
             "Summarise the attached document",
@@ -67,13 +71,19 @@ def assistant_definition() -> dict[str, object]:
             "Explain this in simpler terms",
         ],
         "model": {"alias": "reasoning", "fast_alias": "fast", "vision_alias": "vision"},
-        "tools": [],
+        "tools": [
+            {
+                "server": "control",
+                "version": "*",
+                "include": ["plan_update", "search", "checkpoint"],
+            }
+        ],
         "budget": {
             "max_steps": 8,
             "max_tokens": 16000,
             "max_cost_micros": 1_000_000,
             "max_wall_clock_s": 120,
-            "max_tool_calls": 0,
+            "max_tool_calls": 8,
             "max_parallel_tool_calls": 1,
         },
     }

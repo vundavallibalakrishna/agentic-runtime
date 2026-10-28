@@ -1,5 +1,7 @@
 # GRC solution pack
 
+**Parked.** As of 2026-10-28 the product is a generic agentic platform. This pack stays in the repository and is not part of the default experience. `AR_GRC_PACK_ENABLED` defaults to `false`, which skips the dev install (templates, routines and seeded catalogues) and leaves the GRC screens out of navigation. Set the flag to `true` only to work on the pack itself. Removal is a later milestone. Core does not import this package.
+
 A solution pack for governance, risk and compliance buyers. It is not part of core 1.0. It installs through the content-pack and extension hooks ([spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs), [spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md)) and never changes a core table.
 
 | Item | Value |

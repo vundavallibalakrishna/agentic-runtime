@@ -2,8 +2,6 @@
 
 from datetime import UTC, datetime
 
-import pytest
-
 from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
 from ar_domain.conversations.logic import MessageNode, activate_branch
 from ar_domain.files.logic import EICAR, FileView, can_read_file, mime_allowed, scan_bytes
@@ -103,17 +101,17 @@ def test_runtime_loop_and_callback() -> None:
     assert advance(request, definition["budget"]) == "completed"  # type: ignore[arg-type]
     request.cancelled = True
     assert advance(request, definition["budget"]) == "cancelled"  # type: ignore[arg-type]
-    with pytest.raises(NotImplementedError):
-        advance(
-            RunRequest("2", {"tools": [{"server": "x"}]}, "hi"),
-            {
-                "max_steps": 1,
-                "max_tokens": 1,
-                "max_cost_micros": 1,
-                "max_wall_clock_s": 1,
-                "max_tool_calls": 0,
-            },
-        )
+    tooled = advance(
+        RunRequest("2", {"tools": [{"server": "control"}]}, "hi"),
+        {
+            "max_steps": 8,
+            "max_tokens": 10,
+            "max_cost_micros": 1,
+            "max_wall_clock_s": 10,
+            "max_tool_calls": 8,
+        },
+    )
+    assert tooled == "completed"
     assert workflow_id("abc") == "run-abc"
     assert (
         budget_exceeded(

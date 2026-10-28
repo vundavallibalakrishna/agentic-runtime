@@ -329,7 +329,8 @@ class UsageBook:
                     self.counters.put(key, total, end)
 
     def _filtered(self, tenant_id: str, query: dict[str, str]) -> list[dict[str, object]]:
-        start, end = _range(query)
+        local_today = utcnow().astimezone(zone(self._zone(tenant_id))).date()
+        start, end = _range(query, today=local_today)
         found: list[dict[str, object]] = []
         for item in self._daily().values():
             if item.tenant_id != tenant_id or not _in_range(item.day, start, end):
@@ -719,8 +720,8 @@ def _groups(raw: str) -> tuple[str, ...]:
         ) from exc
 
 
-def _range(query: dict[str, str]) -> tuple[date, date]:
-    today = utcnow().date()
+def _range(query: dict[str, str], *, today: date | None = None) -> tuple[date, date]:
+    today = today or utcnow().date()
     start = _date(query.get("from")) or (today - timedelta(days=30))
     end = _date(query.get("to")) or today
     if end < start or (end - start).days > _MAX_RANGE_DAYS:

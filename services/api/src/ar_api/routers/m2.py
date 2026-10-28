@@ -61,11 +61,13 @@ class AliasTestBody(ApiModel):
 class ConversationBody(ApiModel):
     agent_id: uuid.UUID | None = None
     agent_version_id: uuid.UUID | None = None
+    model_alias: str | None = None
 
 
 class ConversationPatch(ApiModel):
     title: str | None = None
     pinned: bool | None = None
+    model_alias: str | None = None
 
 
 class MessageBody(ApiModel):
@@ -377,6 +379,7 @@ async def create_conversation(body: ConversationBody, request: Request) -> dict[
         _tenant(principal),
         uuid.UUID(principal.id),
         body.agent_id,
+        model_alias=body.model_alias,
     )
 
 
@@ -415,12 +418,15 @@ async def patch_conversation(
     conversation_id: uuid.UUID, body: ConversationPatch, request: Request
 ) -> dict[str, object]:
     principal = _principal(request)
+    fields = body.model_dump(exclude_unset=True)
     return _chat(request).patch_conversation(
         _tenant(principal),
         uuid.UUID(principal.id),
         conversation_id,
         title=body.title,
         pinned=body.pinned,
+        model_alias=body.model_alias,
+        model_alias_set="model_alias" in fields,
     )
 
 

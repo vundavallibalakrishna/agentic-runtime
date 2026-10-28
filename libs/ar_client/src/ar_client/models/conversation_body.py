@@ -22,10 +22,12 @@ class ConversationBody:
     Attributes:
         agent_id (None | Unset | UUID):
         agent_version_id (None | Unset | UUID):
+        model_alias (None | str | Unset):
     """
 
     agent_id: None | Unset | UUID = UNSET
     agent_version_id: None | Unset | UUID = UNSET
+    model_alias: None | str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         agent_id: None | str | Unset
@@ -44,6 +46,12 @@ class ConversationBody:
         else:
             agent_version_id = self.agent_version_id
 
+        model_alias: None | str | Unset
+        if isinstance(self.model_alias, Unset):
+            model_alias = UNSET
+        else:
+            model_alias = self.model_alias
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -51,6 +59,8 @@ class ConversationBody:
             field_dict["agentId"] = agent_id
         if agent_version_id is not UNSET:
             field_dict["agentVersionId"] = agent_version_id
+        if model_alias is not UNSET:
+            field_dict["modelAlias"] = model_alias
 
         return field_dict
 
@@ -92,9 +102,19 @@ class ConversationBody:
 
         agent_version_id = _parse_agent_version_id(d.pop("agentVersionId", UNSET))
 
+        def _parse_model_alias(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        model_alias = _parse_model_alias(d.pop("modelAlias", UNSET))
+
         conversation_body = cls(
             agent_id=agent_id,
             agent_version_id=agent_version_id,
+            model_alias=model_alias,
         )
 
         return conversation_body

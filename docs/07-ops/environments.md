@@ -175,6 +175,7 @@ These names are part of the catalogue. The task that implements each one adds it
 | `AR_EVIDENCE_SIGNING_KEY_ID` | `evidence-k1` | `signature_key_id` written on new items | [spec 21](../03-specs/21-records-governance.md) |
 | `AR_GROUNDING_MAX_SENTENCES` | `200` | Claim cap per answer | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_GRC_CONNECTOR_MAX_PAGES` | `50` | Page cap for one GRC connector collection | [GRC connectors](../10-grc-pack/connectors.md) |
+| `AR_GRC_PACK_ENABLED` | `false` | When false, the GRC pack is not installed for the dev tenant and stays out of the default workspace. The package remains on disk. | [M21](../09-plan/M21-agentic-workspace.md) |
 | `AR_GUEST_MAGIC_LINK_TTL_S` | `900` | Guest magic-link lifetime | [spec 21](../03-specs/21-records-governance.md) |
 | `AR_GUEST_MAX_TTL_DAYS` | `90` | Longest guest principal lifetime | [spec 21](../03-specs/21-records-governance.md) |
 | `AR_GUEST_SESSION_TTL_S` | `28800` | Guest session TTL | [spec 21](../03-specs/21-records-governance.md) |
