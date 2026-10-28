@@ -212,6 +212,6 @@ M21-T02 | done | 570ad4f | chat home, agent and model pickers, tool progress
 M21-T03 | done | 570ad4f | plan, act, check, retry; assistant max_tool_calls 8
 M21-T04 | done | 570ad4f | agent form, editor limits, model connection, real Qwen proof
 
-M21b-T01 | in_progress | - | 2026-10-28 sandbox, workspace files
-M21b-T02 | in_progress | - | 2026-10-28 fetch, search, HTTP
-M21b-T03 | in_progress | - | 2026-10-28 builder, tools screen, chat cards
+M21b-T01 | done | 709dde5 | per-run sandbox and workspace files
+M21b-T02 | done | 709dde5 | fetch, search provider, HTTP with approval
+M21b-T03 | done | 709dde5 | builder toggles, tool cards, Qwen proof

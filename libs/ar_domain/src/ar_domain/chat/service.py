@@ -1322,9 +1322,7 @@ class ChatService:
         draft = agent.get("draft_version_id")
         return draft if isinstance(draft, uuid.UUID) else None
 
-    def _completion_url_for(
-        self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]
-    ) -> str:
+    def _completion_url_for(self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]) -> str:
         """Call the provider directly when its key is still on the in-memory row."""
         found = self._alias_target(tenant_id, alias)
         if found is None:

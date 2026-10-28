@@ -179,7 +179,7 @@ def _probe() -> bool:
             capture_output=True,
             timeout=8,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return False
     return result.returncode == 0
 
@@ -244,9 +244,7 @@ def _namespace(
     return _spawn(command, env, cwd=root / "workspace", timeout=timeout, mode="namespace")
 
 
-def _process(
-    workspace: Path, argv: list[str], env: dict[str, str], *, timeout: int
-) -> IsolatedRun:
+def _process(workspace: Path, argv: list[str], env: dict[str, str], *, timeout: int) -> IsolatedRun:
     return _spawn(argv, env, cwd=workspace, timeout=timeout, mode="process")
 
 
