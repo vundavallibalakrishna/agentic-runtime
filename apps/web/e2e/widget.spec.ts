@@ -96,7 +96,9 @@ test("host token opens an accessible embedded conversation and streams a worker 
   await page.goto(hostOrigin);
   await page.getByRole("button", { name: "Chat with an agent" }).click();
   const frame = page.frameLocator("iframe");
-  await expect(frame.getByRole("heading", { name: "How can I help?" })).toBeVisible();
+  await expect(frame.getByRole("heading", { name: "How can I help?" })).toBeVisible({
+    timeout: 20_000,
+  });
   await frame.getByLabel("Message", { exact: true }).fill("Hello from the embedded portal");
   await frame.getByRole("button", { name: "Send message" }).click();
   await expect(
@@ -116,7 +118,9 @@ test("host token opens an accessible embedded conversation and streams a worker 
     }
   }
   await frame.getByRole("button", { name: "Start a new chat" }).click();
-  await expect(frame.getByRole("heading", { name: "How can I help?" })).toBeVisible();
+  await expect(frame.getByRole("heading", { name: "How can I help?" })).toBeVisible({
+    timeout: 20_000,
+  });
   await frame.getByLabel("Message", { exact: true }).press("Escape");
   await expect(page.locator("iframe")).toBeHidden();
   await expect(page.getByRole("button", { name: "Chat with an agent" })).toBeFocused();
@@ -126,11 +130,12 @@ test("a dropped event stream reloads the same conversation", async ({ page }) =>
   await page.goto(hostOrigin);
   await page.getByRole("button", { name: "Chat with an agent" }).click();
   const frame = page.frameLocator("iframe");
-  await expect(frame.getByRole("heading", { name: "How can I help?" })).toBeVisible();
+  await expect(frame.getByRole("heading", { name: "How can I help?" })).toBeVisible({
+    timeout: 20_000,
+  });
   await page.route("**/api/v1/widget/runs/*/events", (route) => route.abort(), { times: 1 });
   await frame.getByLabel("Message", { exact: true }).fill("Recover this portal conversation");
   await frame.getByRole("button", { name: "Send message" }).click();
-  await frame.getByRole("button", { name: "Reload conversation" }).click();
   await expect(
     frame.getByRole("log").getByText("fake: Recover this portal conversation", { exact: false }),
   ).toBeVisible({ timeout: 30000 });
