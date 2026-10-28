@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
 import { GrcNav } from "@/components/grc/grc-nav";
+import { WorkflowForms } from "@/components/grc/workflow-forms";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -198,18 +199,20 @@ export function WorkflowScreen({ section }: { section: WorkflowSection }) {
             </li>
           ))}
         </ul>
-      ) : rows.length === 0 ? (
-        <EmptyState title={t("emptyWorkflow")} />
       ) : (
         <div className="space-y-4">
-          <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
-            {rows.map((row) => (
-              <li className="px-4 py-3" key={row.id}>
-                <p className="font-medium">{row.title}</p>
-                <p className="text-sm text-[var(--muted-foreground)]">{row.meta}</p>
-              </li>
-            ))}
-          </ul>
+          <WorkflowForms onChanged={load} onNotice={setNotice} rows={rows} section={section} />
+          {rows.length === 0 ? <EmptyState title={t("emptyWorkflow")} /> : null}
+          {rows.length === 0 ? null : (
+            <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
+              {rows.map((row) => (
+                <li className="px-4 py-3" key={row.id}>
+                  <p className="font-medium">{row.title}</p>
+                  <p className="text-sm text-[var(--muted-foreground)]">{row.meta}</p>
+                </li>
+              ))}
+            </ul>
+          )}
           {section === "questionnaires" && jobId ? (
             <Button onClick={() => void exportAnswers()} type="button">
               {t("exportAnswers")}
@@ -303,15 +306,35 @@ async function loadSection(section: Exclude<WorkflowSection, "overview">) {
     };
   }
   if (section === "regulatory") {
-    const page = await api<{ items?: { id: string; title?: string; status?: string }[] }>(
-      "/api/v1/ext/grc/regulatory-changes",
-    );
+    const [changes, feeds, obligations] = await Promise.all([
+      api<{ items?: { id: string; title?: string; status?: string }[] }>(
+        "/api/v1/ext/grc/regulatory-changes",
+      ),
+      api<{ items?: { id: string; regulator?: string; url?: string }[] }>(
+        "/api/v1/ext/grc/regulator-feeds",
+      ),
+      api<{ items?: { id: string; citation?: string; statement?: string }[] }>(
+        "/api/v1/ext/grc/obligations",
+      ),
+    ]);
     return {
-      rows: (page.items ?? []).map((item) => ({
-        id: item.id,
-        title: item.title || item.id,
-        meta: item.status || "",
-      })),
+      rows: [
+        ...(feeds.items ?? []).map((item) => ({
+          id: item.id,
+          title: item.regulator || item.id,
+          meta: item.url || "",
+        })),
+        ...(obligations.items ?? []).map((item) => ({
+          id: item.id,
+          title: item.citation || item.id,
+          meta: item.statement || "",
+        })),
+        ...(changes.items ?? []).map((item) => ({
+          id: item.id,
+          title: item.title || item.id,
+          meta: item.status || "",
+        })),
+      ],
       jobId: "",
       versionId: "",
     };

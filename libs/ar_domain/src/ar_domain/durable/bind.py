@@ -83,6 +83,9 @@ async def bind_store(store: object, database_url: str) -> DevBinding | None:
         if isinstance(bucket, TrackedDict):
             bucket.dirty.update(keys - loaded.get(name, set()))
     await flush_store(store)
+    from ar_domain.agents.logic import enable_assistant_tools  # noqa: PLC0415
+
+    enable_assistant_tools(store)
     binding = DevBinding(tenant_id=tenant_id, users=users)
     store.dev_binding = binding  # type: ignore[attr-defined]
     _log.info("durable_bound", tenant_id=str(tenant_id))
@@ -150,13 +153,20 @@ def _id_map(tenant_id: uuid.UUID, users: dict[str, uuid.UUID]) -> dict[uuid.UUID
     return {left: right for left, right in mapping.items() if left != right}
 
 
+_REMAP_ALSO = ("credential_grants", "credential_providers", "oauth_states")
+
+
 def _remap(store: object, mapping: dict[uuid.UUID, uuid.UUID]) -> None:
     if not mapping:
         return
-    for name in BUCKETS:
+    names = list(BUCKETS) + [name for name in _REMAP_ALSO if name not in BUCKETS]
+    for name in names:
         current = getattr(store, name, None)
         if isinstance(current, dict):
             setattr(store, name, _remap_dict(current, mapping))
+    log = getattr(store, "audit_log", None)
+    if isinstance(log, list):
+        store.audit_log = [_remap_value(row, mapping) for row in log]  # type: ignore[attr-defined]
 
 
 def _remap_dict(
@@ -172,6 +182,13 @@ def _remap_dict(
 def _remap_value(value: object, mapping: dict[uuid.UUID, uuid.UUID]) -> object:
     if isinstance(value, uuid.UUID):
         return mapping.get(value, value)
+    if isinstance(value, str):
+        try:
+            parsed = uuid.UUID(value)
+        except ValueError:
+            return value
+        mapped = mapping.get(parsed)
+        return str(mapped) if mapped is not None else value
     if isinstance(value, dict):
         return {str(key): _remap_value(item, mapping) for key, item in value.items()}
     if isinstance(value, list):

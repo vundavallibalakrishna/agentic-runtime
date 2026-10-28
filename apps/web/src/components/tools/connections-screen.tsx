@@ -22,6 +22,12 @@ export function ConnectionsScreen() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [link, setLink] = useState("");
+  const [pending, setPending] = useState<{
+    providerId: string;
+    state: string;
+    local: boolean;
+  } | null>(null);
+  const [code, setCode] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -46,18 +52,43 @@ export function ConnectionsScreen() {
     void load();
   }, [load]);
 
-  async function connect(providerId: string) {
+  async function connect(providerId: string, local: boolean) {
     if (busy) return;
     setBusy(true);
     try {
       setError("");
-      const started = await api<{ authorizeUrl?: string }>(
+      const started = await api<{ authorizeUrl?: string; state?: string }>(
         `/api/v1/connections/${providerId}:start`,
         {
           method: "POST",
         },
       );
       setLink(started.authorizeUrl ?? "");
+      setPending({ providerId, state: started.state ?? "", local });
+      setCode(local ? t("workspaceCode") : "");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function finish(nextCode: string) {
+    if (busy || !pending?.state) return;
+    const value = nextCode.trim();
+    if (!value) {
+      setError(t("code"));
+      return;
+    }
+    setBusy(true);
+    try {
+      setError("");
+      const params = new URLSearchParams({ code: value, state: pending.state });
+      await api(`/api/v1/connections/oauth/callback?${params.toString()}`);
+      setPending(null);
+      setLink("");
+      setCode("");
+      await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -138,7 +169,12 @@ export function ConnectionsScreen() {
                       {t("disconnect")}
                     </Button>
                   ) : (
-                    <Button onClick={() => void connect(id)} type="button">
+                    <Button
+                      onClick={() =>
+                        void connect(id, String(provider.tokenUrl || "").startsWith("memory://"))
+                      }
+                      type="button"
+                    >
                       {t("connect")}
                     </Button>
                   )}
@@ -151,6 +187,39 @@ export function ConnectionsScreen() {
           <p role="status">
             <a href={link}>{link}</a>
           </p>
+        ) : null}
+        {pending ? (
+          <form
+            className="mb-8 space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void finish(code);
+            }}
+          >
+            <h2 className="text-base font-semibold">{t("finishTitle")}</h2>
+            <p className="text-sm text-[var(--muted-foreground)]">{t("codeHint")}</p>
+            <label className="block text-sm" htmlFor="connection-code">
+              {t("code")}
+              <input
+                className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-sm"
+                id="connection-code"
+                onChange={(event) => setCode(event.target.value)}
+                value={code}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit">{t("finish")}</Button>
+              {pending.local ? (
+                <Button
+                  onClick={() => void finish(t("workspaceCode"))}
+                  type="button"
+                  variant="outline"
+                >
+                  {t("connectAsMe")}
+                </Button>
+              ) : null}
+            </div>
+          </form>
         ) : null}
         <h2 className="mb-2 text-lg font-medium">{t("data")}</h2>
         <ul className="grid gap-4 md:grid-cols-2">

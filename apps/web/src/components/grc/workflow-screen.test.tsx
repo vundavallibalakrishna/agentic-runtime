@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -61,8 +61,33 @@ describe("GRC workflows", () => {
       ),
     );
     render(wrap(<WorkflowScreen section="vendors" />));
-    expect(await screen.findByText("Northwind")).toBeTruthy();
+    expect((await screen.findAllByText("Northwind")).length).toBeGreaterThan(0);
     expect(await screen.findByText("high")).toBeTruthy();
+  });
+
+  it("keeps the empty state until a vendor name is saved", async () => {
+    let body: unknown = null;
+    server.use(
+      session(),
+      pack(),
+      http.get("*/api/v1/ext/grc/vendors", () => HttpResponse.json({ items: [] })),
+      http.post("*/api/v1/ext/grc/vendors", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: "v2", name: "Acme" });
+      }),
+    );
+    render(wrap(<WorkflowScreen section="vendors" />));
+    expect(await screen.findByText("Nothing is here yet.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add vendor" }));
+    expect(await screen.findByRole("alert")).toHaveProperty(
+      "textContent",
+      "Vendor name is required.",
+    );
+    fireEvent.change(screen.getByRole("textbox", { name: /Vendor name/ }), {
+      target: { value: "Acme" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add vendor" }));
+    await waitFor(() => expect(body).toEqual({ name: "Acme" }));
   });
 
   it("shows an error when risks cannot be loaded", async () => {

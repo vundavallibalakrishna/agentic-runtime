@@ -41,8 +41,9 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M18 | [M18-grc-workflows.md](M18-grc-workflows.md) | GRC workflows | Questionnaires, vendors, policies, risk, regulatory change, breach clocks, exceptions, ethics | 8 |
 | M19 | [M19-grc-audit-reporting.md](M19-grc-audit-reporting.md) | GRC audit and reporting | Auditor portal, access reviews, attestations, reports, inspections, DSAR, pack release | 8 |
 | M20 | [M20-certification.md](M20-certification.md) | Platform certification | A real OpenAI-compatible model, a browser pass of the product and the GRC pack, and a written verdict | 4 |
+| M21 | [M21-operator-workflows.md](M21-operator-workflows.md) | Operator workflows | GRC records created from the UI, and a real model tool call that can wait for approval | 3 |
 
-Total: **180 tasks** across 22 milestones (M0–M20, including M2.5 between M2 and M3). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027).
+Total: **183 tasks** across 23 milestones (M0–M21, including M2.5 between M2 and M3). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027).
 
 ## Dependency graph
 
@@ -74,6 +75,7 @@ flowchart LR
   M17 --> M19
   M18 --> M19
   M19 --> M20
+  M20 --> M21
 ```
 
 M16 does not wait for M15. M13-T07 is the one task that waits for a later milestone (M14-T08).

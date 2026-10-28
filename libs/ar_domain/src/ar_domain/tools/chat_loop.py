@@ -22,6 +22,13 @@ _DELETE = re.compile(r"(?i)delete\s+(?:the\s+)?pet(?:\s+(?:number\s+)?(\d+))?")
 _CHART = re.compile(r"(?i)chart|analyse the attached csv|analyze the attached csv|revenue by month")
 _ASK = re.compile(r"(?i)\bask me\b")
 _TOOL = re.compile(r"^/tool\s+(\S+)(?:\s+(\{.*\}))?\s*$", re.DOTALL)
+_UNBACKED = re.compile(
+    r"(?i)(\b(filed|created|opened|submitted|raised)\b.{0,48}\btickets?\b|"
+    r"\btickets?\b.{0,48}\b(filed|created|opened|submitted|raised)\b|"
+    r"\b(created|added|deleted|removed)\b.{0,40}\bpets?\b|"
+    r"\bpets?\b.{0,40}\b(created|added|deleted|removed)\b)"
+)
+_UNBACKED_TEXT = "That action was not completed. No tool call was recorded."
 
 
 async def maybe_tools(
@@ -34,6 +41,85 @@ async def maybe_tools(
     planned = _plan(store, run, text)
     if not planned:
         return False
+    return await _run_planned(store, run, assistant, planned, text)
+
+
+def guard_unbacked(text: str, *, recorded: bool) -> str:
+    """Do not present a ticket or pet action as done unless a tool call was recorded."""
+    if recorded or not _UNBACKED.search(text):
+        return text
+    return _UNBACKED_TEXT
+
+
+def openai_tools(catalog: list[dict[str, object]]) -> list[dict[str, object]]:
+    """OpenAI tool definitions for the names the model is allowed to call."""
+    tools: list[dict[str, object]] = []
+    for item in catalog:
+        parameters = item.get("parameters")
+        if not isinstance(parameters, dict) or not parameters:
+            parameters = {"type": "object", "properties": {}}
+        description = str(item.get("description") or item.get("qualified_name") or "")
+        if item.get("qualified_name") == "petstore.create_pet":
+            description += ' Pass arguments as {"body": {"name": "the pet name"}}.'
+        name = str(item.get("model_name") or "")
+        if not name:
+            continue
+        tools.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": description,
+                    "parameters": parameters,
+                },
+            }
+        )
+    return tools
+
+
+def planned_from_model(
+    catalog: list[dict[str, object]], calls: list[dict[str, object]]
+) -> list[dict[str, Any]]:
+    """Map model function names onto the agent's tool catalogue."""
+    planned: list[dict[str, Any]] = []
+    for call in calls:
+        spec = _match_tool(catalog, str(call.get("name") or ""))
+        if spec is None:
+            continue
+        arguments = call.get("arguments")
+        planned.append(
+            {
+                "tool_version_id": uuid.UUID(str(spec["tool_version_id"])),
+                "qualified_name": spec.get("qualified_name"),
+                "title": spec.get("qualified_name"),
+                "risk_class": spec.get("risk_class"),
+                "arguments": arguments if isinstance(arguments, dict) else {},
+            }
+        )
+    return planned
+
+
+async def run_model_tools(
+    store: Any,
+    run: dict[str, object],
+    assistant: dict[str, object],
+    catalog: list[dict[str, object]],
+    calls: list[dict[str, object]],
+) -> bool:
+    """Execute tool calls the model returned. Return false when none match the catalogue."""
+    planned = planned_from_model(catalog, calls)
+    if not planned:
+        return False
+    return await _run_planned(store, run, assistant, planned, "")
+
+
+async def _run_planned(
+    store: Any,
+    run: dict[str, object],
+    assistant: dict[str, object],
+    planned: list[dict[str, Any]],
+    text: str,
+) -> bool:
     pipeline = ToolPipeline(store)
     previews: list[dict[str, object]] = []
     parts: list[str] = []
@@ -114,6 +200,15 @@ async def maybe_tools(
         {"final_message_id": str(assistant_id), "usage": {"tokens_in": 1, "tokens_out": 1}},
     )
     return True
+
+
+def _match_tool(catalog: list[dict[str, object]], name: str) -> dict[str, object] | None:
+    for item in catalog:
+        qualified = str(item.get("qualified_name") or "")
+        folded = qualified.replace(".", "__")
+        if item.get("model_name") == name or name in {qualified, folded}:
+            return item
+    return None
 
 
 def _plan(store: Any, run: dict[str, object], text: str) -> list[dict[str, Any]]:  # noqa: PLR0911

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
@@ -148,5 +148,35 @@ describe("tool screens", () => {
     expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();
     expect(screen.getByText("Connected")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Warehouse" })).toBeTruthy();
+  });
+
+  it("finishes a workspace connection with a code", async () => {
+    let code = "";
+    server.use(
+      http.get("*/api/v1/auth/session", () => HttpResponse.json({})),
+      http.get("*/api/v1/connections", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/credential-providers", () =>
+        HttpResponse.json({
+          items: [{ id: "p1", name: "Tickets", slug: "tickets", tokenUrl: "memory://oauth" }],
+        }),
+      ),
+      http.get("*/api/v1/data-connections", () => HttpResponse.json({ items: [] })),
+      http.post("*/api/v1/connections/p1:start", () =>
+        HttpResponse.json({
+          authorizeUrl: "https://tickets.example/authorize?state=abc",
+          state: "abc",
+        }),
+      ),
+      http.get("*/api/v1/connections/oauth/callback", ({ request }) => {
+        code = new URL(request.url).searchParams.get("code") ?? "";
+        return HttpResponse.json({ id: "g1", status: "active" });
+      }),
+    );
+    render(wrap(<ConnectionsScreen />));
+    fireEvent.click(await screen.findByRole("button", { name: "Connect" }));
+    expect(await screen.findByRole("heading", { name: "Finish connecting" })).toBeTruthy();
+    expect(screen.getByLabelText("Authorization code")).toHaveProperty("value", "workspace");
+    fireEvent.click(screen.getByRole("button", { name: "Connect as me" }));
+    await waitFor(() => expect(code).toBe("workspace"));
   });
 });

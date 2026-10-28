@@ -24,7 +24,14 @@ from ar_common.ids import new_id
 from ar_common.sandboxkit import csv_rows, xlsx_rows
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
-from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
+from ar_domain.agents.logic import (
+    AgentView,
+    assistant_definition,
+    can_see_agent,
+    can_start_run,
+    enable_assistant_tools,
+    published_assistant_definition,
+)
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.conversations.logic import MessageNode, activate_branch, run_is_active
 from ar_domain.demo_ids import demo_id as demo_id  # noqa: PLC0414
@@ -40,12 +47,14 @@ from ar_domain.models.logic import (
     DEFAULT_DENY_CIDRS,
     AliasRef,
     completion_text,
+    completion_tool_calls,
     merge_params,
     provider_url_denied,
     resolve_alias,
     valid_alias,
+    visible_answer,
 )
-from ar_domain.runs.logic import assemble_context, budget_exceeded, tools_not_supported
+from ar_domain.runs.logic import assemble_context, budget_exceeded
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
 if TYPE_CHECKING:
@@ -476,13 +485,12 @@ class ChatService:
         """Create the published ``assistant`` agent for a tenant once."""
         for agent in self.agents.values():
             if agent["tenant_id"] == tenant_id and agent["slug"] == "assistant":
+                enable_assistant_tools(self)
                 return agent
         agent_id = new_id()
         version_id = new_id()
         now = utcnow()
-        definition = assistant_definition()
-        if tools_not_supported(definition):
-            raise ArError(ErrorCode.INVALID_STATE, "assistant must not bind tools")
+        definition = published_assistant_definition()
         version = {
             "id": version_id,
             "tenant_id": tenant_id,
@@ -1537,21 +1545,28 @@ class ChatService:
 
         if await maybe_compose(self, run, assistant, text):
             return
-        if await maybe_tools(self, run, assistant, text):
+        model_tokens = await self._model_tool_turn(run, assistant, text, names)
+        if model_tokens == "done":
+            return
+        if model_tokens is None and await maybe_tools(self, run, assistant, text):
             return
         from ar_domain.knowledge.answer import compose  # noqa: PLC0415
 
         grounded = compose(self, run, text)
-        if grounded is not None:
+        if grounded is not None and model_tokens is None:
             await self._finish_grounded(run, assistant, conversation, grounded)
             return
         slow = "slow" in text.lower()
-        tokens = await self._tokens(
-            text,
-            names,
-            slow=slow,
-            system=self._system_prompt(run),
-            tenant_id=uuid.UUID(str(run["tenant_id"])),
+        tokens = (
+            model_tokens
+            if isinstance(model_tokens, list)
+            else await self._tokens(
+                text,
+                names,
+                slow=slow,
+                system=self._system_prompt(run),
+                tenant_id=uuid.UUID(str(run["tenant_id"])),
+            )
         )
         built: list[str] = []
         for token in tokens:
@@ -1603,6 +1618,92 @@ class ChatService:
             self.callbacks.append(
                 {"url": callback, "run_id": str(run_id), "status": "completed", "text": answer}
             )
+
+    async def _model_tool_turn(
+        self,
+        run: dict[str, object],
+        assistant: dict[str, object],
+        text: str,
+        names: list[str],
+    ) -> list[str] | str | None:
+        """Ask a real model for tool calls. ``done`` means the turn already finished."""
+        tenant_id = run.get("tenant_id")
+        if not isinstance(tenant_id, uuid.UUID):
+            return None
+        model, headers, timeout_s, real = self._completion_call(tenant_id)
+        if not real:
+            return None
+        version_id = run.get("agent_version_id")
+        user_id = run.get("user_id")
+        if not isinstance(version_id, uuid.UUID) or not isinstance(user_id, uuid.UUID):
+            return None
+        from ar_domain.tools.chat_loop import (  # noqa: PLC0415
+            guard_unbacked,
+            openai_tools,
+            run_model_tools,
+        )
+        from ar_domain.tools.pipeline import ToolPipeline  # noqa: PLC0415
+
+        found = ToolPipeline(self).resolve_catalog(agent_version_id=version_id, user_id=user_id)
+        raw = found.get("tools")
+        catalog = [item for item in raw if isinstance(item, dict)] if isinstance(raw, list) else []
+        if not catalog:
+            return None
+        shown, calls = await self._remote_turn(
+            text,
+            self._system_prompt(run),
+            model=model,
+            headers=headers,
+            timeout_s=timeout_s,
+            tools=openai_tools(catalog),
+        )
+        if calls and await run_model_tools(self, run, assistant, catalog, calls):
+            return "done"
+        if calls and not shown:
+            shown = "The model asked for a tool this assistant cannot run."
+        prefix = f"Attached {', '.join(names)}. " if names else ""
+        return [prefix + guard_unbacked(shown, recorded=False)]
+
+    async def _remote_turn(
+        self,
+        text: str,
+        system: str,
+        *,
+        model: str,
+        headers: dict[str, str] | None,
+        timeout_s: float,
+        tools: list[dict[str, object]],
+    ) -> tuple[str, list[dict[str, object]]]:
+        messages: list[dict[str, str]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": text})
+        body: dict[str, object] = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": 1200,
+            "tools": tools,
+            "tool_choice": "auto",
+        }
+        if "qwen3" in model.lower():
+            body["chat_template_kwargs"] = {"enable_thinking": False}
+        try:
+            async with httpx.AsyncClient(timeout=timeout_s) as client:
+                response = await client.post(
+                    self.completion_url(),
+                    json=body,
+                    headers=headers or {},
+                )
+            if response.status_code >= 300:
+                return "The model provider returned an error.", []
+            payload = response.json()
+        except httpx.HTTPError:
+            return "The model provider did not answer.", []
+        calls = completion_tool_calls(payload)
+        shown = visible_answer(completion_text(payload))
+        if not shown and not calls:
+            shown = "The model provider returned an empty answer."
+        return shown, calls
 
     async def _tokens(
         self,

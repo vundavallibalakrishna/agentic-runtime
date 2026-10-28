@@ -51,7 +51,7 @@ def can_start_run(agent: AgentView, *, can_see: bool) -> bool:
 
 
 def assistant_definition() -> dict[str, object]:
-    """Published default agent. No tools, so the v1 loop stays on model steps."""
+    """Schema default. No tools, so the v1 Temporal loop stays on model steps."""
     return {
         "persona": {
             "display_name": "Assistant",
@@ -77,3 +77,46 @@ def assistant_definition() -> dict[str, object]:
             "max_parallel_tool_calls": 1,
         },
     }
+
+
+def published_assistant_definition() -> dict[str, object]:
+    """The seeded assistant can file a ticket and create a pet. The v1 loop does not."""
+    definition = assistant_definition()
+    definition["tools"] = [
+        {"server": "tickets", "version": "*", "include": ["*"]},
+        {"server": "petstore", "version": "*", "include": ["create_pet"]},
+    ]
+    budget = definition.get("budget")
+    if isinstance(budget, dict):
+        budget["max_tool_calls"] = 8
+    definition["instructions"] = (
+        str(definition.get("instructions") or "")
+        + " When the person asks you to file a ticket or create a pet, call the tool."
+        + " Do not say the action is done unless the tool ran."
+    )
+    return definition
+
+
+def enable_assistant_tools(store: object) -> None:
+    """Give an already published assistant the tool budget. Other agents stay unchanged."""
+    agents = getattr(store, "agents", {})
+    versions = getattr(store, "versions", {})
+    if not isinstance(agents, dict) or not isinstance(versions, dict):
+        return
+    wanted = published_assistant_definition()
+    for agent in agents.values():
+        if not isinstance(agent, dict) or agent.get("slug") != "assistant":
+            continue
+        version = versions.get(agent.get("published_version_id"))
+        if not isinstance(version, dict):
+            continue
+        current = version.get("definition")
+        tools = current.get("tools") if isinstance(current, dict) else None
+        budget = current.get("budget") if isinstance(current, dict) else None
+        bound = isinstance(tools, list) and any(
+            isinstance(item, dict) and item.get("server") == "tickets" for item in tools
+        )
+        calls = int(budget.get("max_tool_calls") or 0) if isinstance(budget, dict) else 0
+        if bound and calls > 0:
+            continue
+        version["definition"] = wanted
