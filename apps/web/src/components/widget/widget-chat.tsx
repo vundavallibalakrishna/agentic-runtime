@@ -197,16 +197,20 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
       try {
         while (true) {
           const chunk = await reader.read();
-          if (chunk.done) break;
+          if (chunk.done) {
+            attempt = 4;
+            break;
+          }
           parser.feed(decoder.decode(chunk.value, { stream: true }));
         }
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        attempt += 1;
+        if (!shouldResumeStream(latest.status, attempt)) throw error;
+        await waitForResume(250 * attempt, controller.signal);
       } finally {
         reader.releaseLock();
       }
-      if (!shouldResumeStream(latest.status, attempt + 1)) break;
-      attempt += 1;
-      if (!shouldResumeStream(latest.status, attempt)) break;
-      await waitForResume(250 * attempt, controller.signal);
     }
     if (latest.status === "streaming") throw new Error(t("streamFailed"));
     const saved = await request<{ messages: Message[] }>(`/conversations/${id}`, {

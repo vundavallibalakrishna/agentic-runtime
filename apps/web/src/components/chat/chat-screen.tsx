@@ -318,15 +318,18 @@ export function ChatScreen() {
           }
         },
       });
-      while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        parser.feed(decoder.decode(chunk.value, { stream: true }));
+      try {
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) return state;
+          parser.feed(decoder.decode(chunk.value, { stream: true }));
+        }
+      } catch (error) {
+        if (signal.aborted) return state;
+        attempt += 1;
+        if (!shouldResumeStream(state.status, attempt)) throw error;
+        await waitForResume(250 * attempt, signal);
       }
-      if (!shouldResumeStream(state.status, attempt + 1)) return state;
-      attempt += 1;
-      if (!shouldResumeStream(state.status, attempt)) return state;
-      await waitForResume(250 * attempt, signal);
     }
     return state;
   }

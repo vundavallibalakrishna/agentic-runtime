@@ -260,6 +260,8 @@ def _pause(  # noqa: PLR0917
             "approval_id": str(result.get("approval_id") or ""),
             "qualified_name": call["qualified_name"],
             "risk_class": call["risk_class"],
+            "text": text,
+            "result_preview": text,
         },
     )
     store._emit(run, "run.status", {"status": "waiting_approval"})
