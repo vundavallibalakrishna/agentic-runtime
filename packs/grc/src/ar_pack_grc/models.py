@@ -261,6 +261,8 @@ class Asset(PackBase):
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL", link_to_name=True)
     )
+    agent_card_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    tier: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = created_at_col()
 
 
@@ -609,7 +611,8 @@ class PbcRequest(PackBase):
     __tablename__ = "pbc_requests"
     __table_args__ = _schema(
         CheckConstraint(
-            "status IN ('open', 'responded', 'accepted')", name="ck_pbc_requests_status"
+            "status IN ('open', 'responded', 'provided', 'accepted')",
+            name="ck_pbc_requests_status",
         ),
         Index("ix_grc_pbc_requests_tenant_id", "tenant_id"),
     )
@@ -663,6 +666,82 @@ class SodRule(PackBase):
     entitlement_a: Mapped[str] = mapped_column(Text, nullable=False)
     entitlement_b: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = created_at_col()
+
+
+class Inspection(PackBase):
+    __tablename__ = "inspections"
+    __table_args__ = _schema(
+        CheckConstraint(
+            "status IN ('announced', 'in_progress', 'closed')",
+            name="ck_inspections_status",
+        ),
+        Index("ix_grc_inspections_tenant_id", "tenant_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    regulator: Mapped[str] = mapped_column(Text, nullable=False)
+    started_on: Mapped[date] = mapped_column(Date, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'announced'"))
+    binder_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
+class DsarRequest(PackBase):
+    __tablename__ = "dsar_requests"
+    __table_args__ = _schema(
+        CheckConstraint(
+            "request_type IN ('access', 'correction', 'erasure', 'portability')",
+            name="ck_dsar_requests_request_type",
+        ),
+        CheckConstraint(
+            "status IN ('open', 'fulfilled', 'refused')",
+            name="ck_dsar_requests_status",
+        ),
+        Index("ix_grc_dsar_requests_tenant_id", "tenant_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    request_type: Mapped[str] = mapped_column(Text, nullable=False)
+    due_at: Mapped[datetime] = mapped_column(nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'open'"))
+    evidence_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    subject_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+
+
+class ConsentRecord(PackBase):
+    __tablename__ = "consent_records"
+    __table_args__ = _schema(
+        CheckConstraint("state IN ('granted', 'withdrawn')", name="ck_consent_records_state"),
+        Index("ix_grc_consent_records_tenant_id", "tenant_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    subject_ref: Mapped[str] = mapped_column(Text, nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    state: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_item_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    recorded_at: Mapped[datetime] = created_at_col()
+
+
+class ResilienceTest(PackBase):
+    __tablename__ = "resilience_tests"
+    __table_args__ = _schema(
+        CheckConstraint("kind IN ('bcp', 'dr')", name="ck_resilience_tests_kind"),
+        CheckConstraint(
+            "outcome IN ('pass', 'fail', 'partial')",
+            name="ck_resilience_tests_outcome",
+        ),
+        Index("ix_grc_resilience_tests_tenant_id", "tenant_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    tested_on: Mapped[date] = mapped_column(Date, nullable=False)
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_item_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 
 class RegulatorFeed(PackBase):

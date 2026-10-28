@@ -12,6 +12,7 @@ from ar_api.routers.tooling import actor, chat
 from ar_pack_grc import ccm, entities, evidence_links, findings, frameworks, mappings
 from ar_pack_grc import tests as control_tests
 from ar_pack_grc.access import require_enabled, snake_body
+from ar_pack_grc.http_audit import router as audit_router
 from ar_pack_grc.http_workflows import router as workflow_router
 
 if TYPE_CHECKING:
@@ -331,3 +332,4 @@ async def entity_posture(entity_id: uuid.UUID, request: Request) -> dict[str, An
 
 
 router.include_router(workflow_router)
+router.include_router(audit_router)

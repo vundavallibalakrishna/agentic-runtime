@@ -716,6 +716,7 @@ Spec: [10-grc-pack/api.md](../10-grc-pack/api.md)
 | GET | [`/api/v1/ext/grc/pbc-requests`](../10-grc-pack/api.md#get-apiv1extgrcpbc-requests) | `grc.audit_portal:manage` |
 | POST | [`/api/v1/ext/grc/pbc-requests`](../10-grc-pack/api.md#post-apiv1extgrcpbc-requests) | `grc.audit_portal:manage` |
 | PATCH | [`/api/v1/ext/grc/pbc-requests/{request_id}`](../10-grc-pack/api.md#patch-apiv1extgrcpbc-requestsrequest_id) | `grc.audit_portal:manage` |
+| GET | [`/api/v1/ext/grc/pbc-requests/{request_id}/response`](../10-grc-pack/api.md#get-apiv1extgrcpbc-requestsrequest_idresponse) | `grc.audit_portal:manage` |
 | POST | [`/api/v1/ext/grc/pbc-lists:import`](../10-grc-pack/api.md#post-apiv1extgrcpbc-listsimport) | `grc.audit_portal:manage` |
 | GET | [`/api/v1/ext/grc/entitlements`](../10-grc-pack/api.md#get-apiv1extgrcentitlements) | `grc.campaigns:read` |
 | POST | [`/api/v1/ext/grc/entitlements:ingest`](../10-grc-pack/api.md#post-apiv1extgrcentitlementsingest) | `grc.campaigns:manage` |
@@ -737,6 +738,7 @@ Spec: [10-grc-pack/api.md](../10-grc-pack/api.md)
 | POST | [`/api/v1/ext/grc/inspections`](../10-grc-pack/api.md#post-apiv1extgrcinspections) | `grc.inspections:manage` |
 | GET | [`/api/v1/ext/grc/dsar-requests`](../10-grc-pack/api.md#get-apiv1extgrcdsar-requests) | `grc.privacy:manage` |
 | POST | [`/api/v1/ext/grc/dsar-requests`](../10-grc-pack/api.md#post-apiv1extgrcdsar-requests) | `grc.privacy:manage` |
+| POST | [`/api/v1/ext/grc/dsar-requests/{request_id}:fulfil`](../10-grc-pack/api.md#post-apiv1extgrcdsar-requestsrequest_idfulfil) | `grc.privacy:manage` |
 | GET | [`/api/v1/ext/grc/consent-records`](../10-grc-pack/api.md#get-apiv1extgrcconsent-records) | `grc.privacy:manage` |
 | POST | [`/api/v1/ext/grc/consent-records`](../10-grc-pack/api.md#post-apiv1extgrcconsent-records) | `grc.privacy:manage` |
 | GET | [`/api/v1/ext/grc/resilience-tests`](../10-grc-pack/api.md#get-apiv1extgrcresilience-tests) | `grc.controls:read` |

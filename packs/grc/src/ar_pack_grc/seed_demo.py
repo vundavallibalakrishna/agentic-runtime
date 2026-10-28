@@ -11,12 +11,20 @@ from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.records.memory import bucket
 from ar_pack_grc.access import owned
+from ar_pack_grc.campaigns import create_campaign
+from ar_pack_grc.entitlements import ingest
 from ar_pack_grc.exceptions import create_exception
 from ar_pack_grc.incidents import create_incident, start_clock
+from ar_pack_grc.inspections import open_inspection
+from ar_pack_grc.pbc import create_request
 from ar_pack_grc.policies import add_version, create_policy
+from ar_pack_grc.privacy import create_request as create_dsar
+from ar_pack_grc.privacy import record_consent
 from ar_pack_grc.questionnaires import create_answer, draft_job
 from ar_pack_grc.regulatory import create_feed, fetch_feed
+from ar_pack_grc.resilience import record_test
 from ar_pack_grc.risks import create_asset, create_risk
+from ar_pack_grc.sod_rules import create_rule
 from ar_pack_grc.vendors import create_assessment, create_vendor
 
 if TYPE_CHECKING:
@@ -35,6 +43,124 @@ _PERMS = frozenset(
         "grc.controls:read",
         "grc.ethics:manage",
         "reviews:decide",
+    }
+)
+
+
+def seed_audit(store: Any, actor: Actor) -> None:
+    """Rows for the audit desk. Idempotent, and skipped when the PBC title exists."""
+    if any(
+        row.get("title") == "SOC 2 population extract"
+        for row in owned(store, "grc_pbc_requests", actor)
+    ):
+        return
+    who = Actor(
+        tenant_id=actor.tenant_id,
+        user_id=actor.user_id,
+        permissions=actor.permissions | _AUDIT,
+        roles=actor.roles or frozenset({"tenant_admin"}),
+        display_name=actor.display_name,
+        step_up_at=utcnow(),
+    )
+    create_request(
+        store,
+        who,
+        {
+            "title": "SOC 2 population extract",
+            "owner_user_id": str(who.user_id),
+            "due_at": (utcnow() + timedelta(days=21)).isoformat(),
+        },
+    )
+    create_rule(
+        store,
+        who,
+        {"name": "Pay and approve", "entitlement_a": "pay", "entitlement_b": "approve"},
+    )
+    connection_id = new_id()
+    bucket(store, "grc_idp_snapshots")[connection_id] = {
+        "items": [
+            {"subject": "ada@example.com", "entitlement": "pay"},
+            {"subject": "ada@example.com", "entitlement": "approve"},
+        ]
+    }
+    ingest(store, who, {"source": "okta", "connection_id": str(connection_id)})
+    create_campaign(
+        store,
+        who,
+        {
+            "kind": "access_review",
+            "title": "Quarterly access review",
+            "due_at": (utcnow() + timedelta(days=14)).isoformat(),
+            "audience": {
+                "assignees": [{"user_id": str(who.user_id), "subject": "ada@example.com"}]
+            },
+        },
+    )
+    open_inspection(
+        store, who, {"regulator": "SEBI", "started_on": utcnow().date().isoformat()}
+    )
+    create_dsar(
+        store,
+        who,
+        {
+            "request_type": "access",
+            "due_at": (utcnow() + timedelta(days=30)).isoformat(),
+            "subject_user_id": str(who.user_id),
+        },
+    )
+    evidence_id = new_id()
+    bucket(store, "evidence")[evidence_id] = {
+        "id": evidence_id,
+        "tenant_id": who.tenant_id,
+        "status": "sealed",
+        "media_type": "text/plain",
+    }
+    record_consent(
+        store,
+        who,
+        {
+            "subject_ref": "customer-1842",
+            "purpose": "Account notices",
+            "state": "granted",
+            "evidence_item_id": str(evidence_id),
+        },
+    )
+    record_test(
+        store,
+        who,
+        {
+            "kind": "bcp",
+            "tested_on": utcnow().date().isoformat(),
+            "outcome": "pass",
+            "evidence_item_id": str(evidence_id),
+        },
+    )
+    create_asset(
+        store,
+        who,
+        {
+            "name": "Support assistant",
+            "kind": "model",
+            "owner_user_id": str(who.user_id),
+            "tier": "high",
+        },
+    )
+
+
+_AUDIT = frozenset(
+    {
+        "grc.audit_portal:manage",
+        "grc.campaigns:manage",
+        "grc.campaigns:read",
+        "grc.reports:export",
+        "grc.inspections:manage",
+        "grc.privacy:manage",
+        "grc.controls:manage",
+        "grc.controls:read",
+        "grc.risks:manage",
+        "binders:export",
+        "guests:invite",
+        "users:manage",
     }
 )
 

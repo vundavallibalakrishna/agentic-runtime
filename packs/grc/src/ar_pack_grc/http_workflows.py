@@ -12,6 +12,7 @@ from ar_api.routers.tooling import actor, chat
 from ar_common.errors import NotFoundError
 from ar_pack_grc import (
     campaigns,
+    entitlements,
     ethics,
     exceptions,
     incidents,
@@ -19,6 +20,7 @@ from ar_pack_grc import (
     questionnaires,
     regulatory,
     risks,
+    sod_rules,
     vendors,
 )
 from ar_pack_grc.access import pack_enabled, snake_body
@@ -333,6 +335,85 @@ async def get_campaign(campaign_id: uuid.UUID, request: Request) -> dict[str, An
     return campaigns.get_campaign(
         chat(request), _caller(request, "grc.campaigns:read"), campaign_id
     )
+
+
+@router.post("/campaigns/{campaign_id}:start")
+@expose(public=False, permission="grc.campaigns:manage")
+async def start_campaign(campaign_id: uuid.UUID, request: Request) -> dict[str, Any]:
+    return campaigns.start_campaign(
+        chat(request), _caller(request, "grc.campaigns:manage"), campaign_id
+    )
+
+
+@router.post("/campaigns/{campaign_id}:close")
+@expose(public=False, permission="grc.campaigns:manage")
+async def close_campaign(
+    campaign_id: uuid.UUID, request: Request, body: dict[str, Any]
+) -> dict[str, Any]:
+    return campaigns.close_campaign(
+        chat(request), _caller(request, "grc.campaigns:manage"), campaign_id, body
+    )
+
+
+@router.get("/campaign-items")
+@expose(public=False, permission="grc.campaigns:read")
+async def list_campaign_items(request: Request) -> dict[str, Any]:
+    return campaigns.list_items(
+        chat(request), _caller(request, "grc.campaigns:read"), _query(request)
+    )
+
+
+@router.post("/campaign-items/{item_id}:decide")
+@expose(public=False, permission=None)
+async def decide_campaign_item(
+    item_id: uuid.UUID, request: Request, body: dict[str, Any]
+) -> dict[str, Any]:
+    who = actor(request)
+    if not pack_enabled(chat(request), who.tenant_id):
+        raise NotFoundError()
+    return campaigns.decide_item(chat(request), who, item_id, body)
+
+
+@router.get("/entitlements")
+@expose(public=False, permission="grc.campaigns:read")
+async def list_entitlements(request: Request) -> dict[str, Any]:
+    return entitlements.list_entitlements(
+        chat(request), _caller(request, "grc.campaigns:read"), _query(request)
+    )
+
+
+@router.post("/entitlements:ingest")
+@expose(public=False, permission="grc.campaigns:manage")
+async def ingest_entitlements(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    return entitlements.ingest(chat(request), _caller(request, "grc.campaigns:manage"), body)
+
+
+@router.get("/sod-rules")
+@expose(public=False, permission="grc.campaigns:read")
+async def list_sod_rules(request: Request) -> dict[str, Any]:
+    return sod_rules.list_rules(chat(request), _caller(request, "grc.campaigns:read"))
+
+
+@router.post("/sod-rules")
+@expose(public=False, permission="grc.campaigns:manage")
+async def create_sod_rule(request: Request, body: dict[str, Any]) -> dict[str, Any]:
+    return sod_rules.create_rule(chat(request), _caller(request, "grc.campaigns:manage"), body)
+
+
+@router.patch("/sod-rules/{rule_id}")
+@expose(public=False, permission="grc.campaigns:manage")
+async def patch_sod_rule(
+    rule_id: uuid.UUID, request: Request, body: dict[str, Any]
+) -> dict[str, Any]:
+    return sod_rules.update_rule(
+        chat(request), _caller(request, "grc.campaigns:manage"), rule_id, body
+    )
+
+
+@router.delete("/sod-rules/{rule_id}", status_code=204)
+@expose(public=False, permission="grc.campaigns:manage")
+async def delete_sod_rule(rule_id: uuid.UUID, request: Request) -> None:
+    sod_rules.delete_rule(chat(request), _caller(request, "grc.campaigns:manage"), rule_id)
 
 
 @router.get("/answer-library")

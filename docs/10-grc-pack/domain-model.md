@@ -101,6 +101,8 @@ CREATE TABLE grc.assets (
   name text NOT NULL,
   kind text NOT NULL,
   owner_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  agent_card_id uuid,
+  tier text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -291,7 +293,7 @@ CREATE TABLE grc.pbc_requests (
   title text NOT NULL,
   control_id uuid REFERENCES grc.controls(id) ON DELETE SET NULL,
   owner_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
-  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','responded','accepted')),
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','responded','provided','accepted')),
   response_md text NOT NULL DEFAULT '',
   due_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -373,7 +375,8 @@ CREATE TABLE grc.dsar_requests (
   request_type text NOT NULL CHECK (request_type IN ('access','correction','erasure','portability')),
   due_at timestamptz NOT NULL,
   status text NOT NULL CHECK (status IN ('open','fulfilled','refused')),
-  evidence_item_id uuid
+  evidence_item_id uuid,
+  subject_user_id uuid
 );
 
 CREATE TABLE grc.consent_records (
