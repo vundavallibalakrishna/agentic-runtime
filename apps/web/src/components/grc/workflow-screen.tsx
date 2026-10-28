@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-export const workflowSections = [
+const workflowSections = [
   "questionnaires",
   "vendors",
   "policies",
