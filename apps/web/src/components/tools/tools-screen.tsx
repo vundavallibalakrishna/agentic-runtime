@@ -20,7 +20,11 @@ const MODE_KEY = "ar-settings-mode";
 export function ToolsScreen() {
   const t = useTranslations("tools");
   const [servers, setServers] = useState<Row[]>([]);
+  const [tools, setTools] = useState<Row[]>([]);
   const [calls, setCalls] = useState<Row[]>([]);
+  const [egress, setEgress] = useState("");
+  const [searchProvider, setSearchProvider] = useState("none");
+  const [searchSecret, setSearchSecret] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -39,12 +43,26 @@ export function ToolsScreen() {
     setLoading(true);
     setError("");
     try {
+      const rows = (page: { items?: Row[]; data?: Row[] }) => page.items ?? page.data ?? [];
       const [serverPage, callPage] = await Promise.all([
-        api<{ items: Row[] }>("/api/v1/tool-servers"),
-        api<{ items: Row[] }>("/api/v1/tool-calls"),
+        api<{ items?: Row[]; data?: Row[] }>("/api/v1/tool-servers"),
+        api<{ items?: Row[]; data?: Row[] }>("/api/v1/tool-calls"),
       ]);
-      setServers(serverPage.items ?? []);
-      setCalls(callPage.items ?? []);
+      const toolPage = await api<{ items?: Row[]; data?: Row[] }>("/api/v1/tools").catch(() => ({
+        items: [],
+      }));
+      const tenant = await api<{
+        settings?: {
+          egressAllowlist?: string[];
+          search?: { provider?: string; secretName?: string };
+        };
+      }>("/api/v1/tenant").catch(() => ({ settings: undefined }));
+      setServers(rows(serverPage));
+      setTools(rows(toolPage));
+      setCalls(rows(callPage));
+      setEgress((tenant.settings?.egressAllowlist ?? []).join("\n"));
+      setSearchProvider(tenant.settings?.search?.provider ?? "none");
+      setSearchSecret(tenant.settings?.search?.secretName ?? "");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -59,6 +77,31 @@ export function ToolsScreen() {
   function chooseMode(next: boolean) {
     setAdvanced(next);
     window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
+  }
+
+  async function saveAccess() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/v1/tenant", {
+        method: "PATCH",
+        body: JSON.stringify({
+          settings: {
+            egressAllowlist: egress
+              .split("\n")
+              .map((item) => item.trim())
+              .filter(Boolean),
+            search: { provider: searchProvider, secretName: searchSecret.trim() },
+          },
+        }),
+      });
+      setNotice(t("accessSaved"));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function register() {
@@ -220,6 +263,62 @@ export function ToolsScreen() {
               ))}
             </ul>
           ) : null}
+          <section className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+            <h2 className="text-lg font-medium">{t("generalTitle")}</h2>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("generalBody")}</p>
+            <ul className="mt-3 space-y-2">
+              {tools
+                .filter((tool) => String(tool.qualifiedName ?? "").startsWith("general."))
+                .map((tool) => (
+                  <li key={String(tool.id ?? tool.qualifiedName)}>
+                    <p className="font-medium">{String(tool.qualifiedName ?? "")}</p>
+                    <p className="text-sm text-[var(--muted-foreground)]">
+                      {String(tool.riskClass ?? "")} · {String(tool.description ?? "")}
+                    </p>
+                  </li>
+                ))}
+            </ul>
+            <form
+              className="mt-4 grid gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveAccess();
+              }}
+            >
+              <label className="block text-sm" htmlFor="egress-hosts">
+                {t("egress")}
+                <textarea
+                  className="mt-1 min-h-16 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm"
+                  id="egress-hosts"
+                  onChange={(event) => setEgress(event.target.value)}
+                  value={egress}
+                />
+              </label>
+              <label className="block text-sm" htmlFor="search-provider">
+                {t("searchProvider")}
+                <select
+                  className="mt-1 w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-2"
+                  id="search-provider"
+                  onChange={(event) => setSearchProvider(event.target.value)}
+                  value={searchProvider}
+                >
+                  <option value="none">{t("searchNone")}</option>
+                  <option value="brave">Brave</option>
+                  <option value="tavily">Tavily</option>
+                </select>
+              </label>
+              <label className="block text-sm" htmlFor="search-secret">
+                {t("searchSecret")}
+                <Input
+                  id="search-secret"
+                  onChange={(event) => setSearchSecret(event.target.value)}
+                  value={searchSecret}
+                />
+              </label>
+              <p className="text-sm text-[var(--muted-foreground)]">{t("searchHelp")}</p>
+              <Button type="submit">{t("saveAccess")}</Button>
+            </form>
+          </section>
 
           <section>
             <h2 className="mb-2 text-lg font-medium">{t("calls")}</h2>

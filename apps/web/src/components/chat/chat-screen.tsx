@@ -780,6 +780,7 @@ export function ChatScreen() {
                                   qualifiedName: tool.name,
                                   status: tool.status,
                                   resultPreview: tool.preview,
+                                  presentation: tool.presentation,
                                 }}
                                 key={`${id}-${tool.name}-${tool.status}-${tool.preview}`}
                                 label={t("toolCall")}

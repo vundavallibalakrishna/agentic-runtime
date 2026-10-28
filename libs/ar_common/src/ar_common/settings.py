@@ -116,6 +116,8 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_S3_SECRET_ACCESS_KEY",
         "AR_S3_SSE",
         "AR_SAAS_SELF_SIGNUP",
+        "AR_SEARCH_API_KEY",
+        "AR_SEARCH_PROVIDER",
         "AR_SANDBOX_ALLOWED_REGISTRIES",
         "AR_SANDBOX_DEFAULT_RUNTIME_CLASS",
         "AR_SANDBOX_DOCKER_RUNTIME",

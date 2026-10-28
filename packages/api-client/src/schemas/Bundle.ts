@@ -43,6 +43,11 @@ export type Version = string;
 export type Include = string[];
 export type Requireapproval = ("always" | "policy") | null;
 export type Pinned = boolean;
+export type Timeouts = number | null;
+export type Maxoutputbytes = number | null;
+export type Maxfilebytes = number | null;
+export type Network = boolean | null;
+export type Allowhosts = string[];
 export type Tools = ToolBinding[];
 export type Mode = "auto" | "on" | "off";
 export type Topk = number;
@@ -237,7 +242,7 @@ export type Credentialprovider = string | null;
 export type Secret = string | null;
 export type Riskclass = ("R0" | "W1" | "W2" | "W3") | null;
 export type Dataclassification = string | null;
-export type Timeouts = number | null;
+export type Timeouts1 = number | null;
 export type Ratelimitperminute = number | null;
 export type Allowedtools = string[];
 export type Kind4 = "DataConnection";
@@ -444,6 +449,11 @@ export interface Overrides {
 export interface ToolOverride {
   requireApproval?: Requireapproval;
   pinned?: Pinned;
+  timeoutS?: Timeouts;
+  maxOutputBytes?: Maxoutputbytes;
+  maxFileBytes?: Maxfilebytes;
+  network?: Network;
+  allowHosts?: Allowhosts;
 }
 export interface ToolSearch {
   mode?: Mode;
@@ -579,7 +589,7 @@ export interface Tools1 {
 export interface ToolGovernance {
   riskClass?: Riskclass;
   dataClassification?: Dataclassification;
-  timeoutS?: Timeouts;
+  timeoutS?: Timeouts1;
   rateLimitPerMinute?: Ratelimitperminute;
 }
 /**

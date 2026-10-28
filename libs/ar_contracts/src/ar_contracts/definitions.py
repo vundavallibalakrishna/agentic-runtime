@@ -48,6 +48,11 @@ class ModelSpec(_Model):
 class ToolOverride(_Model):
     require_approval: Literal["always", "policy"] | None = None
     pinned: bool = False
+    timeout_s: int | None = Field(default=None, ge=1, le=120)
+    max_output_bytes: int | None = Field(default=None, ge=256, le=65_536)
+    max_file_bytes: int | None = Field(default=None, ge=1024, le=5_242_880)
+    network: bool | None = None
+    allow_hosts: list[str] = Field(default_factory=list)
 
 
 class ToolBinding(_Model):

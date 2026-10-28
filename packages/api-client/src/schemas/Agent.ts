@@ -33,6 +33,11 @@ export type Version = string;
 export type Include = string[];
 export type Requireapproval = ("always" | "policy") | null;
 export type Pinned = boolean;
+export type Timeouts = number | null;
+export type Maxoutputbytes = number | null;
+export type Maxfilebytes = number | null;
+export type Network = boolean | null;
+export type Allowhosts = string[];
 export type Tools = ToolBinding[];
 export type Mode = "auto" | "on" | "off";
 export type Topk = number;
@@ -282,6 +287,11 @@ export interface Overrides {
 export interface ToolOverride {
   requireApproval?: Requireapproval;
   pinned?: Pinned;
+  timeoutS?: Timeouts;
+  maxOutputBytes?: Maxoutputbytes;
+  maxFileBytes?: Maxfilebytes;
+  network?: Network;
+  allowHosts?: Allowhosts;
 }
 export interface ToolSearch {
   mode?: Mode;

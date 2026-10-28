@@ -3,7 +3,21 @@ export type Definition = {
   instructions?: string;
   starterPrompts?: string[];
   model?: { alias?: string; fastAlias?: string };
-  tools?: { server?: string; version?: string; include?: string[] }[];
+  tools?: {
+    server?: string;
+    version?: string;
+    include?: string[];
+    overrides?: Record<
+      string,
+      {
+        timeoutS?: number;
+        maxOutputBytes?: number;
+        maxFileBytes?: number;
+        network?: boolean;
+        allowHosts?: string[];
+      }
+    >;
+  }[];
   skills?: string[];
   subagents?: { allowed?: string[]; maxDepth?: number; maxParallel?: number };
   budget?: {

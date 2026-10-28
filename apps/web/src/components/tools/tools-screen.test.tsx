@@ -58,6 +58,28 @@ describe("tool screens", () => {
     expect(screen.getByRole("link", { name: "Connect account" }).getAttribute("href")).toBe(
       "https://tickets.example/authorize",
     );
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "general.code",
+            status: "succeeded",
+            presentation: {
+              kind: "code",
+              command: "python",
+              exitCode: 0,
+              stdout: "42",
+              files: [{ fileId: "file-1", name: "summary.txt" }],
+            },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByText("42")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Download summary.txt" }).getAttribute("href")).toBe(
+      "/api/v1/files/file-1/content",
+    );
   });
 
   it("lists servers and a recent call", async () => {

@@ -143,6 +143,7 @@ class ToolPipeline:
                 version,
                 tool,
             )
+        version = self._effective_version(version, arguments)
         held = self._gate(request, version, tool, server, arguments, started)
         if held is not None:
             return held
@@ -230,6 +231,19 @@ class ToolPipeline:
         )
         stored["wrapped"] = wrapped
         return stored
+
+    def _effective_version(
+        self, version: dict[str, object], arguments: dict[str, object]
+    ) -> dict[str, object]:
+        """Non-GET HTTP calls wait for approval even though the tool is registered as a read."""
+        if str(version.get("qualified_name") or "") != "general.http":
+            return version
+        method = str(arguments.get("method") or "GET").upper()
+        if method in {"GET", "HEAD"}:
+            return version
+        copied = dict(version)
+        copied["risk_class"] = "W2"
+        return copied
 
     def _sandbox_context(self, request: dict[str, object]) -> dict[str, object]:
         context: dict[str, object] = {
@@ -636,7 +650,9 @@ class ToolPipeline:
         structured: object = None,
     ) -> dict[str, object]:
         latency = int((time.perf_counter() - started) * 1000)
-        arguments = as_mapping(request.get("arguments"))
+        arguments = _scrub_arguments(
+            str(version.get("qualified_name") or ""), as_mapping(request.get("arguments"))
+        )
         existing = request.get("tool_call_id")
         call_id = existing if isinstance(existing, uuid.UUID) else new_id()
         row = {
@@ -715,6 +731,23 @@ class ToolPipeline:
             "risk_class": risk,
             "arguments_redacted": row["arguments_redacted"],
         }
+
+
+def _scrub_arguments(qualified: str, arguments: dict[str, object]) -> dict[str, object]:
+    """Drop header secrets before a call is stored. Names of secrets stay."""
+    clean = redact(arguments)
+    if qualified != "general.http":
+        return clean
+    headers = clean.get("headers")
+    if isinstance(headers, dict):
+        hidden: dict[str, object] = {}
+        for key, value in headers.items():
+            if str(key).lower() in {"authorization", "x-api-key", "api-key", "proxy-authorization"}:
+                hidden[str(key)] = "[redacted]"
+            else:
+                hidden[str(key)] = value
+        clean["headers"] = hidden
+    return clean
 
 
 def _search_mode(definition: dict[str, object]) -> str:

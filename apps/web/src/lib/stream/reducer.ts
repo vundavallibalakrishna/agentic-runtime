@@ -2,6 +2,7 @@ type StreamTool = {
   name: string;
   status: string;
   preview: string;
+  presentation?: Record<string, unknown>;
 };
 
 export type StreamEvent = {
@@ -13,6 +14,7 @@ export type StreamEvent = {
     qualifiedName?: string;
     status?: string;
     resultPreview?: string;
+    presentation?: Record<string, unknown>;
     citation?: StreamCitation;
     factId?: string;
     content?: string;
@@ -83,6 +85,7 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
       name: event.data?.qualifiedName ?? "tool",
       status: "awaiting_approval",
       preview,
+      presentation: event.data?.presentation,
     };
     return {
       ...next,
@@ -100,6 +103,7 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
       name: event.data?.qualifiedName ?? "tool",
       status: event.data?.status ?? event.type,
       preview: event.data?.resultPreview ?? "",
+      presentation: event.data?.presentation,
     };
     return { ...next, status: "streaming", tools: [...state.tools, tool] };
   }

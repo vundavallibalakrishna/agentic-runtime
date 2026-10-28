@@ -34,4 +34,4 @@ The product is a generic agentic platform. A customer connects an LLM, defines a
 
 ## Out of scope
 
-Sandboxed code, browsing, web search and call-any-API (later M21b). MCP client and OpenAPI import (M22). Deleting the GRC pack.
+MCP client and OpenAPI import (M22). Deleting the GRC pack. General tools are M21b.
