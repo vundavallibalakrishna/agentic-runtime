@@ -86,7 +86,14 @@ Canonical error codes (the `code` field is stable and is what clients switch on)
 | 422 | `validation_failed` | Pydantic or domain validation failure |
 | 422 | `unknown_reference` | Definition references a non-existent or invisible object |
 | 422 | `pack_signature_invalid` | Content-pack signature does not match a trusted key |
-| 422 | `extension_unavailable` | Pack manifest sets `extension`, or uninstall asks to drop a pack schema, before pack migrations exist |
+| 422 | `extension_unavailable` | Pack extension names a schema the running image cannot migrate |
+| 422 | `tsa_unavailable` | Evidence timestamping is enabled and the TSA did not return a token |
+| 422 | `retention_below_minimum` | A retention schedule is below the platform minimum |
+| 422 | `binder_too_large` | A binder selection exceeds `AR_BINDER_MAX_ITEMS` |
+| 403 | `guest_forbidden` | A guest principal called a route outside the guest allowlist |
+| 415 | `watermark_unsupported` | A guest download is not PDF, PNG or JPEG |
+| 409 | `review_required` | A binder build or delivery is waiting for a signed review |
+| 409 | `hold_active` | A legal hold covers a row the caller asked to drop |
 | 423 | `resource_disabled` | Agent/tool/model kill switch engaged |
 | 429 | `rate_limited` | Rate limit exceeded (`Retry-After` header) |
 | 429 | `quota_exceeded` | Quota with action `block` exhausted |

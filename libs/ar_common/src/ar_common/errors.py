@@ -29,6 +29,13 @@ class ErrorCode(StrEnum):
     UNKNOWN_REFERENCE = "unknown_reference"
     PACK_SIGNATURE_INVALID = "pack_signature_invalid"
     EXTENSION_UNAVAILABLE = "extension_unavailable"
+    TSA_UNAVAILABLE = "tsa_unavailable"
+    RETENTION_BELOW_MINIMUM = "retention_below_minimum"
+    BINDER_TOO_LARGE = "binder_too_large"
+    GUEST_FORBIDDEN = "guest_forbidden"
+    WATERMARK_UNSUPPORTED = "watermark_unsupported"
+    REVIEW_REQUIRED = "review_required"
+    HOLD_ACTIVE = "hold_active"
     RESOURCE_DISABLED = "resource_disabled"
     RATE_LIMITED = "rate_limited"
     QUOTA_EXCEEDED = "quota_exceeded"
@@ -68,6 +75,13 @@ _SPECS: dict[ErrorCode, tuple[int, str]] = {
     ErrorCode.UNKNOWN_REFERENCE: (422, "Unknown reference"),
     ErrorCode.PACK_SIGNATURE_INVALID: (422, "Pack signature invalid"),
     ErrorCode.EXTENSION_UNAVAILABLE: (422, "Extension unavailable"),
+    ErrorCode.TSA_UNAVAILABLE: (422, "Timestamp authority unavailable"),
+    ErrorCode.RETENTION_BELOW_MINIMUM: (422, "Retention below minimum"),
+    ErrorCode.BINDER_TOO_LARGE: (422, "Binder too large"),
+    ErrorCode.GUEST_FORBIDDEN: (403, "Guest forbidden"),
+    ErrorCode.WATERMARK_UNSUPPORTED: (415, "Watermark unsupported"),
+    ErrorCode.REVIEW_REQUIRED: (409, "Review required"),
+    ErrorCode.HOLD_ACTIVE: (409, "Hold active"),
     ErrorCode.RESOURCE_DISABLED: (423, "Resource disabled"),
     ErrorCode.RATE_LIMITED: (429, "Rate limited"),
     ErrorCode.QUOTA_EXCEEDED: (429, "Quota exceeded"),

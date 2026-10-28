@@ -217,6 +217,7 @@ class ChatService:
     eval_results: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     feedback_digest: dict[str, dict[str, object]] = field(default_factory=dict)
     eval_gateway: dict[str, int] = field(default_factory=dict)
+    records: dict[str, dict[object, dict[str, object]]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -284,6 +285,7 @@ class ChatService:
             self._seed_routines(tenant_id, user_id)
             self._seed_channels(tenant_id, user_id)
             self._seed_usage(tenant_id, user_id)
+            self._seed_assurance(tenant_id, user_id)
             return
         agent = self.ensure_assistant(tenant_id, user_id)
         samples = (
@@ -398,6 +400,41 @@ class ChatService:
         self._seed_routines(tenant_id, user_id)
         self._seed_channels(tenant_id, user_id)
         self._seed_usage(tenant_id, user_id)
+        self._seed_assurance(tenant_id, user_id)
+
+    def _seed_assurance(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        from ar_domain.agents.access import Actor  # noqa: PLC0415
+        from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+        from ar_domain.records.vault import EvidenceBook  # noqa: PLC0415
+
+        officer = demo_id("officer")
+        self.user_roles.setdefault(officer, {"tenant_admin"})
+        self.display_names.setdefault(officer, "Compliance officer")
+        actor = Actor(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            permissions=PERMISSION_KEYS,
+            step_up_at=utcnow(),
+        )
+        existing = [
+            row
+            for row in self.records.get("evidence", {}).values()
+            if isinstance(row, dict) and row.get("idempotency_key") == "seed-evidence"
+        ]
+        if existing:
+            return
+        EvidenceBook(self).capture(
+            actor,
+            {
+                "text": "Quarterly controls note",
+                "media_type": "text/plain",
+                "source_system": "desk",
+                "collection_method": "upload",
+                "provenance": {"note": "Seeded for the assurance desk"},
+            },
+            b"Quarterly controls note",
+            idempotency_key="seed-evidence",
+        )
 
     def _seed_usage(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.usage.showcase import seed_usage  # noqa: PLC0415

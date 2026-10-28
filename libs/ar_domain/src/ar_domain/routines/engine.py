@@ -183,6 +183,12 @@ def deliver(
     """Post each target, or wait for the owner when it is not pre-approved."""
     outcomes: list[dict[str, object]] = []
     for target in _targets(routine, run):
+        from ar_domain.records.binders import review_gate  # noqa: PLC0415
+
+        waiting = review_gate(store, routine, target)
+        if waiting is not None:
+            outcomes.append(waiting)
+            continue
         kind = str(target.get("type") or "")
         if kind in {"conversation", "file"}:
             continue

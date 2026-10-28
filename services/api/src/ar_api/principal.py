@@ -34,6 +34,16 @@ def classify_authorization(header: str | None, cookie: str | None) -> PresentedC
     return None
 
 
+def content_hidden(request: object) -> None:
+    """Metadata support access is a 404 on content routes."""
+    from ar_api.actors import principal_of  # noqa: PLC0415
+    from ar_common.errors import NotFoundError  # noqa: PLC0415
+
+    principal = principal_of(request)  # type: ignore[arg-type]
+    if not principal.can_read_content():
+        raise NotFoundError()
+
+
 def api_key_prefix(token: str) -> str:
     """The 12 hex characters after ``ark_``."""
     body = token.removeprefix("ark_")

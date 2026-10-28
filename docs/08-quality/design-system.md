@@ -31,7 +31,7 @@ The faces are loaded with `next/font`: Source Sans 3 for the interface, Source S
 
 - A collapsible sidebar with a layered mark and wordmark, a new-chat action, and navigation grouped into Workspace, Resources and Manage. The workspace name appears in the header breadcrumb.
 - Navigation remains hidden until the session grants the matching permission. A create-agent shortcut is visible only to builders.
-- Navigation items are Chat, Agents, Tools, Knowledge, Memory, Skills, Routines, Channels, Approvals, Runs, Models, Computers and Users. An item is hidden when the session lacks its permission. Sections that are not built yet stay in the list with a "Soon" mark and open a short holding page.
+- Navigation items are Chat, Agents, Tools, Knowledge, Memory, Skills, Routines, Channels, Evaluations, Platform health, Usage, Quotas, Approvals, Runs, Models, Computers, Assurance and Users. An item is hidden when the session lacks its permission. Sections that are not built yet stay in the list with a "Soon" mark and open a short holding page.
 - The header shows the workspace and the signed-in email, a command palette (⌘K or Ctrl+K), and an account menu with the theme choice and sign-out.
 - ⌘⇧O (Ctrl+Shift+O) starts a new chat.
 - Below the `lg` breakpoint the sidebar becomes a focus-trapped dialog over a scrim. Escape closes it and restores focus. Account choices use a keyboard-accessible menu.

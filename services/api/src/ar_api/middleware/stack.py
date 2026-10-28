@@ -36,6 +36,8 @@ def is_public(path: str) -> bool:
         return True
     if path == "/api/v1/widget/sessions" or path.startswith("/api/v1/widget/integrations/"):
         return True
+    if path.startswith("/api/v1/auth/guest/"):
+        return True
     return path.startswith("/api/v1/invitations/") and path.endswith(":accept")
 
 
@@ -75,6 +77,15 @@ class AuthenticateMiddleware:
         }:
             response = problem_response(
                 ArError(ErrorCode.FORBIDDEN, "user is not active"),
+                instance=path,
+                request_id=_request_id(scope),
+            )
+            await response(scope, receive, send)
+            return
+        guest_blocked = principal is not None and getattr(principal, "kind", "") == "guest"
+        if guest_blocked and not _guest_allowed(str(scope.get("method", "GET")), path):
+            response = problem_response(
+                ArError(ErrorCode.GUEST_FORBIDDEN, "guest_forbidden"),
                 instance=path,
                 request_id=_request_id(scope),
             )
@@ -197,8 +208,25 @@ def presented_credential(scope: Scope) -> tuple[str, str] | None:
     cookie = _cookie(scope, "ar_session")
     found = classify_authorization(header, cookie)
     if found is None:
+        guest = _cookie(scope, "ar_guest_session") or _header(scope, b"x-guest-session")
+        if guest:
+            return "guest", guest
+    if found is None:
         return None
     return found.kind, found.value
+
+
+def _guest_allowed(method: str, path: str) -> bool:
+    if path.startswith("/api/v1/auth/guest/") or path.startswith("/api/v1/ext/"):
+        return True
+    if path in {"/api/v1/auth/session", "/api/v1/auth/logout"}:
+        return True
+    if method != "GET":
+        return False
+    parts = path.strip("/").split("/")
+    if len(parts) >= 4 and parts[:3] == ["api", "v1", "evidence"]:
+        return True
+    return len(parts) >= 4 and parts[:3] == ["api", "v1", "binders"]
 
 
 def _tenant_allowed(principal: object, path: str) -> bool:

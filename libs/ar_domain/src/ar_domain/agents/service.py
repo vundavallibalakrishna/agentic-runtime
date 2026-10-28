@@ -755,7 +755,7 @@ class AgentLifecycle:
             "resolved": resolved,
         }
 
-    def publish(
+    def publish(  # noqa: PLR0915
         self,
         actor: Actor,
         agent_id: uuid.UUID,
@@ -835,6 +835,9 @@ class AgentLifecycle:
                 "version": version["version"],
             },
         )
+        from ar_domain.agents.cards import GovernanceBook  # noqa: PLC0415
+
+        GovernanceBook(self.store).publish_card(actor, agent, version)
         return self.detail(agent, actor)
 
     def _gated_publish(
@@ -844,6 +847,8 @@ class AgentLifecycle:
 
         book = EvalBook(self.store)
         suites = book.gated_suite_ids(actor, agent_id)
+        if self._grounding(agent_id) == "strict":
+            suites = [*suites, *book.platform_gate_ids(actor, "groundedness")]
         if not suites:
             return None
         started = book.start_run(
@@ -857,6 +862,18 @@ class AgentLifecycle:
             },
         )
         return {"eval_run_id": started.get("id"), "status": started.get("status")}
+
+    def _grounding(self, agent_id: uuid.UUID) -> str:
+        agent = self.store.agents.get(agent_id)
+        if not isinstance(agent, dict):
+            return "off"
+        draft = agent.get("draft_version_id")
+        version = self.store.versions.get(draft) if isinstance(draft, uuid.UUID) else None
+        definition = version.get("definition") if isinstance(version, dict) else None
+        output = definition.get("output") if isinstance(definition, dict) else None
+        if isinstance(output, dict):
+            return str(output.get("grounding") or "off")
+        return "off"
 
     def complete_gated_publish(self, agent_version_id: uuid.UUID, *, passed: bool) -> None:
         """Publish the draft when the gate passed. A failure leaves the draft in place."""

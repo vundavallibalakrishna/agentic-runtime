@@ -108,6 +108,7 @@ async def _roles(session: AsyncSession) -> dict[str, Role]:
     found: dict[str, Role] = {}
     for key, name in SYSTEM_ROLE_NAMES.items():
         row = await session.scalar(select(Role).where(Role.key == key, Role.tenant_id.is_(None)))
+        permissions = list(SYSTEM_ROLE_PERMISSIONS[key])
         if row is None:
             row = Role(
                 id=new_id(),
@@ -115,10 +116,12 @@ async def _roles(session: AsyncSession) -> dict[str, Role]:
                 key=key,
                 name=name,
                 description=name,
-                permissions=list(SYSTEM_ROLE_PERMISSIONS[key]),
+                permissions=permissions,
                 is_system=True,
             )
             session.add(row)
+        elif list(row.permissions) != permissions:
+            row.permissions = permissions
         found[key] = row
     await session.flush()
     return found

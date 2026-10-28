@@ -39,7 +39,7 @@ def load_documents() -> list[dict[str, object]]:
         path = root / folder
         if not path.is_dir():
             continue
-        for file in sorted(path.glob("*.yaml")):
+        for file in sorted(path.glob("*.yaml")) + sorted(path.glob("*/*.yaml")):
             loaded = yaml.safe_load(file.read_text(encoding="utf-8"))
             if isinstance(loaded, dict):
                 documents.append({str(key): value for key, value in loaded.items()})

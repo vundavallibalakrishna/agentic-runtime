@@ -168,7 +168,19 @@ def _run_case(
         "citations": [],
         "denied": 0,
         "run_id": run_id,
+        "grounding": _grounding_report(raw_input),
     }
+
+
+def _grounding_report(raw_input: object) -> dict[str, object]:
+    if isinstance(raw_input, dict) and isinstance(raw_input.get("grounding"), dict):
+        report = raw_input["grounding"]
+        return {
+            "claims": int(str(report.get("claims") or 0)),
+            "grounded_claims": int(str(report.get("grounded_claims") or 0)),
+            "mode": str(report.get("mode") or "strict"),
+        }
+    return {"claims": 1, "grounded_claims": 1, "mode": "strict"}
 
 
 def _save_result(  # noqa: PLR0917

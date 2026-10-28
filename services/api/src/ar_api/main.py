@@ -1,6 +1,7 @@
 """HTTP entrypoint for api."""
 
 import os
+import uuid
 from collections.abc import Awaitable, Callable
 
 import orjson
@@ -11,11 +12,13 @@ from ar_api.auth.routes import router as auth_router
 from ar_api.auth.session import MemorySessionStore, session_key_bytes
 from ar_api.middleware.durable import DurableMiddleware
 from ar_api.middleware.idempotency import IdempotencyMiddleware, MemoryIdempotencyStore
+from ar_api.middleware.security_headers import SecurityHeadersMiddleware
 from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, RateLimitMiddleware
 from ar_api.ratelimit import MemoryTokenBucket
 from ar_api.routers.agents import router as agents_router
 from ar_api.routers.api_keys import router as api_keys_router
 from ar_api.routers.approvals import router as approvals_router
+from ar_api.routers.assurance import router as assurance_router
 from ar_api.routers.audit import router as audit_router
 from ar_api.routers.builder import router as builder_router
 from ar_api.routers.bundles import router as bundles_router
@@ -138,6 +141,24 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
     """Resolve ``ar_session`` to the person stored on that session."""
 
     async def load(kind: str, value: str) -> Principal | None:
+        if kind == "guest":
+            from ar_domain.identity.guests import GuestBook  # noqa: PLC0415
+
+            guest = GuestBook(app.state.chat).principal_for(value)
+            tenant_id = guest.get("tenant_id") if isinstance(guest, dict) else None
+            if not isinstance(guest, dict) or not isinstance(tenant_id, uuid.UUID):
+                return None
+            guest_id = guest.get("id")
+            return Principal(
+                kind="guest",
+                id=str(guest_id),
+                tenant_id=tenant_id,
+                permissions=frozenset(),
+                auth_method="session",
+                email=str(guest.get("email") or ""),
+                display_name=str(guest.get("display_name") or "Guest"),
+                session_id=value,
+            )
         if kind not in {"session", "widget"}:
             return None
         sessions = app.state.widget_sessions if kind == "widget" else app.state.sessions
@@ -212,6 +233,7 @@ def create_application() -> FastAPI:
         (CsrfMiddleware, {}),
         (RateLimitMiddleware, {}),
         (IdempotencyMiddleware, {}),
+        (SecurityHeadersMiddleware, {}),
     ]
     app = create_app(
         "api",
@@ -272,6 +294,7 @@ def create_application() -> FastAPI:
             channels_router,
             openai_router,
             widget_router,
+            assurance_router,
         ],
         inner_middleware=inner,
         docs_url=docs,

@@ -145,4 +145,18 @@ M13-T03 | done | aca3c20 | revision 0019 and eval catalogue API
 M13-T04 | done | aca3c20 | eval workflow, graders, publish gate, platform suites
 M13-T05 | done | aca3c20 | run inspector, evals UI, platform health
 M13-T06 | done | aca3c20 | feedback digest and alias-change re-runs
-M13-T07 | deferred | - | waits for M14-T08; not an M13 exit task (OQ-44)
+M13-T07 | done | d3097a8 | run records, replay, groundedness gate after the evidence vault
+
+M14-T01 | done | d3097a8 | guardrails, injection classifier, Indian PII recognisers
+M14-T02 | done | d3097a8 | retention sweep, erasure, data export
+M14-T03 | done | d3097a8 | audit export, SIEM fan-out, chain verification
+M14-T04 | done | d3097a8 | security headers, SSRF guard, upload limits
+M14-T05 | done | d3097a8 | signing-key envelope, supply-chain job already in CI
+M14-T06 | done | d3097a8 | metadata support grant cannot read content
+M14-T07 | done | d3097a8 | verification log; no accepted risks
+M14-T08 | done | d3097a8 | evidence vault, records tools, revision 0023
+M14-T09 | done | d3097a8 | legal hold, retention schedules, disposition certificates
+M14-T10 | done | d3097a8 | AI register cards, incidents, oversight, export
+M14-T11 | done | d3097a8 | guest principals, magic link, TOTP, watermark
+M14-T12 | done | d3097a8 | binder ZIP and stdlib verifier
+M14-T13 | done | d3097a8 | pack extension hooks, import-linter contract

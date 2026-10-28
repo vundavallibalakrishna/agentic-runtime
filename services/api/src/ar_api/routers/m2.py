@@ -317,6 +317,9 @@ async def create_conversation(body: ConversationBody, request: Request) -> dict[
 )
 @expose(public=False, permission="chat:use")
 async def get_conversation(conversation_id: uuid.UUID, request: Request) -> dict[str, object]:
+    from ar_api.principal import content_hidden  # noqa: PLC0415
+
+    content_hidden(request)
     principal = _principal(request)
     read_all = principal.allows("conversations:read_all")
     service = _chat(request)
@@ -599,6 +602,9 @@ async def get_file(file_id: uuid.UUID, request: Request) -> dict[str, object]:
 )
 @expose(public=False, permission="chat:use")
 async def file_content(file_id: uuid.UUID, request: Request) -> Response:
+    from ar_api.principal import content_hidden  # noqa: PLC0415
+
+    content_hidden(request)
     principal = _principal(request)
     service = _chat(request)
     tenant = _tenant(principal)
@@ -682,6 +688,9 @@ async def list_steps(run_id: uuid.UUID, request: Request) -> dict[str, object]:
 )
 @expose(public=False, permission="chat:use")
 async def tool_calls(run_id: uuid.UUID, request: Request) -> dict[str, object]:
+    from ar_api.principal import content_hidden  # noqa: PLC0415
+
+    content_hidden(request)
     principal = _principal(request)
     service = _chat(request)
     service.get_run(_tenant(principal), run_id)

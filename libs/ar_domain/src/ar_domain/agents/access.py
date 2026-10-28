@@ -21,6 +21,8 @@ class Actor:
     roles: frozenset[str] = frozenset()
     auth_method: str = "bearer"
     step_up_at: object | None = None
+    kind: str = "user"
+    support_level: str | None = None
 
     def has(self, permission: str) -> bool:
         return permission in self.permissions

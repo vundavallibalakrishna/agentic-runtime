@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime  # noqa: TC003
 from typing import Literal
 
-PrincipalKind = Literal["user", "service_account", "platform_admin", "system", "agent"]
+PrincipalKind = Literal["user", "service_account", "platform_admin", "system", "agent", "guest"]
 AuthMethod = Literal["session", "bearer", "api_key", "scim", "system", "none"]
 
 
@@ -28,8 +28,15 @@ class Principal:
     tenant_status: str = "active"
     user_status: str = "active"
     support_grant_id: uuid.UUID | None = None
+    support_level: str | None = None
     api_key_id: uuid.UUID | None = None
     roles: frozenset[str] = field(default_factory=frozenset)
+
+    def can_read_content(self) -> bool:
+        """Metadata support grants and unscoped platform admins cannot read content."""
+        if self.kind == "platform_admin":
+            return self.support_level == "content"
+        return self.support_level != "metadata"
 
     def allows(self, permission: str, *, team_id: uuid.UUID | None = None) -> bool:
         """Return whether this principal holds ``permission``.

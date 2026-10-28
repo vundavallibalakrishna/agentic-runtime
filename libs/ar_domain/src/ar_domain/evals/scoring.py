@@ -2,14 +2,11 @@
 
 import math
 import re
-from typing import TYPE_CHECKING
+from collections.abc import Mapping  # noqa: TC003
 
 import orjson
 
 from ar_domain.evals.metrics import JUDGE_CALLS
-
-if TYPE_CHECKING:
-    from collections.abc import Mapping
 
 _REFUSAL = re.compile(
     r"\b(can't|cannot|can not|won't|will not|unable to|i must decline|not able to)\b",
@@ -110,7 +107,7 @@ def _one(item: Mapping[str, object], outcome: Mapping[str, object]) -> dict[str,
         denied = _int(outcome.get("denied"))
         return _score(denied == 0, 1.0 if denied == 0 else 0.0, f"{denied} denials")
     if kind == "groundedness":
-        return _score(False, 0.0, "groundedness grader waits for run records")
+        return _groundedness(item, outcome)
     return _score(False, 0.0, "unknown assertion")
 
 
@@ -257,6 +254,22 @@ def _p95(values: list[int]) -> int:
     ordered = sorted(values)
     index = min(len(ordered) - 1, math.ceil(0.95 * len(ordered)) - 1)
     return ordered[max(index, 0)]
+
+
+def _groundedness(item: Mapping[str, object], outcome: Mapping[str, object]) -> dict[str, object]:
+    report = outcome.get("grounding")
+    if not isinstance(report, dict):
+        return _score(False, 0.0, "no grounding report")
+    mode = str(report.get("mode") or "off")
+    wanted = str(item.get("mode") or "strict")
+    claims = _int(report.get("claims"))
+    grounded = _int(report.get("grounded_claims"))
+    if claims == 0:
+        return _score(True, 1.0, "no claims")
+    ratio = grounded / claims
+    minimum = _float(item.get("min_grounded_ratio"), 0.9)
+    ok = ratio >= minimum and (wanted != "strict" or mode == "strict")
+    return _score(ok, ratio, f"{grounded}/{claims}")
 
 
 def _float(value: object, default: float) -> float:

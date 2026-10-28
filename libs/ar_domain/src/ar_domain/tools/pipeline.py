@@ -194,6 +194,15 @@ class ToolPipeline:
             outcome = dispatch(self.store, endpoint, str(version.get("name")), call_args, token)
         self._emit_streams(request, outcome)
         plain = str(outcome.get("text") or "")
+        from ar_domain.security.guardrails import apply_result_safety  # noqa: PLC0415
+
+        plain, flag = apply_result_safety(
+            self.store,
+            plain,
+            open_world=str(endpoint).startswith(("http://", "https://", "builtin://web")),
+        )
+        if flag.get("suspected"):
+            outcome["injection_suspected"] = True
         wrapped = wrap_tool_result(
             tool=str(version.get("qualified_name")),
             call_id=str(request.get("model_call_id") or "call"),

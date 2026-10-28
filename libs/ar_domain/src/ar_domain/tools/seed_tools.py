@@ -81,6 +81,7 @@ def seed(store: Any) -> None:
     admin = demo_id("admin")
     _settings(store, tenant)
     _builtin(store, "files", "Files", "builtin://files", _file_tools())
+    _builtin(store, "records", "Records", "builtin://records", _record_tools())
     _builtin(store, "conversations", "Conversations", "builtin://conversations", _history_tools())
     _builtin(store, "web", "Web", "builtin://web", _web_tools())
     _builtin(store, "control", "Control", "builtin://control", _control_tools())
@@ -528,6 +529,25 @@ def _tool(  # noqa: PLR0917
         "risk_class": risk,
         "annotations": annotations or {},
     }
+
+
+def _record_tools() -> list[dict[str, object]]:
+    body: dict[str, object] = {
+        "type": "object",
+        "properties": {
+            "text": {"type": "string"},
+            "bytes_file_id": {"type": "string"},
+            "media_type": {"type": "string"},
+            "source_system": {"type": "string"},
+            "collection_method": {"type": "string"},
+            "evidence_item_id": {"type": "string"},
+        },
+    }
+    return [
+        _tool("capture", "Capture evidence", "Seal bytes as an evidence item.", body, "R1"),
+        _tool("get", "Get evidence", "Read evidence metadata.", body, "R0"),
+        _tool("verify", "Verify evidence", "Check the evidence manifest.", body, "R0"),
+    ]
 
 
 def _file_tools() -> list[dict[str, object]]:
