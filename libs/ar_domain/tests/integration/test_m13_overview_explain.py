@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import text
@@ -41,8 +42,8 @@ async def test_runs_index_is_visible_to_explain(database_url: str) -> None:
             text("EXPLAIN " + OVERVIEW_SQL),
             {
                 "tenant_id": "00000000-0000-0000-0000-000000000000",
-                "start": "2020-01-01",
-                "end": "2030-01-01",
+                "start": datetime(2020, 1, 1, tzinfo=UTC),
+                "end": datetime(2030, 1, 1, tzinfo=UTC),
             },
         )
         rendered = " ".join(row[0] for row in plan)

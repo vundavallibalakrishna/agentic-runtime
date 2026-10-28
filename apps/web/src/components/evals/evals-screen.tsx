@@ -260,7 +260,12 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
                     <Button
                       className="mt-3"
                       disabled={busy}
-                      onClick={() => void addFeedback(item, suites[0].id)}
+                      onClick={() => {
+                        const suiteId = suites[0]?.id;
+                        if (suiteId) {
+                          void addFeedback(item, suiteId);
+                        }
+                      }}
                       type="button"
                       variant="outline"
                     >
