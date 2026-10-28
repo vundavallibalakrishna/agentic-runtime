@@ -12,6 +12,7 @@ from ar_api.routers.tooling import actor, chat
 from ar_pack_grc import ccm, entities, evidence_links, findings, frameworks, mappings
 from ar_pack_grc import tests as control_tests
 from ar_pack_grc.access import require_enabled, snake_body
+from ar_pack_grc.http_workflows import router as workflow_router
 
 if TYPE_CHECKING:
     from ar_domain.agents.access import Actor
@@ -327,3 +328,6 @@ async def create_entity(request: Request, body: dict[str, Any]) -> dict[str, Any
 @expose(public=False, permission="grc.entities:read")
 async def entity_posture(entity_id: uuid.UUID, request: Request) -> dict[str, Any]:
     return entities.posture(chat(request), _caller(request, "grc.entities:read"), entity_id)
+
+
+router.include_router(workflow_router)

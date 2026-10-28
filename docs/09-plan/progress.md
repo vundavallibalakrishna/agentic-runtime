@@ -183,3 +183,12 @@ M17-T03 | done | 6636c87 | Okta, Entra and Google Workspace collectors
 M17-T04 | done | 6636c87 | GitHub, GitLab, Jira and ServiceNow; W2 writes store external_ref
 M17-T05 | done | 6636c87 | control tests, findings, grc-ccm, close guard; HTTP stays on the process store (OQ-50)
 M17-T06 | done | 6636c87 | collector and control-test evals; a missing evidence hash fails the gate
+
+M18-T01 | done | 0186422 | answer library, grounded drafts, export guard, bulk review
+M18-T02 | done | 0186422 | vendors, SOC 2 skill, guest portal vendor
+M18-T03 | done | 0186422 | policy publish waits for sign-off; acknowledgement campaign
+M18-T04 | done | 0186422 | risk score history; acceptance audit after sign-off
+M18-T05 | done | 0186422 | feeds, robots and SSRF, Hindi circular, cscrf-sampling
+M18-T06 | done | 0186422 | breach clocks and filing after sign-off; no silent hold
+M18-T07 | done | 0186422 | waiver control required; expiry sweep ignored by tests
+M18-T08 | done | 0186422 | ethics cases hidden without grc.ethics:manage; HTTP on the process store (OQ-51)

@@ -731,6 +731,7 @@ Spec: [10-grc-pack/api.md](../10-grc-pack/api.md)
 | GET | [`/api/v1/ext/grc/exceptions`](../10-grc-pack/api.md#get-apiv1extgrcexceptions) | `grc.controls:read` |
 | POST | [`/api/v1/ext/grc/exceptions`](../10-grc-pack/api.md#post-apiv1extgrcexceptions) | `grc.exceptions:manage` |
 | GET | [`/api/v1/ext/grc/ethics-cases`](../10-grc-pack/api.md#get-apiv1extgrcethics-cases) | `grc.ethics:manage` |
+| GET | [`/api/v1/ext/grc/ethics-cases/{case_id}`](../10-grc-pack/api.md#get-apiv1extgrcethics-casescase_id) | `grc.ethics:manage` |
 | POST | [`/api/v1/ext/grc/ethics-cases`](../10-grc-pack/api.md#post-apiv1extgrcethics-cases) | `grc.ethics:manage` |
 | GET | [`/api/v1/ext/grc/inspections`](../10-grc-pack/api.md#get-apiv1extgrcinspections) | `grc.inspections:manage` |
 | POST | [`/api/v1/ext/grc/inspections`](../10-grc-pack/api.md#post-apiv1extgrcinspections) | `grc.inspections:manage` |

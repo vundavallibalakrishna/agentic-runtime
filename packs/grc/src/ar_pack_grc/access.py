@@ -90,6 +90,10 @@ def present(row: dict[str, Any]) -> dict[str, Any]:
     return {key: _jsonish(value) for key, value in row.items() if not str(key).startswith("_")}
 
 
+def page(items: list[dict[str, Any]]) -> dict[str, Any]:
+    return {"items": items, "next_cursor": None, "has_more": False}
+
+
 def _jsonish(value: object) -> object:
     if isinstance(value, uuid.UUID):
         return str(value)

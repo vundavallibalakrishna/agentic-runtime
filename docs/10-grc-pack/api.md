@@ -323,8 +323,11 @@ Cross-tenant access returns 404. Guest callers may use only the routes whose tex
 #### GET /api/v1/ext/grc/ethics-cases
 `grc.ethics:manage`. Restricted cases are omitted for every other permission.
 
+#### GET /api/v1/ext/grc/ethics-cases/{case_id}
+`grc.ethics:manage`. A caller without that permission, including a tenant auditor, receives 404.
+
 #### POST /api/v1/ext/grc/ethics-cases
-`grc.ethics:manage`. Body `{title}`. Audit `grc.ethics.opened`.
+`grc.ethics:manage`. Body `{title, legalHoldId?}`. Audit `grc.ethics.opened`. A legal hold is attached only when `legalHoldId` already exists. The call does not create one.
 
 #### GET /api/v1/ext/grc/inspections
 `grc.inspections:manage`.

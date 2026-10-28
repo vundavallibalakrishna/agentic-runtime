@@ -1,0 +1,17 @@
+name: Hindi circular classification
+description: A Hindi DPDP circular is classified against the 72 hour intimation rule.
+kind: functional
+gate:
+  required: false
+  min_pass_rate: 1
+  must_pass_tags:
+    - classification
+cases:
+  - name: hindi-dpdp-72h
+    tags: [classification]
+    input:
+      messages:
+        - "भारतीय नियामक ने व्यक्तिगत डेटा उल्लंघन की सूचना 72 घंटे में देना अनिवार्य किया है।"
+    assertions:
+      - type: contains
+        value: "72"
