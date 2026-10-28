@@ -5,12 +5,12 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Any
 
-from ar_common.errors import ArError, ErrorCode
 from ar_domain.records.access import require
 from ar_domain.records.binders import BinderBook
 from ar_domain.records.memory import bucket
 from ar_pack_grc.access import record, same_tenant, snake_body
 from ar_pack_grc.access import rows as bucket_rows
+from ar_pack_grc.reviews import open_review
 from ar_pack_grc.values import choice
 
 if TYPE_CHECKING:
@@ -62,15 +62,20 @@ def _board(
 ) -> dict[str, Any]:
     created = book.create(actor, {"title": title, "selection": selection, "require_review": True})
     binder_id = _uuid(created.get("id"))
-    try:
-        book.build(actor, binder_id)
-    except ArError as exc:
-        if exc.code is not ErrorCode.REVIEW_REQUIRED:
-            raise
+    review = open_review(
+        store,
+        actor,
+        slug="grc-reports",
+        subject_id=binder_id,
+        content=title,
+        statement=f"I reviewed the board pack {title}.",
+    )
     saved = bucket(store, "binders").get(binder_id)
-    status = saved.get("status") if isinstance(saved, dict) else "pending_review"
+    if isinstance(saved, dict):
+        saved["status"] = "pending_review"
+        saved["review_item_id"] = review.get("id")
     record(store, actor, "grc.report.exported", binder_id, {"template": "board_pack"})
-    return {"binder_id": binder_id, "status": status, "template": "board_pack"}
+    return {"binder_id": binder_id, "status": "pending_review", "template": "board_pack"}
 
 
 def _selection(
