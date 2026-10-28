@@ -55,12 +55,14 @@ export function AssuranceScreen() {
     setError("");
     try {
       const [items, holdPage, schedulePage, guestPage, binderPage, cardPage] = await Promise.all([
-        api<{ items: Evidence[] }>("/api/v1/evidence"),
-        api<{ items: Hold[]; officers?: Officer[] }>("/api/v1/legal-holds"),
-        api<{ items: Schedule[] }>("/api/v1/retention-schedules"),
-        api<{ items: Guest[] }>("/api/v1/guests"),
-        api<{ items: Binder[] }>("/api/v1/binders"),
-        api<{ items: Card[] }>("/api/v1/agent-cards"),
+        api<{ items: Evidence[] }>("/api/v1/evidence").catch(() => ({ items: [] })),
+        api<{ items: Hold[]; officers?: Officer[] }>("/api/v1/legal-holds").catch(() => ({
+          items: [],
+        })),
+        api<{ items: Schedule[] }>("/api/v1/retention-schedules").catch(() => ({ items: [] })),
+        api<{ items: Guest[] }>("/api/v1/guests").catch(() => ({ items: [] })),
+        api<{ items: Binder[] }>("/api/v1/binders").catch(() => ({ items: [] })),
+        api<{ items: Card[] }>("/api/v1/agent-cards").catch(() => ({ items: [] })),
       ]);
       setEvidence(items.items ?? []);
       setHolds(holdPage.items ?? []);
@@ -70,6 +72,9 @@ export function AssuranceScreen() {
       setBinders(binderPage.items ?? []);
       setCards(cardPage.items ?? []);
       setApprover((current) => current || holdPage.officers?.[0]?.id || "");
+      if ((items.items ?? []).length === 0 && (schedulePage.items ?? []).length === 0) {
+        setError(t("error"));
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {

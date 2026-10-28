@@ -21,7 +21,7 @@ Earlier screens stay on Chat, Agents, Tools, Knowledge, Memory, Skills, Routines
 ## Click-through
 
 1. Open `/login` and sign in as `admin@dev.local`. Expect the chat heading.
-2. Open **Assurance**. Expect the Evidence tab and a row from `desk`. An empty vault says "No evidence yet."
+2. Open **Assurance**. Expect the Evidence tab. An empty vault says "No evidence yet." A durable database does not invent a row until you seal one.
 3. Type a note and choose **Seal evidence**. Expect "Evidence sealed."
 4. Open **Holds**. Expect the two-person note. Creating a hold with yourself as approver is refused.
 5. Open **Retention**. Expect `evidence_item` at 2555 days. A schedule under 180 days is refused by the API.
