@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { DetailState } from "@/components/common/detail-state";
 
 type Health = { status?: string };
+type Component = { name?: string; status?: string; detail?: string };
 type Meta = { version?: string; deploymentMode?: string; deployment_mode?: string };
 
 export function HealthReport() {
@@ -15,6 +16,7 @@ export function HealthReport() {
   const [failed, setFailed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
+  const [components, setComponents] = useState<Component[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +37,11 @@ export function HealthReport() {
         if (!cancelled) {
           setHealth(healthBody);
           setMeta(metaBody);
+        }
+        const probes = await fetch("/api/v1/platform/health", { credentials: "include" });
+        if (probes.ok && !cancelled) {
+          const body = (await probes.json()) as { components?: Component[] };
+          setComponents(body.components ?? []);
         }
       } catch {
         if (!cancelled) {
@@ -74,6 +81,24 @@ export function HealthReport() {
       <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
         <p className="text-sm text-[var(--muted-foreground)]">{t("mode")}</p>
         <p className="mt-2 text-2xl font-medium tracking-tight">{mode}</p>
+      </article>
+      <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:col-span-3">
+        <p className="text-sm text-[var(--muted-foreground)]">{t("components")}</p>
+        {components && components.length > 0 ? (
+          <ul className="mt-3 space-y-2 text-sm">
+            {components.map((item) => (
+              <li className="flex items-center justify-between gap-3" key={item.name}>
+                <span>{item.name}</span>
+                <span className="text-[var(--muted-foreground)]">
+                  {item.status}
+                  {item.detail === "not configured" ? ` · ${t("notConfigured")}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm">{t("componentEmpty")}</p>
+        )}
       </article>
     </div>
   );

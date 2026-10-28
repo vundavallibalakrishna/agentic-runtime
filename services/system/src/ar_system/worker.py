@@ -39,6 +39,11 @@ async def run_worker() -> None:
     from temporalio.worker import Worker  # noqa: PLC0415
 
     from ar_system.main import TASK_QUEUE  # noqa: PLC0415
+    from ar_system.workflows.eval_run import (  # noqa: PLC0415
+        EVAL_QUEUE,
+        EvalRunWorkflow,
+        execute_eval_activity,
+    )
     from ar_system.workflows.memory_extraction import (  # noqa: PLC0415
         MemoryExtractionWorkflow,
         extract_memory,
@@ -84,8 +89,14 @@ async def run_worker() -> None:
                     reconcile_activity,
                 ],
             )
+            eval_worker = Worker(
+                client,
+                task_queue=EVAL_QUEUE,
+                workflows=[EvalRunWorkflow],
+                activities=[execute_eval_activity],
+            )
             _log.info("temporal_connected", queue=TASK_QUEUE)
-            await worker.run()
+            await asyncio.gather(worker.run(), eval_worker.run())
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - keep the health server up

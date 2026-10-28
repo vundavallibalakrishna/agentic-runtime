@@ -30,6 +30,12 @@ type Summary = {
   totals?: { quantity?: number; costMicros?: number };
 };
 
+type Overview = {
+  runs?: { total?: number };
+  feedback?: { up?: number; down?: number };
+  costMicros?: number;
+};
+
 const field =
   "h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-sm text-[var(--foreground)]";
 
@@ -41,6 +47,7 @@ export function UsageScreen() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [group, setGroup] = useState("day");
+  const [overview, setOverview] = useState<Overview | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,7 +60,12 @@ export function UsageScreen() {
       params.set("to", to);
     }
     try {
-      setSummary(await api<Summary>(`/api/v1/usage/summary?${params.toString()}`));
+      const [summaryBody, overviewBody] = await Promise.all([
+        api<Summary>(`/api/v1/usage/summary?${params.toString()}`),
+        api<Overview>("/api/v1/observability/overview").catch(() => null),
+      ]);
+      setSummary(summaryBody);
+      setOverview(overviewBody);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -149,6 +161,23 @@ export function UsageScreen() {
             {t("retry")}
           </Button>
         </p>
+      ) : null}
+      <section aria-label={t("overview")} className="mb-6 grid gap-3 sm:grid-cols-3">
+        <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+          <p className="text-sm text-[var(--muted-foreground)]">{t("runs")}</p>
+          <p className="mt-2 text-2xl font-medium">{formatCount(overview?.runs?.total ?? 0)}</p>
+        </article>
+        <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+          <p className="text-sm text-[var(--muted-foreground)]">{t("feedbackUp")}</p>
+          <p className="mt-2 text-2xl font-medium">{overview?.feedback?.up ?? 0}</p>
+        </article>
+        <article className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+          <p className="text-sm text-[var(--muted-foreground)]">{t("feedbackDown")}</p>
+          <p className="mt-2 text-2xl font-medium">{overview?.feedback?.down ?? 0}</p>
+        </article>
+      </section>
+      {!loading && (overview?.runs?.total ?? 0) === 0 ? (
+        <p className="mb-4 text-sm text-[var(--muted-foreground)]">{t("overviewEmpty")}</p>
       ) : null}
       {loading ? <Skeleton className="h-56 w-full" /> : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}

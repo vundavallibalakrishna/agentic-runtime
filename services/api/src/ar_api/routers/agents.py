@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import Field
 
 from ar_api.actors import actor_from, chat_of, principal_of
@@ -242,6 +242,7 @@ async def validate_agent(
 async def publish_agent(
     agent_id: uuid.UUID,
     request: Request,
+    response: Response,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     body: PublishBody | None = None,
 ) -> dict[str, object]:
@@ -250,9 +251,16 @@ async def publish_agent(
         actor = actor_from(principal_of(request))
         if not actor.has("agents:manage_all"):
             raise ArError(ErrorCode.FORBIDDEN, "skip_eval_gate requires agents:manage_all")
-    return _life(request).publish(
-        actor_from(principal_of(request)), agent_id, change_note=note, if_match=if_match
+    result = _life(request).publish(
+        actor_from(principal_of(request)),
+        agent_id,
+        change_note=note,
+        if_match=if_match,
+        skip_eval_gate=bool(body and body.skip_eval_gate),
     )
+    if "eval_run_id" in result and "slug" not in result:
+        response.status_code = 202
+    return result
 
 
 @router.post(

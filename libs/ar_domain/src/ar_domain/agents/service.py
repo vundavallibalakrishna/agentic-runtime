@@ -762,6 +762,7 @@ class AgentLifecycle:
         *,
         change_note: str = "",
         if_match: str | None = None,
+        skip_eval_gate: bool = False,
     ) -> dict[str, object]:
         agent = self._agent(actor, agent_id)
         if not can_publish(agent, actor):
@@ -793,6 +794,13 @@ class AgentLifecycle:
         normalised.pop("resolved", None)
         digest = definition_hash(normalised)
         normalised["resolved"] = resolved
+        version["definition"] = normalised
+        version["definition_hash"] = digest
+        version["change_note"] = change_note or version.get("change_note") or ""
+        if not skip_eval_gate:
+            gated = self._gated_publish(actor, agent_id, change_note)
+            if gated is not None:
+                return gated
         previous = agent.get("published_version_id")
         if isinstance(previous, uuid.UUID) and previous != draft_id:
             prior = self.store.versions.get(previous)
@@ -828,6 +836,51 @@ class AgentLifecycle:
             },
         )
         return self.detail(agent, actor)
+
+    def _gated_publish(
+        self, actor: Actor, agent_id: uuid.UUID, change_note: str
+    ) -> dict[str, object] | None:
+        from ar_domain.evals.book import EvalBook  # noqa: PLC0415
+
+        book = EvalBook(self.store)
+        suites = book.gated_suite_ids(actor, agent_id)
+        if not suites:
+            return None
+        started = book.start_run(
+            actor,
+            suites[0],
+            {
+                "agent_id": agent_id,
+                "agent_version_ref": "draft",
+                "trigger": "publish_gate",
+                "change_note": change_note,
+            },
+        )
+        return {"eval_run_id": started.get("id"), "status": started.get("status")}
+
+    def complete_gated_publish(self, agent_version_id: uuid.UUID, *, passed: bool) -> None:
+        """Publish the draft when the gate passed. A failure leaves the draft in place."""
+        version = self.store.versions.get(agent_version_id)
+        if not isinstance(version, dict) or not passed or version.get("state") == "published":
+            return
+        agent_id = version.get("agent_id")
+        if not isinstance(agent_id, uuid.UUID):
+            return
+        agent = self.store.agents.get(agent_id)
+        if not isinstance(agent, dict):
+            return
+        owner = agent.get("owner_user_id")
+        user_id = owner if isinstance(owner, uuid.UUID) else agent_id
+        self.publish(
+            Actor(
+                tenant_id=agent["tenant_id"],
+                user_id=user_id,
+                permissions=frozenset({"agents:publish", "agents:manage_all", "evals:run"}),
+            ),
+            agent_id,
+            change_note=str(version.get("change_note") or ""),
+            skip_eval_gate=True,
+        )
 
     def rollback(
         self, actor: Actor, agent_id: uuid.UUID, *, version: int, change_note: str

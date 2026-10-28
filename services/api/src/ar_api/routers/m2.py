@@ -49,6 +49,10 @@ class AliasBody(ApiModel):
     fallback_model_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
+class AliasPatch(ApiModel):
+    primary_model_id: uuid.UUID
+
+
 class AliasTestBody(ApiModel):
     messages: list[dict[str, str]] = Field(default_factory=list)
 
@@ -231,6 +235,20 @@ async def create_alias(body: AliasBody, request: Request) -> dict[str, object]:
         body.primary_model_id,
         platform=False,
         fallback_model_ids=body.fallback_model_ids,
+    )
+
+
+@router.patch(
+    "/api/v1/model-aliases/{alias_id}",
+    dependencies=[Depends(require_permission("models:manage"))],
+)
+@expose(public=False, permission="models:manage")
+async def update_alias(
+    alias_id: uuid.UUID, body: AliasPatch, request: Request
+) -> dict[str, object]:
+    principal = _principal(request)
+    return _chat(request).update_alias(
+        _tenant(principal), alias_id, body.primary_model_id, platform=False
     )
 
 
@@ -647,7 +665,9 @@ async def get_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
     await reload_run(_chat(request), run_id)
-    return _chat(request).get_run(_tenant(principal), run_id)
+    from ar_domain.runs.service import trace_links  # noqa: PLC0415
+
+    return trace_links(_chat(request).get_run(_tenant(principal), run_id))
 
 
 @router.get("/api/v1/runs/{run_id}/steps", dependencies=[Depends(require_permission("chat:use"))])

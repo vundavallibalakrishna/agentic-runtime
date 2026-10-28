@@ -1,0 +1,115 @@
+groups:
+  - name: agentic-runtime
+    rules:
+      - alert: ARApiHighErrorRate
+        expr: sum(rate(ar_http_requests_total{status=~"5.."}[5m])) / sum(rate(ar_http_requests_total[5m])) > 0.02
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: API 5xx rate is above 2 percent
+          runbook_url: docs/07-ops/runbooks.md#rb-01-api-errors
+      - alert: ARRunStartLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(ar_run_start_latency_seconds_bucket[10m]))) > 3
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: Run start p95 is above 3 seconds
+          runbook_url: docs/07-ops/runbooks.md#rb-02-slow-run-start
+      - alert: ARRunsStuckQueued
+        expr: ar_runs_queued_over_60s > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Runs have been queued for more than 60 seconds
+          runbook_url: docs/07-ops/runbooks.md#rb-03-runs-stuck-in-queued
+      - alert: ARModelNoHealthyUpstream
+        expr: ar_model_alias_all_open > 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: A model alias has no healthy target
+          runbook_url: docs/07-ops/runbooks.md#rb-04-model-upstream-down
+      - alert: ARTemporalBacklog
+        expr: histogram_quantile(0.95, sum by (le) (rate(ar_temporal_schedule_to_start_seconds_bucket[10m]))) > 5
+        for: 10m
+        labels:
+          severity: page
+        annotations:
+          summary: Temporal schedule-to-start p95 is above 5 seconds
+          runbook_url: docs/07-ops/runbooks.md#rb-05-temporal-backlog
+      - alert: AROpaUnavailable
+        expr: sum(rate(ar_policy_fallback_total[2m])) > 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: Policy decisions are using the fallback evaluator
+          runbook_url: docs/07-ops/runbooks.md#rb-06-opa-unavailable
+      - alert: ARIngestFailures
+        expr: sum(rate(ar_ingest_documents_total{outcome="failed"}[30m])) / sum(rate(ar_ingest_documents_total[30m])) > 0.10
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Ingestion failure ratio is above 10 percent
+          runbook_url: docs/07-ops/runbooks.md#rb-07-ingestion-failures
+      - alert: ARRetrievalLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(ar_retrieval_store_seconds_bucket{operation="search"}[15m]))) > 0.15
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Retrieval search p95 is above 150 milliseconds
+          runbook_url: docs/07-ops/runbooks.md#rb-07-ingestion-failures
+      - alert: ARRetrievalStoreErrors
+        expr: sum(rate(ar_retrieval_store_errors_total{kind="unavailable"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: The retrieval store is unavailable
+          runbook_url: docs/07-ops/runbooks.md#rb-07-ingestion-failures
+      - alert: ARSandboxEnsureSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(ar_sandbox_ensure_seconds_bucket[10m]))) > 20
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: Sandbox ensure p95 is above 20 seconds
+          runbook_url: docs/07-ops/runbooks.md#rb-08-sandbox-capacity
+      - alert: ARAuditChainBroken
+        expr: ar_audit_chain_verify_failed > 0
+        for: 1m
+        labels:
+          severity: page
+        annotations:
+          summary: Nightly audit chain verification failed
+          runbook_url: docs/07-ops/runbooks.md#rb-09-audit-chain-broken
+      - alert: ARCertificateExpiry
+        expr: ar_certificate_expiry_days < 14
+        for: 1h
+        labels:
+          severity: ticket
+        annotations:
+          summary: A certificate expires in under 14 days
+          runbook_url: docs/07-ops/runbooks.md#rb-10-certificates
+      - alert: ARPostgresReplicationLag
+        expr: ar_postgres_replication_lag_seconds > 30
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Postgres replication lag is above 30 seconds
+          runbook_url: docs/07-ops/runbooks.md#rb-11-postgres
+      - alert: ARQueueDepthOutbox
+        expr: ar_outbox_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: Outbox events are unpublished for more than 60 seconds
+          runbook_url: docs/07-ops/runbooks.md#rb-13-outbox-backlog

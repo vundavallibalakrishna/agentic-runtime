@@ -25,6 +25,9 @@ from ar_api.routers.content_packs import router as packs_router
 from ar_api.routers.credential_providers import router as providers_router
 from ar_api.routers.data_connections import router as data_connections_router
 from ar_api.routers.domains import router as domains_router
+from ar_api.routers.eval_runs import router as eval_runs_router
+from ar_api.routers.eval_suites import router as eval_suites_router
+from ar_api.routers.feedback import router as feedback_router
 from ar_api.routers.groups import router as groups_router
 from ar_api.routers.identity_providers import router as idp_router
 from ar_api.routers.invitations import router as invitations_router
@@ -34,8 +37,10 @@ from ar_api.routers.me import router as me_router
 from ar_api.routers.memory import router as memory_router
 from ar_api.routers.meta import router as meta_router
 from ar_api.routers.notifications import router as notifications_router
+from ar_api.routers.observability import router as observability_router
 from ar_api.routers.opa_bundle import router as opa_bundle_router
 from ar_api.routers.openai_compat import router as openai_router
+from ar_api.routers.platform_health import router as platform_health_router
 from ar_api.routers.platform_plans import router as plans_router
 from ar_api.routers.platform_tenants import router as platform_router
 from ar_api.routers.platform_usage import router as platform_usage_router
@@ -232,6 +237,7 @@ def create_application() -> FastAPI:
             support_router,
             signup_router,
             platform_router,
+            platform_health_router,
             platform_usage_router,
             plans_router,
             notifications_router,
@@ -259,6 +265,10 @@ def create_application() -> FastAPI:
             routines_router,
             quotas_router,
             usage_router,
+            observability_router,
+            eval_suites_router,
+            eval_runs_router,
+            feedback_router,
             channels_router,
             openai_router,
             widget_router,

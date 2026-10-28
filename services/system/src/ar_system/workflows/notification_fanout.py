@@ -30,6 +30,13 @@ def notices_for(topic: str, payload: dict[str, object]) -> list[Notice]:
     if topic == "invitation.created":
         email = str(payload.get("email", ""))
         return [Notice("system", "You are invited", f"Invitation for {email}", email or None)]
+    if topic == "eval.completed":
+        summary = payload.get("summary")
+        regressions = summary.get("regressions") if isinstance(summary, dict) else []
+        title = "Evaluation regressed" if regressions else "Evaluation finished"
+        return [Notice("eval_completed", title, title, None)]
+    if topic == "feedback.created":
+        return []
     if topic == "approval.requested":
         name = str(payload.get("qualified_name") or "a tool")
         return [
