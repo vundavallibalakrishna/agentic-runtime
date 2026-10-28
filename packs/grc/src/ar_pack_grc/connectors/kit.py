@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import orjson
-from pydantic import JsonValue
 
 from ar_common.jcs import args_hash as canonical_hash
 from ar_common.settings import get_settings
@@ -72,7 +71,7 @@ def request_hash(method: str, path: str, query: dict[str, str]) -> str:
         "path": path,
         "query": {key: query[key] for key in sorted(query)},
     }
-    return canonical_hash(cast("JsonValue", document))
+    return canonical_hash(cast("Any", document))
 
 
 def _noop(_seconds: float) -> None:

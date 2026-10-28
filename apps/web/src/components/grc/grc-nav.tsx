@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
-export const grcTabs = [
+const grcTabs = [
   { href: "/grc", id: "frameworks", label: "frameworks" },
   { href: "/grc/controls", id: "controls", label: "controls" },
   { href: "/grc/evidence", id: "evidence", label: "evidence" },
