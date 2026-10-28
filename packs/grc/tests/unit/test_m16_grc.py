@@ -69,7 +69,11 @@ def test_pack_models_cover_the_domain_and_the_entity_tree() -> None:
     names = {table.name for table in PackBase.metadata.tables.values() if table.schema == "grc"}
     assert "regulator_feeds" in names
     assert "entities" in names
-    assert len(names) == 28
+    assert "inspections" in names
+    assert "dsar_requests" in names
+    assert "consent_records" in names
+    assert "resilience_tests" in names
+    assert len(names) == 32
     assert "entity_id" in PackBase.metadata.tables["grc.controls"].c
 
 

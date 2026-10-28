@@ -274,7 +274,10 @@ Cross-tenant access returns 404. Guest callers may use only the routes whose tex
 `grc.audit_portal:manage`. Body `{title, control_id?, owner_user_id, due_at}`.
 
 #### PATCH /api/v1/ext/grc/pbc-requests/{request_id}
-`grc.audit_portal:manage`. Update status or response. Audit `grc.pbc.updated`.
+`grc.audit_portal:manage`. Update status or response. Status `provided` requires a signed review of the response. A guest whose grant lists the request may set status `accepted` only after it is `provided`. Audit `grc.pbc.updated`.
+
+#### GET /api/v1/ext/grc/pbc-requests/{request_id}/response
+`grc.audit_portal:manage`, the owner, or a guest whose grant lists the request. Returns the response PDF. A guest download is watermarked by the core watermark.
 
 #### POST /api/v1/ext/grc/pbc-lists:import
 `grc.audit_portal:manage`. Body `{file_id}` of an XLSX list. Creates one request per row.
@@ -339,7 +342,10 @@ Cross-tenant access returns 404. Guest callers may use only the routes whose tex
 `grc.privacy:manage`.
 
 #### POST /api/v1/ext/grc/dsar-requests
-`grc.privacy:manage`. Body `{requestType, dueAt, subjectUserId?}`. Audit `grc.dsar.fulfilled` when status becomes `fulfilled`.
+`grc.privacy:manage`. Body `{requestType, dueAt, subjectUserId?}`. An `erasure` opens a review. Audit `grc.dsar.fulfilled` when status becomes `fulfilled`.
+
+#### POST /api/v1/ext/grc/dsar-requests/{request_id}:fulfil
+`grc.privacy:manage`. Marks the request `fulfilled`. An `erasure` for a platform user starts the core erasure flow after the review is signed and skips records under a legal hold.
 
 #### GET /api/v1/ext/grc/consent-records
 `grc.privacy:manage`.
@@ -354,4 +360,4 @@ Cross-tenant access returns 404. Guest callers may use only the routes whose tex
 `grc.controls:manage`. Body `{kind, testedOn, outcome, evidenceItemId}`. Audit `grc.resilience.recorded`.
 
 #### POST /api/v1/ext/grc/assets
-`grc.risks:manage`. Body `{name, kind, ownerUserId?, agentCardId?}`. `kind=model` is the model-risk inventory. `agentCardId` is optional and refers to a core card.
+`grc.risks:manage`. Body `{name, kind, ownerUserId?, tier?, agentCardId?}`. `kind=model` is the model-risk inventory and requires `ownerUserId` and `tier`. `agentCardId` is optional and refers to a core card. The call does not write `agent_cards`.

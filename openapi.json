@@ -21333,6 +21333,393 @@
         }
       }
     },
+    "/api/v1/ext/grc/campaigns/{campaign_id}:start": {
+      "post": {
+        "tags": ["grc"],
+        "summary": "Start Campaign",
+        "operationId": "start_campaign_api_v1_ext_grc_campaigns__campaign_id__start_post",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Start Campaign Api V1 Ext Grc Campaigns  Campaign Id  Start Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/campaigns/{campaign_id}:close": {
+      "post": {
+        "tags": ["grc"],
+        "summary": "Close Campaign",
+        "operationId": "close_campaign_api_v1_ext_grc_campaigns__campaign_id__close_post",
+        "parameters": [
+          {
+            "name": "campaign_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Campaign Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Close Campaign Api V1 Ext Grc Campaigns  Campaign Id  Close Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/campaign-items": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Campaign Items",
+        "operationId": "list_campaign_items_api_v1_ext_grc_campaign_items_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Campaign Items Api V1 Ext Grc Campaign Items Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/campaign-items/{item_id}:decide": {
+      "post": {
+        "tags": ["grc"],
+        "summary": "Decide Campaign Item",
+        "operationId": "decide_campaign_item_api_v1_ext_grc_campaign_items__item_id__decide_post",
+        "parameters": [
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Decide Campaign Item Api V1 Ext Grc Campaign Items  Item Id  Decide Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/entitlements": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Entitlements",
+        "operationId": "list_entitlements_api_v1_ext_grc_entitlements_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Entitlements Api V1 Ext Grc Entitlements Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/entitlements:ingest": {
+      "post": {
+        "tags": ["grc"],
+        "summary": "Ingest Entitlements",
+        "operationId": "ingest_entitlements_api_v1_ext_grc_entitlements_ingest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Ingest Entitlements Api V1 Ext Grc Entitlements Ingest Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/sod-rules": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Sod Rules",
+        "operationId": "list_sod_rules_api_v1_ext_grc_sod_rules_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Sod Rules Api V1 Ext Grc Sod Rules Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["grc"],
+        "summary": "Create Sod Rule",
+        "operationId": "create_sod_rule_api_v1_ext_grc_sod_rules_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Sod Rule Api V1 Ext Grc Sod Rules Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/sod-rules/{rule_id}": {
+      "patch": {
+        "tags": ["grc"],
+        "summary": "Patch Sod Rule",
+        "operationId": "patch_sod_rule_api_v1_ext_grc_sod_rules__rule_id__patch",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Sod Rule Api V1 Ext Grc Sod Rules  Rule Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["grc"],
+        "summary": "Delete Sod Rule",
+        "operationId": "delete_sod_rule_api_v1_ext_grc_sod_rules__rule_id__delete",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Rule Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ext/grc/answer-library": {
       "get": {
         "tags": ["grc"],
@@ -21686,6 +22073,560 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Get Ethics Api V1 Ext Grc Ethics Cases  Case Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/pbc-requests": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Pbc",
+        "operationId": "list_pbc_api_v1_ext_grc_pbc_requests_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Pbc Api V1 Ext Grc Pbc Requests Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["grc"],
+        "summary": "Create Pbc",
+        "operationId": "create_pbc_api_v1_ext_grc_pbc_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Pbc Api V1 Ext Grc Pbc Requests Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/pbc-requests/{request_id}": {
+      "patch": {
+        "tags": ["grc"],
+        "summary": "Patch Pbc",
+        "operationId": "patch_pbc_api_v1_ext_grc_pbc_requests__request_id__patch",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Pbc Api V1 Ext Grc Pbc Requests  Request Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/pbc-requests/{request_id}/response": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "Pbc Response",
+        "operationId": "pbc_response_api_v1_ext_grc_pbc_requests__request_id__response_get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/pbc-lists:import": {
+      "post": {
+        "tags": ["grc"],
+        "summary": "Import Pbc",
+        "operationId": "import_pbc_api_v1_ext_grc_pbc_lists_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Import Pbc Api V1 Ext Grc Pbc Lists Import Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/report-templates": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Report Templates",
+        "operationId": "list_report_templates_api_v1_ext_grc_report_templates_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Report Templates Api V1 Ext Grc Report Templates Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/reports:render": {
+      "post": {
+        "tags": ["grc"],
+        "summary": "Render Report",
+        "operationId": "render_report_api_v1_ext_grc_reports_render_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Render Report Api V1 Ext Grc Reports Render Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/inspections": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Inspections",
+        "operationId": "list_inspections_api_v1_ext_grc_inspections_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Inspections Api V1 Ext Grc Inspections Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["grc"],
+        "summary": "Open Inspection",
+        "operationId": "open_inspection_api_v1_ext_grc_inspections_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Open Inspection Api V1 Ext Grc Inspections Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/dsar-requests": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Dsar",
+        "operationId": "list_dsar_api_v1_ext_grc_dsar_requests_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Dsar Api V1 Ext Grc Dsar Requests Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["grc"],
+        "summary": "Create Dsar",
+        "operationId": "create_dsar_api_v1_ext_grc_dsar_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Dsar Api V1 Ext Grc Dsar Requests Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/dsar-requests/{request_id}:fulfil": {
+      "post": {
+        "tags": ["grc"],
+        "summary": "Fulfil Dsar",
+        "operationId": "fulfil_dsar_api_v1_ext_grc_dsar_requests__request_id__fulfil_post",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Request Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Fulfil Dsar Api V1 Ext Grc Dsar Requests  Request Id  Fulfil Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/consent-records": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Consent",
+        "operationId": "list_consent_api_v1_ext_grc_consent_records_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Consent Api V1 Ext Grc Consent Records Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["grc"],
+        "summary": "Create Consent",
+        "operationId": "create_consent_api_v1_ext_grc_consent_records_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Consent Api V1 Ext Grc Consent Records Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/grc/resilience-tests": {
+      "get": {
+        "tags": ["grc"],
+        "summary": "List Resilience",
+        "operationId": "list_resilience_api_v1_ext_grc_resilience_tests_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response List Resilience Api V1 Ext Grc Resilience Tests Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["grc"],
+        "summary": "Create Resilience",
+        "operationId": "create_resilience_api_v1_ext_grc_resilience_tests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Resilience Api V1 Ext Grc Resilience Tests Post"
                 }
               }
             }

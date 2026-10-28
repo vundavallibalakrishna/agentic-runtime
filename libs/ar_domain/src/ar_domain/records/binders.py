@@ -79,14 +79,9 @@ class BinderBook:
         if row.get("require_review") and not _signed(self.store, row.get("review_item_id")):
             if row.get("review_item_id") is None:
                 item_id = new_id()
-                self.store.review_items[item_id] = {
-                    "id": item_id,
-                    "tenant_id": actor.tenant_id,
-                    "subject_type": "binder",
-                    "subject_id": binder_id,
-                    "status": "pending",
-                    "content_hash": "",
-                }
+                self.store.review_items[item_id] = _pending_review(
+                    item_id, actor.tenant_id, binder_id, actor.user_id
+                )
                 row["review_item_id"] = item_id
                 row["status"] = "pending_review"
             raise ArError(ErrorCode.REVIEW_REQUIRED, "review_required")
@@ -201,6 +196,27 @@ def _count(selection: dict[str, object]) -> int:
 def _limit() -> int:
     raw = os.environ.get("AR_BINDER_MAX_ITEMS", "").strip()
     return int(raw) if raw else _CAP
+
+
+def _pending_review(
+    item_id: uuid.UUID, tenant_id: object, binder_id: object, owner: object
+) -> dict[str, object]:
+    """A review row the reviews list can render. Delivery creates it before a queue exists."""
+    return {
+        "id": item_id,
+        "tenant_id": tenant_id,
+        "queue_id": None,
+        "subject_type": "binder",
+        "subject_id": binder_id,
+        "status": "pending",
+        "current_level": 1,
+        "content_hash": "",
+        "statement_text": "",
+        "statement_hash": "",
+        "preparer_principal_id": owner,
+        "created_at": utcnow(),
+        "updated_at": utcnow(),
+    }
 
 
 def _signed(store: Any, item_id: object) -> bool:
@@ -329,13 +345,9 @@ def review_gate(
             "created_at": utcnow(),
         }
         bucket(store, "binders")[binder_id] = found
-        store.review_items[item_id] = {
-            "id": item_id,
-            "tenant_id": tenant_id,
-            "subject_type": "binder",
-            "subject_id": binder_id,
-            "status": "pending",
-        }
+        store.review_items[item_id] = _pending_review(
+            item_id, tenant_id, binder_id, routine.get("owner_user_id")
+        )
     item = store.review_items.get(found.get("review_item_id"))
     if isinstance(item, dict) and item.get("status") == "signed":
         return None

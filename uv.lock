@@ -692,7 +692,7 @@ requires-dist = [
 
 [[package]]
 name = "ar-pack-grc"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "packs/grc" }
 dependencies = [
     { name = "alembic" },

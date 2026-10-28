@@ -87,3 +87,50 @@ async def test_pack_upgrade_downgrade_and_cross_tenant_rls(database_url: str) ->
     after = _alembic(database_url, "libs/ar_domain/alembic.ini", "heads")
     assert before.strip() == after.strip()
     assert "0001" not in after
+
+
+async def test_m19_upgrade_keeps_the_control(database_url: str) -> None:
+    before = _alembic(database_url, "libs/ar_domain/alembic.ini", "heads")
+    _alembic(database_url, "packs/grc/alembic.ini", "upgrade", "head")
+    _alembic(database_url, "packs/grc/alembic.ini", "downgrade", "0001")
+    engine = create_async_engine(database_url)
+    tenant_id = uuid.uuid4()
+    async with engine.begin() as connection:
+        plan = await connection.scalar(text("SELECT id FROM plans LIMIT 1"))
+        await connection.execute(
+            text(
+                "INSERT INTO tenants (id, slug, name, plan_id) VALUES (:id, :slug, :name, :plan_id)"
+            ),
+            {"id": tenant_id, "slug": f"m19-{tenant_id.hex[:8]}", "name": "M19", "plan_id": plan},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO grc.controls (tenant_id, key, title) "
+                "VALUES (:tenant_id, 'kept', 'Kept control')"
+            ),
+            {"tenant_id": tenant_id},
+        )
+    await engine.dispose()
+    _alembic(database_url, "packs/grc/alembic.ini", "upgrade", "head")
+    _alembic(database_url, "packs/grc/alembic.ini", "check")
+    engine = create_async_engine(database_url)
+    async with engine.connect() as connection:
+        version = await connection.scalar(text("SELECT version_num FROM grc_alembic_version"))
+        kept = await connection.scalar(text("SELECT count(*) FROM grc.controls WHERE key = 'kept'"))
+        schema = await connection.scalar(
+            text("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'grc'")
+        )
+        inspections = await connection.scalar(
+            text(
+                "SELECT count(*) FROM information_schema.tables "
+                "WHERE table_schema = 'grc' AND table_name = 'inspections'"
+            )
+        )
+    await engine.dispose()
+    assert version == "0002"
+    assert kept == 1
+    assert schema == 1
+    assert inspections == 1
+    after = _alembic(database_url, "libs/ar_domain/alembic.ini", "heads")
+    assert before.strip() == after.strip()
+    assert len([line for line in after.splitlines() if line.strip()]) == 1

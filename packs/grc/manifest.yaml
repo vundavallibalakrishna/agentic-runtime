@@ -2,10 +2,12 @@ apiVersion: agentic-runtime.dev/v1
 kind: ContentPack
 metadata:
   id: grc
-  version: 1.0.0
+  version: 1.1.0
   name: GRC solution pack
   minPlatform: 1.0.0
 spec:
+  # Agents, skills and routines are installed by ar_pack_grc.templates.
+  # They stay out of resources so an upgrade does not import them again.
   resources: []
   extension:
     schema: grc

@@ -53,5 +53,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
     grc_tables = [table for table in PackBase.metadata.sorted_tables if table.schema == "grc"]
-    PackBase.metadata.drop_all(bind, tables=grc_tables)
+    for table in reversed(grc_tables):
+        table.drop(bind, checkfirst=True)
     op.execute("DROP SCHEMA IF EXISTS grc CASCADE")

@@ -192,3 +192,12 @@ M18-T05 | done | 0186422 | feeds, robots and SSRF, Hindi circular, cscrf-samplin
 M18-T06 | done | 0186422 | breach clocks and filing after sign-off; no silent hold
 M18-T07 | done | 0186422 | waiver control required; expiry sweep ignored by tests
 M18-T08 | done | 0186422 | ethics cases hidden without grc.ethics:manage; HTTP on the process store (OQ-51)
+
+M19-T01 | done | 15da601 | PBC tracker, XLSX import, auditor guest grant and watermarked response
+M19-T02 | done | 15da601 | entitlement ingest and business SoD flags; core sod_constraints unchanged
+M19-T03 | done | 15da601 | campaign start, close and statement-hash sign-off; reminder routine
+M19-T04 | done | 15da601 | five report templates through the core binder; board pack waits for sign-off
+M19-T05 | done | 15da601 | signed 1.1.0 upgrade keeps a control; pack revision 0002; core head unchanged
+M19-T06 | done | 15da601 | inspection room; guest grant is that binder only
+M19-T07 | done | 15da601 | DSAR erasure skips a hold; consent requires evidence
+M19-T08 | done | 15da601 | resilience fail needs evidence; model assets do not write agent cards

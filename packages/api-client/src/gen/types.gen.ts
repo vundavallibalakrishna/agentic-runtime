@@ -19123,6 +19123,315 @@ export type GetCampaignApiV1ExtGrcCampaignsCampaignIdGetResponses = {
 
 export type GetCampaignApiV1ExtGrcCampaignsCampaignIdGetResponse = GetCampaignApiV1ExtGrcCampaignsCampaignIdGetResponses[keyof GetCampaignApiV1ExtGrcCampaignsCampaignIdGetResponses];
 
+export type StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostData = {
+    body?: never;
+    path: {
+        /**
+         * Campaign Id
+         */
+        campaign_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/campaigns/{campaign_id}:start';
+};
+
+export type StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostError = StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostErrors[keyof StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostErrors];
+
+export type StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostResponses = {
+    /**
+     * Response Start Campaign Api V1 Ext Grc Campaigns  Campaign Id  Start Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostResponse = StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostResponses[keyof StartCampaignApiV1ExtGrcCampaignsCampaignIdStartPostResponses];
+
+export type CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path: {
+        /**
+         * Campaign Id
+         */
+        campaign_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/campaigns/{campaign_id}:close';
+};
+
+export type CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostError = CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostErrors[keyof CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostErrors];
+
+export type CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostResponses = {
+    /**
+     * Response Close Campaign Api V1 Ext Grc Campaigns  Campaign Id  Close Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostResponse = CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostResponses[keyof CloseCampaignApiV1ExtGrcCampaignsCampaignIdClosePostResponses];
+
+export type ListCampaignItemsApiV1ExtGrcCampaignItemsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/campaign-items';
+};
+
+export type ListCampaignItemsApiV1ExtGrcCampaignItemsGetResponses = {
+    /**
+     * Response List Campaign Items Api V1 Ext Grc Campaign Items Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListCampaignItemsApiV1ExtGrcCampaignItemsGetResponse = ListCampaignItemsApiV1ExtGrcCampaignItemsGetResponses[keyof ListCampaignItemsApiV1ExtGrcCampaignItemsGetResponses];
+
+export type DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path: {
+        /**
+         * Item Id
+         */
+        item_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/campaign-items/{item_id}:decide';
+};
+
+export type DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostError = DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostErrors[keyof DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostErrors];
+
+export type DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostResponses = {
+    /**
+     * Response Decide Campaign Item Api V1 Ext Grc Campaign Items  Item Id  Decide Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostResponse = DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostResponses[keyof DecideCampaignItemApiV1ExtGrcCampaignItemsItemIdDecidePostResponses];
+
+export type ListEntitlementsApiV1ExtGrcEntitlementsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/entitlements';
+};
+
+export type ListEntitlementsApiV1ExtGrcEntitlementsGetResponses = {
+    /**
+     * Response List Entitlements Api V1 Ext Grc Entitlements Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListEntitlementsApiV1ExtGrcEntitlementsGetResponse = ListEntitlementsApiV1ExtGrcEntitlementsGetResponses[keyof ListEntitlementsApiV1ExtGrcEntitlementsGetResponses];
+
+export type IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/entitlements:ingest';
+};
+
+export type IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostError = IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostErrors[keyof IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostErrors];
+
+export type IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostResponses = {
+    /**
+     * Response Ingest Entitlements Api V1 Ext Grc Entitlements Ingest Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostResponse = IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostResponses[keyof IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostResponses];
+
+export type ListSodRulesApiV1ExtGrcSodRulesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/sod-rules';
+};
+
+export type ListSodRulesApiV1ExtGrcSodRulesGetResponses = {
+    /**
+     * Response List Sod Rules Api V1 Ext Grc Sod Rules Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListSodRulesApiV1ExtGrcSodRulesGetResponse = ListSodRulesApiV1ExtGrcSodRulesGetResponses[keyof ListSodRulesApiV1ExtGrcSodRulesGetResponses];
+
+export type CreateSodRuleApiV1ExtGrcSodRulesPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/sod-rules';
+};
+
+export type CreateSodRuleApiV1ExtGrcSodRulesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateSodRuleApiV1ExtGrcSodRulesPostError = CreateSodRuleApiV1ExtGrcSodRulesPostErrors[keyof CreateSodRuleApiV1ExtGrcSodRulesPostErrors];
+
+export type CreateSodRuleApiV1ExtGrcSodRulesPostResponses = {
+    /**
+     * Response Create Sod Rule Api V1 Ext Grc Sod Rules Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateSodRuleApiV1ExtGrcSodRulesPostResponse = CreateSodRuleApiV1ExtGrcSodRulesPostResponses[keyof CreateSodRuleApiV1ExtGrcSodRulesPostResponses];
+
+export type DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Rule Id
+         */
+        rule_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/sod-rules/{rule_id}';
+};
+
+export type DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteError = DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteErrors[keyof DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteErrors];
+
+export type DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteResponse = DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteResponses[keyof DeleteSodRuleApiV1ExtGrcSodRulesRuleIdDeleteResponses];
+
+export type PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path: {
+        /**
+         * Rule Id
+         */
+        rule_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/sod-rules/{rule_id}';
+};
+
+export type PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchError = PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchErrors[keyof PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchErrors];
+
+export type PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchResponses = {
+    /**
+     * Response Patch Sod Rule Api V1 Ext Grc Sod Rules  Rule Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchResponse = PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchResponses[keyof PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchResponses];
+
 export type ListAnswersApiV1ExtGrcAnswerLibraryGetData = {
     body?: never;
     path?: never;
@@ -19425,3 +19734,462 @@ export type GetEthicsApiV1ExtGrcEthicsCasesCaseIdGetResponses = {
 };
 
 export type GetEthicsApiV1ExtGrcEthicsCasesCaseIdGetResponse = GetEthicsApiV1ExtGrcEthicsCasesCaseIdGetResponses[keyof GetEthicsApiV1ExtGrcEthicsCasesCaseIdGetResponses];
+
+export type ListPbcApiV1ExtGrcPbcRequestsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/pbc-requests';
+};
+
+export type ListPbcApiV1ExtGrcPbcRequestsGetResponses = {
+    /**
+     * Response List Pbc Api V1 Ext Grc Pbc Requests Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListPbcApiV1ExtGrcPbcRequestsGetResponse = ListPbcApiV1ExtGrcPbcRequestsGetResponses[keyof ListPbcApiV1ExtGrcPbcRequestsGetResponses];
+
+export type CreatePbcApiV1ExtGrcPbcRequestsPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/pbc-requests';
+};
+
+export type CreatePbcApiV1ExtGrcPbcRequestsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePbcApiV1ExtGrcPbcRequestsPostError = CreatePbcApiV1ExtGrcPbcRequestsPostErrors[keyof CreatePbcApiV1ExtGrcPbcRequestsPostErrors];
+
+export type CreatePbcApiV1ExtGrcPbcRequestsPostResponses = {
+    /**
+     * Response Create Pbc Api V1 Ext Grc Pbc Requests Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreatePbcApiV1ExtGrcPbcRequestsPostResponse = CreatePbcApiV1ExtGrcPbcRequestsPostResponses[keyof CreatePbcApiV1ExtGrcPbcRequestsPostResponses];
+
+export type PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path: {
+        /**
+         * Request Id
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/pbc-requests/{request_id}';
+};
+
+export type PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchError = PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchErrors[keyof PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchErrors];
+
+export type PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchResponses = {
+    /**
+     * Response Patch Pbc Api V1 Ext Grc Pbc Requests  Request Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchResponse = PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchResponses[keyof PatchPbcApiV1ExtGrcPbcRequestsRequestIdPatchResponses];
+
+export type PbcResponseApiV1ExtGrcPbcRequestsRequestIdResponseGetData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/pbc-requests/{request_id}/response';
+};
+
+export type PbcResponseApiV1ExtGrcPbcRequestsRequestIdResponseGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PbcResponseApiV1ExtGrcPbcRequestsRequestIdResponseGetError = PbcResponseApiV1ExtGrcPbcRequestsRequestIdResponseGetErrors[keyof PbcResponseApiV1ExtGrcPbcRequestsRequestIdResponseGetErrors];
+
+export type PbcResponseApiV1ExtGrcPbcRequestsRequestIdResponseGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ImportPbcApiV1ExtGrcPbcListsImportPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/pbc-lists:import';
+};
+
+export type ImportPbcApiV1ExtGrcPbcListsImportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportPbcApiV1ExtGrcPbcListsImportPostError = ImportPbcApiV1ExtGrcPbcListsImportPostErrors[keyof ImportPbcApiV1ExtGrcPbcListsImportPostErrors];
+
+export type ImportPbcApiV1ExtGrcPbcListsImportPostResponses = {
+    /**
+     * Response Import Pbc Api V1 Ext Grc Pbc Lists Import Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ImportPbcApiV1ExtGrcPbcListsImportPostResponse = ImportPbcApiV1ExtGrcPbcListsImportPostResponses[keyof ImportPbcApiV1ExtGrcPbcListsImportPostResponses];
+
+export type ListReportTemplatesApiV1ExtGrcReportTemplatesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/report-templates';
+};
+
+export type ListReportTemplatesApiV1ExtGrcReportTemplatesGetResponses = {
+    /**
+     * Response List Report Templates Api V1 Ext Grc Report Templates Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListReportTemplatesApiV1ExtGrcReportTemplatesGetResponse = ListReportTemplatesApiV1ExtGrcReportTemplatesGetResponses[keyof ListReportTemplatesApiV1ExtGrcReportTemplatesGetResponses];
+
+export type RenderReportApiV1ExtGrcReportsRenderPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/reports:render';
+};
+
+export type RenderReportApiV1ExtGrcReportsRenderPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RenderReportApiV1ExtGrcReportsRenderPostError = RenderReportApiV1ExtGrcReportsRenderPostErrors[keyof RenderReportApiV1ExtGrcReportsRenderPostErrors];
+
+export type RenderReportApiV1ExtGrcReportsRenderPostResponses = {
+    /**
+     * Response Render Report Api V1 Ext Grc Reports Render Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type RenderReportApiV1ExtGrcReportsRenderPostResponse = RenderReportApiV1ExtGrcReportsRenderPostResponses[keyof RenderReportApiV1ExtGrcReportsRenderPostResponses];
+
+export type ListInspectionsApiV1ExtGrcInspectionsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/inspections';
+};
+
+export type ListInspectionsApiV1ExtGrcInspectionsGetResponses = {
+    /**
+     * Response List Inspections Api V1 Ext Grc Inspections Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListInspectionsApiV1ExtGrcInspectionsGetResponse = ListInspectionsApiV1ExtGrcInspectionsGetResponses[keyof ListInspectionsApiV1ExtGrcInspectionsGetResponses];
+
+export type OpenInspectionApiV1ExtGrcInspectionsPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/inspections';
+};
+
+export type OpenInspectionApiV1ExtGrcInspectionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OpenInspectionApiV1ExtGrcInspectionsPostError = OpenInspectionApiV1ExtGrcInspectionsPostErrors[keyof OpenInspectionApiV1ExtGrcInspectionsPostErrors];
+
+export type OpenInspectionApiV1ExtGrcInspectionsPostResponses = {
+    /**
+     * Response Open Inspection Api V1 Ext Grc Inspections Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type OpenInspectionApiV1ExtGrcInspectionsPostResponse = OpenInspectionApiV1ExtGrcInspectionsPostResponses[keyof OpenInspectionApiV1ExtGrcInspectionsPostResponses];
+
+export type ListDsarApiV1ExtGrcDsarRequestsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/dsar-requests';
+};
+
+export type ListDsarApiV1ExtGrcDsarRequestsGetResponses = {
+    /**
+     * Response List Dsar Api V1 Ext Grc Dsar Requests Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListDsarApiV1ExtGrcDsarRequestsGetResponse = ListDsarApiV1ExtGrcDsarRequestsGetResponses[keyof ListDsarApiV1ExtGrcDsarRequestsGetResponses];
+
+export type CreateDsarApiV1ExtGrcDsarRequestsPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/dsar-requests';
+};
+
+export type CreateDsarApiV1ExtGrcDsarRequestsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateDsarApiV1ExtGrcDsarRequestsPostError = CreateDsarApiV1ExtGrcDsarRequestsPostErrors[keyof CreateDsarApiV1ExtGrcDsarRequestsPostErrors];
+
+export type CreateDsarApiV1ExtGrcDsarRequestsPostResponses = {
+    /**
+     * Response Create Dsar Api V1 Ext Grc Dsar Requests Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateDsarApiV1ExtGrcDsarRequestsPostResponse = CreateDsarApiV1ExtGrcDsarRequestsPostResponses[keyof CreateDsarApiV1ExtGrcDsarRequestsPostResponses];
+
+export type FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostData = {
+    body?: never;
+    path: {
+        /**
+         * Request Id
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ext/grc/dsar-requests/{request_id}:fulfil';
+};
+
+export type FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostError = FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostErrors[keyof FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostErrors];
+
+export type FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostResponses = {
+    /**
+     * Response Fulfil Dsar Api V1 Ext Grc Dsar Requests  Request Id  Fulfil Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostResponse = FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostResponses[keyof FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostResponses];
+
+export type ListConsentApiV1ExtGrcConsentRecordsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/consent-records';
+};
+
+export type ListConsentApiV1ExtGrcConsentRecordsGetResponses = {
+    /**
+     * Response List Consent Api V1 Ext Grc Consent Records Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListConsentApiV1ExtGrcConsentRecordsGetResponse = ListConsentApiV1ExtGrcConsentRecordsGetResponses[keyof ListConsentApiV1ExtGrcConsentRecordsGetResponses];
+
+export type CreateConsentApiV1ExtGrcConsentRecordsPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/consent-records';
+};
+
+export type CreateConsentApiV1ExtGrcConsentRecordsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateConsentApiV1ExtGrcConsentRecordsPostError = CreateConsentApiV1ExtGrcConsentRecordsPostErrors[keyof CreateConsentApiV1ExtGrcConsentRecordsPostErrors];
+
+export type CreateConsentApiV1ExtGrcConsentRecordsPostResponses = {
+    /**
+     * Response Create Consent Api V1 Ext Grc Consent Records Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateConsentApiV1ExtGrcConsentRecordsPostResponse = CreateConsentApiV1ExtGrcConsentRecordsPostResponses[keyof CreateConsentApiV1ExtGrcConsentRecordsPostResponses];
+
+export type ListResilienceApiV1ExtGrcResilienceTestsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/resilience-tests';
+};
+
+export type ListResilienceApiV1ExtGrcResilienceTestsGetResponses = {
+    /**
+     * Response List Resilience Api V1 Ext Grc Resilience Tests Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListResilienceApiV1ExtGrcResilienceTestsGetResponse = ListResilienceApiV1ExtGrcResilienceTestsGetResponses[keyof ListResilienceApiV1ExtGrcResilienceTestsGetResponses];
+
+export type CreateResilienceApiV1ExtGrcResilienceTestsPostData = {
+    /**
+     * Body
+     */
+    body: {
+        [key: string]: unknown;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/ext/grc/resilience-tests';
+};
+
+export type CreateResilienceApiV1ExtGrcResilienceTestsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateResilienceApiV1ExtGrcResilienceTestsPostError = CreateResilienceApiV1ExtGrcResilienceTestsPostErrors[keyof CreateResilienceApiV1ExtGrcResilienceTestsPostErrors];
+
+export type CreateResilienceApiV1ExtGrcResilienceTestsPostResponses = {
+    /**
+     * Response Create Resilience Api V1 Ext Grc Resilience Tests Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateResilienceApiV1ExtGrcResilienceTestsPostResponse = CreateResilienceApiV1ExtGrcResilienceTestsPostResponses[keyof CreateResilienceApiV1ExtGrcResilienceTestsPostResponses];

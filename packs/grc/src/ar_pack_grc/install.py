@@ -23,7 +23,8 @@ from ar_pack_grc.connectors.registry import install_servers, register_servers
 from ar_pack_grc.mappings import seed_common
 from ar_pack_grc.mcp_server import register, tool_definitions
 from ar_pack_grc.oscal import import_catalog, load_json
-from ar_pack_grc.seed_demo import seed_workflows
+from ar_pack_grc.pbc import register_portal as register_auditor_portal
+from ar_pack_grc.seed_demo import seed_audit, seed_workflows
 from ar_pack_grc.templates import install as install_templates
 from ar_pack_grc.vendors import register_portal
 
@@ -80,6 +81,7 @@ def install_dev(store: Any) -> None:
     install_for(store, actor)
     seed_monitoring(store, actor)
     seed_workflows(store, actor)
+    seed_audit(store, actor)
 
 
 def install_for(store: Any, actor: Actor) -> dict[str, object]:
@@ -103,6 +105,7 @@ def install_for(store: Any, actor: Actor) -> dict[str, object]:
     _qualify(store)
     install_servers(store, actor.user_id)
     register_portal(store)
+    register_auditor_portal(store)
     install_templates(store, actor)
     return installed
 

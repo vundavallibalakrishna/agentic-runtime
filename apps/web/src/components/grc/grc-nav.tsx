@@ -13,6 +13,7 @@ const grcTabs = [
   { href: "/grc/findings", id: "findings", label: "findings" },
   { href: "/grc/connectors", id: "connectors", label: "connectors" },
   { href: "/grc/workflows", id: "workflows", label: "workflows" },
+  { href: "/grc/audit", id: "audit", label: "audit" },
 ] as const;
 
 export function GrcNav({ section }: { section: string }) {

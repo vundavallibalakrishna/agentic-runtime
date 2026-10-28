@@ -32,14 +32,26 @@ def list_assets(store: Any, actor: Actor) -> dict[str, Any]:
 def create_asset(store: Any, actor: Actor, payload: dict[str, Any]) -> dict[str, Any]:
     require(actor, "grc.risks:manage")
     body = snake_body(payload)
+    kind = required_text(body.get("kind"), "kind")
+    owner = body.get("owner_user_id")
+    tier = str(body.get("tier") or "").strip()
+    if kind == "model" and not str(owner or "").strip():
+        from ar_common.errors import ValidationFailedError  # noqa: PLC0415
+
+        raise ValidationFailedError("owner is required")
+    if kind == "model" and not tier:
+        from ar_common.errors import ValidationFailedError  # noqa: PLC0415
+
+        raise ValidationFailedError("tier is required")
     item_id = new_id()
     row = {
         "id": item_id,
         "tenant_id": actor.tenant_id,
         "name": required_text(body.get("name"), "name"),
-        "kind": required_text(body.get("kind"), "kind"),
-        "owner_user_id": body.get("owner_user_id"),
-        "agent_card_id": body.get("agent_card_id"),
+        "kind": kind,
+        "owner_user_id": owner or None,
+        "tier": tier or None,
+        "agent_card_id": body.get("agent_card_id") or None,
         "created_at": utcnow(),
     }
     bucket_rows(store, "grc_assets")[item_id] = row
