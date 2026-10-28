@@ -21,6 +21,12 @@ if TYPE_CHECKING:
     from typing import Any
 
 _log = get_logger(__name__)
+
+
+class SchemaNotReadyError(Exception):
+    """Postgres answered, but the tenant tables are not migrated yet."""
+
+
 _EMAIL_KEYS = {
     "admin@dev.local": "admin",
     "builder@dev.local": "builder",
@@ -102,18 +108,37 @@ async def _connect(url: str) -> AsyncEngine | None:
 
 
 async def _lookup(engine: AsyncEngine) -> tuple[uuid.UUID, dict[str, uuid.UUID]] | None:
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        tenant = await session.scalar(text("SELECT id FROM tenants WHERE slug = 'dev'"))
-        if not isinstance(tenant, uuid.UUID):
-            return None
-        result = await session.execute(
-            text("SELECT id, email FROM users WHERE tenant_id = :tenant_id"),
-            {"tenant_id": tenant},
-        )
-        users = {str(email).lower(): user_id for user_id, email in result}
+    try:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            tenant = await session.scalar(text("SELECT id FROM tenants WHERE slug = 'dev'"))
+            if not isinstance(tenant, uuid.UUID):
+                return None
+            result = await session.execute(
+                text("SELECT id, email FROM users WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant},
+            )
+            users = {str(email).lower(): user_id for user_id, email in result}
+    except Exception as exc:
+        if _missing_relation(exc):
+            raise SchemaNotReadyError() from exc
+        raise
     if not users:
         return None
     return tenant, users
+
+
+def _missing_relation(exc: BaseException) -> bool:
+    current: BaseException | None = exc
+    for _ in range(6):
+        if current is None:
+            return False
+        sqlstate = getattr(current, "sqlstate", None)
+        if sqlstate is None:
+            sqlstate = getattr(getattr(current, "orig", None), "sqlstate", None)
+        if sqlstate == "42P01" or type(current).__name__ == "UndefinedTableError":
+            return True
+        current = current.__cause__
+    return False
 
 
 def _id_map(tenant_id: uuid.UUID, users: dict[str, uuid.UUID]) -> dict[uuid.UUID, uuid.UUID]:
