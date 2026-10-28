@@ -65,9 +65,7 @@ def test_page_cap_backoff_and_stable_hash() -> None:
             body["nextCursor"] = str(index + 1)
         pages.append({"status": 200, "body": body})
     recorded = [{"status": 429, "body": {"message": "slow"}}, *pages]
-    kit = ConnectorKit(
-        store, actor, "grc_aws", MemoryTransport(recorded), max_pages=2
-    )
+    kit = ConnectorKit(store, actor, "grc_aws", MemoryTransport(recorded), max_pages=2)
     tool = Tool("list_config_rules", "List Config rules", "R0", "GET", "/config/rules")
     kept = kit.collect(tool)
     captured = _aws(store)
