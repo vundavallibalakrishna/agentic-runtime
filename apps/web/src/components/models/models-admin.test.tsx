@@ -78,7 +78,7 @@ describe("Models admin", () => {
     );
 
     render(wrap(<ModelsAdmin />));
-    await screen.findByText("fake-llm");
+    expect((await screen.findAllByText("fake-llm")).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
     fireEvent.click(screen.getByRole("button", { name: "OpenAI-compatible" }));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "DeepInfra" } });

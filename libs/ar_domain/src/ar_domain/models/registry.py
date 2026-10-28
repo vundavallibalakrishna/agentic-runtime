@@ -22,7 +22,6 @@ from ar_domain.audit.service import record
 from ar_domain.db.engine import platform_database_url
 from ar_domain.models.tables import Model, ModelAlias, ModelProvider
 from ar_domain.secrets.crypto import parse_keyring
-from ar_domain.secrets.models import SecretRef
 from ar_domain.secrets.stores.db_encrypted import DbEncryptedStore
 
 if TYPE_CHECKING:
@@ -100,18 +99,24 @@ async def save_provider(
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         if api_key and isinstance(tenant_id, uuid.UUID) and secret_id is not None:
             path = _secret_path(tenant_id, secret_id)
-            session.add(
-                SecretRef(
-                    id=secret_id,
-                    tenant_id=tenant_id,
-                    name=f"model-provider-{provider_id}",
-                    kind="api_key",
-                    backend="db_encrypted",
-                    path=path,
-                    description="model provider API key",
-                )
+            await session.execute(
+                text(
+                    """
+                    INSERT INTO secret_refs (
+                        id, tenant_id, name, kind, backend, path, version, description
+                    ) VALUES (
+                        :id, :tenant_id, :name, 'api_key', 'db_encrypted', :path, 1,
+                        'model provider API key'
+                    )
+                    """
+                ),
+                {
+                    "id": secret_id,
+                    "tenant_id": tenant_id,
+                    "name": f"model-provider-{provider_id}",
+                    "path": path,
+                },
             )
-            await session.flush()
             store = DbEncryptedStore(
                 session, tenant_id=tenant_id, keyring=ring, active_key_id=active
             )
@@ -233,14 +238,26 @@ async def read_api_key(engine: AsyncEngine, provider_id: uuid.UUID) -> str:
         provider = await session.get(ModelProvider, provider_id)
         if provider is None or provider.api_key_ref_id is None or provider.tenant_id is None:
             return ""
-        ref = await session.get(SecretRef, provider.api_key_ref_id)
+        ref = (
+            (
+                await session.execute(
+                    text("SELECT id, path FROM secret_refs WHERE id = :id"),
+                    {"id": provider.api_key_ref_id},
+                )
+            )
+            .mappings()
+            .first()
+        )
         if ref is None:
             return ""
         ring, active = _keyring()
         store = DbEncryptedStore(
             session, tenant_id=provider.tenant_id, keyring=ring, active_key_id=active
         )
-        value = await store.get(ref.path, aad=_secret_aad(provider.tenant_id, ref.id))
+        secret_id = ref["id"]
+        if not isinstance(secret_id, uuid.UUID):
+            secret_id = uuid.UUID(str(secret_id))
+        value = await store.get(str(ref["path"]), aad=_secret_aad(provider.tenant_id, secret_id))
         return value.decode()
 
 

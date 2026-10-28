@@ -242,31 +242,47 @@ export function ModelsAdmin() {
         ) : null}
         {!loading && !error && providers.length === 0 ? <EmptyState title={t("empty")} /> : null}
         {!loading && !error && providers.length > 0 ? (
-          <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">{t("providers")}</caption>
-              <thead className="text-[var(--muted-foreground)]">
-                <tr>
-                  <th className="p-3 font-medium">{t("name")}</th>
-                  <th className="p-3 font-medium">{t("kind")}</th>
-                  <th className="p-3 font-medium">{t("url")}</th>
-                  <th className="p-3 font-medium">{t("scope")}</th>
-                  <th className="p-3 font-medium">{t("apiKey")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {providers.map((row) => (
-                  <tr className="border-t border-[var(--border)]" key={String(row.id)}>
-                    <td className="p-3">{String(row.name)}</td>
-                    <td className="p-3">{String(row.kind ?? "")}</td>
-                    <td className="max-w-xs truncate p-3">{String(row.baseUrl)}</td>
-                    <td className="p-3">{row.platform ? t("platform") : t("tenant")}</td>
-                    <td className="p-3">{row.hasApiKey ? t("keyStored") : t("noKey")}</td>
+          <>
+            <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)] md:hidden">
+              {providers.map((row) => (
+                <li className="px-4 py-3 text-sm" key={String(row.id)}>
+                  <p className="font-medium">{String(row.name)}</p>
+                  <p className="mt-1 break-all text-[var(--muted-foreground)]">
+                    {String(row.baseUrl)}
+                  </p>
+                  <p className="mt-1 text-[var(--muted-foreground)]">
+                    {String(row.kind ?? "")} · {row.platform ? t("platform") : t("tenant")} ·{" "}
+                    {row.hasApiKey ? t("keyStored") : t("noKey")}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)] md:block">
+              <table className="w-full text-left text-sm">
+                <caption className="sr-only">{t("providers")}</caption>
+                <thead className="text-[var(--muted-foreground)]">
+                  <tr>
+                    <th className="p-3 font-medium">{t("name")}</th>
+                    <th className="p-3 font-medium">{t("kind")}</th>
+                    <th className="p-3 font-medium">{t("url")}</th>
+                    <th className="p-3 font-medium">{t("scope")}</th>
+                    <th className="p-3 font-medium">{t("apiKey")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {providers.map((row) => (
+                    <tr className="border-t border-[var(--border)]" key={String(row.id)}>
+                      <td className="p-3">{String(row.name)}</td>
+                      <td className="p-3">{String(row.kind ?? "")}</td>
+                      <td className="max-w-xs truncate p-3">{String(row.baseUrl)}</td>
+                      <td className="p-3">{row.platform ? t("platform") : t("tenant")}</td>
+                      <td className="p-3">{row.hasApiKey ? t("keyStored") : t("noKey")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : null}
 
         {!loading && !error ? (
