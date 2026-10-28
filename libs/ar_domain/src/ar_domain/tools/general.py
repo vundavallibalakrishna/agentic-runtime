@@ -85,7 +85,7 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     before = _stamp(root)
     result = run_isolated(
         root,
-        [sys.executable, "-I", "/workspace/_agent.py"],
+        [sys.executable, "-I", _guest_path(root, "_agent.py")],
         timeout=_as_limit(limits["timeout_s"]),
         network=bool(limits["network"]),
         max_file_bytes=_as_limit(limits["max_file_bytes"]),
@@ -112,7 +112,7 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     shell = "/bin/bash" if Path("/bin/bash").exists() else "/usr/bin/bash"
     result = run_isolated(
         root,
-        [shell, "/workspace/_agent.sh"],
+        [shell, _guest_path(root, "_agent.sh")],
         timeout=_as_limit(limits["timeout_s"]),
         network=bool(limits["network"]),
         max_file_bytes=_as_limit(limits["max_file_bytes"]),
@@ -335,6 +335,13 @@ def _command_result(
             "code": "command_failed",
         }
     return _ok(text, body)
+
+
+def _guest_path(root: Path, name: str) -> str:
+    """Script path inside the namespace, or the host path when isolation is a subprocess."""
+    if isolation_mode() == "namespace":
+        return f"/workspace/{name}"
+    return str(root / "workspace" / name)
 
 
 def _prepare(store: Any, arguments: dict[str, object]) -> Path:

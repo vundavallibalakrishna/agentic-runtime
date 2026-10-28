@@ -34,9 +34,10 @@ def test_python_returns_output_and_a_file() -> None:
             "_user_id": demo_id("admin"),
             "_run_id": run_id,
             "source": (
+                "import os\n"
                 "from pathlib import Path\n"
                 "print('answer', 6 * 7)\n"
-                "Path('/workspace/summary.txt').write_text('ready')\n"
+                "Path(os.environ['SANDBOX_WORKSPACE'], 'summary.txt').write_text('ready')\n"
             ),
         },
     )

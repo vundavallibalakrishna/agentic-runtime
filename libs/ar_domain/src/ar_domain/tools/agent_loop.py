@@ -284,7 +284,7 @@ def _act(  # noqa: PLR0917
     payload = arguments if isinstance(arguments, dict) else {}
     model_call_id = str(call.get("id") or f"call_{attempt}")
     if bound is None:
-        preview = {
+        missing = {
             "qualified_name": name,
             "status": "failed",
             "result_preview": "That tool is not available to this agent.",
@@ -298,7 +298,7 @@ def _act(  # noqa: PLR0917
                 "qualified_name": name,
                 "status": "failed",
                 "attempt": attempt,
-                "error": {"code": "not_found", "message": preview["result_preview"]},
+                "error": {"code": "not_found", "message": missing["result_preview"]},
             },
         )
         _audit(
@@ -311,7 +311,7 @@ def _act(  # noqa: PLR0917
         )
         return {
             "failed": True,
-            "preview": preview,
+            "preview": missing,
             "wrapped": wrap_tool_result(
                 tool=name or "tool",
                 call_id=model_call_id,

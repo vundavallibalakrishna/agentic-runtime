@@ -33,9 +33,14 @@ def test_namespace_hides_the_host_and_blocks_network(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     os.environ["AR_CERT_LLM_API_KEY"] = "sentinel-secret-value"
+    guest = (
+        "/workspace/_agent.py"
+        if isolation_mode() == "namespace"
+        else str(root / "workspace" / "_agent.py")
+    )
     result = run_isolated(
         root,
-        [sys.executable, "-I", "/workspace/_agent.py"],
+        [sys.executable, "-I", guest],
         timeout=15,
         network=False,
     )

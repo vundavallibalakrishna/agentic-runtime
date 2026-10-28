@@ -93,8 +93,10 @@ async def test_chat_calls_the_registered_upstream_model(monkeypatch: pytest.Monk
     assert body["model"] == "Qwen/Qwen3-32B"
     headers = seen["headers"]
     assert isinstance(headers, dict)
-    assert "sk-cert-secret" not in str(headers)
-    assert "Authorization" not in headers
+    assert seen["url"] == "https://api.deepinfra.com/v1/openai/chat/completions"
+    assert headers.get("Authorization") == "Bearer sk-cert-secret"
+    assert "sk-cert-secret" not in str(body)
+    assert "sk-cert-secret" not in str(service.runs[run_id]["result_summary"])
     assert service.runs[run_id]["result_summary"] == "pong"
 
 

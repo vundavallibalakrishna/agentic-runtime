@@ -36,6 +36,9 @@ export function ToolsScreen() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
     setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
   }, []);
 
@@ -76,7 +79,9 @@ export function ToolsScreen() {
 
   function chooseMode(next: boolean) {
     setAdvanced(next);
-    window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
+    }
   }
 
   async function saveAccess() {

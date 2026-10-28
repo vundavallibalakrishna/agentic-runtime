@@ -15,6 +15,13 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: () => undefined }),
 }));
 
+function installToolCatalogue() {
+  server.use(
+    http.get("*/api/v1/tools", () => HttpResponse.json({ items: [] })),
+    http.get("*/api/v1/tenant", () => HttpResponse.json({ settings: {} })),
+  );
+}
+
 function wrap(children: ReactNode) {
   return (
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -83,6 +90,7 @@ describe("tool screens", () => {
   });
 
   it("lists servers and a recent call", async () => {
+    installToolCatalogue();
     server.use(
       http.get("*/api/v1/auth/session", () => HttpResponse.json({ permissions: ["tools:read"] })),
       http.get("*/api/v1/tool-servers", () =>
@@ -118,6 +126,7 @@ describe("tool screens", () => {
   });
 
   it("keeps a submitted tool visible when a different reviewer is required", async () => {
+    installToolCatalogue();
     server.use(
       http.get("*/api/v1/auth/session", () => HttpResponse.json({})),
       http.get("*/api/v1/tool-servers", () => HttpResponse.json({ items: [] })),
@@ -142,6 +151,7 @@ describe("tool screens", () => {
   });
 
   it("shows the tools error state", async () => {
+    installToolCatalogue();
     server.use(
       http.get("*/api/v1/auth/session", () => HttpResponse.json({})),
       http.get("*/api/v1/tool-servers", () => new HttpResponse(null, { status: 500 })),
