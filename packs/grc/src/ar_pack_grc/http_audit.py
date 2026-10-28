@@ -87,9 +87,7 @@ async def render_report(request: Request, body: dict[str, Any]) -> dict[str, Any
 @router.get("/inspections")
 @expose(public=False, permission="grc.inspections:manage")
 async def list_inspections(request: Request) -> dict[str, Any]:
-    return inspections.list_inspections(
-        chat(request), _caller(request, "grc.inspections:manage")
-    )
+    return inspections.list_inspections(chat(request), _caller(request, "grc.inspections:manage"))
 
 
 @router.post("/inspections")

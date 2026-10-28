@@ -99,8 +99,7 @@ async def test_m19_upgrade_keeps_the_control(database_url: str) -> None:
         plan = await connection.scalar(text("SELECT id FROM plans LIMIT 1"))
         await connection.execute(
             text(
-                "INSERT INTO tenants (id, slug, name, plan_id) "
-                "VALUES (:id, :slug, :name, :plan_id)"
+                "INSERT INTO tenants (id, slug, name, plan_id) VALUES (:id, :slug, :name, :plan_id)"
             ),
             {"id": tenant_id, "slug": f"m19-{tenant_id.hex[:8]}", "name": "M19", "plan_id": plan},
         )
@@ -117,9 +116,7 @@ async def test_m19_upgrade_keeps_the_control(database_url: str) -> None:
     engine = create_async_engine(database_url)
     async with engine.connect() as connection:
         version = await connection.scalar(text("SELECT version_num FROM grc_alembic_version"))
-        kept = await connection.scalar(
-            text("SELECT count(*) FROM grc.controls WHERE key = 'kept'")
-        )
+        kept = await connection.scalar(text("SELECT count(*) FROM grc.controls WHERE key = 'kept'"))
         schema = await connection.scalar(
             text("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'grc'")
         )

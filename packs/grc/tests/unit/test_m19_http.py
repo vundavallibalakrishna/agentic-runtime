@@ -95,9 +95,7 @@ def test_audit_routes_use_camel_case_and_hide_other_tenants() -> None:
     assert client.get("/api/v1/ext/grc/pbc-requests").status_code == 200
     absent = client.get(f"/api/v1/ext/grc/pbc-requests/{pbc.json()['id']}/response")
     assert absent.status_code == 404
-    imported = client.post(
-        "/api/v1/ext/grc/pbc-lists:import", json={"fileId": str(uuid.uuid4())}
-    )
+    imported = client.post("/api/v1/ext/grc/pbc-lists:import", json={"fileId": str(uuid.uuid4())})
     assert imported.status_code == 404
     feed = client.post(
         "/api/v1/ext/grc/entitlements:ingest",

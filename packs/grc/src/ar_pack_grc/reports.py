@@ -60,9 +60,7 @@ def _board(
     title: str,
     selection: dict[str, object],
 ) -> dict[str, Any]:
-    created = book.create(
-        actor, {"title": title, "selection": selection, "require_review": True}
-    )
+    created = book.create(actor, {"title": title, "selection": selection, "require_review": True})
     binder_id = _uuid(created.get("id"))
     try:
         book.build(actor, binder_id)

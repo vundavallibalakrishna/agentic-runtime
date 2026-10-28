@@ -96,9 +96,7 @@ def seed_audit(store: Any, actor: Actor) -> None:
             },
         },
     )
-    open_inspection(
-        store, who, {"regulator": "SEBI", "started_on": utcnow().date().isoformat()}
-    )
+    open_inspection(store, who, {"regulator": "SEBI", "started_on": utcnow().date().isoformat()})
     create_dsar(
         store,
         who,
