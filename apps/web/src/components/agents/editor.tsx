@@ -48,6 +48,9 @@ export function AgentEditor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [name, setName] = useState("");
+  const [servers, setServers] = useState<{ slug: string; name: string }[]>([]);
+  const [aliases, setAliases] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setAgent(null);
@@ -60,6 +63,7 @@ export function AgentEditor() {
         `/api/v1/agents/${agentId}/versions`,
       );
       setAgent(body);
+      setName(body.name ?? "");
       setDefinition(source);
       setYaml(definitionToYaml(source as JsonValue));
       setVersions(history.items ?? []);
@@ -73,6 +77,48 @@ export function AgentEditor() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void api<{ items?: { slug?: string; name?: string }[] }>("/api/v1/tool-servers")
+      .then((page) =>
+        setServers(
+          (page.items ?? [])
+            .map((row) => ({
+              slug: String(row.slug ?? ""),
+              name: String(row.name ?? row.slug ?? ""),
+            }))
+            .filter((row) => row.slug),
+        ),
+      )
+      .catch(() => setServers([]));
+    void api<{ items?: { alias?: string }[] }>("/api/v1/model-aliases")
+      .then((page) =>
+        setAliases((page.items ?? []).map((row) => String(row.alias ?? "")).filter(Boolean)),
+      )
+      .catch(() => setAliases([]));
+  }, []);
+
+  function budgetValue(key: keyof NonNullable<Definition["budget"]>, fallback: number) {
+    return definition.budget?.[key] ?? fallback;
+  }
+
+  function setBudget(key: keyof NonNullable<Definition["budget"]>, value: number) {
+    updateDefinition({
+      ...definition,
+      budget: { ...definition.budget, [key]: value },
+    });
+  }
+
+  function toggleServer(slug: string) {
+    const current = definition.tools ?? [];
+    const exists = current.some((tool) => tool.server === slug);
+    updateDefinition({
+      ...definition,
+      tools: exists
+        ? current.filter((tool) => tool.server !== slug)
+        : [...current, { server: slug, version: "*", include: ["*"] }],
+    });
+  }
 
   function updateDefinition(next: Definition) {
     setReport(null);
@@ -110,6 +156,10 @@ export function AgentEditor() {
     setNotice("");
     try {
       await persistDraft();
+      await api(`/api/v1/agents/${agentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+      });
       setNotice(detail("saved"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
@@ -248,6 +298,9 @@ export function AgentEditor() {
       <PageHeader
         actions={
           <>
+            <Link className="text-sm underline" href={`/chat?agent=${agent?.slug ?? ""}`}>
+              {t("useInChat")}
+            </Link>
             <Link className="text-sm underline" href={`/agents/${agentId}/evals`}>
               {t("evals")}
             </Link>
@@ -279,6 +332,101 @@ export function AgentEditor() {
                   }
                   value={definition.instructions ?? ""}
                 />
+                <label className="mt-4 block text-sm font-medium" htmlFor="agent-name">
+                  {t("name")}
+                </label>
+                <Input
+                  className="mt-1 max-w-md"
+                  id="agent-name"
+                  onChange={(event) => setName(event.target.value)}
+                  value={name}
+                />
+                <label className="mt-4 block text-sm font-medium" htmlFor="editor-model">
+                  {t("modelAlias")}
+                </label>
+                <select
+                  className="mt-1 w-full max-w-xs rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 text-sm"
+                  id="editor-model"
+                  onChange={(event) =>
+                    updateDefinition({
+                      ...definition,
+                      model: { ...definition.model, alias: event.target.value },
+                    })
+                  }
+                  value={definition.model?.alias ?? "reasoning"}
+                >
+                  <option value="reasoning">reasoning</option>
+                  {aliases
+                    .filter((alias) => alias !== "reasoning")
+                    .map((alias) => (
+                      <option key={alias} value={alias}>
+                        {alias}
+                      </option>
+                    ))}
+                </select>
+                <fieldset className="mt-4">
+                  <legend className="text-sm font-medium">{t("toolsAndConnectors")}</legend>
+                  {servers.length === 0 ? (
+                    <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("noTools")}</p>
+                  ) : (
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {servers.map((server) => (
+                        <label className="flex items-center gap-2 text-sm" key={server.slug}>
+                          <input
+                            checked={(definition.tools ?? []).some(
+                              (tool) => tool.server === server.slug,
+                            )}
+                            onChange={() => toggleServer(server.slug)}
+                            type="checkbox"
+                          />
+                          {server.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </fieldset>
+                <label className="mt-4 block text-sm font-medium" htmlFor="editor-skills">
+                  {t("skillSlugs")}
+                </label>
+                <textarea
+                  className="mt-1 min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                  id="editor-skills"
+                  onChange={(event) =>
+                    updateDefinition({
+                      ...definition,
+                      skills: event.target.value
+                        .split("\n")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                  value={(definition.skills ?? []).join("\n")}
+                />
+                <fieldset className="mt-4">
+                  <legend className="text-sm font-medium">{t("limits")}</legend>
+                  <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                    {(
+                      [
+                        ["maxSteps", t("maxSteps"), 8],
+                        ["maxToolCalls", t("maxToolCalls"), 8],
+                        ["maxWallClockS", t("maxWallClock"), 120],
+                        ["maxCostMicros", t("maxCost"), 1_000_000],
+                      ] as const
+                    ).map(([key, label, fallback]) => (
+                      <label className="block text-sm" htmlFor={`limit-${key}`} key={key}>
+                        {label}
+                        <Input
+                          className="mt-1"
+                          id={`limit-${key}`}
+                          min={0}
+                          onChange={(event) => setBudget(key, Number(event.target.value) || 0)}
+                          type="number"
+                          value={budgetValue(key, fallback)}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </section>
               <div className="mt-3">
                 <Button

@@ -8,11 +8,13 @@ import {
   ClipboardCheck,
   Gauge,
   Library,
+  Link2,
   MessageSquare,
   Monitor,
   Play,
   Radio,
   Repeat,
+  Settings,
   Shield,
   ShieldCheck,
   Sparkles,
@@ -23,6 +25,8 @@ export type NavItem = {
   href: string;
   labelKey:
     | "navChat"
+    | "navConnectors"
+    | "navSettings"
     | "navAgents"
     | "navTools"
     | "navKnowledge"
@@ -67,6 +71,20 @@ export const primaryNav: NavItem[] = [
     labelKey: "navTools",
     permission: "tools:read",
     icon: Wrench,
+  },
+  {
+    href: "/connections",
+    section: "resources",
+    labelKey: "navConnectors",
+    permission: "connections:manage_own",
+    icon: Link2,
+  },
+  {
+    href: "/settings/profile",
+    section: "manage",
+    labelKey: "navSettings",
+    permission: "chat:use",
+    icon: Settings,
   },
   {
     href: "/knowledge",

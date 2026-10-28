@@ -49,6 +49,26 @@ type Session = {
   permissions?: string[];
 };
 
+function planTitles(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object" && "title" in item) {
+        return String((item as { title?: string }).title ?? "");
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function conversationBody(agentId: string, modelAlias: string): string {
+  const body: Record<string, string> = {};
+  if (agentId) body.agentId = agentId;
+  if (modelAlias) body.modelAlias = modelAlias;
+  return JSON.stringify(body);
+}
+
 function textOf(message: Item): string {
   if (typeof message.text === "string") {
     return message.text;
@@ -70,7 +90,9 @@ export function ChatScreen() {
   const [activeId, setActiveId] = useState<string>("");
   const [messages, setMessages] = useState<Item[]>([]);
   const [agents, setAgents] = useState<Item[]>([]);
+  const [aliases, setAliases] = useState<string[]>([]);
   const [agentId, setAgentId] = useState("");
+  const [modelAlias, setModelAlias] = useState("");
   const [plan, setPlan] = useState<string[]>([]);
   const draft = useComposer((state) => state.draft);
   const setDraft = useComposer((state) => state.setDraft);
@@ -106,8 +128,16 @@ export function ChatScreen() {
       setSession(me);
       const listed = await api<{ items: Item[] }>("/api/v1/conversations");
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
+      const aliasPage = await api<{ items?: Item[] }>("/api/v1/model-aliases").catch(() => ({
+        items: [] as Item[],
+      }));
       setConversations(listed.items ?? []);
       setAgents(agentPage.items ?? []);
+      setAliases(
+        (aliasPage.items ?? [])
+          .map((row) => String(row.alias ?? ""))
+          .filter((alias) => alias.length > 0),
+      );
       const requested = new URLSearchParams(window.location.search).get("agent");
       if (requested) {
         const match = (agentPage.items ?? []).find((row) => row.slug === requested);
@@ -234,7 +264,8 @@ export function ChatScreen() {
     }
     if (request.signal.aborted) return;
     setMessages(body.messages ?? []);
-    setPlan(Array.isArray(body.plan) ? body.plan.map((item) => String(item)) : []);
+    setPlan(planTitles(body.plan));
+    if (typeof body.modelAlias === "string") setModelAlias(body.modelAlias);
     setStream(
       keep
         ? {
@@ -260,7 +291,7 @@ export function ChatScreen() {
     try {
       const created = await api<Item>("/api/v1/conversations", {
         method: "POST",
-        body: JSON.stringify(agentId ? { agentId } : {}),
+        body: conversationBody(agentId, modelAlias),
         signal: request.signal,
       });
       if (request.signal.aborted) return;
@@ -302,8 +333,18 @@ export function ChatScreen() {
           const payload = JSON.parse(event.data) as {
             type: string;
             seq: number;
-            data?: { text?: string };
+            data?: {
+              text?: string;
+              items?: { title?: string }[];
+              error?: { message?: string };
+            };
           };
+          if (payload.type === "plan.updated") {
+            setPlan(planTitles(payload.data?.items));
+          }
+          if (payload.type === "run.failed") {
+            setBanner(payload.data?.error?.message || t("runFailed"));
+          }
           state = reduceStream(state, payload);
           setStream(state);
           if (payload.type === "message.completed" || payload.type === "run.cancelled") {
@@ -360,7 +401,7 @@ export function ChatScreen() {
       if (!conversationId) {
         const created = await api<Item>("/api/v1/conversations", {
           method: "POST",
-          body: JSON.stringify(agentId ? { agentId } : {}),
+          body: conversationBody(agentId, modelAlias),
         });
         if (request.signal.aborted) return;
         conversationId = String(created.id);
@@ -728,6 +769,24 @@ export function ChatScreen() {
                       >
                         <p className="sr-only">{String(message.role)}</p>
                         <MarkdownView text={body} />
+                        {streamingHere && stream.tools.length > 0 ? (
+                          <div>
+                            <p className="text-xs font-medium text-[var(--muted-foreground)]">
+                              {t("working")}
+                            </p>
+                            {stream.tools.map((tool) => (
+                              <ToolCallCard
+                                call={{
+                                  qualifiedName: tool.name,
+                                  status: tool.status,
+                                  resultPreview: tool.preview,
+                                }}
+                                key={`${id}-${tool.name}-${tool.status}-${tool.preview}`}
+                                label={t("toolCall")}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
                         {Array.isArray(message.toolCalls)
                           ? message.toolCalls.map((call) => {
                               const row =
@@ -851,19 +910,48 @@ export function ChatScreen() {
               <label className="sr-only" htmlFor="agent-picker">
                 {t("agent")}
               </label>
-              <select
-                className="mb-2 w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
-                id="agent-picker"
-                onChange={(event) => setAgentId(event.target.value)}
-                value={agentId}
-              >
-                <option value="">{t("defaultAgent")}</option>
-                {agents.map((agent) => (
-                  <option key={String(agent.id)} value={String(agent.id)}>
-                    {String(agent.name ?? agent.slug)}
-                  </option>
-                ))}
-              </select>
+              <div className="mb-2 flex flex-wrap gap-2">
+                <select
+                  className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
+                  id="agent-picker"
+                  onChange={(event) => setAgentId(event.target.value)}
+                  value={agentId}
+                >
+                  <option value="">{t("defaultAgent")}</option>
+                  {agents.map((agent) => (
+                    <option key={String(agent.id)} value={String(agent.id)}>
+                      {String(agent.name ?? agent.slug)}
+                    </option>
+                  ))}
+                </select>
+                <label className="sr-only" htmlFor="model-picker">
+                  {t("model")}
+                </label>
+                <select
+                  className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
+                  id="model-picker"
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setModelAlias(next);
+                    if (activeId) {
+                      void api(`/api/v1/conversations/${activeId}`, {
+                        method: "PATCH",
+                        body: JSON.stringify({ modelAlias: next }),
+                      }).catch((error: unknown) => {
+                        setBanner(error instanceof Error ? error.message : t("error"));
+                      });
+                    }
+                  }}
+                  value={modelAlias}
+                >
+                  <option value="">{t("modelDefault")}</option>
+                  {aliases.map((alias) => (
+                    <option key={alias} value={alias}>
+                      {alias}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {attachmentName ? (
                 <p className="px-1 pb-1 text-xs text-[var(--muted-foreground)]">
                   {t("attached")}: {attachmentName}

@@ -1,11 +1,11 @@
-"""Agent run loop v1. Spec: docs/03-specs/07-agent-runtime.md §2.
+"""Inline status helper. Spec: docs/03-specs/07-agent-runtime.md §2.
 
-Tool branches are refused. The workflow records a model step, then finalises.
+The chat turn runs the plan, act, check and retry loop in ``ar_domain.tools.agent_loop``.
 """
 
 from dataclasses import dataclass
 
-from ar_domain.runs.logic import budget_exceeded, tools_not_supported
+from ar_domain.runs.logic import budget_exceeded
 
 
 @dataclass
@@ -22,8 +22,6 @@ class RunRequest:
 
 def advance(request: RunRequest, budget: dict[str, int]) -> str:
     """Return the next status: completed, cancelled, budget_exceeded or invalid."""
-    if tools_not_supported(request.definition):
-        raise NotImplementedError("tool steps are not part of the v1 loop")
     if request.cancelled:
         return "cancelled"
     request.steps += 1

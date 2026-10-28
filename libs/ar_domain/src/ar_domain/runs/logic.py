@@ -56,6 +56,6 @@ def sign_run_callback(secret: str, body: bytes, timestamp: int) -> str:
 
 
 def tools_not_supported(definition: dict[str, object]) -> bool:
-    """v1 refuses definitions that bind tools."""
-    tools = definition.get("tools", [])
-    return isinstance(tools, list) and len(tools) > 0
+    """Tools run through the agent loop. The name stays for older callers."""
+    del definition
+    return False

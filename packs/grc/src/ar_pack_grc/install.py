@@ -198,8 +198,20 @@ def _migrate(store: Any, who: Any, schema: str) -> None:
     bucket(store, "pack_migrations")[schema] = {"schema": schema, "upgraded": True}
 
 
+def grc_pack_enabled() -> bool:
+    """Operator switch. Default off so a new tenant never sees the parked pack."""
+    return os.environ.get("AR_GRC_PACK_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _dev_install() -> bool:
     if os.environ.get("PYTEST_CURRENT_TEST"):
+        return False
+    if not grc_pack_enabled():
         return False
     return os.environ.get("AR_ENV", "dev").strip().lower() in {"", "dev", "ci", "test"}
 

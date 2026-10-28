@@ -9,6 +9,7 @@ client runs each turn on the runtime worker.
 import asyncio
 import contextlib
 import hashlib
+import re
 import threading
 import time
 import uuid
@@ -45,7 +46,7 @@ from ar_domain.models.logic import (
     resolve_alias,
     valid_alias,
 )
-from ar_domain.runs.logic import assemble_context, budget_exceeded, tools_not_supported
+from ar_domain.runs.logic import assemble_context, budget_exceeded
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
 if TYPE_CHECKING:
@@ -73,6 +74,18 @@ def _string_tuple(value: object) -> tuple[str, ...]:
 def _seq(event: dict[str, object]) -> int:
     seq = event["seq"]
     return seq if isinstance(seq, int) else int(str(seq))
+
+
+_ALIAS = re.compile(r"^[a-z][a-z0-9_-]{1,40}$")
+
+
+def _clean_alias(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip().lower()
+    if not cleaned or not _ALIAS.match(cleaned):
+        return None
+    return cleaned
 
 
 def _parent_text(row: dict[str, object]) -> str | None:
@@ -481,8 +494,6 @@ class ChatService:
         version_id = new_id()
         now = utcnow()
         definition = assistant_definition()
-        if tools_not_supported(definition):
-            raise ArError(ErrorCode.INVALID_STATE, "assistant must not bind tools")
         version = {
             "id": version_id,
             "tenant_id": tenant_id,
@@ -1005,7 +1016,12 @@ class ChatService:
         return rows
 
     def create_conversation(
-        self, tenant_id: uuid.UUID, user_id: uuid.UUID, agent_id: uuid.UUID | None
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        agent_id: uuid.UUID | None,
+        *,
+        model_alias: str | None = None,
     ) -> dict[str, object]:
         agent = self._pick_agent(tenant_id, user_id, agent_id)
         now = utcnow()
@@ -1021,6 +1037,7 @@ class ChatService:
             "pinned": False,
             "is_preview": False,
             "agent_version_id": agent.get("published_version_id"),
+            "model_alias": _clean_alias(model_alias),
             "active_run_id": None,
             "plan": [],
             "created_at": now,
@@ -1102,12 +1119,16 @@ class ChatService:
         *,
         title: str | None,
         pinned: bool | None,
+        model_alias: str | None = None,
+        model_alias_set: bool = False,
     ) -> dict[str, object]:
         row = self._owned_conversation(tenant_id, user_id, conversation_id)
         if title is not None:
             row["title"] = title
         if pinned is not None:
             row["pinned"] = pinned
+        if model_alias_set:
+            row["model_alias"] = _clean_alias(model_alias)
         row["updated_at"] = utcnow()
         return self._public(row)
 
@@ -1319,9 +1340,11 @@ class ChatService:
         except Exception:  # noqa: BLE001 — chat still runs on the cache
             return
 
-    def _completion_call(self, tenant_id: uuid.UUID) -> tuple[str, dict[str, str], float, bool]:
+    def _completion_call(
+        self, tenant_id: uuid.UUID, alias: str = "reasoning"
+    ) -> tuple[str, dict[str, str], float, bool]:
         """Model name, headers, timeout, and whether the provider is real."""
-        found = self._reasoning_target(tenant_id)
+        found = self._alias_target(tenant_id, alias)
         if found is None or str(found[0].get("kind")) == "fake":
             return "fake-chat", {"X-Fake-Script-Set": "echo"}, 3.0, False
         provider, model = found
@@ -1331,13 +1354,13 @@ class ChatService:
             timeout = float(raw_timeout)
         return str(model.get("upstream_model") or "reasoning"), {}, max(timeout, 30.0), True
 
-    def _reasoning_target(
-        self, tenant_id: uuid.UUID
+    def _alias_target(
+        self, tenant_id: uuid.UUID, alias: str
     ) -> tuple[dict[str, object], dict[str, object]] | None:
-        """Prefer a tenant non-fake ``reasoning`` alias over the platform fake."""
+        """Prefer a tenant non-fake alias over the platform fake."""
         ranked: list[tuple[int, int, dict[str, object], dict[str, object]]] = []
         for row in self.aliases.values():
-            if row.get("alias") != "reasoning" or row.get("status") != "active":
+            if row.get("alias") != alias or row.get("status") != "active":
                 continue
             owner = row.get("tenant_id")
             if owner is not None and owner != tenant_id:
@@ -1533,9 +1556,12 @@ class ChatService:
             {"message_id": str(assistant_id), "role": "assistant", "model_alias": "reasoning"},
         )
         from ar_domain.skills.turn import maybe_compose  # noqa: PLC0415
+        from ar_domain.tools.agent_loop import model_alias_for, read_budget, run_agent_loop  # noqa: PLC0415
         from ar_domain.tools.chat_loop import maybe_tools  # noqa: PLC0415
 
         if await maybe_compose(self, run, assistant, text):
+            return
+        if await run_agent_loop(self, run, assistant, text):
             return
         if await maybe_tools(self, run, assistant, text):
             return
@@ -1552,6 +1578,7 @@ class ChatService:
             slow=slow,
             system=self._system_prompt(run),
             tenant_id=uuid.UUID(str(run["tenant_id"])),
+            alias=model_alias_for(self, run),
         )
         built: list[str] = []
         for token in tokens:
@@ -1568,19 +1595,16 @@ class ChatService:
             self._emit(run, "message.delta", {"message_id": str(assistant_id), "text": token})
             await asyncio.sleep(0.8 if slow else 0.01)
         answer = "".join(built)
+        version_key = run.get("agent_version_id")
+        version = self.versions.get(version_key) if isinstance(version_key, uuid.UUID) else None
+        definition = version.get("definition") if isinstance(version, dict) else {}
         limit = budget_exceeded(
             steps=1,
             tokens=len(answer),
             cost_micros=0,
             elapsed_s=0,
             tool_calls=0,
-            budget={
-                "max_steps": 8,
-                "max_tokens": 16000,
-                "max_cost_micros": 1_000_000,
-                "max_wall_clock_s": 120,
-                "max_tool_calls": 0,
-            },
+            budget=read_budget(definition if isinstance(definition, dict) else {}),
         )
         assistant["content"] = [{"type": "text", "text": answer}]
         assistant["status"] = "completed"
@@ -1612,13 +1636,14 @@ class ChatService:
         slow: bool,
         system: str = "",
         tenant_id: uuid.UUID | None = None,
+        alias: str = "reasoning",
     ) -> list[str]:
         if slow:
             sentence = "This answer is intentionally slow so you can press stop. "
             return [sentence] * 12
         prefix = f"Attached {', '.join(names)}. " if names else ""
         owner = tenant_id or demo_id("tenant")
-        model, headers, timeout_s, real = self._completion_call(owner)
+        model, headers, timeout_s, real = self._completion_call(owner, alias)
         remote = await self._remote_completion(
             text, system, model=model, headers=headers, timeout_s=timeout_s, real=real
         )
@@ -1664,6 +1689,51 @@ class ChatService:
             return "The model provider did not answer." if real else None
         else:
             return "The model provider returned an empty answer." if real else None
+
+    async def complete_turn(
+        self,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        *,
+        tenant_id: uuid.UUID,
+        model_alias: str,
+    ) -> dict[str, object] | None:
+        """One model round, including tool calls. None when a fake provider is silent."""
+        from ar_domain.models.logic import completion_message  # noqa: PLC0415
+
+        model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
+        body: dict[str, object] = {"model": model, "messages": messages}
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        if real:
+            body["max_tokens"] = 800
+            if "qwen3" in model.lower():
+                body["chat_template_kwargs"] = {"enable_thinking": False}
+        try:
+            async with httpx.AsyncClient(timeout=timeout_s) as client:
+                response = await client.post(self.completion_url(), json=body, headers=headers)
+        except httpx.HTTPError:
+            if not real:
+                return None
+            return {
+                "text": "The model provider did not answer.",
+                "tool_calls": [],
+                "usage": {"tokens_in": 0, "tokens_out": 0},
+                "real": True,
+            }
+        if response.status_code >= 300:
+            if not real:
+                return None
+            return {
+                "text": "The model provider returned an error.",
+                "tool_calls": [],
+                "usage": {"tokens_in": 0, "tokens_out": 0},
+                "real": True,
+            }
+        parsed = completion_message(response.json())
+        parsed["real"] = real
+        return parsed
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
         from ar_domain.usage.service import note  # noqa: PLC0415

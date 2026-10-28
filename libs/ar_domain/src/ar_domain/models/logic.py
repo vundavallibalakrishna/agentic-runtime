@@ -94,6 +94,59 @@ def strip_think(text: str) -> str:
     return stripped or text.strip()
 
 
+def completion_message(payload: object) -> dict[str, object]:
+    """Assistant text, tool calls and token counts from one chat completion."""
+    text = completion_text(payload)
+    calls: list[dict[str, object]] = []
+    usage = {"tokens_in": 0, "tokens_out": 0}
+    if not isinstance(payload, dict):
+        return {"text": text, "tool_calls": calls, "usage": usage}
+    raw_usage = payload.get("usage")
+    if isinstance(raw_usage, dict):
+        usage = {
+            "tokens_in": int(raw_usage.get("prompt_tokens") or 0),
+            "tokens_out": int(raw_usage.get("completion_tokens") or 0),
+        }
+    choices = payload.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return {"text": text, "tool_calls": calls, "usage": usage}
+    message = choices[0].get("message")
+    if isinstance(message, dict):
+        raw_calls = message.get("tool_calls")
+        if isinstance(raw_calls, list):
+            for index, call in enumerate(raw_calls):
+                parsed = _tool_call(index, call)
+                if parsed is not None:
+                    calls.append(parsed)
+    return {"text": text, "tool_calls": calls, "usage": usage}
+
+
+def _tool_call(index: int, call: object) -> dict[str, object] | None:
+    if not isinstance(call, dict):
+        return None
+    function = call.get("function")
+    if not isinstance(function, dict):
+        return None
+    raw_args = function.get("arguments")
+    arguments: dict[str, object] = {}
+    if isinstance(raw_args, dict):
+        arguments = raw_args
+    elif isinstance(raw_args, str) and raw_args.strip():
+        import orjson  # noqa: PLC0415
+
+        try:
+            parsed = orjson.loads(raw_args)
+        except orjson.JSONDecodeError:
+            parsed = {}
+        if isinstance(parsed, dict):
+            arguments = parsed
+    return {
+        "id": str(call.get("id") or f"call_{index}"),
+        "name": str(function.get("name") or ""),
+        "arguments": arguments,
+    }
+
+
 def completion_text(payload: object) -> str:
     """Read assistant text, including a reasoning field when content is empty."""
     if not isinstance(payload, dict):

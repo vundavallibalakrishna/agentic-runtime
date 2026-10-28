@@ -242,7 +242,7 @@ def _pause(  # noqa: PLR0917
     text = "Waiting for approval before this tool runs."
     assistant["text"] = text
     assistant["content"] = [{"type": "text", "text": text}]
-    assistant["status"] = "waiting_approval"
+    assistant["status"] = "streaming"
     assistant["tool_calls"] = [
         {
             "qualified_name": call["qualified_name"],

@@ -9,7 +9,7 @@ _BUDGET: dict[str, object] = {
     "max_tokens": 16000,
     "max_cost_micros": 1_000_000,
     "max_wall_clock_s": 120,
-    "max_tool_calls": 0,
+    "max_tool_calls": 8,
     "max_parallel_tool_calls": 1,
 }
 

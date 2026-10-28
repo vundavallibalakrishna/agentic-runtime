@@ -111,6 +111,17 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
     engine = getattr(store, "durable_engine", None)
     if not isinstance(engine, AsyncEngine):
         return
+    runs = getattr(store, "runs", None)
+    if isinstance(runs, dict):
+        existing = runs.get(run_id)
+        if isinstance(existing, dict) and str(existing.get("status")) in {
+            "queued",
+            "running",
+            "waiting_approval",
+            "waiting_input",
+        }:
+            # This process owns the turn. A stale row would detach that task.
+            return
     async with AsyncSession(engine, expire_on_commit=False) as session:
         run = (
             (await session.execute(text("SELECT * FROM runs WHERE id = :id"), {"id": run_id}))

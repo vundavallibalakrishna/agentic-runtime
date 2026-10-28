@@ -32,6 +32,9 @@ export function BuilderScreen() {
   const [view, setView] = useState<SessionView | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formInstructions, setFormInstructions] = useState("");
+  const [formModel, setFormModel] = useState("reasoning");
 
   const spec = view?.proposal?.resources?.[0]?.spec;
 
@@ -86,6 +89,48 @@ export function BuilderScreen() {
         },
       );
       router.push(`/agents/${applied.agentId}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+      setBusy(false);
+    }
+  }
+
+  async function createDirect() {
+    setBusy(true);
+    setError("");
+    const slug = `${formName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 40)}-${Date.now().toString(36)}`.replace(/--+/g, "-");
+    try {
+      const created = await api<{ id: string; slug?: string }>("/api/v1/agents", {
+        method: "POST",
+        body: JSON.stringify({
+          slug: slug.slice(0, 63),
+          name: formName.trim(),
+          visibility: "private",
+          definition: {
+            instructions: formInstructions.trim(),
+            model: { alias: formModel },
+            tools: [
+              { server: "control", version: "*", include: ["plan_update", "search", "checkpoint"] },
+            ],
+            budget: {
+              maxSteps: 8,
+              maxToolCalls: 8,
+              maxWallClockS: 120,
+              maxCostMicros: 1_000_000,
+              maxTokens: 16000,
+            },
+          },
+        }),
+      });
+      await api(`/api/v1/agents/${created.id}:publish`, {
+        method: "POST",
+        body: JSON.stringify({ changeNote: t("publishedNote"), skipEvalGate: true }),
+      });
+      router.push(`/chat?agent=${slug.slice(0, 63)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
       setBusy(false);
@@ -206,6 +251,47 @@ export function BuilderScreen() {
             </div>
           </section>
         ) : null}
+        <section className="detail-panel mt-8">
+          <h2 className="text-sm font-medium">{t("createForm")}</h2>
+          <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-name">
+            {t("name")}
+          </label>
+          <input
+            className="mt-1 w-full max-w-md rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+            id="agent-form-name"
+            onChange={(event) => setFormName(event.target.value)}
+            value={formName}
+          />
+          <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-instructions">
+            {t("instructions")}
+          </label>
+          <textarea
+            className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+            id="agent-form-instructions"
+            onChange={(event) => setFormInstructions(event.target.value)}
+            value={formInstructions}
+          />
+          <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-model">
+            {t("modelAlias")}
+          </label>
+          <select
+            className="mt-1 rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 text-sm"
+            id="agent-form-model"
+            onChange={(event) => setFormModel(event.target.value)}
+            value={formModel}
+          >
+            <option value="reasoning">reasoning</option>
+            <option value="fast">fast</option>
+          </select>
+          <Button
+            className="mt-3"
+            disabled={busy || formName.trim().length < 2 || formInstructions.trim().length < 8}
+            onClick={() => void createDirect()}
+            type="button"
+          >
+            {t("createUse")}
+          </Button>
+        </section>
         <section className="mt-8">
           <h2 className="text-sm font-medium text-[var(--muted-foreground)]">{t("templates")}</h2>
           <div className="mt-2 flex flex-wrap gap-2">

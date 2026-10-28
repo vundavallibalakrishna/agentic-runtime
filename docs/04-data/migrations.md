@@ -47,6 +47,7 @@
 | 0021 | `reviews_signoffs` | §21 tables | M5-T08 |
 | 0022 | `sod_constraints` | §21 `sod_constraints` (split so M5-T09 owns the constraint seed) | M5-T09 |
 | 0023 | `m14_records` | §22–§28 tables, RLS, immutability triggers, `fk_run_records_evidence` and `fk_guest_totp_secret`. One revision keeps a single Alembic head (OQ-47). | M13-T07, M14-T08–T13 |
+| 0024 | `conversation_model` | Nullable `conversations.model_alias` so a chat can pick a model without a new agent version. | M21 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

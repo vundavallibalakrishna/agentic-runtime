@@ -66,6 +66,7 @@ class Conversation(Base):
     agent_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("agent_versions.id", ondelete="SET NULL")
     )
+    model_alias: Mapped[str | None] = mapped_column(Text)
     channel: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'web'"))
     title: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))

@@ -23850,6 +23850,17 @@
               }
             ],
             "title": "Agentversionid"
+          },
+          "modelAlias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelalias"
           }
         },
         "additionalProperties": false,
@@ -23879,6 +23890,17 @@
               }
             ],
             "title": "Pinned"
+          },
+          "modelAlias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelalias"
           }
         },
         "additionalProperties": false,

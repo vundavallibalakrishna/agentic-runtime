@@ -6,7 +6,13 @@ export type Definition = {
   tools?: { server?: string; version?: string; include?: string[] }[];
   skills?: string[];
   subagents?: { allowed?: string[]; maxDepth?: number; maxParallel?: number };
-  budget?: { maxSteps?: number; maxTokens?: number };
+  budget?: {
+    maxSteps?: number;
+    maxTokens?: number;
+    maxCostMicros?: number;
+    maxWallClockS?: number;
+    maxToolCalls?: number;
+  };
 };
 
 export type AgentSummary = {

@@ -440,6 +440,7 @@ CREATE TABLE conversations (
   user_id                    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,   -- owner (on-behalf-of identity)
   agent_id                   uuid NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
   agent_version_id           uuid REFERENCES agent_versions(id) ON DELETE SET NULL, -- pinned version (NULL = follow published)
+  model_alias                text,                                   -- conversation override of the agent model alias
   channel                    text NOT NULL DEFAULT 'web' CHECK (channel IN ('web','slack','teams','email','api','routine','widget','eval')),
   title                      text NOT NULL DEFAULT '',
   status                     text NOT NULL DEFAULT 'active' CHECK (status IN ('active','archived')),

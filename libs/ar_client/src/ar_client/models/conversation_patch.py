@@ -21,10 +21,12 @@ class ConversationPatch:
     Attributes:
         title (None | str | Unset):
         pinned (bool | None | Unset):
+        model_alias (None | str | Unset):
     """
 
     title: None | str | Unset = UNSET
     pinned: bool | None | Unset = UNSET
+    model_alias: None | str | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         title: None | str | Unset
@@ -39,6 +41,12 @@ class ConversationPatch:
         else:
             pinned = self.pinned
 
+        model_alias: None | str | Unset
+        if isinstance(self.model_alias, Unset):
+            model_alias = UNSET
+        else:
+            model_alias = self.model_alias
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -46,6 +54,8 @@ class ConversationPatch:
             field_dict["title"] = title
         if pinned is not UNSET:
             field_dict["pinned"] = pinned
+        if model_alias is not UNSET:
+            field_dict["modelAlias"] = model_alias
 
         return field_dict
 
@@ -71,9 +81,19 @@ class ConversationPatch:
 
         pinned = _parse_pinned(d.pop("pinned", UNSET))
 
+        def _parse_model_alias(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        model_alias = _parse_model_alias(d.pop("modelAlias", UNSET))
+
         conversation_patch = cls(
             title=title,
             pinned=pinned,
+            model_alias=model_alias,
         )
 
         return conversation_patch

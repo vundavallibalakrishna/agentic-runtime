@@ -815,12 +815,12 @@ async def _tool_versions(session: AsyncSession, rows: list[dict[str, Any]]) -> N
 async def _conversations(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     sql = """
         INSERT INTO conversations (
-            id, tenant_id, user_id, agent_id, agent_version_id, channel, title, status,
-            pinned, is_preview, rolling_summary, plan, loaded_skills, active_run_id,
+            id, tenant_id, user_id, agent_id, agent_version_id, model_alias, channel, title,
+            status, pinned, is_preview, rolling_summary, plan, loaded_skills, active_run_id,
             created_at, updated_at, deleted_at
         ) VALUES (
-            :id, :tenant_id, :user_id, :agent_id, :agent_version_id, :channel, :title, :status,
-            :pinned, :is_preview, :rolling_summary, CAST(:plan AS jsonb),
+            :id, :tenant_id, :user_id, :agent_id, :agent_version_id, :model_alias, :channel,
+            :title, :status, :pinned, :is_preview, :rolling_summary, CAST(:plan AS jsonb),
                 CAST(:loaded_skills AS jsonb),
             NULL, :created_at, :updated_at, :deleted_at
         )
@@ -832,6 +832,7 @@ async def _conversations(session: AsyncSession, rows: list[dict[str, Any]]) -> N
             plan = EXCLUDED.plan,
             loaded_skills = EXCLUDED.loaded_skills,
             agent_version_id = EXCLUDED.agent_version_id,
+            model_alias = EXCLUDED.model_alias,
             updated_at = EXCLUDED.updated_at,
             deleted_at = EXCLUDED.deleted_at
     """
@@ -852,6 +853,7 @@ async def _conversations(session: AsyncSession, rows: list[dict[str, Any]]) -> N
                 "user_id": user_id,
                 "agent_id": agent_id,
                 "agent_version_id": as_uuid(row.get("agent_version_id")),
+                "model_alias": as_text(row.get("model_alias"), "") or None,
                 "channel": as_text(row.get("channel"), "web"),
                 "title": as_text(row.get("title"), "New chat"),
                 "status": as_text(row.get("status"), "active"),
