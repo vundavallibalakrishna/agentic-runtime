@@ -134,7 +134,7 @@ def test_parser_skips_shapes_that_are_not_calls() -> None:
                     ],
                     "content": (
                         "<tool_call>not-json</tool_call>"
-                        '<tool_call>[]</tool_call>'
+                        "<tool_call>[]</tool_call>"
                         '<tool_call>{"name": ""}</tool_call>'
                     ),
                 }
@@ -195,6 +195,14 @@ def test_remap_rewrites_the_store_grant() -> None:
     }
     _remap(store, {demo_user: bound_user})
     assert store.credential_grants[grant_id]["user_id"] == bound_user
+    demo_tenant = demo_id("tenant")
+    bound_tenant = uuid.uuid4()
+    store.audit_log.append(
+        {"tenant_id": str(demo_tenant), "actor_id": str(demo_user), "target_type": "routine"}
+    )
+    _remap(store, {demo_tenant: bound_tenant, demo_user: bound_user})
+    assert store.audit_log[-1]["tenant_id"] == str(bound_tenant)
+    assert store.audit_log[-1]["actor_id"] == str(bound_user)
 
 
 @pytest.mark.asyncio

@@ -164,6 +164,9 @@ def _remap(store: object, mapping: dict[uuid.UUID, uuid.UUID]) -> None:
         current = getattr(store, name, None)
         if isinstance(current, dict):
             setattr(store, name, _remap_dict(current, mapping))
+    log = getattr(store, "audit_log", None)
+    if isinstance(log, list):
+        store.audit_log = [_remap_value(row, mapping) for row in log]  # type: ignore[attr-defined]
 
 
 def _remap_dict(
@@ -179,6 +182,13 @@ def _remap_dict(
 def _remap_value(value: object, mapping: dict[uuid.UUID, uuid.UUID]) -> object:
     if isinstance(value, uuid.UUID):
         return mapping.get(value, value)
+    if isinstance(value, str):
+        try:
+            parsed = uuid.UUID(value)
+        except ValueError:
+            return value
+        mapped = mapping.get(parsed)
+        return str(mapped) if mapped is not None else value
     if isinstance(value, dict):
         return {str(key): _remap_value(item, mapping) for key, item in value.items()}
     if isinstance(value, list):
