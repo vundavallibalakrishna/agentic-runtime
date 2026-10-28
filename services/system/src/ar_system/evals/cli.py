@@ -56,7 +56,10 @@ def _files(path: Path) -> list[Path]:
 
 
 def _suite_id(book: EvalBook, actor: Actor, file: Path) -> uuid.UUID | None:
-    name = suite_name(file)
+    try:
+        name = suite_name(file)
+    except OSError:
+        return None
     for row in book.list_suites(actor):
         found = row.get("id")
         if str(row.get("name") or "") == name and isinstance(found, uuid.UUID):

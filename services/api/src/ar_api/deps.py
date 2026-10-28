@@ -62,6 +62,13 @@ async def get_identity(request: Request) -> AsyncIterator[IdentityService]:
         return
     principal = current_principal(request)
     ctx = TenantContext.from_principal(principal, str(request.state.request_id))
+    chat = getattr(request.app.state, "chat", None)
+    if chat is not None:
+        from ar_api.auth.memory_identity import memory_identity, use_memory_identity  # noqa: PLC0415
+
+        if use_memory_identity(chat):
+            yield memory_identity(chat, ctx)
+            return
     async with tenant_session(ctx) as session:
         yield IdentityService(IdentityRepository(session, ctx))
 
@@ -78,6 +85,13 @@ async def get_tenant_writer(request: Request) -> AsyncIterator[IdentityService]:
         return
     principal = current_principal(request)
     ctx = TenantContext.from_principal(principal, str(request.state.request_id))
+    chat = getattr(request.app.state, "chat", None)
+    if chat is not None:
+        from ar_api.auth.memory_identity import memory_identity, use_memory_identity  # noqa: PLC0415
+
+        if use_memory_identity(chat):
+            yield memory_identity(chat, ctx)
+            return
     async with platform_session(f"tenant settings update: {ctx.tenant_id}") as session:
         yield IdentityService(IdentityRepository(session, ctx))
 
