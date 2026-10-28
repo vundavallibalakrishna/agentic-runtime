@@ -6,13 +6,13 @@ One umbrella chart `deploy/helm/agentic-runtime` installs every deployable for b
 
 | Deployable | Kind | Replicas (small / large) | Probes | Scaling | Notes |
 |---|---|---|---|---|---|
-| `web` | Deployment | 2 / 4–20 | `/api/healthz` | HPA CPU 60 % | Stateless |
+| `web` | Deployment | 2 / 4–20 | `/healthz` | HPA CPU 60 % | Stateless |
 | `api` | Deployment | 2 / 4–30 | `/healthz` (liveness), `/readyz` (DB, Valkey, Temporal) | HPA CPU 60 % + RPS | Long-lived SSE: `terminationGracePeriodSeconds: 60`, preStop sleep 10 s |
-| `runtime-worker` | Deployment | 2 / 4–50 | `/healthz` on 9000 | KEDA on `ar-runtime` backlog (target 20 per pod) | `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` 100 |
-| `system-worker` | Deployment | 2 / 2–10 | `/healthz` 9000 | KEDA on `ar-system` + `ar-eval` | |
-| `ingest-worker` | Deployment | 1 / 2–20 | `/healthz` 9000 | KEDA on `ar-ingest` | 2 CPU / 4 GiB (parsing, OCR) |
-| `model-gateway` | Deployment | 2 / 3–20 | `/healthz`, `/readyz` | HPA CPU 60 % | |
-| `mcp-gateway` | Deployment | 2 / 3–20 | `/healthz`, `/readyz` | HPA CPU 60 % | Egress via `squid` |
+| `runtime-worker` | Deployment | 2 / 4–50 | `/healthz` on 8012 | KEDA on `ar-runtime` backlog (target 20 per pod) | `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` 100 |
+| `system-worker` | Deployment | 2 / 2–10 | `/healthz` on 8013 | KEDA on `ar-system` + `ar-eval` | |
+| `ingest-worker` | Deployment | 1 / 2–20 | `/healthz` on 8014 | KEDA on `ar-ingest` | 2 CPU / 4 GiB (parsing, OCR) |
+| `model-gateway` | Deployment | 2 / 3–20 | `/healthz` | HPA CPU 60 % | |
+| `mcp-gateway` | Deployment | 2 / 3–20 | `/healthz` | HPA CPU 60 % | Egress via `squid` |
 | `sandbox-manager` | Deployment | 2 / 2–4 | `/healthz` | fixed | Leader election (Lease) for the reaper and warm pool; RBAC limited to sandbox namespaces |
 | `channels` | Deployment | 2 / 2–10 | `/healthz` | HPA CPU | Socket-mode connections pinned via Lease per integration |
 | `mcp-sql`, `mcp-openapi` | Deployment | 2 / 2–10 | `/healthz` | HPA CPU | |
@@ -88,3 +88,31 @@ Dedicated node pool (label `ar.io/pool=sandbox`, taint `ar.io/sandbox=true:NoSch
 ## 6. Upgrades
 
 `helm upgrade --atomic --wait --timeout 20m`. Order enforced by hooks: migrate Job → stateless rollouts (maxUnavailable 0, maxSurge 25 %) → workers drain (Temporal workers stop polling on SIGTERM and finish in-flight activities within `terminationGracePeriodSeconds: 300`). See [ci-cd §6](ci-cd.md#6-releases-and-upgrades).
+
+Worker probes listen on 8012, 8013 and 8014 ([OQ-21](../open-questions.md)). The web probe is `/healthz`. Model and MCP gateways expose `/healthz` for both liveness and readiness.
+
+## 7. Install
+
+Prerequisites when the bundled options are on: Kubernetes ≥ 1.33, Helm 4.3, the CloudNativePG operator, cert-manager, KEDA and a Gateway API controller. `values-dev.yaml` does not need those operators.
+
+```bash
+helm lint deploy/helm/agentic-runtime -f deploy/helm/agentic-runtime/values-small.yaml
+helm upgrade --install agentic-runtime deploy/helm/agentic-runtime \
+  --namespace agentic-runtime --create-namespace \
+  -f deploy/helm/agentic-runtime/values-small.yaml \
+  --atomic --wait --timeout 20m
+helm test agentic-runtime -n agentic-runtime
+```
+
+SaaS: `-f deploy/helm/agentic-runtime/values-saas.yaml` with `secrets.existingSecret` holding the secret `AR_*` keys. External stateful services: `-f deploy/helm/agentic-runtime/values-external.yaml`. Air-gapped registry: `-f deploy/helm/agentic-runtime/values-small.yaml -f deploy/helm/agentic-runtime/values-airgap.yaml` after `REGISTRY=registry.example.internal/ar deploy/airgap/mirror.sh`.
+
+Offline model servers stay outside the chart. Point aliases at them with config:
+
+```yaml
+config:
+  AR_DEV_MODEL_BASE_URL: http://vllm.models.svc:8000/v1
+```
+
+vLLM `v0.32.0` (`ghcr.io/vllm-project/vllm-openai`) and Hugging Face TEI `1.9.4` are listed in `deploy/airgap/images.txt`. Sandbox package mirrors are `egress.packageMirrors` (`AR_SANDBOX_PACKAGE_MIRRORS`).
+
+`global.maintenance=true` scales the three worker deployments to 0 during a restore. The dev preset (`make kind-up`) installs onto kind without hooks so missing images do not block the API objects.

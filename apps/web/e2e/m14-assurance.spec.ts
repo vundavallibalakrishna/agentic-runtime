@@ -43,7 +43,7 @@ test("assurance desk, guest portal and export stay usable", async ({ page }) => 
   await page.getByLabel("Note").fill("Desk note");
   await page.getByRole("button", { name: "Seal evidence" }).click();
   await expect(page.getByText("Evidence sealed.")).toBeVisible();
-  await expect(page.getByText("desk")).toBeVisible();
+  await expect(page.getByText("desk").first()).toBeVisible();
   await page.getByRole("tab", { name: "Holds" }).click();
   await expect(page.getByText("Someone else with hold access must be the approver.")).toBeVisible();
   await page.getByRole("tab", { name: "Retention" }).click();

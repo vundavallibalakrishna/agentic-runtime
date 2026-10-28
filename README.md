@@ -39,13 +39,23 @@ Exact versions: [docs/stack.md](docs/stack.md). Decisions: [ADRs](docs/02-archit
 
 The original architecture document is kept alongside this repository as `docs/architecture/agentic-runtime-architecture.docx` / `.pdf` (reference only; this specification set supersedes it where they differ).
 
-## Quick start (once M0 is implemented)
+## Quick start
 
 ```bash
 make bootstrap   # install toolchains and dependencies, generate dev keys
 make dev         # start dependencies (compose) and all services with reload
-open http://localhost:3000   # sign in as member@dev.local / dev-password
+open http://localhost:3000   # sign in as admin@dev.local via dev login
 ```
+
+Kubernetes install (Helm 4.3, chart `deploy/helm/agentic-runtime` 1.0.0):
+
+```bash
+helm upgrade --install agentic-runtime deploy/helm/agentic-runtime \
+  -n agentic-runtime --create-namespace \
+  -f deploy/helm/agentic-runtime/values-small.yaml
+```
+
+See [Helm and Kubernetes](docs/07-ops/helm-k8s.md) and the [M15 checklist](docs/testing/m15-checklist.md).
 
 Details: [docs/07-ops/local-dev.md](docs/07-ops/local-dev.md).
 

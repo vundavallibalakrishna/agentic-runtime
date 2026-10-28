@@ -19,6 +19,20 @@ describe("reduceStream", () => {
     expect(done).toMatchObject({ status: "completed", text: "Hi there", lastSeq: 2 });
   });
 
+  it("shows the approval sentence while the stream is still open", () => {
+    const waiting = reduceStream(emptyStream, {
+      type: "tool_call.approval_required",
+      seq: 1,
+      data: {
+        qualifiedName: "petstore.create_pet",
+        text: "Waiting for approval before this tool runs.",
+      },
+    });
+    expect(waiting.status).toBe("streaming");
+    expect(waiting.text).toBe("Waiting for approval before this tool runs.");
+    expect(waiting.tools[0]?.preview).toBe("Waiting for approval before this tool runs.");
+  });
+
   it("records cancel and failure", () => {
     expect(reduceStream(emptyStream, { type: "run.cancelled", seq: 1 }).status).toBe("cancelled");
     expect(reduceStream(emptyStream, { type: "run.failed", seq: 1 }).status).toBe("failed");

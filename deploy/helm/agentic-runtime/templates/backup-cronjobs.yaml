@@ -1,0 +1,110 @@
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Release.Name }}-backup
+type: Opaque
+stringData:
+  ACCESS_KEY_ID: {{ .Values.backup.s3.accessKey | quote }}
+  ACCESS_SECRET_KEY: {{ .Values.backup.s3.secretKey | quote }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ .Release.Name }}-pg-daily
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  backupOwnerReference: self
+  cluster:
+    name: {{ .Release.Name }}-pg
+{{- end }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-backup-verify
+  labels:
+    app.kubernetes.io/name: backup-verify
+spec:
+  schedule: "0 3 * * 0"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: verify
+              image: {{ include "ar.thirdPartyImage" (list . "ar-api" .Values.global.imageTag) }}
+              command:
+                - python
+                - -c
+                - import urllib.request; urllib.request.urlopen("http://{{ .Release.Name }}-api:8000/healthz")
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+{{- if .Values.keycloak.bundled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-keycloak-export
+spec:
+  schedule: "30 20 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: export
+              image: {{ include "ar.thirdPartyImage" (list . .Values.keycloak.image.repository .Values.keycloak.image.tag) }}
+              args: ["export", "--file", "/tmp/realm.json"]
+{{- end }}
+{{- if .Values.openbao.bundled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-openbao-snapshot
+spec:
+  schedule: "15 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: snapshot
+              image: {{ include "ar.thirdPartyImage" (list . .Values.openbao.image.repository .Values.openbao.image.tag) }}
+              args: ["operator", "raft", "snapshot", "save", "/tmp/bao.snap"]
+              env:
+                - name: BAO_ADDR
+                  value: {{ printf "http://%s-openbao:8200" .Release.Name | quote }}
+{{- end }}
+{{- if .Values.qdrant.enabled }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}-qdrant-snapshot
+spec:
+  schedule: "0 */6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: snapshot
+              image: {{ include "ar.thirdPartyImage" (list . .Values.qdrant.image.repository .Values.qdrant.image.tag) }}
+              command: ["sh", "-c", {{ printf "wget -qO- http://%s-qdrant:6333/collections" .Release.Name | quote }}]
+{{- end }}
+{{- end }}

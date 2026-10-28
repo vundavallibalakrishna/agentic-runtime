@@ -1,0 +1,84 @@
+{{- if .Values.openbao.bundled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-openbao
+data:
+  config.hcl: |
+    ui = false
+    listener "tcp" {
+      address = "0.0.0.0:8200"
+      tls_disable = 1
+    }
+    storage "raft" {
+      path = "/bao/data"
+    }
+    disable_mlock = true
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-openbao
+  labels:
+    app.kubernetes.io/name: openbao
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}-openbao
+  replicas: {{ .Values.openbao.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openbao
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openbao
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        fsGroup: 100
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: openbao
+          image: {{ include "ar.thirdPartyImage" (list . .Values.openbao.image.repository .Values.openbao.image.tag) }}
+          args: ["server", "-config=/bao/config/config.hcl"]
+          ports:
+            - containerPort: 8200
+          readinessProbe:
+            httpGet:
+              path: /v1/sys/health
+              port: 8200
+          volumeMounts:
+            - name: config
+              mountPath: /bao/config
+            - name: data
+              mountPath: /bao/data
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-openbao
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-openbao
+spec:
+  selector:
+    app.kubernetes.io/name: openbao
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 8200
+      targetPort: 8200
+{{- end }}

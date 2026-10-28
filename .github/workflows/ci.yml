@@ -204,6 +204,7 @@ jobs:
       - run: uv run python scripts/check_audit_catalogue.py
       - run: uv run python scripts/check_stack_pins.py
       - run: uv run python scripts/check_public_camel_case.py
+      - run: uv run python scripts/check_docs.py
       - name: no placeholder markers
         run: |
           if grep -RInE --exclude-dir=node_modules --exclude-dir=.venv --exclude-dir=.git --exclude-dir=.next --exclude-dir=.turbo 'TO''DO|FIX''ME' .; then
@@ -218,8 +219,13 @@ jobs:
       - uses: azure/setup-helm@v4
         with:
           version: v4.3.1
-      - run: helm lint deploy/helm/agentic-runtime
-      - run: helm template agentic-runtime deploy/helm/agentic-runtime
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --frozen
+      - run: bash scripts/check_helm.sh
 
   fresh-clone:
     runs-on: ubuntu-latest

@@ -1,0 +1,55 @@
+# SaaS preset. Platform admin is enabled. Stateful services are external.
+global:
+  deploymentMode: saas
+  env: prod
+  publicUrl: https://agents.example.com
+bootstrap:
+  adminEmail: ""
+postgres:
+  bundled: false
+valkey:
+  bundled: false
+temporal:
+  bundled: false
+  workerVersioning: true
+keycloak:
+  bundled: false
+openbao:
+  bundled: false
+objectStorage:
+  bundled: false
+secrets:
+  create: false
+  existingSecret: ar-secrets
+  backend: vault
+config:
+  AR_SAAS_SELF_SIGNUP: "false"
+  AR_LOG_HASH_USER_IDS: "true"
+sandboxes:
+  driver: kubernetes
+  falco: true
+workloads:
+  web:
+    replicas: 4
+    hpa:
+      min: 4
+      max: 20
+  api:
+    replicas: 4
+    hpa:
+      min: 4
+      max: 30
+  runtime-worker:
+    replicas: 4
+  ingest-worker:
+    replicas: 2
+  model-gateway:
+    replicas: 3
+    hpa:
+      min: 3
+      max: 20
+  mcp-gateway:
+    replicas: 3
+    hpa:
+      min: 3
+      max: 20

@@ -1,0 +1,6 @@
+dependencies:
+- name: qdrant
+  repository: file://charts/qdrant
+  version: 1.0.0
+digest: sha256:12a87ac313c01d61f3bcaac0a1e1851ced4fae1321b31e46ce7f2d6f42e36f0d
+generated: "2026-10-28T06:23:59.568108567Z"

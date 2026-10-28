@@ -1,0 +1,215 @@
+{{- range $name, $workload := .Values.workloads }}
+{{- $enabled := $workload.enabled }}
+{{- if and (eq $name "fake-llm") $.Values.fakeLlm.enabled }}
+{{- $enabled = true }}
+{{- end }}
+{{- if $enabled }}
+{{- $registry := trimSuffix "/" ($.Values.global.imageRegistry | default "") }}
+{{- $tag := $workload.tag | default $.Values.global.imageTag | toString }}
+{{- $image := printf "%s:%s" $workload.repository $tag }}
+{{- if $registry }}
+{{- $image = printf "%s/%s:%s" $registry $workload.repository $tag }}
+{{- end }}
+{{- $replicas := int $workload.replicas }}
+{{- if and $.Values.global.maintenance (or (eq $name "runtime-worker") (eq $name "system-worker") (eq $name "ingest-worker")) }}
+{{- $replicas = 0 }}
+{{- end }}
+{{- $secretName := $.Values.secrets.existingSecret | default (printf "%s-secrets" $.Release.Name) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/part-of: agentic-runtime
+spec:
+  replicas: {{ $replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 25%
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/part-of: agentic-runtime
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+    spec:
+      automountServiceAccountToken: {{ $workload.automountToken }}
+      {{- if $workload.automountToken }}
+      serviceAccountName: {{ $.Release.Name }}-sandbox-manager
+      {{- end }}
+      terminationGracePeriodSeconds: {{ $workload.grace }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+        {{- if eq (int $workload.runAsUser) 10001 }}
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        {{- else if $workload.runAsUser }}
+        runAsUser: {{ $workload.runAsUser }}
+        {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $name }}
+              app.kubernetes.io/instance: {{ $.Release.Name }}
+      containers:
+        - name: {{ $name }}
+          image: {{ $image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: app
+              containerPort: {{ $workload.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ $.Release.Name }}-config
+            - secretRef:
+                name: {{ $secretName }}
+          {{- if and (or (eq $name "runtime-worker") (eq $name "system-worker") (eq $name "ingest-worker")) $.Values.temporal.workerVersioning }}
+          env:
+            - name: TEMPORAL_WORKER_BUILD_ID
+              value: {{ $.Values.global.imageTag | toString | quote }}
+            - name: TEMPORAL_USE_WORKER_VERSIONING
+              value: "true"
+          {{- end }}
+          {{- if gt (int $workload.preStopSeconds) 0 }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["python", "-c", {{ printf "import time; time.sleep(%d)" (int $workload.preStopSeconds) | quote }}]
+          {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: {{ $workload.readOnlyRoot }}
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $workload.resources | nindent 12 }}
+          {{- if eq $workload.probe "tcp" }}
+          livenessProbe:
+            tcpSocket:
+              port: app
+          readinessProbe:
+            tcpSocket:
+              port: app
+          {{- else }}
+          livenessProbe:
+            httpGet:
+              path: {{ $workload.livenessPath }}
+              port: app
+          readinessProbe:
+            httpGet:
+              path: {{ $workload.readinessPath }}
+              port: app
+          {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+  ports:
+    - name: app
+      port: {{ $workload.port }}
+      targetPort: app
+{{- if and $.Values.autoscaling.enabled $workload.hpa.enabled (not $workload.keda.enabled) (gt $replicas 0) }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $.Release.Name }}-{{ $name }}
+  minReplicas: {{ $workload.hpa.min }}
+  maxReplicas: {{ $workload.hpa.max }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $workload.hpa.cpu }}
+{{- end }}
+{{- if and $.Values.keda.enabled $workload.keda.enabled (gt $replicas 0) }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+spec:
+  scaleTargetRef:
+    name: {{ $.Release.Name }}-{{ $name }}
+  minReplicaCount: {{ $replicas }}
+  maxReplicaCount: {{ $workload.hpa.max | default 10 }}
+  triggers:
+    {{- range $queue := $workload.keda.queues }}
+    - type: prometheus
+      metadata:
+        serverAddress: {{ $.Values.keda.prometheusAddress | quote }}
+        metricName: temporal_backlog_{{ $queue }}
+        query: sum(temporal_approximate_backlog_count{taskqueue="{{ $queue }}"})
+        threshold: {{ $workload.keda.threshold | quote }}
+    {{- end }}
+{{- end }}
+{{- if ge $replicas 2 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+{{- end }}
+{{- if and $.Values.monitoring.enabled $workload.metrics }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $.Release.Name }}-{{ $name }}
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+  endpoints:
+    - port: app
+      path: /metrics
+{{- end }}
+{{- end }}
+{{- end }}

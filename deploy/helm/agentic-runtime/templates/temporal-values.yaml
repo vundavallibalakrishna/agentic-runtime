@@ -1,0 +1,43 @@
+{{- if .Values.temporal.bundled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-temporal-values
+  labels:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  values.yaml: |
+    server:
+      replicaCount: {{ ternary 3 1 .Values.temporal.ha }}
+      config:
+        persistence:
+          defaultStore: default
+          visibilityStore: visibility
+          datastores:
+            default:
+              sql:
+                createDatabase: true
+                manageSchema: true
+                pluginName: postgres12
+                databaseName: temporal
+                connectAddr: {{ printf "%s-pg-pooler:5432" .Release.Name | quote }}
+            visibility:
+              sql:
+                createDatabase: true
+                manageSchema: true
+                pluginName: postgres12
+                databaseName: temporal_visibility
+                connectAddr: {{ printf "%s-pg-pooler:5432" .Release.Name | quote }}
+        namespaces:
+          - name: {{ .Values.temporal.namespace }}
+            retention: 72h
+    frontend:
+      replicaCount: 1
+    history:
+      replicaCount: {{ ternary 3 1 .Values.temporal.ha }}
+    matching:
+      replicaCount: 1
+    worker:
+      replicaCount: 1
+{{- end }}
