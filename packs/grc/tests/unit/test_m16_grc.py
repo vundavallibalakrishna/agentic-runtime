@@ -66,9 +66,7 @@ def _upload(store: ChatService, actor: Actor, name: str, data: bytes) -> uuid.UU
 
 
 def test_pack_models_cover_the_domain_and_the_entity_tree() -> None:
-    names = {
-        table.name for table in PackBase.metadata.tables.values() if table.schema == "grc"
-    }
+    names = {table.name for table in PackBase.metadata.tables.values() if table.schema == "grc"}
     assert "regulator_feeds" in names
     assert "entities" in names
     assert len(names) == 28

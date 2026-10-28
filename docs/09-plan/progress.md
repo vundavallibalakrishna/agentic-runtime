@@ -160,3 +160,11 @@ M14-T10 | done | d3097a8 | AI register cards, incidents, oversight, export
 M14-T11 | done | d3097a8 | guest principals, magic link, TOTP, watermark
 M14-T12 | done | d3097a8 | binder ZIP and stdlib verifier
 M14-T13 | done | d3097a8 | pack extension hooks, import-linter contract
+
+M16-T01 | done | cb85ca9 | schema grc, RLS, manifest; core does not import the pack
+M16-T02 | done | cb85ca9 | OSCAL catalogues, skeletons, licensed-text import
+M16-T03 | done | cb85ca9 | common controls and two-person crosswalk confirm
+M16-T04 | done | cb85ca9 | evidence links, freshness, cross-tenant 404
+M16-T05 | done | cb85ca9 | grc read tools; disabled tenant is tool_server_unavailable
+M16-T06 | done | cb85ca9 | /grc frameworks, controls and evidence screens
+M16-T07 | done | cb85ca9 | entity tree and posture in pack revision 0001

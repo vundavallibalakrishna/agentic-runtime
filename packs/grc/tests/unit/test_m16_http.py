@@ -172,9 +172,7 @@ def test_catalogue_controls_mappings_evidence_and_entities() -> None:
     )
     assert linked.status_code == 200
     assert client.get("/api/v1/ext/grc/evidence-links").status_code == 200
-    assert (
-        client.delete(f"/api/v1/ext/grc/evidence-links/{linked.json()['id']}").status_code == 204
-    )
+    assert client.delete(f"/api/v1/ext/grc/evidence-links/{linked.json()['id']}").status_code == 204
     parent = client.post(
         "/api/v1/ext/grc/entities", json={"name": "Holdco", "kind": "legal_entity"}
     )
