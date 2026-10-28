@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ar-pack-grc"
+version = "1.0.0"
+description = "GRC solution pack for Agentic Runtime"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "ar-api",
+    "ar-common",
+    "ar-domain",
+    "alembic==1.20.0",
+    "fastapi==0.151.0",
+    "orjson==3.13.0",
+    "pyyaml==6.0.3",
+    "sqlalchemy[asyncio]==2.1.5",
+]
+
+[project.entry-points."agentic_runtime.packs"]
+grc = "ar_pack_grc.install:bootstrap"
+
+[tool.uv.sources]
+ar-api = { workspace = true }
+ar-common = { workspace = true }
+ar-domain = { workspace = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ar_pack_grc"]
+
+[tool.deptry]
+known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "ar_pack_grc"]
+
+[tool.deptry.package_module_name_map]
+ar-pack-grc = "ar_pack_grc"
+ar-api = "ar_api"
+ar-common = "ar_common"
+ar-domain = "ar_domain"
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["alembic"]

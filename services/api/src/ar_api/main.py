@@ -180,6 +180,9 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
             if data.roles
             else (frozenset(known.roles) if known is not None else frozenset())
         )
+        from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
+
+        permissions = permissions | permissions_for(app.state.chat, data.tenant_id, roles)
         return Principal(
             kind="user",
             id=str(data.user_id),
@@ -320,6 +323,9 @@ def create_application() -> FastAPI:
     app.state.chat.model_gateway_url = settings.model_gateway_url
     if settings.env in {EnvName.DEV, EnvName.CI} and not should_bind():
         app.state.chat.seed_showcase()
+    from ar_api.plugins import attach_packs  # noqa: PLC0415
+
+    attach_packs(app)
     app.state.demo_user_id = demo_id("admin")
     app.state.demo_tenant_id = demo_id("tenant")
     app.state.allow_test_auth = False

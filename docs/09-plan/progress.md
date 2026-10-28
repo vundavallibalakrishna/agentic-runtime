@@ -168,3 +168,11 @@ M15-T04 | done | f8c1311 | Locust scenarios and in-process probe; 24h soak is OQ
 M15-T05 | done | f8c1311 | rolling update, migrate hook, worker build ids, SSE resume
 M15-T06 | done | f8c1311 | air-gap image list, mirror script, lockdown overlay
 M15-T07 | done | f8c1311 | changelog, release workflow dry-run; live Slack/Teams/IdP are OQ-48
+
+M16-T01 | done | cb85ca9 | schema grc, RLS, manifest; core does not import the pack
+M16-T02 | done | cb85ca9 | OSCAL catalogues, skeletons, licensed-text import
+M16-T03 | done | cb85ca9 | common controls and two-person crosswalk confirm
+M16-T04 | done | cb85ca9 | evidence links, freshness, cross-tenant 404
+M16-T05 | done | cb85ca9 | grc read tools; disabled tenant is tool_server_unavailable
+M16-T06 | done | cb85ca9 | /grc frameworks, controls and evidence screens
+M16-T07 | done | cb85ca9 | entity tree and posture in pack revision 0001

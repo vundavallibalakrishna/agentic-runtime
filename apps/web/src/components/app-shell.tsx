@@ -12,6 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  ShieldCheck,
   UserRound,
   X,
 } from "lucide-react";
@@ -51,6 +52,7 @@ export function AppShell({
   const [session, setSession] = useState<Session | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [packLinks, setPackLinks] = useState<{ href: string; label: string }[]>([]);
 
   useLayoutEffect(() => {
     if (rememberedSession) setSession(rememberedSession);
@@ -76,11 +78,40 @@ export function AppShell({
     };
   }, [replaceRoute]);
 
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    void api<{
+      items?: { enabled?: boolean; nav?: { href?: string; label?: string }[] }[];
+      data?: { enabled?: boolean; nav?: { href?: string; label?: string }[] }[];
+    }>("/api/v1/tenant/packs")
+      .then((body) => {
+        if (cancelled) return;
+        const links: { href: string; label: string }[] = [];
+        for (const row of body.items ?? body.data ?? []) {
+          if (!row.enabled) continue;
+          for (const item of row.nav ?? []) {
+            if (item.href && item.label) links.push({ href: item.href, label: item.label });
+          }
+        }
+        setPackLinks(links);
+      })
+      .catch(() => {
+        if (!cancelled) setPackLinks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   const items = useMemo(
     () => primaryNav.filter((item) => session?.permissions?.includes(item.permission)),
     [session],
   );
   const current = items.find((item) => path === item.href || path.startsWith(`${item.href}/`));
+  const packCurrent = packLinks.find(
+    (item) => path === item.href || path.startsWith(`${item.href}/`),
+  );
 
   function newChat() {
     window.dispatchEvent(new Event("ar-new-chat"));
@@ -109,6 +140,11 @@ export function AppShell({
         hint: item.soon ? t("soon") : undefined,
         run: () => router.push(item.href),
       })),
+      ...packLinks.map((item) => ({
+        id: item.href,
+        label: item.label,
+        run: () => router.push(item.href),
+      })),
       {
         id: "theme",
         label: t("theme"),
@@ -118,7 +154,7 @@ export function AppShell({
         },
       },
     ],
-    [choice, items, router, session, setChoice, t],
+    [choice, items, packLinks, router, session, setChoice, t],
   );
 
   async function signOut() {
@@ -146,6 +182,42 @@ export function AppShell({
       aria-label={t("primaryNavigation")}
       className="min-h-0 flex-1 space-y-5 overflow-y-auto px-1 py-2"
     >
+      {packLinks.length ? (
+        <div>
+          <p
+            className={cn(
+              "mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]",
+              collapsed && "lg:sr-only",
+            )}
+          >
+            {t("sectionPacks")}
+          </p>
+          <div className="space-y-0.5">
+            {packLinks.map((item) => {
+              const active = path === item.href || path.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "group flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-[13px]",
+                    active
+                      ? "bg-[var(--nav-active)] font-semibold text-[var(--foreground)] shadow-[var(--shadow-xs)]"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+                    collapsed && "lg:justify-center lg:px-2",
+                  )}
+                  href={item.href}
+                  key={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  title={item.label}
+                >
+                  <ShieldCheck aria-hidden="true" size={17} strokeWidth={1.7} />
+                  <span className={cn("flex-1", collapsed && "lg:sr-only")}>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       {sections.map((section) => {
         const entries = items.filter((item) => item.section === section);
         if (!entries.length) return null;
@@ -313,6 +385,15 @@ export function AppShell({
                   aria-hidden="true"
                 />
                 <span className="truncate font-medium">{t(current.labelKey)}</span>
+              </>
+            ) : packCurrent ? (
+              <>
+                <ChevronRight
+                  size={12}
+                  className="shrink-0 text-[var(--muted-foreground)]"
+                  aria-hidden="true"
+                />
+                <span className="truncate font-medium">{packCurrent.label}</span>
               </>
             ) : null}
           </div>

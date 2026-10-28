@@ -32,6 +32,30 @@ def register_pack_audit_actions(store: Any, pack_id: str, actions: list[str]) ->
     catalogue[pack_id] = {"pack_id": pack_id, "actions": list(actions)}
 
 
+def permissions_for(store: Any, tenant_id: object, roles: object) -> frozenset[str]:
+    """Pack permissions a tenant admin receives while the pack is enabled.
+
+    They are not part of the M1 seed. A member does not inherit them.
+    """
+    role_names = set(roles) if isinstance(roles, frozenset | set | list | tuple) else set()
+    if "tenant_admin" not in role_names:
+        return frozenset()
+    catalogue = bucket(store, "pack_permissions")
+    found: set[str] = set()
+    for flag in bucket(store, "pack_flags").values():
+        if not flag.get("enabled"):
+            continue
+        if flag.get("tenant_id") != tenant_id and str(flag.get("tenant_id")) != str(tenant_id):
+            continue
+        row = catalogue.get(str(flag.get("pack_id") or ""))
+        if not isinstance(row, dict):
+            continue
+        keys = row.get("keys")
+        if isinstance(keys, list):
+            found.update(str(item) for item in keys)
+    return frozenset(found)
+
+
 def apply_extension(store: Any, actor: Actor, parsed: Any) -> None:
     """Run the pack migration, then record the registration and tenant flag."""
     extension = parsed.spec.extension

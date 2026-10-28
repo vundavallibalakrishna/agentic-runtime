@@ -1,0 +1,95 @@
+apiVersion: agentic-runtime.dev/v1
+kind: ContentPack
+metadata:
+  id: grc
+  version: 1.0.0
+  name: GRC solution pack
+  minPlatform: 1.0.0
+spec:
+  resources: []
+  extension:
+    schema: grc
+    alembic: packs/grc/migrations
+    apiMount: /api/v1/ext/grc
+    webSlot: grc
+    mcpServer: grc
+    configSchema:
+      type: object
+      properties:
+        staleEvidenceDays:
+          type: integer
+          default: 90
+          x-ar-simple: true
+    ui:
+      nav:
+        - slot: nav
+          href: /grc
+          label: GRC
+          permission: grc.controls:read
+      settings:
+        - href: /grc
+          label: GRC
+    permissions:
+      - grc.frameworks:read
+      - grc.frameworks:manage
+      - grc.controls:read
+      - grc.controls:manage
+      - grc.evidence:link
+      - grc.tests:read
+      - grc.tests:run
+      - grc.findings:read
+      - grc.findings:manage
+      - grc.risks:read
+      - grc.risks:manage
+      - grc.vendors:read
+      - grc.vendors:manage
+      - grc.policies:read
+      - grc.policies:manage
+      - grc.obligations:read
+      - grc.obligations:manage
+      - grc.incidents:read
+      - grc.incidents:manage
+      - grc.campaigns:read
+      - grc.campaigns:manage
+      - grc.questionnaires:read
+      - grc.questionnaires:manage
+      - grc.audit_portal:manage
+      - grc.reports:export
+      - grc.entities:read
+      - grc.entities:manage
+      - grc.exceptions:manage
+      - grc.ethics:manage
+      - grc.inspections:manage
+      - grc.privacy:manage
+    auditActions:
+      - grc.framework.imported
+      - grc.control.updated
+      - grc.mapping.confirmed
+      - grc.mapping.rejected
+      - grc.evidence.linked
+      - grc.test_result.recorded
+      - grc.finding.created
+      - grc.finding.closed
+      - grc.risk.proposed
+      - grc.risk.accepted
+      - grc.vendor.created
+      - grc.assessment.completed
+      - grc.policy.published
+      - grc.policy.acknowledged
+      - grc.obligation.updated
+      - grc.regulatory_change.triaged
+      - grc.incident.opened
+      - grc.incident.notified
+      - grc.campaign.started
+      - grc.campaign_item.decided
+      - grc.answer.approved
+      - grc.pbc.updated
+      - grc.entitlement.ingested
+      - grc.report.exported
+      - grc.entity.updated
+      - grc.exception.signed
+      - grc.ethics.opened
+      - grc.inspection.opened
+      - grc.dsar.fulfilled
+      - grc.consent.recorded
+      - grc.resilience.recorded

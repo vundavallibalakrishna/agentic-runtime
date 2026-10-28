@@ -1,0 +1,112 @@
+{
+  "catalog": {
+    "uuid": "6f0d5c2e-1b4a-4c1d-9a10-csf200000001",
+    "metadata": {
+      "title": "NIST CSF 2.0",
+      "version": "2.0",
+      "oscal-version": "1.1.2",
+      "props": [
+        {"name": "key", "value": "nist-csf"},
+        {"name": "licence", "value": "free"}
+      ]
+    },
+    "groups": [
+      {
+        "id": "gv",
+        "title": "Govern",
+        "controls": [
+          {
+            "id": "gv.oc",
+            "title": "Organizational Context",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "The organisation understands its mission, stakeholders and legal context for cybersecurity risk."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "id",
+        "title": "Identify",
+        "controls": [
+          {
+            "id": "id.am",
+            "title": "Asset Management",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Assets that enable the organisation are identified and managed consistent with their risk."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "pr",
+        "title": "Protect",
+        "controls": [
+          {
+            "id": "pr.aa",
+            "title": "Identity Management, Authentication, and Access Control",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Access to assets is limited to authorised users, services and hardware."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "de",
+        "title": "Detect",
+        "controls": [
+          {
+            "id": "de.cm",
+            "title": "Continuous Monitoring",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Assets are monitored to find cybersecurity events."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "rs",
+        "title": "Respond",
+        "controls": [
+          {
+            "id": "rs.ma",
+            "title": "Incident Management",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Incidents are contained, analysed and responded to."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "rc",
+        "title": "Recover",
+        "controls": [
+          {
+            "id": "rc.rp",
+            "title": "Incident Recovery Plan Execution",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Restoration activities are performed from the recovery plan."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

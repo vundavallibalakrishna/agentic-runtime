@@ -32,12 +32,12 @@ dev = [
 package = false
 
 [tool.uv.workspace]
-members = ["libs/*", "services/*", "connectors/*"]
+members = ["libs/*", "services/*", "connectors/*", "packs/*"]
 
 [tool.ruff]
 target-version = "py314"
 line-length = 100
-src = ["libs/*/src", "services/*/src", "connectors/*/src"]
+src = ["libs/*/src", "services/*/src", "connectors/*/src", "packs/*/src"]
 extend-exclude = ["docs", "libs/ar_client"]
 
 [tool.ruff.lint]
@@ -60,7 +60,7 @@ ignore = ["PLR0913", "TRY003", "PLR2004", "FBT003"]
 "logging.getLogger".msg = "use ar_common.logging.get_logger (structlog)"
 
 [tool.ruff.lint.isort]
-known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+known-first-party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "ar_pack_grc"]
 
 [tool.ruff.lint.flake8-type-checking]
 runtime-evaluated-base-classes = [
@@ -81,8 +81,8 @@ exempt-modules = ["fastapi", "starlette", "pydantic"]
 strict = true
 plugins = ["pydantic.mypy"]
 python_version = "3.14"
-mypy_path = ["libs/ar_common/src", "libs/ar_contracts/src", "libs/ar_domain/src", "libs/ar_connector_sdk/src", "libs/ar_testing/src", "libs/ar_client/src", "services/api/src", "services/runtime/src", "services/system/src", "services/ingest/src", "services/model_gateway/src", "services/mcp_gateway/src", "services/sandbox_manager/src", "services/sandbox_agent/src", "services/channels/src", "services/fake_llm/src", "connectors/mcp_sql/src", "connectors/mcp_openapi/src"]
-packages = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "ar_testing"]
+mypy_path = ["libs/ar_common/src", "libs/ar_contracts/src", "libs/ar_domain/src", "libs/ar_connector_sdk/src", "libs/ar_testing/src", "libs/ar_client/src", "services/api/src", "services/runtime/src", "services/system/src", "services/ingest/src", "services/model_gateway/src", "services/mcp_gateway/src", "services/sandbox_manager/src", "services/sandbox_agent/src", "services/channels/src", "services/fake_llm/src", "connectors/mcp_sql/src", "connectors/mcp_openapi/src", "packs/grc/src"]
+packages = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "ar_testing", "ar_pack_grc"]
 exclude = ["(?x)(^|/)(tests|migrations/versions)/"]
 warn_unused_ignores = true
 
@@ -131,6 +131,7 @@ testpaths = [
     "libs",
     "services",
     "connectors",
+    "packs",
     "tests",
 ]
 
@@ -154,6 +155,7 @@ source = [
     "ar_mcp_openapi",
     "ar_fake_llm",
     "ar_testing",
+    "ar_pack_grc",
 ]
 omit = ["*/tests/*", "*/migrations/*"]
 
@@ -163,5 +165,5 @@ show_missing = true
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
 
 [tool.deptry]
-known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm"]
+known_first_party = ["ar_common", "ar_contracts", "ar_domain", "ar_connector_sdk", "ar_client", "ar_testing", "ar_api", "ar_runtime", "ar_system", "ar_ingest", "ar_model_gateway", "ar_mcp_gateway", "ar_sandbox_manager", "ar_sandbox_agent", "ar_channels", "ar_mcp_sql", "ar_mcp_openapi", "ar_fake_llm", "ar_pack_grc"]
 extend_exclude = ["tests", "libs/ar_client"]

@@ -1,0 +1,64 @@
+{
+  "catalog": {
+    "uuid": "csa-ccm-0000-4000-8000-000000000004",
+    "metadata": {
+      "title": "CSA CCM and CAIQ",
+      "version": "4.0",
+      "oscal-version": "1.1.2",
+      "props": [
+        {"name": "key", "value": "csa-ccm"},
+        {"name": "licence", "value": "free"}
+      ]
+    },
+    "groups": [
+      {
+        "id": "aam",
+        "title": "Audit and Assurance",
+        "controls": [
+          {
+            "id": "aa-01",
+            "title": "Audit and Assurance Policy and Procedures",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Are audit and assurance policies established, documented, approved, communicated, applied, evaluated and maintained?"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "iam",
+        "title": "Identity and Access Management",
+        "controls": [
+          {
+            "id": "iam-01",
+            "title": "Identity and Access Management Policy and Procedures",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Are identity and access management policies established, documented, approved, communicated, applied, evaluated and maintained?"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "log",
+        "title": "Logging and Monitoring",
+        "controls": [
+          {
+            "id": "log-01",
+            "title": "Logging and Monitoring Policy and Procedures",
+            "parts": [
+              {
+                "name": "statement",
+                "prose": "Are logging and monitoring policies established, documented, approved, communicated, applied, evaluated and maintained?"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
