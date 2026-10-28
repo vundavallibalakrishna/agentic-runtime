@@ -1,0 +1,64 @@
+# Large preset: external managed stateful services and higher floors.
+global:
+  deploymentMode: single_tenant
+  env: prod
+  publicUrl: https://agents.example.com
+postgres:
+  bundled: false
+valkey:
+  bundled: false
+temporal:
+  bundled: false
+  workerVersioning: true
+keycloak:
+  bundled: false
+openbao:
+  bundled: false
+objectStorage:
+  bundled: false
+secrets:
+  create: false
+  existingSecret: ar-secrets
+sandboxes:
+  driver: kubernetes
+  falco: true
+  warmPool: default=20,browser=4
+workloads:
+  web:
+    replicas: 4
+    hpa:
+      min: 4
+      max: 20
+  api:
+    replicas: 4
+    hpa:
+      min: 4
+      max: 30
+  runtime-worker:
+    replicas: 4
+  system-worker:
+    replicas: 2
+  ingest-worker:
+    replicas: 2
+  model-gateway:
+    replicas: 3
+    hpa:
+      min: 3
+      max: 20
+  mcp-gateway:
+    replicas: 3
+    hpa:
+      min: 3
+      max: 20
+  channels:
+    replicas: 2
+    hpa:
+      min: 2
+      max: 10
+  opa:
+    replicas: 3
+  squid:
+    replicas: 3
+    hpa:
+      min: 3
+      max: 10

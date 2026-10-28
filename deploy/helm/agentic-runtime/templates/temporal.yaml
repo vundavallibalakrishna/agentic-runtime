@@ -1,0 +1,106 @@
+{{- if .Values.temporal.bundled }}
+{{- if .Values.temporal.ha }}
+{{- range $component, $replicas := dict "frontend" 1 "history" 3 "matching" 1 "worker" 1 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $.Release.Name }}-temporal-{{ $component }}
+  labels:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/component: {{ $component }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+spec:
+  replicas: {{ $replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/component: {{ $component }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: temporal
+        app.kubernetes.io/component: {{ $component }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: temporal
+          image: {{ include "ar.thirdPartyImage" (list $ $.Values.temporal.image.repository $.Values.temporal.image.tag) }}
+          args: ["start", "--service", {{ $component | quote }}]
+          ports:
+            - containerPort: 7233
+          env:
+            - name: TEMPORAL_ADDRESS
+              value: {{ printf "%s-temporal:7233" $.Release.Name | quote }}
+          readinessProbe:
+            tcpSocket:
+              port: 7233
+{{- end }}
+{{- else }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-temporal
+  labels:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: temporal
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: temporal
+          image: {{ include "ar.thirdPartyImage" (list . .Values.temporal.devImage.repository .Values.temporal.devImage.tag) }}
+          args: ["server", "start-dev", "--ip", "0.0.0.0", "--namespace", {{ .Values.temporal.namespace | quote }}, "--db-filename", "/tmp/temporal.db"]
+          ports:
+            - containerPort: 7233
+          readinessProbe:
+            tcpSocket:
+              port: 7233
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-temporal
+  labels:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- if .Values.temporal.ha }}
+    app.kubernetes.io/component: frontend
+    {{- end }}
+  ports:
+    - name: grpc
+      port: 7233
+      targetPort: 7233
+{{- end }}

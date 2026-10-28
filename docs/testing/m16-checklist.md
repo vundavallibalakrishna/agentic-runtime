@@ -35,4 +35,4 @@ Earlier screens stay on Chat, Agents, Tools, Knowledge, Memory, Skills, Routines
 
 ## Deferred
 
-Questionnaires, vendors, policies, risk, incidents and the auditor portal are M17–M19. Their tables exist. Their write tools are not registered. HTTP GRC rows stay on the process store (OQ-48). The shipped NIST and CSA files are the public starter set; import a full OSCAL catalogue for the rest. ISO, PCI and SOC 2 statements stay empty until `import-licensed-text` with `attestation: true`.
+Questionnaires, vendors, policies, risk, incidents and the auditor portal are M17–M19. Their tables exist. Their write tools are not registered. HTTP GRC rows stay on the process store (OQ-49). The shipped NIST and CSA files are the public starter set; import a full OSCAL catalogue for the rest. ISO, PCI and SOC 2 statements stay empty until `import-licensed-text` with `attestation: true`.

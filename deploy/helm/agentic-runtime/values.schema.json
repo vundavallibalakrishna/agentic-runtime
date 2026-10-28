@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["global", "bootstrap", "sandboxes", "workloads"],
+  "properties": {
+    "global": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["imageTag", "deploymentMode", "env", "publicUrl"],
+      "properties": {
+        "imageRegistry": { "type": "string" },
+        "imageTag": { "type": "string", "minLength": 1 },
+        "deploymentMode": { "type": "string", "enum": ["single_tenant", "saas"] },
+        "env": { "type": "string", "enum": ["dev", "ci", "staging", "prod"] },
+        "publicUrl": { "type": "string", "minLength": 1 },
+        "maintenance": { "type": "boolean" }
+      }
+    },
+    "bootstrap": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "tenantSlug": { "type": "string" },
+        "tenantName": { "type": "string" },
+        "adminEmail": { "type": "string" }
+      }
+    },
+    "sandboxes": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "driver": { "type": "string", "enum": ["kubernetes", "docker"] },
+        "runtimeClass": { "type": "string" },
+        "namespace": { "type": "string" },
+        "warmPool": { "type": "string" }
+      }
+    },
+    "postgres": { "type": "object", "additionalProperties": true },
+    "valkey": { "type": "object", "additionalProperties": true },
+    "temporal": { "type": "object", "additionalProperties": true },
+    "qdrant": { "type": "object", "additionalProperties": true },
+    "retrieval": { "type": "object", "additionalProperties": true },
+    "workloads": { "type": "object", "additionalProperties": true }
+  }
+}

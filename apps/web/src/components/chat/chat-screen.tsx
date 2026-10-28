@@ -27,6 +27,12 @@ import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import {
+  shouldResumeStatus,
+  shouldResumeStream,
+  streamHeaders,
+  waitForResume,
+} from "@/lib/stream/reconnect";
 import { emptyStream, reduceStream, type StreamState } from "@/lib/stream/reducer";
 import { cn } from "@/lib/utils";
 
@@ -268,41 +274,62 @@ export function ChatScreen() {
   }
 
   async function readStream(id: string, signal: AbortSignal): Promise<StreamState> {
-    const response = await fetch(`/api/v1/runs/${id}/events`, { credentials: "include", signal });
-    if (!response.ok || !response.body) {
-      throw new Error(t("error"));
-    }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
     let state = emptyStream;
-    const parser = createParser({
-      onEvent(event) {
-        if (signal.aborted) return;
-        const payload = JSON.parse(event.data) as {
-          type: string;
-          seq: number;
-          data?: { text?: string };
-        };
-        state = reduceStream(state, payload);
-        setStream(state);
-        if (payload.type === "message.completed" || payload.type === "run.cancelled") {
-          setMessages((current) => {
-            const next = [...current];
-            const last = next[next.length - 1];
-            if (last && last.role === "assistant") {
-              next[next.length - 1] = { ...last, text: state.text, status: state.status };
-            }
-            return next;
-          });
+    let attempt = 0;
+    while (attempt < 4) {
+      if (signal.aborted) return state;
+      const response = await fetch(`/api/v1/runs/${id}/events`, {
+        credentials: "include",
+        signal,
+        headers: streamHeaders(state.lastSeq),
+      });
+      if (!response.ok || !response.body) {
+        attempt += 1;
+        if (
+          !shouldResumeStatus(response.status, attempt) ||
+          !shouldResumeStream(state.status, attempt)
+        ) {
+          throw new Error(t("error"));
         }
-      },
-    });
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) {
-        break;
+        await waitForResume(250 * attempt, signal);
+        continue;
       }
-      parser.feed(decoder.decode(chunk.value, { stream: true }));
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      const parser = createParser({
+        onEvent(event) {
+          if (signal.aborted) return;
+          const payload = JSON.parse(event.data) as {
+            type: string;
+            seq: number;
+            data?: { text?: string };
+          };
+          state = reduceStream(state, payload);
+          setStream(state);
+          if (payload.type === "message.completed" || payload.type === "run.cancelled") {
+            setMessages((current) => {
+              const next = [...current];
+              const last = next[next.length - 1];
+              if (last && last.role === "assistant") {
+                next[next.length - 1] = { ...last, text: state.text, status: state.status };
+              }
+              return next;
+            });
+          }
+        },
+      });
+      try {
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) return state;
+          parser.feed(decoder.decode(chunk.value, { stream: true }));
+        }
+      } catch (error) {
+        if (signal.aborted) return state;
+        attempt += 1;
+        if (!shouldResumeStream(state.status, attempt)) throw error;
+        await waitForResume(250 * attempt, signal);
+      }
     }
     return state;
   }

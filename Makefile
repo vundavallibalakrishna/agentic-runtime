@@ -84,6 +84,9 @@ lint:
 	pnpm exec knip
 	opa fmt --diff policies/
 	helm lint deploy/helm/agentic-runtime
+	@for preset in values-dev values-small values-large values-saas values-loadtest values-external values-airgap; do \
+		helm lint deploy/helm/agentic-runtime -f deploy/helm/agentic-runtime/$$preset.yaml; \
+	done
 
 deptry:
 	@fail=0; \
@@ -132,13 +135,13 @@ reset-db:
 	$(MAKE) migrate seed
 
 kind-up:
-	@echo "not available until M15-T01"; exit 0
+	KEEP_CLUSTER=1 bash scripts/kind_install.sh
 
 kind-down:
-	@echo "not available until M15-T01"; exit 0
+	kind delete cluster --name "$${KIND_CLUSTER:-ar-m15}"
 
 images:
 	./scripts/build_images.sh
 
 images-bundle:
-	@echo "not available until M15-T04"; exit 0
+	uv run python scripts/release.py --bundle --destination dist

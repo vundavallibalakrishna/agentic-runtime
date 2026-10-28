@@ -161,6 +161,14 @@ M14-T11 | done | d3097a8 | guest principals, magic link, TOTP, watermark
 M14-T12 | done | d3097a8 | binder ZIP and stdlib verifier
 M14-T13 | done | d3097a8 | pack extension hooks, import-linter contract
 
+M15-T01 | done | f8c1311 | umbrella chart, presets, schema, kubeconform
+M15-T02 | done | f8c1311 | bundled or external stateful dependencies; Qdrant off by default
+M15-T03 | done | f8c1311 | backup CronJobs and fixture restore drill; live PITR is OQ-48
+M15-T04 | done | f8c1311 | Locust scenarios and in-process probe; 24h soak is OQ-48
+M15-T05 | done | f8c1311 | rolling update, migrate hook, worker build ids, SSE resume
+M15-T06 | done | f8c1311 | air-gap image list, mirror script, lockdown overlay
+M15-T07 | done | f8c1311 | changelog, release workflow dry-run; live Slack/Teams/IdP are OQ-48
+
 M16-T01 | done | cb85ca9 | schema grc, RLS, manifest; core does not import the pack
 M16-T02 | done | cb85ca9 | OSCAL catalogues, skeletons, licensed-text import
 M16-T03 | done | cb85ca9 | common controls and two-person crosswalk confirm

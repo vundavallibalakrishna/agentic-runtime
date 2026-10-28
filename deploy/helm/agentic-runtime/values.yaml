@@ -1,10 +1,759 @@
-image:
-  repository: ar-api
-  tag: dev
-replicaCount: 1
-service:
-  port: 8000
+# Umbrella values for Agentic Runtime. Spec: docs/07-ops/helm-k8s.md
+# Non-secret AR_* live under config. Secret AR_* live under secrets.data or secrets.existingSecret.
+global:
+  imageRegistry: ''
+  imageTag: "1.0.0"
+  deploymentMode: single_tenant
+  env: prod
+  publicUrl: https://agents.example.com
+  maintenance: false
+bootstrap:
+  tenantSlug: default
+  tenantName: Default
+  adminEmail: admin@example.com
+config:
+  AR_API_INTERNAL_URL: http://api:8000
+  AR_ASGI_SERVER: uvicorn
+  AR_AUDIT_ARCHIVE_BUCKET: ar-audit-archive
+  AR_BILLING_CURRENCY: INR
+  AR_BINDER_MAX_ITEMS: '5000'
+  AR_BOOTSTRAP_ADMIN_EMAIL: admin@example.com
+  AR_BOOTSTRAP_TENANT_NAME: Default
+  AR_BOOTSTRAP_TENANT_SLUG: default
+  AR_CHANNELS_EMAIL_POLL_S: '60'
+  AR_CHANNELS_PORT: '8004'
+  AR_CHANNELS_SLACK_UPDATE_INTERVAL_MS: '1500'
+  AR_CHANNELS_TEAMS_UPDATE_INTERVAL_MS: '2000'
+  AR_CHANNEL_LINK_TTL_S: '900'
+  AR_CLAMAV_ADDRESS: clamav:3310
+  AR_CLAMAV_HOST_PORT: '3310'
+  AR_CLICKHOUSE_HOST_PORT: '8123'
+  AR_CONSECUTIVE_TOOL_ERROR_LIMIT: '8'
+  AR_DB_ENCRYPTION_ACTIVE_KEY: k1
+  AR_DELTA_COALESCE_MS: '50'
+  AR_DEPLOYMENT_MODE: single_tenant
+  AR_DEV_MODEL_BASE_URL: ''
+  AR_DURABLE_STATE: ''
+  AR_EGRESS_DENY_CIDRS: 169.254.169.254/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  AR_EGRESS_HOST_PORT: '3128'
+  AR_EGRESS_PROXY_URL: http://squid:3128
+  AR_ENV: prod
+  AR_EVAL_CONCURRENCY: '4'
+  AR_EVIDENCE_BUCKET: ar-evidence
+  AR_EVIDENCE_DEFAULT_LOCK_DAYS: '2555'
+  AR_EVIDENCE_LOCK_MODE: compliance
+  AR_EVIDENCE_SIGNING_KEY_ID: evidence-k1
+  AR_FAKE_LLM_HOST_PORT: '8099'
+  AR_FASTEMBED_CACHE_DIR: /var/cache/fastembed
+  AR_FILES_PROXY_DOWNLOADS: 'false'
+  AR_FILES_SCANNER: clamav
+  AR_GRAFANA_HOST_PORT: '3001'
+  AR_GROUNDING_MAX_SENTENCES: '200'
+  AR_GUARDRAIL_INPUT_ALIAS: fast
+  AR_GUARDRAIL_OUTPUT_ALIAS: fast
+  AR_GUEST_MAGIC_LINK_TTL_S: '900'
+  AR_GUEST_MAX_TTL_DAYS: '90'
+  AR_GUEST_SESSION_TTL_S: '28800'
+  AR_INGEST_ACTIVITY_CONCURRENCY: '32'
+  AR_INGEST_HOST_PORT: '8014'
+  AR_INGEST_MAX_BYTES: '209715200'
+  AR_INGEST_SYNC_CONCURRENCY: '16'
+  AR_INJECTION_CLASSIFIER_TIMEOUT_MS: '1000'
+  AR_INPUT_WAIT_TIMEOUT_S: '1800'
+  AR_INTERNAL_JWT_JWKS: http://api:8000/internal/v1/.well-known/jwks.json
+  AR_KEYCLOAK_HOST_PORT: '8180'
+  AR_KNOWLEDGE_RERANK_CANDIDATES: '50'
+  AR_LANGFUSE_HOST_PORT: '3100'
+  AR_LOG_HASH_USER_IDS: 'false'
+  AR_MAILPIT_UI_HOST_PORT: '8025'
+  AR_MAX_DEPTH: '3'
+  AR_MAX_JSON_BODY_BYTES: '1048576'
+  AR_MAX_MESSAGE_CHARS: '100000'
+  AR_MCPG_PORT: '8002'
+  AR_MCP_GATEWAY_URL: http://mcp-gateway:8002
+  AR_MCP_INTERNAL_HTTP_ALLOWED_CIDRS: 10.0.0.0/8
+  AR_MCP_OPENAPI_HOST_PORT: '8011'
+  AR_MCP_OPENAPI_URL: http://mcp-openapi:8011/mcp
+  AR_MCP_SQL_HOST_PORT: '8010'
+  AR_MCP_SQL_URL: http://mcp-sql:8010/mcp
+  AR_MEMORY_DEDUPE_SIM: '0.92'
+  AR_MEMORY_RECALL_MIN_SIM: '0.25'
+  AR_MG_CB_FAILURES: '5'
+  AR_MG_CB_OPEN_S: '30'
+  AR_MG_HEALTH_INTERVAL_S: '30'
+  AR_MG_MAX_FALLBACKS: '2'
+  AR_MG_PORT: '8001'
+  AR_MG_SEMAPHORE_WAIT_S: '10'
+  AR_MODEL_GATEWAY_URL: http://model-gateway:8001
+  AR_MODEL_PROVIDER_DENY_CIDRS: 169.254.169.254/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  AR_OFFLINE_SESSION_MAX_DAYS: '60'
+  AR_OIDC_API_AUDIENCE: ar-api
+  AR_OIDC_CLIENT_ID: ar-web
+  AR_OIDC_ISSUER: http://keycloak:8080/realms/agentic-runtime
+  AR_OPA_HOST_PORT: '8181'
+  AR_OPA_TIMEOUT_MS: '200'
+  AR_OPA_URL: http://opa:8181
+  AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+  AR_OTEL_GRPC_HOST_PORT: '4317'
+  AR_OTEL_HTTP_HOST_PORT: '4318'
+  AR_OUTBOX_BATCH_SIZE: '500'
+  AR_PACKS_DIR: packs
+  AR_PACK_SIGNATURE_REQUIRED: 'true'
+  AR_PGVECTOR_DIMENSIONS: '1024'
+  AR_PG_HOST_PORT: '5432'
+  AR_PORT: '8000'
+  AR_PROMETHEUS_HOST_PORT: '9090'
+  AR_PUBLIC_URL: https://agents.example.com
+  AR_QDRANT_GRPC_HOST_PORT: '6334'
+  AR_QDRANT_HTTP_HOST_PORT: '6333'
+  AR_QDRANT_URL: ''
+  AR_RETENTION_SWEEP_CRON: 0 1 * * *
+  AR_ROUTINE_MIN_INTERVAL_S: '300'
+  AR_RUNTIME_HOST_PORT: '8012'
+  AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES: '100'
+  AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS: '100'
+  AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS: '50'
+  AR_RUN_RECORD_MAX_BLOB_BYTES: '52428800'
+  AR_RUN_STREAM_TTL_S: '86400'
+  AR_S3_BUCKET: ar-files
+  AR_S3_ENDPOINT: http://seaweedfs:8333
+  AR_S3_HOST_PORT: '8333'
+  AR_S3_PRESIGN_TTL_S: '300'
+  AR_S3_PUBLIC_ENDPOINT: http://seaweedfs:8333
+  AR_S3_REGION: us-east-1
+  AR_S3_SSE: AES256
+  AR_SAAS_SELF_SIGNUP: 'false'
+  AR_SANDBOX_AGENT_HOST_PORT: '8080'
+  AR_SANDBOX_ALLOWED_REGISTRIES: registry.local/ar
+  AR_SANDBOX_DEFAULT_RUNTIME_CLASS: gvisor
+  AR_SANDBOX_DOCKER_RUNTIME: runc
+  AR_SANDBOX_DRIVER: kubernetes
+  AR_SANDBOX_ENSURE_TIMEOUT_S: '30'
+  AR_SANDBOX_MANAGER_HOST_PORT: '8003'
+  AR_SANDBOX_MANAGER_URL: http://sandbox-manager:8003
+  AR_SANDBOX_MAX_PER_TENANT: '50'
+  AR_SANDBOX_NAMESPACE: ar-sandboxes
+  AR_SANDBOX_PACKAGE_MIRRORS: '{}'
+  AR_SANDBOX_SNAPSHOT_INTERVAL_S: '600'
+  AR_SANDBOX_WARM_POOL: default=4,browser=2
+  AR_SECRETS_BACKEND: vault
+  AR_SECRET_CACHE_TTL_S: '60'
+  AR_SESSION_MAX_AGE_S: '604800'
+  AR_SESSION_TTL_S: '43200'
+  AR_SMTP_FROM: Agentic Runtime <no-reply@localhost>
+  AR_SMTP_HOST: localhost
+  AR_SMTP_PORT: '1025'
+  AR_SMTP_STARTTLS: 'false'
+  AR_SMTP_USERNAME: ''
+  AR_SSE_MAX_PER_USER: '20'
+  AR_STEP_UP_TTL_S: '600'
+  AR_SYSTEM_HOST_PORT: '8013'
+  AR_TEMPORAL_ADDRESS: temporal:7233
+  AR_TEMPORAL_HOST_PORT: '7233'
+  AR_TEMPORAL_NAMESPACE: agentic-runtime
+  AR_TEMPORAL_UI_HOST_PORT: '8233'
+  AR_TEMPO_HOST_PORT: '3200'
+  AR_TENANT_DB_ROUTES: '{}'
+  AR_TENANT_DELETE_GRACE_DAYS: '7'
+  AR_TENANT_TEMPORAL_NAMESPACES: '{}'
+  AR_TOOL_DRIFT_INTERVAL: 1h
+  AR_TOOL_RESULT_MAX_FILE_BYTES: '20971520'
+  AR_TRACE_SAMPLE_RATIO: '0.1'
+  AR_TRACE_UI_URL: http://grafana:3000
+  AR_TSA_TIMEOUT_MS: '2000'
+  AR_TSA_URL: ''
+  AR_USAGE_ROLLUP_INTERVAL: 15m
+  AR_VALKEY_HOST_PORT: '6379'
+  AR_VALKEY_URL: redis://valkey:6379/0
+  AR_VAULT_ADDR: http://openbao:8200
+  AR_VAULT_AUTH: kubernetes
+  AR_VAULT_HOST_PORT: '8200'
+  AR_VAULT_KV_MOUNT: ar
+  AR_VAULT_ROLE: ar-api
+  AR_VECTOR_BACKEND: pgvector
+  AR_VECTOR_MIGRATION_RETAIN_HOURS: '24'
+  AR_VECTOR_PG_EF_SEARCH: '100'
+  AR_WEBHOOK_ALLOW_PRIVATE: 'false'
+  AR_WEB_HOST_PORT: '3000'
+secrets:
+  create: true
+  existingSecret: ''
+  backend: vault
+  data:
+    AR_CURSOR_SECRET: install-time
+    AR_DATABASE_URL: install-time
+    AR_DB_ENCRYPTION_KEYS: install-time
+    AR_DEV_MODEL_API_KEY: install-time
+    AR_EVIDENCE_SIGNING_KEY: install-time
+    AR_INTERNAL_JWT_PRIVATE_KEY: install-time
+    AR_OIDC_CLIENT_SECRET: install-time
+    AR_OPA_BUNDLE_TOKEN: install-time
+    AR_PACK_TRUSTED_KEYS: install-time
+    AR_QDRANT_API_KEY: install-time
+    AR_S3_ACCESS_KEY_ID: install-time
+    AR_S3_SECRET_ACCESS_KEY: install-time
+    AR_SESSION_ENCRYPTION_KEY: install-time
+    AR_SESSION_ENCRYPTION_KEY_PREVIOUS: install-time
+    AR_SMTP_PASSWORD: install-time
+    AR_TOKEN_CACHE_KEY: install-time
+    AR_VAULT_TOKEN: install-time
+    AR_VECTOR_PG_READ_DSN: install-time
+postgres:
+  bundled: true
+  mode: cnpg
+  instances: 3
+  storage: 200Gi
+  username: ar_app
+  password: ar-install-db
+  image:
+    repository: pgvector/pgvector
+    tag: 0.8.7-pg18-trixie
+valkey:
+  bundled: true
+  mode: sentinel
+  image:
+    repository: valkey/valkey
+    tag: 9.1.2
+temporal:
+  bundled: true
+  ha: true
+  namespace: agentic-runtime
+  workerVersioning: true
+  image:
+    repository: temporalio/server
+    tag: 1.32.1
+  devImage:
+    repository: temporalio/temporal
+    tag: 1.9.1
+retrieval:
+  backend: pgvector
+  efSearch: 100
+qdrant:
+  enabled: false
+  external: false
+  url: ''
+  replicas: 3
+  storage: 200Gi
+  image:
+    repository: qdrant/qdrant
+    tag: v1.19.2
+objectStorage:
+  bundled: true
+  mode: single
+  bucket: ar-files
+  auditBucket: ar-audit-archive
+  image:
+    repository: chrislusf/seaweedfs
+    tag: '4.48'
+keycloak:
+  bundled: true
+  replicas: 2
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: 26.8.1
+openbao:
+  bundled: true
+  replicas: 3
+  image:
+    repository: openbao/openbao
+    tag: 2.7.1
 sandboxes:
-  warmPool: default=4,browser=2
+  driver: kubernetes
   runtimeClass: gvisor
-  snapshotIntervalSeconds: "600"
+  runtimeClassInstall: true
+  namespace: ar-sandboxes
+  warmPool: default=4,browser=2
+  snapshotIntervalSeconds: '600'
+  falco: false
+  nodeSelector:
+    ar.io/pool: sandbox
+  quota:
+    pods: '100'
+    cpu: '20'
+    memory: 40Gi
+egress:
+  packageMirrors:
+    pypi: ''
+    npm: ''
+    apt: ''
+  denyCidrs:
+  - 169.254.169.254/32
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+autoscaling:
+  enabled: true
+keda:
+  enabled: true
+  prometheusAddress: http://prometheus.monitoring.svc:9090
+monitoring:
+  enabled: true
+gateway:
+  enabled: true
+  create: true
+  name: agentic-runtime
+  namespace: ''
+  hostname: agents.example.com
+  className: envoy
+  issuer: letsencrypt
+networkPolicy:
+  enabled: true
+airgap:
+  lockdown: false
+observability:
+  enabled: false
+fakeLlm:
+  enabled: false
+clamav:
+  enabled: false
+  image:
+    repository: clamav/clamav
+    tag: 1.5.4
+backup:
+  enabled: true
+  schedule: 30 20 * * *
+  retention: 35d
+  s3:
+    endpoint: http://seaweedfs:8333
+    bucket: ar-backups
+    accessKey: install-time
+    secretKey: install-time
+workloads:
+  web:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 20
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-web
+    port: 3000
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+  api:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /readyz
+    grace: 60
+    preStopSeconds: 10
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 30
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-api
+    port: 8000
+    replicas: 2
+    resources:
+      requests:
+        cpu: '1'
+        memory: 1Gi
+      limits:
+        cpu: '2'
+        memory: 2Gi
+  runtime-worker:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 300
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: false
+      cpu: 60
+      min: 2
+      max: 4
+    keda:
+      enabled: true
+      threshold: '20'
+      queues:
+      - ar-runtime
+    repository: ar-runtime
+    port: 8012
+    replicas: 2
+    resources:
+      requests:
+        cpu: '1'
+        memory: 1Gi
+      limits:
+        cpu: '2'
+        memory: 2Gi
+  system-worker:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 300
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: false
+      cpu: 60
+      min: 2
+      max: 4
+    keda:
+      enabled: true
+      threshold: '20'
+      queues:
+      - ar-system
+      - ar-eval
+    repository: ar-system
+    port: 8013
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: '2'
+        memory: 2Gi
+  ingest-worker:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 300
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: false
+      cpu: 60
+      min: 2
+      max: 4
+    keda:
+      enabled: true
+      threshold: '20'
+      queues:
+      - ar-ingest
+    repository: ar-ingest
+    port: 8014
+    replicas: 1
+    resources:
+      requests:
+        cpu: '1'
+        memory: 2Gi
+      limits:
+        cpu: '2'
+        memory: 4Gi
+  model-gateway:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 20
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-model-gateway
+    port: 8001
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: '2'
+        memory: 1Gi
+  mcp-gateway:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 20
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-mcp-gateway
+    port: 8002
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: '2'
+        memory: 1Gi
+  sandbox-manager:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: true
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: false
+      cpu: 60
+      min: 2
+      max: 4
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-sandbox-manager
+    port: 8003
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+  channels:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 10
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-channels
+    port: 8004
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 1Gi
+  mcp-sql:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 10
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-mcp-sql
+    port: 8010
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+  mcp-openapi:
+    enabled: true
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 10
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-mcp-openapi
+    port: 8011
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+  opa:
+    enabled: true
+    tag: 1.21.3-static
+    probe: http
+    livenessPath: /health
+    readinessPath: /health
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: false
+      cpu: 60
+      min: 2
+      max: 4
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: openpolicyagent/opa
+    port: 8181
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+  squid:
+    enabled: true
+    tag: ''
+    probe: tcp
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: false
+    runAsUser: 13
+    metrics: false
+    hpa:
+      enabled: true
+      cpu: 60
+      min: 2
+      max: 10
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-squid
+    port: 3128
+    replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
+  fake-llm:
+    enabled: false
+    tag: ''
+    probe: http
+    livenessPath: /healthz
+    readinessPath: /healthz
+    grace: 30
+    preStopSeconds: 0
+    automountToken: false
+    readOnlyRoot: true
+    runAsUser: 10001
+    metrics: true
+    hpa:
+      enabled: false
+      cpu: 60
+      min: 2
+      max: 4
+    keda:
+      enabled: false
+      threshold: '20'
+      queues: []
+    repository: ar-fake-llm
+    port: 8099
+    replicas: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: '1'
+        memory: 512Mi
