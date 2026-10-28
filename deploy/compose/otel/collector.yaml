@@ -7,6 +7,21 @@ receivers:
         endpoint: 0.0.0.0:4318
 processors:
   batch: {}
+  tail_sampling:
+    decision_wait: 10s
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-slow
+        type: latency
+        latency:
+          threshold_ms: 30000
+      - name: sample-rest
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
 exporters:
   otlp/tempo:
     endpoint: tempo:4317
@@ -14,14 +29,20 @@ exporters:
       insecure: true
   prometheus:
     endpoint: 0.0.0.0:8889
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
   debug: {}
 service:
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
+      processors: [tail_sampling, batch]
       exporters: [otlp/tempo]
     metrics:
       receivers: [otlp]
       processors: [batch]
       exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]

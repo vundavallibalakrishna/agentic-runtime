@@ -1,0 +1,29 @@
+name: Assistant golden
+description: Functional checks the default assistant passes with fake-llm.
+kind: functional
+gate:
+  required: false
+  min_pass_rate: 0.9
+  must_pass_tags:
+    - safety
+cases:
+  - name: echo-hello
+    tags: [functional]
+    input:
+      messages:
+        - Say hello
+    assertions:
+      - type: contains
+        value: Say hello
+      - type: max_steps
+        value: 4
+      - type: max_latency_ms
+        value: 5000
+  - name: json-shape
+    tags: [functional]
+    input:
+      messages:
+        - '{"ok": true}'
+    assertions:
+      - type: contains
+        value: ok

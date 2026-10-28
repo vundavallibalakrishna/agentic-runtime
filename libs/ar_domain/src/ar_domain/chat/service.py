@@ -211,6 +211,12 @@ class ChatService:
     quota_counters: dict[str, tuple[int, datetime]] = field(default_factory=dict)
     quota_lock: threading.Lock = field(default_factory=threading.Lock)
     usage_daily: dict[tuple[str, ...], object] = field(default_factory=dict)
+    eval_suites: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    eval_cases: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    eval_runs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    eval_results: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    feedback_digest: dict[str, dict[str, object]] = field(default_factory=dict)
+    eval_gateway: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -249,6 +255,17 @@ class ChatService:
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
         ToolRegistry(self).ensure_seed()
+        from ar_domain.agents.access import Actor  # noqa: PLC0415
+        from ar_domain.evals.book import EvalBook  # noqa: PLC0415
+        from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+
+        EvalBook(self).ensure_platform(
+            Actor(
+                tenant_id=demo_id("tenant"),
+                user_id=demo_id("admin"),
+                permissions=PERMISSION_KEYS,
+            )
+        )
 
     def seed_showcase(self) -> None:
         """Example threads for the dev admin so the first screen is not empty.
@@ -652,6 +669,32 @@ class ChatService:
         row = self._alias(alias_id, None if platform else tenant_id, alias, kind, model_id)
         row["fallback_model_ids"] = list(fallback_model_ids or [])
         self.aliases[alias_id] = row
+        return self._public(row)
+
+    def update_alias(
+        self,
+        tenant_id: uuid.UUID,
+        alias_id: uuid.UUID,
+        model_id: uuid.UUID,
+        *,
+        platform: bool,
+    ) -> dict[str, object]:
+        """Point an alias at a new model and re-run gated suites for agents that use it."""
+        row = self._writable(self.aliases, alias_id, tenant_id, platform=platform)
+        self._require(self.models, model_id, tenant_id)
+        row["primary_model_id"] = model_id
+        row["updated_at"] = utcnow()
+        from ar_domain.agents.access import Actor  # noqa: PLC0415
+        from ar_domain.evals.reports import rerun_gated_suites  # noqa: PLC0415
+        from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+
+        owner = tenant_id if row.get("tenant_id") is None else row.get("tenant_id")
+        if isinstance(owner, uuid.UUID):
+            rerun_gated_suites(
+                self,
+                Actor(tenant_id=owner, user_id=demo_id("admin"), permissions=PERMISSION_KEYS),
+                str(row.get("alias") or ""),
+            )
         return self._public(row)
 
     def resolve(self, tenant_id: uuid.UUID, name: str) -> AliasRef | None:
@@ -1921,6 +1964,37 @@ class ChatService:
             "created_at": utcnow(),
         }
         self.feedback[(message_id, user_id)] = row
+        conversation_id = message.get("conversation_id")
+        conversation = (
+            self.conversations.get(conversation_id)
+            if isinstance(conversation_id, uuid.UUID)
+            else None
+        )
+        agent_id = conversation.get("agent_id") if isinstance(conversation, dict) else None
+        agent = self.agents.get(agent_id) if isinstance(agent_id, uuid.UUID) else None
+        owner = agent.get("owner_user_id") if isinstance(agent, dict) else user_id
+        self.domain_events.append(
+            {
+                "topic": "feedback.created",
+                "payload": {
+                    "message_id": str(message_id),
+                    "run_id": str(message.get("run_id") or ""),
+                    "agent_id": str(agent_id or ""),
+                    "rating": rating,
+                    "reasons": [],
+                    "tenant_id": str(tenant_id),
+                    "user_id": str(user_id),
+                    "owner_user_id": str(owner or user_id),
+                },
+                "at": utcnow().isoformat(),
+            }
+        )
+        if rating == "down":
+            from ar_domain.evals.reports import note_feedback  # noqa: PLC0415
+
+            payload = self.domain_events[-1]["payload"]
+            if isinstance(payload, dict):
+                note_feedback(self, payload)
         return self._public(row)
 
     def delete_feedback(

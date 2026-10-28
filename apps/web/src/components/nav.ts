@@ -1,9 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  Activity,
   BarChart3,
   Bot,
   Brain,
   CheckCheck,
+  ClipboardCheck,
   Gauge,
   Library,
   MessageSquare,
@@ -29,6 +31,8 @@ export type NavItem = {
     | "navChannels"
     | "navUsage"
     | "navQuotas"
+    | "navEvals"
+    | "navHealth"
     | "navApprovals"
     | "navRuns"
     | "navModels"
@@ -96,6 +100,20 @@ export const primaryNav: NavItem[] = [
     labelKey: "navChannels",
     permission: "channels:manage",
     icon: Radio,
+  },
+  {
+    href: "/admin/evals",
+    section: "manage",
+    labelKey: "navEvals",
+    permission: "evals:manage",
+    icon: ClipboardCheck,
+  },
+  {
+    href: "/platform/health",
+    section: "manage",
+    labelKey: "navHealth",
+    permission: "usage:read",
+    icon: Activity,
   },
   {
     href: "/admin/usage",

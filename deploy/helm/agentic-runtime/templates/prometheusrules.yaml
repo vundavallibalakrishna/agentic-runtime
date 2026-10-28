@@ -1,0 +1,8 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Chart.Name }}-alerts
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+spec:
+{{ .Files.Get "rules/alerts.yaml" | indent 2 }}

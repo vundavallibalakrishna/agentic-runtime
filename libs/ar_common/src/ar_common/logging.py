@@ -14,6 +14,37 @@ if TYPE_CHECKING:
 
     from ar_common.settings import BaseServiceSettings
 
+_CONTENT_KEYS = frozenset(
+    {
+        "prompt",
+        "prompts",
+        "messages",
+        "message",
+        "arguments",
+        "argument",
+        "result",
+        "results",
+        "content",
+        "tool_arguments",
+        "tool_result",
+        "output_text",
+    }
+)
+
+
+def _drop_content(
+    _logger: object, _method: str, event_dict: MutableMapping[str, object]
+) -> MutableMapping[str, object]:
+    """Telemetry never stores prompt or tool content. Sizes may stay."""
+    for key in list(event_dict):
+        if key not in _CONTENT_KEYS:
+            continue
+        raw = event_dict.get(key)
+        event_dict[key] = "[omitted]"
+        event_dict[f"{key}_bytes"] = len(str(raw or ""))
+    return event_dict
+
+
 _SECRET_KEY = re.compile(
     r"(password|secret|token|api_key|authorization|cookie|private_key|credential)",
     re.IGNORECASE,
@@ -88,6 +119,7 @@ def setup_logging(settings: BaseServiceSettings) -> None:
             structlog.processors.TimeStamper(fmt="iso", utc=True),
             _add_trace_ids,
             hash_user_ids,
+            _drop_content,
             _scrub_secrets,
             structlog.processors.JSONRenderer(serializer=_orjson_dumps),
         ],

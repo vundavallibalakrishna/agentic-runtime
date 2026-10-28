@@ -90,3 +90,22 @@ def _try_instrument(name: str, instrumentor: object) -> None:
 def reset_for_tests() -> None:
     """Allow a later ``setup`` call from a test."""
     _TelemetryState.ready = False
+
+
+def record_model_call(*, model: str, tokens_in: int, tokens_out: int) -> None:
+    """GenAI span for one model call. Message text is not an attribute."""
+    span = trace.get_tracer("ar.genai").start_span("model_step")
+    span.set_attribute("gen_ai.operation.name", "chat")
+    span.set_attribute("gen_ai.request.model", model)
+    span.set_attribute("gen_ai.usage.input_tokens", tokens_in)
+    span.set_attribute("gen_ai.usage.output_tokens", tokens_out)
+    span.end()
+
+
+def record_tool_call(*, tool: str, status: str) -> None:
+    """GenAI span for one tool call. Arguments and results stay off the span."""
+    span = trace.get_tracer("ar.genai").start_span("tool_call")
+    span.set_attribute("gen_ai.operation.name", "execute_tool")
+    span.set_attribute("gen_ai.tool.name", tool)
+    span.set_attribute("gen_ai.tool.status", status)
+    span.end()

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
@@ -245,7 +246,14 @@ export function AgentEditor() {
   return (
     <div>
       <PageHeader
-        actions={<BackButton href="/agents">{detail("back")}</BackButton>}
+        actions={
+          <>
+            <Link className="text-sm underline" href={`/agents/${agentId}/evals`}>
+              {t("evals")}
+            </Link>
+            <BackButton href="/agents">{detail("back")}</BackButton>
+          </>
+        }
         body={agent?.description || t("editorBody")}
         title={agent?.name || t("editorTitle")}
       />

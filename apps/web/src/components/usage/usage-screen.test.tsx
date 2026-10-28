@@ -35,6 +35,9 @@ describe("usage screens", () => {
       http.get("*/api/v1/auth/session", () =>
         HttpResponse.json({ permissions: ["usage:read"], user: { displayName: "Admin" } }),
       ),
+      http.get("*/api/v1/observability/overview", () =>
+        HttpResponse.json({ runs: { total: 3 }, feedback: { up: 1, down: 0 }, costMicros: 0 }),
+      ),
       http.get("*/api/v1/usage/summary", () =>
         HttpResponse.json({
           currency: "INR",

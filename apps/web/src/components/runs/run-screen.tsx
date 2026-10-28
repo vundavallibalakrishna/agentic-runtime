@@ -9,6 +9,7 @@ import { AppShell } from "@/components/app-shell";
 import { BackButton, DetailState } from "@/components/common/detail-state";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
 import { RunTraceGraph } from "./run-trace-graph";
@@ -21,6 +22,10 @@ type Run = {
   resultSummary?: string;
   agentName?: string;
   agentSlug?: string;
+  traceUrl?: string;
+  langfuseUrl?: string;
+  usage?: { steps?: number; wallClockMs?: number; costMicros?: number };
+  budget?: { maxSteps?: number; maxCostMicros?: number };
 };
 
 type Step = { id?: string; kind?: string; detail?: { agent?: string } };
@@ -86,6 +91,40 @@ export function RunScreen() {
             {run.trigger} · {run.status}
             {children.length ? ` · ${t("children", { count: children.length })}` : ""}
           </p>
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+              <p className="text-sm text-[var(--muted-foreground)]">{t("stepsLabel")}</p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--muted)]">
+                <div
+                  className="h-full bg-[var(--primary)]"
+                  style={{
+                    width: `${Math.min(100, ((run.usage?.steps ?? 0) / (run.budget?.maxSteps || 8)) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              {run.traceUrl ? (
+                <a className="underline" href={run.traceUrl}>
+                  {t("traceLink")}
+                </a>
+              ) : null}
+              {run.langfuseUrl ? (
+                <a className="underline" href={run.langfuseUrl}>
+                  {t("langfuseLink")}
+                </a>
+              ) : null}
+              {run.status === "running" || run.status === "queued" ? (
+                <Button
+                  onClick={() => void api(`/api/v1/runs/${run.id}:cancel`, { method: "POST" })}
+                  type="button"
+                  variant="outline"
+                >
+                  {t("cancel")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
           {graph.nodes.length === 0 ? (
             <p className="text-sm">{t("emptyTrace")}</p>
           ) : (

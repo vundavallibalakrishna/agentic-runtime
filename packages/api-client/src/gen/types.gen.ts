@@ -117,6 +117,16 @@ export type AliasBody = {
 };
 
 /**
+ * AliasPatch
+ */
+export type AliasPatch = {
+    /**
+     * Primarymodelid
+     */
+    primaryModelId: string;
+};
+
+/**
  * AliasTestBody
  */
 export type AliasTestBody = {
@@ -288,6 +298,70 @@ export type BulkItem = {
      * Statementhash
      */
     statementHash: string;
+};
+
+/**
+ * CaseBody
+ */
+export type CaseBody = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Input
+     */
+    input: {
+        [key: string]: unknown;
+    };
+    /**
+     * Assertions
+     */
+    assertions: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Toolmocks
+     */
+    toolMocks?: Array<{
+        [key: string]: unknown;
+    }> | null;
+    /**
+     * Tags
+     */
+    tags?: Array<string> | null;
+};
+
+/**
+ * CasePatch
+ */
+export type CasePatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Input
+     */
+    input?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Assertions
+     */
+    assertions?: Array<{
+        [key: string]: unknown;
+    }> | null;
+    /**
+     * Toolmocks
+     */
+    toolMocks?: Array<{
+        [key: string]: unknown;
+    }> | null;
+    /**
+     * Tags
+     */
+    tags?: Array<string> | null;
 };
 
 /**
@@ -881,6 +955,42 @@ export type EditBody = {
 };
 
 /**
+ * EvalImportBody
+ */
+export type EvalImportBody = {
+    /**
+     * Fileid
+     */
+    fileId: string;
+};
+
+/**
+ * EvalRunBody
+ */
+export type EvalRunBody = {
+    /**
+     * Agentversionref
+     */
+    agentVersionRef?: string;
+    /**
+     * Modelaliasoverride
+     */
+    modelAliasOverride?: string | null;
+    /**
+     * Baselineevalrunid
+     */
+    baselineEvalRunId?: string | null;
+    /**
+     * Tags
+     */
+    tags?: Array<string> | null;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+};
+
+/**
  * ExportBody
  */
 export type ExportBody = {
@@ -920,6 +1030,34 @@ export type FeedbackBody = {
      * Comment
      */
     comment?: string;
+};
+
+/**
+ * FromConversationBody
+ */
+export type FromConversationBody = {
+    /**
+     * Conversationid
+     */
+    conversationId: string;
+    /**
+     * Messageid
+     */
+    messageId: string;
+    /**
+     * Assertions
+     */
+    assertions?: Array<{
+        [key: string]: unknown;
+    }> | null;
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Tags
+     */
+    tags?: Array<string> | null;
 };
 
 /**
@@ -2243,6 +2381,62 @@ export type StandingBody = {
      * Expiresat
      */
     expiresAt: string;
+};
+
+/**
+ * SuiteBody
+ */
+export type SuiteBody = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Kind
+     */
+    kind?: string;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+    /**
+     * Gate
+     */
+    gate?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * SuitePatch
+ */
+export type SuitePatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Description
+     */
+    description?: string | null;
+    /**
+     * Kind
+     */
+    kind?: string | null;
+    /**
+     * Agentid
+     */
+    agentId?: string | null;
+    /**
+     * Gate
+     */
+    gate?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -5470,6 +5664,26 @@ export type DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses = {
 
 export type DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponse = DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses[keyof DeleteTenantApiV1PlatformTenantsTenantIdDeletePostResponses];
 
+export type PlatformHealthApiV1PlatformHealthGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/platform/health';
+};
+
+export type PlatformHealthApiV1PlatformHealthGetResponses = {
+    /**
+     * Response Platform Health Api V1 Platform Health Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PlatformHealthApiV1PlatformHealthGetResponse = PlatformHealthApiV1PlatformHealthGetResponses[keyof PlatformHealthApiV1PlatformHealthGetResponses];
+
 export type PlatformUsageApiV1PlatformUsageGetData = {
     body?: never;
     path?: never;
@@ -7322,6 +7536,40 @@ export type CreateAliasApiV1ModelAliasesPostResponses = {
 };
 
 export type CreateAliasApiV1ModelAliasesPostResponse = CreateAliasApiV1ModelAliasesPostResponses[keyof CreateAliasApiV1ModelAliasesPostResponses];
+
+export type UpdateAliasApiV1ModelAliasesAliasIdPatchData = {
+    body: AliasPatch;
+    path: {
+        /**
+         * Alias Id
+         */
+        alias_id: string;
+    };
+    query?: never;
+    url: '/api/v1/model-aliases/{alias_id}';
+};
+
+export type UpdateAliasApiV1ModelAliasesAliasIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateAliasApiV1ModelAliasesAliasIdPatchError = UpdateAliasApiV1ModelAliasesAliasIdPatchErrors[keyof UpdateAliasApiV1ModelAliasesAliasIdPatchErrors];
+
+export type UpdateAliasApiV1ModelAliasesAliasIdPatchResponses = {
+    /**
+     * Response Update Alias Api V1 Model Aliases  Alias Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type UpdateAliasApiV1ModelAliasesAliasIdPatchResponse = UpdateAliasApiV1ModelAliasesAliasIdPatchResponses[keyof UpdateAliasApiV1ModelAliasesAliasIdPatchResponses];
 
 export type TestAliasApiV1ModelAliasesAliasIdTestPostData = {
     body: AliasTestBody;
@@ -13589,6 +13837,613 @@ export type MyUsageApiV1MeUsageGetResponses = {
 };
 
 export type MyUsageApiV1MeUsageGetResponse = MyUsageApiV1MeUsageGetResponses[keyof MyUsageApiV1MeUsageGetResponses];
+
+export type ObservabilityOverviewApiV1ObservabilityOverviewGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * From
+         */
+        from?: string | null;
+        /**
+         * To
+         */
+        to?: string | null;
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+    };
+    url: '/api/v1/observability/overview';
+};
+
+export type ObservabilityOverviewApiV1ObservabilityOverviewGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ObservabilityOverviewApiV1ObservabilityOverviewGetError = ObservabilityOverviewApiV1ObservabilityOverviewGetErrors[keyof ObservabilityOverviewApiV1ObservabilityOverviewGetErrors];
+
+export type ObservabilityOverviewApiV1ObservabilityOverviewGetResponses = {
+    /**
+     * Response Observability Overview Api V1 Observability Overview Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ObservabilityOverviewApiV1ObservabilityOverviewGetResponse = ObservabilityOverviewApiV1ObservabilityOverviewGetResponses[keyof ObservabilityOverviewApiV1ObservabilityOverviewGetResponses];
+
+export type ListEvalSuitesApiV1EvalSuitesGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+        /**
+         * Kind
+         */
+        kind?: string | null;
+    };
+    url: '/api/v1/eval-suites';
+};
+
+export type ListEvalSuitesApiV1EvalSuitesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListEvalSuitesApiV1EvalSuitesGetError = ListEvalSuitesApiV1EvalSuitesGetErrors[keyof ListEvalSuitesApiV1EvalSuitesGetErrors];
+
+export type ListEvalSuitesApiV1EvalSuitesGetResponses = {
+    /**
+     * Response List Eval Suites Api V1 Eval Suites Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListEvalSuitesApiV1EvalSuitesGetResponse = ListEvalSuitesApiV1EvalSuitesGetResponses[keyof ListEvalSuitesApiV1EvalSuitesGetResponses];
+
+export type CreateEvalSuiteApiV1EvalSuitesPostData = {
+    body: SuiteBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/eval-suites';
+};
+
+export type CreateEvalSuiteApiV1EvalSuitesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateEvalSuiteApiV1EvalSuitesPostError = CreateEvalSuiteApiV1EvalSuitesPostErrors[keyof CreateEvalSuiteApiV1EvalSuitesPostErrors];
+
+export type CreateEvalSuiteApiV1EvalSuitesPostResponses = {
+    /**
+     * Response Create Eval Suite Api V1 Eval Suites Post
+     *
+     * Successful Response
+     */
+    201: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateEvalSuiteApiV1EvalSuitesPostResponse = CreateEvalSuiteApiV1EvalSuitesPostResponses[keyof CreateEvalSuiteApiV1EvalSuitesPostResponses];
+
+export type DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}';
+};
+
+export type DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteError = DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteErrors[keyof DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteErrors];
+
+export type DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteResponse = DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteResponses[keyof DeleteEvalSuiteApiV1EvalSuitesSuiteIdDeleteResponses];
+
+export type GetEvalSuiteApiV1EvalSuitesSuiteIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}';
+};
+
+export type GetEvalSuiteApiV1EvalSuitesSuiteIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetEvalSuiteApiV1EvalSuitesSuiteIdGetError = GetEvalSuiteApiV1EvalSuitesSuiteIdGetErrors[keyof GetEvalSuiteApiV1EvalSuitesSuiteIdGetErrors];
+
+export type GetEvalSuiteApiV1EvalSuitesSuiteIdGetResponses = {
+    /**
+     * Response Get Eval Suite Api V1 Eval Suites  Suite Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetEvalSuiteApiV1EvalSuitesSuiteIdGetResponse = GetEvalSuiteApiV1EvalSuitesSuiteIdGetResponses[keyof GetEvalSuiteApiV1EvalSuitesSuiteIdGetResponses];
+
+export type UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchData = {
+    body: SuitePatch;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}';
+};
+
+export type UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchError = UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchErrors[keyof UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchErrors];
+
+export type UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchResponses = {
+    /**
+     * Response Update Eval Suite Api V1 Eval Suites  Suite Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchResponse = UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchResponses[keyof UpdateEvalSuiteApiV1EvalSuitesSuiteIdPatchResponses];
+
+export type ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetData = {
+    body?: never;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}/cases';
+};
+
+export type ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetError = ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetErrors[keyof ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetErrors];
+
+export type ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetResponses = {
+    /**
+     * Response List Eval Cases Api V1 Eval Suites  Suite Id  Cases Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetResponse = ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetResponses[keyof ListEvalCasesApiV1EvalSuitesSuiteIdCasesGetResponses];
+
+export type CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostData = {
+    body: CaseBody;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}/cases';
+};
+
+export type CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostError = CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostErrors[keyof CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostErrors];
+
+export type CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostResponses = {
+    /**
+     * Response Create Eval Case Api V1 Eval Suites  Suite Id  Cases Post
+     *
+     * Successful Response
+     */
+    201: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostResponse = CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostResponses[keyof CreateEvalCaseApiV1EvalSuitesSuiteIdCasesPostResponses];
+
+export type DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+        /**
+         * Case Id
+         */
+        case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}/cases/{case_id}';
+};
+
+export type DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteError = DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteErrors[keyof DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteErrors];
+
+export type DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteResponse = DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteResponses[keyof DeleteEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdDeleteResponses];
+
+export type UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchData = {
+    body: CasePatch;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+        /**
+         * Case Id
+         */
+        case_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}/cases/{case_id}';
+};
+
+export type UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchError = UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchErrors[keyof UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchErrors];
+
+export type UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchResponses = {
+    /**
+     * Response Update Eval Case Api V1 Eval Suites  Suite Id  Cases  Case Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchResponse = UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchResponses[keyof UpdateEvalCaseApiV1EvalSuitesSuiteIdCasesCaseIdPatchResponses];
+
+export type ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostData = {
+    body: EvalImportBody;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}/cases:import';
+};
+
+export type ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostError = ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostErrors[keyof ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostErrors];
+
+export type ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostResponses = {
+    /**
+     * Response Import Eval Cases Api V1 Eval Suites  Suite Id  Cases Import Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostResponse = ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostResponses[keyof ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostResponses];
+
+export type CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostData = {
+    body: FromConversationBody;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}/cases:from-conversation';
+};
+
+export type CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostError = CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostErrors[keyof CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostErrors];
+
+export type CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostResponses = {
+    /**
+     * Response Case From Conversation Api V1 Eval Suites  Suite Id  Cases From Conversation Post
+     *
+     * Successful Response
+     */
+    201: {
+        [key: string]: unknown;
+    };
+};
+
+export type CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostResponse = CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostResponses[keyof CaseFromConversationApiV1EvalSuitesSuiteIdCasesFromConversationPostResponses];
+
+export type RunEvalSuiteApiV1EvalSuitesSuiteIdRunPostData = {
+    body: EvalRunBody;
+    path: {
+        /**
+         * Suite Id
+         */
+        suite_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-suites/{suite_id}:run';
+};
+
+export type RunEvalSuiteApiV1EvalSuitesSuiteIdRunPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RunEvalSuiteApiV1EvalSuitesSuiteIdRunPostError = RunEvalSuiteApiV1EvalSuitesSuiteIdRunPostErrors[keyof RunEvalSuiteApiV1EvalSuitesSuiteIdRunPostErrors];
+
+export type RunEvalSuiteApiV1EvalSuitesSuiteIdRunPostResponses = {
+    /**
+     * Successful Response
+     */
+    202: unknown;
+};
+
+export type ListEvalRunsApiV1EvalRunsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Suite Id
+         */
+        suite_id?: string | null;
+        /**
+         * Agent Id
+         */
+        agent_id?: string | null;
+        /**
+         * Status
+         */
+        status?: string | null;
+    };
+    url: '/api/v1/eval-runs';
+};
+
+export type ListEvalRunsApiV1EvalRunsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListEvalRunsApiV1EvalRunsGetError = ListEvalRunsApiV1EvalRunsGetErrors[keyof ListEvalRunsApiV1EvalRunsGetErrors];
+
+export type ListEvalRunsApiV1EvalRunsGetResponses = {
+    /**
+     * Response List Eval Runs Api V1 Eval Runs Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListEvalRunsApiV1EvalRunsGetResponse = ListEvalRunsApiV1EvalRunsGetResponses[keyof ListEvalRunsApiV1EvalRunsGetResponses];
+
+export type GetEvalRunApiV1EvalRunsEvalRunIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Eval Run Id
+         */
+        eval_run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-runs/{eval_run_id}';
+};
+
+export type GetEvalRunApiV1EvalRunsEvalRunIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetEvalRunApiV1EvalRunsEvalRunIdGetError = GetEvalRunApiV1EvalRunsEvalRunIdGetErrors[keyof GetEvalRunApiV1EvalRunsEvalRunIdGetErrors];
+
+export type GetEvalRunApiV1EvalRunsEvalRunIdGetResponses = {
+    /**
+     * Response Get Eval Run Api V1 Eval Runs  Eval Run Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetEvalRunApiV1EvalRunsEvalRunIdGetResponse = GetEvalRunApiV1EvalRunsEvalRunIdGetResponses[keyof GetEvalRunApiV1EvalRunsEvalRunIdGetResponses];
+
+export type ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Eval Run Id
+         */
+        eval_run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-runs/{eval_run_id}/results';
+};
+
+export type ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetError = ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetErrors[keyof ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetErrors];
+
+export type ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetResponses = {
+    /**
+     * Response List Eval Results Api V1 Eval Runs  Eval Run Id  Results Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetResponse = ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetResponses[keyof ListEvalResultsApiV1EvalRunsEvalRunIdResultsGetResponses];
+
+export type CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Eval Run Id
+         */
+        eval_run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/eval-runs/{eval_run_id}:cancel';
+};
+
+export type CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostError = CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostErrors[keyof CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostErrors];
+
+export type CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostResponses = {
+    /**
+     * Response Cancel Eval Run Api V1 Eval Runs  Eval Run Id  Cancel Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostResponse = CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostResponses[keyof CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostResponses];
+
+export type ListFeedbackApiV1FeedbackGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/feedback';
+};
+
+export type ListFeedbackApiV1FeedbackGetResponses = {
+    /**
+     * Response List Feedback Api V1 Feedback Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListFeedbackApiV1FeedbackGetResponse = ListFeedbackApiV1FeedbackGetResponses[keyof ListFeedbackApiV1FeedbackGetResponses];
 
 export type ListIntegrationsApiV1ChannelIntegrationsGetData = {
     body?: never;

@@ -62,13 +62,22 @@ async def _bind_once(scope: Scope) -> None:
         return
     binding = await bind_store(chat, settings.database_url)
     if binding is None:
-        from ar_common.errors import UnavailableError  # noqa: PLC0415
-
-        raise UnavailableError("The database is unavailable. Please try again.")
+        # Postgres is optional for unit tests, Playwright and a laptop without Docker.
+        # The memory cache stays (OQ-31). A live database still binds above.
+        _log.info("durable_memory", reason="database_unavailable")
+        return
     scope["app"].state.demo_tenant_id = binding.tenant_id
     admin = binding.users.get("admin@dev.local")
     if admin is not None:
         scope["app"].state.demo_user_id = admin
+        if hasattr(chat, "eval_suites"):
+            from ar_domain.agents.access import Actor  # noqa: PLC0415
+            from ar_domain.evals.book import EvalBook  # noqa: PLC0415
+            from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+
+            EvalBook(chat).ensure_platform(
+                Actor(tenant_id=binding.tenant_id, user_id=admin, permissions=PERMISSION_KEYS)
+            )
     await _attach_temporal(chat, settings)
 
 

@@ -124,7 +124,7 @@ gen:
 	pnpm exec biome format --write openapi.json
 
 eval:
-	@echo "not available until M8-T01"; exit 0
+	uv run python -m ar_system.evals.cli run evals/golden evals/redteam
 
 reset-db:
 	$(COMPOSE) --profile deps exec -T postgres dropdb -U ar_owner --if-exists agentic_runtime

@@ -16,6 +16,11 @@ def execute(store: Any, request: dict[str, object]) -> dict[str, object]:
     blocked = _quota(store, request)
     if blocked is not None:
         return blocked
+    from ar_mcp_gateway.evals import prepare  # noqa: PLC0415
+
+    mocked = prepare(store, request)
+    if mocked is not None:
+        return mocked
     from ar_mcp_gateway.builtins.files import forward as forward_files  # noqa: PLC0415
     from ar_mcp_gateway.builtins.knowledge import forward as forward_knowledge  # noqa: PLC0415
     from ar_mcp_gateway.builtins.memory import forward as forward_memory  # noqa: PLC0415

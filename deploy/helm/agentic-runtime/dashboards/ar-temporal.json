@@ -1,0 +1,32 @@
+{
+  "uid": "ar-temporal",
+  "title": "Agentic Runtime Temporal",
+  "tags": [
+    "agentic-runtime"
+  ],
+  "schemaVersion": 39,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Schedule to start",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(ar_temporal_schedule_to_start_seconds_bucket[5m]))"
+        }
+      ]
+    }
+  ]
+}

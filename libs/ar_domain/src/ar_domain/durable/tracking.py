@@ -132,6 +132,10 @@ BUCKETS = (
     "channel_identities",
     "channel_threads",
     "channel_posts",
+    "eval_suites",
+    "eval_cases",
+    "eval_runs",
+    "eval_results",
 )
 
 
