@@ -202,7 +202,7 @@ M19-T06 | done | 15da601 | inspection room; guest grant is that binder only
 M19-T07 | done | 15da601 | DSAR erasure skips a hold; consent requires evidence
 M19-T08 | done | 15da601 | resilience fail needs evidence; model assets do not write agent cards
 
-M20-T01 | in_progress | - | 2026-10-28 registered provider routing
-M20-T02 | in_progress | - | 2026-10-28 operator model screen
-M20-T03 | in_progress | - | 2026-10-28 full-stack certification run
-M20-T04 | in_progress | - | 2026-10-28 report, checklist and walkthrough
+M20-T01 | done | 0cb867c | registered provider routing
+M20-T02 | done | 0cb867c | operator model screen
+M20-T03 | done | 0cb867c | full-stack certification run
+M20-T04 | done | 0cb867c | report, checklist and walkthrough

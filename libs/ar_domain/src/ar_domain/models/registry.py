@@ -28,6 +28,7 @@ from ar_domain.secrets.stores.db_encrypted import DbEncryptedStore
 if TYPE_CHECKING:
     from typing import Any
 
+
 class _Engines:
     current: AsyncEngine | None = None
 
