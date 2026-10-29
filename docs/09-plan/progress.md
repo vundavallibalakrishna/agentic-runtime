@@ -216,7 +216,7 @@ M21b-T01 | done | 709dde5 | per-run sandbox and workspace files
 M21b-T02 | done | 709dde5 | fetch, search provider, HTTP with approval
 M21b-T03 | done | 709dde5 | builder toggles, tool cards, Qwen proof
 
-M22-T01 | in_progress | - | 2026-10-29 connections
-M22-T02 | in_progress | - | 2026-10-29 MCP client
-M22-T03 | in_progress | - | 2026-10-29 OpenAPI and described tools
-M22-T04 | in_progress | - | 2026-10-29 registry, builder, proof
+M22-T01 | done | f4ba7d1 | named encrypted connections
+M22-T02 | done | f4ba7d1 | MCP client, approval and untrusted results
+M22-T03 | done | f4ba7d1 | OpenAPI import and described tools
+M22-T04 | done | f4ba7d1 | registry, builder, Qwen proof

@@ -201,8 +201,8 @@ export function M22Panels({ tools, onChanged }: { tools: Row[]; onChanged: () =>
             />
           </label>
           <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block text-sm" htmlFor="openapi-slug">
-                {t("importSlug")}
+            <label className="block text-sm" htmlFor="openapi-slug">
+              {t("importSlug")}
               <Input
                 id="openapi-slug"
                 onChange={(event) => setSpecSlug(event.target.value)}
