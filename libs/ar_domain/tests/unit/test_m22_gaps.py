@@ -87,7 +87,12 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(ValidationFailedError):
         book.create(
             actor,
-            {"name": "machine", "kind": "oauth_client_credentials", "secret": "secret", "token_url": ""},
+            {
+                "name": "machine",
+                "kind": "oauth_client_credentials",
+                "secret": "secret",
+                "token_url": "",
+            },
         )
     with pytest.raises(ValidationFailedError):
         book.create(
@@ -101,7 +106,12 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
         )
     created = book.create(
         actor,
-        {"name": "plain", "kind": "bearer", "secret": "sekrit-value", "probe_url": "https://example.com/health"},
+        {
+            "name": "plain",
+            "kind": "bearer",
+            "secret": "sekrit-value",
+            "probe_url": "https://example.com/health",
+        },
     )
     listed = book.list_items(actor)
     assert listed[0]["name"] == "plain"
@@ -153,7 +163,16 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
     assert _iso("plain") == "plain"
     assert _expired({"expires_at": "not-a-date"}) is False
     assert _expired({"expires_at": "2020-01-01T00:00:00"}) is False
-    _audit_row(store, {"tenant_id": actor.tenant_id, "owner_user_id": actor.user_id, "id": created["id"], "name": "plain"}, "connection.tested")
+    _audit_row(
+        store,
+        {
+            "tenant_id": actor.tenant_id,
+            "owner_user_id": actor.user_id,
+            "id": created["id"],
+            "name": "plain",
+        },
+        "connection.tested",
+    )
     _store_tokens(row, {"access_token": "", "refresh_token": "", "expires_in": "soon"})
 
     oauth = book.create(
@@ -224,7 +243,9 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
         httpx,
         "AsyncClient",
         lambda *_args, **kwargs: real_async(
-            transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={"token_type": "bearer"})),
+            transport=httpx.MockTransport(
+                lambda _request: httpx.Response(200, json={"token_type": "bearer"})
+            ),
             **kwargs,
         ),
     )
@@ -244,7 +265,9 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_http_operation_limits_and_parsers() -> None:
     assert guard_public("https://", allow=["*"], loopback=False)
-    assert "allow list" in str(guard_public("https://evil.test/x", allow=["example.com"], loopback=False))
+    assert "allow list" in str(
+        guard_public("https://evil.test/x", allow=["example.com"], loopback=False)
+    )
     store = ChatService()
 
     def redirect(method: str, url: str, **_kwargs: object) -> httpx.Response:
@@ -303,13 +326,20 @@ def test_http_operation_limits_and_parsers() -> None:
     store.http_send = down
     failed = execute_operation(
         store,
-        {"_operation": {"method": "GET", "url": "https://example.com/x"}, "_tenant_id": demo_id("tenant")},
+        {
+            "_operation": {"method": "GET", "url": "https://example.com/x"},
+            "_tenant_id": demo_id("tenant"),
+        },
     )
     assert failed["code"] == "upstream_error"
     long = execute_operation(
         store,
         {
-            "_operation": {"method": "GET", "url": "https://example.com/x?q=1", "source": "description"},
+            "_operation": {
+                "method": "GET",
+                "url": "https://example.com/x?q=1",
+                "source": "description",
+            },
             "_tenant_id": demo_id("tenant"),
             "_max_bytes": "256",
             "_timeout_s": "nope",
@@ -320,7 +350,11 @@ def test_http_operation_limits_and_parsers() -> None:
     long = execute_operation(
         store,
         {
-            "_operation": {"method": "POST", "url": "https://example.com/items/{id}", "source": "description"},
+            "_operation": {
+                "method": "POST",
+                "url": "https://example.com/items/{id}",
+                "source": "description",
+            },
             "_tenant_id": demo_id("tenant"),
             "_max_bytes": 256,
             "id": "7",
@@ -343,7 +377,9 @@ def test_description_and_openapi_shapes() -> None:
     assert post["method"] == "POST"
     assert "body" in post["input_schema"]["properties"]
     assert "Returns:" in str(post["description"])
-    leading = compile_description({"url": "https://example.com/x", "slug": "1abc", "method": "HEAD"})
+    leading = compile_description(
+        {"url": "https://example.com/x", "slug": "1abc", "method": "HEAD"}
+    )
     assert str(leading["name"]).startswith("call_")
     empty = compile_description({"url": "https://example.com/x", "slug": "!!!"})
     assert empty["name"] == "call_api"
@@ -359,13 +395,20 @@ def test_description_and_openapi_shapes() -> None:
                 "get": {
                     "summary": "Read",
                     "parameters": [
-                        {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}},
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        },
                         {"name": "Authorization", "in": "header"},
                         "skip",
                     ],
                     "requestBody": {
                         "required": True,
-                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Item"}}},
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/Item"}}
+                        },
                     },
                 },
                 "options": {"operationId": "ignored"},
@@ -408,7 +451,9 @@ def test_import_publish_edges() -> None:
 
     def send(method: str, url: str, **_kwargs: object) -> httpx.Response:
         del method, url
-        return httpx.Response(200, text='{"openapi":"3.0.3","paths":{"/x":{"get":{"operationId":"getX"}}}}')
+        return httpx.Response(
+            200, text='{"openapi":"3.0.3","paths":{"/x":{"get":{"operationId":"getX"}}}}'
+        )
 
     store.http_send = send
     preview = importer.preview_openapi({"url": "https://example.com/openapi.json"})
@@ -416,7 +461,10 @@ def test_import_publish_edges() -> None:
     with pytest.raises(ValidationFailedError, match="baseUrl"):
         importer.import_openapi(
             _actor(),
-            {"slug": "nobase", "document": {"openapi": "3.0.3", "paths": {"/x": {"get": {"operationId": "getX"}}}}},
+            {
+                "slug": "nobase",
+                "document": {"openapi": "3.0.3", "paths": {"/x": {"get": {"operationId": "getX"}}}},
+            },
         )
     chosen = [f"op{i}" for i in range(41)]
     document = {
@@ -425,19 +473,24 @@ def test_import_publish_edges() -> None:
         "paths": {f"/p{i}": {"get": {"operationId": f"op{i}"}} for i in range(41)},
     }
     with pytest.raises(ValidationFailedError, match="at most"):
-        importer.import_openapi(_actor(), {"slug": "wide", "document": document, "operations": chosen})
+        importer.import_openapi(
+            _actor(), {"slug": "wide", "document": document, "operations": chosen}
+        )
     saved = importer.save_description(
         _reader(),
         {"description": "GET https://example.com/zen", "slug": "zen", "name": "zen"},
     )
     assert saved["status"] != "approved"
-    importer.registry.submit = lambda *_args, **_kwargs: (_ for _ in ()).throw(ValidationFailedError("no"))  # type: ignore[method-assign]
+    importer.registry.submit = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        ValidationFailedError("no")
+    )  # type: ignore[method-assign]
     again = importer.save_description(
         _actor(),
         {"description": "GET https://example.com/other", "slug": "other", "name": "other"},
     )
     assert again["id"]
     importer.registry.submit = ToolRegistry(store).submit  # type: ignore[method-assign]
+
     def _reject(*_args: object, **_kwargs: object) -> None:
         raise ArError(ErrorCode.FORBIDDEN, "no")
 
@@ -477,8 +530,12 @@ def test_mcp_parsers_transports_and_stdio(monkeypatch: pytest.MonkeyPatch) -> No
         }
     )
     assert found[0]["name"] == "do_thing"
-    assert _result_text({"error": {"code": -32602, "message": "bad args"}})["code"] == "schema_changed"
-    assert _result_text({"result": {"isError": True, "content": [{"text": "no"}]}})["is_error"] is True
+    assert (
+        _result_text({"error": {"code": -32602, "message": "bad args"}})["code"] == "schema_changed"
+    )
+    assert (
+        _result_text({"result": {"isError": True, "content": [{"text": "no"}]}})["is_error"] is True
+    )
     assert _result_text({"result": {"text": "pong"}})["text"] == "pong"
     assert _frames("Content-Length: nope\r\n\r\n{}", expected=1) is None
     assert _frames('{"jsonrpc":"2.0","id":2,"result":{}}', expected=2) is not None
@@ -551,14 +608,22 @@ def test_mcp_parsers_transports_and_stdio(monkeypatch: pytest.MonkeyPatch) -> No
     found = list_remote(store, "https://tools.example/sse", transport="sse", timeout=5)
     assert found[0]["name"] == "sse_ping"
     store.mcp_transport = httpx.MockTransport(
-        lambda request: httpx.Response(500, text="no") if request.method == "GET" else httpx.Response(200, json={})
+        lambda request: (
+            httpx.Response(500, text="no")
+            if request.method == "GET"
+            else httpx.Response(200, json={})
+        )
     )
     with pytest.raises(RemoteError):
         list_remote(store, "https://tools.example/sse", transport="sse", timeout=2)
     store.mcp_transport = httpx.MockTransport(
-        lambda request: httpx.Response(200, text="event: ping\ndata: hi\n\n", headers={"content-type": "text/event-stream"})
-        if request.method == "GET"
-        else httpx.Response(200, json={})
+        lambda request: (
+            httpx.Response(
+                200, text="event: ping\ndata: hi\n\n", headers={"content-type": "text/event-stream"}
+            )
+            if request.method == "GET"
+            else httpx.Response(200, json={})
+        )
     )
     with pytest.raises(RemoteError):
         list_remote(store, "https://tools.example/sse", transport="sse", timeout=2)
@@ -598,14 +663,18 @@ def test_registry_refresh_and_pipeline_helpers() -> None:
     )
     with pytest.raises(ValidationFailedError, match="approve"):
         registry.refresh(actor, uuid.UUID(str(created["id"])))
-    tool_row = next(item for item in store.tool_versions.values() if item.get("qualified_name") == "echo.ping")
+    tool_row = next(
+        item for item in store.tool_versions.values() if item.get("qualified_name") == "echo.ping"
+    )
     tool_id = uuid.UUID(str(tool_row["tool_id"]))
     with pytest.raises(ValidationFailedError):
         registry.set_tool_enabled(actor, tool_id, enabled=False, reason=" ")
     with pytest.raises(NotFoundError):
         registry.set_tool_enabled(actor, tool_id, enabled=False, reason="paused")
     echo_version = uuid.UUID(str(created["versions"][0]["id"]))
-    registry.patch_tool(actor, uuid.UUID(str(created["id"])), echo_version, tool_row["id"], {"risk_class": "R0"})
+    registry.patch_tool(
+        actor, uuid.UUID(str(created["id"])), echo_version, tool_row["id"], {"risk_class": "R0"}
+    )
     registry.submit(actor, uuid.UUID(str(created["id"])), echo_version)
     registry.approve(actor, uuid.UUID(str(created["id"])), echo_version, "ok")
     enabled = registry.set_tool_enabled(actor, tool_id, enabled=True)
@@ -662,27 +731,43 @@ def test_registry_refresh_and_pipeline_helpers() -> None:
         },
     )
     version_id = uuid.UUID(str(notes["versions"][0]["id"]))
-    tool = next(row for row in store.tool_versions.values() if row.get("qualified_name") == "notes.list_notes")
-    registry.patch_tool(actor, uuid.UUID(str(notes["id"])), version_id, tool["id"], {"risk_class": "R0"})
+    tool = next(
+        row
+        for row in store.tool_versions.values()
+        if row.get("qualified_name") == "notes.list_notes"
+    )
+    registry.patch_tool(
+        actor, uuid.UUID(str(notes["id"])), version_id, tool["id"], {"risk_class": "R0"}
+    )
     registry.submit(actor, uuid.UUID(str(notes["id"])), version_id)
     registry.approve(actor, uuid.UUID(str(notes["id"])), version_id, "ok")
     refreshed = registry.refresh(actor, uuid.UUID(str(notes["id"])))
     assert refreshed["changed"] is False
-    assert _remote_name({"annotations": {"_mcp_name": "do-thing"}, "name": "do_thing"}) == "do-thing"
+    assert (
+        _remote_name({"annotations": {"_mcp_name": "do-thing"}, "name": "do_thing"}) == "do-thing"
+    )
     marked = _mark_mcp({"text": "secret-value", "structured": {}}, "secret-value", "do-thing")
     assert "[redacted]" in str(marked["text"])
     assert marked["structured"]["presentation"]["kind"] == "mcp"
-    hidden = _scrub_arguments("general.http", {"headers": {"Authorization": "Bearer secret", "Accept": "text"}})
+    hidden = _scrub_arguments(
+        "general.http", {"headers": {"Authorization": "Bearer secret", "Accept": "text"}}
+    )
     assert hidden["headers"]["Authorization"] == "[redacted]"
     assert hidden["headers"]["Accept"] == "text"
     assert _search_mode({}) == "auto"
     assert _search_mode({"tool_search": {"mode": "pinned"}}) == "pinned"
     pipe = ToolPipeline(store)
-    promoted = pipe._effective_version({"qualified_name": "general.http", "risk_class": "R0"}, {"method": "POST"})
+    promoted = pipe._effective_version(
+        {"qualified_name": "general.http", "risk_class": "R0"}, {"method": "POST"}
+    )
     assert promoted["risk_class"] == "W2"
     run_id = uuid.uuid4()
     message_id = uuid.uuid4()
-    store.runs[run_id] = {"conversation_id": uuid.uuid4(), "agent_id": uuid.uuid4(), "input_message_id": message_id}
+    store.runs[run_id] = {
+        "conversation_id": uuid.uuid4(),
+        "agent_id": uuid.uuid4(),
+        "input_message_id": message_id,
+    }
     store.messages[message_id] = {"attachment_ids": [str(uuid.uuid4())]}
     context = pipe._sandbox_context({"run_id": run_id})
     assert context["_attachment_ids"]
@@ -726,7 +811,9 @@ def test_isolate_fallback_and_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path:
     (root / "workspace").mkdir(parents=True)
     finished = _process(root / "workspace", [sys.executable, "-c", "print('ok')"], env, timeout=5)
     assert finished.exit_code == 0
-    timed = _process(root / "workspace", [sys.executable, "-c", "import time; time.sleep(8)"], env, timeout=1)
+    timed = _process(
+        root / "workspace", [sys.executable, "-c", "import time; time.sleep(8)"], env, timeout=1
+    )
     assert timed.exit_code == 124
     previous = os.environ.get("AR_ENV")
     os.environ["AR_ENV"] = "prod"

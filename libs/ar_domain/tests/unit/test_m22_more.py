@@ -76,7 +76,9 @@ def test_connection_kinds_oauth_and_test() -> None:
     assert tested["ok"] is True
     assert "password" not in str(tested)
     missing = book.test(actor, uuid.UUID(str(basic["id"])), url="")
-    assert missing["ok"] is True or "test URL" in str(book.test(actor, uuid.UUID(str(basic["id"])), ""))
+    assert missing["ok"] is True or "test URL" in str(
+        book.test(actor, uuid.UUID(str(basic["id"])), "")
+    )
     book.revoke(actor, uuid.UUID(str(basic["id"])))
     with pytest.raises(ArError):
         headers_for(store, actor.tenant_id, actor.user_id, "basicone")
@@ -120,7 +122,9 @@ def test_connection_kinds_oauth_and_test() -> None:
     assert granted["status"] == "active"
     with pytest.raises(ArError):
         asyncio.run(book.callback("good-code", "missing-state"))
-    key = book.create(actor, {"name": "apikey", "kind": "api_key", "secret": "k" * 8, "header_name": "X-Key"})
+    key = book.create(
+        actor, {"name": "apikey", "kind": "api_key", "secret": "k" * 8, "header_name": "X-Key"}
+    )
     assert key["has_secret"] is True
     bare = book.test(actor, uuid.UUID(str(key["id"])))
     assert bare["ok"] is False
@@ -160,7 +164,11 @@ def test_oauth_token_endpoint_and_refresh(monkeypatch: pytest.MonkeyPatch) -> No
     transport = httpx.MockTransport(
         lambda request: httpx.Response(
             200,
-            json={"access_token": "live-token", "refresh_token": "live-refresh", "expires_in": "30"},
+            json={
+                "access_token": "live-token",
+                "refresh_token": "live-refresh",
+                "expires_in": "30",
+            },
         )
     )
     real_client = httpx.Client
@@ -225,7 +233,9 @@ def test_http_import_edges() -> None:
         if url.endswith("/gone"):
             return httpx.Response(302, headers={"location": "https://example.com/spec.json"})
         if "spec.json" in url:
-            return httpx.Response(200, text='{"openapi":"3.0.3","paths":{"/x":{"get":{"operationId":"getX"}}}}')
+            return httpx.Response(
+                200, text='{"openapi":"3.0.3","paths":{"/x":{"get":{"operationId":"getX"}}}}'
+            )
         return httpx.Response(500, text="no")
 
     store.http_send = send
@@ -239,7 +249,10 @@ def test_http_import_edges() -> None:
     assert no_url["code"] == "validation_failed"
     denied = execute_operation(
         store,
-        {"_operation": {"method": "GET", "url": "https://evil.example/x"}, "_tenant_id": demo_id("tenant")},
+        {
+            "_operation": {"method": "GET", "url": "https://evil.example/x"},
+            "_tenant_id": demo_id("tenant"),
+        },
     )
     assert denied["code"] == "egress_denied"
     filled = execute_operation(
@@ -262,7 +275,10 @@ def test_http_import_edges() -> None:
         importer.preview_openapi({})
     with pytest.raises(ValidationFailedError):
         importer.preview_openapi({"document": '{"swagger": "2.0"}'})
-    huge = {"openapi": "3.0.3", "paths": {f"/p{i}": {"get": {"operationId": f"op{i}"}} for i in range(41)}}
+    huge = {
+        "openapi": "3.0.3",
+        "paths": {f"/p{i}": {"get": {"operationId": f"op{i}"}} for i in range(41)},
+    }
     with pytest.raises(ValidationFailedError):
         importer.import_openapi(_actor(), {"slug": "big", "document": huge})
     with pytest.raises(ValidationFailedError):
@@ -274,8 +290,8 @@ def test_stdio_and_sse_parsers() -> None:
     script.write_text(
         "import sys\n"
         "sys.stdin.read()\n"
-        "body = '{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"tools\":[{\"name\":\"ping\","
-        "\"inputSchema\":{\"type\":\"object\"},\"annotations\":{\"readOnlyHint\":true}}]}}'\n"
+        'body = \'{"jsonrpc":"2.0","id":2,"result":{"tools":[{"name":"ping",'
+        '"inputSchema":{"type":"object"},"annotations":{"readOnlyHint":true}}]}}\'\n'
         "raw = body.encode()\n"
         "sys.stdout.buffer.write(f'Content-Length: {len(raw)}\\r\\n\\r\\n'.encode() + raw)\n",
         encoding="utf-8",
@@ -287,7 +303,9 @@ def test_stdio_and_sse_parsers() -> None:
         assert called["is_error"] is False
     finally:
         script.unlink(missing_ok=True)
-    parsed = _json_from_sse('event: message\ndata: {"jsonrpc":"2.0","id":2,"result":{}}\n\n', expected=2)
+    parsed = _json_from_sse(
+        'event: message\ndata: {"jsonrpc":"2.0","id":2,"result":{}}\n\n', expected=2
+    )
     assert parsed["id"] == 2
     framed = _frames('Content-Length: 44\r\n\r\n{"jsonrpc":"2.0","id":2,"result":{}}\n', expected=2)
     assert framed is not None
@@ -306,9 +324,12 @@ def test_stdio_and_sse_parsers() -> None:
         if b"tools/list" in request.content:
             return httpx.Response(
                 200,
-                json={"result": {"tools": [{"name": "sse_ping", "inputSchema": {"type": "object"}}]}},
+                json={
+                    "result": {"tools": [{"name": "sse_ping", "inputSchema": {"type": "object"}}]}
+                },
             )
         return httpx.Response(202)
+
     store.mcp_transport = httpx.MockTransport(send)
     store.mcp_resolver = lambda _host: ["1.1.1.1"]
     found = list_remote(store, "https://tools.example/sse", transport="sse", timeout=5)
@@ -352,7 +373,11 @@ def test_refresh_reports_a_changed_manifest() -> None:
             "slug": "remote",
             "name": "Remote",
             "kind": "remote_mcp",
-            "version": {"version": "1.0.0", "endpoint_url": "https://tools.example/mcp", "auth_mode": "none"},
+            "version": {
+                "version": "1.0.0",
+                "endpoint_url": "https://tools.example/mcp",
+                "auth_mode": "none",
+            },
         },
     )
     version_id = uuid.UUID(str(created["versions"][0]["id"]))
@@ -361,7 +386,9 @@ def test_refresh_reports_a_changed_manifest() -> None:
         for row in store.tool_versions.values()
         if row.get("qualified_name") == "remote.ping"
     )
-    registry.patch_tool(actor, uuid.UUID(str(created["id"])), version_id, tool_id, {"risk_class": "R0"})
+    registry.patch_tool(
+        actor, uuid.UUID(str(created["id"])), version_id, tool_id, {"risk_class": "R0"}
+    )
     registry.submit(actor, uuid.UUID(str(created["id"])), version_id)
     registry.approve(actor, uuid.UUID(str(created["id"])), version_id, "ok")
     refreshed = registry.refresh(actor, uuid.UUID(str(created["id"])))
