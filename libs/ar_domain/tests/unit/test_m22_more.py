@@ -1,6 +1,6 @@
 """Extra paths for connections, MCP transports and HTTP import."""
 
-# ruff: noqa: E501, S105
+# ruff: noqa: S105
 
 import sys
 import uuid
