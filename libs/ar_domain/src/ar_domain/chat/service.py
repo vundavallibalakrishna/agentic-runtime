@@ -729,6 +729,9 @@ class ChatService:
     ) -> dict[str, object]:
         if not valid_alias(alias):
             raise ArError(ErrorCode.VALIDATION_FAILED, "alias is invalid")
+        for existing in self.aliases.values():
+            if existing.get("tenant_id") == tenant_id and existing.get("alias") == alias:
+                raise ConflictError("a model alias with that name already exists")
         self._require(self.models, model_id, tenant_id or demo_id("tenant"))
         alias_id = new_id()
         row = self._alias(alias_id, None if platform else tenant_id, alias, kind, model_id)

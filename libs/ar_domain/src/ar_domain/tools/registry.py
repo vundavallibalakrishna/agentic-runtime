@@ -1,7 +1,9 @@
 """Tool server lifecycle on the process store. Spec: docs/03-specs/08-tool-registry-mcp.md."""
 
+import os
 import uuid
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import urlparse
 
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
@@ -163,6 +165,40 @@ class ToolRegistry:
     ) -> dict[str, object]:
         self._server(actor, server_id)
         return version_view(self.store, self._version(version_id, server_id), tools=True)
+
+    def refresh(self, actor: Actor, server_id: uuid.UUID) -> dict[str, object]:
+        """Reconnect and compare the live catalogue with the approved manifest."""
+        server = self._server(actor, server_id)
+        self._owner_or_review(actor, server)
+        current = server.get("current_version_id")
+        version = (
+            self.store.tool_server_versions.get(current) if isinstance(current, uuid.UUID) else None
+        )
+        if not isinstance(version, dict):
+            raise ValidationFailedError("approve a version before refreshing it")
+        if str(server.get("kind")) != "remote_mcp":
+            return {"ok": True, "changed": False, "error": None}
+        tools = self._catalogue(server, version)
+        if version.get("discovery_error") and not tools:
+            server["last_error"] = version.get("discovery_error")
+            return {"ok": False, "changed": False, "error": version.get("discovery_error")}
+        names = sorted(str(item.get("name")) for item in tools)
+        digest = manifest_hash({"tools": names})
+        changed = digest != str(version.get("manifest_hash") or "")
+        if not changed:
+            version["discovered_at"] = utcnow()
+            version["discovery_error"] = None
+            server["last_error"] = None
+            return {"ok": True, "changed": False, "error": None}
+        if version.get("review_status") == "approved":
+            version["upstream_hash"] = digest
+            message = "the server schema changed. Create a new version to review it."
+            version["discovery_error"] = message
+            server["last_error"] = message
+            return {"ok": True, "changed": True, "error": message}
+        self._replace_tools(server, version, tools, actor)
+        server["last_error"] = None
+        return {"ok": True, "changed": True, "error": None}
 
     def discover(
         self, actor: Actor, server_id: uuid.UUID, version_id: uuid.UUID
@@ -420,10 +456,17 @@ class ToolRegistry:
         config = cast("dict[str, object]", config)
         if kind == "remote_mcp":
             url = str(body.get("endpoint_url") or config.get("url") or "")
-            if not (url.startswith("https://") or url.startswith("memory://")):
-                raise ValidationFailedError("a remote MCP server needs an https or memory URL")
-            return url, str(body.get("auth_mode") or "none"), config
+            if url == "stdio://sandbox":
+                self._stdio(config)
+                return url, str(body.get("auth_mode") or "none"), config
+            if url.startswith("memory://") or url.startswith("https://"):
+                return url, str(body.get("auth_mode") or "none"), config
+            if url.startswith("http://") and _dev_loopback(url):
+                return url, str(body.get("auth_mode") or "none"), config
+            raise ValidationFailedError("a remote MCP server needs an https or memory URL")
         if kind == "openapi":
+            if config.get("source") in {"openapi", "description"} or config.get("base_url"):
+                return "builtin://http_operation", "none", config
             return "memory://petstore", "internal_jwt", config
         if kind == "sql":
             return "memory://warehouse", "internal_jwt", config
@@ -434,14 +477,28 @@ class ToolRegistry:
     ) -> list[dict[str, object]]:
         kind = str(server.get("kind"))
         endpoint = str(version.get("endpoint_url") or "")
-        config = version.get("config") if isinstance(version.get("config"), dict) else {}
+        config = as_mapping(version.get("config"))
         if kind == "remote_mcp" and endpoint == "memory://echo":
             return [dict(item) for item in _ECHO]
         if kind == "remote_mcp" and endpoint == "memory://tickets":
             return []
+        if kind == "remote_mcp" and endpoint == "stdio://sandbox":
+            from ar_domain.tools.remote_mcp import list_stdio  # noqa: PLC0415
+
+            command = config.get("command")
+            try:
+                return list_stdio(self.store, command if isinstance(command, list) else [])
+            except RemoteError as exc:
+                version["discovery_error"] = exc.reason
+                return []
         if kind == "remote_mcp" and endpoint.startswith(("https://", "http://")):
             try:
-                return list_remote(self.store, endpoint)
+                return list_remote(
+                    self.store,
+                    endpoint,
+                    headers=self._connection_headers(server, version),
+                    transport=str(config.get("transport") or "streamable"),
+                )
             except RemoteError as exc:
                 version["discovery_error"] = exc.reason
                 return []
@@ -488,6 +545,34 @@ class ToolRegistry:
         version["discovery_error"] = "discovery waits for the server"
         return []
 
+    def _stdio(self, config: dict[str, object]) -> None:
+        from ar_domain.tools.remote_mcp import RemoteError, safe_command  # noqa: PLC0415
+
+        try:
+            safe_command(config.get("command"))
+        except RemoteError as exc:
+            raise ValidationFailedError(str(exc)) from exc
+
+    def _connection_headers(
+        self, server: dict[str, object], version: dict[str, object]
+    ) -> dict[str, str] | None:
+        config = as_mapping(version.get("config"))
+        name = str(config.get("connection") or "").strip()
+        if not name:
+            return None
+        from ar_domain.tools.service_connections import headers_for  # noqa: PLC0415
+
+        try:
+            headers, _secret = headers_for(
+                self.store,
+                server.get("tenant_id"),
+                version.get("created_by") or server.get("owner_user_id"),
+                name,
+            )
+        except ArError as exc:
+            raise RemoteError(str(exc)) from exc
+        return headers
+
     def _openapi_tools(self, config: dict[str, object]) -> list[dict[str, object]]:
         spec = config.get("spec")
         nested = config.get("openapi")
@@ -500,7 +585,9 @@ class ToolRegistry:
             selected = [str(item) for item in nested["operations"]]
         try:
             return operations_from(
-                load_document(spec if isinstance(spec, dict | str | bytes) else {}), selected
+                load_document(spec if isinstance(spec, dict | str | bytes) else {}),
+                selected,
+                synthesize=config.get("source") in {"openapi", "description"},
             )
         except OpenApiError as exc:
             raise ValidationFailedError(exc.reason) from exc
@@ -513,6 +600,11 @@ class ToolRegistry:
         actor: Actor,
     ) -> None:
         version_id = version["id"]
+        previous = {
+            str(row.get("name")): row.get("input_schema")
+            for row in self.store.tool_versions.values()
+            if row.get("tool_server_version_id") == version_id
+        }
         stale = [
             key
             for key, row in self.store.tool_versions.items()
@@ -520,6 +612,7 @@ class ToolRegistry:
         ]
         for key in stale:
             self.store.tool_versions.pop(key, None)
+        config = as_mapping(version.get("config"))
         slug = str(server.get("slug"))
         now = utcnow()
         names = []
@@ -531,6 +624,20 @@ class ToolRegistry:
             tool = self._ensure_tool(server, name, now)
             text = str(item.get("description") or name)
             risk = str(item.get("risk_class") or "R1")
+            annotations = as_mapping(item.get("annotations"))
+            if item.get("method"):
+                allow = config.get("allow_hosts")
+                annotations["_http"] = {
+                    "method": item.get("method"),
+                    "path": item.get("path") or "",
+                    "url": item.get("url") or "",
+                    "baseUrl": config.get("base_url") or "",
+                    "connection": config.get("connection") or "",
+                    "source": config.get("source") or "",
+                    "name": name,
+                    "allow_hosts": allow if isinstance(allow, list) else [],
+                }
+            changed = name in previous and previous[name] != item.get("input_schema")
             tool_version_id = new_id()
             self.store.tool_versions[tool_version_id] = {
                 "id": tool_version_id,
@@ -544,7 +651,7 @@ class ToolRegistry:
                 "description_hash": description_hash(text),
                 "input_schema": item.get("input_schema") or {"type": "object"},
                 "output_schema": None,
-                "annotations": item.get("annotations") or {},
+                "annotations": annotations,
                 "risk_class": risk,
                 "proposed_risk_class": risk,
                 "risk_confirmed": False,
@@ -555,7 +662,7 @@ class ToolRegistry:
                 "idempotent": risk in {"R0", "R1"},
                 "approval_preview": {},
                 "embedding": hash_embedding(text),
-                "changed_since_previous": False,
+                "changed_since_previous": changed,
                 "created_at": now,
             }
         manifest = {"tools": names}
@@ -615,7 +722,9 @@ class ToolRegistry:
             return
         settings = self.store.tenant_settings.get(actor.tenant_id, {})
         security = settings.get("security") if isinstance(settings, dict) else {}
-        allowed = isinstance(security, dict) and security.get("allow_self_review") is True
+        allowed = isinstance(security, dict) and (
+            security.get("allow_self_review") is True or security.get("allowSelfReview") is True
+        )
         if not allowed:
             raise ArError(ErrorCode.FORBIDDEN, "four_eyes")
 
@@ -716,3 +825,10 @@ class ToolRegistry:
         self.store.domain_events.append(
             {"topic": topic, "payload": payload, "at": utcnow().isoformat()}
         )
+
+
+def _dev_loopback(url: str) -> bool:
+    if os.environ.get("AR_ENV", "dev") not in {"dev", "ci", "test"}:
+        return False
+    host = urlparse(url).hostname or ""
+    return host in {"localhost", "127.0.0.1", "::1"}

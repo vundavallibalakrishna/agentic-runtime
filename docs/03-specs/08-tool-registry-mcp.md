@@ -150,7 +150,9 @@ Details:
 
 ## 7. Discovery (`POST /internal/v1/discover`)
 
-Input `{tool_server_version_id, requested_by_user_id, compare_only?: bool}`. Calls `server/discover` + `tools/list` (remote MCP), or asks the connector runtime (`mcp-openapi`/`mcp-sql`) which derives tools from config. Normalises names, validates schemas, proposes risk classes (annotations; `openapi`: GET/HEAD → `R0`, POST/PUT/PATCH → `W2`, DELETE → `W3`; `sql`: `R1`), stores manifest/hash, upserts `tools` + `tool_versions`. `compare_only` returns `{manifest_hash, changed: bool, diff}` without writing (used by drift checks).
+Input `{tool_server_version_id, requested_by_user_id, compare_only?: bool}`. Calls `server/discover` + `tools/list` (remote MCP), or asks the connector runtime (`mcp-openapi`/`mcp-sql`) which derives tools from config. Normalises names, validates schemas, proposes risk classes (annotations; `openapi`: GET/HEAD → `R0`, POST/PUT/PATCH → `W2`, DELETE → `W3`; `sql`: `R1`; remote MCP: `readOnlyHint` → `R0`, otherwise `W2` so the call waits for approval), stores manifest/hash, upserts `tools` + `tool_versions`. `compare_only` returns `{manifest_hash, changed: bool, diff}` without writing (used by drift checks).
+
+M22 adds owner-scoped service connections, OpenAPI import (`POST /api/v1/openapi-imports`), a described HTTP tool (`POST /api/v1/described-tools`) and `POST /api/v1/tool-servers/{id}:refresh`. A remote server may use streamable HTTP, SSE, or stdio inside the general-tool sandbox with network off. Tool results from those servers are untrusted data. See [m22-connections](../06-security/m22-connections.md).
 
 ## 8. `ToolDriftCheckWorkflow` (`system-worker`, `ar-system`)
 

@@ -69,6 +69,9 @@ from .archive_skill_api_v1_skills_skill_id_archive_post_response_archive_skill_a
     ArchiveSkillApiV1SkillsSkillIdArchivePostResponseArchiveSkillApiV1SkillsSkillIdArchivePost,
 )
 from .assignment_create import AssignmentCreate
+from .authorize_service_connection_api_v1_service_connections_connection_id_authorize_post_response_authorize_service_connection_api_v1_service_connections_connection_id_authorize_post import (
+    AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostResponseAuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePost,
+)
 from .binder_body import BinderBody
 from .binder_body_selection import BinderBodySelection
 from .body_upload_file_api_v1_files_upload_post import BodyUploadFileApiV1FilesUploadPost
@@ -143,6 +146,7 @@ from .connection_patch_allowlist_type_0 import ConnectionPatchAllowlistType0
 from .connection_schema_api_v1_data_connections_connection_id_schema_get_response_connection_schema_api_v1_data_connections_connection_id_schema_get import (
     ConnectionSchemaApiV1DataConnectionsConnectionIdSchemaGetResponseConnectionSchemaApiV1DataConnectionsConnectionIdSchemaGet,
 )
+from .connection_test_body import ConnectionTestBody
 from .connector_config_internal_v1_connectors_version_id_config_get_response_connector_config_internal_v1_connectors_version_id_config_get import (
     ConnectorConfigInternalV1ConnectorsVersionIdConfigGetResponseConnectorConfigInternalV1ConnectorsVersionIdConfigGet,
 )
@@ -390,6 +394,9 @@ from .create_server_api_v1_tool_servers_post_response_create_server_api_v1_tool_
 from .create_service_account_api_v1_service_accounts_post_response_create_service_account_api_v1_service_accounts_post import (
     CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost,
 )
+from .create_service_connection_api_v1_service_connections_post_response_create_service_connection_api_v1_service_connections_post import (
+    CreateServiceConnectionApiV1ServiceConnectionsPostResponseCreateServiceConnectionApiV1ServiceConnectionsPost,
+)
 from .create_skill_api_v1_skills_post_response_create_skill_api_v1_skills_post import (
     CreateSkillApiV1SkillsPostResponseCreateSkillApiV1SkillsPost,
 )
@@ -526,6 +533,9 @@ from .delete_server_api_v1_tool_servers_server_id_delete_response_delete_server_
 from .delete_service_account_api_v1_service_accounts_service_account_id_delete_response_delete_service_account_api_v1_service_accounts_service_account_id_delete import (
     DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteResponseDeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDelete,
 )
+from .delete_service_connection_api_v1_service_connections_connection_id_delete_response_delete_service_connection_api_v1_service_connections_connection_id_delete import (
+    DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteResponseDeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDelete,
+)
 from .delete_share_api_v1_conversations_conversation_id_shares_principal_type_principal_id_delete_response_delete_share_api_v1_conversations_conversation_id_shares_principal_type_principal_id_delete import (
     DeleteShareApiV1ConversationsConversationIdSharesPrincipalTypePrincipalIdDeleteResponseDeleteShareApiV1ConversationsConversationIdSharesPrincipalTypePrincipalIdDelete,
 )
@@ -564,6 +574,7 @@ from .delivery_body_config import DeliveryBodyConfig
 from .deprecate_api_v1_tool_servers_server_id_deprecate_post_response_deprecate_api_v1_tool_servers_server_id_deprecate_post import (
     DeprecateApiV1ToolServersServerIdDeprecatePostResponseDeprecateApiV1ToolServersServerIdDeprecatePost,
 )
+from .describe_body import DescribeBody
 from .description_body import DescriptionBody
 from .disable_agent_api_v1_agents_agent_id_disable_post_response_disable_agent_api_v1_agents_agent_id_disable_post import (
     DisableAgentApiV1AgentsAgentIdDisablePostResponseDisableAgentApiV1AgentsAgentIdDisablePost,
@@ -788,6 +799,9 @@ from .get_secret_api_v1_secrets_secret_id_get_response_get_secret_api_v1_secrets
 from .get_server_api_v1_tool_servers_server_id_get_response_get_server_api_v1_tool_servers_server_id_get import (
     GetServerApiV1ToolServersServerIdGetResponseGetServerApiV1ToolServersServerIdGet,
 )
+from .get_service_connection_api_v1_service_connections_connection_id_get_response_get_service_connection_api_v1_service_connections_connection_id_get import (
+    GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetResponseGetServiceConnectionApiV1ServiceConnectionsConnectionIdGet,
+)
 from .get_skill_api_v1_skills_skill_id_get_response_get_skill_api_v1_skills_skill_id_get import (
     GetSkillApiV1SkillsSkillIdGetResponseGetSkillApiV1SkillsSkillIdGet,
 )
@@ -860,6 +874,9 @@ from .import_licensed_text_api_v1_ext_grc_frameworks_framework_id_import_license
 )
 from .import_licensed_text_api_v1_ext_grc_frameworks_framework_id_import_licensed_text_post_response_import_licensed_text_api_v1_ext_grc_frameworks_framework_id_import_licensed_text_post import (
     ImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPostResponseImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPost,
+)
+from .import_openapi_api_v1_openapi_imports_post_response_import_openapi_api_v1_openapi_imports_post import (
+    ImportOpenapiApiV1OpenapiImportsPostResponseImportOpenapiApiV1OpenapiImportsPost,
 )
 from .import_oscal_api_v1_ext_grc_frameworks_import_oscal_post_body import (
     ImportOscalApiV1ExtGrcFrameworksImportOscalPostBody,
@@ -1183,6 +1200,9 @@ from .list_servers_api_v1_tool_servers_get_response_list_servers_api_v1_tool_ser
 from .list_service_accounts_api_v1_service_accounts_get_response_list_service_accounts_api_v1_service_accounts_get import (
     ListServiceAccountsApiV1ServiceAccountsGetResponseListServiceAccountsApiV1ServiceAccountsGet,
 )
+from .list_service_connections_api_v1_service_connections_get_response_list_service_connections_api_v1_service_connections_get import (
+    ListServiceConnectionsApiV1ServiceConnectionsGetResponseListServiceConnectionsApiV1ServiceConnectionsGet,
+)
 from .list_shares_api_v1_conversations_conversation_id_shares_get_response_list_shares_api_v1_conversations_conversation_id_shares_get import (
     ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet,
 )
@@ -1285,6 +1305,10 @@ from .oauth_callback_api_v1_connections_oauth_callback_get_response_oauth_callba
 from .observability_overview_api_v1_observability_overview_get_response_observability_overview_api_v1_observability_overview_get import (
     ObservabilityOverviewApiV1ObservabilityOverviewGetResponseObservabilityOverviewApiV1ObservabilityOverviewGet,
 )
+from .open_api_import import OpenApiImport
+from .open_api_import_document_type_0 import OpenApiImportDocumentType0
+from .open_api_preview import OpenApiPreview
+from .open_api_preview_document_type_0 import OpenApiPreviewDocumentType0
 from .open_ethics_api_v1_ext_grc_ethics_cases_post_body import (
     OpenEthicsApiV1ExtGrcEthicsCasesPostBody,
 )
@@ -1439,6 +1463,9 @@ from .patch_server_api_v1_tool_servers_server_id_patch_response_patch_server_api
 from .patch_service_account_api_v1_service_accounts_service_account_id_patch_response_patch_service_account_api_v1_service_accounts_service_account_id_patch import (
     PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchResponsePatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatch,
 )
+from .patch_service_connection_api_v1_service_connections_connection_id_patch_response_patch_service_connection_api_v1_service_connections_connection_id_patch import (
+    PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchResponsePatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatch,
+)
 from .patch_skill_api_v1_skills_skill_id_patch_response_patch_skill_api_v1_skills_skill_id_patch import (
     PatchSkillApiV1SkillsSkillIdPatchResponsePatchSkillApiV1SkillsSkillIdPatch,
 )
@@ -1506,6 +1533,12 @@ from .post_message_api_v1_conversations_conversation_id_messages_post_response_p
     PostMessageApiV1ConversationsConversationIdMessagesPostResponsePostMessageApiV1ConversationsConversationIdMessagesPost,
 )
 from .preview_body import PreviewBody
+from .preview_described_tool_api_v1_described_tools_preview_post_response_preview_described_tool_api_v1_described_tools_preview_post import (
+    PreviewDescribedToolApiV1DescribedToolsPreviewPostResponsePreviewDescribedToolApiV1DescribedToolsPreviewPost,
+)
+from .preview_openapi_api_v1_openapi_imports_preview_post_response_preview_openapi_api_v1_openapi_imports_preview_post import (
+    PreviewOpenapiApiV1OpenapiImportsPreviewPostResponsePreviewOpenapiApiV1OpenapiImportsPreviewPost,
+)
 from .preview_schedule_api_v1_routines_preview_schedule_post_response_preview_schedule_api_v1_routines_preview_schedule_post import (
     PreviewScheduleApiV1RoutinesPreviewSchedulePostResponsePreviewScheduleApiV1RoutinesPreviewSchedulePost,
 )
@@ -1550,6 +1583,9 @@ from .read_session_api_v1_builder_sessions_session_id_get_response_read_session_
 from .reason_body import ReasonBody
 from .redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post import (
     RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost,
+)
+from .refresh_server_api_v1_tool_servers_server_id_refresh_post_response_refresh_server_api_v1_tool_servers_server_id_refresh_post import (
+    RefreshServerApiV1ToolServersServerIdRefreshPostResponseRefreshServerApiV1ToolServersServerIdRefreshPost,
 )
 from .regenerate_api_v1_conversations_conversation_id_messages_message_id_regenerate_post_response_regenerate_api_v1_conversations_conversation_id_messages_message_id_regenerate_post import (
     RegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePostResponseRegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePost,
@@ -1625,6 +1661,7 @@ from .rollback_body import RollbackBody
 from .rotate_api_v1_webhooks_webhook_id_rotate_secret_post_response_rotate_api_v1_webhooks_webhook_id_rotate_secret_post import (
     RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost,
 )
+from .rotate_body import RotateBody
 from .rotate_callback_api_v1_tenant_run_callback_secret_rotate_post_response_rotate_callback_api_v1_tenant_run_callback_secret_rotate_post import (
     RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponseRotateCallbackApiV1TenantRunCallbackSecretRotatePost,
 )
@@ -1633,6 +1670,9 @@ from .rotate_secret_api_v1_routines_routine_id_rotate_webhook_secret_post_respon
 )
 from .rotate_secret_api_v1_secrets_secret_id_rotate_post_response_rotate_secret_api_v1_secrets_secret_id_rotate_post import (
     RotateSecretApiV1SecretsSecretIdRotatePostResponseRotateSecretApiV1SecretsSecretIdRotatePost,
+)
+from .rotate_service_connection_api_v1_service_connections_connection_id_rotate_post_response_rotate_service_connection_api_v1_service_connections_connection_id_rotate_post import (
+    RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponseRotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePost,
 )
 from .routine_body import RoutineBody
 from .routine_body_budget_type_0 import RoutineBodyBudgetType0
@@ -1647,6 +1687,9 @@ from .run_input_api_v1_runs_run_id_input_post_response_run_input_api_v1_runs_run
 )
 from .run_routine_api_v1_routines_routine_id_run_post_response_run_routine_api_v1_routines_routine_id_run_post import (
     RunRoutineApiV1RoutinesRoutineIdRunPostResponseRunRoutineApiV1RoutinesRoutineIdRunPost,
+)
+from .save_described_tool_api_v1_described_tools_post_response_save_described_tool_api_v1_described_tools_post import (
+    SaveDescribedToolApiV1DescribedToolsPostResponseSaveDescribedToolApiV1DescribedToolsPost,
 )
 from .save_draft_api_v1_agents_agent_id_versions_draft_put_response_save_draft_api_v1_agents_agent_id_versions_draft_put import (
     SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut,
@@ -1671,6 +1714,11 @@ from .server_create import ServerCreate
 from .server_patch import ServerPatch
 from .service_account_create import ServiceAccountCreate
 from .service_account_patch import ServiceAccountPatch
+from .service_connection_body import ServiceConnectionBody
+from .service_connection_patch import ServiceConnectionPatch
+from .service_oauth_callback_api_v1_service_connections_oauth_callback_get_response_service_oauth_callback_api_v1_service_connections_oauth_callback_get import (
+    ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetResponseServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGet,
+)
 from .service_provider_config_scim_v2_service_provider_config_get_response_service_provider_config_scim_v2_serviceproviderconfig_get import (
     ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet,
 )
@@ -1779,6 +1827,9 @@ from .test_integration_api_v1_channel_integrations_integration_id_test_post_resp
 )
 from .test_provider_api_v1_model_providers_provider_id_test_post_response_test_provider_api_v1_model_providers_provider_id_test_post import (
     TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost,
+)
+from .test_service_connection_api_v1_service_connections_connection_id_test_post_response_test_service_connection_api_v1_service_connections_connection_id_test_post import (
+    TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponseTestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPost,
 )
 from .test_source_api_v1_knowledge_sources_source_id_test_post_response_test_source_api_v1_knowledge_sources_source_id_test_post import (
     TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponseTestSourceApiV1KnowledgeSourcesSourceIdTestPost,
@@ -1915,6 +1966,7 @@ __all__ = (
     "ArchiveAgentApiV1AgentsAgentIdArchivePostResponseArchiveAgentApiV1AgentsAgentIdArchivePost",
     "ArchiveSkillApiV1SkillsSkillIdArchivePostResponseArchiveSkillApiV1SkillsSkillIdArchivePost",
     "AssignmentCreate",
+    "AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostResponseAuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePost",
     "BinderBody",
     "BinderBodySelection",
     "BodyUploadFileApiV1FilesUploadPost",
@@ -1957,6 +2009,7 @@ __all__ = (
     "ConnectionPatch",
     "ConnectionPatchAllowlistType0",
     "ConnectionSchemaApiV1DataConnectionsConnectionIdSchemaGetResponseConnectionSchemaApiV1DataConnectionsConnectionIdSchemaGet",
+    "ConnectionTestBody",
     "ConnectorConfigInternalV1ConnectorsVersionIdConfigGetResponseConnectorConfigInternalV1ConnectorsVersionIdConfigGet",
     "ConstraintBody",
     "ConstraintPatch",
@@ -2046,6 +2099,7 @@ __all__ = (
     "CreateSecretApiV1SecretsPostResponseCreateSecretApiV1SecretsPost",
     "CreateServerApiV1ToolServersPostResponseCreateServerApiV1ToolServersPost",
     "CreateServiceAccountApiV1ServiceAccountsPostResponseCreateServiceAccountApiV1ServiceAccountsPost",
+    "CreateServiceConnectionApiV1ServiceConnectionsPostResponseCreateServiceConnectionApiV1ServiceConnectionsPost",
     "CreateSkillApiV1SkillsPostResponseCreateSkillApiV1SkillsPost",
     "CreateSodRuleApiV1ExtGrcSodRulesPostBody",
     "CreateSodRuleApiV1ExtGrcSodRulesPostResponseCreateSodRuleApiV1ExtGrcSodRulesPost",
@@ -2096,6 +2150,7 @@ __all__ = (
     "DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete",
     "DeleteServerApiV1ToolServersServerIdDeleteResponseDeleteServerApiV1ToolServersServerIdDelete",
     "DeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDeleteResponseDeleteServiceAccountApiV1ServiceAccountsServiceAccountIdDelete",
+    "DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteResponseDeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDelete",
     "DeleteShareApiV1ConversationsConversationIdSharesPrincipalTypePrincipalIdDeleteResponseDeleteShareApiV1ConversationsConversationIdSharesPrincipalTypePrincipalIdDelete",
     "DeleteSourceApiV1KnowledgeSourcesSourceIdDeleteResponseDeleteSourceApiV1KnowledgeSourcesSourceIdDelete",
     "DeleteTeamApiV1TeamsTeamIdDeleteResponseDeleteTeamApiV1TeamsTeamIdDelete",
@@ -2110,6 +2165,7 @@ __all__ = (
     "DeliveryBody",
     "DeliveryBodyConfig",
     "DeprecateApiV1ToolServersServerIdDeprecatePostResponseDeprecateApiV1ToolServersServerIdDeprecatePost",
+    "DescribeBody",
     "DescriptionBody",
     "DisableAgentApiV1AgentsAgentIdDisablePostResponseDisableAgentApiV1AgentsAgentIdDisablePost",
     "DisableApiV1ToolServersServerIdDisablePostResponseDisableApiV1ToolServersServerIdDisablePost",
@@ -2196,6 +2252,7 @@ __all__ = (
     "GetSandboxApiV1SandboxesSandboxIdGetResponseGetSandboxApiV1SandboxesSandboxIdGet",
     "GetSecretApiV1SecretsSecretIdGetResponseGetSecretApiV1SecretsSecretIdGet",
     "GetServerApiV1ToolServersServerIdGetResponseGetServerApiV1ToolServersServerIdGet",
+    "GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetResponseGetServiceConnectionApiV1ServiceConnectionsConnectionIdGet",
     "GetSkillApiV1SkillsSkillIdGetResponseGetSkillApiV1SkillsSkillIdGet",
     "GetSourceApiV1KnowledgeSourcesSourceIdGetResponseGetSourceApiV1KnowledgeSourcesSourceIdGet",
     "GetTeamApiV1TeamsTeamIdGetResponseGetTeamApiV1TeamsTeamIdGet",
@@ -2231,6 +2288,7 @@ __all__ = (
     "ImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPostResponseImportEvalCasesApiV1EvalSuitesSuiteIdCasesImportPost",
     "ImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPostBody",
     "ImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPostResponseImportLicensedTextApiV1ExtGrcFrameworksFrameworkIdImportLicensedTextPost",
+    "ImportOpenapiApiV1OpenapiImportsPostResponseImportOpenapiApiV1OpenapiImportsPost",
     "ImportOscalApiV1ExtGrcFrameworksImportOscalPostBody",
     "ImportOscalApiV1ExtGrcFrameworksImportOscalPostResponseImportOscalApiV1ExtGrcFrameworksImportOscalPost",
     "ImportPbcApiV1ExtGrcPbcListsImportPostBody",
@@ -2349,6 +2407,7 @@ __all__ = (
     "ListSecretsApiV1SecretsGetResponseListSecretsApiV1SecretsGet",
     "ListServersApiV1ToolServersGetResponseListServersApiV1ToolServersGet",
     "ListServiceAccountsApiV1ServiceAccountsGetResponseListServiceAccountsApiV1ServiceAccountsGet",
+    "ListServiceConnectionsApiV1ServiceConnectionsGetResponseListServiceConnectionsApiV1ServiceConnectionsGet",
     "ListSharesApiV1ConversationsConversationIdSharesGetResponseListSharesApiV1ConversationsConversationIdSharesGet",
     "ListSkillsApiV1SkillsGetResponseListSkillsApiV1SkillsGet",
     "ListSodRulesApiV1ExtGrcSodRulesGetResponseListSodRulesApiV1ExtGrcSodRulesGet",
@@ -2392,6 +2451,10 @@ __all__ = (
     "OauthCallbackApiV1ConnectionsOauthCallbackGetResponseOauthCallbackApiV1ConnectionsOauthCallbackGet",
     "ObservabilityOverviewApiV1ObservabilityOverviewGetResponseObservabilityOverviewApiV1ObservabilityOverviewGet",
     "OpenapiDocumentApiV1OpenapiJsonGetResponseOpenapiDocumentApiV1OpenapiJsonGet",
+    "OpenApiImport",
+    "OpenApiImportDocumentType0",
+    "OpenApiPreview",
+    "OpenApiPreviewDocumentType0",
     "OpenEthicsApiV1ExtGrcEthicsCasesPostBody",
     "OpenEthicsApiV1ExtGrcEthicsCasesPostResponseOpenEthicsApiV1ExtGrcEthicsCasesPost",
     "OpenInspectionApiV1ExtGrcInspectionsPostBody",
@@ -2443,6 +2506,7 @@ __all__ = (
     "PatchSecretApiV1SecretsSecretIdPatchResponsePatchSecretApiV1SecretsSecretIdPatch",
     "PatchServerApiV1ToolServersServerIdPatchResponsePatchServerApiV1ToolServersServerIdPatch",
     "PatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatchResponsePatchServiceAccountApiV1ServiceAccountsServiceAccountIdPatch",
+    "PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchResponsePatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatch",
     "PatchSkillApiV1SkillsSkillIdPatchResponsePatchSkillApiV1SkillsSkillIdPatch",
     "PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchBody",
     "PatchSodRuleApiV1ExtGrcSodRulesRuleIdPatchResponsePatchSodRuleApiV1ExtGrcSodRulesRuleIdPatch",
@@ -2470,6 +2534,8 @@ __all__ = (
     "PolicyPatch",
     "PostMessageApiV1ConversationsConversationIdMessagesPostResponsePostMessageApiV1ConversationsConversationIdMessagesPost",
     "PreviewBody",
+    "PreviewDescribedToolApiV1DescribedToolsPreviewPostResponsePreviewDescribedToolApiV1DescribedToolsPreviewPost",
+    "PreviewOpenapiApiV1OpenapiImportsPreviewPostResponsePreviewOpenapiApiV1OpenapiImportsPreviewPost",
     "PreviewScheduleApiV1RoutinesPreviewSchedulePostResponsePreviewScheduleApiV1RoutinesPreviewSchedulePost",
     "ProbeBody",
     "ProviderBody",
@@ -2493,6 +2559,7 @@ __all__ = (
     "ReadSessionApiV1BuilderSessionsSessionIdGetResponseReadSessionApiV1BuilderSessionsSessionIdGet",
     "ReasonBody",
     "RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost",
+    "RefreshServerApiV1ToolServersServerIdRefreshPostResponseRefreshServerApiV1ToolServersServerIdRefreshPost",
     "RegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePostResponseRegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePost",
     "ReindexBody",
     "ReindexBodyChunkingType0",
@@ -2523,9 +2590,11 @@ __all__ = (
     "RollbackAgentApiV1AgentsAgentIdRollbackPostResponseRollbackAgentApiV1AgentsAgentIdRollbackPost",
     "RollbackBody",
     "RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost",
+    "RotateBody",
     "RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponseRotateCallbackApiV1TenantRunCallbackSecretRotatePost",
     "RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostResponseRotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPost",
     "RotateSecretApiV1SecretsSecretIdRotatePostResponseRotateSecretApiV1SecretsSecretIdRotatePost",
+    "RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponseRotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePost",
     "RoutineBody",
     "RoutineBodyBudgetType0",
     "RoutinePatch",
@@ -2534,6 +2603,7 @@ __all__ = (
     "RunControlTestApiV1ExtGrcControlTestsTestIdRunPostResponseRunControlTestApiV1ExtGrcControlTestsTestIdRunPost",
     "RunInputApiV1RunsRunIdInputPostResponseRunInputApiV1RunsRunIdInputPost",
     "RunRoutineApiV1RoutinesRoutineIdRunPostResponseRunRoutineApiV1RoutinesRoutineIdRunPost",
+    "SaveDescribedToolApiV1DescribedToolsPostResponseSaveDescribedToolApiV1DescribedToolsPost",
     "SaveDraftApiV1AgentsAgentIdVersionsDraftPutResponseSaveDraftApiV1AgentsAgentIdVersionsDraftPut",
     "ScheduleBody",
     "SchemasScimV2SchemasGetResponseSchemasScimV2SchemasGet",
@@ -2547,6 +2617,9 @@ __all__ = (
     "ServerPatch",
     "ServiceAccountCreate",
     "ServiceAccountPatch",
+    "ServiceConnectionBody",
+    "ServiceConnectionPatch",
+    "ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetResponseServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGet",
     "ServiceProviderConfigScimV2ServiceProviderConfigGetResponseServiceProviderConfigScimV2ServiceproviderconfigGet",
     "SessionApiV1AuthSessionGetResponseSessionApiV1AuthSessionGet",
     "SessionBody",
@@ -2604,6 +2677,7 @@ __all__ = (
     "TestConnectionApiV1DataConnectionsConnectionIdTestPostResponseTestConnectionApiV1DataConnectionsConnectionIdTestPost",
     "TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponseTestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPost",
     "TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost",
+    "TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponseTestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPost",
     "TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponseTestSourceApiV1KnowledgeSourcesSourceIdTestPost",
     "TestToolApiV1ToolsToolIdTestPostResponseTestToolApiV1ToolsToolIdTestPost",
     "TestWebhookApiV1WebhooksWebhookIdTestPostResponseTestWebhookApiV1WebhooksWebhookIdTestPost",

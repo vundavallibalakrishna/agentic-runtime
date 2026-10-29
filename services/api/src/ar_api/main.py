@@ -57,6 +57,7 @@ from ar_api.routers.scim import router as scim_router
 from ar_api.routers.scim_tokens import router as scim_tokens_router
 from ar_api.routers.secrets import router as secrets_router
 from ar_api.routers.service_accounts import router as service_accounts_router
+from ar_api.routers.service_connections import router as service_connections_router
 from ar_api.routers.signup import router as signup_router
 from ar_api.routers.skills import router as skills_router
 from ar_api.routers.sod import router as sod_router
@@ -64,6 +65,7 @@ from ar_api.routers.standing_approvals import router as standing_router
 from ar_api.routers.support_access import router as support_router
 from ar_api.routers.teams import router as teams_router
 from ar_api.routers.tenant import router as tenant_router
+from ar_api.routers.tool_imports import router as tool_imports_router
 from ar_api.routers.tool_servers import router as tool_servers_router
 from ar_api.routers.tools import router as tools_router
 from ar_api.routers.usage import router as usage_router
@@ -276,6 +278,8 @@ def create_application() -> FastAPI:
             tools_router,
             providers_router,
             connections_router,
+            service_connections_router,
+            tool_imports_router,
             data_connections_router,
             policies_router,
             approvals_router,

@@ -138,6 +138,15 @@ Spec: [03-secrets-credentials.md](../03-specs/03-secrets-credentials.md)
 | POST | [`/api/v1/connections/{provider_id}:start`](../03-specs/03-secrets-credentials.md#post-apiv1connectionsprovider_idstart) | `connections:manage_own` | 3. Public API |
 | GET | [`/api/v1/connections/oauth/callback`](../03-specs/03-secrets-credentials.md#get-apiv1connectionsoauthcallback) | `connections:manage_own` | 3. Public API |
 | DELETE | [`/api/v1/connections/{grant_id}`](../03-specs/03-secrets-credentials.md#delete-apiv1connectionsgrant_id) | `connections:manage_own` | 3. Public API |
+| GET | [`/api/v1/service-connections`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| POST | [`/api/v1/service-connections`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| GET | [`/api/v1/service-connections/oauth/callback`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| GET | [`/api/v1/service-connections/{connection_id}`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| PATCH | [`/api/v1/service-connections/{connection_id}`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| POST | [`/api/v1/service-connections/{connection_id}:rotate`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| POST | [`/api/v1/service-connections/{connection_id}:test`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| POST | [`/api/v1/service-connections/{connection_id}:authorize`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| DELETE | [`/api/v1/service-connections/{connection_id}`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
 
 ## Spec 04: Model gateway (`model-gateway`) and model registry (`ar_domain.models`)
 
@@ -252,7 +261,12 @@ Spec: [08-tool-registry-mcp.md](../03-specs/08-tool-registry-mcp.md)
 | POST | [`/api/v1/tool-servers/{server_id}/versions/{version_id}:submit`](../03-specs/08-tool-registry-mcp.md#post-apiv1tool-serversserver_idversionsversion_idsubmit) | `tools:create` | 3. Public API (served by `api`) |
 | POST | [`/api/v1/tool-servers/{server_id}/versions/{version_id}:approve`](../03-specs/08-tool-registry-mcp.md#post-apiv1tool-serversserver_idversionsversion_idapprove) | `tools:review` | 3. Public API (served by `api`) |
 | POST | [`/api/v1/tool-servers/{server_id}/versions/{version_id}:reject`](../03-specs/08-tool-registry-mcp.md#post-apiv1tool-serversserver_idversionsversion_idreject) | `tools:review` | 3. Public API (served by `api`) |
+| POST | [`/api/v1/tool-servers/{server_id}:refresh`](../03-specs/08-tool-registry-mcp.md) | `tools:create` | 3. Public API (served by `api`) |
 | POST | [`/api/v1/tool-servers/{server_id}:deprecate`](../03-specs/08-tool-registry-mcp.md#post-apiv1tool-serversserver_iddeprecate) | `tools:create` | 3. Public API (served by `api`) |
+| POST | [`/api/v1/openapi-imports:preview`](../03-specs/08-tool-registry-mcp.md) | `tools:create` | 3. Public API (served by `api`) |
+| POST | [`/api/v1/openapi-imports`](../03-specs/08-tool-registry-mcp.md) | `tools:create` | 3. Public API (served by `api`) |
+| POST | [`/api/v1/described-tools:preview`](../03-specs/08-tool-registry-mcp.md) | `tools:create` | 3. Public API (served by `api`) |
+| POST | [`/api/v1/described-tools`](../03-specs/08-tool-registry-mcp.md) | `tools:create` | 3. Public API (served by `api`) |
 | POST | [`/api/v1/tool-servers/{server_id}:disable`](../03-specs/08-tool-registry-mcp.md#post-apiv1tool-serversserver_iddisable) | `tools:disable` | 3. Public API (served by `api`) |
 | POST | [`/api/v1/tool-servers/{server_id}:enable`](../03-specs/08-tool-registry-mcp.md#post-apiv1tool-serversserver_idenable) | `tools:disable` | 3. Public API (served by `api`) |
 | GET | [`/api/v1/tools`](../03-specs/08-tool-registry-mcp.md#get-apiv1tools) | `tools:read` | 3. Public API (served by `api`) |

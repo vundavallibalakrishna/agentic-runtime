@@ -10,7 +10,7 @@ from temporalio.service import RPCError
 
 from ar_api.actors import actor_from
 from ar_api.deps import expose, require_permission
-from ar_common.errors import ArError, ErrorCode, NotFoundError, UnavailableError
+from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, UnavailableError
 from ar_common.sandboxkit import download_headers
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.access import can_edit
@@ -297,7 +297,11 @@ async def create_alias(body: AliasBody, request: Request) -> dict[str, object]:
         platform=False,
         fallback_model_ids=body.fallback_model_ids,
     )
-    await _persist_alias(service, created, principal)
+    try:
+        await _persist_alias(service, created, principal)
+    except ConflictError:
+        service.aliases.pop(uuid.UUID(str(created["id"])), None)
+        raise
     return created
 
 

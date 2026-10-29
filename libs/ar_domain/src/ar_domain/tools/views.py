@@ -31,6 +31,7 @@ def server_view(store: Any, row: dict[str, object]) -> dict[str, object]:
         "scope": "platform" if row.get("tenant_id") is None else "tenant",
         "status": row["status"],
         "disabled": row.get("disabled_at") is not None,
+        "last_error": row.get("last_error"),
         "owner": None if owner_id is None else {"id": str(owner_id)},
         "owner_team": None,
         "current_version": current,
@@ -100,15 +101,42 @@ def tool_summary(
             "slug": str(server["slug"]),
             "name": str(server["name"]),
         }
+    version_row = None
+    if isinstance(server, dict):
+        current = server.get("current_version_id")
+        found = store.tool_server_versions.get(current)
+        version_row = found if isinstance(found, dict) else None
+    config = version_row.get("config") if isinstance(version_row, dict) else {}
+    allow = config.get("allow_hosts") if isinstance(config, dict) else []
+    calls_book = getattr(store, "tool_calls", {})
+    calls = sum(
+        1
+        for row in calls_book.values()
+        if isinstance(row, dict) and row.get("tool_id") == tool.get("id")
+    )
     return {
         "tool_id": str(tool["id"]),
         "tool_version_id": str(version["id"]),
+        "server_version_id": str(version.get("tool_server_version_id") or ""),
         "qualified_name": version.get("qualified_name"),
         "title": version.get("title") or "",
         "description": version.get("description") or "",
         "risk_class": version.get("risk_class"),
         "server": server_body,
+        "source": _source(
+            server if isinstance(server, dict) else {}, config if isinstance(config, dict) else {}
+        ),
+        "status": "disabled"
+        if tool.get("disabled_at") is not None
+        else str((server or {}).get("status") or ""),
         "disabled": tool.get("disabled_at") is not None,
+        "last_error": tool.get("last_error") or (version_row or {}).get("discovery_error"),
+        "calls": calls,
+        "timeout_s": version.get("timeout_s"),
+        "rate_limit_per_minute": version.get("rate_limit_per_minute"),
+        "max_result_bytes": version.get("max_result_bytes"),
+        "egress": allow if isinstance(allow, list) else [],
+        "definition_version": None if version_row is None else version_row.get("version"),
     }
 
 
@@ -153,6 +181,19 @@ def list_calls(
             continue
         rows.append(call_view(row))
     return rows
+
+
+def _source(server: dict[str, object], config: dict[str, object]) -> str:
+    if server.get("tenant_id") is None or server.get("kind") == "builtin":
+        return "builtin"
+    if config.get("source") == "description":
+        return "custom"
+    kind = str(server.get("kind") or "")
+    if kind == "remote_mcp":
+        return "mcp"
+    if kind == "openapi":
+        return "openapi"
+    return kind or "builtin"
 
 
 def _count(store: Any, server_id: object) -> int:

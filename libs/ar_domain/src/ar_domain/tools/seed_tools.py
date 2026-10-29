@@ -849,7 +849,8 @@ def _general_tools() -> list[dict[str, object]]:
             "Call an HTTP API",
             "Send an HTTP request. GET and HEAD run immediately. "
             "Any other method waits for approval. "
-            "Pass auth.secretName to use a stored secret. The secret value is never shown.",
+            "Pass auth.connection to use a named connection, or auth.secretName for a secret. "
+            "The secret value is never shown.",
             {
                 "type": "object",
                 "properties": {
@@ -864,6 +865,7 @@ def _general_tools() -> list[dict[str, object]]:
                         "properties": {
                             "type": {"type": "string"},
                             "secretName": {"type": "string"},
+                            "connection": {"type": "string"},
                             "header": {"type": "string"},
                         },
                     },

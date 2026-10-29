@@ -9,6 +9,7 @@ const apiOrigin = apiProxyUrl;
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  ...(process.env.AR_NEXT_DIST ? { distDir: process.env.AR_NEXT_DIST } : {}),
   agentRules: false,
   transpilePackages: ["@ar/api-client"],
   async rewrites() {

@@ -13,9 +13,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
-from ar_common.errors import ArError, ErrorCode
+from ar_common.errors import ArError, ConflictError, ErrorCode
 from ar_common.settings import get_settings
 from ar_domain.audit.actions import AuditAction
 from ar_domain.audit.service import record
@@ -197,39 +198,50 @@ async def save_alias(
     tenant_id = row.get("tenant_id")
     owner = tenant_id if isinstance(tenant_id, uuid.UUID) else None
     primary = uuid.UUID(str(row["primary_model_id"]))
-    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
-        existing = await session.get(ModelAlias, alias_id)
-        action = (
-            AuditAction.MODEL_ALIAS_UPDATED
-            if existing is not None
-            else AuditAction.MODEL_ALIAS_CREATED
-        )
-        if existing is None:
-            session.add(
-                ModelAlias(
-                    id=alias_id,
-                    tenant_id=owner,
-                    alias=str(row.get("alias") or ""),
-                    kind=str(row.get("kind") or "chat"),
-                    primary_model_id=primary,
-                    fallback_model_ids=[],
-                    traffic_split={},
-                    default_params={"temperature": 0.2},
-                    status="active",
-                )
+    name = str(row.get("alias") or "")
+    try:
+        async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+            existing = await session.get(ModelAlias, alias_id)
+            action = (
+                AuditAction.MODEL_ALIAS_UPDATED
+                if existing is not None
+                else AuditAction.MODEL_ALIAS_CREATED
             )
-        else:
-            existing.primary_model_id = primary
-        await record(
-            session,
-            tenant_id=owner,
-            actor_type=_actor(actor_type),
-            actor_id=actor_id,
-            action=action,
-            target_type="model_alias",
-            target_id=str(alias_id),
-            detail={"alias": row.get("alias")},
-        )
+            if existing is None:
+                prior = await session.scalar(
+                    select(ModelAlias).where(
+                        ModelAlias.alias == name, ModelAlias.tenant_id == owner
+                    )
+                )
+                if prior is not None:
+                    raise ConflictError("a model alias with that name already exists")
+                session.add(
+                    ModelAlias(
+                        id=alias_id,
+                        tenant_id=owner,
+                        alias=name,
+                        kind=str(row.get("kind") or "chat"),
+                        primary_model_id=primary,
+                        fallback_model_ids=[],
+                        traffic_split={},
+                        default_params={"temperature": 0.2},
+                        status="active",
+                    )
+                )
+            else:
+                existing.primary_model_id = primary
+            await record(
+                session,
+                tenant_id=owner,
+                actor_type=_actor(actor_type),
+                actor_id=actor_id,
+                action=action,
+                target_type="model_alias",
+                target_id=str(alias_id),
+                detail={"alias": name},
+            )
+    except IntegrityError as exc:
+        raise ConflictError("a model alias with that name already exists") from exc
 
 
 async def read_api_key(engine: AsyncEngine, provider_id: uuid.UUID) -> str:

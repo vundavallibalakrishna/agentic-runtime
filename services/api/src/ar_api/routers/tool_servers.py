@@ -202,6 +202,15 @@ async def reject(
 
 
 @router.post(
+    "/api/v1/tool-servers/{server_id}:refresh",
+    dependencies=[Depends(require_permission("tools:create"))],
+)
+@expose(public=False, permission="tools:create")
+async def refresh_server(server_id: uuid.UUID, request: Request) -> dict[str, object]:
+    return _registry(request).refresh(actor(request), server_id)
+
+
+@router.post(
     "/api/v1/tool-servers/{server_id}:deprecate",
     dependencies=[Depends(require_permission("tools:create"))],
 )

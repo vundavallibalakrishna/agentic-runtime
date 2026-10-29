@@ -70,6 +70,10 @@ def dispatch(  # noqa: PLR0911, PLR0912
         from ar_domain.tools.general import dispatch_general  # noqa: PLC0415
 
         return dispatch_general(store, name, arguments)
+    if endpoint == "builtin://http_operation":
+        from ar_domain.tools.http_tools import execute_operation  # noqa: PLC0415
+
+        return execute_operation(store, arguments)
     if endpoint == "builtin://control":
         return _control(store, name, arguments)
     if endpoint == "builtin://knowledge":

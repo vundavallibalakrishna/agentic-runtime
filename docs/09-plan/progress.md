@@ -215,3 +215,8 @@ M21-T04 | done | 570ad4f | agent form, editor limits, model connection, real Qwe
 M21b-T01 | done | 709dde5 | per-run sandbox and workspace files
 M21b-T02 | done | 709dde5 | fetch, search provider, HTTP with approval
 M21b-T03 | done | 709dde5 | builder toggles, tool cards, Qwen proof
+
+M22-T01 | done | f4ba7d1 | named encrypted connections
+M22-T02 | done | f4ba7d1 | MCP client, approval and untrusted results
+M22-T03 | done | f4ba7d1 | OpenAPI import and described tools
+M22-T04 | done | f4ba7d1 | registry, builder, Qwen proof

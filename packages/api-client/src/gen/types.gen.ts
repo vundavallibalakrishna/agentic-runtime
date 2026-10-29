@@ -671,6 +671,16 @@ export type ConnectionPatch = {
 };
 
 /**
+ * ConnectionTestBody
+ */
+export type ConnectionTestBody = {
+    /**
+     * Url
+     */
+    url?: string;
+};
+
+/**
  * ConstraintBody
  */
 export type ConstraintBody = {
@@ -906,6 +916,48 @@ export type DeliveryBody = {
     config?: {
         [key: string]: string;
     };
+};
+
+/**
+ * DescribeBody
+ */
+export type DescribeBody = {
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Slug
+     */
+    slug?: string;
+    /**
+     * Method
+     */
+    method?: string;
+    /**
+     * Url
+     */
+    url?: string;
+    /**
+     * Connection
+     */
+    connection?: string;
+    /**
+     * Parameters
+     */
+    parameters?: Array<string>;
+    /**
+     * Returns
+     */
+    returns?: string;
+    /**
+     * Title
+     */
+    title?: string;
 };
 
 /**
@@ -1743,6 +1795,66 @@ export type NotesBody = {
 };
 
 /**
+ * OpenApiImport
+ */
+export type OpenApiImport = {
+    /**
+     * Slug
+     */
+    slug: string;
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Description
+     */
+    description?: string;
+    /**
+     * Document
+     */
+    document?: {
+        [key: string]: unknown;
+    } | string | null;
+    /**
+     * Url
+     */
+    url?: string;
+    /**
+     * Baseurl
+     */
+    baseUrl?: string;
+    /**
+     * Operations
+     */
+    operations?: Array<string>;
+    /**
+     * Connection
+     */
+    connection?: string;
+};
+
+/**
+ * OpenApiPreview
+ */
+export type OpenApiPreview = {
+    /**
+     * Document
+     */
+    document?: {
+        [key: string]: unknown;
+    } | string | null;
+    /**
+     * Url
+     */
+    url?: string;
+    /**
+     * Baseurl
+     */
+    baseUrl?: string;
+};
+
+/**
  * PlanBody
  */
 export type PlanBody = {
@@ -2113,6 +2225,16 @@ export type RollbackBody = {
 };
 
 /**
+ * RotateBody
+ */
+export type RotateBody = {
+    /**
+     * Secret
+     */
+    secret: string;
+};
+
+/**
  * RoutineBody
  */
 export type RoutineBody = {
@@ -2387,6 +2509,94 @@ export type ServiceAccountPatch = {
      * Allowonbehalfof
      */
     allowOnBehalfOf?: boolean | null;
+};
+
+/**
+ * ServiceConnectionBody
+ */
+export type ServiceConnectionBody = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Kind
+     */
+    kind: string;
+    /**
+     * Secret
+     */
+    secret?: string;
+    /**
+     * Headername
+     */
+    headerName?: string;
+    /**
+     * Username
+     */
+    username?: string;
+    /**
+     * Tokenurl
+     */
+    tokenUrl?: string;
+    /**
+     * Authorizeurl
+     */
+    authorizeUrl?: string;
+    /**
+     * Clientid
+     */
+    clientId?: string;
+    /**
+     * Scopes
+     */
+    scopes?: Array<string>;
+    /**
+     * Probeurl
+     */
+    probeUrl?: string;
+    /**
+     * Expiresat
+     */
+    expiresAt?: string;
+};
+
+/**
+ * ServiceConnectionPatch
+ */
+export type ServiceConnectionPatch = {
+    /**
+     * Headername
+     */
+    headerName?: string | null;
+    /**
+     * Username
+     */
+    username?: string | null;
+    /**
+     * Tokenurl
+     */
+    tokenUrl?: string | null;
+    /**
+     * Authorizeurl
+     */
+    authorizeUrl?: string | null;
+    /**
+     * Clientid
+     */
+    clientId?: string | null;
+    /**
+     * Scopes
+     */
+    scopes?: Array<string> | null;
+    /**
+     * Probeurl
+     */
+    probeUrl?: string | null;
+    /**
+     * Expiresat
+     */
+    expiresAt?: string | null;
 };
 
 /**
@@ -9417,6 +9627,40 @@ export type RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponses =
 
 export type RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponse = RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponses[keyof RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponses];
 
+export type RefreshServerApiV1ToolServersServerIdRefreshPostData = {
+    body?: never;
+    path: {
+        /**
+         * Server Id
+         */
+        server_id: string;
+    };
+    query?: never;
+    url: '/api/v1/tool-servers/{server_id}:refresh';
+};
+
+export type RefreshServerApiV1ToolServersServerIdRefreshPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RefreshServerApiV1ToolServersServerIdRefreshPostError = RefreshServerApiV1ToolServersServerIdRefreshPostErrors[keyof RefreshServerApiV1ToolServersServerIdRefreshPostErrors];
+
+export type RefreshServerApiV1ToolServersServerIdRefreshPostResponses = {
+    /**
+     * Response Refresh Server Api V1 Tool Servers  Server Id  Refresh Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RefreshServerApiV1ToolServersServerIdRefreshPostResponse = RefreshServerApiV1ToolServersServerIdRefreshPostResponses[keyof RefreshServerApiV1ToolServersServerIdRefreshPostResponses];
+
 export type DeprecateApiV1ToolServersServerIdDeprecatePostData = {
     body?: never;
     path: {
@@ -10019,6 +10263,413 @@ export type DisconnectApiV1ConnectionsGrantIdDeleteResponses = {
 };
 
 export type DisconnectApiV1ConnectionsGrantIdDeleteResponse = DisconnectApiV1ConnectionsGrantIdDeleteResponses[keyof DisconnectApiV1ConnectionsGrantIdDeleteResponses];
+
+export type ListServiceConnectionsApiV1ServiceConnectionsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/service-connections';
+};
+
+export type ListServiceConnectionsApiV1ServiceConnectionsGetResponses = {
+    /**
+     * Response List Service Connections Api V1 Service Connections Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListServiceConnectionsApiV1ServiceConnectionsGetResponse = ListServiceConnectionsApiV1ServiceConnectionsGetResponses[keyof ListServiceConnectionsApiV1ServiceConnectionsGetResponses];
+
+export type CreateServiceConnectionApiV1ServiceConnectionsPostData = {
+    body: ServiceConnectionBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/service-connections';
+};
+
+export type CreateServiceConnectionApiV1ServiceConnectionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateServiceConnectionApiV1ServiceConnectionsPostError = CreateServiceConnectionApiV1ServiceConnectionsPostErrors[keyof CreateServiceConnectionApiV1ServiceConnectionsPostErrors];
+
+export type CreateServiceConnectionApiV1ServiceConnectionsPostResponses = {
+    /**
+     * Response Create Service Connection Api V1 Service Connections Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreateServiceConnectionApiV1ServiceConnectionsPostResponse = CreateServiceConnectionApiV1ServiceConnectionsPostResponses[keyof CreateServiceConnectionApiV1ServiceConnectionsPostResponses];
+
+export type ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Code
+         */
+        code: string;
+        /**
+         * State
+         */
+        state: string;
+    };
+    url: '/api/v1/service-connections/oauth/callback';
+};
+
+export type ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetError = ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetErrors[keyof ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetErrors];
+
+export type ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetResponses = {
+    /**
+     * Response Service Oauth Callback Api V1 Service Connections Oauth Callback Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetResponse = ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetResponses[keyof ServiceOauthCallbackApiV1ServiceConnectionsOauthCallbackGetResponses];
+
+export type DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Connection Id
+         */
+        connection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/service-connections/{connection_id}';
+};
+
+export type DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteError = DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteErrors[keyof DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteErrors];
+
+export type DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteResponses = {
+    /**
+     * Response Delete Service Connection Api V1 Service Connections  Connection Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteResponse = DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteResponses[keyof DeleteServiceConnectionApiV1ServiceConnectionsConnectionIdDeleteResponses];
+
+export type GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Connection Id
+         */
+        connection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/service-connections/{connection_id}';
+};
+
+export type GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetError = GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetErrors[keyof GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetErrors];
+
+export type GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetResponses = {
+    /**
+     * Response Get Service Connection Api V1 Service Connections  Connection Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetResponse = GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetResponses[keyof GetServiceConnectionApiV1ServiceConnectionsConnectionIdGetResponses];
+
+export type PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchData = {
+    body: ServiceConnectionPatch;
+    path: {
+        /**
+         * Connection Id
+         */
+        connection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/service-connections/{connection_id}';
+};
+
+export type PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchError = PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchErrors[keyof PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchErrors];
+
+export type PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchResponses = {
+    /**
+     * Response Patch Service Connection Api V1 Service Connections  Connection Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchResponse = PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchResponses[keyof PatchServiceConnectionApiV1ServiceConnectionsConnectionIdPatchResponses];
+
+export type RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostData = {
+    body: RotateBody;
+    path: {
+        /**
+         * Connection Id
+         */
+        connection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/service-connections/{connection_id}:rotate';
+};
+
+export type RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostError = RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostErrors[keyof RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostErrors];
+
+export type RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponses = {
+    /**
+     * Response Rotate Service Connection Api V1 Service Connections  Connection Id  Rotate Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponse = RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponses[keyof RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponses];
+
+export type TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostData = {
+    body: ConnectionTestBody;
+    path: {
+        /**
+         * Connection Id
+         */
+        connection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/service-connections/{connection_id}:test';
+};
+
+export type TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostError = TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostErrors[keyof TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostErrors];
+
+export type TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponses = {
+    /**
+     * Response Test Service Connection Api V1 Service Connections  Connection Id  Test Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponse = TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponses[keyof TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponses];
+
+export type AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostData = {
+    body?: never;
+    path: {
+        /**
+         * Connection Id
+         */
+        connection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/service-connections/{connection_id}:authorize';
+};
+
+export type AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostError = AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostErrors[keyof AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostErrors];
+
+export type AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostResponses = {
+    /**
+     * Response Authorize Service Connection Api V1 Service Connections  Connection Id  Authorize Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostResponse = AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostResponses[keyof AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostResponses];
+
+export type PreviewOpenapiApiV1OpenapiImportsPreviewPostData = {
+    body: OpenApiPreview;
+    path?: never;
+    query?: never;
+    url: '/api/v1/openapi-imports:preview';
+};
+
+export type PreviewOpenapiApiV1OpenapiImportsPreviewPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PreviewOpenapiApiV1OpenapiImportsPreviewPostError = PreviewOpenapiApiV1OpenapiImportsPreviewPostErrors[keyof PreviewOpenapiApiV1OpenapiImportsPreviewPostErrors];
+
+export type PreviewOpenapiApiV1OpenapiImportsPreviewPostResponses = {
+    /**
+     * Response Preview Openapi Api V1 Openapi Imports Preview Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PreviewOpenapiApiV1OpenapiImportsPreviewPostResponse = PreviewOpenapiApiV1OpenapiImportsPreviewPostResponses[keyof PreviewOpenapiApiV1OpenapiImportsPreviewPostResponses];
+
+export type ImportOpenapiApiV1OpenapiImportsPostData = {
+    body: OpenApiImport;
+    path?: never;
+    query?: never;
+    url: '/api/v1/openapi-imports';
+};
+
+export type ImportOpenapiApiV1OpenapiImportsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportOpenapiApiV1OpenapiImportsPostError = ImportOpenapiApiV1OpenapiImportsPostErrors[keyof ImportOpenapiApiV1OpenapiImportsPostErrors];
+
+export type ImportOpenapiApiV1OpenapiImportsPostResponses = {
+    /**
+     * Response Import Openapi Api V1 Openapi Imports Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ImportOpenapiApiV1OpenapiImportsPostResponse = ImportOpenapiApiV1OpenapiImportsPostResponses[keyof ImportOpenapiApiV1OpenapiImportsPostResponses];
+
+export type PreviewDescribedToolApiV1DescribedToolsPreviewPostData = {
+    body: DescribeBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/described-tools:preview';
+};
+
+export type PreviewDescribedToolApiV1DescribedToolsPreviewPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PreviewDescribedToolApiV1DescribedToolsPreviewPostError = PreviewDescribedToolApiV1DescribedToolsPreviewPostErrors[keyof PreviewDescribedToolApiV1DescribedToolsPreviewPostErrors];
+
+export type PreviewDescribedToolApiV1DescribedToolsPreviewPostResponses = {
+    /**
+     * Response Preview Described Tool Api V1 Described Tools Preview Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PreviewDescribedToolApiV1DescribedToolsPreviewPostResponse = PreviewDescribedToolApiV1DescribedToolsPreviewPostResponses[keyof PreviewDescribedToolApiV1DescribedToolsPreviewPostResponses];
+
+export type SaveDescribedToolApiV1DescribedToolsPostData = {
+    body: DescribeBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/described-tools';
+};
+
+export type SaveDescribedToolApiV1DescribedToolsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveDescribedToolApiV1DescribedToolsPostError = SaveDescribedToolApiV1DescribedToolsPostErrors[keyof SaveDescribedToolApiV1DescribedToolsPostErrors];
+
+export type SaveDescribedToolApiV1DescribedToolsPostResponses = {
+    /**
+     * Response Save Described Tool Api V1 Described Tools Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type SaveDescribedToolApiV1DescribedToolsPostResponse = SaveDescribedToolApiV1DescribedToolsPostResponses[keyof SaveDescribedToolApiV1DescribedToolsPostResponses];
 
 export type ListConnectionsApiV1DataConnectionsGetData = {
     body?: never;

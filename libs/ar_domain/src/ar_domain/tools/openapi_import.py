@@ -1,5 +1,6 @@
 """Turn an OpenAPI 3 document into tool definitions."""
 
+import hashlib
 import re
 from typing import cast
 
@@ -27,9 +28,61 @@ def load_document(raw: bytes | str | dict[str, object]) -> dict[str, object]:
     return cast("dict[str, object]", loaded)
 
 
+def require_openapi3(document: dict[str, object]) -> None:
+    """Reject Swagger 2 and other documents."""
+    version = str(document.get("openapi") or "")
+    if not version.startswith("3."):
+        raise OpenApiError("only OpenAPI 3.x documents are supported")
+
+
+def server_url(document: dict[str, object], spec_url: str = "") -> str:
+    """Absolute URL from ``servers[0]``, when the document has one."""
+    servers = document.get("servers")
+    if not isinstance(servers, list) or not servers or not isinstance(servers[0], dict):
+        return ""
+    url = str(servers[0].get("url") or "")
+    if url.startswith(("http://", "https://")):
+        return url
+    if url.startswith("/") and spec_url.startswith(("http://", "https://")):
+        from urllib.parse import urljoin  # noqa: PLC0415
+
+        return urljoin(spec_url, url)
+    return ""
+
+
+def index_operations(document: dict[str, object], *, limit: int = 200) -> dict[str, object]:
+    """List operations without building every schema. Large specs stay selectable."""
+    require_openapi3(document)
+    rows: list[dict[str, str]] = []
+    paths = document.get("paths")
+    if not isinstance(paths, dict):
+        raise OpenApiError("the document has no paths")
+    for path, item in paths.items():
+        if not isinstance(item, dict):
+            continue
+        for method, operation in item.items():
+            if method.lower() not in {"get", "post", "put", "patch", "delete", "head"}:
+                continue
+            if not isinstance(operation, dict):
+                continue
+            operation_id = str(operation.get("operationId") or f"{method}_{path}")
+            rows.append(
+                {
+                    "operation_id": operation_id,
+                    "method": method.upper(),
+                    "path": str(path),
+                    "summary": str(operation.get("summary") or "")[:180],
+                }
+            )
+    shown = rows[:limit]
+    return {"operations": shown, "total": len(rows), "truncated": len(rows) > limit}
+
+
 def operations_from(
     document: dict[str, object],
     selected: list[str] | None = None,
+    *,
+    synthesize: bool = False,
 ) -> list[dict[str, object]]:
     """Return one tool dict per selected operation."""
     paths = document.get("paths")
@@ -47,7 +100,9 @@ def operations_from(
                 continue
             operation_id = str(operation.get("operationId") or "")
             if not operation_id:
-                raise OpenApiError(f"{method.upper()} {path} has no operationId")
+                if not synthesize:
+                    raise OpenApiError(f"{method.upper()} {path} has no operationId")
+                operation_id = f"{method}_{path}"
             if chosen and operation_id not in chosen:
                 continue
             name = _tool_name(operation_id)
@@ -82,6 +137,9 @@ def _tool_name(operation_id: str) -> str:
     while "__" in cleaned:
         cleaned = cleaned.replace("__", "_")
     cleaned = cleaned.strip("_")
+    if len(cleaned) > 48:
+        digest = hashlib.sha256(cleaned.encode()).hexdigest()[:6]
+        cleaned = f"{cleaned[:41].rstrip('_')}_{digest}"
     if not name_ok(cleaned):
         raise OpenApiError(f"operationId {operation_id} is not a tool name")
     return cleaned

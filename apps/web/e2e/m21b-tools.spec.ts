@@ -43,7 +43,7 @@ test("general tools are visible in the catalogue, the builder and chat", async (
   await signIn(page);
   await page.goto("/tools");
   await expect(page.getByRole("heading", { name: "General tools" })).toBeVisible();
-  await expect(page.getByText("general.code")).toBeVisible();
+  await expect(page.getByText("general.code").first()).toBeVisible();
   await capture(page, "tools");
 
   await page.goto("/agents/new");
@@ -74,7 +74,7 @@ test("general tools are visible in the catalogue, the builder and chat", async (
   const composer = page.getByRole("textbox").last();
   await composer.fill('/tool general.code {"source":"print(6*7)"}');
   await composer.press("Enter");
-  await expect(page.getByText("general.code")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("general.code").first()).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("42", { exact: true })).toBeVisible({ timeout: 20_000 });
   await capture(page, "chat-code");
 

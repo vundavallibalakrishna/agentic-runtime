@@ -91,7 +91,7 @@ test("build, publish, roll back and import a bundle", async ({ page }) => {
   const exported = await page.locator("pre").innerText();
   await page.getByLabel("Import bundle").fill(exported);
   await page.getByRole("button", { name: "Preview import" }).click();
-  await expect(page.getByText(/unchanged|new_version|create/)).toBeVisible();
+  await expect(page.getByText(/\b(unchanged|new_version|create)\b/)).toBeVisible();
 });
 
 test("catalogue, builder and editor in light and dark", async ({ page }) => {

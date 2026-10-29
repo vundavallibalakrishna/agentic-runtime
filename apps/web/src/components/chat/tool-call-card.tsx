@@ -84,7 +84,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           ))}
         </ul>
       ) : null}
-      {kind === "http" ? (
+      {kind === "http" || kind === "mcp" || kind === "openapi" || kind === "described" ? (
         <div className="mt-2">
           <p>
             {text(presentation.method)} {text(presentation.url)}
@@ -122,6 +122,9 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       kind !== "fetch" &&
       kind !== "search" &&
       kind !== "http" &&
+      kind !== "mcp" &&
+      kind !== "openapi" &&
+      kind !== "described" &&
       preview ? (
         <p className="mt-1 whitespace-pre-wrap">{preview}</p>
       ) : null}
