@@ -163,9 +163,10 @@ def safe_command(argv: object) -> list[str]:
     if not resolved or not Path(resolved).is_file():
         raise RemoteError("stdio program was not found")
     path = str(Path(resolved).resolve())
-    prefixes = (sys.prefix, "/usr/", "/bin/")
-    if not (path.startswith("/usr/") or path.startswith("/bin/") or path.startswith(sys.prefix)):
-        del prefixes
+    interpreter = str(Path(sys.executable).resolve())
+    if path != interpreter and not (
+        path.startswith("/usr/") or path.startswith("/bin/") or path.startswith(sys.prefix)
+    ):
         raise RemoteError("stdio programs must come from the interpreter or the system bin")
     return [path, *parts[1:]]
 

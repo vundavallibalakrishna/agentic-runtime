@@ -55,6 +55,67 @@ def test_service_connection_is_hidden_from_another_tenant() -> None:
     assert other_user.status_code == 404
 
 
+def test_connection_lifecycle_and_openapi_import() -> None:
+    client = _client()
+    created = client.post(
+        "/api/v1/service-connections",
+        json={"name": "notes", "kind": "bearer", "secret": "super-secret-token"},
+    )
+    assert created.status_code == 200, created.text
+    connection_id = created.json()["id"]
+    listed = client.get("/api/v1/service-connections")
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["name"] == "notes"
+    assert "super-secret-token" not in listed.text
+    patched = client.patch(
+        f"/api/v1/service-connections/{connection_id}",
+        json={"headerName": "X-Token"},
+    )
+    assert patched.status_code == 200, patched.text
+    rotated = client.post(
+        f"/api/v1/service-connections/{connection_id}:rotate",
+        json={"secret": "rotated-secret-token"},
+    )
+    assert rotated.status_code == 200, rotated.text
+    assert "rotated-secret-token" not in rotated.text
+    tested = client.post(
+        f"/api/v1/service-connections/{connection_id}:test",
+        json={"url": "ftp://example.com/health"},
+    )
+    assert tested.status_code == 200
+    assert tested.json()["ok"] is False
+    blocked = client.post(f"/api/v1/service-connections/{connection_id}:authorize")
+    assert blocked.status_code == 422
+    oauth = client.post(
+        "/api/v1/service-connections",
+        json={
+            "name": "userlogin",
+            "kind": "oauth_authorization_code",
+            "tokenUrl": "memory://tokens",
+            "authorizeUrl": "https://example.com/authorize",
+            "clientId": "ar",
+        },
+    )
+    assert oauth.status_code == 200, oauth.text
+    started = client.post(f"/api/v1/service-connections/{oauth.json()['id']}:authorize")
+    assert started.status_code == 200, started.text
+    granted = client.get(
+        "/api/v1/service-connections/oauth/callback",
+        params={"code": "good-code", "state": started.json()["state"]},
+    )
+    assert granted.status_code == 200, granted.text
+    assert granted.json()["status"] == "active"
+    deleted = client.delete(f"/api/v1/service-connections/{connection_id}")
+    assert deleted.status_code == 200
+    assert deleted.json()["deleted"] is True
+    imported = client.post(
+        "/api/v1/openapi-imports",
+        json={"slug": "notesapi", "name": "Notes", "document": SPEC},
+    )
+    assert imported.status_code == 200, imported.text
+    assert imported.json()["status"] == "approved"
+
+
 def test_openapi_preview_and_describe() -> None:
     client = _client()
     preview = client.post("/api/v1/openapi-imports:preview", json={"document": SPEC})
