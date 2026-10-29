@@ -362,7 +362,17 @@ def test_remote_client_and_pipeline_edges() -> None:
             )
         return httpx.Response(
             200,
-            json={"result": {"tools": [{"name": "ping", "inputSchema": {"type": "object"}}]}},
+            json={
+                "result": {
+                    "tools": [
+                        {
+                            "name": "ping",
+                            "inputSchema": {"type": "object"},
+                            "annotations": {"readOnlyHint": True},
+                        }
+                    ]
+                }
+            },
         )
 
     store.mcp_transport = httpx.MockTransport(send)
@@ -376,7 +386,7 @@ def test_remote_client_and_pipeline_edges() -> None:
     with pytest.raises(RemoteError):
         list_remote(store, "memory://echo")
     with pytest.raises(RemoteError):
-        list_remote(store, "https://127.0.0.1/mcp")
+        list_remote(store, "https://169.254.169.254/mcp")
     version = next(
         row for row in store.tool_versions.values() if row.get("qualified_name") == "files.list"
     )
@@ -462,7 +472,8 @@ def test_remote_client_and_pipeline_edges() -> None:
         }
     )
     assert remote_call["status"] == "succeeded"
-    assert remote_call["result_preview"] == "remote pong"
+    assert "remote pong" in remote_call["result_preview"]
+    assert "untrusted data" in remote_call["result_preview"]
 
 
 @pytest.mark.asyncio

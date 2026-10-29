@@ -567,15 +567,28 @@ def _auth_headers(  # noqa: PLR0911
     raw = arguments.get("auth")
     if not isinstance(raw, dict):
         return ({}, ""), None
+    connection = str(raw.get("connection") or "").strip()
+    if connection:
+        from ar_common.errors import ArError  # noqa: PLC0415
+        from ar_domain.tools.service_connections import headers_for  # noqa: PLC0415
+
+        try:
+            headers, secret = headers_for(
+                store, arguments.get("_tenant_id"), arguments.get("_user_id"), connection
+            )
+        except ArError as exc:
+            return ({}, ""), _error("credential_required", str(exc))
+        return (headers, secret), None
     name = str(raw.get("secret_name") or raw.get("secretName") or "").strip()
     if not name:
         return ({}, ""), _error("validation_failed", "auth.secretName is required")
-    secret = _named_secret(store, arguments.get("_tenant_id"), name)
-    if secret is None:
+    stored = _named_secret(store, arguments.get("_tenant_id"), name)
+    if stored is None:
         return ({}, ""), _error(
             "secret_not_found",
             f"No secret named {name} is available. Create it in secrets and retry.",
         )
+    secret = stored
     kind = str(raw.get("type") or "bearer").lower()
     header = str(raw.get("header") or "X-API-Key")
     if kind == "bearer":

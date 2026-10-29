@@ -110,6 +110,11 @@ def propose_risk(  # noqa: PLR0911
         if verb in {"POST", "PUT", "PATCH"}:
             return "W2"
         return "R1"
+    if kind == "remote_mcp":
+        # A server must mark a tool read-only. Anything else waits for approval.
+        if notes.get("readOnlyHint") is True:
+            return "R0"
+        return "W2"
     if notes.get("readOnlyHint") is True:
         return "R0"
     return "R1"

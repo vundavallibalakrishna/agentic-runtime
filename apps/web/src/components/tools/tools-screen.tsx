@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, api } from "@/lib/api";
 
+import { M22Panels } from "./m22-panels";
+
 type Row = Record<string, unknown>;
 
 const MODE_KEY = "ar-settings-mode";
@@ -33,6 +35,8 @@ export function ToolsScreen() {
   const [name, setName] = useState("Echo");
   const [address, setAddress] = useState("memory://echo");
   const [kind, setKind] = useState("remote_mcp");
+  const [transport, setTransport] = useState("streamable");
+  const [connectionName, setConnectionName] = useState("");
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -115,7 +119,18 @@ export function ToolsScreen() {
     setNotice("");
     setError("");
     try {
-      const endpoint = kind === "remote_mcp" ? address : undefined;
+      const config: Record<string, unknown> = kind === "sql" ? { dataConnectionId: address } : {};
+      let endpoint = kind === "remote_mcp" ? address : undefined;
+      if (kind === "remote_mcp" && connectionName.trim()) {
+        config.connection = connectionName.trim();
+      }
+      if (kind === "remote_mcp" && transport !== "streamable") {
+        config.transport = transport;
+      }
+      if (kind === "remote_mcp" && transport === "stdio") {
+        endpoint = "stdio://sandbox";
+        config.command = address.split(/\s+/).filter(Boolean);
+      }
       const created = await api<Row>("/api/v1/tool-servers", {
         method: "POST",
         body: JSON.stringify({
@@ -126,7 +141,7 @@ export function ToolsScreen() {
             version: "1.0.0",
             endpointUrl: endpoint,
             authMode: "none",
-            config: kind === "sql" ? { dataConnectionId: address } : {},
+            config,
           },
         }),
       });
@@ -215,6 +230,27 @@ export function ToolsScreen() {
                   id="tool-address"
                   onChange={(event) => setAddress(event.target.value)}
                   value={address}
+                />
+              </label>
+              <label className="block text-sm" htmlFor="tool-transport">
+                {t("transport")}
+                <select
+                  className="mt-1 w-full rounded-md border border-[var(--border)] bg-transparent px-2 py-2"
+                  id="tool-transport"
+                  onChange={(event) => setTransport(event.target.value)}
+                  value={transport}
+                >
+                  <option value="streamable">{t("transportHttp")}</option>
+                  <option value="sse">{t("transportSse")}</option>
+                  <option value="stdio">{t("transportStdio")}</option>
+                </select>
+              </label>
+              <label className="block text-sm" htmlFor="tool-connection">
+                {t("importConnection")}
+                <Input
+                  id="tool-connection"
+                  onChange={(event) => setConnectionName(event.target.value)}
+                  value={connectionName}
                 />
               </label>
               {advanced ? (
@@ -325,6 +361,7 @@ export function ToolsScreen() {
             </form>
           </section>
 
+          <M22Panels onChanged={load} tools={tools} />
           <section>
             <h2 className="mb-2 text-lg font-medium">{t("calls")}</h2>
             {calls.length === 0 ? (

@@ -144,17 +144,27 @@ def run_isolated(
     timeout: int,
     network: bool,
     max_file_bytes: int = 1_048_576,
+    stdin: bytes | None = None,
 ) -> IsolatedRun:
-    """Run ``argv``. ``network`` is ignored by the process fallback."""
+    """Run ``argv``. ``network`` is ignored by the process fallback.
+
+    ``stdin`` is the only extra input. It is not copied into the environment.
+    """
     workspace = root / "workspace"
     workspace.mkdir(parents=True, exist_ok=True)
     (root / "tmp").mkdir(parents=True, exist_ok=True)
     env = scrubbed_env(workspace)
     if isolation_mode() == "namespace":
         return _namespace(
-            root, argv, env, timeout=timeout, network=network, max_file_bytes=max_file_bytes
+            root,
+            argv,
+            env,
+            timeout=timeout,
+            network=network,
+            max_file_bytes=max_file_bytes,
+            stdin=stdin,
         )
-    return _process(workspace, argv, env, timeout=timeout)
+    return _process(workspace, argv, env, timeout=timeout, stdin=stdin)
 
 
 def _probe() -> bool:
@@ -215,6 +225,7 @@ def _namespace(
     timeout: int,
     network: bool,
     max_file_bytes: int,
+    stdin: bytes | None = None,
 ) -> IsolatedRun:
     binary = shutil.which("unshare") or "unshare"
     command = [
@@ -241,26 +252,42 @@ def _namespace(
             *argv,
         ]
     )
-    return _spawn(command, env, cwd=root / "workspace", timeout=timeout, mode="namespace")
+    return _spawn(
+        command, env, cwd=root / "workspace", timeout=timeout, mode="namespace", stdin=stdin
+    )
 
 
-def _process(workspace: Path, argv: list[str], env: dict[str, str], *, timeout: int) -> IsolatedRun:
-    return _spawn(argv, env, cwd=workspace, timeout=timeout, mode="process")
+def _process(
+    workspace: Path,
+    argv: list[str],
+    env: dict[str, str],
+    *,
+    timeout: int,
+    stdin: bytes | None = None,
+) -> IsolatedRun:
+    return _spawn(argv, env, cwd=workspace, timeout=timeout, mode="process", stdin=stdin)
 
 
 def _spawn(
-    command: list[str], env: dict[str, str], *, cwd: Path, timeout: int, mode: str
+    command: list[str],
+    env: dict[str, str],
+    *,
+    cwd: Path,
+    timeout: int,
+    mode: str,
+    stdin: bytes | None = None,
 ) -> IsolatedRun:
     proc = subprocess.Popen(  # noqa: S603
         command,
         cwd=cwd,
         env=env,
+        stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         start_new_session=True,
     )
     try:
-        out, err = proc.communicate(timeout=max(1, timeout) + 2)
+        out, err = proc.communicate(input=stdin, timeout=max(1, timeout) + 2)
     except subprocess.TimeoutExpired:
         os.killpg(proc.pid, signal.SIGKILL)
         out, err = proc.communicate()

@@ -74,8 +74,11 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:
     audit_log = getattr(store, "audit_log", [])
     audit_end = len(audit_log)
     audit_start = getattr(store, "_durable_audit_index", 0)
+    run_actions = {"run.planned", "tool.called", "run.retried", "run.checked"}
     audits = [
-        row for row in audit_log[audit_start:audit_end] if row.get("target_type") == "routine"
+        row
+        for row in audit_log[audit_start:audit_end]
+        if row.get("target_type") == "routine" or row.get("action") in run_actions
     ]
     if not any(pending.values()) and not audits:
         return
@@ -1272,14 +1275,19 @@ async def _routine_audits(session: AsyncSession, rows: list[dict[str, Any]]) -> 
 
     for row in rows:
         tenant_id = as_uuid(row.get("tenant_id"))
-        if tenant_id is not None:
-            await record(
-                session,
-                tenant_id=tenant_id,
-                actor_type="user",
-                actor_id=str(row["actor_id"]),
-                action=cast("AuditAction", row["action"]),
-                target_type="routine",
-                target_id=str(row["target_id"]),
-                detail=row.get("detail") or {},
-            )
+        if tenant_id is None:
+            continue
+        outcome = str(row.get("outcome") or "success")
+        if outcome not in {"success", "failure"}:
+            outcome = "success"
+        await record(
+            session,
+            tenant_id=tenant_id,
+            actor_type="user",
+            actor_id=str(row["actor_id"]),
+            action=cast("AuditAction", row["action"]),
+            target_type=str(row.get("target_type") or "routine"),
+            target_id=str(row["target_id"]),
+            detail=row.get("detail") or {},
+            outcome=outcome,
+        )

@@ -215,3 +215,8 @@ M21-T04 | done | 570ad4f | agent form, editor limits, model connection, real Qwe
 M21b-T01 | done | 709dde5 | per-run sandbox and workspace files
 M21b-T02 | done | 709dde5 | fetch, search provider, HTTP with approval
 M21b-T03 | done | 709dde5 | builder toggles, tool cards, Qwen proof
+
+M22-T01 | in_progress | - | 2026-10-29 connections
+M22-T02 | in_progress | - | 2026-10-29 MCP client
+M22-T03 | in_progress | - | 2026-10-29 OpenAPI and described tools
+M22-T04 | in_progress | - | 2026-10-29 registry, builder, proof

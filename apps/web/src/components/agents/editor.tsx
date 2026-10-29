@@ -49,7 +49,10 @@ export function AgentEditor() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
-  const [servers, setServers] = useState<{ slug: string; name: string }[]>([]);
+  const [servers, setServers] = useState<{ slug: string; name: string; kind?: string }[]>([]);
+  const [catalogue, setCatalogue] = useState<
+    { name: string; server: string; source: string; risk: string }[]
+  >([]);
   const [aliases, setAliases] = useState<string[]>([]);
 
   const load = useCallback(async () => {
@@ -79,18 +82,44 @@ export function AgentEditor() {
   }, [load]);
 
   useEffect(() => {
-    void api<{ items?: { slug?: string; name?: string }[] }>("/api/v1/tool-servers")
+    void api<{ items?: { slug?: string; name?: string; kind?: string }[] }>("/api/v1/tool-servers")
       .then((page) =>
         setServers(
           (page.items ?? [])
             .map((row) => ({
               slug: String(row.slug ?? ""),
               name: String(row.name ?? row.slug ?? ""),
+              kind: String(row.kind ?? ""),
             }))
             .filter((row) => row.slug),
         ),
       )
       .catch(() => setServers([]));
+    void api<{
+      items?: {
+        qualifiedName?: string;
+        riskClass?: string;
+        source?: string;
+        server?: { slug?: string };
+      }[];
+    }>("/api/v1/tools")
+      .then((page) =>
+        setCatalogue(
+          (page.items ?? [])
+            .map((row) => ({
+              name:
+                String(row.qualifiedName ?? "")
+                  .split(".")
+                  .slice(1)
+                  .join(".") || String(row.qualifiedName ?? ""),
+              server: String(row.server?.slug ?? ""),
+              source: String(row.source ?? ""),
+              risk: String(row.riskClass ?? ""),
+            }))
+            .filter((row) => row.server && row.name),
+        ),
+      )
+      .catch(() => setCatalogue([]));
     void api<{ items?: { alias?: string }[] }>("/api/v1/model-aliases")
       .then((page) =>
         setAliases((page.items ?? []).map((row) => String(row.alias ?? "")).filter(Boolean)),
@@ -106,6 +135,35 @@ export function AgentEditor() {
     updateDefinition({
       ...definition,
       budget: { ...definition.budget, [key]: value },
+    });
+  }
+
+  function attachServers(slugs: string[], on: boolean) {
+    const current = definition.tools ?? [];
+    const rest = current.filter((tool) => !slugs.includes(tool.server ?? ""));
+    updateDefinition({
+      ...definition,
+      tools: on
+        ? [...rest, ...slugs.map((slug) => ({ server: slug, version: "*", include: ["*"] }))]
+        : rest,
+    });
+  }
+
+  function toggleTool(server: string, name: string) {
+    const current = definition.tools ?? [];
+    const binding = current.find((tool) => tool.server === server);
+    const selected = new Set((binding?.include ?? []).filter((item) => item !== "*"));
+    if (binding?.include?.includes("*")) {
+      for (const tool of catalogue.filter((item) => item.server === server))
+        selected.add(tool.name);
+    }
+    if (selected.has(name)) selected.delete(name);
+    else selected.add(name);
+    const rest = current.filter((tool) => tool.server !== server);
+    updateDefinition({
+      ...definition,
+      tools:
+        selected.size === 0 ? rest : [...rest, { server, version: "*", include: [...selected] }],
     });
   }
 
@@ -500,6 +558,71 @@ export function AgentEditor() {
                       value={(general?.overrides?.fetch?.allowHosts ?? []).join("\n")}
                     />
                   </label>
+                </fieldset>
+                <fieldset className="mt-4">
+                  <legend className="text-sm font-medium">{t("attachTitle")}</legend>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("attachHelp")}</p>
+                  <div className="mt-2 flex flex-wrap gap-3">
+                    {["mcp", "openapi", "custom"].map((source) => {
+                      const slugs = [
+                        ...new Set(
+                          catalogue
+                            .filter((tool) => tool.source === source)
+                            .map((tool) => tool.server),
+                        ),
+                      ];
+                      const on =
+                        slugs.length > 0 &&
+                        slugs.every((slug) =>
+                          (definition.tools ?? []).some((tool) => tool.server === slug),
+                        );
+                      return (
+                        <label className="flex items-center gap-2 text-sm" key={source}>
+                          <input
+                            checked={on}
+                            disabled={slugs.length === 0}
+                            onChange={() => attachServers(slugs, !on)}
+                            type="checkbox"
+                          />
+                          {t(`source_${source}`)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 grid gap-2">
+                    {catalogue
+                      .filter(
+                        (tool) =>
+                          tool.source === "mcp" ||
+                          tool.source === "openapi" ||
+                          tool.source === "custom",
+                      )
+                      .map((tool) => {
+                        const binding = (definition.tools ?? []).find(
+                          (item) => item.server === tool.server,
+                        );
+                        const checked = Boolean(
+                          binding?.include?.includes("*") || binding?.include?.includes(tool.name),
+                        );
+                        const risky = tool.risk === "W2" || tool.risk === "W3";
+                        return (
+                          <label
+                            className="flex items-center gap-2 text-sm"
+                            key={`${tool.server}.${tool.name}`}
+                          >
+                            <input
+                              checked={checked}
+                              onChange={() => toggleTool(tool.server, tool.name)}
+                              type="checkbox"
+                            />
+                            <span>
+                              {tool.server}.{tool.name}
+                              {risky ? ` · ${t("riskyTool")}` : ""}
+                            </span>
+                          </label>
+                        );
+                      })}
+                  </div>
                 </fieldset>
                 <label className="mt-4 block text-sm font-medium" htmlFor="editor-skills">
                   {t("skillSlugs")}
