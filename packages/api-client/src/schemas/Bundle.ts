@@ -48,6 +48,9 @@ export type Maxoutputbytes = number | null;
 export type Maxfilebytes = number | null;
 export type Network = boolean | null;
 export type Allowhosts = string[];
+export type Rowlimit = number | null;
+export type Schemas = string[];
+export type Tables = string[];
 export type Tools = ToolBinding[];
 export type Mode = "auto" | "on" | "off";
 export type Topk = number;
@@ -252,7 +255,7 @@ export type Identitymode = "service" | "per_user_mapped" | "passthrough";
 export type Allowlistschemas = string[];
 export type Allowlisttables = string[];
 export type Columnsdeny = string[];
-export type Rowlimit = number;
+export type Rowlimit1 = number;
 export type Statementtimeouts = number;
 export type Classification = string;
 export type Schemanotes = string;
@@ -454,6 +457,9 @@ export interface ToolOverride {
   maxFileBytes?: Maxfilebytes;
   network?: Network;
   allowHosts?: Allowhosts;
+  rowLimit?: Rowlimit;
+  schemas?: Schemas;
+  tables?: Tables;
 }
 export interface ToolSearch {
   mode?: Mode;
@@ -507,6 +513,10 @@ export interface OutputSpec {
   citations?: Citations;
   showReasoning?: Showreasoning;
   grounding?: Grounding;
+  jsonSchema?: Jsonschema;
+}
+export interface Jsonschema {
+  [k: string]: unknown;
 }
 export interface AssuranceSpec {
   recordMode?: Recordmode;
@@ -612,7 +622,7 @@ export interface DataConnectionDefinition {
   allowlistSchemas?: Allowlistschemas;
   allowlistTables?: Allowlisttables;
   columnsDeny?: Columnsdeny;
-  rowLimit?: Rowlimit;
+  rowLimit?: Rowlimit1;
   statementTimeoutS?: Statementtimeouts;
   classification?: Classification;
   schemaNotes?: Schemanotes;
@@ -913,6 +923,7 @@ export interface OutputSpec1 {
   citations?: Citations;
   showReasoning?: Showreasoning;
   grounding?: Grounding;
+  jsonSchema?: Jsonschema;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema

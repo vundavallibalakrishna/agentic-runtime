@@ -6,7 +6,7 @@ A service connection stores its secret with AES-256-GCM. The key is SHA-256 of `
 
 Connections are owner-scoped. Another user in the same tenant, and every user in another tenant, receives 404. OAuth client-credentials and refresh exchanges send the client secret only to the token URL. That URL is checked with the same public-address guard as other outbound HTTP.
 
-The rows live on the process store, the same place as OAuth grants (OQ-58). A process restart drops them. They are not a Postgres table in this milestone.
+From M23 the rows are in Postgres. See [m23-database](m23-database.md). OAuth grants are still process-local (OQ-59).
 
 ## SSRF and egress
 

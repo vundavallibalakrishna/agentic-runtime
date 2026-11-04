@@ -187,7 +187,15 @@ export function AgentEditor() {
     "fetch",
     "search",
     "http",
+    "inspect_table",
+    "query_table",
+    "export_table",
+    "chart",
   ] as const;
+  const dataTools = ["list_schemas", "list_tables", "describe_table", "query"] as const;
+  const dataBinding = (definition.tools ?? []).find((tool) => tool.server === "data");
+  const dataInclude = dataBinding?.include ?? [];
+  const [schemaText, setSchemaText] = useState<string | null>(null);
   const general = (definition.tools ?? []).find((tool) => tool.server === "general");
   const generalInclude = general?.include ?? [];
 
@@ -213,6 +221,30 @@ export function AgentEditor() {
       selected.add(name);
     }
     setGeneral([...selected]);
+  }
+
+  function setData(include: string[], overrides = dataBinding?.overrides) {
+    const rest = (definition.tools ?? []).filter((tool) => tool.server !== "data");
+    updateDefinition({
+      ...definition,
+      tools:
+        include.length === 0
+          ? rest
+          : [...rest, { server: "data", version: "*", include, overrides }],
+    });
+  }
+
+  function toggleData(name: string) {
+    const selected = new Set(dataInclude.filter((item) => item !== "*"));
+    if (dataInclude.includes("*") || dataInclude.includes(name)) {
+      if (dataInclude.includes("*")) {
+        for (const item of dataTools) selected.add(item);
+      }
+      selected.delete(name);
+    } else {
+      selected.add(name);
+    }
+    setData([...selected]);
   }
 
   function updateDefinition(next: Definition) {
@@ -557,6 +589,112 @@ export function AgentEditor() {
                       }}
                       value={(general?.overrides?.fetch?.allowHosts ?? []).join("\n")}
                     />
+                  </label>
+                </fieldset>
+                <fieldset className="mt-4">
+                  <legend className="text-sm font-medium">{t("dataTools")}</legend>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("dataHelp")}</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {dataTools.map((name) => (
+                      <label className="flex items-center gap-2 text-sm" key={name}>
+                        <input
+                          checked={dataInclude.includes("*") || dataInclude.includes(name)}
+                          onChange={() => toggleData(name)}
+                          type="checkbox"
+                        />
+                        {t(`tool_${name}`)}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block text-sm" htmlFor="data-row-limit">
+                      {t("rowLimit")}
+                      <Input
+                        className="mt-1"
+                        id="data-row-limit"
+                        max={5000}
+                        min={1}
+                        onChange={(event) => {
+                          const rowLimit = Number(event.target.value) || 1000;
+                          const include = dataInclude.length ? dataInclude : ["query"];
+                          setData(include.includes("*") ? [...dataTools] : include, {
+                            ...dataBinding?.overrides,
+                            query: { ...dataBinding?.overrides?.query, rowLimit },
+                          });
+                        }}
+                        type="number"
+                        value={dataBinding?.overrides?.query?.rowLimit ?? 1000}
+                      />
+                    </label>
+                    <label className="block text-sm" htmlFor="data-schemas">
+                      {t("allowedSchemas")}
+                      <Input
+                        className="mt-1"
+                        id="data-schemas"
+                        onChange={(event) => {
+                          const schemas = event.target.value
+                            .split(",")
+                            .map((item) => item.trim())
+                            .filter(Boolean);
+                          const include = dataInclude.length ? dataInclude : ["query"];
+                          setData(include.includes("*") ? [...dataTools] : include, {
+                            ...dataBinding?.overrides,
+                            query: { ...dataBinding?.overrides?.query, schemas },
+                          });
+                        }}
+                        value={(dataBinding?.overrides?.query?.schemas ?? []).join(", ")}
+                      />
+                    </label>
+                  </div>
+                  <label className="mt-3 block text-sm" htmlFor="data-tables">
+                    {t("allowedTables")}
+                    <Input
+                      className="mt-1"
+                      id="data-tables"
+                      onChange={(event) => {
+                        const tables = event.target.value
+                          .split(",")
+                          .map((item) => item.trim())
+                          .filter(Boolean);
+                        const include = dataInclude.length ? dataInclude : ["query"];
+                        setData(include.includes("*") ? [...dataTools] : include, {
+                          ...dataBinding?.overrides,
+                          query: { ...dataBinding?.overrides?.query, tables },
+                        });
+                      }}
+                      value={(dataBinding?.overrides?.query?.tables ?? []).join(", ")}
+                    />
+                  </label>
+                  <label className="mt-3 block text-sm" htmlFor="output-schema">
+                    {t("outputSchema")}
+                    <textarea
+                      className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 font-mono text-xs"
+                      id="output-schema"
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setSchemaText(next);
+                        try {
+                          const parsed = JSON.parse(next) as Record<string, unknown>;
+                          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                            updateDefinition({
+                              ...definition,
+                              output: { ...definition.output, jsonSchema: parsed },
+                            });
+                          }
+                        } catch {
+                          setSchemaText(next);
+                        }
+                      }}
+                      value={
+                        schemaText ??
+                        (definition.output?.jsonSchema
+                          ? JSON.stringify(definition.output.jsonSchema, null, 2)
+                          : "")
+                      }
+                    />
+                    <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                      {t("outputSchemaHelp")}
+                    </p>
                   </label>
                 </fieldset>
                 <fieldset className="mt-4">

@@ -99,6 +99,62 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           ) : null}
         </div>
       ) : null}
+      {kind === "query" || kind === "table" ? (
+        <div className="mt-2">
+          {text(presentation.sql) ? (
+            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
+              {text(presentation.sql)}
+            </pre>
+          ) : null}
+          <table className="mt-2 w-full text-left text-xs">
+            <thead>
+              <tr>
+                {(Array.isArray(presentation.columns) ? presentation.columns : []).map((column) => (
+                  <th className="border-b border-[var(--border)] pr-2" key={text(column)}>
+                    {text(typeof column === "object" ? (column as { name?: string }).name : column)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(Array.isArray(presentation.rows) ? presentation.rows : []).map((row) => {
+                const cells = Array.isArray(row) ? row : [];
+                const key = cells.map((cell) => text(cell)).join("|");
+                return (
+                  <tr key={key || text(row)}>
+                    {cells.map((cell) => (
+                      <td
+                        className="border-b border-[var(--border)] pr-2"
+                        key={`${key}-${text(cell)}`}
+                      >
+                        {text(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {presentation.truncated ? (
+            <p className="mt-1 text-[var(--muted-foreground)]">{t("truncated")}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {kind === "chart"
+        ? files
+            .filter((file) => text(file.name).endsWith(".png"))
+            .map((file) => {
+              const id = text(file.fileId ?? file.file_id);
+              return id ? (
+                <img
+                  alt={text(presentation.title) || "chart"}
+                  className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
+                  key={id}
+                  src={`/api/v1/files/${id}/content`}
+                />
+              ) : null;
+            })
+        : null}
       {files.length > 0 ? (
         <ul className="mt-2 space-y-1">
           {files.map((file) => {
@@ -125,6 +181,9 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       kind !== "mcp" &&
       kind !== "openapi" &&
       kind !== "described" &&
+      kind !== "query" &&
+      kind !== "table" &&
+      kind !== "chart" &&
       preview ? (
         <p className="mt-1 whitespace-pre-wrap">{preview}</p>
       ) : null}

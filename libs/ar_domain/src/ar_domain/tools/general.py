@@ -48,6 +48,15 @@ _HIDDEN = {"authorization", "x-api-key", "api-key", "proxy-authorization"}
 
 def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
     """Run one ``general.*`` tool. Policy has already allowed it."""
+    from ar_domain.tools.analysis import dispatch_analysis  # noqa: PLC0415
+    from ar_domain.tools.charts import dispatch_chart  # noqa: PLC0415
+
+    analysed = dispatch_analysis(store, name, arguments)
+    if analysed is not None:
+        return analysed
+    chart = dispatch_chart(store, name, arguments)
+    if chart is not None:
+        return chart
     handler = {
         "code": _code,
         "shell": _shell,
@@ -738,8 +747,10 @@ def _mime(name: str) -> str:
         return "image/svg+xml"
     if name.endswith(".png"):
         return "image/png"
-    if name.endswith(".csv"):
+    if name.endswith(".csv") or name.endswith(".tsv"):
         return "text/csv"
+    if name.endswith(".xlsx"):
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     if name.endswith(".json"):
         return "application/json"
     return "text/plain"

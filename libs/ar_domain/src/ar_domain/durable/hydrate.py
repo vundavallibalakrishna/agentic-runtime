@@ -117,6 +117,15 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
         await _chunks(session, store, tenant_id)
         await _facts(session, store, tenant_id)
         await _tools(session, store, tenant_id)
+        from ar_domain.durable.m23 import (  # noqa: PLC0415
+            load_data_connections,
+            load_model_catalog,
+            load_service_connections,
+        )
+
+        await load_service_connections(session, store, tenant_id)
+        await load_data_connections(session, store, tenant_id)
+        await load_model_catalog(session, store, tenant_id)
         await _routines(session, store, tenant_id)
         await _conversations(session, store, tenant_id)
         await _runs(session, store, tenant_id)

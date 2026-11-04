@@ -99,6 +99,13 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:
             await _tool_server_versions(session, pending["tool_server_versions"])
             await _tools(session, pending["tool_defs"])
             await _tool_versions(session, pending["tool_versions"])
+            from ar_domain.durable.m23 import (  # noqa: PLC0415
+                save_data_connections,
+                save_service_connections,
+            )
+
+            await save_service_connections(session, pending["service_connections"])
+            await save_data_connections(session, store, pending["data_connections"])
             await save_routines(session, pending["routines"])
             await _conversations(session, pending["conversations"])
             await _runs(session, store, pending["runs"])
@@ -698,7 +705,9 @@ async def _tool_server_versions(session: AsyncSession, rows: list[dict[str, Any]
         )
         ON CONFLICT (id) DO UPDATE SET
             endpoint_url = EXCLUDED.endpoint_url,
+            config = EXCLUDED.config,
             manifest = EXCLUDED.manifest,
+            manifest_hash = EXCLUDED.manifest_hash,
             review_status = EXCLUDED.review_status
     """
     for row in rows:
@@ -783,7 +792,12 @@ async def _tool_versions(session: AsyncSession, rows: list[dict[str, Any]]) -> N
             :timeout_s, :rate_limit_per_minute, :max_result_bytes, :idempotent,
             CAST(:approval_preview AS jsonb), CAST(:embedding AS vector), :created_at
         )
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (id) DO UPDATE SET
+            title = EXCLUDED.title,
+            description = EXCLUDED.description,
+            input_schema = EXCLUDED.input_schema,
+            annotations = EXCLUDED.annotations,
+            risk_class = EXCLUDED.risk_class
     """
     for row in rows:
         version_id = as_uuid(row.get("id"))

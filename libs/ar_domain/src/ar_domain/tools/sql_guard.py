@@ -21,6 +21,15 @@ _DENY = frozenset(
         "load_file",
         "sleep",
         "benchmark",
+        "pg_read_file",
+        "pg_read_binary_file",
+        "pg_ls_dir",
+        "pg_terminate_backend",
+        "nextval",
+        "setval",
+        "set_config",
+        "writefile",
+        "readfile",
     }
 )
 _WRITE = (
@@ -33,7 +42,9 @@ _WRITE = (
     exp.Command,
     exp.Merge,
     exp.Grant,
+    exp.Copy,
 )
+_SYSTEM = frozenset({"pg_catalog", "information_schema", "pg_toast"})
 
 
 class SqlRejected(Exception):  # noqa: N818
@@ -51,6 +62,9 @@ def check_sql(  # noqa: PLR0912
     deny_columns: set[str],
     row_limit: int = 1000,
     dialect: str = "postgres",
+    allow_any: bool = False,
+    allow_schemas: set[str] | None = None,
+    allow_system: bool = False,
 ) -> str:
     """Return the statement with a limit, or raise ``SqlRejected``."""
     try:
@@ -77,7 +91,11 @@ def check_sql(  # noqa: PLR0912
             continue
         schema = (table.db or "public").lower()
         qualified = f"{schema}.{name}"
-        if qualified not in allow_tables and name not in allow_tables:
+        if not allow_system and (schema in _SYSTEM or name.startswith("pg_")):
+            raise SqlRejected(f"table {qualified} is not available")
+        if allow_schemas and schema not in allow_schemas:
+            raise SqlRejected(f"schema {schema} is not allowed for this agent")
+        if not allow_any and qualified not in allow_tables and name not in allow_tables:
             raise SqlRejected(f"table {qualified} is not allowlisted")
         if tree.find(exp.Star) is not None and any(
             item.startswith(f"{qualified}.") for item in deny_columns

@@ -87,6 +87,28 @@ describe("tool screens", () => {
     expect(screen.getByRole("link", { name: "Download summary.txt" }).getAttribute("href")).toBe(
       "/api/v1/files/file-1/content",
     );
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "data.query",
+            status: "succeeded",
+            presentation: {
+              kind: "query",
+              sql: "SELECT count(*) FROM public.stores",
+              columns: ["count"],
+              rows: [[2992]],
+              truncated: true,
+              files: [{ fileId: "file-2", name: "chart.png" }],
+            },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByText("SELECT count(*) FROM public.stores")).toBeTruthy();
+    expect(screen.getByText("2992")).toBeTruthy();
+    expect(screen.getByText("Showing a sample. The full result was truncated.")).toBeTruthy();
   });
 
   it("lists servers and a recent call", async () => {

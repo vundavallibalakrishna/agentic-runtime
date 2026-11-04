@@ -151,7 +151,7 @@ def test_expired_connection_and_bad_token_host() -> None:
         {
             "name": "badtoken",
             "kind": "oauth_client_credentials",
-            "secret": "s",
+            "secret": "client-secret",
             "token_url": "http://127.0.0.1/token",
             "client_id": "ar",
         },

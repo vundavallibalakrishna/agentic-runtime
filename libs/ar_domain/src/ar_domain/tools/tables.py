@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     Text,
     UniqueConstraint,
     text,
@@ -66,6 +67,7 @@ class DataConnection(Base):
     )
     schema_notes: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
+    dsn_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
@@ -120,6 +122,7 @@ class ToolServer(Base):
             use_alter=True,
         ),
     )
+    last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
 
@@ -168,6 +171,8 @@ class ToolServerVersion(Base):
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     discovered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    discovery_error: Mapped[str | None] = mapped_column(Text)
+    upstream_hash: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
@@ -193,6 +198,57 @@ class Tool(Base):
     qualified_name: Mapped[str] = mapped_column(Text, nullable=False)
     disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     disabled_reason: Mapped[str | None] = mapped_column(Text)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = created_at_col()
+    updated_at: Mapped[datetime] = updated_at_col()
+
+
+class ServiceConnection(Base):
+    """Owner-scoped credential. Secret columns hold AES-GCM ciphertext only."""
+
+    __tablename__ = "service_connections"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('api_key','bearer','basic','oauth_authorization_code',"
+            "'oauth_client_credentials')",
+            name="kind",
+        ),
+        CheckConstraint("status IN ('active','revoked','expired')", name="status"),
+        Index("ux_service_connections_name", "tenant_id", text("lower(name)"), unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    owner_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
+    header_name: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    username: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    token_url: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    authorize_url: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    client_id: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    scopes: Mapped[list[object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    probe_url: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    secret: Mapped[bytes] = mapped_column(
+        LargeBinary, nullable=False, server_default=text(r"'\x'::bytea")
+    )
+    access_token: Mapped[bytes] = mapped_column(
+        LargeBinary, nullable=False, server_default=text(r"'\x'::bytea")
+    )
+    refresh_token: Mapped[bytes] = mapped_column(
+        LargeBinary, nullable=False, server_default=text(r"'\x'::bytea")
+    )
+    expires_at: Mapped[str | None] = mapped_column(Text)
+    last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
 

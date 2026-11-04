@@ -128,6 +128,8 @@ BUCKETS = (
     "tool_server_versions",
     "tool_defs",
     "tool_versions",
+    "service_connections",
+    "data_connections",
     "channel_integrations",
     "channel_identities",
     "channel_threads",

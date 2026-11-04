@@ -40,6 +40,12 @@ class DataConnections:
         secret_id = new_id()
         dsn = str(body.get("dsn") or "memory://warehouse")
         self.store.secret_values[secret_id] = dsn.encode()
+        ciphertext = b""
+        if not dsn.startswith("memory:"):
+            from ar_domain.secrets.crypto import seal  # noqa: PLC0415
+            from ar_domain.tools.service_connections import connection_key  # noqa: PLC0415
+
+            ciphertext = seal(connection_key(), dsn.encode())
         connection_id = new_id()
         now = utcnow()
         allow = as_mapping(body.get("allowlist"))
@@ -63,6 +69,7 @@ class DataConnections:
             "created_by": actor.user_id,
             "created_at": now,
             "updated_at": now,
+            "dsn_ciphertext": ciphertext,
         }
         self._audit(actor, "data_connection.created", connection_id)
         return self._view(self.store.data_connections[connection_id])
@@ -102,6 +109,12 @@ class DataConnections:
 
     def test(self, actor: Actor, connection_id: uuid.UUID) -> dict[str, object]:
         row = self._row(actor, connection_id)
+        from ar_domain.tools.database import connection_dsn  # noqa: PLC0415
+
+        if not connection_dsn(self.store, row).startswith("memory:"):
+            from ar_domain.tools.database import probe  # noqa: PLC0415
+
+            return probe(self.store, row)
         allow = as_mapping(row.get("allowlist"))
         tables = {str(item).lower() for item in as_sequence(allow.get("tables"))}
         checks = [{"name": "connectivity", "ok": True, "detail": "the connection answered"}]
@@ -136,6 +149,15 @@ class DataConnections:
 
     def schema(self, actor: Actor, connection_id: uuid.UUID) -> dict[str, object]:
         row = self._row(actor, connection_id)
+        from ar_domain.tools.database import connection_dsn  # noqa: PLC0415
+
+        if not connection_dsn(self.store, row).startswith("memory:"):
+            from ar_domain.tools.database import catalog  # noqa: PLC0415
+
+            try:
+                return catalog(self.store, row)
+            except Exception as exc:  # noqa: BLE001 — the message is already scrubbed
+                return {"tables": [], "notes": str(exc)[:200]}
         allow = as_mapping(row.get("allowlist"))
         tables = []
         for name in as_sequence(allow.get("tables")):

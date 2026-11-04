@@ -220,3 +220,8 @@ M22-T01 | done | f4ba7d1 | named encrypted connections
 M22-T02 | done | f4ba7d1 | MCP client, approval and untrusted results
 M22-T03 | done | f4ba7d1 | OpenAPI import and described tools
 M22-T04 | done | f4ba7d1 | registry, builder, Qwen proof
+
+M23-T01 | done | d517185 | durable connections, tools and model catalogue
+M23-T02 | done | d517185 | read-only SQL tool
+M23-T03 | done | d517185 | spreadsheets, charts, structured output
+M23-T04 | done | d517185 | UI, Qwen proof, screenshots

@@ -53,6 +53,9 @@ class ToolOverride(_Model):
     max_file_bytes: int | None = Field(default=None, ge=1024, le=5_242_880)
     network: bool | None = None
     allow_hosts: list[str] = Field(default_factory=list)
+    row_limit: int | None = Field(default=None, ge=1, le=5000)
+    schemas: list[str] = Field(default_factory=list)
+    tables: list[str] = Field(default_factory=list)
 
 
 class ToolBinding(_Model):
@@ -112,6 +115,7 @@ class OutputSpec(_Model):
     citations: Literal["required", "preferred", "off"] = "preferred"
     show_reasoning: bool = False
     grounding: Literal["off", "preferred", "strict"] = "off"
+    json_schema: dict[str, object] = Field(default_factory=dict)
 
 
 class AssuranceSpec(_Model):

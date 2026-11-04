@@ -102,7 +102,8 @@
           "default": {
             "citations": "preferred",
             "showReasoning": false,
-            "grounding": "off"
+            "grounding": "off",
+            "jsonSchema": {}
           }
         },
         "assurance": {
@@ -1015,6 +1016,11 @@
           ],
           "title": "Grounding",
           "type": "string"
+        },
+        "jsonSchema": {
+          "additionalProperties": true,
+          "title": "Jsonschema",
+          "type": "object"
         }
       },
       "title": "OutputSpec",
@@ -1964,6 +1970,34 @@
             "type": "string"
           },
           "title": "Allowhosts",
+          "type": "array"
+        },
+        "rowLimit": {
+          "anyOf": [
+            {
+              "maximum": 5000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rowlimit"
+        },
+        "schemas": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Schemas",
+          "type": "array"
+        },
+        "tables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tables",
           "type": "array"
         }
       },
