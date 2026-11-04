@@ -81,6 +81,9 @@ from .authorize_service_connection_api_v1_service_connections_connection_id_auth
 )
 from .binder_body import BinderBody
 from .binder_body_selection import BinderBodySelection
+from .body_upload_external_file_v1_agents_slug_files_post import (
+    BodyUploadExternalFileV1AgentsSlugFilesPost,
+)
 from .body_upload_file_api_v1_files_upload_post import BodyUploadFileApiV1FilesUploadPost
 from .body_upload_library_document_api_v1_library_documents_post import (
     BodyUploadLibraryDocumentApiV1LibraryDocumentsPost,
@@ -180,6 +183,9 @@ from .conversation_sandbox_api_v1_conversations_conversation_id_sandbox_get_resp
 )
 from .create_agent_api_v1_agents_post_response_create_agent_api_v1_agents_post import (
     CreateAgentApiV1AgentsPostResponseCreateAgentApiV1AgentsPost,
+)
+from .create_agent_key_api_v1_agents_agent_id_api_keys_post_response_create_agent_key_api_v1_agents_agent_id_api_keys_post import (
+    CreateAgentKeyApiV1AgentsAgentIdApiKeysPostResponseCreateAgentKeyApiV1AgentsAgentIdApiKeysPost,
 )
 from .create_agent_memory_api_v1_agents_agent_id_memory_post_response_create_agent_memory_api_v1_agents_agent_id_memory_post import (
     CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponseCreateAgentMemoryApiV1AgentsAgentIdMemoryPost,
@@ -284,6 +290,9 @@ from .create_exception_api_v1_ext_grc_exceptions_post_body import (
 )
 from .create_exception_api_v1_ext_grc_exceptions_post_response_create_exception_api_v1_ext_grc_exceptions_post import (
     CreateExceptionApiV1ExtGrcExceptionsPostResponseCreateExceptionApiV1ExtGrcExceptionsPost,
+)
+from .create_external_conversation_v1_agents_slug_conversations_post_response_create_external_conversation_v1_agents_slug_conversations_post import (
+    CreateExternalConversationV1AgentsSlugConversationsPostResponseCreateExternalConversationV1AgentsSlugConversationsPost,
 )
 from .create_feed_api_v1_ext_grc_regulator_feeds_post_body import (
     CreateFeedApiV1ExtGrcRegulatorFeedsPostBody,
@@ -733,6 +742,12 @@ from .gaps_body import GapsBody
 from .get_agent_api_v1_agents_agent_id_get_response_get_agent_api_v1_agents_agent_id_get import (
     GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet,
 )
+from .get_agent_card_for_slug_v1_agents_slug_well_known_agent_card_json_get_response_get_agent_card_for_slug_v1_agents_slug_well_known_agent_card_json_get import (
+    GetAgentCardForSlugV1AgentsSlugWellKnownAgentCardJsonGetResponseGetAgentCardForSlugV1AgentsSlugWellKnownAgentCardJsonGet,
+)
+from .get_agent_card_well_known_agent_card_json_get_response_get_agent_card_well_known_agent_card_json_get import (
+    GetAgentCardWellKnownAgentCardJsonGetResponseGetAgentCardWellKnownAgentCardJsonGet,
+)
 from .get_approval_api_v1_approvals_approval_id_get_response_get_approval_api_v1_approvals_approval_id_get import (
     GetApprovalApiV1ApprovalsApprovalIdGetResponseGetApprovalApiV1ApprovalsApprovalIdGet,
 )
@@ -789,6 +804,12 @@ from .get_event_api_v1_audit_events_event_id_get_response_get_event_api_v1_audit
 )
 from .get_evidence_api_v1_evidence_evidence_item_id_get_response_get_evidence_api_v1_evidence_evidence_item_id_get import (
     GetEvidenceApiV1EvidenceEvidenceItemIdGetResponseGetEvidenceApiV1EvidenceEvidenceItemIdGet,
+)
+from .get_exposure_api_v1_agents_agent_id_exposure_get_response_get_exposure_api_v1_agents_agent_id_exposure_get import (
+    GetExposureApiV1AgentsAgentIdExposureGetResponseGetExposureApiV1AgentsAgentIdExposureGet,
+)
+from .get_external_trace_v1_agents_slug_runs_run_id_get_response_get_external_trace_v1_agents_slug_runs_run_id_get import (
+    GetExternalTraceV1AgentsSlugRunsRunIdGetResponseGetExternalTraceV1AgentsSlugRunsRunIdGet,
 )
 from .get_file_api_v1_files_file_id_get_response_get_file_api_v1_files_file_id_get import (
     GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet,
@@ -1004,6 +1025,7 @@ from .item_body_subjectref import ItemBodySubjectref
 from .jwks_api_v1_well_known_jwks_json_get_response_jwks_api_v1_well_known_jwks_json_get import (
     JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet,
 )
+from .key_create import KeyCreate
 from .library_check_body import LibraryCheckBody
 from .link_body import LinkBody
 from .link_identity_api_v1_me_channel_identities_link_post_response_link_identity_api_v1_me_channel_identities_link_post import (
@@ -1732,6 +1754,9 @@ from .resume_source_api_v1_knowledge_sources_source_id_resume_post_response_resu
     ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost,
 )
 from .review_decide_body import ReviewDecideBody
+from .revoke_agent_key_api_v1_agents_agent_id_api_keys_key_id_delete_response_revoke_agent_key_api_v1_agents_agent_id_api_keys_key_id_delete import (
+    RevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDeleteResponseRevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDelete,
+)
 from .revoke_grant_api_v1_tenant_support_access_grant_id_revoke_post_response_revoke_grant_api_v1_tenant_support_access_grant_id_revoke_post import (
     RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponseRevokeGrantApiV1TenantSupportAccessGrantIdRevokePost,
 )
@@ -1754,6 +1779,9 @@ from .rollback_agent_api_v1_agents_agent_id_rollback_post_response_rollback_agen
     RollbackAgentApiV1AgentsAgentIdRollbackPostResponseRollbackAgentApiV1AgentsAgentIdRollbackPost,
 )
 from .rollback_body import RollbackBody
+from .rotate_agent_key_api_v1_agents_agent_id_api_keys_key_id_rotate_post_response_rotate_agent_key_api_v1_agents_agent_id_api_keys_key_id_rotate_post import (
+    RotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePostResponseRotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePost,
+)
 from .rotate_api_v1_webhooks_webhook_id_rotate_secret_post_response_rotate_api_v1_webhooks_webhook_id_rotate_secret_post import (
     RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost,
 )
@@ -1806,6 +1834,7 @@ from .search_api_v1_knowledge_search_post_response_search_api_v1_knowledge_searc
 from .search_body import SearchBody
 from .secret_create import SecretCreate
 from .secret_rotate import SecretRotate
+from .send_body import SendBody
 from .server_create import ServerCreate
 from .server_patch import ServerPatch
 from .service_account_create import ServiceAccountCreate
@@ -1986,6 +2015,9 @@ from .upgrade_body_manifest import UpgradeBodyManifest
 from .upgrade_pack_api_v1_content_packs_pack_id_upgrade_post_response_upgrade_pack_api_v1_content_packs_pack_id_upgrade_post import (
     UpgradePackApiV1ContentPacksPackIdUpgradePostResponseUpgradePackApiV1ContentPacksPackIdUpgradePost,
 )
+from .upload_external_file_v1_agents_slug_files_post_response_upload_external_file_v1_agents_slug_files_post import (
+    UploadExternalFileV1AgentsSlugFilesPostResponseUploadExternalFileV1AgentsSlugFilesPost,
+)
 from .upload_file_api_v1_files_upload_post_response_upload_file_api_v1_files_upload_post import (
     UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost,
 )
@@ -2083,6 +2115,7 @@ __all__ = (
     "AuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePostResponseAuthorizeServiceConnectionApiV1ServiceConnectionsConnectionIdAuthorizePost",
     "BinderBody",
     "BinderBodySelection",
+    "BodyUploadExternalFileV1AgentsSlugFilesPost",
     "BodyUploadFileApiV1FilesUploadPost",
     "BodyUploadLibraryDocumentApiV1LibraryDocumentsPost",
     "BuildBinderApiV1BindersBinderIdBuildPostResponseBuildBinderApiV1BindersBinderIdBuildPost",
@@ -2139,6 +2172,7 @@ __all__ = (
     "ConversationPatch",
     "ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponseConversationSandboxApiV1ConversationsConversationIdSandboxGet",
     "CreateAgentApiV1AgentsPostResponseCreateAgentApiV1AgentsPost",
+    "CreateAgentKeyApiV1AgentsAgentIdApiKeysPostResponseCreateAgentKeyApiV1AgentsAgentIdApiKeysPost",
     "CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponseCreateAgentMemoryApiV1AgentsAgentIdMemoryPost",
     "CreateAliasApiV1ModelAliasesPostResponseCreateAliasApiV1ModelAliasesPost",
     "CreateAnswerApiV1ExtGrcAnswerLibraryPostBody",
@@ -2175,6 +2209,7 @@ __all__ = (
     "CreateEvidenceLinkApiV1ExtGrcEvidenceLinksPostResponseCreateEvidenceLinkApiV1ExtGrcEvidenceLinksPost",
     "CreateExceptionApiV1ExtGrcExceptionsPostBody",
     "CreateExceptionApiV1ExtGrcExceptionsPostResponseCreateExceptionApiV1ExtGrcExceptionsPost",
+    "CreateExternalConversationV1AgentsSlugConversationsPostResponseCreateExternalConversationV1AgentsSlugConversationsPost",
     "CreateFeedApiV1ExtGrcRegulatorFeedsPostBody",
     "CreateFeedApiV1ExtGrcRegulatorFeedsPostResponseCreateFeedApiV1ExtGrcRegulatorFeedsPost",
     "CreateFindingApiV1ExtGrcFindingsPostBody",
@@ -2347,6 +2382,8 @@ __all__ = (
     "FulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPostResponseFulfilDsarApiV1ExtGrcDsarRequestsRequestIdFulfilPost",
     "GapsBody",
     "GetAgentApiV1AgentsAgentIdGetResponseGetAgentApiV1AgentsAgentIdGet",
+    "GetAgentCardForSlugV1AgentsSlugWellKnownAgentCardJsonGetResponseGetAgentCardForSlugV1AgentsSlugWellKnownAgentCardJsonGet",
+    "GetAgentCardWellKnownAgentCardJsonGetResponseGetAgentCardWellKnownAgentCardJsonGet",
     "GetApprovalApiV1ApprovalsApprovalIdGetResponseGetApprovalApiV1ApprovalsApprovalIdGet",
     "GetAuditExportApiV1AuditExportsExportIdGetResponseGetAuditExportApiV1AuditExportsExportIdGet",
     "GetBinderApiV1BindersBinderIdGetResponseGetBinderApiV1BindersBinderIdGet",
@@ -2366,6 +2403,8 @@ __all__ = (
     "GetEvalSuiteApiV1EvalSuitesSuiteIdGetResponseGetEvalSuiteApiV1EvalSuitesSuiteIdGet",
     "GetEventApiV1AuditEventsEventIdGetResponseGetEventApiV1AuditEventsEventIdGet",
     "GetEvidenceApiV1EvidenceEvidenceItemIdGetResponseGetEvidenceApiV1EvidenceEvidenceItemIdGet",
+    "GetExposureApiV1AgentsAgentIdExposureGetResponseGetExposureApiV1AgentsAgentIdExposureGet",
+    "GetExternalTraceV1AgentsSlugRunsRunIdGetResponseGetExternalTraceV1AgentsSlugRunsRunIdGet",
     "GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet",
     "GetFindingApiV1ExtGrcFindingsFindingIdGetResponseGetFindingApiV1ExtGrcFindingsFindingIdGet",
     "GetFrameworkApiV1ExtGrcFrameworksFrameworkIdGetResponseGetFrameworkApiV1ExtGrcFrameworksFrameworkIdGet",
@@ -2458,6 +2497,7 @@ __all__ = (
     "ItemBody",
     "ItemBodySubjectref",
     "JwksApiV1WellKnownJwksJsonGetResponseJwksApiV1WellKnownJwksJsonGet",
+    "KeyCreate",
     "LibraryCheckBody",
     "LinkBody",
     "LinkIdentityApiV1MeChannelIdentitiesLinkPostResponseLinkIdentityApiV1MeChannelIdentitiesLinkPost",
@@ -2730,6 +2770,7 @@ __all__ = (
     "ResumeRoutineApiV1RoutinesRoutineIdResumePostResponseResumeRoutineApiV1RoutinesRoutineIdResumePost",
     "ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost",
     "ReviewDecideBody",
+    "RevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDeleteResponseRevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDelete",
     "RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponseRevokeGrantApiV1TenantSupportAccessGrantIdRevokePost",
     "RevokeGuestApiV1GuestsGuestIdRevokePostResponseRevokeGuestApiV1GuestsGuestIdRevokePost",
     "RevokeInvitationApiV1InvitationsInvitationIdDeleteResponseRevokeInvitationApiV1InvitationsInvitationIdDelete",
@@ -2740,6 +2781,7 @@ __all__ = (
     "RolePatch",
     "RollbackAgentApiV1AgentsAgentIdRollbackPostResponseRollbackAgentApiV1AgentsAgentIdRollbackPost",
     "RollbackBody",
+    "RotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePostResponseRotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePost",
     "RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost",
     "RotateBody",
     "RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponseRotateCallbackApiV1TenantRunCallbackSecretRotatePost",
@@ -2764,6 +2806,7 @@ __all__ = (
     "SearchBody",
     "SecretCreate",
     "SecretRotate",
+    "SendBody",
     "ServerCreate",
     "ServerPatch",
     "ServiceAccountCreate",
@@ -2856,6 +2899,7 @@ __all__ = (
     "UpgradeBody",
     "UpgradeBodyManifest",
     "UpgradePackApiV1ContentPacksPackIdUpgradePostResponseUpgradePackApiV1ContentPacksPackIdUpgradePost",
+    "UploadExternalFileV1AgentsSlugFilesPostResponseUploadExternalFileV1AgentsSlugFilesPost",
     "UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost",
     "UploadLibraryDocumentApiV1LibraryDocumentsPostResponseUploadLibraryDocumentApiV1LibraryDocumentsPost",
     "UsageSummaryApiV1UsageSummaryGetResponseUsageSummaryApiV1UsageSummaryGet",

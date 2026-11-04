@@ -1347,4 +1347,21 @@ def _control_tools() -> list[dict[str, object]]:
             },
             "W2",
         ),
+        _tool(
+            "a2a_call",
+            "Call a remote agent",
+            "Call a remote agent over A2A. Pass the agent card URL and the message. "
+            "Put the bearer token in a named secret and pass secret_name, never the token.",
+            {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string"},
+                    "message": {"type": "string"},
+                    "secret_name": {"type": "string"},
+                },
+                "required": ["url", "message"],
+            },
+            "R1",
+            {"openWorldHint": True, "readOnlyHint": True},
+        ),
     ]

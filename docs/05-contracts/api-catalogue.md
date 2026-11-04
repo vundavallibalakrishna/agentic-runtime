@@ -216,6 +216,29 @@ Spec: [05-agent-registry.md](../03-specs/05-agent-registry.md)
 | POST | [`/api/v1/bundles:import`](../03-specs/05-agent-registry.md#post-apiv1bundlesimport) | `agents:create` | 3. Public API |
 | GET | [`/api/v1/bundles:export`](../03-specs/05-agent-registry.md#get-apiv1bundlesexport) | `agents:read` | 3. Public API |
 
+## Agent API (`/v1`, M29)
+
+Spec: [m29-exposure](../06-security/m29-exposure.md). These routes use an agent API key, except the OpenAPI document.
+
+| Method | Path | Permission | Section |
+|---|---|---|---|
+| GET | `/api/v1/agents/{agent_id}/exposure` | `agents:read` | Expose tab |
+| POST | `/api/v1/agents/{agent_id}/api-keys` | `agents:edit` | Expose tab |
+| POST | `/api/v1/agents/{agent_id}/api-keys/{key_id}:rotate` | `agents:edit` | Expose tab |
+| DELETE | `/api/v1/agents/{agent_id}/api-keys/{key_id}` | `agents:edit` | Expose tab |
+| GET | `/v1/openapi.json` | public | Agent API |
+| POST | `/v1/agents/{slug}/conversations` | agent key | Agent API |
+| POST | `/v1/agents/{slug}/conversations/{conversation_id}/messages` | agent key | Agent API |
+| POST | `/v1/agents/{slug}/files` | agent key | Agent API |
+| GET | `/v1/agents/{slug}/runs/{run_id}` | agent key | Agent API |
+| GET | `/v1/agents/{slug}/runs/{run_id}/events` | agent key | Agent API |
+| GET | `/v1/agents/{slug}/.well-known/agent-card.json` | agent key | A2A |
+| GET | `/.well-known/agent-card.json` | agent key | A2A |
+| POST | `/v1/agents/{slug}/a2a` | agent key | A2A |
+| POST | `/v1/a2a` | agent key | A2A |
+| POST | `/v1/mcp` | agent key | MCP |
+| POST | `/v1/agents/{slug}/mcp` | agent key | MCP |
+
 ## Spec 06: Conversations, messages and runs API (`ar_domain.conversations`, `ar_domain.runs`)
 
 Spec: [06-conversations-runs.md](../03-specs/06-conversations-runs.md)

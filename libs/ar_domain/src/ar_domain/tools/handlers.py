@@ -283,6 +283,10 @@ def _control(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         return _checkpoint(store, arguments)
     if name == "propose_change":
         return _propose_change(store, arguments)
+    if name == "a2a_call":
+        from ar_domain.exposure.a2a import call_remote  # noqa: PLC0415
+
+        return call_remote(store, arguments)
     query = str(arguments.get("query") or "").lower()
     ranked = _search(store, query)
     lines = [f"{row['qualified_name']}: {row['description']}" for row in ranked[:12]]

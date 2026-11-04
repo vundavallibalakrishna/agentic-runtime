@@ -53,6 +53,7 @@
 | 0027 | `embedding_model` | Nullable `knowledge_collections.embedding_model`. The live path stores the real model id here. Existing rows stay null and keep working. | M25 |
 | 0028 | `connector_catalog` | `connector_installs`, `oauth_states`, `named_secrets`. Nullable `credential_grants.secret_ref_id` plus access and refresh ciphertext. RLS and grants ship in the same revision. | M26 |
 | 0029 | `orchestration` | Nullable `runs.checkpoint` and `runs.workspace_ref`. `human_questions` with RLS, grants, and the updated-at trigger. | M28 |
+| 0030 | `agent_exposure` | `agent_api_keys`, `agent_api_idempotency`, `agent_api_grants`, `a2a_tasks`. RLS, grants, and updated-at triggers. | M29 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 
@@ -68,4 +69,4 @@ v1 tables are unpartitioned. When `messages`, `run_events`, `usage_events` or `a
 
 ## 6. Pack schemas
 
-Core history stays a single line (revisions 0001–0029 and anything added after). A solution pack does not append to that line. Each pack ships its own Alembic environment created with `ar_domain.packs.alembic_env` ([spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md), [OQ-28](../open-questions.md)). The GRC pack uses Postgres schema `grc` and version table `grc_alembic_version`. Pack upgrades run `alembic upgrade head` in that environment before content-pack resource import. `alembic heads` for the core environment must still return one head; pack environments are checked separately (`alembic -c packs/grc/alembic.ini heads`).
+Core history stays a single line (revisions 0001–0030 and anything added after). A solution pack does not append to that line. Each pack ships its own Alembic environment created with `ar_domain.packs.alembic_env` ([spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md), [OQ-28](../open-questions.md)). The GRC pack uses Postgres schema `grc` and version table `grc_alembic_version`. Pack upgrades run `alembic upgrade head` in that environment before content-pack resource import. `alembic heads` for the core environment must still return one head; pack environments are checked separately (`alembic -c packs/grc/alembic.ini heads`).

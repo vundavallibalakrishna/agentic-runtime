@@ -19,6 +19,7 @@ import ar_domain.conversations.tables
 import ar_domain.documents.tables
 import ar_domain.evals.tables
 import ar_domain.events.models
+import ar_domain.exposure.tables
 import ar_domain.files.tables
 import ar_domain.identity.guest_tables
 import ar_domain.identity.models

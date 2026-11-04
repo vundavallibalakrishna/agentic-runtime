@@ -33,8 +33,10 @@ class IdempotencyMiddleware:
         if scope["type"] != "http" or scope.get("method") not in _UNSAFE:
             await self.app(scope, receive, send)
             return
+        path = str(scope.get("path", ""))
+        external = path.startswith("/v1/") or path == "/.well-known/agent-card.json"
         header = _header(scope, b"idempotency-key")
-        if not header:
+        if external or not header:
             await self.app(scope, receive, send)
             return
         if len(header) > 255:

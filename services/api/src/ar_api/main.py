@@ -32,6 +32,7 @@ from ar_api.routers.documents import router as documents_router
 from ar_api.routers.domains import router as domains_router
 from ar_api.routers.eval_runs import router as eval_runs_router
 from ar_api.routers.eval_suites import router as eval_suites_router
+from ar_api.routers.exposure import router as exposure_router
 from ar_api.routers.feedback import router as feedback_router
 from ar_api.routers.groups import router as groups_router
 from ar_api.routers.identity_providers import router as idp_router
@@ -304,6 +305,7 @@ def create_application() -> FastAPI:
             feedback_router,
             channels_router,
             openai_router,
+            exposure_router,
             widget_router,
             assurance_router,
         ],
