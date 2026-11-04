@@ -255,4 +255,4 @@ M29-T02 | done | e964d56 | MCP server and approval-required writes
 M29-T03 | done | e964d56 | A2A card, tasks, remote tool
 M29-T04 | done | e964d56 | Expose tab
 
-M30-T01 | in_progress | - | remove the retired pack
+M30-T01 | done | 3bfd4b8 | retired pack removed; revision 0031 drops its schema
