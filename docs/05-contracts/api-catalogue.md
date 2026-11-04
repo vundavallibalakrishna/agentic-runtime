@@ -379,6 +379,30 @@ Spec: [12-sandbox-manager.md](../03-specs/12-sandbox-manager.md)
 | GET | [`/api/v1/sandboxes/{sandbox_id}/files/content`](../03-specs/12-sandbox-manager.md#get-apiv1sandboxessandbox_idfilescontent) | `chat:use` | 6. Public API (served by `api`) |
 | POST | [`/api/v1/sandboxes/{sandbox_id}/files:export`](../03-specs/12-sandbox-manager.md#post-apiv1sandboxessandbox_idfilesexport) | `chat:use` | 6. Public API (served by `api`) |
 
+## Spec 24: Document library (`ar_domain.documents`)
+
+Spec: [24-documents.md](../03-specs/24-documents.md)
+
+| Method | Path | Permission | Section |
+|---|---|---|---|
+| GET | [`/api/v1/library-documents`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/library-documents/{document_id}`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/library-documents/{document_id}/passages`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/library-documents/{document_id}/outline`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/library-documents/{document_id}/tables`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:summarise`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:compare`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:check`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:gaps`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:redact`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:extract`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:rewrite`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/document-checks/{check_id}`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/document-comparisons/{comparison_id}`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/document-rewrites/{rewrite_id}`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/document-rewrites/{rewrite_id}:decide`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+
 ## Spec 13: Files and artifacts (`ar_domain.files`)
 
 Spec: [13-files-artifacts.md](../03-specs/13-files-artifacts.md)

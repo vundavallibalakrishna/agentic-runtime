@@ -27,6 +27,7 @@ from ar_api.routers.connections import router as connections_router
 from ar_api.routers.content_packs import router as packs_router
 from ar_api.routers.credential_providers import router as providers_router
 from ar_api.routers.data_connections import router as data_connections_router
+from ar_api.routers.documents import router as documents_router
 from ar_api.routers.domains import router as domains_router
 from ar_api.routers.eval_runs import router as eval_runs_router
 from ar_api.routers.eval_suites import router as eval_suites_router
@@ -281,6 +282,7 @@ def create_application() -> FastAPI:
             service_connections_router,
             tool_imports_router,
             data_connections_router,
+            documents_router,
             policies_router,
             approvals_router,
             standing_router,
@@ -306,6 +308,7 @@ def create_application() -> FastAPI:
         inner_middleware=inner,
         docs_url=docs,
         camel_json=True,
+        body_limits={"/api/v1/library-documents": 26_214_400},
     )
     key = session_key_bytes(
         settings.session_encryption_key.get_secret_value(),
