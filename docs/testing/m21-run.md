@@ -12,7 +12,6 @@ make seed
 honcho start -f Procfile.dev
 ```
 
-`AR_GRC_PACK_ENABLED` stays unset or `false`.
 
 Sign in at the web URL with `admin@dev.local` via dev sign-in. Chat is the first screen.
 

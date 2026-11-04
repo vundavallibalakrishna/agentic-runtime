@@ -179,9 +179,3 @@ Role extensions once the introducing task has shipped, not in the M1 matrix: `ap
 | `guests:invite`, `guests:manage` | M14-T11 |
 | `binders:export` | M14-T12 |
 | `run_records:read`, `run_records:replay` | M13-T07 |
-
-### 9.2 GRC pack
-
-Registered when the pack is installed. Prefix `grc.`.
-
-`grc.frameworks:read`, `grc.frameworks:manage`, `grc.controls:read`, `grc.controls:manage`, `grc.evidence:link`, `grc.tests:read`, `grc.tests:run`, `grc.findings:read`, `grc.findings:manage`, `grc.risks:read`, `grc.risks:manage`, `grc.vendors:read`, `grc.vendors:manage`, `grc.policies:read`, `grc.policies:manage`, `grc.obligations:read`, `grc.obligations:manage`, `grc.incidents:read`, `grc.incidents:manage`, `grc.campaigns:read`, `grc.campaigns:manage`, `grc.questionnaires:read`, `grc.questionnaires:manage`, `grc.audit_portal:manage`, `grc.reports:export`, `grc.entities:read`, `grc.entities:manage`, `grc.exceptions:manage`, `grc.ethics:manage`, `grc.inspections:manage`, `grc.privacy:manage`.

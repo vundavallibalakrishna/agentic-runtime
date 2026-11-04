@@ -417,26 +417,26 @@ spec:
 apiVersion: agentic-runtime.dev/v1
 kind: ContentPack
 metadata:
-  id: grc
+  id: sample
   version: 1.0.0
-  name: GRC solution pack
+  name: Sample solution pack
   minPlatform: 1.0.0
 spec:
   resources: []               # same resource documents as a Bundle
   extension:                  # omitted for a pack that is only declarative resources
-    schema: grc
-    alembic: packs/grc/migrations
-    apiMount: /api/v1/ext/grc
-    webSlot: grc
+    schema: sample
+    alembic: packs/sample/migrations
+    apiMount: /api/v1/ext/sample
+    webSlot: sample
     configSchema:
       type: object
       properties: {}
     ui:
       nav:
-        - { href: /grc, label: GRC, permission: grc.controls:read }
-    permissions: [grc.controls:read]
-    auditActions: [grc.control.updated]
-    mcpServer: grc
+        - { href: /sample, label: Sample, permission: sample.items:read }
+    permissions: [sample.items:read]
+    auditActions: [sample.item.updated]
+    mcpServer: sample
 ```
 
 The signature is not inside the manifest. It is a sibling value supplied to `:install` ([spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs)). `spec.resources` follows [§1](#1-bundle-format). Kind `ContentPack` is not itself a member of `spec.resources`. `configSchema` and `ui` are the extension-framework fields ([extension-framework](extension-framework.md)).

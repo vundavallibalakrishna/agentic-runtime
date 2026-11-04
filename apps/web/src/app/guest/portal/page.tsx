@@ -6,19 +6,20 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ApiError, api } from "@/lib/api";
 
-type RequestRow = { id: string; title?: string; status?: string };
+type BinderRow = { id: string; title?: string; status?: string };
 
-export default function AuditorPortalPage() {
-  const [rows, setRows] = useState<RequestRow[] | null>(null);
+export default function GuestRecordsPage() {
+  const [rows, setRows] = useState<BinderRow[] | null>(null);
   const [signedOut, setSignedOut] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void api<{ items?: RequestRow[] }>("/api/v1/ext/grc/pbc-requests")
-      .then((page) => setRows(page.items ?? []))
+    void api<{ items?: BinderRow[]; data?: BinderRow[] }>("/api/v1/binders")
+      .then((page) => setRows(page.items ?? page.data ?? []))
       .catch((caught: unknown) => {
         if (caught instanceof ApiError && (caught.status === 401 || caught.status === 403)) {
           setSignedOut(true);
+          setRows([]);
           return;
         }
         setError(caught instanceof Error ? caught.message : "The room could not be opened.");
@@ -27,9 +28,9 @@ export default function AuditorPortalPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Auditor room</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Shared records</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
-        Requests shared with you. A download carries your name.
+        Binders shared with this guest. A download carries your name.
       </p>
       {error ? (
         <p className="mt-6 text-sm text-[var(--destructive)]" role="alert">
@@ -41,7 +42,7 @@ export default function AuditorPortalPage() {
           <Link href="/guest">Request a guest link</Link>
         </Button>
       ) : null}
-      {rows && rows.length === 0 ? (
+      {rows && rows.length === 0 && !signedOut ? (
         <p className="mt-8 text-sm text-[var(--muted-foreground)]">
           Nothing has been shared with this guest yet.
         </p>

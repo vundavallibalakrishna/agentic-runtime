@@ -1,6 +1,6 @@
 # M21b — General tools
 
-A small set of platform tools so an agent can do most tasks without a dedicated connector. Each tool is registered, schema-checked, granted per agent, policy-gated, traced, audited and limited. GRC stays parked.
+A small set of platform tools so an agent can do most tasks without a dedicated connector. Each tool is registered, schema-checked, granted per agent, policy-gated, traced, audited and limited.
 
 This milestone is one pull request. The tools share one workspace and one policy path, so splitting them would land a chat that cannot finish a task.
 

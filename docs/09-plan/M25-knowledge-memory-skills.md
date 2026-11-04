@@ -2,7 +2,6 @@
 
 Depends on M24. A tenant builds a knowledge base from the document library, a file, a URL or a connection. An agent can use one or more of those bases. Retrieval is hybrid and keeps the page and section anchor. Memory and skills are visible, editable and durable.
 
-The GRC pack stays parked. This milestone does not import it.
 
 ## Embeddings
 
@@ -74,4 +73,5 @@ Revision `0027` adds nullable `knowledge_collections.embedding_model`.
 
 ## Out of scope
 
-Connector libraries (M26, M27), orchestration (M28) and exposing agents (M29). The GRC pack stays parked.
+Connector libraries (M26, M27), orchestration (M28) and exposing agents (M29).
+

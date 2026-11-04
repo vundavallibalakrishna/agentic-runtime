@@ -1,6 +1,6 @@
 # Product requirements (PRD)
 
-User stories for the product areas of v1, plus the records area. The GRC pack's stories are [10-grc-pack/prd](../10-grc-pack/prd.md). Personas: [personas](../00-overview/personas.md). Scope and non-goals: [scope](../00-overview/scope.md). Terms: [glossary](../00-overview/glossary.md).
+User stories for the product areas of v1, plus the records area. Personas: [personas](../00-overview/personas.md). Scope and non-goals: [scope](../00-overview/scope.md). Terms: [glossary](../00-overview/glossary.md).
 
 ## Format
 

@@ -2,7 +2,6 @@
 
 Depends on M25. A customer installs a ready-made connector, follows the provider's own app-registration steps, connects an account, tests it, and attaches its tools to an agent.
 
-The GRC pack stays parked. This milestone does not import it and does not change its migrations.
 
 ## M26-T01 Durable credentials
 
@@ -61,4 +60,5 @@ The GRC pack stays parked. This milestone does not import it and does not change
 
 ## Out of scope
 
-Further connector products, orchestration and exposing agents. The GRC pack stays parked.
+Further connector products, orchestration and exposing agents.
+

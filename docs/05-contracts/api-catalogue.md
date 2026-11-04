@@ -4,7 +4,7 @@ Every public HTTP endpoint, generated from the `#### METHOD /path` headings of t
 
 After implementation, CI job `docs` runs `scripts/check_api_catalogue.py`, which fails if `openapi.json` and this catalogue differ (method + path).
 
-Pack routes are indexed from [10-grc-pack/api.md](../10-grc-pack/api.md). The original core rows were not regenerated. New endpoints are appended at the end.
+New endpoints are appended at the end.
 
 Total: **552** endpoints.
 
@@ -593,8 +593,8 @@ Spec: [20-notifications-events.md](../03-specs/20-notifications-events.md)
 | POST | [`/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}:redeliver`](../03-specs/20-notifications-events.md#post-apiv1webhookswebhook_iddeliveriesdelivery_idredeliver) | `webhooks:manage` | 3. Outbound webhooks |
 | POST | [`/api/v1/tenant/run-callback-secret:rotate`](../03-specs/20-notifications-events.md#post-apiv1tenantrun-callback-secretrotate) | `tenant:manage` | 3. Outbound webhooks |
 
-## Records, grounding, reviews and the GRC pack
-Indexed from the `####` headings added with the records specs and the GRC pack. The rows above are unchanged.
+## Records, grounding and reviews
+Indexed from the `####` headings added with the records specs. The rows above are unchanged.
 
 ### Spec 05 content packs and builder
 
@@ -700,122 +700,3 @@ Spec: [03-specs/21-records-governance.md](../03-specs/21-records-governance.md)
 | GET | [`/api/v1/tenant/packs`](../03-specs/21-records-governance.md#get-apiv1tenantpacks) | Any signed-in principal |
 | POST | [`/api/v1/tenant/packs/{pack_id}:enable`](../03-specs/21-records-governance.md#post-apiv1tenantpackspack_idenable) | `packs:manage` |
 | POST | [`/api/v1/tenant/packs/{pack_id}:disable`](../03-specs/21-records-governance.md#post-apiv1tenantpackspack_iddisable) | `packs:manage` |
-
-### GRC pack
-
-Spec: [10-grc-pack/api.md](../10-grc-pack/api.md)
-
-| Method | Path | Permission |
-|---|---|---|
-| GET | [`/api/v1/ext/grc/frameworks`](../10-grc-pack/api.md#get-apiv1extgrcframeworks) | `grc.frameworks:read` |
-| POST | [`/api/v1/ext/grc/frameworks`](../10-grc-pack/api.md#post-apiv1extgrcframeworks) | `grc.frameworks:manage` |
-| GET | [`/api/v1/ext/grc/frameworks/{framework_id}`](../10-grc-pack/api.md#get-apiv1extgrcframeworksframework_id) | `grc.frameworks:read` |
-| PATCH | [`/api/v1/ext/grc/frameworks/{framework_id}`](../10-grc-pack/api.md#patch-apiv1extgrcframeworksframework_id) | `grc.frameworks:manage` |
-| POST | [`/api/v1/ext/grc/frameworks:import-oscal`](../10-grc-pack/api.md#post-apiv1extgrcframeworksimport-oscal) | `grc.frameworks:manage` |
-| GET | [`/api/v1/ext/grc/frameworks/{framework_id}:export-oscal`](../10-grc-pack/api.md#get-apiv1extgrcframeworksframework_idexport-oscal) | `grc.frameworks:read` |
-| POST | [`/api/v1/ext/grc/frameworks/{framework_id}:import-licensed-text`](../10-grc-pack/api.md#post-apiv1extgrcframeworksframework_idimport-licensed-text) | `grc.frameworks:manage` |
-| GET | [`/api/v1/ext/grc/frameworks/{framework_id}/requirements`](../10-grc-pack/api.md#get-apiv1extgrcframeworksframework_idrequirements) | `grc.frameworks:read` |
-| GET | [`/api/v1/ext/grc/requirements/{requirement_id}`](../10-grc-pack/api.md#get-apiv1extgrcrequirementsrequirement_id) | `grc.frameworks:read` |
-| GET | [`/api/v1/ext/grc/controls`](../10-grc-pack/api.md#get-apiv1extgrccontrols) | `grc.controls:read` |
-| POST | [`/api/v1/ext/grc/controls`](../10-grc-pack/api.md#post-apiv1extgrccontrols) | `grc.controls:manage` |
-| GET | [`/api/v1/ext/grc/controls/{control_id}`](../10-grc-pack/api.md#get-apiv1extgrccontrolscontrol_id) | `grc.controls:read` |
-| PATCH | [`/api/v1/ext/grc/controls/{control_id}`](../10-grc-pack/api.md#patch-apiv1extgrccontrolscontrol_id) | `grc.controls:manage` |
-| GET | [`/api/v1/ext/grc/control-mappings`](../10-grc-pack/api.md#get-apiv1extgrccontrol-mappings) | `grc.controls:read` |
-| POST | [`/api/v1/ext/grc/control-mappings`](../10-grc-pack/api.md#post-apiv1extgrccontrol-mappings) | `grc.controls:manage` |
-| POST | [`/api/v1/ext/grc/control-mappings/{mapping_id}:confirm`](../10-grc-pack/api.md#post-apiv1extgrccontrol-mappingsmapping_idconfirm) | `grc.controls:manage` |
-| POST | [`/api/v1/ext/grc/control-mappings/{mapping_id}:reject`](../10-grc-pack/api.md#post-apiv1extgrccontrol-mappingsmapping_idreject) | `grc.controls:manage` |
-| POST | [`/api/v1/ext/grc/control-mappings:suggest`](../10-grc-pack/api.md#post-apiv1extgrccontrol-mappingssuggest) | `grc.controls:read` |
-| GET | [`/api/v1/ext/grc/evidence-links`](../10-grc-pack/api.md#get-apiv1extgrcevidence-links) | `grc.controls:read` |
-| POST | [`/api/v1/ext/grc/evidence-links`](../10-grc-pack/api.md#post-apiv1extgrcevidence-links) | `grc.evidence:link` |
-| DELETE | [`/api/v1/ext/grc/evidence-links/{link_id}`](../10-grc-pack/api.md#delete-apiv1extgrcevidence-linkslink_id) | `grc.evidence:link` |
-| GET | [`/api/v1/ext/grc/control-tests`](../10-grc-pack/api.md#get-apiv1extgrccontrol-tests) | `grc.tests:read` |
-| POST | [`/api/v1/ext/grc/control-tests`](../10-grc-pack/api.md#post-apiv1extgrccontrol-tests) | `grc.controls:manage` |
-| PATCH | [`/api/v1/ext/grc/control-tests/{test_id}`](../10-grc-pack/api.md#patch-apiv1extgrccontrol-teststest_id) | `grc.controls:manage` |
-| POST | [`/api/v1/ext/grc/control-tests/{test_id}:run`](../10-grc-pack/api.md#post-apiv1extgrccontrol-teststest_idrun) | `grc.tests:run` |
-| GET | [`/api/v1/ext/grc/test-results`](../10-grc-pack/api.md#get-apiv1extgrctest-results) | `grc.tests:read` |
-| GET | [`/api/v1/ext/grc/findings`](../10-grc-pack/api.md#get-apiv1extgrcfindings) | `grc.findings:read` |
-| POST | [`/api/v1/ext/grc/findings`](../10-grc-pack/api.md#post-apiv1extgrcfindings) | `grc.findings:manage` |
-| GET | [`/api/v1/ext/grc/findings/{finding_id}`](../10-grc-pack/api.md#get-apiv1extgrcfindingsfinding_id) | `grc.findings:read` |
-| PATCH | [`/api/v1/ext/grc/findings/{finding_id}`](../10-grc-pack/api.md#patch-apiv1extgrcfindingsfinding_id) | `grc.findings:manage` |
-| POST | [`/api/v1/ext/grc/findings/{finding_id}:close`](../10-grc-pack/api.md#post-apiv1extgrcfindingsfinding_idclose) | `grc.findings:manage` |
-| GET | [`/api/v1/ext/grc/issues`](../10-grc-pack/api.md#get-apiv1extgrcissues) | `grc.findings:read` |
-| POST | [`/api/v1/ext/grc/issues`](../10-grc-pack/api.md#post-apiv1extgrcissues) | `grc.findings:manage` |
-| PATCH | [`/api/v1/ext/grc/issues/{issue_id}`](../10-grc-pack/api.md#patch-apiv1extgrcissuesissue_id) | `grc.findings:manage` |
-| GET | [`/api/v1/ext/grc/assets`](../10-grc-pack/api.md#get-apiv1extgrcassets) | `grc.risks:read` |
-| POST | [`/api/v1/ext/grc/assets`](../10-grc-pack/api.md#post-apiv1extgrcassets) | `grc.risks:manage` |
-| GET | [`/api/v1/ext/grc/risks`](../10-grc-pack/api.md#get-apiv1extgrcrisks) | `grc.risks:read` |
-| POST | [`/api/v1/ext/grc/risks`](../10-grc-pack/api.md#post-apiv1extgrcrisks) | `grc.risks:manage` |
-| GET | [`/api/v1/ext/grc/risks/{risk_id}`](../10-grc-pack/api.md#get-apiv1extgrcrisksrisk_id) | `grc.risks:read` |
-| PATCH | [`/api/v1/ext/grc/risks/{risk_id}`](../10-grc-pack/api.md#patch-apiv1extgrcrisksrisk_id) | `grc.risks:manage` |
-| POST | [`/api/v1/ext/grc/risks/{risk_id}:accept`](../10-grc-pack/api.md#post-apiv1extgrcrisksrisk_idaccept) | `grc.risks:manage` |
-| GET | [`/api/v1/ext/grc/risks/{risk_id}/treatments`](../10-grc-pack/api.md#get-apiv1extgrcrisksrisk_idtreatments) | `grc.risks:read` |
-| POST | [`/api/v1/ext/grc/risks/{risk_id}/treatments`](../10-grc-pack/api.md#post-apiv1extgrcrisksrisk_idtreatments) | `grc.risks:manage` |
-| GET | [`/api/v1/ext/grc/vendors`](../10-grc-pack/api.md#get-apiv1extgrcvendors) | `grc.vendors:read` |
-| POST | [`/api/v1/ext/grc/vendors`](../10-grc-pack/api.md#post-apiv1extgrcvendors) | `grc.vendors:manage` |
-| GET | [`/api/v1/ext/grc/vendors/{vendor_id}`](../10-grc-pack/api.md#get-apiv1extgrcvendorsvendor_id) | `grc.vendors:read` |
-| PATCH | [`/api/v1/ext/grc/vendors/{vendor_id}`](../10-grc-pack/api.md#patch-apiv1extgrcvendorsvendor_id) | `grc.vendors:manage` |
-| GET | [`/api/v1/ext/grc/vendors/{vendor_id}/assessments`](../10-grc-pack/api.md#get-apiv1extgrcvendorsvendor_idassessments) | `grc.vendors:read` |
-| POST | [`/api/v1/ext/grc/vendors/{vendor_id}/assessments`](../10-grc-pack/api.md#post-apiv1extgrcvendorsvendor_idassessments) | `grc.vendors:manage` |
-| POST | [`/api/v1/ext/grc/vendor-assessments/{assessment_id}:score`](../10-grc-pack/api.md#post-apiv1extgrcvendor-assessmentsassessment_idscore) | `grc.vendors:manage` |
-| GET | [`/api/v1/ext/grc/policies`](../10-grc-pack/api.md#get-apiv1extgrcpolicies) | `grc.policies:read` |
-| POST | [`/api/v1/ext/grc/policies`](../10-grc-pack/api.md#post-apiv1extgrcpolicies) | `grc.policies:manage` |
-| GET | [`/api/v1/ext/grc/policies/{policy_id}`](../10-grc-pack/api.md#get-apiv1extgrcpoliciespolicy_id) | `grc.policies:read` |
-| POST | [`/api/v1/ext/grc/policies/{policy_id}/versions`](../10-grc-pack/api.md#post-apiv1extgrcpoliciespolicy_idversions) | `grc.policies:manage` |
-| POST | [`/api/v1/ext/grc/policies/{policy_id}:submit-review`](../10-grc-pack/api.md#post-apiv1extgrcpoliciespolicy_idsubmit-review) | `grc.policies:manage` |
-| POST | [`/api/v1/ext/grc/policy-versions/{version_id}:publish`](../10-grc-pack/api.md#post-apiv1extgrcpolicy-versionsversion_idpublish) | `grc.policies:manage` |
-| GET | [`/api/v1/ext/grc/obligations`](../10-grc-pack/api.md#get-apiv1extgrcobligations) | `grc.obligations:read` |
-| POST | [`/api/v1/ext/grc/obligations`](../10-grc-pack/api.md#post-apiv1extgrcobligations) | `grc.obligations:manage` |
-| PATCH | [`/api/v1/ext/grc/obligations/{obligation_id}`](../10-grc-pack/api.md#patch-apiv1extgrcobligationsobligation_id) | `grc.obligations:manage` |
-| GET | [`/api/v1/ext/grc/regulatory-changes`](../10-grc-pack/api.md#get-apiv1extgrcregulatory-changes) | `grc.obligations:read` |
-| POST | [`/api/v1/ext/grc/regulatory-changes/{change_id}:triage`](../10-grc-pack/api.md#post-apiv1extgrcregulatory-changeschange_idtriage) | `grc.obligations:manage` |
-| GET | [`/api/v1/ext/grc/regulator-feeds`](../10-grc-pack/api.md#get-apiv1extgrcregulator-feeds) | `grc.obligations:read` |
-| POST | [`/api/v1/ext/grc/regulator-feeds`](../10-grc-pack/api.md#post-apiv1extgrcregulator-feeds) | `grc.obligations:manage` |
-| GET | [`/api/v1/ext/grc/incidents`](../10-grc-pack/api.md#get-apiv1extgrcincidents) | `grc.incidents:read` |
-| POST | [`/api/v1/ext/grc/incidents`](../10-grc-pack/api.md#post-apiv1extgrcincidents) | `grc.incidents:manage` |
-| GET | [`/api/v1/ext/grc/incidents/{incident_id}`](../10-grc-pack/api.md#get-apiv1extgrcincidentsincident_id) | `grc.incidents:read` |
-| PATCH | [`/api/v1/ext/grc/incidents/{incident_id}`](../10-grc-pack/api.md#patch-apiv1extgrcincidentsincident_id) | `grc.incidents:manage` |
-| POST | [`/api/v1/ext/grc/incidents/{incident_id}:start-clock`](../10-grc-pack/api.md#post-apiv1extgrcincidentsincident_idstart-clock) | `grc.incidents:manage` |
-| POST | [`/api/v1/ext/grc/incidents/{incident_id}:file-notification`](../10-grc-pack/api.md#post-apiv1extgrcincidentsincident_idfile-notification) | `grc.incidents:manage` |
-| GET | [`/api/v1/ext/grc/campaigns`](../10-grc-pack/api.md#get-apiv1extgrccampaigns) | `grc.campaigns:read` |
-| POST | [`/api/v1/ext/grc/campaigns`](../10-grc-pack/api.md#post-apiv1extgrccampaigns) | `grc.campaigns:manage` |
-| GET | [`/api/v1/ext/grc/campaigns/{campaign_id}`](../10-grc-pack/api.md#get-apiv1extgrccampaignscampaign_id) | `grc.campaigns:read` |
-| POST | [`/api/v1/ext/grc/campaigns/{campaign_id}:start`](../10-grc-pack/api.md#post-apiv1extgrccampaignscampaign_idstart) | `grc.campaigns:manage` |
-| POST | [`/api/v1/ext/grc/campaigns/{campaign_id}:close`](../10-grc-pack/api.md#post-apiv1extgrccampaignscampaign_idclose) | `grc.campaigns:manage` |
-| GET | [`/api/v1/ext/grc/campaign-items`](../10-grc-pack/api.md#get-apiv1extgrccampaign-items) | `grc.campaigns:read` |
-| POST | [`/api/v1/ext/grc/campaign-items/{item_id}:decide`](../10-grc-pack/api.md#post-apiv1extgrccampaign-itemsitem_iddecide) | `object-level (see spec)` |
-| GET | [`/api/v1/ext/grc/answer-library`](../10-grc-pack/api.md#get-apiv1extgrcanswer-library) | `grc.questionnaires:read` |
-| POST | [`/api/v1/ext/grc/answer-library`](../10-grc-pack/api.md#post-apiv1extgrcanswer-library) | `grc.questionnaires:manage` |
-| PATCH | [`/api/v1/ext/grc/answer-library/{answer_id}`](../10-grc-pack/api.md#patch-apiv1extgrcanswer-libraryanswer_id) | `grc.questionnaires:manage` |
-| POST | [`/api/v1/ext/grc/questionnaires:draft`](../10-grc-pack/api.md#post-apiv1extgrcquestionnairesdraft) | `grc.questionnaires:manage` |
-| POST | [`/api/v1/ext/grc/questionnaires/{job_id}:export`](../10-grc-pack/api.md#post-apiv1extgrcquestionnairesjob_idexport) | `grc.questionnaires:manage` |
-| GET | [`/api/v1/ext/grc/pbc-requests`](../10-grc-pack/api.md#get-apiv1extgrcpbc-requests) | `grc.audit_portal:manage` |
-| POST | [`/api/v1/ext/grc/pbc-requests`](../10-grc-pack/api.md#post-apiv1extgrcpbc-requests) | `grc.audit_portal:manage` |
-| PATCH | [`/api/v1/ext/grc/pbc-requests/{request_id}`](../10-grc-pack/api.md#patch-apiv1extgrcpbc-requestsrequest_id) | `grc.audit_portal:manage` |
-| GET | [`/api/v1/ext/grc/pbc-requests/{request_id}/response`](../10-grc-pack/api.md#get-apiv1extgrcpbc-requestsrequest_idresponse) | `grc.audit_portal:manage` |
-| POST | [`/api/v1/ext/grc/pbc-lists:import`](../10-grc-pack/api.md#post-apiv1extgrcpbc-listsimport) | `grc.audit_portal:manage` |
-| GET | [`/api/v1/ext/grc/entitlements`](../10-grc-pack/api.md#get-apiv1extgrcentitlements) | `grc.campaigns:read` |
-| POST | [`/api/v1/ext/grc/entitlements:ingest`](../10-grc-pack/api.md#post-apiv1extgrcentitlementsingest) | `grc.campaigns:manage` |
-| GET | [`/api/v1/ext/grc/sod-rules`](../10-grc-pack/api.md#get-apiv1extgrcsod-rules) | `grc.campaigns:read` |
-| POST | [`/api/v1/ext/grc/sod-rules`](../10-grc-pack/api.md#post-apiv1extgrcsod-rules) | `grc.campaigns:manage` |
-| PATCH | [`/api/v1/ext/grc/sod-rules/{rule_id}`](../10-grc-pack/api.md#patch-apiv1extgrcsod-rulesrule_id) | `grc.campaigns:manage` |
-| DELETE | [`/api/v1/ext/grc/sod-rules/{rule_id}`](../10-grc-pack/api.md#delete-apiv1extgrcsod-rulesrule_id) | `grc.campaigns:manage` |
-| GET | [`/api/v1/ext/grc/report-templates`](../10-grc-pack/api.md#get-apiv1extgrcreport-templates) | `grc.reports:export` |
-| POST | [`/api/v1/ext/grc/reports:render`](../10-grc-pack/api.md#post-apiv1extgrcreportsrender) | `grc.reports:export` |
-| GET | [`/api/v1/ext/grc/entities`](../10-grc-pack/api.md#get-apiv1extgrcentities) | `grc.entities:read` |
-| POST | [`/api/v1/ext/grc/entities`](../10-grc-pack/api.md#post-apiv1extgrcentities) | `grc.entities:manage` |
-| GET | [`/api/v1/ext/grc/entities/{entity_id}/posture`](../10-grc-pack/api.md#get-apiv1extgrcentitiesentity_idposture) | `grc.entities:read` |
-| GET | [`/api/v1/ext/grc/exceptions`](../10-grc-pack/api.md#get-apiv1extgrcexceptions) | `grc.controls:read` |
-| POST | [`/api/v1/ext/grc/exceptions`](../10-grc-pack/api.md#post-apiv1extgrcexceptions) | `grc.exceptions:manage` |
-| GET | [`/api/v1/ext/grc/ethics-cases`](../10-grc-pack/api.md#get-apiv1extgrcethics-cases) | `grc.ethics:manage` |
-| GET | [`/api/v1/ext/grc/ethics-cases/{case_id}`](../10-grc-pack/api.md#get-apiv1extgrcethics-casescase_id) | `grc.ethics:manage` |
-| POST | [`/api/v1/ext/grc/ethics-cases`](../10-grc-pack/api.md#post-apiv1extgrcethics-cases) | `grc.ethics:manage` |
-| GET | [`/api/v1/ext/grc/inspections`](../10-grc-pack/api.md#get-apiv1extgrcinspections) | `grc.inspections:manage` |
-| POST | [`/api/v1/ext/grc/inspections`](../10-grc-pack/api.md#post-apiv1extgrcinspections) | `grc.inspections:manage` |
-| GET | [`/api/v1/ext/grc/dsar-requests`](../10-grc-pack/api.md#get-apiv1extgrcdsar-requests) | `grc.privacy:manage` |
-| POST | [`/api/v1/ext/grc/dsar-requests`](../10-grc-pack/api.md#post-apiv1extgrcdsar-requests) | `grc.privacy:manage` |
-| POST | [`/api/v1/ext/grc/dsar-requests/{request_id}:fulfil`](../10-grc-pack/api.md#post-apiv1extgrcdsar-requestsrequest_idfulfil) | `grc.privacy:manage` |
-| GET | [`/api/v1/ext/grc/consent-records`](../10-grc-pack/api.md#get-apiv1extgrcconsent-records) | `grc.privacy:manage` |
-| POST | [`/api/v1/ext/grc/consent-records`](../10-grc-pack/api.md#post-apiv1extgrcconsent-records) | `grc.privacy:manage` |
-| GET | [`/api/v1/ext/grc/resilience-tests`](../10-grc-pack/api.md#get-apiv1extgrcresilience-tests) | `grc.controls:read` |
-| POST | [`/api/v1/ext/grc/resilience-tests`](../10-grc-pack/api.md#post-apiv1extgrcresilience-tests) | `grc.controls:manage` |
-| POST | [`/api/v1/ext/grc/assets`](../10-grc-pack/api.md#post-apiv1extgrcassets) | `grc.risks:manage` |

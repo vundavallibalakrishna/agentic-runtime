@@ -12,7 +12,6 @@ make seed
 honcho start -f Procfile.dev
 ```
 
-`AR_GRC_PACK_ENABLED` stays unset or `false`.
 
 Sign in with dev sign-in as `admin@dev.local`.
 

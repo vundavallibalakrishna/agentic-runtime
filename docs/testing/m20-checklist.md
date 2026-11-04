@@ -2,7 +2,7 @@
 
 This is the operator run, not a fake-llm click-through. Chat uses a provider registered in **Admin → Models**. The certification run used DeepInfra's OpenAI-compatible API and `Qwen/Qwen3-32B`. The API key is pasted into the model form. It is not an environment variable the gateway reads, and it is not printed back by the API.
 
-Dev login and the seeded tenant still come from `make seed`. The GRC dev installer also writes demo workflow rows when the API starts. Those rows are called out in the [report](m20-certification-report.md). Do not add a second seed script to fill empty screens.
+Dev login and the seeded tenant still come from `make seed`. Do not add a second seed script to fill empty screens.
 
 ## Start
 
@@ -11,7 +11,6 @@ make bootstrap
 make ports-check
 make up
 make migrate
-uv run alembic -c packs/grc/alembic.ini upgrade head
 make seed
 set -a && . ./.env && set +a
 uv run honcho start -f Procfile.dev
@@ -40,16 +39,14 @@ On **Knowledge**, create a collection and upload a text file. Expect the file na
 
 On **New agent**, describe an agent and choose **Draft**. Expect a preview and a validation line.
 
-## GRC
+## Retired screens
 
-Open **GRC** and each tab: Frameworks, Controls, Evidence, Tests, Findings, Connectors, Workflows (Overview, Questionnaires, Vendors, Policies, Risks, Regulatory, Incidents, Exceptions, Ethics), Audit (Requests, Reviews, Reports, Inspections, Privacy, Resilience).
-
-A fresh dev API shows the shipped catalogues and the dev installer's demo rows. A tenant without that installer sees the empty states. The workflow screens do not have create forms (OQ-54).
+The industry screens from this certification were removed in M30. `/grc` is a not-found page. Do not look for those tabs.
 
 ## What this run does not cover
 
 - The 24 hour soak, a live Slack or Teams workspace, and a customer IdP (OQ-48).
-- GRC rows moving off the process store (OQ-49 to OQ-52).
+- The retired pack's process-store rows (OQ-49 to OQ-52, closed in M30).
 - Gateway circuit breaker, semaphore, traffic split, and mid-stream fallback (OQ-53).
 - An approval decision. The Desk agent answers "Connect an account to use this tool" and the inbox stays empty until an account is connected.
 

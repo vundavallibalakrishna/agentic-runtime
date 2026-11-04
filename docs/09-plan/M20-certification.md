@@ -42,7 +42,7 @@ Model: DeepInfra's OpenAI-compatible API (`https://api.deepinfra.com/v1/openai`)
 
 ## How to test visually
 
-1. `make bootstrap` then set free host ports in `.env` (or `make dev AUTO_PORTS=1` when the defaults are taken). `make up && make migrate && uv run alembic -c packs/grc/alembic.ini upgrade head && make seed`, then `uv run honcho start -f Procfile.dev`.
+1. `make bootstrap` then set free host ports in `.env` (or `make dev AUTO_PORTS=1` when the defaults are taken). `make up && make migrate && make seed`, then `uv run honcho start -f Procfile.dev`.
 2. Sign in as `admin@dev.local` (password `dev-password` on the Keycloak form, or the dev sign-in button).
 3. Open **Admin → Models**, switch to Advanced, register an OpenAI-compatible provider at `https://api.deepinfra.com/v1/openai` with upstream model `Qwen/Qwen3-32B`, and point chat at it. The sample line should be the model's words, not a `fake:` echo.
 4. Walk the checklist in [m20-checklist](../testing/m20-checklist.md).

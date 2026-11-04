@@ -62,4 +62,5 @@ This milestone is one pull request. Ingestion, tools and the library screens sha
 
 ## Out of scope
 
-Knowledge bases and memory (M25). Connector libraries, orchestration, and exposing agents. The GRC pack stays parked.
+Knowledge bases and memory (M25). Connector libraries, orchestration, and exposing agents.
+

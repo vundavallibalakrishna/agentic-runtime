@@ -2,7 +2,7 @@
 
 ## In scope for v1 (milestones M0–M15, see [plan](../09-plan/README.md))
 
-The GRC solution pack (M16–M19) is in the repository and is not required to call 1.0 shipped. Core 1.0 includes the generic assurance tasks in M3, M5, M7, M13 and M14.
+Core 1.0 includes the generic assurance tasks in M3, M5, M7, M13 and M14. The industry pack from M16–M19 was removed in M30.
 
 | Area | PRD | Highlights |
 |---|---|---|
@@ -21,7 +21,6 @@ The GRC solution pack (M16–M19) is in the repository and is not required to ca
 | Observability | [13](../01-prd/13-observability.md) | Traces, metrics, logs, dashboards, alerts, run inspector |
 | Evaluation | [14](../01-prd/14-evaluation.md) | Suites, cases, judges, regression gates on publish |
 | Records and assurance | [15](../01-prd/15-records-governance.md) | Immutable evidence, sign-off, segregation of duties, strict grounding, run records, legal hold, external participants, binders, pack hooks |
-| GRC pack (after 1.0) | [10-grc-pack](../10-grc-pack/prd.md) | Frameworks, collectors, workflows, auditor portal. Not core |
 
 ## Non-goals (v1)
 
