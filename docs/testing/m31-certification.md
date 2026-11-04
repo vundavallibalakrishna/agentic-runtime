@@ -1,5 +1,7 @@
 # M31 certification
 
+The pull request title uses the conventional prefix the `pr-title` job requires.
+
 Date: 2026-11-04. Model: `Qwen/Qwen3-32B` through DeepInfra (`https://api.deepinfra.com/v1/openai`). Embeddings: `BAAI/bge-m3` on the same base URL. The provider key was read from `AR_CERT_LLM_API_KEY` at runtime. This file does not contain it. Presence check: `present`.
 
 The web UI for every browser step was `next build` then `next start` on port **18132**, proxying to the API on **18131**. Postgres, Valkey, and Temporal on 5432, 6379, and 7233 were already this project's compose services and were left running. Ports 3000, 8000, 8001, 8012, and 8013 were already this project's other API, gateway, workers, and web, so they were not reused. A private Temporal for this pass listened on **17233** and was not required for the in-process turns.
