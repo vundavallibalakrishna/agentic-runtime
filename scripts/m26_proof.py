@@ -36,7 +36,7 @@ def _gh_token() -> str:
             capture_output=True,
             text=True,
         )
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return ""
     return completed.stdout.strip()
 

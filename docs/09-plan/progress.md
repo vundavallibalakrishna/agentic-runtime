@@ -236,7 +236,7 @@ M25-T02 | done | 903e702 | memory visible across conversations
 M25-T03 | done | 903e702 | portable skills loaded by description
 M25-T04 | done | 903e702 | screens and Qwen3-32B proof
 
-M26-T01 | in_progress | - | 2026-11-04 durable installs, grants, oauth state, named secrets
-M26-T02 | in_progress | - | 2026-11-04 connector runtime and twelve definitions
-M26-T03 | in_progress | - | 2026-11-04 catalog screen
-M26-T04 | in_progress | - | 2026-11-04 proof and labels
+M26-T01 | done | fd5cc27 | durable installs, grants, oauth state, named secrets
+M26-T02 | done | fd5cc27 | connector runtime and twelve definitions
+M26-T03 | done | fd5cc27 | catalog screen
+M26-T04 | done | fd5cc27 | proof and labels

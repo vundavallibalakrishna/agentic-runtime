@@ -392,11 +392,7 @@ def test_seed_registers_connector_tools() -> None:
     }
     assert "github_read_file" in names
     assert "email_send" in names
-    version = next(
-        row
-        for row in store.tool_versions.values()
-        if row.get("name") == "email_send"
-    )
+    version = next(row for row in store.tool_versions.values() if row.get("name") == "email_send")
     assert version["risk_class"] == "W2"
 
 
