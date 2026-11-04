@@ -30,7 +30,8 @@ _UNSAFE = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 def is_public(path: str) -> bool:
     """Routes that do not require a principal."""
-    if path in _PUBLIC or path.startswith("/api/docs"):
+    external = path.startswith("/v1/") or path in {"/v1", "/.well-known/agent-card.json"}
+    if path in _PUBLIC or path.startswith("/api/docs") or external:
         return True
     if path.startswith("/api/v1/hooks/routines/"):
         return True

@@ -1,0 +1,41 @@
+{
+  "missing": 401,
+  "sync": {
+    "output": "4",
+    "status": "completed"
+  },
+  "replay": {
+    "runId": "01a1a789-8025-7057-8c95-1101065bfac3",
+    "same": true,
+    "header": "true"
+  },
+  "stream": 200,
+  "streamHasData": true,
+  "card": "http://127.0.0.1:18129/v1/agents/m29-exposed/a2a",
+  "taskState": "completed",
+  "taskText": "6",
+  "mcpTools": [
+    "agent_m29_exposed"
+  ],
+  "mcpCall": [
+    {
+      "type": "text",
+      "text": "10"
+    }
+  ],
+  "approval": {
+    "status": "approval_required",
+    "approvalId": "01a1a789-8643-73d6-84e6-e88db1eda472",
+    "runId": "01a1a789-8643-73d6-84e6-e88948054654"
+  },
+  "rate": [
+    200,
+    200,
+    429
+  ],
+  "revoked": 401,
+  "remote": {
+    "isError": false,
+    "text": "12"
+  }
+}

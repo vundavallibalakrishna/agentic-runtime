@@ -13,7 +13,14 @@ const nextConfig: NextConfig = {
   agentRules: false,
   transpilePackages: ["@ar/api-client"],
   async rewrites() {
-    return [{ source: "/api/:path*", destination: `${apiOrigin}/api/:path*` }];
+    return [
+      { source: "/api/:path*", destination: `${apiOrigin}/api/:path*` },
+      { source: "/v1/:path*", destination: `${apiOrigin}/v1/:path*` },
+      {
+        source: "/.well-known/agent-card.json",
+        destination: `${apiOrigin}/.well-known/agent-card.json`,
+      },
+    ];
   },
   async headers() {
     return [

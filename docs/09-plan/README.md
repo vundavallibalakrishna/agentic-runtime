@@ -50,8 +50,9 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M26 | [M26-connectors.md](M26-connectors.md) | Connector catalog | Ready-made connectors for mail, chat, calendars, files and work trackers, with honest live-test labels. | 4 |
 | M27 | [M27-connectors.md](M27-connectors.md) | Connector batch two | ServiceNow, Salesforce, Zendesk, HubSpot, Okta, Entra ID, and read-only AWS, Azure and Google Cloud, with honest live-test labels. | 4 |
 | M28 | [M28-orchestration.md](M28-orchestration.md) | Orchestration | Agents call agents, runs survive a restart, schedules and webhooks start work, and a person can unblock a paused run. | 3 |
+| M29 | [M29-exposure.md](M29-exposure.md) | Expose agents | A published agent is callable over a versioned REST API, as an MCP tool, and over A2A, with its own scoped keys. | 4 |
 
-Total: **214 tasks** across 31 milestones (M0–M28, including M2.5 between M2 and M3). The GRC pack (M16–M19) stays in the tree and is off unless `AR_GRC_PACK_ENABLED` is true. Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027). M22 follows M21b. M23 follows M22. M24 follows M23. M25 follows M24. M26 follows M25. M27 follows M26. M28 already shipped from M26 and does not wait on M27.
+Total: **218 tasks** across 32 milestones (M0–M29, including M2.5 between M2 and M3). The GRC pack (M16–M19) stays in the tree and is off unless `AR_GRC_PACK_ENABLED` is true. Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027). M22 follows M21b. M23 follows M22. M24 follows M23. M25 follows M24. M26 follows M25. M27 follows M26. M28 already shipped from M26 and does not wait on M27. M29 follows M28.
 
 ## Dependency graph
 
@@ -83,7 +84,7 @@ flowchart LR
   M17 --> M19
   M18 --> M19
   M19 --> M20 --> M21 --> M21b[M21b] --> M22 --> M23 --> M24 --> M25 --> M26 --> M27
-  M26 --> M28
+  M26 --> M28 --> M29
 ```
 
 M16 does not wait for M15. M13-T07 is the one task that waits for a later milestone (M14-T08).
