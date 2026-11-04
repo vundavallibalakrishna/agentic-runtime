@@ -669,6 +669,9 @@ async def test_durable_rows_round_trip_in_memory() -> None:
         def mappings(self) -> list[dict[str, object]]:
             return self._rows
 
+        def first(self) -> dict[str, object] | None:
+            return self._rows[0] if self._rows else None
+
     class Session:
         def __init__(self) -> None:
             self.calls: list[object] = []
@@ -676,6 +679,8 @@ async def test_durable_rows_round_trip_in_memory() -> None:
         async def execute(self, statement: object, params: object = None) -> Result:
             self.calls.append(params)
             sql = str(statement)
+            if "FROM runs" in sql:
+                return Result([{"id": run["id"]}])
             if "FROM tool_calls" in sql:
                 return Result([dict(store.tool_calls[call_id])])
             if "FROM human_questions" in sql:
@@ -715,6 +720,64 @@ async def test_durable_rows_round_trip_in_memory() -> None:
             "human_questions": [{"id": question_id, "kind": "approval", "status": "nope"}],
         },
     )
+
+
+async def test_approval_link_skips_a_missing_approval() -> None:
+    from ar_domain.durable.m28 import save_approval_links
+
+    class Result:
+        def first(self) -> None:
+            return None
+
+    class Session:
+        def __init__(self) -> None:
+            self.sql: list[str] = []
+
+        async def execute(self, statement: object, params: object = None) -> Result:
+            del params
+            self.sql.append(str(statement))
+            return Result()
+
+    session = Session()
+    await save_approval_links(
+        session,
+        [{"id": uuid.uuid4(), "approval_id": uuid.uuid4()}],
+    )
+    assert len(session.sql) == 1
+    assert "FROM approvals" in session.sql[0]
+
+
+async def test_tool_call_without_a_run_is_not_inserted() -> None:
+    from ar_domain.durable.m28 import save_tool_calls
+
+    class Result:
+        def first(self) -> None:
+            return None
+
+    class Session:
+        def __init__(self) -> None:
+            self.sql: list[str] = []
+
+        async def execute(self, statement: object, params: object = None) -> Result:
+            del params
+            self.sql.append(str(statement))
+            return Result()
+
+    session = Session()
+    await save_tool_calls(
+        session,
+        [
+            {
+                "id": uuid.uuid4(),
+                "tenant_id": demo_id("tenant"),
+                "run_id": uuid.uuid4(),
+                "qualified_name": "general.code",
+            }
+        ],
+    )
+    assert len(session.sql) == 1
+    assert "FROM runs" in session.sql[0]
+    assert "INSERT" not in session.sql[0]
 
 
 def test_human_question_table_is_mapped() -> None:

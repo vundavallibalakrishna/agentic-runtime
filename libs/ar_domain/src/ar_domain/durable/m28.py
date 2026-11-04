@@ -115,6 +115,14 @@ async def save_tool_calls(session: AsyncSession, rows: list[dict[str, Any]]) -> 
         run_id = as_uuid(row.get("run_id"))
         if None in {call_id, tenant_id, run_id}:
             continue
+        present = await session.execute(
+            text("SELECT 1 FROM runs WHERE id = :id"),
+            {"id": run_id},
+        )
+        if present.first() is None:
+            # The console used to keep a run that flush cannot store. Inserting
+            # the call anyway aborts the transaction and then every later save.
+            continue
         decision = as_text(row.get("policy_decision"), "allow")
         if decision not in _DECISIONS:
             decision = "allow"
@@ -156,6 +164,12 @@ async def save_approval_links(session: AsyncSession, rows: list[dict[str, Any]])
         call_id = as_uuid(row.get("id"))
         approval_id = as_uuid(row.get("approval_id"))
         if call_id is None or approval_id is None:
+            continue
+        present = await session.execute(
+            text("SELECT 1 FROM approvals WHERE id = :id"),
+            {"id": approval_id},
+        )
+        if present.first() is None:
             continue
         await session.execute(
             text("UPDATE tool_calls SET approval_id = :approval_id WHERE id = :id"),

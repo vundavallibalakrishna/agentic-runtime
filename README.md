@@ -1,8 +1,10 @@
 # Agentic Runtime
 
-A self-hosted platform on which a company builds, governs and operates AI agents for its employees — on the company's own infrastructure and models. Builders compose **agents** from instructions, **tools** (MCP servers, internal APIs, databases), **knowledge**, **memory**, **skills**, **subagents** and **sandboxes**; **policies and approvals** keep risky actions under human control; agents are used from the **web app, Slack, Microsoft Teams, email and the API**, on demand or as scheduled **routines**. One codebase runs as a **multi-tenant SaaS** or a **single-tenant Kubernetes / on-prem** install.
+A self-hosted, chat-first platform. A customer connects their own OpenAI-compatible model, defines agents, and gives them tools: sandboxed Python and shell, workspace files, page fetch, web search, and HTTP. Agents can use documents, knowledge bases, memory, skills, and connectors. They plan, act, check, and retry. A parent agent can hand work to other agents, run them in parallel, wait for a person, or fire on a schedule or a signed webhook. A published agent is callable from outside over REST `/v1`, MCP, and A2A.
 
-This repository currently contains the complete build specification. An implementer (human or AI coding agent) builds the product by following [AGENTS.md](AGENTS.md) and the ordered backlog in [docs/09-plan](docs/09-plan/README.md).
+The industry pack that used to live in this repository was removed. A fresh tenant does not see it.
+
+The specification set under `docs/` is still the behaviour contract. [AGENTS.md](AGENTS.md) is for people changing the code. A customer can start from the quick start below. The record of the final pass is [the M31 certification](docs/testing/m31-certification.md).
 
 ## Stack at a glance
 
@@ -35,15 +37,37 @@ Exact versions: [docs/stack.md](docs/stack.md). Decisions: [ADRs](docs/02-archit
 | [docs/09-plan](docs/09-plan/README.md) | **The build plan**: milestones and ordered tasks with dependencies and acceptance criteria |
 | [docs/open-questions.md](docs/open-questions.md) | Undecided points, each with the default to apply now |
 
-The original architecture document is kept alongside this repository as `docs/architecture/agentic-runtime-architecture.docx` / `.pdf` (reference only; this specification set supersedes it where they differ).
+How the running system fits together: [docs/architecture/README.md](docs/architecture/README.md). The original architecture document is kept as `docs/architecture/agentic-runtime-architecture.docx` / `.pdf` (reference only; the specification set supersedes it where they differ).
 
 ## Quick start
 
 ```bash
 make bootstrap   # install toolchains and dependencies, generate dev keys
-make dev         # start dependencies (compose) and all services with reload
-open http://localhost:3000   # sign in as admin@dev.local via dev login
+make dev         # Postgres, Valkey, Temporal, Keycloak, API, workers, and the web app
+open http://localhost:3000
 ```
+
+Sign in as `admin@dev.local`. On a laptop the password for Keycloak is `dev-password`, and the sign-in page also lists the seeded roles for dev login. Chat is the first screen. `make seed` inserts the dev tenant, four users, a local `fake-llm` provider, and the built-in assistants. It does not insert sample conversations.
+
+Connect the model you actually want to use:
+
+1. Open **Models**, switch to **Advanced**, and choose **OpenAI-compatible**.
+2. Set the base URL (for DeepInfra, `https://api.deepinfra.com/v1/openai`) and the upstream model id (for example `Qwen/Qwen3-32B`).
+3. Paste the API key and choose **Register and test**. The key is stored as a secret. The page shows **Key stored** and a short sample. It does not show the key again.
+
+Point the tenant `reasoning` alias at that model if the form did not do it. New agents use that alias. Embeddings for a knowledge base use a registered model of kind `embedding` (the certification used `BAAI/bge-m3` on the same base URL).
+
+If the web app is not on port 3000, set `AR_WEB_HOST_PORT` to that port before the API starts. The API checks the browser `Origin` against `AR_PUBLIC_URL`, and that URL follows the web port. A mismatch fails CSRF on every save.
+
+Production UI for a certification or a demo:
+
+```bash
+# from apps/web, after the API is listening
+API_PROXY_URL=http://127.0.0.1:8000 pnpm exec next build
+API_PROXY_URL=http://127.0.0.1:8000 pnpm exec next start --port 3000
+```
+
+`API_PROXY_URL` is read when the production server starts. The dev server is `pnpm --filter @ar/web dev`.
 
 Kubernetes install (Helm 4.3, chart `deploy/helm/agentic-runtime` 1.0.0):
 
@@ -57,7 +81,19 @@ See [Helm and Kubernetes](docs/07-ops/helm-k8s.md) and the [M15 checklist](docs/
 
 Details: [docs/07-ops/local-dev.md](docs/07-ops/local-dev.md).
 
-## Repository layout (target)
+## What a tenant can do
+
+- Chat with an agent that calls tools, recovers from a failed call, and shows the trace.
+- Run sandboxed Python and shell, read and write workspace files, fetch a page, and call HTTP. A POST waits for a person who is allowed to approve it.
+- Upload a document, read its outline, and ask for a summary or a check with page anchors. A compare and a rewrite stay proposed until someone accepts them.
+- Build a knowledge base, keep memory, and load a skill when the request matches its description.
+- Install a connector. GitHub can be used live. Connectors without credentials stay labelled **Not live-tested**.
+- Orchestrate child agents, pause for an inbox answer, and fire a schedule or a signed webhook.
+- Publish an agent and call it with a key over `/v1`, MCP, and A2A.
+
+Details and the observed output of the final pass: [docs/testing/m31-certification.md](docs/testing/m31-certification.md).
+
+## Repository layout
 
 See [service-decomposition §4](docs/02-architecture/service-decomposition.md#4-repository-layout): `apps/web`, `packages/*`, `libs/ar_*`, `services/*`, `connectors/*`, `policies/`, `images/`, `deploy/`, `evals/`, `scripts/`.
 
