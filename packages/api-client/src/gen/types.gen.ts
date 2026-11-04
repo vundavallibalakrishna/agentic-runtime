@@ -139,6 +139,16 @@ export type AliasTestBody = {
 };
 
 /**
+ * AnswerBody
+ */
+export type AnswerBody = {
+    /**
+     * Text
+     */
+    text?: string;
+};
+
+/**
  * ApiKeyCreate
  */
 export type ApiKeyCreate = {
@@ -3396,6 +3406,16 @@ export type TestBody = {
 };
 
 /**
+ * TickBody
+ */
+export type TickBody = {
+    /**
+     * Force
+     */
+    force?: boolean;
+};
+
+/**
  * ToolPatch
  */
 export type ToolPatch = {
@@ -3465,6 +3485,10 @@ export type TriggerBody = {
      * Catchupwindows
      */
     catchupWindowS?: number;
+    /**
+     * Executemodel
+     */
+    executeModel?: boolean;
     /**
      * Config
      */
@@ -9389,6 +9413,60 @@ export type RunEventsApiV1RunsRunIdEventsGetResponses = {
      */
     200: unknown;
 };
+
+export type InboxApiV1InboxGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/inbox';
+};
+
+export type InboxApiV1InboxGetResponses = {
+    /**
+     * Response Inbox Api V1 Inbox Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type InboxApiV1InboxGetResponse = InboxApiV1InboxGetResponses[keyof InboxApiV1InboxGetResponses];
+
+export type AnswerInboxApiV1InboxQuestionIdAnswerPostData = {
+    body: AnswerBody;
+    path: {
+        /**
+         * Question Id
+         */
+        question_id: string;
+    };
+    query?: never;
+    url: '/api/v1/inbox/{question_id}:answer';
+};
+
+export type AnswerInboxApiV1InboxQuestionIdAnswerPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AnswerInboxApiV1InboxQuestionIdAnswerPostError = AnswerInboxApiV1InboxQuestionIdAnswerPostErrors[keyof AnswerInboxApiV1InboxQuestionIdAnswerPostErrors];
+
+export type AnswerInboxApiV1InboxQuestionIdAnswerPostResponses = {
+    /**
+     * Response Answer Inbox Api V1 Inbox  Question Id  Answer Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type AnswerInboxApiV1InboxQuestionIdAnswerPostResponse = AnswerInboxApiV1InboxQuestionIdAnswerPostResponses[keyof AnswerInboxApiV1InboxQuestionIdAnswerPostResponses];
 
 export type ListServersApiV1ToolServersGetData = {
     body?: never;
@@ -15647,6 +15725,40 @@ export type ListEventsApiV1RoutinesRoutineIdEventsGetResponses = {
 };
 
 export type ListEventsApiV1RoutinesRoutineIdEventsGetResponse = ListEventsApiV1RoutinesRoutineIdEventsGetResponses[keyof ListEventsApiV1RoutinesRoutineIdEventsGetResponses];
+
+export type TickRoutineApiV1RoutinesRoutineIdTickPostData = {
+    body: TickBody;
+    path: {
+        /**
+         * Routine Id
+         */
+        routine_id: string;
+    };
+    query?: never;
+    url: '/api/v1/routines/{routine_id}:tick';
+};
+
+export type TickRoutineApiV1RoutinesRoutineIdTickPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TickRoutineApiV1RoutinesRoutineIdTickPostError = TickRoutineApiV1RoutinesRoutineIdTickPostErrors[keyof TickRoutineApiV1RoutinesRoutineIdTickPostErrors];
+
+export type TickRoutineApiV1RoutinesRoutineIdTickPostResponses = {
+    /**
+     * Response Tick Routine Api V1 Routines  Routine Id  Tick Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TickRoutineApiV1RoutinesRoutineIdTickPostResponse = TickRoutineApiV1RoutinesRoutineIdTickPostResponses[keyof TickRoutineApiV1RoutinesRoutineIdTickPostResponses];
 
 export type RoutineWebhookApiV1HooksRoutinesTokenPostData = {
     body?: never;

@@ -176,6 +176,7 @@ class ChatService:
     policies: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     policy_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     approvals: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    human_questions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     approval_decisions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     standing_approvals: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     review_queues: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -1431,6 +1432,16 @@ class ChatService:
 
         schedule_flush(self)
 
+    def _schedule_resume(self, run_id: uuid.UUID) -> None:
+        from ar_domain.orchestration.engine import resume_run  # noqa: PLC0415
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(resume_run(self, run_id))
+            return
+        self.tasks.append(loop.create_task(resume_run(self, run_id)))
+
     def _schedule(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         try:
             loop = asyncio.get_running_loop()
@@ -1595,6 +1606,10 @@ class ChatService:
             self._fail_context(run, conversation, assistant)
             return
         self._emit(run, "run.started", {"model_alias": "reasoning"})
+        if self.durable_engine is not None:
+            from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+            await flush_store(self)
         self._emit_recall(run)
         self._emit(
             run,
@@ -1611,7 +1626,8 @@ class ChatService:
 
         await ground_run(self, run, text)
         if await run_agent_loop(self, run, assistant, text):
-            self._emit_memory(run, text, str(assistant.get("text") or ""))
+            if str(run.get("status")) not in {"waiting_input", "waiting_approval"}:
+                self._emit_memory(run, text, str(assistant.get("text") or ""))
             return
         if await maybe_tools(self, run, assistant, text):
             return
@@ -2071,6 +2087,12 @@ class ChatService:
             raise NotFoundError()
         if str(run["status"]) != "waiting_input":
             raise ArError(ErrorCode.INVALID_STATE, "run input is not available yet")
+        if run.get("pending_question_id"):
+            from ar_domain.orchestration.ask import accept_human_answer  # noqa: PLC0415
+
+            accept_human_answer(self, tenant_id, user_id, run, text)
+            self._schedule_resume(run_id)
+            return self._public(run)
         answer = text.strip() or "Using what you sent."
         self.input_responses[run_id] = answer
         self._emit(run, "input.resolved", {"length": len(answer)})

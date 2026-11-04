@@ -1,5 +1,33 @@
 {
   "$defs": {
+    "AgentContract": {
+      "additionalProperties": false,
+      "description": "What a parent sees when it calls this agent.",
+      "properties": {
+        "description": {
+          "default": "",
+          "maxLength": 2000,
+          "title": "Description",
+          "type": "string"
+        },
+        "inputSchema": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Inputschema",
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "title": "Outputschema",
+          "type": "object"
+        }
+      },
+      "title": "AgentContract",
+      "type": "object"
+    },
     "AssuranceSpec": {
       "additionalProperties": false,
       "properties": {
@@ -79,6 +107,20 @@
       "title": "ContextSpec",
       "type": "object"
     },
+    "HumanSpec": {
+      "additionalProperties": false,
+      "description": "When true, the agent may pause and ask a person.",
+      "properties": {
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        }
+      },
+      "title": "HumanSpec",
+      "type": "object"
+    },
+    "JsonValue": {},
     "KnowledgeSpec": {
       "additionalProperties": false,
       "properties": {
@@ -443,8 +485,16 @@
         },
         "maxParallel": {
           "default": 3,
+          "maximum": 8,
           "minimum": 1,
           "title": "Maxparallel",
+          "type": "integer"
+        },
+        "childTimeoutS": {
+          "default": 45,
+          "maximum": 600,
+          "minimum": 1,
+          "title": "Childtimeouts",
           "type": "integer"
         }
       },
@@ -699,7 +749,22 @@
         "allowed": [],
         "allowSelfClone": false,
         "maxDepth": 1,
-        "maxParallel": 3
+        "maxParallel": 3,
+        "childTimeoutS": 45
+      }
+    },
+    "contract": {
+      "$ref": "#/$defs/AgentContract",
+      "default": {
+        "description": "",
+        "inputSchema": {},
+        "outputSchema": {}
+      }
+    },
+    "human": {
+      "$ref": "#/$defs/HumanSpec",
+      "default": {
+        "enabled": false
       }
     },
     "sandbox": {

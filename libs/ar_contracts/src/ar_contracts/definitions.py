@@ -95,7 +95,22 @@ class SubagentSpec(_Model):
     allowed: list[str] = Field(default_factory=list)
     allow_self_clone: bool = False
     max_depth: int = Field(default=1, ge=1, le=3)
-    max_parallel: int = Field(default=3, ge=1)
+    max_parallel: int = Field(default=3, ge=1, le=8)
+    child_timeout_s: int = Field(default=45, ge=1, le=600)
+
+
+class AgentContract(_Model):
+    """What a parent sees when it calls this agent."""
+
+    description: str = Field(default="", max_length=2000)
+    input_schema: dict[str, JsonValue] = Field(default_factory=dict)
+    output_schema: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class HumanSpec(_Model):
+    """When true, the agent may pause and ask a person."""
+
+    enabled: bool = False
 
 
 class SandboxSpec(_Model):
@@ -149,6 +164,8 @@ class AgentDefinition(_Model):
     skills: list[str] = Field(default_factory=list, max_length=30)
     memory: MemorySpec = MemorySpec()
     subagents: SubagentSpec = SubagentSpec()
+    contract: AgentContract = AgentContract()
+    human: HumanSpec = HumanSpec()
     sandbox: SandboxSpec = SandboxSpec()
     budget: RunBudget
     context: ContextSpec = ContextSpec()

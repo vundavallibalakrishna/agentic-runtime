@@ -24,9 +24,20 @@ type Run = {
   agentSlug?: string;
   traceUrl?: string;
   langfuseUrl?: string;
-  usage?: { steps?: number; wallClockMs?: number; costMicros?: number };
+  startedAt?: string | null;
+  endedAt?: string | null;
+  depth?: number;
+  usage?: { steps?: number; wallClockMs?: number; costMicros?: number; tokensOut?: number };
   budget?: { maxSteps?: number; maxCostMicros?: number };
+  error?: { code?: string; message?: string };
 };
+
+function durationLabel(run: Run) {
+  const start = Date.parse(run.startedAt || "");
+  if (!start) return "";
+  const end = Date.parse(run.endedAt || "") || Date.now();
+  return `${Math.max(0, Math.round((end - start) / 1000))}s`;
+}
 
 type Step = { id?: string; kind?: string; detail?: { agent?: string } };
 type Tool = { id?: string; qualifiedName?: string; status?: string };
@@ -42,32 +53,47 @@ export function RunScreen() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selected, setSelected] = useState("");
 
-  const load = useCallback(async () => {
-    setRun(null);
-    setLoading(true);
-    setError("");
-    try {
-      const [body, childPage, stepPage, toolPage] = await Promise.all([
-        api<Run>(`/api/v1/runs/${runId}`),
-        api<{ items: Run[] }>(`/api/v1/runs/${runId}/children`),
-        api<{ items: Step[] }>(`/api/v1/runs/${runId}/steps`),
-        api<{ items: Tool[] }>(`/api/v1/runs/${runId}/tool-calls`),
-      ]);
-      setRun(body);
-      setChildren(childPage.items ?? []);
-      setSteps(stepPage.items ?? []);
-      setTools(toolPage.items ?? []);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
-    } finally {
-      setLoading(false);
-    }
-  }, [runId, t]);
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) {
+        setRun(null);
+        setLoading(true);
+      }
+      setError("");
+      try {
+        const [body, childPage, stepPage, toolPage] = await Promise.all([
+          api<Run>(`/api/v1/runs/${runId}`),
+          api<{ items: Run[] }>(`/api/v1/runs/${runId}/children`),
+          api<{ items: Step[] }>(`/api/v1/runs/${runId}/steps`),
+          api<{ items: Tool[] }>(`/api/v1/runs/${runId}/tool-calls`),
+        ]);
+        setRun(body);
+        setChildren(childPage.items ?? []);
+        setSteps(stepPage.items ?? []);
+        setTools(toolPage.items ?? []);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : t("error"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [runId, t],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const live = ["queued", "running", "waiting_input", "waiting_approval"].includes(
+    run?.status || "",
+  );
+  useEffect(() => {
+    if (!live) return;
+    const timer = window.setInterval(() => void load(true), 2000);
+    return () => window.clearInterval(timer);
+  }, [live, load]);
 
   const graph = run ? buildTrace({ run, children, steps, tools }) : { nodes: [], edges: [] };
 
@@ -89,8 +115,26 @@ export function RunScreen() {
           ) : null}
           <p className="mb-3 text-sm text-[var(--muted-foreground)]">
             {run.trigger} · {run.status}
+            {durationLabel(run) ? ` · ${t("duration")} ${durationLabel(run)}` : ""}
+            {run.usage?.costMicros != null ? ` · ${t("cost")} ${run.usage.costMicros}` : ""}
             {children.length ? ` · ${t("children", { count: children.length })}` : ""}
           </p>
+          {run.error?.message ? <p className="mb-3 text-sm">{run.error.message}</p> : null}
+          {children.length ? (
+            <section className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+              <h2 className="mb-2 text-sm font-semibold">{t("tree")}</h2>
+              <ul className="space-y-2">
+                {children.map((child) => (
+                  <li key={child.id}>
+                    <Link className="text-sm underline" href={`/runs/${child.id}`}>
+                      {child.agentName || child.agentSlug || t("child")} · {child.status}
+                      {durationLabel(child) ? ` · ${durationLabel(child)}` : ""}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           <div className="mb-4 grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
               <p className="text-sm text-[var(--muted-foreground)]">{t("stepsLabel")}</p>
@@ -138,13 +182,25 @@ export function RunScreen() {
               <ol className="divide-y divide-[var(--border)]">
                 {steps.map((step, index) => (
                   <li className="py-3 text-sm" key={step.id ?? index}>
-                    {step.kind}
-                    {step.detail?.agent ? ` · ${step.detail.agent}` : ""}
+                    <button onClick={() => setSelected(step.id || String(index))} type="button">
+                      {step.kind}
+                      {step.detail?.agent ? ` · ${step.detail.agent}` : ""}
+                    </button>
+                    {selected === (step.id || String(index)) ? (
+                      <pre className="mt-2 whitespace-pre-wrap text-xs text-[var(--muted-foreground)]">
+                        {JSON.stringify(step.detail ?? {}, null, 2)}
+                      </pre>
+                    ) : null}
                   </li>
                 ))}
                 {tools.map((tool, index) => (
                   <li className="py-3 text-sm" key={tool.id ?? index}>
-                    {tool.qualifiedName} · {tool.status}
+                    <button onClick={() => setSelected(tool.id || `tool-${index}`)} type="button">
+                      {tool.qualifiedName} · {tool.status}
+                    </button>
+                    {selected === (tool.id || `tool-${index}`) ? (
+                      <p className="mt-2 text-xs text-[var(--muted-foreground)]">{tool.status}</p>
+                    ) : null}
                   </li>
                 ))}
               </ol>

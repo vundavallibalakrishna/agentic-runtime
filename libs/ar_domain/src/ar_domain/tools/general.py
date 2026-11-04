@@ -359,6 +359,10 @@ def _prepare(store: Any, arguments: dict[str, object]) -> Path:
     (root / "workspace" / "outputs").mkdir(parents=True, exist_ok=True)
     (root / "tmp").mkdir(parents=True, exist_ok=True)
     _copy_attachments(store, root, arguments.get("_attachment_ids"))
+    if isinstance(run_id, uuid.UUID):
+        run = store.runs.get(run_id) if isinstance(getattr(store, "runs", None), dict) else None
+        if isinstance(run, dict):
+            run["workspace_ref"] = f"workspace:{key}"
     return root
 
 

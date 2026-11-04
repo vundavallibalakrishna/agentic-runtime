@@ -4,10 +4,12 @@ import {
   BarChart3,
   Bot,
   Brain,
+  CalendarClock,
   CheckCheck,
   ClipboardCheck,
   FileText,
   Gauge,
+  Inbox,
   Library,
   Link2,
   MessageSquare,
@@ -37,6 +39,8 @@ export type NavItem = {
     | "navMemory"
     | "navSkills"
     | "navRoutines"
+    | "navSchedules"
+    | "navInbox"
     | "navChannels"
     | "navUsage"
     | "navQuotas"
@@ -131,6 +135,20 @@ export const primaryNav: NavItem[] = [
     labelKey: "navRoutines",
     permission: "routines:create",
     icon: Repeat,
+  },
+  {
+    href: "/schedules",
+    section: "workspace",
+    labelKey: "navSchedules",
+    permission: "routines:create",
+    icon: CalendarClock,
+  },
+  {
+    href: "/inbox",
+    section: "workspace",
+    labelKey: "navInbox",
+    permission: "chat:use",
+    icon: Inbox,
   },
   {
     href: "/admin/channels",

@@ -136,6 +136,9 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
         await _conversations(session, store, tenant_id)
         await _runs(session, store, tenant_id)
         await _messages(session, store, tenant_id)
+        from ar_domain.durable.m28 import load_runtime_rows  # noqa: PLC0415
+
+        await load_runtime_rows(session, store, tenant_id)
         await _events(session, store, tenant_id)
         await _channel_integrations(session, store, tenant_id)
         await _channel_identities(session, store, tenant_id)

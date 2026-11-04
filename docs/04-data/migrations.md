@@ -52,6 +52,7 @@
 | 0026 | `library_documents` | `library_documents`, `document_checks`, `document_comparisons`, `document_rewrites`. RLS and grants ship in the same revision. | M24 |
 | 0027 | `embedding_model` | Nullable `knowledge_collections.embedding_model`. The live path stores the real model id here. Existing rows stay null and keep working. | M25 |
 | 0028 | `connector_catalog` | `connector_installs`, `oauth_states`, `named_secrets`. Nullable `credential_grants.secret_ref_id` plus access and refresh ciphertext. RLS and grants ship in the same revision. | M26 |
+| 0029 | `orchestration` | Nullable `runs.checkpoint` and `runs.workspace_ref`. `human_questions` with RLS, grants, and the updated-at trigger. | M28 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

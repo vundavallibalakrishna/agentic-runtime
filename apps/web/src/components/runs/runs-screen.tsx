@@ -16,7 +16,20 @@ type Run = {
   status?: string;
   trigger?: string;
   resultSummary?: string;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  depth?: number;
+  parentRunId?: string | null;
+  usage?: { costMicros?: number; tokensOut?: number };
 };
+
+function durationLabel(run: Run) {
+  const start = Date.parse(run.startedAt || "");
+  if (!start) return "";
+  const end = Date.parse(run.endedAt || "") || Date.now();
+  const seconds = Math.max(0, Math.round((end - start) / 1000));
+  return `${seconds}s`;
+}
 
 export function RunsScreen() {
   const t = useTranslations("runs");
@@ -24,22 +37,34 @@ export function RunsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const page = await api<{ items: Run[] }>("/api/v1/runs");
-      setRows(page.items ?? []);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setLoading(true);
+      setError("");
+      try {
+        const page = await api<{ items: Run[] }>("/api/v1/runs");
+        setRows(page.items ?? []);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : t("error"));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [t],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const live = rows.some((run) =>
+    ["queued", "running", "waiting_input", "waiting_approval"].includes(run.status || ""),
+  );
+  useEffect(() => {
+    if (!live) return;
+    const timer = window.setInterval(() => void load(true), 2000);
+    return () => window.clearInterval(timer);
+  }, [live, load]);
 
   return (
     <AppShell>
@@ -69,6 +94,9 @@ export function RunsScreen() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">
                   {run.trigger || t("title")} · {run.status}
+                  {durationLabel(run) ? ` · ${durationLabel(run)}` : ""}
+                  {run.usage?.costMicros != null ? ` · ${t("cost")} ${run.usage.costMicros}` : ""}
+                  {run.depth ? ` · ${t("childStatus")} ${run.depth}` : ""}
                 </p>
                 <p className="mt-2 line-clamp-2 text-sm text-[var(--muted-foreground)]">
                   {run.resultSummary || t("noSummary")}

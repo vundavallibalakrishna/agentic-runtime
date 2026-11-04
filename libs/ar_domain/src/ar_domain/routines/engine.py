@@ -79,7 +79,9 @@ def accept_routine_event(  # noqa: PLR0911
     if _over_cap(store, routine):
         return _finish(event, "rate_limited", source)
     if _blocked_by_concurrency(store, routine):
-        return _finish(event, "skipped_concurrency", source)
+        finished = _finish(event, "skipped_concurrency", source)
+        event["detail"] = {"message": "Skipped because the previous run is still going."}
+        return finished
     _count_run(store, routine)
     return _finish(event, "accepted", source)
 

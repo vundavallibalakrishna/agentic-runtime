@@ -9,7 +9,7 @@ from pydantic import Field
 
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, dump, page
-from ar_common.errors import ConflictError
+from ar_common.errors import ConflictError, UnavailableError
 from ar_contracts.api_model import ApiModel
 from ar_domain.durable.hydrate import reload_routines
 from ar_domain.routines.book import RoutineBook
@@ -24,7 +24,12 @@ class TriggerBody(ApiModel):
     timezone: str | None = None
     jitter_s: int = 0
     catchup_window_s: int = 0
+    execute_model: bool = False
     config: dict[str, str] = Field(default_factory=dict)
+
+
+class TickBody(ApiModel):
+    force: bool = False
 
 
 class DeliveryBody(ApiModel):
@@ -107,6 +112,14 @@ async def list_routines(  # noqa: PLR0917
     return page(rows)
 
 
+async def _sync(request: Request, routine_id: uuid.UUID, *, deleted: bool = False) -> None:
+    """Push the schedule to Temporal when it is up. The row still stands without it."""
+    try:
+        await sync_schedule(chat(request), routine_id, deleted=deleted)
+    except UnavailableError:
+        return
+
+
 @router.post(
     "/api/v1/routines",
     status_code=201,
@@ -115,7 +128,7 @@ async def list_routines(  # noqa: PLR0917
 @expose(public=False, permission="routines:create")
 async def create_routine(body: RoutineBody, request: Request) -> dict[str, object]:
     result = _book(request).create(actor(request), dump(body))
-    await sync_schedule(chat(request), uuid.UUID(str(result["id"])))
+    await _sync(request, uuid.UUID(str(result["id"])))
     return result
 
 
@@ -147,7 +160,7 @@ async def patch_routine(
     routine_id: uuid.UUID, body: RoutinePatch, request: Request
 ) -> dict[str, object]:
     result = _book(request).patch(actor(request), routine_id, dump(body))
-    await sync_schedule(chat(request), routine_id)
+    await _sync(request, routine_id)
     return result
 
 
@@ -158,7 +171,7 @@ async def patch_routine(
 )
 @expose(public=False, permission="routines:create")
 async def delete_routine(routine_id: uuid.UUID, request: Request) -> None:
-    await sync_schedule(chat(request), routine_id, deleted=True)
+    await _sync(request, routine_id, deleted=True)
     _book(request).delete(actor(request), routine_id)
 
 
@@ -188,7 +201,7 @@ async def run_routine(
 @expose(public=False, permission="routines:create")
 async def pause_routine(routine_id: uuid.UUID, request: Request) -> dict[str, object]:
     result = _book(request).pause(actor(request), routine_id)
-    await sync_schedule(chat(request), routine_id)
+    await _sync(request, routine_id)
     return result
 
 
@@ -199,7 +212,7 @@ async def pause_routine(routine_id: uuid.UUID, request: Request) -> dict[str, ob
 @expose(public=False, permission="routines:create")
 async def resume_routine(routine_id: uuid.UUID, request: Request) -> dict[str, object]:
     result = _book(request).resume(actor(request), routine_id)
-    await sync_schedule(chat(request), routine_id)
+    await _sync(request, routine_id)
     return result
 
 
@@ -233,6 +246,21 @@ async def list_events(routine_id: uuid.UUID, request: Request) -> dict[str, obje
     return page(_book(request).events(actor(request), routine_id))
 
 
+@router.post(
+    "/api/v1/routines/{routine_id}:tick",
+    dependencies=[Depends(require_permission("routines:create"))],
+)
+@expose(public=False, permission="routines:create")
+async def tick_routine(
+    routine_id: uuid.UUID, body: TickBody, request: Request
+) -> dict[str, object]:
+    """Fire a due schedule in this process. A live model run waits for the answer."""
+    from ar_domain.orchestration.triggers import fire_schedule  # noqa: PLC0415
+
+    await reload_routines(chat(request))
+    return await fire_schedule(chat(request), routine_id, force=body.force)
+
+
 @router.post("/api/v1/hooks/routines/{token}")
 @expose(public=True, permission=None)
 async def routine_webhook(token: str, request: Request) -> JSONResponse:
@@ -240,16 +268,32 @@ async def routine_webhook(token: str, request: Request) -> JSONResponse:
     header = request.headers.get("x-ar-signature", "")
     idem = request.headers.get("x-idempotency-key", "")
     store = chat(request)
+    from ar_domain.orchestration.triggers import drive_trigger, routine_for_token, wants_live  # noqa: PLC0415
+
+    routine = routine_for_token(store, token)
+    live = routine is not None and wants_live(routine)
     durable = store.durable_engine is not None
-    if durable:
+    if durable and not live:
         client_for(store)
     try:
         result = _book(request).accept_webhook(
-            token, raw, header, idempotency_header=idem, execute=not durable
+            token,
+            raw,
+            header,
+            idempotency_header=idem,
+            execute=not durable and not live,
+            defer=live,
         )
     except ConflictError as exc:
         return JSONResponse(status_code=409, content={"event_id": exc.detail})
-    if durable and result.get("status") == "accepted":
+    if live and result.get("status") == "accepted" and result.get("run_id"):
+        await drive_trigger(
+            store,
+            uuid.UUID(str(result["run_id"])),
+            str(result.get("text") or ""),
+            uuid.UUID(str(result["event_id"])),
+        )
+    elif durable and result.get("status") == "accepted":
         event = store.routine_events[uuid.UUID(str(result["event_id"]))]
         if event.get("run_id"):
             await start_run(store, uuid.UUID(str(event["run_id"])))

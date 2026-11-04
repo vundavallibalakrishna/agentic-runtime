@@ -78,6 +78,9 @@ async def bind_store(store: object, database_url: str) -> DevBinding | None:
         await hydrate_tenant(store, engine, tenant_id)
     finally:
         store._initial_loaded = None  # type: ignore[attr-defined]
+    from ar_domain.orchestration.reconcile import reconcile_interrupted  # noqa: PLC0415
+
+    reconcile_interrupted(store)
     for name, keys in seeded.items():
         bucket = getattr(store, name, None)
         if isinstance(bucket, TrackedDict):

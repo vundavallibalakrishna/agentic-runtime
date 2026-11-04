@@ -25,6 +25,7 @@ import ar_domain.identity.models
 import ar_domain.knowledge.tables
 import ar_domain.memory.tables
 import ar_domain.models.tables
+import ar_domain.orchestration.tables
 import ar_domain.packs.tables
 import ar_domain.policy.models
 import ar_domain.records.tables

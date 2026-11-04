@@ -240,3 +240,9 @@ M26-T01 | done | fd5cc27 | durable installs, grants, oauth state, named secrets
 M26-T02 | done | fd5cc27 | connector runtime and twelve definitions
 M26-T03 | done | fd5cc27 | catalog screen
 M26-T04 | done | fd5cc27 | proof and labels
+
+M27 | deferred | - | connector batch two; most providers cannot be live-tested without customer accounts
+
+M28-T01 | in_progress | - | 2026-11-04 agent calls, parallel, handoff, budgets
+M28-T02 | in_progress | - | 2026-11-04 durable tool calls, approvals, policies, sandboxes, questions
+M28-T03 | in_progress | - | 2026-11-04 schedules, inbox, runs tree, editor selection

@@ -854,3 +854,53 @@ async def run_events(run_id: uuid.UUID, request: Request) -> StreamingResponse:
             service.release_sse(principal.id)
 
     return StreamingResponse(frames(), media_type="text/event-stream")
+
+
+class AnswerBody(ApiModel):
+    text: str = ""
+
+
+@router.get("/api/v1/inbox", dependencies=[Depends(require_permission("chat:use"))])
+@expose(public=False, permission="chat:use")
+async def inbox(request: Request) -> dict[str, object]:
+    """Questions and approvals waiting on the signed-in person."""
+    principal = _principal(request)
+    service = _chat(request)
+    from ar_api.actors import actor_from  # noqa: PLC0415
+    from ar_domain.approvals.logic import can_decide  # noqa: PLC0415
+    from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
+    from ar_domain.orchestration.ask import list_questions  # noqa: PLC0415
+
+    tenant_id = _tenant(principal)
+    user_id = uuid.UUID(principal.id)
+    actor = actor_from(principal)
+    questions = [{"type": "question", **row} for row in list_questions(service, tenant_id, user_id)]
+    approvals = []
+    for row in service.approvals.values():
+        if row.get("tenant_id") != tenant_id or row.get("status") != "pending":
+            continue
+        if str(row.get("requested_for_user_id")) == str(user_id):
+            continue
+        if not can_decide(service, actor, row):
+            continue
+        approvals.append({"type": "approval", **ApprovalBook(service).summary(row)})
+    return _page([*questions, *approvals])
+
+
+@router.post(
+    "/api/v1/inbox/{question_id}:answer",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def answer_inbox(
+    question_id: uuid.UUID, body: AnswerBody, request: Request
+) -> dict[str, object]:
+    principal = _principal(request)
+    service = _chat(request)
+    from ar_domain.orchestration.ask import question_for_actor  # noqa: PLC0415
+
+    tenant_id = _tenant(principal)
+    user_id = uuid.UUID(principal.id)
+    row = question_for_actor(service, tenant_id, user_id, question_id)
+    run_id = uuid.UUID(str(row["run_id"]))
+    return service.submit_input(tenant_id, user_id, run_id, body.text)

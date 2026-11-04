@@ -248,6 +248,9 @@ Spec: [06-conversations-runs.md](../03-specs/06-conversations-runs.md)
 | GET | [`/api/v1/runs/{run_id}/events`](../03-specs/06-conversations-runs.md#get-apiv1runsrun_idevents) | `chat:use` | 3. Message posting and run start |
 | POST | [`/api/v1/runs/{run_id}:cancel`](../03-specs/06-conversations-runs.md#post-apiv1runsrun_idcancel) | `agents:manage_all` | 3. Message posting and run start |
 | POST | [`/api/v1/runs/{run_id}:input`](../03-specs/06-conversations-runs.md#post-apiv1runsrun_idinput) | `chat:use` | 3. Message posting and run start |
+| GET | `/api/v1/inbox` | `chat:use` | M28 questions and approvals waiting on the caller |
+| POST | `/api/v1/inbox/{question_id}:answer` | `chat:use` | M28 record an answer and resume the run |
+| POST | `/api/v1/routines/{routine_id}:tick` | `routines:create` | M28 fire a due schedule in this process |
 
 ## Spec 08: Tool registry, data connections and MCP host (`ar_domain.tools`, `mcp-gateway`)
 

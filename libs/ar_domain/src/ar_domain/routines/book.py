@@ -354,6 +354,7 @@ class RoutineBook:
         *,
         idempotency_header: str = "",
         execute: bool = True,
+        defer: bool = False,
     ) -> dict[str, object]:
         if len(body) > _WEBHOOK_BODY_LIMIT:
             raise ArError(ErrorCode.PAYLOAD_TOO_LARGE, "webhook body is too large")
@@ -386,6 +387,13 @@ class RoutineBook:
         if status == "accepted":
             event_id = uuid.UUID(str(accepted["event_id"]))
             prepared = prepare_routine_run(self.store, row["id"], event_id)  # type: ignore[arg-type]
+            if prepared.get("status") == "ready" and defer:
+                return {
+                    "event_id": accepted.get("event_id"),
+                    "status": status,
+                    "run_id": prepared.get("run_id"),
+                    "text": prepared.get("text"),
+                }
             if prepared.get("status") == "ready" and execute:
                 run = self.store.runs[uuid.UUID(str(prepared["run_id"]))]
                 run["status"] = "completed"

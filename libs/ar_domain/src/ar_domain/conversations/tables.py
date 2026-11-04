@@ -192,6 +192,8 @@ class Run(Base):
     usage: Mapped[dict[str, object]] = jsonb_col()
     result_summary: Mapped[str | None] = mapped_column(Text)
     error: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    checkpoint: Mapped[dict[str, object] | None] = mapped_column(JSONB)
+    workspace_ref: Mapped[str | None] = mapped_column(Text)
     trace_id: Mapped[str | None] = mapped_column(Text)
     last_event_seq: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
