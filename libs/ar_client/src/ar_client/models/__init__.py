@@ -163,6 +163,10 @@ from .connection_test_body import ConnectionTestBody
 from .connector_config_internal_v1_connectors_version_id_config_get_response_connector_config_internal_v1_connectors_version_id_config_get import (
     ConnectorConfigInternalV1ConnectorsVersionIdConfigGetResponseConnectorConfigInternalV1ConnectorsVersionIdConfigGet,
 )
+from .connector_install_body import ConnectorInstallBody
+from .connector_install_body_config_type_0 import ConnectorInstallBodyConfigType0
+from .connector_install_patch import ConnectorInstallPatch
+from .connector_install_patch_config_type_0 import ConnectorInstallPatchConfigType0
 from .constraint_body import ConstraintBody
 from .constraint_patch import ConstraintPatch
 from .conversation_body import ConversationBody
@@ -517,6 +521,9 @@ from .delete_group_api_v1_groups_group_id_delete_response_delete_group_api_v1_gr
 from .delete_idp_api_v1_identity_providers_idp_id_delete_response_delete_idp_api_v1_identity_providers_idp_id_delete import (
     DeleteIdpApiV1IdentityProvidersIdpIdDeleteResponseDeleteIdpApiV1IdentityProvidersIdpIdDelete,
 )
+from .delete_install_api_v1_connector_installs_install_id_delete_response_delete_install_api_v1_connector_installs_install_id_delete import (
+    DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponseDeleteInstallApiV1ConnectorInstallsInstallIdDelete,
+)
 from .delete_member_api_v1_groups_group_id_members_user_id_delete_response_delete_member_api_v1_groups_group_id_members_user_id_delete import (
     DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponseDeleteMemberApiV1GroupsGroupIdMembersUserIdDelete,
 )
@@ -740,6 +747,9 @@ from .get_collection_api_v1_knowledge_collections_collection_id_get_response_get
 from .get_connection_api_v1_data_connections_connection_id_get_response_get_connection_api_v1_data_connections_connection_id_get import (
     GetConnectionApiV1DataConnectionsConnectionIdGetResponseGetConnectionApiV1DataConnectionsConnectionIdGet,
 )
+from .get_connector_api_v1_connectors_slug_get_response_get_connector_api_v1_connectors_slug_get import (
+    GetConnectorApiV1ConnectorsSlugGetResponseGetConnectorApiV1ConnectorsSlugGet,
+)
 from .get_constraint_api_v1_sod_constraints_constraint_id_get_response_get_constraint_api_v1_sod_constraints_constraint_id_get import (
     GetConstraintApiV1SodConstraintsConstraintIdGetResponseGetConstraintApiV1SodConstraintsConstraintIdGet,
 )
@@ -793,6 +803,9 @@ from .get_hold_api_v1_legal_holds_hold_id_get_response_get_hold_api_v1_legal_hol
 )
 from .get_incident_api_v1_ext_grc_incidents_incident_id_get_response_get_incident_api_v1_ext_grc_incidents_incident_id_get import (
     GetIncidentApiV1ExtGrcIncidentsIncidentIdGetResponseGetIncidentApiV1ExtGrcIncidentsIncidentIdGet,
+)
+from .get_install_api_v1_connector_installs_install_id_get_response_get_install_api_v1_connector_installs_install_id_get import (
+    GetInstallApiV1ConnectorInstallsInstallIdGetResponseGetInstallApiV1ConnectorInstallsInstallIdGet,
 )
 from .get_integration_api_v1_channel_integrations_integration_id_get_response_get_integration_api_v1_channel_integrations_integration_id_get import (
     GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponseGetIntegrationApiV1ChannelIntegrationsIntegrationIdGet,
@@ -951,6 +964,9 @@ from .ingest_entitlements_api_v1_ext_grc_entitlements_ingest_post_response_inges
 )
 from .install_body import InstallBody
 from .install_body_manifest import InstallBodyManifest
+from .install_connector_api_v1_connectors_slug_install_post_response_install_connector_api_v1_connectors_slug_install_post import (
+    InstallConnectorApiV1ConnectorsSlugInstallPostResponseInstallConnectorApiV1ConnectorsSlugInstallPost,
+)
 from .install_pack_api_v1_content_packs_install_post_response_install_pack_api_v1_content_packs_install_post import (
     InstallPackApiV1ContentPacksInstallPostResponseInstallPackApiV1ContentPacksInstallPost,
 )
@@ -1039,6 +1055,9 @@ from .list_connections_api_v1_connections_get_response_list_connections_api_v1_c
 )
 from .list_connections_api_v1_data_connections_get_response_list_connections_api_v1_data_connections_get import (
     ListConnectionsApiV1DataConnectionsGetResponseListConnectionsApiV1DataConnectionsGet,
+)
+from .list_connectors_api_v1_connectors_get_response_list_connectors_api_v1_connectors_get import (
+    ListConnectorsApiV1ConnectorsGetResponseListConnectorsApiV1ConnectorsGet,
 )
 from .list_consent_api_v1_ext_grc_consent_records_get_response_list_consent_api_v1_ext_grc_consent_records_get import (
     ListConsentApiV1ExtGrcConsentRecordsGetResponseListConsentApiV1ExtGrcConsentRecordsGet,
@@ -1453,6 +1472,9 @@ from .patch_incident_api_v1_ext_grc_incidents_incident_id_patch_body import (
 )
 from .patch_incident_api_v1_ext_grc_incidents_incident_id_patch_response_patch_incident_api_v1_ext_grc_incidents_incident_id_patch import (
     PatchIncidentApiV1ExtGrcIncidentsIncidentIdPatchResponsePatchIncidentApiV1ExtGrcIncidentsIncidentIdPatch,
+)
+from .patch_install_api_v1_connector_installs_install_id_patch_response_patch_install_api_v1_connector_installs_install_id_patch import (
+    PatchInstallApiV1ConnectorInstallsInstallIdPatchResponsePatchInstallApiV1ConnectorInstallsInstallIdPatch,
 )
 from .patch_integration_api_v1_channel_integrations_integration_id_patch_response_patch_integration_api_v1_channel_integrations_integration_id_patch import (
     PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponsePatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatch,
@@ -1894,6 +1916,9 @@ from .test_body_arguments import TestBodyArguments
 from .test_connection_api_v1_data_connections_connection_id_test_post_response_test_connection_api_v1_data_connections_connection_id_test_post import (
     TestConnectionApiV1DataConnectionsConnectionIdTestPostResponseTestConnectionApiV1DataConnectionsConnectionIdTestPost,
 )
+from .test_install_api_v1_connector_installs_install_id_test_post_response_test_install_api_v1_connector_installs_install_id_test_post import (
+    TestInstallApiV1ConnectorInstallsInstallIdTestPostResponseTestInstallApiV1ConnectorInstallsInstallIdTestPost,
+)
 from .test_integration_api_v1_channel_integrations_integration_id_test_post_response_test_integration_api_v1_channel_integrations_integration_id_test_post import (
     TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponseTestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPost,
 )
@@ -2091,6 +2116,10 @@ __all__ = (
     "ConnectionSchemaApiV1DataConnectionsConnectionIdSchemaGetResponseConnectionSchemaApiV1DataConnectionsConnectionIdSchemaGet",
     "ConnectionTestBody",
     "ConnectorConfigInternalV1ConnectorsVersionIdConfigGetResponseConnectorConfigInternalV1ConnectorsVersionIdConfigGet",
+    "ConnectorInstallBody",
+    "ConnectorInstallBodyConfigType0",
+    "ConnectorInstallPatch",
+    "ConnectorInstallPatchConfigType0",
     "ConstraintBody",
     "ConstraintPatch",
     "ConversationBody",
@@ -2221,6 +2250,7 @@ __all__ = (
     "DeleteGrantApiV1GuestsGuestIdGrantsGrantIdDeleteResponseDeleteGrantApiV1GuestsGuestIdGrantsGrantIdDelete",
     "DeleteGroupApiV1GroupsGroupIdDeleteResponseDeleteGroupApiV1GroupsGroupIdDelete",
     "DeleteIdpApiV1IdentityProvidersIdpIdDeleteResponseDeleteIdpApiV1IdentityProvidersIdpIdDelete",
+    "DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponseDeleteInstallApiV1ConnectorInstallsInstallIdDelete",
     "DeleteMemberApiV1GroupsGroupIdMembersUserIdDeleteResponseDeleteMemberApiV1GroupsGroupIdMembersUserIdDelete",
     "DeleteMemoryApiV1MemoryFactIdDeleteResponseDeleteMemoryApiV1MemoryFactIdDelete",
     "DeleteModelApiV1ModelsModelIdDeleteResponseDeleteModelApiV1ModelsModelIdDelete",
@@ -2310,6 +2340,7 @@ __all__ = (
     "GetCampaignApiV1ExtGrcCampaignsCampaignIdGetResponseGetCampaignApiV1ExtGrcCampaignsCampaignIdGet",
     "GetCollectionApiV1KnowledgeCollectionsCollectionIdGetResponseGetCollectionApiV1KnowledgeCollectionsCollectionIdGet",
     "GetConnectionApiV1DataConnectionsConnectionIdGetResponseGetConnectionApiV1DataConnectionsConnectionIdGet",
+    "GetConnectorApiV1ConnectorsSlugGetResponseGetConnectorApiV1ConnectorsSlugGet",
     "GetConstraintApiV1SodConstraintsConstraintIdGetResponseGetConstraintApiV1SodConstraintsConstraintIdGet",
     "GetControlApiV1ExtGrcControlsControlIdGetResponseGetControlApiV1ExtGrcControlsControlIdGet",
     "GetConversationApiV1ConversationsConversationIdGetResponseGetConversationApiV1ConversationsConversationIdGet",
@@ -2328,6 +2359,7 @@ __all__ = (
     "GetGuestApiV1GuestsGuestIdGetResponseGetGuestApiV1GuestsGuestIdGet",
     "GetHoldApiV1LegalHoldsHoldIdGetResponseGetHoldApiV1LegalHoldsHoldIdGet",
     "GetIncidentApiV1ExtGrcIncidentsIncidentIdGetResponseGetIncidentApiV1ExtGrcIncidentsIncidentIdGet",
+    "GetInstallApiV1ConnectorInstallsInstallIdGetResponseGetInstallApiV1ConnectorInstallsInstallIdGet",
     "GetIntegrationApiV1ChannelIntegrationsIntegrationIdGetResponseGetIntegrationApiV1ChannelIntegrationsIntegrationIdGet",
     "GetItemApiV1ReviewItemsReviewItemIdGetResponseGetItemApiV1ReviewItemsReviewItemIdGet",
     "GetJobApiV1KnowledgeJobsJobIdGetResponseGetJobApiV1KnowledgeJobsJobIdGet",
@@ -2395,6 +2427,7 @@ __all__ = (
     "IngestEntitlementsApiV1ExtGrcEntitlementsIngestPostResponseIngestEntitlementsApiV1ExtGrcEntitlementsIngestPost",
     "InstallBody",
     "InstallBodyManifest",
+    "InstallConnectorApiV1ConnectorsSlugInstallPostResponseInstallConnectorApiV1ConnectorsSlugInstallPost",
     "InstallPackApiV1ContentPacksInstallPostResponseInstallPackApiV1ContentPacksInstallPost",
     "IntegrationBody",
     "IntegrationBodyAgentRoutingItem",
@@ -2432,6 +2465,7 @@ __all__ = (
     "ListCollectionsApiV1KnowledgeCollectionsGetResponseListCollectionsApiV1KnowledgeCollectionsGet",
     "ListConnectionsApiV1ConnectionsGetResponseListConnectionsApiV1ConnectionsGet",
     "ListConnectionsApiV1DataConnectionsGetResponseListConnectionsApiV1DataConnectionsGet",
+    "ListConnectorsApiV1ConnectorsGetResponseListConnectorsApiV1ConnectorsGet",
     "ListConsentApiV1ExtGrcConsentRecordsGetResponseListConsentApiV1ExtGrcConsentRecordsGet",
     "ListConstraintsApiV1SodConstraintsGetResponseListConstraintsApiV1SodConstraintsGet",
     "ListControlsApiV1ExtGrcControlsGetResponseListControlsApiV1ExtGrcControlsGet",
@@ -2582,6 +2616,7 @@ __all__ = (
     "PatchIncidentApiV1AiIncidentsIncidentIdPatchResponsePatchIncidentApiV1AiIncidentsIncidentIdPatch",
     "PatchIncidentApiV1ExtGrcIncidentsIncidentIdPatchBody",
     "PatchIncidentApiV1ExtGrcIncidentsIncidentIdPatchResponsePatchIncidentApiV1ExtGrcIncidentsIncidentIdPatch",
+    "PatchInstallApiV1ConnectorInstallsInstallIdPatchResponsePatchInstallApiV1ConnectorInstallsInstallIdPatch",
     "PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponsePatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatch",
     "PatchIssueApiV1ExtGrcIssuesIssueIdPatchBody",
     "PatchIssueApiV1ExtGrcIssuesIssueIdPatchResponsePatchIssueApiV1ExtGrcIssuesIssueIdPatch",
@@ -2780,6 +2815,7 @@ __all__ = (
     "TestBody",
     "TestBodyArguments",
     "TestConnectionApiV1DataConnectionsConnectionIdTestPostResponseTestConnectionApiV1DataConnectionsConnectionIdTestPost",
+    "TestInstallApiV1ConnectorInstallsInstallIdTestPostResponseTestInstallApiV1ConnectorInstallsInstallIdTestPost",
     "TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponseTestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPost",
     "TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost",
     "TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponseTestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPost",

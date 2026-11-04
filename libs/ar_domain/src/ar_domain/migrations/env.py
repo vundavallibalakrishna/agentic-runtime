@@ -14,6 +14,7 @@ import ar_domain.agents.tables
 import ar_domain.approvals.models
 import ar_domain.audit.models
 import ar_domain.channels.tables
+import ar_domain.connectors.tables
 import ar_domain.conversations.tables
 import ar_domain.documents.tables
 import ar_domain.evals.tables

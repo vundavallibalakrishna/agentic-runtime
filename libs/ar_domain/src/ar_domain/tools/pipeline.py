@@ -270,7 +270,7 @@ class ToolPipeline:
             open_world=str(endpoint).startswith(
                 ("http://", "https://", "builtin://web", "builtin://http_operation", "stdio://")
             )
-            or endpoint in {"builtin://data", "builtin://documents"}
+            or endpoint in {"builtin://data", "builtin://documents", "builtin://connectors"}
             or (
                 endpoint == "builtin://general"
                 and str(version.get("name")) in {"inspect_table", "query_table", "export_table"}

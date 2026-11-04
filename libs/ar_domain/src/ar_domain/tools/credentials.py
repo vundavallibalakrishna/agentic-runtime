@@ -101,10 +101,13 @@ class CredentialBook:
         )
         state = secrets.token_urlsafe(18)
         self.store.oauth_states[state] = {
+            "id": state,
             "provider_id": provider_id,
             "user_id": actor.user_id,
             "tenant_id": actor.tenant_id,
             "verifier": verifier,
+            "kind": "credential_grant",
+            "created_at": utcnow(),
         }
         query = urlencode(
             {

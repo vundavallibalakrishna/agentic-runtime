@@ -125,6 +125,9 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
 
         await load_service_connections(session, store, tenant_id)
         await load_data_connections(session, store, tenant_id)
+        from ar_domain.durable.m26 import load_connector_rows  # noqa: PLC0415
+
+        await load_connector_rows(session, store, tenant_id)
         await load_model_catalog(session, store, tenant_id)
         from ar_domain.durable.m24 import load_library  # noqa: PLC0415
 

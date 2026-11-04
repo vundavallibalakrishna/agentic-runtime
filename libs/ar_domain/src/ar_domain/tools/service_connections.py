@@ -60,6 +60,17 @@ def headers_for(
     return _headers(row)
 
 
+def account_for(
+    store: Any, tenant_id: object, user_id: object, name: str
+) -> tuple[dict[str, str], str, str]:
+    """Headers, username and the opened secret. The secret is for the call, not a response."""
+    row = _find(store, tenant_id, user_id, name)
+    if row is None:
+        raise ArError(ErrorCode.NOT_FOUND, f"No connection named {name} is available to you.")
+    headers, secret = headers_for(store, tenant_id, user_id, name)
+    return headers, str(row.get("username") or ""), secret
+
+
 class ConnectionBook:
     """Owner-scoped credentials for HTTP, MCP and imported APIs."""
 
@@ -216,11 +227,13 @@ class ConnectionBook:
         verifier = secrets.token_urlsafe(32)
         state = secrets.token_urlsafe(18)
         self.store.oauth_states[state] = {
+            "id": state,
             "kind": "service_connection",
             "connection_id": connection_id,
             "user_id": actor.user_id,
             "tenant_id": actor.tenant_id,
             "verifier": verifier,
+            "created_at": utcnow(),
         }
         scopes = row.get("scopes")
         scope = " ".join(str(item) for item in scopes) if isinstance(scopes, list) else ""

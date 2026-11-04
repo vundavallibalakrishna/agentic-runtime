@@ -67,15 +67,9 @@ def _tenant_search(store: Any, tenant_id: object) -> dict[str, object]:
 
 
 def _secret(store: Any, tenant_id: object, name: str) -> str:
-    book = getattr(store, "named_secrets", None)
-    if not isinstance(book, dict) or not name:
-        return ""
-    value = book.get((str(tenant_id), name))
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    if isinstance(value, str):
-        return value
-    return ""
+    from ar_domain.tools.named_secrets import read_named_secret  # noqa: PLC0415
+
+    return read_named_secret(store, tenant_id, name) or ""
 
 
 class BraveSearch:

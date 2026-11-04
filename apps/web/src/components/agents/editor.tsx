@@ -698,6 +698,41 @@ export function AgentEditor() {
                   </label>
                 </fieldset>
                 <fieldset className="mt-4">
+                  <legend className="text-sm font-medium">{t("connectorTools")}</legend>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                    {t("connectorToolsHelp")}{" "}
+                    <Link className="underline" href="/connectors">
+                      {t("connectorTools")}
+                    </Link>
+                  </p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {catalogue
+                      .filter((tool) => tool.server === "connectors")
+                      .map((tool) => {
+                        const binding = (definition.tools ?? []).find(
+                          (item) => item.server === "connectors",
+                        );
+                        const checked = Boolean(
+                          binding?.include?.includes("*") || binding?.include?.includes(tool.name),
+                        );
+                        const risky = tool.risk === "W2" || tool.risk === "W3";
+                        return (
+                          <label className="flex items-center gap-2 text-sm" key={tool.name}>
+                            <input
+                              checked={checked}
+                              onChange={() => toggleTool("connectors", tool.name)}
+                              type="checkbox"
+                            />
+                            <span>
+                              {tool.name}
+                              {risky ? ` · ${t("riskyTool")}` : ""}
+                            </span>
+                          </label>
+                        );
+                      })}
+                  </div>
+                </fieldset>
+                <fieldset className="mt-4">
                   <legend className="text-sm font-medium">{t("attachTitle")}</legend>
                   <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("attachHelp")}</p>
                   <div className="mt-2 flex flex-wrap gap-3">

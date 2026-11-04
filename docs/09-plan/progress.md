@@ -235,3 +235,8 @@ M25-T01 | done | 903e702 | knowledge bases, real embeddings, revision 0027
 M25-T02 | done | 903e702 | memory visible across conversations
 M25-T03 | done | 903e702 | portable skills loaded by description
 M25-T04 | done | 903e702 | screens and Qwen3-32B proof
+
+M26-T01 | done | fd5cc27 | durable installs, grants, oauth state, named secrets
+M26-T02 | done | fd5cc27 | connector runtime and twelve definitions
+M26-T03 | done | fd5cc27 | catalog screen
+M26-T04 | done | fd5cc27 | proof and labels

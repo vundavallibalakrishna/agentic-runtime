@@ -147,6 +147,13 @@ Spec: [03-secrets-credentials.md](../03-specs/03-secrets-credentials.md)
 | POST | [`/api/v1/service-connections/{connection_id}:test`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
 | POST | [`/api/v1/service-connections/{connection_id}:authorize`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
 | DELETE | [`/api/v1/service-connections/{connection_id}`](../03-specs/03-secrets-credentials.md) | `connections:manage_own` | 3. Public API |
+| GET | [`/api/v1/connectors`](../11-connectors/README.md) | `tools:read` | Catalogue |
+| GET | [`/api/v1/connectors/{slug}`](../11-connectors/README.md) | `tools:read` | Catalogue |
+| POST | [`/api/v1/connectors/{slug}:install`](../11-connectors/README.md) | `connections:manage_own` | Catalogue |
+| GET | [`/api/v1/connector-installs/{install_id}`](../11-connectors/README.md) | `tools:read` | Catalogue |
+| PATCH | [`/api/v1/connector-installs/{install_id}`](../11-connectors/README.md) | `connections:manage_own` | Catalogue |
+| DELETE | [`/api/v1/connector-installs/{install_id}`](../11-connectors/README.md) | `connections:manage_own` | Catalogue |
+| POST | [`/api/v1/connector-installs/{install_id}:test`](../11-connectors/README.md) | `connections:manage_own` | Catalogue |
 
 ## Spec 04: Model gateway (`model-gateway`) and model registry (`ar_domain.models`)
 

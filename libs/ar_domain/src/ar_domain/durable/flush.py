@@ -106,6 +106,19 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
 
             await save_service_connections(session, pending["service_connections"])
             await save_data_connections(session, store, pending["data_connections"])
+            from ar_domain.durable.m26 import (  # noqa: PLC0415
+                save_connector_installs,
+                save_credential_grants,
+                save_credential_providers,
+                save_named_secrets,
+                save_oauth_states,
+            )
+
+            await save_credential_providers(session, pending["credential_providers"])
+            await save_credential_grants(session, pending["credential_grants"])
+            await save_connector_installs(session, pending["connector_installs"])
+            await save_oauth_states(session, pending["oauth_states"])
+            await save_named_secrets(session, pending["named_secrets"])
             from ar_domain.durable.m24 import (  # noqa: PLC0415
                 save_document_checks,
                 save_document_comparisons,

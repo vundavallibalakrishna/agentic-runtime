@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Monitor,
   Play,
+  Plug,
   Radio,
   Repeat,
   Settings,
@@ -27,6 +28,7 @@ export type NavItem = {
   labelKey:
     | "navChat"
     | "navConnectors"
+    | "navCatalog"
     | "navSettings"
     | "navAgents"
     | "navTools"
@@ -80,6 +82,13 @@ export const primaryNav: NavItem[] = [
     labelKey: "navDocuments",
     permission: "chat:use",
     icon: FileText,
+  },
+  {
+    href: "/connectors",
+    section: "resources",
+    labelKey: "navCatalog",
+    permission: "tools:read",
+    icon: Plug,
   },
   {
     href: "/connections",

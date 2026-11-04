@@ -705,6 +705,66 @@ export type ConnectionTestBody = {
 };
 
 /**
+ * ConnectorInstallBody
+ */
+export type ConnectorInstallBody = {
+    /**
+     * Connectionname
+     */
+    connectionName?: string;
+    /**
+     * Name
+     */
+    name?: string;
+    /**
+     * Kind
+     */
+    kind?: string;
+    /**
+     * Secret
+     */
+    secret?: string;
+    /**
+     * Username
+     */
+    username?: string;
+    /**
+     * Clientid
+     */
+    clientId?: string;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * ConnectorInstallPatch
+ */
+export type ConnectorInstallPatch = {
+    /**
+     * Connectionname
+     */
+    connectionName?: string | null;
+    /**
+     * Status
+     */
+    status?: string | null;
+    /**
+     * Disabledtools
+     */
+    disabledTools?: Array<string> | null;
+    /**
+     * Config
+     */
+    config?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
  * ConstraintBody
  */
 export type ConstraintBody = {
@@ -13974,6 +14034,248 @@ export type SearchApiV1KnowledgeSearchPostResponses = {
 };
 
 export type SearchApiV1KnowledgeSearchPostResponse = SearchApiV1KnowledgeSearchPostResponses[keyof SearchApiV1KnowledgeSearchPostResponses];
+
+export type ListConnectorsApiV1ConnectorsGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Q
+         */
+        q?: string;
+        /**
+         * Category
+         */
+        category?: string;
+    };
+    url: '/api/v1/connectors';
+};
+
+export type ListConnectorsApiV1ConnectorsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListConnectorsApiV1ConnectorsGetError = ListConnectorsApiV1ConnectorsGetErrors[keyof ListConnectorsApiV1ConnectorsGetErrors];
+
+export type ListConnectorsApiV1ConnectorsGetResponses = {
+    /**
+     * Response List Connectors Api V1 Connectors Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListConnectorsApiV1ConnectorsGetResponse = ListConnectorsApiV1ConnectorsGetResponses[keyof ListConnectorsApiV1ConnectorsGetResponses];
+
+export type GetConnectorApiV1ConnectorsSlugGetData = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/api/v1/connectors/{slug}';
+};
+
+export type GetConnectorApiV1ConnectorsSlugGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetConnectorApiV1ConnectorsSlugGetError = GetConnectorApiV1ConnectorsSlugGetErrors[keyof GetConnectorApiV1ConnectorsSlugGetErrors];
+
+export type GetConnectorApiV1ConnectorsSlugGetResponses = {
+    /**
+     * Response Get Connector Api V1 Connectors  Slug  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetConnectorApiV1ConnectorsSlugGetResponse = GetConnectorApiV1ConnectorsSlugGetResponses[keyof GetConnectorApiV1ConnectorsSlugGetResponses];
+
+export type InstallConnectorApiV1ConnectorsSlugInstallPostData = {
+    body: ConnectorInstallBody;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/api/v1/connectors/{slug}:install';
+};
+
+export type InstallConnectorApiV1ConnectorsSlugInstallPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type InstallConnectorApiV1ConnectorsSlugInstallPostError = InstallConnectorApiV1ConnectorsSlugInstallPostErrors[keyof InstallConnectorApiV1ConnectorsSlugInstallPostErrors];
+
+export type InstallConnectorApiV1ConnectorsSlugInstallPostResponses = {
+    /**
+     * Response Install Connector Api V1 Connectors  Slug  Install Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type InstallConnectorApiV1ConnectorsSlugInstallPostResponse = InstallConnectorApiV1ConnectorsSlugInstallPostResponses[keyof InstallConnectorApiV1ConnectorsSlugInstallPostResponses];
+
+export type DeleteInstallApiV1ConnectorInstallsInstallIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Install Id
+         */
+        install_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connector-installs/{install_id}';
+};
+
+export type DeleteInstallApiV1ConnectorInstallsInstallIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteInstallApiV1ConnectorInstallsInstallIdDeleteError = DeleteInstallApiV1ConnectorInstallsInstallIdDeleteErrors[keyof DeleteInstallApiV1ConnectorInstallsInstallIdDeleteErrors];
+
+export type DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponses = {
+    /**
+     * Response Delete Install Api V1 Connector Installs  Install Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponse = DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponses[keyof DeleteInstallApiV1ConnectorInstallsInstallIdDeleteResponses];
+
+export type GetInstallApiV1ConnectorInstallsInstallIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Install Id
+         */
+        install_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connector-installs/{install_id}';
+};
+
+export type GetInstallApiV1ConnectorInstallsInstallIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetInstallApiV1ConnectorInstallsInstallIdGetError = GetInstallApiV1ConnectorInstallsInstallIdGetErrors[keyof GetInstallApiV1ConnectorInstallsInstallIdGetErrors];
+
+export type GetInstallApiV1ConnectorInstallsInstallIdGetResponses = {
+    /**
+     * Response Get Install Api V1 Connector Installs  Install Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetInstallApiV1ConnectorInstallsInstallIdGetResponse = GetInstallApiV1ConnectorInstallsInstallIdGetResponses[keyof GetInstallApiV1ConnectorInstallsInstallIdGetResponses];
+
+export type PatchInstallApiV1ConnectorInstallsInstallIdPatchData = {
+    body: ConnectorInstallPatch;
+    path: {
+        /**
+         * Install Id
+         */
+        install_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connector-installs/{install_id}';
+};
+
+export type PatchInstallApiV1ConnectorInstallsInstallIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchInstallApiV1ConnectorInstallsInstallIdPatchError = PatchInstallApiV1ConnectorInstallsInstallIdPatchErrors[keyof PatchInstallApiV1ConnectorInstallsInstallIdPatchErrors];
+
+export type PatchInstallApiV1ConnectorInstallsInstallIdPatchResponses = {
+    /**
+     * Response Patch Install Api V1 Connector Installs  Install Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchInstallApiV1ConnectorInstallsInstallIdPatchResponse = PatchInstallApiV1ConnectorInstallsInstallIdPatchResponses[keyof PatchInstallApiV1ConnectorInstallsInstallIdPatchResponses];
+
+export type TestInstallApiV1ConnectorInstallsInstallIdTestPostData = {
+    body?: never;
+    path: {
+        /**
+         * Install Id
+         */
+        install_id: string;
+    };
+    query?: never;
+    url: '/api/v1/connector-installs/{install_id}:test';
+};
+
+export type TestInstallApiV1ConnectorInstallsInstallIdTestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TestInstallApiV1ConnectorInstallsInstallIdTestPostError = TestInstallApiV1ConnectorInstallsInstallIdTestPostErrors[keyof TestInstallApiV1ConnectorInstallsInstallIdTestPostErrors];
+
+export type TestInstallApiV1ConnectorInstallsInstallIdTestPostResponses = {
+    /**
+     * Response Test Install Api V1 Connector Installs  Install Id  Test Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TestInstallApiV1ConnectorInstallsInstallIdTestPostResponse = TestInstallApiV1ConnectorInstallsInstallIdTestPostResponses[keyof TestInstallApiV1ConnectorInstallsInstallIdTestPostResponses];
 
 export type ForgetMemoryApiV1MemoryDeleteData = {
     body?: never;
