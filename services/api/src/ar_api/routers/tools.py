@@ -78,10 +78,18 @@ async def test_tool(tool_id: uuid.UUID, body: TestBody, request: Request) -> dic
     who = actor(request)
     detail = ToolRegistry(store).get_tool(who, tool_id)
     run_id = new_id()
+    # A console test still has to reference a real agent version. A run with no
+    # agent is skipped on flush, and the tool-call row then violates the run
+    # foreign key and fails every later save in this process.
+    agent = _console_agent(store, who.tenant_id)
     store.runs[run_id] = {
         "id": run_id,
         "tenant_id": who.tenant_id,
         "user_id": who.user_id,
+        "agent_id": None if agent is None else agent.get("id"),
+        "trigger": "api",
+        "depth": 0,
+        "root_run_id": run_id,
         "synthetic": True,
         "status": "completed",
     }
@@ -90,6 +98,7 @@ async def test_tool(tool_id: uuid.UUID, body: TestBody, request: Request) -> dic
             "tenant_id": who.tenant_id,
             "user_id": who.user_id,
             "run_id": run_id,
+            "agent_id": None if agent is None else agent.get("id"),
             "synthetic": True,
             "tool_version_id": uuid.UUID(str(detail["tool_version_id"])),
             "arguments": body.arguments,
@@ -112,3 +121,16 @@ async def list_tool_calls(
     return page(
         list_calls(chat(request), who.tenant_id, run_id=run_id, tool_id=tool_id, status=status, q=q)
     )
+
+
+def _console_agent(store: object, tenant_id: uuid.UUID) -> dict[str, object] | None:
+    """An agent this tenant already published, so the console run can be stored."""
+    agents = getattr(store, "agents", None)
+    if not isinstance(agents, dict):
+        return None
+    for row in agents.values():
+        if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
+            continue
+        if row.get("published_version_id") or row.get("draft_version_id"):
+            return row
+    return None

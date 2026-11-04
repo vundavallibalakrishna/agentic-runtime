@@ -87,6 +87,14 @@ def test_catalogue_register_and_log() -> None:
     )
     assert tested.status_code == 200, tested.text
     assert "TCK-" in str(tested.json().get("resultPreview"))
+    console = [
+        row
+        for row in client.app.state.chat.runs.values()  # type: ignore[attr-defined]
+        if row.get("synthetic") is True
+    ]
+    assert console
+    assert console[-1]["trigger"] == "api"
+    assert console[-1]["agent_id"]
     log = client.get("/api/v1/tool-calls")
     assert log.status_code == 200
     assert log.json()["items"]

@@ -1,0 +1,15 @@
+{
+  "approval": {
+    "heading": "Approvals",
+    "sawHttp": false,
+    "sawGitHub": true,
+    "decided": [
+      {
+        "status": 200,
+        "body": "{\"id\":\"01a1a80f-a53f-714b-9de2-2abccaa758c7\",\"status\":\"approved\",\"qualifiedName\":\"connectors.github_create_issue\",\"riskClass\":\"W2\",\"argsHash\":\"51b939405715b2c8763868448858c77e7fbd72d01dd8df95c5a980f159bb505d\",\"agent\":{\"id\":\"01a1a80f-9c6d-76"
+      }
+    ],
+    "after": "Skip to content\nAgentic Runtime\nNew chat\n⌘⇧O\n\nWORKSPACE\n\nChat\nAgents\nRoutines\nSchedules\nInbox\n\nRESOURCES\n\nTools\nDocuments\nConnectors\nConnections\nKnowledge\nMemory\nSkills\n\nMANAGE\n\nSettings\nApprovals\nRuns\nModels\nCollapse sidebar\nDev\nApprovals\nSearch anything\n⌘K\nDev Approver\napprover@dev.local\n\nApprovals\n\nReview requests and decide what your assistants can do next.\n\nSettings detail\nSimple\nAdvanced\nReviews\nPolicies\nApproval filters\nTo decide\nRequested\nAll\nRisk\nRisk\nW2\nW3\n\nNothing is waiting for you.\n\nNew requests will appear here when an action needs your approval.\n\nRefresh",
+    "videoPath": "/tmp/m31-video/page@4d24829c7842ba4257769f70aac4288a.webm"
+  }
+}
