@@ -93,7 +93,13 @@ def test_every_catalog_tool_against_a_stand_in() -> None:
                 "secret": "token",
                 "username": "ada@example.com",
                 "client_id": "client",
-                "config": {"baseUrl": "https://example.com"},
+                "config": {
+                    "baseUrl": "https://example.com",
+                    "tenantId": "tenant",
+                    "subscriptionId": "sub",
+                    "projectId": "proj",
+                    "region": "us-east-1",
+                },
             },
         )
         _grant_oauth(store)

@@ -226,6 +226,7 @@ class ConnectorBook:
         kind = str(body.get("kind") or connector.auth_kind)
         if kind not in connector.auth_kinds:
             raise ValidationFailedError("that auth type is not used by this connector")
+        authorize_url, token_url = _oauth_urls(connector, body, kind)
         if _named(self.store, actor, name):
             return
         ConnectionBook(self.store).create(
@@ -235,9 +236,11 @@ class ConnectorBook:
                 "kind": kind,
                 "secret": secret,
                 "username": str(body.get("username") or ""),
-                "header_name": "Authorization",
-                "authorize_url": connector.authorize_url,
-                "token_url": connector.token_url,
+                "header_name": (
+                    "X-AR-Service-Account" if connector.slug == "gcp" else "Authorization"
+                ),
+                "authorize_url": authorize_url,
+                "token_url": token_url,
                 "client_id": str(body.get("client_id") or ""),
                 "scopes": list(connector.scopes),
                 "probe_url": _probe_url(connector, body),
@@ -279,6 +282,21 @@ def _connection_id(store: Any, actor: Actor, name: str) -> uuid.UUID | None:
             if isinstance(found, uuid.UUID):
                 return found
     return None
+
+
+def _oauth_urls(connector: ConnectorDef, body: dict[str, object], kind: str) -> tuple[str, str]:
+    raw = body.get("config")
+    config = raw if isinstance(raw, dict) else {}
+    tenant = str(config.get("tenantId") or "").strip()
+    base = str(config.get("baseUrl") or connector.base_url or "").rstrip("/")
+    if kind.startswith("oauth") and "{tenant}" in connector.token_url and not tenant:
+        raise ValidationFailedError("tenantId is required")
+    if kind.startswith("oauth") and "{baseUrl}" in connector.token_url and not base:
+        raise ValidationFailedError("baseUrl is required")
+    filled = tenant or "common"
+    authorize = connector.authorize_url.replace("{tenant}", filled).replace("{baseUrl}", base)
+    token = connector.token_url.replace("{tenant}", filled).replace("{baseUrl}", base)
+    return authorize, token
 
 
 def _probe_url(connector: ConnectorDef, body: dict[str, object]) -> str:

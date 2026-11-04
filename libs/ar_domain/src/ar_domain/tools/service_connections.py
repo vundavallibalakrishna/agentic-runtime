@@ -394,8 +394,14 @@ def _headers(row: dict[str, object]) -> tuple[dict[str, str], str]:
 def _refresh_if_needed(store: Any, row: dict[str, object]) -> None:
     kind = str(row.get("kind"))
     if kind == "oauth_client_credentials" and (_expired(row) or not _open(row.get("access_token"))):
-        tokens = _client_credentials(row)
-        _store_tokens(row, tokens)
+        from ar_domain.connectors.tokens import cached_token, remember_token  # noqa: PLC0415
+
+        shared = cached_token(store, row)
+        if not shared:
+            tokens = _client_credentials(row)
+            raw_expires = str(tokens.get("expires_in") or "")
+            lifetime = int(raw_expires) if raw_expires.isdigit() else 3600
+            remember_token(store, row, str(tokens.get("access_token") or ""), lifetime)
         return
     if kind == "oauth_authorization_code" and _expired(row) and _open(row.get("refresh_token")):
         tokens = _refresh_token(row)
@@ -415,7 +421,10 @@ def _client_credentials(row: dict[str, object]) -> dict[str, str]:
         "client_id": str(row.get("client_id") or ""),
         "client_secret": _open(row.get("secret")),
     }
-    return _token_response(token_url, form)
+    scopes = row.get("scopes")
+    if isinstance(scopes, list) and scopes:
+        form["scope"] = " ".join(str(item) for item in scopes)
+    return _token_response(token_url, form, row.get("_token_transport"))
 
 
 def _refresh_token(row: dict[str, object]) -> dict[str, str]:
@@ -434,9 +443,14 @@ def _refresh_token(row: dict[str, object]) -> dict[str, str]:
     return _token_response(token_url, form)
 
 
-def _token_response(token_url: str, form: dict[str, str]) -> dict[str, str]:
+def _token_response(
+    token_url: str, form: dict[str, str], transport: object = None
+) -> dict[str, str]:
+    kwargs: dict[str, object] = {"timeout": 20.0}
+    if transport is not None:
+        kwargs["transport"] = transport
     try:
-        with httpx.Client(timeout=20.0) as client:
+        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
             response = client.post(token_url, data=form)
             response.raise_for_status()
             loaded = response.json()
