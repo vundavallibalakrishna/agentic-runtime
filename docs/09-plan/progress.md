@@ -243,6 +243,6 @@ M26-T04 | done | fd5cc27 | proof and labels
 
 M27 | deferred | - | connector batch two; most providers cannot be live-tested without customer accounts
 
-M28-T01 | in_progress | - | 2026-11-04 agent calls, parallel, handoff, budgets
-M28-T02 | in_progress | - | 2026-11-04 durable tool calls, approvals, policies, sandboxes, questions
-M28-T03 | in_progress | - | 2026-11-04 schedules, inbox, runs tree, editor selection
+M28-T01 | done | e74db42 | agent calls, parallel, handoff, budgets
+M28-T02 | done | e74db42 | durable tool calls, approvals, policies, sandboxes, questions
+M28-T03 | done | e74db42 | schedules, inbox, runs tree, editor selection
