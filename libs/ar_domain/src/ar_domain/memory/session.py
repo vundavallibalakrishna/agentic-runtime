@@ -25,16 +25,25 @@ def prepare_prompt(
     history = _history(store, conversation.get("id"), run.get("input_message_id"))
     window = _window(definition)
     threshold = _threshold(definition)
+    keep = _keep(definition)
     joined = "\n".join(str(item.get("content") or "") for item in history) + "\n" + text
+    prompt_history = history
     if needs_compaction(joined, context_window=window, threshold=threshold):
-        compacted = compact_context(history, context_window=window, threshold=threshold)
+        compacted = compact_context(
+            history, context_window=window, threshold=threshold, keep_messages=keep
+        )
         if compacted.get("summary"):
             conversation["rolling_summary"] = compacted["summary"]
             conversation["summary_through_message_id"] = compacted["summary_through_message_id"]
+            kept = compacted.get("messages")
+            if isinstance(kept, list) and not compacted.get("error"):
+                prompt_history = [dict(item) for item in kept if isinstance(item, dict)]
         run["compaction"] = {
             "tokens_before": compacted["tokens_before"],
             "tokens_after": compacted["tokens_after"],
             "error": compacted["error"],
+            "strategy": "summary",
+            "keep_messages": keep,
         }
         if compacted.get("error") == "context_length_exceeded":
             run["context_error"] = "context_length_exceeded"
@@ -59,7 +68,7 @@ def prepare_prompt(
             "definition": definition,
             "user_text": text,
             "files": names,
-            "history": history,
+            "history": prompt_history,
             "memory": block,
             "summary": str(conversation.get("rolling_summary") or ""),
             "documents": run.get("documents"),
@@ -123,6 +132,15 @@ def _window(definition: dict[str, object]) -> int:
     if isinstance(raw, int) and not isinstance(raw, bool):
         return raw
     return 8000
+
+
+def _keep(definition: dict[str, object]) -> int:
+    context = definition.get("context")
+    if isinstance(context, dict):
+        raw = context.get("keep_messages", context.get("keepMessages", 12))
+        if isinstance(raw, int) and not isinstance(raw, bool) and 2 <= raw <= 40:
+            return raw
+    return 12
 
 
 def _threshold(definition: dict[str, object]) -> float:

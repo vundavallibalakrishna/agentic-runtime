@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 
 from ar_common.time import utcnow
 from ar_domain.knowledge.chunker import chunk_markdown
-from ar_domain.knowledge.embedder import embed_texts
 from ar_domain.knowledge.metrics import INGEST_DOCUMENTS, INGEST_STAGE
 from ar_domain.knowledge.parse import ParseError, parse_bytes
 from ar_domain.knowledge.store_types import IndexedChunk
@@ -78,10 +77,10 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
         "\n".join(part for part in (prefix, " / ".join(draft.heading_path), draft.text) if part)
         for draft in drafts
     ]
-    dims = int(collection.get("dims") or 1024)
-    model = str(collection.get("embedding_model") or "fake-embed")
     with INGEST_STAGE.labels(stage="embed").time():
-        vectors = embed_texts(texts, model=model, dimensions=dims)
+        from ar_domain.knowledge.live_embed import embed_for_collection  # noqa: PLC0415
+
+        vectors = embed_for_collection(store, collection, texts)
     index = _index(store)
     version = int(collection.get("index_version") or 1)
     await _replace_chunks(store, document, drafts, vectors, prefix, version, index)

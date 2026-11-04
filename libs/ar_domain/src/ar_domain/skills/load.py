@@ -168,6 +168,8 @@ def _write_assets(
         path = str(item.get("path") or "")
         file_id = item.get("file_id")
         blob = store.blobs.get(file_id) if isinstance(file_id, uuid.UUID) else None
+        if not isinstance(blob, bytes) and isinstance(item.get("text"), str):
+            blob = str(item["text"]).encode()
         if not isinstance(blob, bytes):
             continue
         target = confine(root, f"/workspace/.skills/{slug}/{path}")

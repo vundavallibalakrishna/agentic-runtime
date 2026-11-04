@@ -59,6 +59,18 @@ class DocumentBody(ApiModel):
     acl_principals: list[str] | None = None
 
 
+class MemberBody(ApiModel):
+    kind: str = ""
+    library_document_id: uuid.UUID | None = None
+    url: str = ""
+    connection_id: uuid.UUID | None = None
+    path: str = ""
+    title: str = ""
+    text: str = ""
+    external_id: str = ""
+    force: bool = False
+
+
 class SyncBody(ApiModel):
     mode: str = "incremental"
 
@@ -259,6 +271,17 @@ async def add_documents(
     return await _book(request).add_documents(actor(request), collection_id, dump(body))
 
 
+@router.post(
+    "/api/v1/knowledge/collections/{collection_id}/members",
+    dependencies=[Depends(require_permission("knowledge:manage"))],
+)
+@expose(public=False, permission="knowledge:manage")
+async def add_member(
+    collection_id: uuid.UUID, body: MemberBody, request: Request
+) -> dict[str, object]:
+    return await _book(request).add_member(actor(request), collection_id, dump(body))
+
+
 @router.get(
     "/api/v1/knowledge/documents/{document_id}",
     dependencies=[Depends(require_permission("knowledge:read"))],
@@ -285,6 +308,15 @@ async def document_chunks(document_id: uuid.UUID, request: Request) -> dict[str,
 @expose(public=False, permission="knowledge:read")
 async def reingest_document(document_id: uuid.UUID, request: Request) -> dict[str, object]:
     return await _book(request).reingest(actor(request), document_id)
+
+
+@router.post(
+    "/api/v1/knowledge/documents/{document_id}:refresh",
+    dependencies=[Depends(require_permission("knowledge:manage"))],
+)
+@expose(public=False, permission="knowledge:manage")
+async def refresh_document(document_id: uuid.UUID, request: Request) -> dict[str, object]:
+    return await _book(request).refresh_document(actor(request), document_id)
 
 
 @router.delete(
@@ -330,4 +362,18 @@ async def cancel_job(job_id: uuid.UUID, request: Request) -> dict[str, object]:
 )
 @expose(public=False, permission="knowledge:read")
 async def search(body: SearchBody, request: Request) -> dict[str, object]:
-    return _book(request).search(actor(request), dump(body))
+    from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
+
+    payload = dump(body)
+    raw_ids = payload.get("collection_ids")
+    ids = raw_ids if isinstance(raw_ids, list) else []
+    raw_top = payload.get("top_k")
+    top_k = raw_top if isinstance(raw_top, int) else 8
+    return await search_async(
+        chat(request),
+        actor(request),
+        query=str(payload.get("query") or ""),
+        collection_ids=[uuid.UUID(str(item)) for item in ids],
+        top_k=top_k,
+        debug=bool(payload.get("debug")),
+    )

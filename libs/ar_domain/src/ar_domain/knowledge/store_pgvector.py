@@ -281,6 +281,9 @@ class PgVectorStore:
             return self._session_factory()
         if read and self._read_factory is not None:
             return self._read_factory()
+        read_dsn = os.environ.get("AR_VECTOR_PG_READ_DSN", "").strip()
+        if read and self._session_factory is not None and not read_dsn:
+            return self._session_factory()
         dsn = os.environ.get("AR_VECTOR_PG_READ_DSN", "").strip() if read else ""
         dsn = dsn or self.dsn
         if not dsn:

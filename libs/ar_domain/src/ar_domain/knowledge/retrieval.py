@@ -62,6 +62,9 @@ def apply_rerank(
     *,
     top_k: int,
     min_score: float = MIN_SCORE,
+    store: object | None = None,
+    tenant_id: object | None = None,
+    model: str = "fake-rerank",
 ) -> tuple[list[dict[str, object]], float, str | None]:
     """Rerank the top candidates. A gateway failure keeps RRF order and warns."""
     limit = int(os.environ.get("AR_KNOWLEDGE_RERANK_CANDIDATES", "50"))
@@ -70,7 +73,12 @@ def apply_rerank(
     documents = [str(hit.get("rerank_text") or hit.get("snippet") or "") for hit in window]
     warning: str | None = None
     try:
-        scores = rerank(query, documents)
+        from ar_domain.knowledge.live_embed import is_fake_embedding, rerank_live  # noqa: PLC0415
+
+        if store is not None and not is_fake_embedding(model):
+            scores = rerank_live(store, tenant_id, query, documents, model=model)
+        else:
+            scores = rerank(query, documents)
     except Exception:  # noqa: BLE001 - rerank is optional; RRF order still answers
         warning = "rerank_unavailable"
         scores = [float(hit.get("score") or 0.0) for hit in window]  # type: ignore[arg-type]

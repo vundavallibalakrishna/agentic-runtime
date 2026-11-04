@@ -38,6 +38,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DEPLOYMENT_MODE",
         "AR_EGRESS_DENY_CIDRS",
         "AR_EGRESS_PROXY_URL",
+        "AR_EMBEDDING_TIMEOUT_S",
         "AR_ENV",
         "AR_EVAL_CONCURRENCY",
         "AR_EVIDENCE_BUCKET",

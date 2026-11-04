@@ -12,6 +12,11 @@ from ar_domain.knowledge.access import (
 )
 from ar_domain.knowledge.embedder import embed_texts
 from ar_domain.knowledge.fetchers import check_access
+from ar_domain.knowledge.live_embed import (
+    collection_embedding,
+    embed_for_collection,
+    is_fake_embedding,
+)
 from ar_domain.knowledge.metrics import SEARCH_HITS, SEARCH_SECONDS, UNANSWERABLE
 from ar_domain.knowledge.retrieval import answerable, apply_rerank
 from ar_domain.knowledge.store import StoreUnavailable, active_index
@@ -32,12 +37,43 @@ def search(
     debug: bool,
     min_score: float = 0.2,
 ) -> dict[str, object]:
+    """Sync wrapper for callers that are not already on the request loop."""
+    return run_sync(
+        search_async(
+            store,
+            actor,
+            query=query,
+            collection_ids=collection_ids,
+            top_k=top_k,
+            debug=debug,
+            min_score=min_score,
+        )
+    )
+
+
+async def search_async(
+    store: Any,
+    actor: Any,
+    *,
+    query: str,
+    collection_ids: list[uuid.UUID],
+    top_k: int,
+    debug: bool,
+    min_score: float = 0.2,
+) -> dict[str, object]:
     """Hybrid search filtered by the caller's principals. Managers are not exempt."""
+    from ar_domain.knowledge.live_embed import load_provider_keys  # noqa: PLC0415
+
+    await load_provider_keys(store)
     started = time.perf_counter()
     targets, collections = _targets(store, actor, collection_ids)
     if not targets:
         return {"hits": [], "answerable": False}
-    dense = embed_texts([query], model=_model(collections), dimensions=_dims(collections))[0]
+    model, dims = collection_embedding(collections[0])
+    if is_fake_embedding(model):
+        dense = embed_texts([query], model="fake-embed", dimensions=dims)[0]
+    else:
+        dense = embed_for_collection(store, collections[0], [query])[0]
     hybrid = HybridQuery(
         tenant_id=actor.tenant_id,
         text=query,
@@ -50,17 +86,25 @@ def search(
     index = active_index(store)
     try:
         with SEARCH_SECONDS.labels(stage="store").time():
-            fused = run_sync(index.search(hybrid))
+            fused = await index.search(hybrid)
     except StoreUnavailable as exc:
         raise StoreUnavailable("retrieval_unavailable") from exc
     hits = [_hit(store, row) for row in fused]
-    reranked, rerank_ms, warning = apply_rerank(query, hits, top_k=top_k, min_score=min_score)
+    reranked, rerank_ms, warning = apply_rerank(
+        query,
+        hits,
+        top_k=top_k,
+        min_score=min_score,
+        store=store,
+        tenant_id=actor.tenant_id,
+        model=model,
+    )
     verified = _late(store, actor, reranked, collections)
     ok = answerable(verified, min_score=min_score)
     if not ok:
         UNANSWERABLE.inc()
     SEARCH_HITS.observe(len(verified))
-    body: dict[str, object] = {"hits": verified, "answerable": ok}
+    body: dict[str, object] = {"hits": verified, "answerable": ok, "rerank_model": model}
     if warning:
         body["warning"] = warning
     if debug:
@@ -106,6 +150,9 @@ def _hit(store: Any, row: Any) -> dict[str, object]:
     title = str(document.get("title") if isinstance(document, dict) else "")
     prefix = str(chunk.get("context_prefix") if isinstance(chunk, dict) else "")
     path = " / ".join(str(item) for item in heading) if isinstance(heading, list) else ""
+    anchor = prefix[7:] if prefix.startswith("anchor:") else ""
+    external = str(document.get("external_id") if isinstance(document, dict) else "")
+    library_id = external.split(":", 1)[1] if external.startswith("library:") else ""
     return {
         "document_id": row.document_id,
         "chunk_id": row.chunk_id,
@@ -113,6 +160,11 @@ def _hit(store: Any, row: Any) -> dict[str, object]:
         "title": title,
         "uri": str(document.get("uri") if isinstance(document, dict) else ""),
         "snippet": text[:500],
+        "text": text[:2000],
+        "anchor": anchor,
+        "page": chunk.get("page_from") if isinstance(chunk, dict) else None,
+        "heading": path,
+        "library_document_id": library_id,
         "score": row.score,
         "rerank_score": row.score,
         "page_from": chunk.get("page_from") if isinstance(chunk, dict) else None,
@@ -155,15 +207,3 @@ def _late(
                     continue
         kept.append(hit)
     return kept
-
-
-def _model(collections: list[dict[str, object]]) -> str:
-    if not collections:
-        return "fake-embed"
-    return str(collections[0].get("embedding_model") or "fake-embed")
-
-
-def _dims(collections: list[dict[str, object]]) -> int:
-    if not collections:
-        return 1024
-    return int(collections[0].get("dims") or 1024)  # type: ignore[call-overload,no-any-return]

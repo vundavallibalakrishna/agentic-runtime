@@ -23,6 +23,7 @@ export type Definition = {
   }[];
   output?: { jsonSchema?: Record<string, unknown> };
   skills?: string[];
+  knowledge?: { collections?: string[] };
   subagents?: { allowed?: string[]; maxDepth?: number; maxParallel?: number };
   budget?: {
     maxSteps?: number;

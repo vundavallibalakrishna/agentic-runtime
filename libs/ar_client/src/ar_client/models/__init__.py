@@ -19,6 +19,9 @@ from .activate_policy_api_v1_policies_policy_id_activate_post_response_activate_
 from .add_documents_api_v1_knowledge_collections_collection_id_documents_post_response_add_documents_api_v1_knowledge_collections_collection_id_documents_post import (
     AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponseAddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPost,
 )
+from .add_member_api_v1_knowledge_collections_collection_id_members_post_response_add_member_api_v1_knowledge_collections_collection_id_members_post import (
+    AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostResponseAddMemberApiV1KnowledgeCollectionsCollectionIdMembersPost,
+)
 from .add_member_api_v1_teams_team_id_members_post_response_add_member_api_v1_teams_team_id_members_post import (
     AddMemberApiV1TeamsTeamIdMembersPostResponseAddMemberApiV1TeamsTeamIdMembersPost,
 )
@@ -692,6 +695,9 @@ from .export_questionnaire_api_v1_ext_grc_questionnaires_job_id_export_post_resp
 from .export_sandbox_file_api_v1_sandboxes_sandbox_id_files_export_post_response_export_sandbox_file_api_v1_sandboxes_sandbox_id_files_export_post import (
     ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponseExportSandboxFileApiV1SandboxesSandboxIdFilesExportPost,
 )
+from .export_skill_api_v1_skills_skill_id_export_post_response_export_skill_api_v1_skills_skill_id_export_post import (
+    ExportSkillApiV1SkillsSkillIdExportPostResponseExportSkillApiV1SkillsSkillIdExportPost,
+)
 from .extract_body import ExtractBody
 from .extract_document_fields_api_v1_library_documents_document_id_extract_post_response_extract_document_fields_api_v1_library_documents_document_id_extract_post import (
     ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponseExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPost,
@@ -929,6 +935,9 @@ from .import_pbc_api_v1_ext_grc_pbc_lists_import_post_body import (
 )
 from .import_pbc_api_v1_ext_grc_pbc_lists_import_post_response_import_pbc_api_v1_ext_grc_pbc_lists_import_post import (
     ImportPbcApiV1ExtGrcPbcListsImportPostResponseImportPbcApiV1ExtGrcPbcListsImportPost,
+)
+from .import_skill_api_v1_skills_import_post_response_import_skill_api_v1_skills_import_post import (
+    ImportSkillApiV1SkillsImportPostResponseImportSkillApiV1SkillsImportPost,
 )
 from .inbound_body import InboundBody
 from .inbound_body_command_type_0 import InboundBodyCommandType0
@@ -1328,6 +1337,7 @@ from .me_patch import MePatch
 from .me_patch_settings_type_0 import MePatchSettingsType0
 from .me_settings import MeSettings
 from .me_teams_item import MeTeamsItem
+from .member_body import MemberBody
 from .memory_body import MemoryBody
 from .memory_patch import MemoryPatch
 from .memory_settings_body import MemorySettingsBody
@@ -1634,6 +1644,9 @@ from .redact_document_api_v1_library_documents_document_id_redact_post_response_
 from .redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post import (
     RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost,
 )
+from .refresh_document_api_v1_knowledge_documents_document_id_refresh_post_response_refresh_document_api_v1_knowledge_documents_document_id_refresh_post import (
+    RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponseRefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPost,
+)
 from .refresh_server_api_v1_tool_servers_server_id_refresh_post_response_refresh_server_api_v1_tool_servers_server_id_refresh_post import (
     RefreshServerApiV1ToolServersServerIdRefreshPostResponseRefreshServerApiV1ToolServersServerIdRefreshPost,
 )
@@ -1799,6 +1812,7 @@ from .simulate_policy_api_v1_policies_simulate_post_response_simulate_policy_api
 )
 from .skill_asset import SkillAsset
 from .skill_body import SkillBody
+from .skill_import import SkillImport
 from .skill_patch import SkillPatch
 from .skill_publish_body import SkillPublishBody
 from .source_body import SourceBody
@@ -2001,6 +2015,7 @@ __all__ = (
     "ActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActivatePostResponseActivateMessageApiV1ConversationsConversationIdMessagesMessageIdActivatePost",
     "ActivatePolicyApiV1PoliciesPolicyIdActivatePostResponseActivatePolicyApiV1PoliciesPolicyIdActivatePost",
     "AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponseAddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPost",
+    "AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostResponseAddMemberApiV1KnowledgeCollectionsCollectionIdMembersPost",
     "AddMemberApiV1TeamsTeamIdMembersPostResponseAddMemberApiV1TeamsTeamIdMembersPost",
     "AddShareApiV1ConversationsConversationIdSharesPostResponseAddShareApiV1ConversationsConversationIdSharesPost",
     "AddTreatmentApiV1ExtGrcRisksRiskIdTreatmentsPostBody",
@@ -2276,6 +2291,7 @@ __all__ = (
     "ExportOscalApiV1ExtGrcFrameworksFrameworkIdExportOscalGetResponseExportOscalApiV1ExtGrcFrameworksFrameworkIdExportOscalGet",
     "ExportQuestionnaireApiV1ExtGrcQuestionnairesJobIdExportPostResponseExportQuestionnaireApiV1ExtGrcQuestionnairesJobIdExportPost",
     "ExportSandboxFileApiV1SandboxesSandboxIdFilesExportPostResponseExportSandboxFileApiV1SandboxesSandboxIdFilesExportPost",
+    "ExportSkillApiV1SkillsSkillIdExportPostResponseExportSkillApiV1SkillsSkillIdExportPost",
     "ExtractBody",
     "ExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPostResponseExtractDocumentFieldsApiV1LibraryDocumentsDocumentIdExtractPost",
     "FavouriteBody",
@@ -2370,6 +2386,7 @@ __all__ = (
     "ImportOscalApiV1ExtGrcFrameworksImportOscalPostResponseImportOscalApiV1ExtGrcFrameworksImportOscalPost",
     "ImportPbcApiV1ExtGrcPbcListsImportPostBody",
     "ImportPbcApiV1ExtGrcPbcListsImportPostResponseImportPbcApiV1ExtGrcPbcListsImportPost",
+    "ImportSkillApiV1SkillsImportPostResponseImportSkillApiV1SkillsImportPost",
     "InboundBody",
     "InboundBodyCommandType0",
     "IncidentBody",
@@ -2514,6 +2531,7 @@ __all__ = (
     "MarkReadApiV1NotificationsNotificationIdReadPostResponseMarkReadApiV1NotificationsNotificationIdReadPost",
     "Me",
     "MeGroupsItem",
+    "MemberBody",
     "MemoryBody",
     "MemoryPatch",
     "MemorySettingsBody",
@@ -2640,6 +2658,7 @@ __all__ = (
     "ReasonBody",
     "RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponseRedactDocumentApiV1LibraryDocumentsDocumentIdRedactPost",
     "RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost",
+    "RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponseRefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPost",
     "RefreshServerApiV1ToolServersServerIdRefreshPostResponseRefreshServerApiV1ToolServersServerIdRefreshPost",
     "RegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePostResponseRegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePost",
     "ReindexBody",
@@ -2717,6 +2736,7 @@ __all__ = (
     "SimulatePolicyApiV1PoliciesSimulatePostResponseSimulatePolicyApiV1PoliciesSimulatePost",
     "SkillAsset",
     "SkillBody",
+    "SkillImport",
     "SkillPatch",
     "SkillPublishBody",
     "SourceBody",

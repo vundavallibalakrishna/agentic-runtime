@@ -94,7 +94,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     tools = (
         [row for row in raw_tools if isinstance(row, dict)] if isinstance(raw_tools, list) else []
     )
-    if not tools:
+    from ar_domain.workspace.turn import has_grounding, opening_messages  # noqa: PLC0415
+
+    if not tools and not has_grounding(definition):
         return False
     by_name = _index(tools)
     openai_tools = [_openai_tool(row) for row in tools]
@@ -107,10 +109,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
 
         encoded = orjson.dumps(schema).decode()
         instructions = f"{instructions}\n\nReturn only JSON matching this schema:\n{encoded}"
-    messages: list[dict[str, object]] = [
-        {"role": "system", "content": f"{instructions}\n\n{_GUIDE}"},
-        {"role": "user", "content": user_text},
-    ]
+    messages: list[dict[str, object]] = opening_messages(run, instructions, user_text, _GUIDE)
     repairs = 0
     started = time.monotonic()
     steps = 0
@@ -469,6 +468,37 @@ def _checked(
     return answer
 
 
+def _with_trace(answer: str, run: dict[str, object]) -> list[dict[str, object]]:
+    from ar_domain.workspace.turn import citation_parts  # noqa: PLC0415
+
+    return [{"type": "text", "text": answer}, *citation_parts(run.get("retrieval"))]
+
+
+def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> None:
+    retrieval = run.get("retrieval")
+    if isinstance(retrieval, dict):
+        store._emit(
+            run,
+            "knowledge.retrieved",
+            {
+                "message_id": str(assistant_id),
+                "used_chars": retrieval.get("used_chars"),
+                "hits": len(retrieval.get("hits") or []),
+            },
+        )
+    loaded = run.get("loaded_skill")
+    if isinstance(loaded, dict):
+        store._emit(
+            run,
+            "skill.loaded",
+            {
+                "message_id": str(assistant_id),
+                "slug": loaded.get("slug"),
+                "reason": loaded.get("reason"),
+            },
+        )
+
+
 def _finish(
     store: Any,
     run: dict[str, object],
@@ -477,7 +507,9 @@ def _finish(
     previews: list[dict[str, object]],
 ) -> None:
     assistant["text"] = answer
-    assistant["content"] = [{"type": "text", "text": answer}]
+    assistant["content"] = _with_trace(answer, run)
+    assistant["retrieval"] = run.get("retrieval")
+    assistant["loaded_skill"] = run.get("loaded_skill")
     assistant["tool_calls"] = previews
     assistant["status"] = "completed"
     run["status"] = "completed"
@@ -487,6 +519,7 @@ def _finish(
     if isinstance(conversation, dict):
         conversation["active_run_id"] = None
     assistant_id = assistant.get("id")
+    _emit_trace(store, run, assistant_id)
     usage = {"tokens_in": 1, "tokens_out": max(1, len(answer.split()))}
     run["usage"] = usage
     store._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})

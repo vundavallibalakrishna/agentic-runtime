@@ -1795,6 +1795,48 @@ export type MePatch = {
 };
 
 /**
+ * MemberBody
+ */
+export type MemberBody = {
+    /**
+     * Kind
+     */
+    kind?: string;
+    /**
+     * Librarydocumentid
+     */
+    libraryDocumentId?: string | null;
+    /**
+     * Url
+     */
+    url?: string;
+    /**
+     * Connectionid
+     */
+    connectionId?: string | null;
+    /**
+     * Path
+     */
+    path?: string;
+    /**
+     * Title
+     */
+    title?: string;
+    /**
+     * Text
+     */
+    text?: string;
+    /**
+     * Externalid
+     */
+    externalId?: string;
+    /**
+     * Force
+     */
+    force?: boolean;
+};
+
+/**
  * MemoryBody
  */
 export type MemoryBody = {
@@ -2851,6 +2893,20 @@ export type SkillBody = {
      * Assets
      */
     assets?: Array<SkillAsset>;
+};
+
+/**
+ * SkillImport
+ */
+export type SkillImport = {
+    /**
+     * Markdown
+     */
+    markdown?: string;
+    /**
+     * Archiveb64
+     */
+    archiveB64?: string;
 };
 
 /**
@@ -13584,6 +13640,40 @@ export type AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostRespon
 
 export type AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponse = AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponses[keyof AddDocumentsApiV1KnowledgeCollectionsCollectionIdDocumentsPostResponses];
 
+export type AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostData = {
+    body: MemberBody;
+    path: {
+        /**
+         * Collection Id
+         */
+        collection_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/collections/{collection_id}/members';
+};
+
+export type AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostError = AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostErrors[keyof AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostErrors];
+
+export type AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostResponses = {
+    /**
+     * Response Add Member Api V1 Knowledge Collections  Collection Id  Members Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostResponse = AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostResponses[keyof AddMemberApiV1KnowledgeCollectionsCollectionIdMembersPostResponses];
+
 export type DeleteDocumentApiV1KnowledgeDocumentsDocumentIdDeleteData = {
     body?: never;
     path: {
@@ -13719,6 +13809,40 @@ export type ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostRespons
 };
 
 export type ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponse = ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponses[keyof ReingestDocumentApiV1KnowledgeDocumentsDocumentIdReingestPostResponses];
+
+export type RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostData = {
+    body?: never;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{document_id}:refresh';
+};
+
+export type RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostError = RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostErrors[keyof RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostErrors];
+
+export type RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponses = {
+    /**
+     * Response Refresh Document Api V1 Knowledge Documents  Document Id  Refresh Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponse = RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponses[keyof RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponses];
 
 export type ListJobsApiV1KnowledgeCollectionsCollectionIdJobsGetData = {
     body?: never;
@@ -14608,6 +14732,69 @@ export type ArchiveSkillApiV1SkillsSkillIdArchivePostResponses = {
 };
 
 export type ArchiveSkillApiV1SkillsSkillIdArchivePostResponse = ArchiveSkillApiV1SkillsSkillIdArchivePostResponses[keyof ArchiveSkillApiV1SkillsSkillIdArchivePostResponses];
+
+export type ImportSkillApiV1SkillsImportPostData = {
+    body: SkillImport;
+    path?: never;
+    query?: never;
+    url: '/api/v1/skills:import';
+};
+
+export type ImportSkillApiV1SkillsImportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportSkillApiV1SkillsImportPostError = ImportSkillApiV1SkillsImportPostErrors[keyof ImportSkillApiV1SkillsImportPostErrors];
+
+export type ImportSkillApiV1SkillsImportPostResponses = {
+    /**
+     * Response Import Skill Api V1 Skills Import Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ImportSkillApiV1SkillsImportPostResponse = ImportSkillApiV1SkillsImportPostResponses[keyof ImportSkillApiV1SkillsImportPostResponses];
+
+export type ExportSkillApiV1SkillsSkillIdExportPostData = {
+    body?: never;
+    path: {
+        /**
+         * Skill Id
+         */
+        skill_id: string;
+    };
+    query?: never;
+    url: '/api/v1/skills/{skill_id}:export';
+};
+
+export type ExportSkillApiV1SkillsSkillIdExportPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExportSkillApiV1SkillsSkillIdExportPostError = ExportSkillApiV1SkillsSkillIdExportPostErrors[keyof ExportSkillApiV1SkillsSkillIdExportPostErrors];
+
+export type ExportSkillApiV1SkillsSkillIdExportPostResponses = {
+    /**
+     * Response Export Skill Api V1 Skills  Skill Id  Export Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ExportSkillApiV1SkillsSkillIdExportPostResponse = ExportSkillApiV1SkillsSkillIdExportPostResponses[keyof ExportSkillApiV1SkillsSkillIdExportPostResponses];
 
 export type ListVersionsApiV1SkillsSkillIdVersionsGetData = {
     body?: never;

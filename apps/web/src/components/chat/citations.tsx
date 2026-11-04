@@ -12,6 +12,8 @@ export type CitationChip = {
   snippet: string;
   uri: string;
   documentId?: string;
+  anchor?: string;
+  page?: number | string;
 };
 
 export function citationsOf(message: Record<string, unknown>): CitationChip[] {
@@ -84,7 +86,21 @@ export function CitationList({
           }}
         >
           <DialogContent title={open.title || t("source")}>
+            {open.anchor ? (
+              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                {open.page ? `p.${open.page} ` : ""}
+                {open.anchor}
+              </p>
+            ) : null}
             <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{open.snippet}</p>
+            {open.documentId ? (
+              <a
+                className="mt-2 inline-block text-sm underline"
+                href={`/documents/${open.documentId}`}
+              >
+                {open.title || t("source")}
+              </a>
+            ) : null}
             {open.uri ? (
               <p className="mt-2 break-all text-xs text-[var(--muted-foreground)]">{open.uri}</p>
             ) : null}

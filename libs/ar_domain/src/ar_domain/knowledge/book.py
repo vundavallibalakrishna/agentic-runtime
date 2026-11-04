@@ -100,6 +100,20 @@ class KnowledgeBook:
         if dims not in SUPPORTED_DIMS:
             raise ArError(ErrorCode.VALIDATION_FAILED, "unsupported_embedding_dims")
         chunking = _chunking(body.get("chunking"))
+        from ar_domain.knowledge.live_embed import (  # noqa: PLC0415
+            FAKE_EMBEDDINGS,
+            resolve_embedding,
+        )
+
+        alias = str(body.get("embedding_alias") or "")
+        resolved = None
+        if "embedding_alias" not in body or alias not in FAKE_EMBEDDINGS:
+            resolved = resolve_embedding(self.store, actor.tenant_id)
+        if resolved is not None and alias not in FAKE_EMBEDDINGS:
+            if "dims" not in body:
+                dims = resolved.dims
+            chunking["embedding_model"] = resolved.model
+            chunking["dims"] = dims
         collection_id = new_id()
         backend = os.environ.get("AR_VECTOR_BACKEND", "pgvector").strip() or "pgvector"
         if backend not in {"pgvector", "qdrant"}:
@@ -126,8 +140,8 @@ class KnowledgeBook:
             "acl_mode": str(body.get("acl_mode") or "source"),
             "sensitivity": str(body.get("sensitivity") or "normal"),
             "classification": classification,
-            "embedding_alias": str(body.get("embedding_alias") or "embed"),
-            "embedding_model": "fake-embed",
+            "embedding_alias": str(chunking.get("embedding_model") or alias or "embed"),
+            "embedding_model": str(chunking.get("embedding_model") or "fake-embed"),
             "dims": dims,
             "index_version": 1,
             "store_backend": backend,
@@ -206,7 +220,19 @@ class KnowledgeBook:
     ) -> dict[str, object]:
         row = self._managed(actor, collection_id)
         if body.get("embedding_alias"):
-            row["embedding_alias"] = str(body["embedding_alias"])
+            alias = str(body["embedding_alias"])
+            row["embedding_alias"] = alias
+            from ar_domain.knowledge.live_embed import FAKE_EMBEDDINGS  # noqa: PLC0415
+
+            raw_chunking = row.get("chunking")
+            chunking = dict(raw_chunking) if isinstance(raw_chunking, dict) else {}
+            if alias in FAKE_EMBEDDINGS:
+                row["embedding_model"] = "fake-embed"
+                chunking.pop("embedding_model", None)
+            else:
+                row["embedding_model"] = alias
+                chunking["embedding_model"] = alias
+            row["chunking"] = chunking
         if isinstance(body.get("chunking"), dict):
             row["chunking"] = _chunking(body["chunking"])
         if body.get("text_search_config") in {"simple", "english"}:
@@ -476,6 +502,18 @@ class KnowledgeBook:
         rows.sort(key=lambda item: int(item["ordinal"]))
         return rows
 
+    async def add_member(
+        self, actor: Actor, collection_id: uuid.UUID, body: dict[str, object]
+    ) -> dict[str, object]:
+        from ar_domain.knowledge.members import add_member  # noqa: PLC0415
+
+        return await add_member(self.store, actor, collection_id, body)
+
+    async def refresh_document(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
+        from ar_domain.knowledge.members import refresh_document  # noqa: PLC0415
+
+        return await refresh_document(self.store, actor, document_id)
+
     async def reingest(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         document, _collection = self._document(actor, document_id, manage=True)
         raw = bytes(self.store.knowledge_blobs.get(document["id"], b""))
@@ -680,6 +718,7 @@ class KnowledgeBook:
             "sensitivity": row.get("sensitivity"),
             "classification": row.get("classification"),
             "embedding_alias": row.get("embedding_alias"),
+            "embedding_model": row.get("embedding_model") or "fake-embed",
             "index_version": row.get("index_version"),
             "store_backend": row.get("store_backend"),
             "owner_team": None
@@ -731,6 +770,11 @@ class KnowledgeBook:
             "source_modified_at": row.get("source_modified_at"),
             "indexed_at": None if row.get("indexed_at") is None else str(row.get("indexed_at")),
             "summary": row.get("summary") or "",
+            "chunk_count": sum(
+                1
+                for chunk in self.store.document_chunks.values()
+                if chunk.get("document_id") == row.get("id")
+            ),
         }
 
     def _job_view(self, row: dict[str, object]) -> dict[str, object]:

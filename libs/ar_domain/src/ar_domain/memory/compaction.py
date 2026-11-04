@@ -41,10 +41,11 @@ def compact_context(
     context_window: int,
     threshold: float = 0.7,
     tokenize_url: str = "",
+    keep_messages: int = _KEEP_MESSAGES,
 ) -> dict[str, object]:
     """Fold old turns, stub old tool results, and fail closed when it still does not fit."""
     before = count_tokens(_join(messages), tokenize_url=tokenize_url)
-    folded, kept = _split(messages)
+    folded, kept = _split(messages, keep_messages)
     summary = summarise(folded)
     folded_tools = _fold_tools(kept)
     summary_through = str(folded[-1].get("id") or "") if folded else ""
@@ -96,10 +97,12 @@ def summarise(messages: Sequence[Mapping[str, object]]) -> str:
 
 def _split(
     messages: Sequence[Mapping[str, object]],
+    keep_messages: int = _KEEP_MESSAGES,
 ) -> tuple[list[Mapping[str, object]], list[Mapping[str, object]]]:
-    if len(messages) <= _KEEP_MESSAGES:
+    keep = max(2, keep_messages)
+    if len(messages) <= keep:
         return [], list(messages)
-    return list(messages[:-_KEEP_MESSAGES]), list(messages[-_KEEP_MESSAGES:])
+    return list(messages[:-keep]), list(messages[-keep:])
 
 
 def _fold_tools(messages: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
