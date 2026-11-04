@@ -225,3 +225,8 @@ M23-T01 | done | d517185 | durable connections, tools and model catalogue
 M23-T02 | done | d517185 | read-only SQL tool
 M23-T03 | done | d517185 | spreadsheets, charts, structured output
 M23-T04 | done | d517185 | UI, Qwen proof, screenshots
+
+M24-T01 | done | e2817ce | ingestion and durable extraction
+M24-T02 | done | e2817ce | document tools with citations
+M24-T03 | done | e2817ce | chunked retrieval for long files
+M24-T04 | done | e2817ce | library screens, Qwen proof, screenshots

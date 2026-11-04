@@ -6,6 +6,7 @@ import {
   Brain,
   CheckCheck,
   ClipboardCheck,
+  FileText,
   Gauge,
   Library,
   Link2,
@@ -29,6 +30,7 @@ export type NavItem = {
     | "navSettings"
     | "navAgents"
     | "navTools"
+    | "navDocuments"
     | "navKnowledge"
     | "navMemory"
     | "navSkills"
@@ -71,6 +73,13 @@ export const primaryNav: NavItem[] = [
     labelKey: "navTools",
     permission: "tools:read",
     icon: Wrench,
+  },
+  {
+    href: "/documents",
+    section: "resources",
+    labelKey: "navDocuments",
+    permission: "chat:use",
+    icon: FileText,
   },
   {
     href: "/connections",

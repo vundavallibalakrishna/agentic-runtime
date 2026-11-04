@@ -29,6 +29,7 @@ def create_app(
     inner_middleware: list[tuple[type, dict[str, object]]] | None = None,
     docs_url: str | None = "/docs",
     camel_json: bool = False,
+    body_limits: dict[str, int] | None = None,
 ) -> FastAPI:
     """Build a FastAPI app with request ids, problem responses, health and metrics."""
     setup_logging(settings)
@@ -39,7 +40,9 @@ def create_app(
     app = FastAPI(title=service_name, version="0.1.0", docs_url=docs_url)
     app.state.settings = settings
     app.state.service_name = service_name
-    install_middleware(app, settings, inner_middleware, camel_json=camel_json)
+    install_middleware(
+        app, settings, inner_middleware, camel_json=camel_json, body_limits=body_limits
+    )
     install_problem_handlers(app)
     install_health(app, readiness_checks or {})
     for router in routers or []:

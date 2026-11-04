@@ -63,16 +63,24 @@ class RequestIdMiddleware:
 class BodyLimitMiddleware:
     """Reject JSON bodies larger than ``AR_MAX_JSON_BODY_BYTES``."""
 
-    def __init__(self, app: ASGIApp, max_bytes: int) -> None:
+    def __init__(
+        self, app: ASGIApp, max_bytes: int, path_limits: dict[str, int] | None = None
+    ) -> None:
         self.app = app
         self.max_bytes = max_bytes
+        self.path_limits = path_limits or {}
+
+    def _max_for(self, scope: Scope) -> int:
+        path = str(scope.get("path") or "")
+        return self.path_limits.get(path, self.max_bytes)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
+        limit = self._max_for(scope)
         content_length = _header(scope, b"content-length")
-        if content_length is not None and int(content_length) > self.max_bytes:
+        if content_length is not None and int(content_length) > limit:
             response = problem_response(
                 PayloadTooLargeError(),
                 instance=str(scope.get("path", "")),
@@ -86,7 +94,7 @@ class BodyLimitMiddleware:
             nonlocal received
             if message["type"] == "http.request":
                 received += len(message.get("body", b""))
-                if received > self.max_bytes:
+                if received > limit:
                     raise PayloadTooLargeError
             return message
 
@@ -204,6 +212,7 @@ def install_middleware(
     inner: list[tuple[type, dict[str, object]]] | None = None,
     *,
     camel_json: bool = False,
+    body_limits: dict[str, int] | None = None,
 ) -> None:
     """Attach middleware. Later additions run further out.
 
@@ -214,7 +223,11 @@ def install_middleware(
     stack = app
     for middleware, kwargs in reversed(inner or []):
         stack.add_middleware(middleware, **kwargs)  # type: ignore[attr-defined]
-    stack.add_middleware(BodyLimitMiddleware, max_bytes=settings.max_json_body_bytes)  # type: ignore[attr-defined]
+    stack.add_middleware(  # type: ignore[attr-defined]
+        BodyLimitMiddleware,
+        max_bytes=settings.max_json_body_bytes,
+        path_limits=body_limits,
+    )
     stack.add_middleware(SecurityHeadersMiddleware)  # type: ignore[attr-defined]
     stack.add_middleware(RequestIdMiddleware, service_name=settings.service_name)  # type: ignore[attr-defined]
     if camel_json:

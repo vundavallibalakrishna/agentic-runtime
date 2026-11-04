@@ -1921,4 +1921,77 @@ CREATE TABLE tenant_pack_flags (
 | binder_exports | records | 27 |
 | pack_registrations, tenant_pack_flags | packs | 28 |
 
-Core total is 97 tables: 74 in §19 plus these 23. The GRC pack schema is not in this list ([10-grc-pack/domain-model.md](../10-grc-pack/domain-model.md)).
+Core total is 97 tables: 74 in §19 plus these 23. The GRC pack schema is not in this list ([10-grc-pack/domain-model.md](../10-grc-pack/domain-model.md)). `service_connections` (revision 0025) and the four M24 tables below are further additions.
+
+## 31. Document library (`ar_domain.documents`)
+
+Revision `0026`. Tenant owned, with the RLS policy from [rls §3](rls.md). The original upload bytes are not stored here.
+
+```sql
+CREATE TABLE library_documents (
+  id            uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id     uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  owner_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title         text NOT NULL,
+  filename      text NOT NULL,
+  media_type    text NOT NULL,
+  source        text NOT NULL CHECK (source IN ('upload','workspace','connection')),
+  source_ref    text NOT NULL DEFAULT '',
+  content_hash  text NOT NULL,
+  size_bytes    bigint NOT NULL,
+  status        text NOT NULL DEFAULT 'ready' CHECK (status IN ('ready','failed')),
+  error_code    text,
+  error_message text,
+  page_count    int NOT NULL DEFAULT 0,
+  metadata      jsonb NOT NULL DEFAULT '{}',
+  passages      jsonb NOT NULL DEFAULT '[]',
+  tables        jsonb NOT NULL DEFAULT '[]',
+  created_at    timestamptz NOT NULL DEFAULT now(),
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, content_hash)
+);
+
+CREATE TABLE document_checks (
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  document_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
+  standard_document_id uuid REFERENCES library_documents(id) ON DELETE SET NULL,
+  label text NOT NULL DEFAULT '',
+  rows jsonb NOT NULL DEFAULT '{}',
+  created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE document_comparisons (
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  left_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
+  right_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
+  changes jsonb NOT NULL DEFAULT '{}',
+  created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE document_rewrites (
+  id uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  document_id uuid NOT NULL REFERENCES library_documents(id) ON DELETE CASCADE,
+  anchor text NOT NULL DEFAULT '',
+  passage_anchors jsonb NOT NULL DEFAULT '[]',
+  instruction text NOT NULL DEFAULT '',
+  original text NOT NULL DEFAULT '',
+  proposed text NOT NULL DEFAULT '',
+  hunks jsonb NOT NULL DEFAULT '[]',
+  status text NOT NULL DEFAULT 'proposed'
+    CHECK (status IN ('proposed','accepted','rejected')),
+  created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+| Tables | Module | Section |
+|---|---|---|
+| library_documents, document_checks, document_comparisons, document_rewrites | documents | 31 |

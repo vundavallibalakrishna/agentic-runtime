@@ -49,6 +49,7 @@
 | 0023 | `m14_records` | §22–§28 tables, RLS, immutability triggers, `fk_run_records_evidence` and `fk_guest_totp_secret`. One revision keeps a single Alembic head (OQ-47). | M13-T07, M14-T08–T13 |
 | 0024 | `conversation_model` | Nullable `conversations.model_alias` so a chat can pick a model without a new agent version. | M21 |
 | 0025 | `service_connections` | `service_connections`, `data_connections.dsn_ciphertext`, and last-error columns on the tool registry. RLS and grants ship in the same revision. | M23 |
+| 0026 | `library_documents` | `library_documents`, `document_checks`, `document_comparisons`, `document_rewrites`. RLS and grants ship in the same revision. | M24 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

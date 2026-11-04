@@ -140,6 +140,90 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           ) : null}
         </div>
       ) : null}
+      {kind === "summary" || kind === "check" || kind === "gaps" ? (
+        <ul className="mt-2 space-y-2">
+          {(Array.isArray(presentation.claims)
+            ? presentation.claims
+            : Array.isArray(presentation.rows)
+              ? presentation.rows
+              : []
+          ).map((item: unknown) => {
+            const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+            const citation =
+              row.citation && typeof row.citation === "object"
+                ? (row.citation as Record<string, unknown>)
+                : row;
+            const anchor = text(citation.anchor);
+            const documentId = text(
+              citation.documentId ??
+                citation.document_id ??
+                presentation.documentId ??
+                presentation.document_id,
+            );
+            const label = text(row.text ?? row.requirement);
+            return (
+              <li key={`${label}-${anchor}`}>
+                <p>{label}</p>
+                {text(row.verdict) ? (
+                  <p className="text-[var(--muted-foreground)]">
+                    {text(row.verdict)} {text(row.confidence)}
+                  </p>
+                ) : null}
+                {anchor ? (
+                  <a className="underline" href={`/documents/${documentId}#${anchor}`}>
+                    {anchor}
+                  </a>
+                ) : null}
+                {text(row.reason) ? (
+                  <p className="text-[var(--muted-foreground)]">{text(row.reason)}</p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {kind === "compare" ? (
+        <ul className="mt-2 space-y-2">
+          {(Array.isArray(presentation.changes) ? presentation.changes : []).map((item) => {
+            const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+            const key = `${text(row.op)}-${text(row.heading)}`;
+            return (
+              <li key={key}>
+                <p className="font-medium">
+                  {text(row.op)} {text(row.heading)}
+                </p>
+                <p className="whitespace-pre-wrap text-xs">{text(row.before)}</p>
+                <p className="whitespace-pre-wrap text-xs">{text(row.after)}</p>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {kind === "rewrite" ? (
+        <div className="mt-2">
+          <p>{text(presentation.instruction)}</p>
+          <a className="underline" href={`/documents/rewrites/${text(presentation.id)}`}>
+            {text(presentation.status)}
+          </a>
+        </div>
+      ) : null}
+      {kind === "redact" ? (
+        <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
+          {text(presentation.redacted)}
+        </pre>
+      ) : null}
+      {kind === "extract" ? (
+        <ul className="mt-2 space-y-1">
+          {(Array.isArray(presentation.fields) ? presentation.fields : []).map((item) => {
+            const row = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+            return (
+              <li key={text(row.field)}>
+                {text(row.field)}: {row.value == null ? text(row.reason) : text(row.value)}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
       {kind === "chart"
         ? files
             .filter((file) => text(file.name).endsWith(".png"))
@@ -184,6 +268,14 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       kind !== "query" &&
       kind !== "table" &&
       kind !== "chart" &&
+      kind !== "summary" &&
+      kind !== "check" &&
+      kind !== "gaps" &&
+      kind !== "compare" &&
+      kind !== "rewrite" &&
+      kind !== "redact" &&
+      kind !== "extract" &&
+      kind !== "document" &&
       preview ? (
         <p className="mt-1 whitespace-pre-wrap">{preview}</p>
       ) : null}

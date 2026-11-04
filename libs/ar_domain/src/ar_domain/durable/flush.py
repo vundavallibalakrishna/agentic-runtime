@@ -69,7 +69,7 @@ def schedule_flush(store: object) -> None:
     store._flush_task = loop.create_task(_run())  # type: ignore[attr-defined]
 
 
-async def _flush_once(store: object, engine: AsyncEngine) -> None:
+async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0915
     pending = _snapshot(store)
     audit_log = getattr(store, "audit_log", [])
     audit_end = len(audit_log)
@@ -106,6 +106,17 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:
 
             await save_service_connections(session, pending["service_connections"])
             await save_data_connections(session, store, pending["data_connections"])
+            from ar_domain.durable.m24 import (  # noqa: PLC0415
+                save_document_checks,
+                save_document_comparisons,
+                save_document_rewrites,
+                save_library_documents,
+            )
+
+            await save_library_documents(session, pending["library_documents"])
+            await save_document_checks(session, pending["document_checks"])
+            await save_document_comparisons(session, pending["document_comparisons"])
+            await save_document_rewrites(session, pending["document_rewrites"])
             await save_routines(session, pending["routines"])
             await _conversations(session, pending["conversations"])
             await _runs(session, store, pending["runs"])

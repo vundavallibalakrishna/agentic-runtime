@@ -74,6 +74,10 @@ def dispatch(  # noqa: PLR0911, PLR0912
         from ar_domain.tools.database import dispatch_data  # noqa: PLC0415
 
         return dispatch_data(store, name, arguments)
+    if endpoint == "builtin://documents":
+        from ar_domain.tools.documents import dispatch_documents  # noqa: PLC0415
+
+        return dispatch_documents(store, name, arguments)
     if endpoint == "builtin://http_operation":
         from ar_domain.tools.http_tools import execute_operation  # noqa: PLC0415
 
