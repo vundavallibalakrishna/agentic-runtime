@@ -226,7 +226,7 @@ M23-T02 | done | d517185 | read-only SQL tool
 M23-T03 | done | d517185 | spreadsheets, charts, structured output
 M23-T04 | done | d517185 | UI, Qwen proof, screenshots
 
-M24-T01 | in_progress | - | 2026-11-04 ingestion and durable extraction
-M24-T02 | in_progress | - | 2026-11-04 document tools
-M24-T03 | in_progress | - | 2026-11-04 chunked retrieval
-M24-T04 | in_progress | - | 2026-11-04 library screens
+M24-T01 | done | e2817ce | ingestion and durable extraction
+M24-T02 | done | e2817ce | document tools with citations
+M24-T03 | done | e2817ce | chunked retrieval for long files
+M24-T04 | done | e2817ce | library screens, Qwen proof, screenshots
