@@ -12,15 +12,15 @@ Create a conversation, then send a message. `Idempotency-Key` makes a retry retu
 
 ```bash
 curl -s https://runtime.example/v1/agents/assistant/conversations \
-  -H "Authorization: Bearer ara_example" \
+  -H "Authorization: Bearer ara_<prefix><secret>" \
   -H "Content-Type: application/json"
 ```
 
 ```bash
 curl -s https://runtime.example/v1/agents/assistant/conversations/$CONVERSATION_ID/messages \
-  -H "Authorization: Bearer ara_example" \
+  -H "Authorization: Bearer ara_<prefix><secret>" \
   -H "Content-Type: application/json" \
-  -H "Idempotency-Key: 4b1c0d2e-6f7a-4b8c-9d0e-1a2b3c4d5e6f" \
+  -H "Idempotency-Key: retry-1" \
   -d '{"text":"What is 2 + 2?"}'
 ```
 
@@ -29,7 +29,7 @@ Stream the same call with `"stream": true`. The response is `text/event-stream` 
 ```javascript
 const base = "https://runtime.example/v1/agents/assistant";
 const headers = {
-  Authorization: "Bearer ara_example",
+  Authorization: "Bearer ara_<prefix><secret>",
   "Content-Type": "application/json",
 };
 const created = await fetch(`${base}/conversations`, { method: "POST", headers });
@@ -46,7 +46,7 @@ Attach a file first, then pass its id:
 
 ```bash
 curl -s https://runtime.example/v1/agents/assistant/files \
-  -H "Authorization: Bearer ara_example" \
+  -H "Authorization: Bearer ara_<prefix><secret>" \
   -F "upload=@notes.txt" \
   -F "mime_type=text/plain"
 ```
@@ -65,7 +65,7 @@ Cursor (`.cursor/mcp.json`):
     "assistant": {
       "url": "https://runtime.example/v1/mcp",
       "headers": {
-        "Authorization": "Bearer ara_example"
+        "Authorization": "Bearer ara_<prefix><secret>"
       }
     }
   }
@@ -81,7 +81,7 @@ Claude Desktop (`claude_desktop_config.json`):
       "type": "http",
       "url": "https://runtime.example/v1/mcp",
       "headers": {
-        "Authorization": "Bearer ara_example"
+        "Authorization": "Bearer ara_<prefix><secret>"
       }
     }
   }
@@ -92,7 +92,7 @@ A generic client posts JSON-RPC to the same URL:
 
 ```bash
 curl -s https://runtime.example/v1/mcp \
-  -H "Authorization: Bearer ara_example" \
+  -H "Authorization: Bearer ara_<prefix><secret>" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
