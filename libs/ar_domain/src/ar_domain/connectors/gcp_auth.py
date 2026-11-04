@@ -81,7 +81,7 @@ def bearer_for(  # noqa: PLR0911
     )
     try:
         assertion = service_account_assertion(info, chosen, datetime.now(UTC))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return _fail("The service-account private key could not be read.")
     problem = guard_public(_OAUTH_URL, allow=["*"], loopback=False)
     if problem:
