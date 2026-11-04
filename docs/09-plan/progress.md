@@ -250,7 +250,7 @@ M28-T01 | done | e74db42 | agent calls, parallel, handoff, budgets
 M28-T02 | done | e74db42 | durable tool calls, approvals, policies, sandboxes, questions
 M28-T03 | done | e74db42 | schedules, inbox, runs tree, editor selection
 
-M29-T01 | in_progress | - | 2026-11-04 agent API, hashed keys, idempotency, quota
-M29-T02 | in_progress | - | 2026-11-04 MCP server and approval-required writes
-M29-T03 | in_progress | - | 2026-11-04 A2A card, tasks, remote tool
-M29-T04 | in_progress | - | 2026-11-04 Expose tab
+M29-T01 | done | e964d56 | agent API, hashed keys, idempotency, quota
+M29-T02 | done | e964d56 | MCP server and approval-required writes
+M29-T03 | done | e964d56 | A2A card, tasks, remote tool
+M29-T04 | done | e964d56 | Expose tab
