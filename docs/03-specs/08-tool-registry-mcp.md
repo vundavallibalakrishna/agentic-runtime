@@ -5,7 +5,7 @@ Registry endpoints are served by `api`. Execution is done by `mcp-gateway` (`ser
 ## 1. Responsibilities
 
 1. Register tool servers (`remote_mcp`, `openapi`, `sql`) with versions, discovery, manifest hashing, review (four-eyes), approval, deprecation, kill switches.
-2. Register data connections (SQL) with allowlists, identity mode and limits.
+2. Register data connections (SQL) with allowlists, identity mode and limits. From revision `0025` the DSN is ciphertext in `data_connections` and service connections are a tenant table. `data.query` is the read-only tool. See [m23-database](../06-security/m23-database.md).
 3. Provide the entitlement-filtered tool catalogue to the runtime (`catalog:resolve`), including semantic tool search.
 4. Execute tool calls: validate → policy → approval → credentials → dispatch → result processing → persistence → audit/usage.
 5. Host the built-in tool servers in-process (knowledge, memory, files, skills, conversations, web) and forward `sandbox`/`browser` tools to the sandbox.

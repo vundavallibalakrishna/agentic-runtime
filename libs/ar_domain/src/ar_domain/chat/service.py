@@ -154,6 +154,7 @@ class ChatService:
     tool_defs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     tool_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     tool_calls: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    service_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     data_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     credential_providers: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     credential_grants: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -1398,6 +1399,27 @@ class ChatService:
         ranked.sort(key=lambda item: (item[0], item[1]))
         return ranked[0][2], ranked[0][3]
 
+    async def _ensure_provider_key(self, tenant_id: uuid.UUID, alias: str) -> None:
+        """Load a persisted provider key. The value stays off API responses."""
+        found = self._alias_target(tenant_id, alias)
+        if found is None or self.durable_engine is None:
+            return
+        provider, _model = found
+        if isinstance(provider.get("api_key"), str) and provider.get("api_key"):
+            return
+        provider_id = provider.get("id")
+        if not isinstance(provider_id, uuid.UUID):
+            return
+        from ar_domain.models.registry import read_api_key  # noqa: PLC0415
+
+        try:
+            key = await read_api_key(self.durable_engine, provider_id)
+        except Exception:  # noqa: BLE001 — a missing key ring cannot unlock the provider
+            return
+        if key:
+            provider["api_key"] = key
+            provider["has_api_key"] = True
+
     def flush_soon(self) -> None:
         """Persist dirty rows without blocking the caller."""
         from ar_domain.durable.flush import schedule_flush  # noqa: PLC0415
@@ -1721,6 +1743,9 @@ class ChatService:
         from ar_domain.models.logic import completion_message  # noqa: PLC0415
 
         model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
+        if real:
+            await self._ensure_provider_key(tenant_id, model_alias)
+            model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
         body: dict[str, object] = {"model": model, "messages": messages}
         if tools:
             body["tools"] = tools

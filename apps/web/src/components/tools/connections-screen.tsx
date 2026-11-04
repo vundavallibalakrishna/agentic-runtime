@@ -35,6 +35,13 @@ export function ConnectionsScreen() {
   const [expiresAt, setExpiresAt] = useState("");
   const [probeUrl, setProbeUrl] = useState("");
   const [notice, setNotice] = useState("");
+  const [dbName, setDbName] = useState("");
+  const [dbEngine, setDbEngine] = useState("postgres");
+  const [dbDsn, setDbDsn] = useState("");
+  const [dbSchemas, setDbSchemas] = useState("public");
+  const [dbTables, setDbTables] = useState("");
+  const [dbRows, setDbRows] = useState(1000);
+  const [dbTimeout, setDbTimeout] = useState(30);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,6 +164,64 @@ export function ConnectionsScreen() {
       setServiceSecret("");
       setNotice(t("serviceRotated"));
       await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveDatabase() {
+    if (busy || !dbName.trim() || !dbDsn.trim()) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const created = await api<{ id: string }>("/api/v1/data-connections", {
+        method: "POST",
+        body: JSON.stringify({
+          name: dbName.trim(),
+          engine: dbEngine,
+          dsn: dbDsn,
+          allowlist: {
+            schemas: dbSchemas
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+            tables: dbTables
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean),
+          },
+          rowLimit: dbRows,
+          statementTimeoutS: dbTimeout,
+        }),
+      });
+      setDbDsn("");
+      setNotice(t("databaseSaved"));
+      await load();
+      const tested = await api<{ ok?: boolean }>(`/api/v1/data-connections/${created.id}:test`, {
+        method: "POST",
+        body: "{}",
+      });
+      setNotice(tested.ok ? t("databaseTested") : t("databaseSaved"));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function testDatabase(id: string) {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const tested = await api<{ ok?: boolean }>(`/api/v1/data-connections/${id}:test`, {
+        method: "POST",
+        body: "{}",
+      });
+      setNotice(tested.ok ? t("databaseTested") : t("error"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -378,7 +443,91 @@ export function ConnectionsScreen() {
             <a href={link}>{link}</a>
           </p>
         ) : null}
-        <h2 className="mb-2 text-lg font-medium">{t("data")}</h2>
+        <h2 className="mb-2 text-lg font-medium">{t("databaseTitle")}</h2>
+        <p className="mb-3 text-sm text-[var(--muted-foreground)]">{t("databaseBody")}</p>
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm" htmlFor="database-name">
+            {t("databaseName")}
+            <Input
+              className="mt-1"
+              id="database-name"
+              onChange={(event) => setDbName(event.target.value)}
+              value={dbName}
+            />
+          </label>
+          <label className="block text-sm" htmlFor="database-engine">
+            {t("databaseEngine")}
+            <select
+              className="mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--card)] px-2 py-2 text-sm"
+              id="database-engine"
+              onChange={(event) => setDbEngine(event.target.value)}
+              value={dbEngine}
+            >
+              <option value="postgres">postgres</option>
+              <option value="mysql">mysql</option>
+            </select>
+          </label>
+          <label className="block text-sm sm:col-span-2" htmlFor="database-dsn">
+            {t("databaseDsn")}
+            <Input
+              autoComplete="off"
+              className="mt-1"
+              id="database-dsn"
+              onChange={(event) => setDbDsn(event.target.value)}
+              type="password"
+              value={dbDsn}
+            />
+          </label>
+          <label className="block text-sm" htmlFor="database-schemas">
+            {t("databaseSchemas")}
+            <Input
+              className="mt-1"
+              id="database-schemas"
+              onChange={(event) => setDbSchemas(event.target.value)}
+              value={dbSchemas}
+            />
+          </label>
+          <label className="block text-sm" htmlFor="database-tables">
+            {t("databaseTables")}
+            <Input
+              className="mt-1"
+              id="database-tables"
+              onChange={(event) => setDbTables(event.target.value)}
+              value={dbTables}
+            />
+          </label>
+          <label className="block text-sm" htmlFor="database-rows">
+            {t("databaseRows")}
+            <Input
+              className="mt-1"
+              id="database-rows"
+              max={5000}
+              min={1}
+              onChange={(event) => setDbRows(Number(event.target.value) || 1000)}
+              type="number"
+              value={dbRows}
+            />
+          </label>
+          <label className="block text-sm" htmlFor="database-timeout">
+            {t("databaseTimeout")}
+            <Input
+              className="mt-1"
+              id="database-timeout"
+              max={120}
+              min={1}
+              onChange={(event) => setDbTimeout(Number(event.target.value) || 30)}
+              type="number"
+              value={dbTimeout}
+            />
+          </label>
+        </div>
+        <Button onClick={() => void saveDatabase()} type="button">
+          {t("databaseSave")}
+        </Button>
+        <h2 className="mb-2 mt-6 text-lg font-medium">{t("data")}</h2>
+        {data.length === 0 ? (
+          <p className="text-sm text-[var(--muted-foreground)]">{t("databaseEmpty")}</p>
+        ) : null}
         <ul className="grid gap-4 md:grid-cols-2">
           {data.map((row) => (
             <li
@@ -387,6 +536,14 @@ export function ConnectionsScreen() {
             >
               <h3 className="font-medium">{String(row.name)}</h3>
               <p className="text-sm text-[var(--muted-foreground)]">{String(row.engine)}</p>
+              <Button
+                className="mt-3"
+                onClick={() => void testDatabase(String(row.id))}
+                type="button"
+                variant="outline"
+              >
+                {t("databaseTest")}
+              </Button>
             </li>
           ))}
         </ul>

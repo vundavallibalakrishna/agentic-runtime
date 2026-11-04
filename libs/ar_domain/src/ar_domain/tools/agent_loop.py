@@ -98,10 +98,19 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     by_name = _index(tools)
     openai_tools = [_openai_tool(row) for row in tools]
     instructions = str(definition.get("instructions") or "Help.")
+    from ar_domain.tools.structured import output_schema, validate_output  # noqa: PLC0415
+
+    schema = output_schema(definition)
+    if schema:
+        import orjson  # noqa: PLC0415
+
+        encoded = orjson.dumps(schema).decode()
+        instructions = f"{instructions}\n\nReturn only JSON matching this schema:\n{encoded}"
     messages: list[dict[str, object]] = [
         {"role": "system", "content": f"{instructions}\n\n{_GUIDE}"},
         {"role": "user", "content": user_text},
     ]
+    repairs = 0
     started = time.monotonic()
     steps = 0
     used_calls = 0
@@ -135,6 +144,29 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         calls = turn.get("tool_calls")
         if not isinstance(calls, list) or not calls:
             answer = str(turn.get("text") or "").strip() or "The model returned an empty answer."
+            if schema:
+                problem = validate_output(answer, schema)
+                if problem and repairs < 1:
+                    repairs += 1
+                    messages.append({"role": "assistant", "content": answer})
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                "That was not valid JSON for the required schema: "
+                                f"{problem}. Reply with only the JSON object."
+                            ),
+                        }
+                    )
+                    _audit(
+                        store,
+                        run,
+                        "run.retried",
+                        str(run.get("id")),
+                        {"reason": "structured_output"},
+                        outcome="failure",
+                    )
+                    continue
             answer = _checked(store, run, answer, failed_open=failed_open, tool_calls=used_calls)
             _finish(store, run, assistant, answer, previews)
             return True

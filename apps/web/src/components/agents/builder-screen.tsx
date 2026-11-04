@@ -21,7 +21,12 @@ const GENERAL_TOOLS = [
   "fetch",
   "search",
   "http",
+  "inspect_table",
+  "query_table",
+  "export_table",
+  "chart",
 ] as const;
+const DATA_TOOLS = ["list_schemas", "list_tables", "describe_table", "query"] as const;
 
 type Proposal = {
   resources?: { spec?: Definition; metadata?: { name?: string } }[];
@@ -46,6 +51,8 @@ export function BuilderScreen() {
   const [formInstructions, setFormInstructions] = useState("");
   const [formModel, setFormModel] = useState("reasoning");
   const [enabledTools, setEnabledTools] = useState<string[]>([...GENERAL_TOOLS]);
+  const [dataTools, setDataTools] = useState<string[]>([]);
+  const [rowLimit, setRowLimit] = useState(1000);
   const [toolTimeout, setToolTimeout] = useState(30);
   const [toolNetwork, setToolNetwork] = useState(false);
 
@@ -138,6 +145,16 @@ export function BuilderScreen() {
                         code: { timeoutS: toolTimeout, network: toolNetwork },
                         shell: { timeoutS: toolTimeout, network: toolNetwork },
                       },
+                    },
+                  ]
+                : []),
+              ...(dataTools.length
+                ? [
+                    {
+                      server: "data",
+                      version: "*",
+                      include: dataTools,
+                      overrides: { query: { rowLimit } },
                     },
                   ]
                 : []),
@@ -350,6 +367,40 @@ export function BuilderScreen() {
                 type="checkbox"
               />
               {t("toolNetwork")}
+            </label>
+          </fieldset>
+          <fieldset className="mt-4">
+            <legend className="text-sm font-medium">{t("dataTools")}</legend>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("dataHelp")}</p>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {DATA_TOOLS.map((name) => (
+                <label className="flex items-center gap-2 text-sm" key={name}>
+                  <input
+                    checked={dataTools.includes(name)}
+                    onChange={() =>
+                      setDataTools((current) =>
+                        current.includes(name)
+                          ? current.filter((item) => item !== name)
+                          : [...current, name],
+                      )
+                    }
+                    type="checkbox"
+                  />
+                  {t(`tool_${name}`)}
+                </label>
+              ))}
+            </div>
+            <label className="mt-3 block text-sm" htmlFor="create-row-limit">
+              {t("rowLimit")}
+              <input
+                className="mt-1 w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                id="create-row-limit"
+                max={5000}
+                min={1}
+                onChange={(event) => setRowLimit(Number(event.target.value) || 1000)}
+                type="number"
+                value={rowLimit}
+              />
             </label>
           </fieldset>
           <Button

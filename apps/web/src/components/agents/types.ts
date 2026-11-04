@@ -15,9 +15,13 @@ export type Definition = {
         maxFileBytes?: number;
         network?: boolean;
         allowHosts?: string[];
+        rowLimit?: number;
+        schemas?: string[];
+        tables?: string[];
       }
     >;
   }[];
+  output?: { jsonSchema?: Record<string, unknown> };
   skills?: string[];
   subagents?: { allowed?: string[]; maxDepth?: number; maxParallel?: number };
   budget?: {
