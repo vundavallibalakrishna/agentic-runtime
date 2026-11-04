@@ -498,9 +498,7 @@ def test_hydrate_round_trip_and_live_catalogue(monkeypatch: pytest.MonkeyPatch) 
     row = store.data_connections[data_id]
     assert probe(store, row)["ok"] is True
     assert catalog(store, row)["tables"]
-    listed = dispatch_data(
-        store, "list_schemas", {"connection": "walmart", "_tenant_id": tenant}
-    )
+    listed = dispatch_data(store, "list_schemas", {"connection": "walmart", "_tenant_id": tenant})
     assert listed["is_error"] is False
     tables = dispatch_data(store, "list_tables", {"connection": "walmart", "_tenant_id": tenant})
     assert "public.stores" in str(tables["text"])
