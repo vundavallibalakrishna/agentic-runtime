@@ -27,6 +27,7 @@ class TriggerBody:
         timezone (None | str | Unset):
         jitter_s (int | Unset):  Default: 0.
         catchup_window_s (int | Unset):  Default: 0.
+        execute_model (bool | Unset):  Default: False.
         config (TriggerBodyConfig | Unset):
     """
 
@@ -35,6 +36,7 @@ class TriggerBody:
     timezone: None | str | Unset = UNSET
     jitter_s: int | Unset = 0
     catchup_window_s: int | Unset = 0
+    execute_model: bool | Unset = False
     config: TriggerBodyConfig | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
@@ -58,6 +60,8 @@ class TriggerBody:
 
         catchup_window_s = self.catchup_window_s
 
+        execute_model = self.execute_model
+
         config: dict[str, Any] | Unset = UNSET
         if not isinstance(self.config, Unset):
             config = self.config.to_dict()
@@ -77,6 +81,8 @@ class TriggerBody:
             field_dict["jitterS"] = jitter_s
         if catchup_window_s is not UNSET:
             field_dict["catchupWindowS"] = catchup_window_s
+        if execute_model is not UNSET:
+            field_dict["executeModel"] = execute_model
         if config is not UNSET:
             field_dict["config"] = config
 
@@ -111,6 +117,8 @@ class TriggerBody:
 
         catchup_window_s = d.pop("catchupWindowS", UNSET)
 
+        execute_model = d.pop("executeModel", UNSET)
+
         _config = d.pop("config", UNSET)
         config: TriggerBodyConfig | Unset
         if isinstance(_config, Unset):
@@ -124,6 +132,7 @@ class TriggerBody:
             timezone=timezone,
             jitter_s=jitter_s,
             catchup_window_s=catchup_window_s,
+            execute_model=execute_model,
             config=config,
         )
 

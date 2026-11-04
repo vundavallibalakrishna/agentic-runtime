@@ -104,6 +104,17 @@ def workspace_root(sandbox_id: uuid.UUID) -> Path:
     return _ROOT / str(sandbox_id)
 
 
+def _note_workspace(store: Any, conversation_id: uuid.UUID | None, ref: str) -> None:
+    runs = getattr(store, "runs", None)
+    if not isinstance(runs, dict) or conversation_id is None:
+        return
+    for run in runs.values():
+        if not isinstance(run, dict) or run.get("conversation_id") != conversation_id:
+            continue
+        if str(run.get("status")) in {"queued", "running", "waiting_input", "waiting_approval"}:
+            run["workspace_ref"] = ref
+
+
 def chart_command() -> str:
     """Bash command that reads ``inputs/*.csv`` and writes a PNG."""
     return f"{sys.executable} - <<'PY'\n{CHART_SCRIPT}\nPY"
@@ -203,6 +214,8 @@ def ensure_scope(
         }
         store.sandboxes[sandbox_id] = row
         root = workspace_root(sandbox_id)
+        row["workspace_volume"] = str(root)
+        _note_workspace(store, conversation_id, f"sandbox:{sandbox_id}")
         (root / "workspace" / "inputs").mkdir(parents=True, exist_ok=True)
         (root / "workspace" / "outputs").mkdir(parents=True, exist_ok=True)
         (root / "tmp").mkdir(parents=True, exist_ok=True)

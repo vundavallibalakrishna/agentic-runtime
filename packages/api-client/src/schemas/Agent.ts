@@ -196,7 +196,15 @@ export type Allowed = string[];
 export type Allowselfclone = boolean;
 export type Maxdepth = number;
 export type Maxparallel = number;
+export type Childtimeouts = number;
+export type Description = string;
+/**
+ * This interface was referenced by `AgentDefinition`'s JSON-Schema
+ * via the `definition` "JsonValue".
+ */
+export type JsonValue = unknown;
 export type Enabled1 = boolean;
+export type Enabled2 = boolean;
 export type Template = string;
 export type Scope = "conversation" | "agent_user" | "agent";
 export type Extraegressallowlist = string[];
@@ -236,6 +244,8 @@ export interface AgentDefinition {
   skills?: Skills;
   memory?: MemorySpec;
   subagents?: SubagentSpec;
+  contract?: AgentContract;
+  human?: HumanSpec;
   sandbox?: SandboxSpec;
   budget: RunBudget;
   context?: ContextSpec;
@@ -321,9 +331,30 @@ export interface SubagentSpec {
   allowSelfClone?: Allowselfclone;
   maxDepth?: Maxdepth;
   maxParallel?: Maxparallel;
+  childTimeoutS?: Childtimeouts;
+}
+/**
+ * What a parent sees when it calls this agent.
+ */
+export interface AgentContract {
+  description?: Description;
+  inputSchema?: Inputschema;
+  outputSchema?: Outputschema;
+}
+export interface Inputschema {
+  [k: string]: JsonValue;
+}
+export interface Outputschema {
+  [k: string]: JsonValue;
+}
+/**
+ * When true, the agent may pause and ask a person.
+ */
+export interface HumanSpec {
+  enabled?: Enabled1;
 }
 export interface SandboxSpec {
-  enabled?: Enabled1;
+  enabled?: Enabled2;
   template?: Template;
   scope?: Scope;
   extraEgressAllowlist?: Extraegressallowlist;
@@ -372,6 +403,17 @@ export interface ChannelFlags {
   widget?: Widget;
 }
 /**
+ * What a parent sees when it calls this agent.
+ *
+ * This interface was referenced by `AgentDefinition`'s JSON-Schema
+ * via the `definition` "AgentContract".
+ */
+export interface AgentContract1 {
+  description?: Description;
+  inputSchema?: Inputschema;
+  outputSchema?: Outputschema;
+}
+/**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
  * via the `definition` "AssuranceSpec".
  */
@@ -398,6 +440,15 @@ export interface ContextSpec1 {
   compactionThreshold?: Compactionthreshold;
   toolResultMaxTokens?: Toolresultmaxtokens;
   historyMaxMessages?: Historymaxmessages;
+}
+/**
+ * When true, the agent may pause and ask a person.
+ *
+ * This interface was referenced by `AgentDefinition`'s JSON-Schema
+ * via the `definition` "HumanSpec".
+ */
+export interface HumanSpec1 {
+  enabled?: Enabled1;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema
@@ -453,7 +504,7 @@ export interface SafetySpec1 {
  * via the `definition` "SandboxSpec".
  */
 export interface SandboxSpec1 {
-  enabled?: Enabled1;
+  enabled?: Enabled2;
   template?: Template;
   scope?: Scope;
   extraEgressAllowlist?: Extraegressallowlist;
@@ -467,6 +518,7 @@ export interface SubagentSpec1 {
   allowSelfClone?: Allowselfclone;
   maxDepth?: Maxdepth;
   maxParallel?: Maxparallel;
+  childTimeoutS?: Childtimeouts;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema

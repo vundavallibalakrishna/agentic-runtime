@@ -206,7 +206,15 @@ export type Allowed = string[];
 export type Allowselfclone = boolean;
 export type Maxdepth = number;
 export type Maxparallel = number;
+export type Childtimeouts = number;
+export type Description1 = string;
+/**
+ * This interface was referenced by `Bundle`'s JSON-Schema
+ * via the `definition` "JsonValue".
+ */
+export type JsonValue = unknown;
 export type Enabled1 = boolean;
+export type Enabled2 = boolean;
 export type Template = string;
 export type Scope = "conversation" | "agent_user" | "agent";
 export type Extraegressallowlist = string[];
@@ -234,7 +242,7 @@ export type Widget = boolean;
 export type Kind2 = "ToolServer";
 export type Kind3 = "remote_mcp" | "openapi" | "sql";
 export type Version1 = string;
-export type Description1 = string;
+export type Description2 = string;
 export type Url = string;
 export type Specfile = string;
 export type Baseurl = string;
@@ -260,7 +268,7 @@ export type Statementtimeouts = number;
 export type Classification = string;
 export type Schemanotes = string;
 export type Kind5 = "KnowledgeCollection";
-export type Description2 = string;
+export type Description3 = string;
 export type Visibility1 = "private" | "team" | "tenant";
 export type Aclmode = "source" | "collection";
 export type Sensitivity = "normal" | "high";
@@ -278,7 +286,7 @@ export type Syncschedule = string | null;
 export type Aclsyncschedule = string | null;
 export type Sources = KnowledgeSource[];
 export type Kind7 = "Routine";
-export type Description3 = string;
+export type Description4 = string;
 export type Agent = string;
 export type Agentversion = string | null;
 export type Runas = "owner" | "service_account";
@@ -298,7 +306,7 @@ export type Delivery = DeliveryTarget[];
 export type Maxrunsperday = number;
 export type Concurrencypolicy = "skip" | "buffer_one" | "allow";
 export type Kind8 = "Policy";
-export type Description4 = string;
+export type Description5 = string;
 export type Status = "active" | "disabled";
 export type Priority = number;
 export type Id = string;
@@ -312,7 +320,7 @@ export type Usergroups = string[];
 export type Message = string;
 export type Rules = PolicyRule[];
 export type Kind9 = "Skill";
-export type Description5 = string;
+export type Description6 = string;
 export type Visibility2 = "private" | "team" | "tenant";
 export type Requiredtools = string[];
 export type Instructionsmd = string;
@@ -398,6 +406,8 @@ export interface AgentDefinition {
   skills?: Skills;
   memory?: MemorySpec;
   subagents?: SubagentSpec;
+  contract?: AgentContract;
+  human?: HumanSpec;
   sandbox?: SandboxSpec;
   budget: RunBudget;
   context?: ContextSpec;
@@ -483,9 +493,30 @@ export interface SubagentSpec {
   allowSelfClone?: Allowselfclone;
   maxDepth?: Maxdepth;
   maxParallel?: Maxparallel;
+  childTimeoutS?: Childtimeouts;
+}
+/**
+ * What a parent sees when it calls this agent.
+ */
+export interface AgentContract {
+  description?: Description1;
+  inputSchema?: Inputschema;
+  outputSchema?: Outputschema;
+}
+export interface Inputschema {
+  [k: string]: JsonValue;
+}
+export interface Outputschema {
+  [k: string]: JsonValue;
+}
+/**
+ * When true, the agent may pause and ask a person.
+ */
+export interface HumanSpec {
+  enabled?: Enabled1;
 }
 export interface SandboxSpec {
-  enabled?: Enabled1;
+  enabled?: Enabled2;
   template?: Template;
   scope?: Scope;
   extraEgressAllowlist?: Extraegressallowlist;
@@ -549,7 +580,7 @@ export interface ToolServerResource {
 export interface ToolServerDefinition {
   kind: Kind3;
   version: Version1;
-  description?: Description1;
+  description?: Description2;
   remoteMcp?: RemoteMcp | null;
   openapi?: OpenApiSpec | null;
   sql?: SqlSpec | null;
@@ -641,7 +672,7 @@ export interface KnowledgeCollectionResource {
  * via the `definition` "KnowledgeCollectionDefinition".
  */
 export interface KnowledgeCollectionDefinition {
-  description?: Description2;
+  description?: Description3;
   visibility?: Visibility1;
   aclMode?: Aclmode;
   sensitivity?: Sensitivity;
@@ -682,7 +713,7 @@ export interface RoutineResource {
  * via the `definition` "RoutineDefinition".
  */
 export interface RoutineDefinition {
-  description?: Description3;
+  description?: Description4;
   agent: Agent;
   agentVersion?: Agentversion;
   runAs?: Runas;
@@ -738,7 +769,7 @@ export interface PolicyResource {
  * via the `definition` "PolicyDefinition".
  */
 export interface PolicyDefinition {
-  description?: Description4;
+  description?: Description5;
   status?: Status;
   priority?: Priority;
   rules?: Rules;
@@ -775,7 +806,7 @@ export interface SkillResource {
  * via the `definition` "SkillDefinition".
  */
 export interface SkillDefinition {
-  description: Description5;
+  description: Description6;
   visibility?: Visibility2;
   requiredTools?: Requiredtools;
   instructionsMd: Instructionsmd;
@@ -857,6 +888,17 @@ export interface Config3 {
   [k: string]: string;
 }
 /**
+ * What a parent sees when it calls this agent.
+ *
+ * This interface was referenced by `Bundle`'s JSON-Schema
+ * via the `definition` "AgentContract".
+ */
+export interface AgentContract1 {
+  description?: Description1;
+  inputSchema?: Inputschema;
+  outputSchema?: Outputschema;
+}
+/**
  * This interface was referenced by `Bundle`'s JSON-Schema
  * via the `definition` "AssuranceSpec".
  */
@@ -883,6 +925,15 @@ export interface ContextSpec1 {
   compactionThreshold?: Compactionthreshold;
   toolResultMaxTokens?: Toolresultmaxtokens;
   historyMaxMessages?: Historymaxmessages;
+}
+/**
+ * When true, the agent may pause and ask a person.
+ *
+ * This interface was referenced by `Bundle`'s JSON-Schema
+ * via the `definition` "HumanSpec".
+ */
+export interface HumanSpec1 {
+  enabled?: Enabled1;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema
@@ -950,7 +1001,7 @@ export interface SafetySpec1 {
  * via the `definition` "SandboxSpec".
  */
 export interface SandboxSpec1 {
-  enabled?: Enabled1;
+  enabled?: Enabled2;
   template?: Template;
   scope?: Scope;
   extraEgressAllowlist?: Extraegressallowlist;
@@ -964,6 +1015,7 @@ export interface SubagentSpec1 {
   allowSelfClone?: Allowselfclone;
   maxDepth?: Maxdepth;
   maxParallel?: Maxparallel;
+  childTimeoutS?: Childtimeouts;
 }
 /**
  * This interface was referenced by `Bundle`'s JSON-Schema

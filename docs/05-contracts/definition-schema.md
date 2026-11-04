@@ -84,7 +84,14 @@ spec:
     allowed: [web-researcher]   # agent slugs this agent may delegate to
     allowSelfClone: true      # delegate to a copy of itself with a narrowed tool subset
     maxDepth: 2                # 1..3; platform max 3
-    maxParallel: 3
+    maxParallel: 3             # 1..8
+    childTimeoutS: 45         # a slower child is failed and not retried
+  contract:
+    description: ""           # shown to a parent that calls this agent
+    inputSchema: {}
+    outputSchema: {}
+  human:
+    enabled: false            # the agent may pause and ask a person
   sandbox:
     enabled: true
     template: default           # sandbox template slug

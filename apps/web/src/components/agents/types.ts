@@ -24,7 +24,19 @@ export type Definition = {
   output?: { jsonSchema?: Record<string, unknown> };
   skills?: string[];
   knowledge?: { collections?: string[] };
-  subagents?: { allowed?: string[]; maxDepth?: number; maxParallel?: number };
+  subagents?: {
+    allowed?: string[];
+    maxDepth?: number;
+    maxParallel?: number;
+    allowSelfClone?: boolean;
+    childTimeoutS?: number;
+  };
+  human?: { enabled?: boolean };
+  contract?: {
+    description?: string;
+    inputSchema?: Record<string, unknown>;
+    outputSchema?: Record<string, unknown>;
+  };
   budget?: {
     maxSteps?: number;
     maxTokens?: number;

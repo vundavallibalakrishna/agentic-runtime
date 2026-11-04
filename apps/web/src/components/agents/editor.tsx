@@ -54,6 +54,7 @@ export function AgentEditor() {
     { name: string; server: string; source: string; risk: string }[]
   >([]);
   const [aliases, setAliases] = useState<string[]>([]);
+  const [peers, setPeers] = useState<{ id: string; slug: string; name: string }[]>([]);
 
   const load = useCallback(async () => {
     setAgent(null);
@@ -61,6 +62,11 @@ export function AgentEditor() {
     setError("");
     try {
       const body = await api<AgentDetail>(`/api/v1/agents/${agentId}`);
+      void api<{ items?: { id: string; slug: string; name: string }[] }>("/api/v1/agents")
+        .then((agentPage) =>
+          setPeers((agentPage.items ?? []).filter((item) => item.id !== agentId && item.slug)),
+        )
+        .catch(() => setPeers([]));
       const source = body.draft?.definition ?? body.published?.definition ?? {};
       const history = await api<{ items: { version: number; state: string }[] }>(
         `/api/v1/agents/${agentId}/versions`,
@@ -129,6 +135,16 @@ export function AgentEditor() {
 
   function budgetValue(key: keyof NonNullable<Definition["budget"]>, fallback: number) {
     return definition.budget?.[key] ?? fallback;
+  }
+
+  function toggleCallee(slug: string) {
+    const allowed = new Set(definition.subagents?.allowed ?? []);
+    if (allowed.has(slug)) allowed.delete(slug);
+    else allowed.add(slug);
+    updateDefinition({
+      ...definition,
+      subagents: { ...definition.subagents, allowed: [...allowed] },
+    });
   }
 
   function setBudget(key: keyof NonNullable<Definition["budget"]>, value: number) {
@@ -511,6 +527,39 @@ export function AgentEditor() {
                       ))}
                     </div>
                   )}
+                </fieldset>
+                <fieldset className="mt-4">
+                  <legend className="text-sm font-medium">{t("canCallAgents")}</legend>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("canCallHelp")}</p>
+                  {peers.length === 0 ? (
+                    <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("noPeers")}</p>
+                  ) : (
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                      {peers.map((peer) => (
+                        <label className="flex items-center gap-2 text-sm" key={peer.id}>
+                          <input
+                            checked={(definition.subagents?.allowed ?? []).includes(peer.slug)}
+                            onChange={() => toggleCallee(peer.slug)}
+                            type="checkbox"
+                          />
+                          {peer.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <label className="mt-3 flex items-center gap-2 text-sm">
+                    <input
+                      checked={definition.human?.enabled === true}
+                      onChange={() =>
+                        updateDefinition({
+                          ...definition,
+                          human: { enabled: definition.human?.enabled !== true },
+                        })
+                      }
+                      type="checkbox"
+                    />
+                    {t("canAskPerson")}
+                  </label>
                 </fieldset>
                 <fieldset className="mt-4">
                   <legend className="text-sm font-medium">{t("generalTools")}</legend>

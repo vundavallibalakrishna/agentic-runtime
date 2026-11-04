@@ -7651,6 +7651,79 @@
         }
       }
     },
+    "/api/v1/inbox": {
+      "get": {
+        "summary": "Inbox",
+        "description": "Questions and approvals waiting on the signed-in person.",
+        "operationId": "inbox_api_v1_inbox_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Inbox Api V1 Inbox Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/inbox/{question_id}:answer": {
+      "post": {
+        "summary": "Answer Inbox",
+        "operationId": "answer_inbox_api_v1_inbox__question_id__answer_post",
+        "parameters": [
+          {
+            "name": "question_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Question Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Answer Inbox Api V1 Inbox  Question Id  Answer Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tool-servers": {
       "get": {
         "summary": "List Servers",
@@ -16221,6 +16294,59 @@
         }
       }
     },
+    "/api/v1/routines/{routine_id}:tick": {
+      "post": {
+        "summary": "Tick Routine",
+        "description": "Fire a due schedule in this process. A live model run waits for the answer.",
+        "operationId": "tick_routine_api_v1_routines__routine_id__tick_post",
+        "parameters": [
+          {
+            "name": "routine_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Routine Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TickBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Tick Routine Api V1 Routines  Routine Id  Tick Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/hooks/routines/{token}": {
       "post": {
         "summary": "Routine Webhook",
@@ -24733,6 +24859,18 @@
         "type": "object",
         "title": "AliasTestBody"
       },
+      "AnswerBody": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnswerBody"
+      },
       "ApiKeyCreate": {
         "properties": {
           "name": {
@@ -30162,6 +30300,18 @@
         "type": "object",
         "title": "TestBody"
       },
+      "TickBody": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TickBody"
+      },
       "ToolPatch": {
         "properties": {
           "riskClass": {
@@ -30287,6 +30437,11 @@
             "type": "integer",
             "title": "Catchupwindows",
             "default": 0
+          },
+          "executeModel": {
+            "type": "boolean",
+            "title": "Executemodel",
+            "default": false
           },
           "config": {
             "additionalProperties": {
