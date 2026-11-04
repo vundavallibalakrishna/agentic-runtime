@@ -42,12 +42,8 @@ async function capture(page: Page, name: string) {
 test("expose tab shows a key once and a public test console", async ({ page }) => {
   await signIn(page);
   await page.goto("/agents");
-  const assistant = page.getByRole("link", { name: /Assistant/ }).first();
-  if ((await assistant.count()) > 0) {
-    await assistant.click();
-  } else {
-    await page.locator('a[href^="/agents/"]:not([href="/agents/new"])').first().click();
-  }
+  await page.locator('a[href^="/agents/"]:not([href="/agents/new"])').first().click();
+  await expect(page).toHaveURL(/\/agents\/[^/]+$/, { timeout: 20_000 });
   await expect(page.getByRole("tab", { name: "Expose" })).toBeVisible({ timeout: 20_000 });
   await page.getByRole("tab", { name: "Expose" }).click();
   await expect(page.getByText("No API keys yet.")).toBeVisible();
