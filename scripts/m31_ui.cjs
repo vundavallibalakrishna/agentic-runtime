@@ -6,7 +6,9 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { chromium } = require("/workspace/node_modules/.pnpm/playwright@1.64.1/node_modules/playwright");
+const {
+  chromium,
+} = require("/workspace/node_modules/.pnpm/playwright@1.64.1/node_modules/playwright");
 
 const WEB = process.env.M31_WEB || "http://127.0.0.1:18132";
 const OUT = process.env.M31_UI_OUT || "/workspace/docs/testing/m31";
@@ -40,7 +42,8 @@ function scrub(text) {
 async function settled(page) {
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(
-    () => !document.querySelector("[aria-busy='true']") && !document.querySelector(".animate-pulse"),
+    () =>
+      !document.querySelector("[aria-busy='true']") && !document.querySelector(".animate-pulse"),
     null,
     { timeout: 20000 },
   );
@@ -183,33 +186,35 @@ async function typedFlow(browser) {
     notes.keyStoredLabel = true;
     await shot(page, "flow-model-stored");
   } else {
-  await page.getByRole("button", { name: "Advanced" }).click();
-  await page.getByRole("button", { name: "OpenAI-compatible" }).click();
-  await page.locator("#provider-name").fill("Customer DeepInfra");
-  await page.locator("#provider-url").fill("https://api.deepinfra.com/v1/openai");
-  await page.locator("#provider-model").fill("Qwen/Qwen3-32B");
-  if (!KEY) {
-    notes.model = "NOT VERIFIED — AR_CERT_LLM_API_KEY absent";
-  } else {
-    await page.locator("#provider-key").fill(KEY);
-    await page.getByRole("button", { name: "Register and test" }).click();
-    await page.getByText("Sample:", { exact: false }).waitFor({ timeout: 90000 });
-    notes.sample = scrub(await page.getByText("Sample:", { exact: false }).innerText());
-    const keyValue = await page.locator("#provider-key").inputValue();
-    notes.keyCleared = keyValue === "";
-    await settled(page);
-    const body = await page.locator("body").innerText();
-    notes.keyStoredLabel = body.includes("Key stored");
-    await shot(page, "flow-model-stored");
-  }
+    await page.getByRole("button", { name: "Advanced" }).click();
+    await page.getByRole("button", { name: "OpenAI-compatible" }).click();
+    await page.locator("#provider-name").fill("Customer DeepInfra");
+    await page.locator("#provider-url").fill("https://api.deepinfra.com/v1/openai");
+    await page.locator("#provider-model").fill("Qwen/Qwen3-32B");
+    if (!KEY) {
+      notes.model = "NOT VERIFIED — AR_CERT_LLM_API_KEY absent";
+    } else {
+      await page.locator("#provider-key").fill(KEY);
+      await page.getByRole("button", { name: "Register and test" }).click();
+      await page.getByText("Sample:", { exact: false }).waitFor({ timeout: 90000 });
+      notes.sample = scrub(await page.getByText("Sample:", { exact: false }).innerText());
+      const keyValue = await page.locator("#provider-key").inputValue();
+      notes.keyCleared = keyValue === "";
+      await settled(page);
+      const body = await page.locator("body").innerText();
+      notes.keyStoredLabel = body.includes("Key stored");
+      await shot(page, "flow-model-stored");
+    }
   }
 
   await page.goto(`${WEB}/agents/new`);
   await settled(page);
   await page.locator("#agent-form-name").fill("Certification clerk");
-  await page.locator("#agent-form-instructions").fill(
-    "Use the general tools. If a Python call fails, read the error and try a corrected program. Quote the tool output.",
-  );
+  await page
+    .locator("#agent-form-instructions")
+    .fill(
+      "Use the general tools. If a Python call fails, read the error and try a corrected program. Quote the tool output.",
+    );
   await page.getByRole("button", { name: "Create and use" }).click();
   await page.waitForURL(/\/chat/, { timeout: 30000 });
   await settled(page);
@@ -282,7 +287,7 @@ async function main() {
   if (process.env.M31_UI_PART !== "shots") {
     notes.flow = await typedFlow(browser);
   }
-  if (notes.approval && notes.approval.videoPath) {
+  if (notes.approval?.videoPath) {
     fs.copyFileSync(notes.approval.videoPath, path.join(OUT, "approval.webm"));
   }
   notes.desktopLight = await sweep(browser, "light", 1440, 900, "desktop-light");
@@ -299,6 +304,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(scrub(String(error && error.stack ? error.stack : error)));
+  console.error(scrub(String(error?.stack ? error.stack : error)));
   process.exit(1);
 });
