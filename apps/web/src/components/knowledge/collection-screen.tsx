@@ -49,7 +49,7 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
         api<{ items: Row[] }>(`/api/v1/knowledge/collections/${collectionId}/documents`),
         api<{ items: Row[] }>(`/api/v1/knowledge/collections/${collectionId}/sources`),
         api<{ items: Row[] }>(`/api/v1/knowledge/collections/${collectionId}/jobs`),
-        api<{ items: Row[] }>("/api/v1/library-documents"),
+        api<{ items: Row[] }>("/api/v1/library-documents").catch(() => ({ items: [] })),
         api<{ items: Row[] }>("/api/v1/service-connections").catch(() => ({ items: [] })),
       ]);
       setCollection(row);
