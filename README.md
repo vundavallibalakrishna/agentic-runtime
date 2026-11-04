@@ -32,9 +32,7 @@ Exact versions: [docs/stack.md](docs/stack.md). Decisions: [ADRs](docs/02-archit
 | [docs/06-security](docs/06-security/) | Threat model, authentication and RBAC, secrets, prompt-injection defences, DPDP data protection, audit catalogue |
 | [docs/07-ops](docs/07-ops/) | Local development, environments and configuration, CI/CD, Helm/Kubernetes, scaling, backup/DR, runbooks |
 | [docs/08-quality](docs/08-quality/) | Python and TypeScript standards, testing strategy, evaluation strategy, performance budgets |
-| [docs/09-plan](docs/09-plan/README.md) | **The build plan**: 20 milestones, 172 ordered tasks with dependencies and acceptance criteria |
-| [docs/10-grc-pack](docs/10-grc-pack/README.md) | GRC solution pack (separate from core) |
-| [docs/grc-gap-analysis.md](docs/grc-gap-analysis.md) | Approved GRC fit and gap analysis |
+| [docs/09-plan](docs/09-plan/README.md) | **The build plan**: milestones and ordered tasks with dependencies and acceptance criteria |
 | [docs/open-questions.md](docs/open-questions.md) | Undecided points, each with the default to apply now |
 
 The original architecture document is kept alongside this repository as `docs/architecture/agentic-runtime-architecture.docx` / `.pdf` (reference only; this specification set supersedes it where they differ).

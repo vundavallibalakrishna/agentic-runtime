@@ -2,10 +2,8 @@
 
 ## Parked pack
 
-- [x] `AR_GRC_PACK_ENABLED` defaults to false in `.env.example`, settings and Helm values.
 - [x] A dev sign-in has no GRC navigation item.
 - [x] `/grc` renders the not-found page.
-- [x] `packs/grc` is still in the tree and its unit tests pass without the flag.
 
 ## Workspace
 

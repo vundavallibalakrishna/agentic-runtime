@@ -2,7 +2,6 @@
 
 Depends on M26. A customer connects their own model, lets one agent call others, watches the run tree, schedules work, and answers a question that unblocks a run. Connector batch two is M27 and does not block this milestone.
 
-The GRC pack stays parked. This milestone does not import it and does not change its migrations.
 
 ## M28-T01 Agent calls
 

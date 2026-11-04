@@ -1,6 +1,6 @@
 # Design system
 
-The web app is a warm neutral surface with one ink accent. Type, spacing and a hairline do the work. Linear, Vercel and Claude are the reference for restraint. Source Serif is used once, on the sign-in title and the empty chat greeting. Everything else is Source Sans. The product stays industry-agnostic. GRC vocabulary does not appear in this chrome.
+The web app is a warm neutral surface with one ink accent. Type, spacing and a hairline do the work. Linear, Vercel and Claude are the reference for restraint. Source Serif is used once, on the sign-in title and the empty chat greeting. Everything else is Source Sans. The product stays industry-agnostic. Industry vocabulary does not appear in this chrome.
 
 ## Tokens
 

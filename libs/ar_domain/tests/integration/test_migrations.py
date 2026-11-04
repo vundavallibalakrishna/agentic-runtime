@@ -48,6 +48,73 @@ def test_downgrade_and_upgrade(migrated: str) -> None:
     assert len(heads) == 1
 
 
+async def test_retired_pack_schema_drops_and_stays_gone(migrated: str) -> None:
+    """Revision 0031 removes a pack schema that already exists, and is a no-op without one."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(migrated)
+    _alembic(migrated, "downgrade", "0030")
+    async with engine.begin() as connection:
+        await connection.execute(text("CREATE SCHEMA grc"))
+        await connection.execute(text("CREATE TABLE grc.controls (id int PRIMARY KEY)"))
+        await connection.execute(text("INSERT INTO grc.controls VALUES (7)"))
+        await connection.execute(
+            text("CREATE TABLE grc_alembic_version (version_num varchar(32) PRIMARY KEY)")
+        )
+        await connection.execute(text("INSERT INTO grc_alembic_version VALUES ('0002')"))
+        plan_id = await connection.scalar(
+            text("INSERT INTO plans (key, name) VALUES ('m30-drop', 'M30') RETURNING id")
+        )
+        tenant_id = await connection.scalar(
+            text(
+                "INSERT INTO tenants (slug, name, plan_id) "
+                "VALUES ('m30-drop', 'M30', :plan_id) RETURNING id"
+            ),
+            {"plan_id": plan_id},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO installed_packs "
+                "(tenant_id, pack_id, version, manifest, manifest_hash) "
+                "VALUES (:tenant_id, 'grc', '1.1.0', '{}'::jsonb, 'm30')"
+            ),
+            {"tenant_id": tenant_id},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO tenant_pack_flags (tenant_id, pack_id, enabled) "
+                "VALUES (:tenant_id, 'grc', true)"
+            ),
+            {"tenant_id": tenant_id},
+        )
+    _alembic(migrated, "upgrade", "head")
+    async with engine.connect() as connection:
+        schema = await connection.scalar(
+            text("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'grc'")
+        )
+        version = await connection.scalar(text("SELECT to_regclass('public.grc_alembic_version')"))
+        packs = await connection.scalar(
+            text("SELECT count(*) FROM installed_packs WHERE pack_id = 'grc'")
+        )
+        flags = await connection.scalar(
+            text("SELECT count(*) FROM tenant_pack_flags WHERE pack_id = 'grc'")
+        )
+        kept = await connection.scalar(text("SELECT count(*) FROM tenants WHERE slug = 'm30-drop'"))
+    assert schema == 0
+    assert version is None
+    assert packs == 0
+    assert flags == 0
+    assert kept == 1
+    _alembic(migrated, "downgrade", "0030")
+    _alembic(migrated, "upgrade", "head")
+    async with engine.connect() as connection:
+        schema = await connection.scalar(
+            text("SELECT count(*) FROM information_schema.schemata WHERE schema_name = 'grc'")
+        )
+    assert schema == 0
+    await engine.dispose()
+
+
 async def test_seed_is_idempotent(migrated: str) -> None:
     from ar_common.settings import BaseServiceSettings, set_settings
     from ar_domain.db.engine import get_engine

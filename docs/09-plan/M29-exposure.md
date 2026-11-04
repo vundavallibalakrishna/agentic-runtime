@@ -1,6 +1,6 @@
 # M29 — Expose agents
 
-Depends on M28. A published agent can be called from outside the product: a versioned REST API, an MCP server, and A2A. The GRC pack stays parked. This milestone does not import it and does not change its migrations.
+Depends on M28. A published agent can be called from outside the product: a versioned REST API, an MCP server, and A2A.
 
 ## M29-T01 Agent API and keys
 
@@ -59,4 +59,4 @@ Depends on M28. A published agent can be called from outside the product: a vers
 
 ## Out of scope
 
-Removing the GRC pack. A certification pass. Full A2A conformance (push notifications, gRPC, task list pagination).
+Removing the parked industry pack (M30). A certification pass. Full A2A conformance (push notifications, gRPC, task list pagination).

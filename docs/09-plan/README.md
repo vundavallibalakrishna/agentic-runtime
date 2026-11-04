@@ -36,12 +36,12 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M13 | [M13-observability-eval.md](M13-observability-eval.md) | Observability & evaluation | Traces, dashboards, alerts, run inspector; eval suites with publish gates; run records (after M14-T08) | 7 |
 | M14 | [M14-security-compliance.md](M14-security-compliance.md) | Security hardening & compliance | Guardrails, PII redaction, retention, DPDP erasure/export, audit export, support access, pen-test fixes; immutable records, external participants, pack hooks | 13 |
 | M15 | [M15-deployment.md](M15-deployment.md) | Deployment | Helm chart, both deployment modes, DR drills, load tests at budget, release 1.0 | 7 |
-| M16 | [M16-grc-foundation.md](M16-grc-foundation.md) | GRC pack foundation | Pack schema, catalogues, crosswalks, evidence links, read tools, entity tree | 7 |
-| M17 | [M17-grc-connectors-ccm.md](M17-grc-connectors-ccm.md) | GRC connectors and CCM | Collectors and continuous control tests | 6 |
-| M18 | [M18-grc-workflows.md](M18-grc-workflows.md) | GRC workflows | Questionnaires, vendors, policies, risk, regulatory change, breach clocks, exceptions, ethics | 8 |
-| M19 | [M19-grc-audit-reporting.md](M19-grc-audit-reporting.md) | GRC audit and reporting | Auditor portal, access reviews, attestations, reports, inspections, DSAR, pack release | 8 |
-| M20 | [M20-certification.md](M20-certification.md) | Platform certification | A real OpenAI-compatible model, a browser pass of the product and the GRC pack, and a written verdict | 4 |
-| M21 | [M21-agentic-workspace.md](M21-agentic-workspace.md) | Agentic workspace | GRC pack parked by default. Chat is home. Agents plan, act, check and retry with customer limits. A user can create an agent and connect an OpenAI-compatible model. | 4 |
+| M16 | [M16-grc-foundation.md](M16-grc-foundation.md) | Foundation (removed in M30) | Removed in M30 | 7 |
+| M17 | [M17-grc-connectors-ccm.md](M17-grc-connectors-ccm.md) | Connectors (removed in M30) | Removed in M30 | 6 |
+| M18 | [M18-grc-workflows.md](M18-grc-workflows.md) | Workflows (removed in M30) | Removed in M30 | 8 |
+| M19 | [M19-grc-audit-reporting.md](M19-grc-audit-reporting.md) | Audit desk (removed in M30) | Removed in M30 | 8 |
+| M20 | [M20-certification.md](M20-certification.md) | Platform certification | A real OpenAI-compatible model and a browser pass of the product | 4 |
+| M21 | [M21-agentic-workspace.md](M21-agentic-workspace.md) | Agentic workspace | Chat is home. Agents plan, act, check and retry with customer limits. A user can create an agent and connect an OpenAI-compatible model. | 4 |
 | M21b | [M21b-general-tools.md](M21b-general-tools.md) | General tools | Sandboxed code and shell, a per-run workspace, page fetch, pluggable web search and call-any-API, with per-agent limits and chat cards. | 3 |
 | M22 | [M22-connections-mcp-openapi.md](M22-connections-mcp-openapi.md) | Connections, MCP and OpenAPI | Named connections, an MCP client, OpenAPI import and a tool described in plain language, on one registry. | 4 |
 | M23 | [M23-data-analysis.md](M23-data-analysis.md) | Data analysis | Durable connections and tools, a read-only database tool, spreadsheets, charts and structured output. | 4 |
@@ -51,8 +51,9 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M27 | [M27-connectors.md](M27-connectors.md) | Connector batch two | ServiceNow, Salesforce, Zendesk, HubSpot, Okta, Entra ID, and read-only AWS, Azure and Google Cloud, with honest live-test labels. | 4 |
 | M28 | [M28-orchestration.md](M28-orchestration.md) | Orchestration | Agents call agents, runs survive a restart, schedules and webhooks start work, and a person can unblock a paused run. | 3 |
 | M29 | [M29-exposure.md](M29-exposure.md) | Expose agents | A published agent is callable over a versioned REST API, as an MCP tool, and over A2A, with its own scoped keys. | 4 |
+| M30 | [M30-removal.md](M30-removal.md) | Remove the retired pack | The parked industry pack, its schema, screens and flag are gone. General tools stay. | 1 |
 
-Total: **218 tasks** across 32 milestones (M0–M29, including M2.5 between M2 and M3). The GRC pack (M16–M19) stays in the tree and is off unless `AR_GRC_PACK_ENABLED` is true. Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027). M22 follows M21b. M23 follows M22. M24 follows M23. M25 follows M24. M26 follows M25. M27 follows M26. M28 already shipped from M26 and does not wait on M27. M29 follows M28.
+Total: **219 tasks** across 33 milestones (M0–M30, including M2.5 between M2 and M3). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). M16–M19 shipped a pack that M30 removed. M16 started after M14-T13 and could run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M22 follows M21b. M23 follows M22. M24 follows M23. M25 follows M24. M26 follows M25. M27 follows M26. M28 already shipped from M26 and does not wait on M27. M29 follows M28. M30 follows M29.
 
 ## Dependency graph
 
@@ -84,10 +85,10 @@ flowchart LR
   M17 --> M19
   M18 --> M19
   M19 --> M20 --> M21 --> M21b[M21b] --> M22 --> M23 --> M24 --> M25 --> M26 --> M27
-  M26 --> M28 --> M29
+  M26 --> M28 --> M29 --> M30
 ```
 
-M16 does not wait for M15. M13-T07 is the one task that waits for a later milestone (M14-T08).
+M16 does not wait for M15. M13-T07 is the one task that waits for a later milestone (M14-T08). M30 removes the pack that M16–M19 added.
 
 The graph allows parallel work after M5 (M6/M7/M8 can proceed in parallel by different agents), but a single agent should simply follow the milestone order.
 

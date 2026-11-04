@@ -5,11 +5,11 @@
 
 ## Context
 
-The GRC domain (frameworks, controls, vendors, campaigns) must not fork core and must not add tables to the core linear migration history. Later packs will need the same boundary.
+An industry domain must not fork core and must not add tables to the core linear migration history. Later packs need the same boundary. The pack that first used this boundary was removed in M30.
 
 ## Decision
 
-A pack is a content pack ([spec 05 §10](../../03-specs/05-agent-registry.md#10-content-packs)) plus an `extension` block. Core exposes six hooks only: an HTTP mount at `/api/v1/ext/{pack_id}`, a pack Alembic environment with its own version table, permission registration, audit-action registration, a web nav slot, and a per-tenant enable flag. Core modules must not import `ar_pack_*`. Pack schema migrations are not revisions in the core history ([OQ-28](../../open-questions.md)). The GRC pack is `packs/grc`, package `ar_pack_grc`, schema `grc`, version table `grc_alembic_version`. Normative behaviour: [spec 21 §6](../../03-specs/21-records-governance.md#6-pack-extension-points).
+A pack is a content pack ([spec 05 §10](../../03-specs/05-agent-registry.md#10-content-packs)) plus an `extension` block. Core exposes six hooks only: an HTTP mount at `/api/v1/ext/{pack_id}`, a pack Alembic environment with its own version table, permission registration, audit-action registration, a web nav slot, and a per-tenant enable flag. Core modules must not import `ar_pack_*`. Pack schema migrations are not revisions in the core history ([OQ-28](../../open-questions.md)). No pack ships in this tree. Core revision `0031` drops a retired pack schema when that schema is already present. Normative behaviour: [spec 21 §6](../../03-specs/21-records-governance.md#6-pack-extension-points).
 
 ## Consequences
 

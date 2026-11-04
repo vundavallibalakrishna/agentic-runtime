@@ -2,7 +2,8 @@
 
 Depends on M26. A customer installs ServiceNow, Salesforce, Zendesk, HubSpot, Okta, Microsoft Entra ID, AWS, Azure or Google Cloud, follows that provider's app-registration steps, tests the connection, and attaches the tools to an agent.
 
-The earlier deferral is lifted. A connector that cannot be called without a customer account is still built, and it is labelled not live-tested. The GRC pack stays parked. This milestone does not import it and does not change its migrations.
+The earlier deferral is lifted. A connector that cannot be called without a customer account is still built, and it is labelled not live-tested.
+
 
 ## M27-T01 Cloud auth and shared limits
 
@@ -66,4 +67,4 @@ The earlier deferral is lifted. A connector that cannot be called without a cust
 
 ## Out of scope
 
-A third connector batch. Changing GRC pack migrations. Calling a customer tenant for a provider that did not answer.
+A third connector batch. Calling a customer tenant for a provider that did not answer.

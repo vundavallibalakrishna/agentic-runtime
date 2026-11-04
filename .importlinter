@@ -86,7 +86,6 @@ source_modules =
     ar_mcp_openapi
     ar_fake_llm
 forbidden_modules =
-    ar_pack_grc
     ar_pack_fixture
 
 [importlinter:contract:retrieval-adapters]

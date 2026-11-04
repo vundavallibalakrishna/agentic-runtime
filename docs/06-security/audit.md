@@ -51,7 +51,6 @@ Implementation: [spec 17 §1](../03-specs/17-audit-usage-metering.md#1-audit), t
 | AI governance | `agent_card.published`, `agent_card.updated`, `ai_incident.created`, `ai_incident.updated`, `ai_governance.exported` |
 | Guests | `guest.invited`, `guest.login`, `guest.login_failed` (F), `guest.revoked`, `guest.grant_created`, `guest.grant_revoked`, `guest.access`, `guest.downloaded` |
 | Binders | `binder.created`, `binder.built`, `binder.downloaded` |
-| GRC pack | `grc.framework.imported`, `grc.control.updated`, `grc.mapping.confirmed`, `grc.mapping.rejected`, `grc.evidence.linked`, `grc.test_result.recorded`, `grc.finding.created`, `grc.finding.closed`, `grc.risk.proposed`, `grc.risk.accepted`, `grc.vendor.created`, `grc.assessment.completed`, `grc.policy.published`, `grc.policy.acknowledged`, `grc.obligation.updated`, `grc.regulatory_change.triaged`, `grc.incident.opened`, `grc.incident.notified`, `grc.campaign.started`, `grc.campaign_item.decided`, `grc.answer.approved`, `grc.pbc.updated`, `grc.entitlement.ingested`, `grc.report.exported`, `grc.entity.updated`, `grc.exception.signed`, `grc.ethics.opened`, `grc.inspection.opened`, `grc.dsar.fulfilled`, `grc.consent.recorded`, `grc.resilience.recorded` |
 
 `audit.event` is **not** an action: it is the outbox topic carrying each audit row to the SIEM webhook.
 

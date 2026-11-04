@@ -44,9 +44,9 @@ Checkable:
 - Integrations, MCP servers, tools, connectors, agent templates, skills, domain tables, and UI pages are packs or connector plugins.
 - The framework covers packaging, manifest, versioning, install, upgrade, uninstall, permissions, a config schema, UI contribution points, pack-owned migrations, and a testing kit. Normative: [extension-framework](../05-contracts/extension-framework.md).
 
-## 4. The GRC pack covers the ask
+## 4. The product is the generic platform
 
-The GRC pack is the first solution pack. It is specified to answer the GRC work a client asks for, including the corner cases in [use-cases](../10-grc-pack/use-cases.md). A row in that catalogue is either implemented by a named task or marked as a deliberate later cut.
+A customer connects a model, builds agents, and gives them tools, connectors, skills and files. Industry catalogues are not part of this tree. A customer-supplied standard is checked with the document tools.
 
 ## 5. Best defaults
 

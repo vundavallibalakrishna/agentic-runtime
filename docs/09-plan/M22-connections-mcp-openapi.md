@@ -36,4 +36,5 @@ This milestone is one pull request. The four surfaces share the tool pipeline, t
 
 ## Out of scope
 
-Documents, knowledge, connector libraries for specific products, orchestration, and exposing agents. The GRC pack stays parked.
+Documents, knowledge, connector libraries for specific products, orchestration, and exposing agents.
+

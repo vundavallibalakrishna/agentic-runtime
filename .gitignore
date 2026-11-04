@@ -18,6 +18,7 @@ node_modules/
 .next-m26/
 .next-m28/
 .next-m27/
+.next-m30/
 out/
 dist/
 storybook-static/

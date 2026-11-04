@@ -2,14 +2,14 @@
 
 **Verdict: certified with conditions.**
 
-The platform signed a user in, stored a DeepInfra API key as a secret, and answered through `Qwen/Qwen3-32B` on the model gateway. The same browser session opened the product and GRC screens in light and dark, at desktop and mobile width. Conditions are the gaps below that were not run, or that the UI cannot perform.
+The platform signed a user in, stored a DeepInfra API key as a secret, and answered through `Qwen/Qwen3-32B` on the model gateway. The same browser session opened the product in light and dark, at desktop and mobile width. Industry screens from that pass were removed in M30. Conditions are the gaps below that were not run, or that the UI cannot perform.
 
 ## Environment
 
 | Item | Value |
 |---|---|
 | Date | 2026-10-28 |
-| Start | `make up`, `make migrate`, `alembic -c packs/grc/alembic.ini upgrade head`, `make seed`, `honcho start -f Procfile.dev` |
+| Start | `make up`, `make migrate`, `make seed`, `honcho start -f Procfile.dev` |
 | Web | `http://localhost:13000` |
 | API | `http://127.0.0.1:18000` |
 | Model gateway | `http://localhost:18001` |
@@ -34,9 +34,7 @@ Host ports were moved off 5432, 6379, 7233, 8000, 8001 and 8013. An existing com
 | Tools | Not completed | The default assistant has `max_tool_calls` 0, so a ticket sentence is answered by the model with no tool call. Desk returns "Connect an account to use this tool." | API check during the run |
 | Approvals | Not completed | The approvals inbox was empty. No approve or deny was clicked. | `docs/testing/m20/desktop-light-approvals.png` |
 | Product screens | Pass as viewed | Chat, agents, tools, connections, knowledge, memory, skills, routines, reviews, runs, models, users, policies, channels, evals, usage, quotas, computers, assurance, health, profile. | `docs/testing/m20/desktop-light-*.png`, `desktop-dark-*`, `mobile-light-*`, `mobile-dark-*` |
-| GRC catalogues | Pass as viewed | Frameworks, controls, evidence, tests, findings, and connectors render. Demo catalogues come from the dev pack install. | `docs/testing/m20/desktop-dark-grc.png` and the matching tab shots |
-| GRC workflows | Pass as viewed, create not available | Vendors shows Northwind from `install_dev`. Questionnaires, policies, risks, regulatory, incidents, exceptions, and ethics open. There is no create form. | `docs/testing/m20/desktop-dark-grc_workflows_vendors.png` |
-| GRC audit | Pass as viewed | Requests, reviews, reports, inspections, privacy, and resilience open on the dev seed. | `docs/testing/m20/desktop-dark-grc_audit.png` and the section shots |
+| Industry screens | Removed in M30 | Those tabs are a not-found page. The shots from this pass are no longer in the tree. | — |
 | Light, dark, desktop, mobile | Pass | No clipped primary heading, no unreadable contrast on the sampled screens, empty panels use the shared empty state. | The four prefixes under `docs/testing/m20/` |
 | Walkthrough | Pass | Login, model form, chat answer, knowledge upload, builder, then the route sweep. | `docs/testing/m20/walkthrough.webm` |
 
@@ -61,10 +59,10 @@ These are not platform defects.
 - **OQ-54, high.** Workflow and audit screens do not create vendors, risks, policies, questionnaires, incidents, exceptions, ethics cases, PBC requests, or inspections. Demo rows are from `install_dev`.
 - **OQ-53, medium.** Breaker, semaphore, alias traffic split, and mid-stream fallback are not on the live chat path. Embeddings and rerank stay on the seeded fake aliases. Knowledge upload indexed the file; this run did not prove semantic retrieval through a real embedding model.
 - **OQ-48.** The 24 hour soak, live Slack, live Teams, and a customer IdP were not run.
-- **OQ-49 to OQ-52.** GRC HTTP rows stay on the process store. `make migrate` does not upgrade schema `grc`.
+- **OQ-49 to OQ-52.** Closed in M30. The retired pack schema is dropped by core revision `0031`.
 - **Approvals.** No approval was granted or rejected.
 - **Tool connection.** Desk stops at "Connect an account" until a tickets connection exists. That connection was not created in the browser.
 
 ## Layout
 
-Sampled light and dark shots at 1440px and 390px. Sidebar, tables, and GRC tabs stay inside the viewport. The models table uses horizontal scrolling rather than overlapping columns. The Next.js dev badge sits over the corner in `next dev`; it is not part of the production UI. No contrast failure stood out on the sampled dark screens. Empty states use the shared panel.
+Sampled light and dark shots at 1440px and 390px. Sidebar and tables stay inside the viewport. The models table uses horizontal scrolling rather than overlapping columns. The Next.js dev badge sits over the corner in `next dev`; it is not part of the production UI. No contrast failure stood out on the sampled dark screens. Empty states use the shared panel.

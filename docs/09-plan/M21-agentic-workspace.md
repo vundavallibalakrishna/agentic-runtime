@@ -1,15 +1,15 @@
 # M21 — Agentic workspace
 
-The product is a generic agentic platform. A customer connects an LLM, defines agents, and gives them tools, connectors and skills. GRC document work is something a customer can build later. The GRC pack stays in the repository and is parked.
+The product is a generic agentic platform. A customer connects an LLM, defines agents, and gives them tools, connectors and skills.
 
 ## Tasks
 
-### M21-T01 Park the GRC pack
+### M21-T01 Park the industry pack
 
 - **Depends on:** M20-T04
-- **Do:** Add `AR_GRC_PACK_ENABLED` (default `false`). When it is off, do not install GRC templates, routines or seeded catalogues for the dev tenant, and do not show GRC navigation. Leave `packs/grc` and its migrations in place. Core does not import `ar_pack_grc`.
-- **Done when:** A signed-in user does not see a GRC link, and `/grc` is not a product screen. Pack unit tests still install the pack themselves and pass.
-- **Tests:** `packs/grc/tests/unit/test_m21_parked.py`
+- **Do:** Keep industry screens out of the default workspace. M30 deletes that package.
+- **Done when:** A signed-in user does not see an industry link, and `/grc` is not a product screen.
+- **Tests:** `apps/web/e2e/m21-workspace.spec.ts` expects the not-found page.
 
 ### M21-T02 Chat-first workspace
 
@@ -34,4 +34,4 @@ The product is a generic agentic platform. A customer connects an LLM, defines a
 
 ## Out of scope
 
-MCP client and OpenAPI import (M22). Deleting the GRC pack. General tools are M21b.
+MCP client and OpenAPI import (M22). Removing the parked package (M30). General tools are M21b.

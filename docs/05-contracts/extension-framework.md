@@ -10,7 +10,7 @@ The testing kit is `ar_connector_sdk.testing`: `ToolServerHarness` and `conforma
 
 ## 2. Solution packs
 
-For domain tables, HTTP routes, permissions, audit actions, agent templates, and UI. The first pack is [GRC](../10-grc-pack/README.md). Hooks are [spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points) (M14-T13). Content-pack lifecycle is [spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs).
+For domain tables, HTTP routes, permissions, audit actions, agent templates, and UI. No solution pack ships in this tree. Hooks are [spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points) (M14-T13). Content-pack lifecycle is [spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs).
 
 | Concern | Rule |
 |---|---|

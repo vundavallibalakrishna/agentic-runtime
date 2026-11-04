@@ -1921,7 +1921,7 @@ CREATE TABLE tenant_pack_flags (
 | binder_exports | records | 27 |
 | pack_registrations, tenant_pack_flags | packs | 28 |
 
-Core total is 97 tables: 74 in §19 plus these 23. The GRC pack schema is not in this list ([10-grc-pack/domain-model.md](../10-grc-pack/domain-model.md)). `service_connections` (revision 0025) and the four M24 tables below are further additions.
+Core total is 97 tables: 74 in §19 plus these 23. Retired pack schemas are not in this list. `service_connections` (revision 0025) and the four M24 tables below are further additions.
 
 ## 31. Document library (`ar_domain.documents`)
 
