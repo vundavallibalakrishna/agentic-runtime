@@ -256,3 +256,5 @@ M29-T03 | done | e964d56 | A2A card, tasks, remote tool
 M29-T04 | done | e964d56 | Expose tab
 
 M30-T01 | done | 3bfd4b8 | retired pack removed; revision 0031 drops its schema
+
+M31-T01 | done | 9aa4dd1 | final certification of the whole platform
