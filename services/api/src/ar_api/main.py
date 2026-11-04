@@ -24,6 +24,7 @@ from ar_api.routers.builder import router as builder_router
 from ar_api.routers.bundles import router as bundles_router
 from ar_api.routers.channels import router as channels_router
 from ar_api.routers.connections import router as connections_router
+from ar_api.routers.connectors import router as connectors_router
 from ar_api.routers.content_packs import router as packs_router
 from ar_api.routers.credential_providers import router as providers_router
 from ar_api.routers.data_connections import router as data_connections_router
@@ -291,6 +292,7 @@ def create_application() -> FastAPI:
             opa_bundle_router,
             sandboxes_router,
             knowledge_router,
+            connectors_router,
             memory_router,
             skills_router,
             routines_router,

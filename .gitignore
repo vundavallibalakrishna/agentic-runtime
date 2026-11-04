@@ -15,6 +15,7 @@ node_modules/
 .turbo/
 .next/
 .next-m25/
+.next-m26/
 out/
 dist/
 storybook-static/

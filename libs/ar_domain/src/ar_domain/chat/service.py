@@ -155,6 +155,7 @@ class ChatService:
     tool_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     tool_calls: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     service_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    connector_installs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     data_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     library_documents: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_checks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)

@@ -126,8 +126,14 @@ class CredentialGrant(Base):
         nullable=False,
     )
     scopes: Mapped[list[str]] = text_array()
-    secret_ref_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("secret_refs.id", ondelete="CASCADE"), nullable=False
+    secret_ref_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("secret_refs.id", ondelete="CASCADE")
+    )
+    access_ciphertext: Mapped[bytes] = mapped_column(
+        LargeBinary, nullable=False, server_default=text(r"'\x'::bytea")
+    )
+    refresh_ciphertext: Mapped[bytes] = mapped_column(
+        LargeBinary, nullable=False, server_default=text(r"'\x'::bytea")
     )
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
     external_account_label: Mapped[str | None] = mapped_column(Text)

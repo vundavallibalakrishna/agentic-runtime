@@ -73,12 +73,10 @@ def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dic
 
 
 def remember_named_secret(store: Any, tenant_id: uuid.UUID, name: str, value: str) -> None:
-    """Keep a secret for tools. The value is not returned by any API."""
-    book = getattr(store, "named_secrets", None)
-    if not isinstance(book, dict):
-        store.named_secrets = {}
-        book = store.named_secrets
-    book[(str(tenant_id), name)] = value.encode()
+    """Keep a secret for tools. The value is encrypted and is not returned by any API."""
+    from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
+
+    write_named_secret(store, tenant_id, name, value)
 
 
 def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -613,15 +611,9 @@ def _auth_headers(  # noqa: PLR0911
 
 
 def _named_secret(store: Any, tenant_id: object, name: str) -> str | None:
-    book = getattr(store, "named_secrets", None)
-    if not isinstance(book, dict):
-        return None
-    value = book.get((str(tenant_id), name))
-    if isinstance(value, bytes):
-        return value.decode("utf-8", errors="replace")
-    if isinstance(value, str):
-        return value
-    return None
+    from ar_domain.tools.named_secrets import read_named_secret  # noqa: PLC0415
+
+    return read_named_secret(store, tenant_id, name)
 
 
 def _headers(arguments: dict[str, object]) -> dict[str, str]:

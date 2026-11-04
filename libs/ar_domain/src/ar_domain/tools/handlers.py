@@ -92,6 +92,10 @@ def dispatch(  # noqa: PLR0911, PLR0912
         return _skills(store, name, arguments)
     if endpoint == "builtin://records":
         return _records(store, name, arguments)
+    if endpoint == "builtin://connectors":
+        from ar_domain.connectors.dispatch import dispatch_connector  # noqa: PLC0415
+
+        return dispatch_connector(store, name, arguments)
     return {
         "text": "upstream server is not reachable",
         "structured": {},

@@ -100,6 +100,7 @@ def seed(store: Any) -> None:
     _knowledge_server(store)
     _memory_server(store)
     _skills_server(store)
+    _connector_server(store)
     _analyst(store, tenant, admin)
     store.tools_seeded = True
 
@@ -661,6 +662,12 @@ def _knowledge_server(store: Any) -> None:
             ),
         ],
     )
+
+
+def _connector_server(store: Any) -> None:
+    from ar_domain.connectors.catalog import tool_records  # noqa: PLC0415
+
+    _builtin(store, "connectors", "Connectors", "builtin://connectors", tool_records())
 
 
 def _skills_server(store: Any) -> None:
