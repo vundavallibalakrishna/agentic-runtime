@@ -173,6 +173,8 @@ describe("detail flow failures", () => {
           HttpResponse.json({ items: [] }),
         ),
       ),
+      http.get("*/api/v1/library-documents", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/service-connections", () => HttpResponse.json({ items: [] })),
       http.post("*/api/v1/files:upload", () => {
         attempts++;
         return HttpResponse.json({ detail: "Upload unavailable" }, { status: 503 });

@@ -64,11 +64,11 @@ export function AppShell({
     void api<Session>("/api/v1/auth/session")
       .then((body) => {
         rememberedSession = body;
-        if (!cancelled) setSession(body);
+        if (!cancelled && typeof window !== "undefined") setSession(body);
       })
       .catch((error: unknown) => {
         rememberedSession = null;
-        if (!cancelled) {
+        if (!cancelled && typeof window !== "undefined") {
           setSession(null);
           if (error instanceof ApiError && error.status === 401) replaceRoute("/login");
         }
@@ -94,10 +94,11 @@ export function AppShell({
             if (item.href && item.label) links.push({ href: item.href, label: item.label });
           }
         }
+        if (typeof window === "undefined") return;
         setPackLinks(links);
       })
       .catch(() => {
-        if (!cancelled) setPackLinks([]);
+        if (!cancelled && typeof window !== "undefined") setPackLinks([]);
       });
     return () => {
       cancelled = true;

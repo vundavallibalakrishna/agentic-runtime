@@ -197,6 +197,8 @@ describe("tool screens", () => {
       http.get("*/api/v1/data-connections", () =>
         HttpResponse.json({ items: [{ id: "d1", name: "Warehouse", engine: "postgres" }] }),
       ),
+      http.get("*/api/v1/service-connections", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
     );
     render(wrap(<ConnectionsScreen />));
     expect(await screen.findByRole("heading", { name: "Tickets" })).toBeTruthy();

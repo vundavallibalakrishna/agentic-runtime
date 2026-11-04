@@ -800,6 +800,30 @@ export function ChatScreen() {
                               );
                             })
                           : null}
+                        {message.loadedSkill && typeof message.loadedSkill === "object" ? (
+                          <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                            {t("loadedSkill", {
+                              name: String(
+                                (message.loadedSkill as { name?: string }).name || "skill",
+                              ),
+                              reason: String(
+                                (message.loadedSkill as { reason?: string }).reason || "",
+                              ),
+                            })}
+                          </p>
+                        ) : null}
+                        {message.retrieval &&
+                        typeof message.retrieval === "object" &&
+                        Array.isArray((message.retrieval as { hits?: unknown[] }).hits) ? (
+                          <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                            {t("retrievalTrace", {
+                              count: (message.retrieval as { hits: unknown[] }).hits.length,
+                              chars: Number(
+                                (message.retrieval as { usedChars?: number }).usedChars || 0,
+                              ),
+                            })}
+                          </p>
+                        ) : null}
                         <CitationList
                           citations={
                             streamingHere && stream.citations.length

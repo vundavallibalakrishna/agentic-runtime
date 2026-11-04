@@ -853,7 +853,29 @@ export function AgentEditor() {
                     </p>
                   </TabsContent>
                   <TabsContent value="knowledge">
-                    <p className="mt-3 text-sm">{t("knowledgeDefault")}</p>
+                    <label className="mt-3 block text-sm" htmlFor="knowledge-slugs">
+                      {t("knowledgeSlugs")}
+                    </label>
+                    <textarea
+                      className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+                      id="knowledge-slugs"
+                      onChange={(event) =>
+                        updateDefinition({
+                          ...definition,
+                          knowledge: {
+                            ...(definition.knowledge ?? {}),
+                            collections: event.target.value
+                              .split("\n")
+                              .map((item) => item.trim())
+                              .filter(Boolean),
+                          },
+                        })
+                      }
+                      value={(definition.knowledge?.collections ?? []).join("\n")}
+                    />
+                    <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                      {t("knowledgeDefault")}
+                    </p>
                   </TabsContent>
                   <TabsContent value="skills">
                     <div className="mt-3">

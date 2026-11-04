@@ -13541,6 +13541,58 @@
         }
       }
     },
+    "/api/v1/knowledge/collections/{collection_id}/members": {
+      "post": {
+        "summary": "Add Member",
+        "operationId": "add_member_api_v1_knowledge_collections__collection_id__members_post",
+        "parameters": [
+          {
+            "name": "collection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Collection Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Add Member Api V1 Knowledge Collections  Collection Id  Members Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/knowledge/documents/{document_id}": {
       "get": {
         "summary": "Get Document",
@@ -13690,6 +13742,48 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Reingest Document Api V1 Knowledge Documents  Document Id  Reingest Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/knowledge/documents/{document_id}:refresh": {
+      "post": {
+        "summary": "Refresh Document",
+        "operationId": "refresh_document_api_v1_knowledge_documents__document_id__refresh_post",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Refresh Document Api V1 Knowledge Documents  Document Id  Refresh Post"
                 }
               }
             }
@@ -14971,6 +15065,88 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Archive Skill Api V1 Skills  Skill Id  Archive Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/skills:import": {
+      "post": {
+        "summary": "Import Skill",
+        "operationId": "import_skill_api_v1_skills_import_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkillImport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Import Skill Api V1 Skills Import Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/skills/{skill_id}:export": {
+      "post": {
+        "summary": "Export Skill",
+        "operationId": "export_skill_api_v1_skills__skill_id__export_post",
+        "parameters": [
+          {
+            "name": "skill_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Skill Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Export Skill Api V1 Skills  Skill Id  Export Post"
                 }
               }
             }
@@ -26998,6 +27174,72 @@
         "type": "object",
         "title": "MePatch"
       },
+      "MemberBody": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": ""
+          },
+          "libraryDocumentId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Librarydocumentid"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "default": ""
+          },
+          "connectionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connectionid"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "externalId": {
+            "type": "string",
+            "title": "Externalid",
+            "default": ""
+          },
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MemberBody"
+      },
       "MemoryBody": {
         "properties": {
           "content": {
@@ -28697,6 +28939,23 @@
         "type": "object",
         "required": ["slug", "name", "description"],
         "title": "SkillBody"
+      },
+      "SkillImport": {
+        "properties": {
+          "markdown": {
+            "type": "string",
+            "title": "Markdown",
+            "default": ""
+          },
+          "archiveB64": {
+            "type": "string",
+            "title": "Archiveb64",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SkillImport"
       },
       "SkillPatch": {
         "properties": {

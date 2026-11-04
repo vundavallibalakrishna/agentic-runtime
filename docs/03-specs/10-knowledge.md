@@ -310,6 +310,7 @@ CI: the `pgvector` parametrisation runs in `python-integration` on every PR; the
 | `AR_INGEST_ACTIVITY_CONCURRENCY` | `32` | Per worker |
 | `AR_FASTEMBED_CACHE_DIR` | `/var/cache/fastembed` | BM25 model cache for the qdrant adapter (pre-baked in image for air-gapped) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates sent to rerank |
+| `AR_EMBEDDING_TIMEOUT_S` | `60` | HTTP timeout for one embedding or rerank request |
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | Web crawler egress |
 
 Readiness: `api`, `ingest-worker`, `runtime-worker` and `mcp-gateway` report not ready when `AR_VECTOR_BACKEND=qdrant` without `AR_QDRANT_URL`, or when any collection uses a backend whose adapter is not configured.

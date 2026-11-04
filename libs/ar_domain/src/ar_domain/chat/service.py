@@ -1606,7 +1606,11 @@ class ChatService:
 
         if await maybe_compose(self, run, assistant, text):
             return
+        from ar_domain.workspace.turn import ground_run  # noqa: PLC0415
+
+        await ground_run(self, run, text)
         if await run_agent_loop(self, run, assistant, text):
+            self._emit_memory(run, text, str(assistant.get("text") or ""))
             return
         if await maybe_tools(self, run, assistant, text):
             return
@@ -1651,7 +1655,11 @@ class ChatService:
             tool_calls=0,
             budget=read_budget(definition if isinstance(definition, dict) else {}),
         )
-        assistant["content"] = [{"type": "text", "text": answer}]
+        from ar_domain.tools.agent_loop import _with_trace  # noqa: PLC0415
+
+        assistant["content"] = _with_trace(answer, run)
+        assistant["retrieval"] = run.get("retrieval")
+        assistant["loaded_skill"] = run.get("loaded_skill")
         assistant["status"] = "completed"
         run["ended_at"] = utcnow()
         conversation["active_run_id"] = None

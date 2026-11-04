@@ -46,8 +46,9 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M22 | [M22-connections-mcp-openapi.md](M22-connections-mcp-openapi.md) | Connections, MCP and OpenAPI | Named connections, an MCP client, OpenAPI import and a tool described in plain language, on one registry. | 4 |
 | M23 | [M23-data-analysis.md](M23-data-analysis.md) | Data analysis | Durable connections and tools, a read-only database tool, spreadsheets, charts and structured output. | 4 |
 | M24 | [M24-document-intelligence.md](M24-document-intelligence.md) | Document intelligence | Upload a file, keep the extraction, and ask an agent to summarise, compare, check, find gaps and rewrite it with citations. | 4 |
+| M25 | [M25-knowledge-memory-skills.md](M25-knowledge-memory-skills.md) | Knowledge, memory and skills | Knowledge bases with hybrid retrieval, visible memory, and portable skills on the live agent path. | 4 |
 
-Total: **199 tasks** across 27 milestones (M0–M24, including M2.5 between M2 and M3). The GRC pack (M16–M19) stays in the tree and is off unless `AR_GRC_PACK_ENABLED` is true. Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027). M22 follows M21b. M23 follows M22. M24 follows M23.
+Total: **203 tasks** across 28 milestones (M0–M25, including M2.5 between M2 and M3). The GRC pack (M16–M19) stays in the tree and is off unless `AR_GRC_PACK_ENABLED` is true. Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). The GRC pack is M16–M19. M16 starts after M14-T13 and may run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M18-T06 (breach workflow) is targeted before DPDP Rule 7 applies on 13 May 2027. CSCRF ATR and sampling are targeted before the FY 2026-27 audit cycle (mid-2027). M22 follows M21b. M23 follows M22. M24 follows M23. M25 follows M24.
 
 ## Dependency graph
 
@@ -78,7 +79,7 @@ flowchart LR
   M16 --> M18
   M17 --> M19
   M18 --> M19
-  M19 --> M20 --> M21 --> M21b[M21b] --> M22 --> M23 --> M24
+  M19 --> M20 --> M21 --> M21b[M21b] --> M22 --> M23 --> M24 --> M25
 ```
 
 M16 does not wait for M15. M13-T07 is the one task that waits for a later milestone (M14-T08).

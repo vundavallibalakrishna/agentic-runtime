@@ -337,6 +337,8 @@ Spec: [10-knowledge.md](../03-specs/10-knowledge.md)
 | GET | [`/api/v1/knowledge/collections/{collection_id}/jobs`](../03-specs/10-knowledge.md#get-apiv1knowledgecollectionscollection_idjobs) | object-level (see spec) | 3. Public API |
 | GET | [`/api/v1/knowledge/jobs/{job_id}`](../03-specs/10-knowledge.md#get-apiv1knowledgejobsjob_id) | object-level (see spec) | 3. Public API |
 | POST | [`/api/v1/knowledge/jobs/{job_id}:cancel`](../03-specs/10-knowledge.md#post-apiv1knowledgejobsjob_idcancel) | object-level (see spec) | 3. Public API |
+| POST | [`/api/v1/knowledge/collections/{collection_id}/members`](../09-plan/M25-knowledge-memory-skills.md) | `knowledge:manage` | 3. Public API |
+| POST | [`/api/v1/knowledge/documents/{document_id}:refresh`](../09-plan/M25-knowledge-memory-skills.md) | `knowledge:manage` | 3. Public API |
 | POST | [`/api/v1/knowledge/search`](../03-specs/10-knowledge.md#post-apiv1knowledgesearch) | `knowledge:read` | 3. Public API |
 
 ## Spec 11: Memory (`ar_domain.memory`)
@@ -426,6 +428,8 @@ Spec: [14-skills.md](../03-specs/14-skills.md)
 |---|---|---|---|
 | GET | [`/api/v1/skills`](../03-specs/14-skills.md#get-apiv1skills) | `skills:read` | 3. Public API |
 | POST | [`/api/v1/skills`](../03-specs/14-skills.md#post-apiv1skills) | `skills:create` | 3. Public API |
+| POST | [`/api/v1/skills:import`](../09-plan/M25-knowledge-memory-skills.md) | `skills:create` | 3. Public API |
+| POST | [`/api/v1/skills/{skill_id}:export`](../09-plan/M25-knowledge-memory-skills.md) | `skills:read` | 3. Public API |
 | GET | [`/api/v1/skills/{skill_id}`](../03-specs/14-skills.md#get-apiv1skillsskill_id) | `skills:read` | 3. Public API |
 | PATCH | [`/api/v1/skills/{skill_id}`](../03-specs/14-skills.md#patch-apiv1skillsskill_id) | `skills:read` | 3. Public API |
 | POST | [`/api/v1/skills/{skill_id}:publish`](../03-specs/14-skills.md#post-apiv1skillsskill_idpublish) | `skills:read` | 3. Public API |

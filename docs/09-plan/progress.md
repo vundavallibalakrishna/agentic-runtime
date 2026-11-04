@@ -230,3 +230,8 @@ M24-T01 | done | e2817ce | ingestion and durable extraction
 M24-T02 | done | e2817ce | document tools with citations
 M24-T03 | done | e2817ce | chunked retrieval for long files
 M24-T04 | done | e2817ce | library screens, Qwen proof, screenshots
+
+M25-T01 | done | 903e702 | knowledge bases, real embeddings, revision 0027
+M25-T02 | done | 903e702 | memory visible across conversations
+M25-T03 | done | 903e702 | portable skills loaded by description
+M25-T04 | done | 903e702 | screens and Qwen3-32B proof

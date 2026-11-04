@@ -212,9 +212,55 @@ export function SkillEditor() {
           {!loading && skill ? (
             <div className="grid min-w-0 gap-6 xl:grid-cols-2">
               <section>
-                <label className="text-sm font-medium" htmlFor="skill-md">
-                  {t("instructions")}
-                </label>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <label className="text-sm font-medium" htmlFor="skill-md">
+                    {t("instructions")}
+                  </label>
+                  <input
+                    aria-label={t("import")}
+                    className="text-xs"
+                    disabled={!canEdit}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      void file.text().then(async (markdown) => {
+                        setBusy(true);
+                        setError("");
+                        try {
+                          const created = await api<{ id: string }>("/api/v1/skills:import", {
+                            method: "POST",
+                            body: JSON.stringify({ markdown }),
+                          });
+                          window.location.assign(`/skills/${created.id}`);
+                        } catch (caught) {
+                          setError(caught instanceof Error ? caught.message : t("error"));
+                          setBusy(false);
+                        }
+                      });
+                    }}
+                    type="file"
+                    accept=".md,text/markdown"
+                  />
+                  <Button
+                    onClick={() => {
+                      void api<{ markdown: string; filename: string }>(
+                        `/api/v1/skills/${skillId}:export`,
+                        { method: "POST" },
+                      ).then((body) => {
+                        const blob = new Blob([body.markdown], { type: "text/markdown" });
+                        const link = document.createElement("a");
+                        link.href = URL.createObjectURL(blob);
+                        link.download = `${skill?.slug || "skill"}.md`;
+                        link.click();
+                      });
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("export")}
+                  </Button>
+                </div>
+                <p className="mb-2 text-xs text-[var(--muted-foreground)]">{t("frontMatter")}</p>
                 <textarea
                   className="mt-2 min-h-64 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
                   id="skill-md"

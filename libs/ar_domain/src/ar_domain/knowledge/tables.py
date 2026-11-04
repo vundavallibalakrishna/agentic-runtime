@@ -78,6 +78,7 @@ class KnowledgeCollection(Base):
     embedding_alias: Mapped[str] = mapped_column(
         Text, nullable=False, server_default=sql_text("'embed'")
     )
+    embedding_model: Mapped[str | None] = mapped_column(Text)
     embedding_model_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("models.id", ondelete="SET NULL")
     )

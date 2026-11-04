@@ -30,6 +30,11 @@ class SkillBody(ApiModel):
     assets: list[SkillAsset] = Field(default_factory=list)
 
 
+class SkillImport(ApiModel):
+    markdown: str = ""
+    archive_b64: str = ""
+
+
 class SkillPatch(ApiModel):
     name: str | None = None
     description: str | None = None
@@ -101,6 +106,38 @@ async def publish_skill(
 @expose(public=False, permission="skills:read")
 async def archive_skill(skill_id: uuid.UUID, request: Request) -> dict[str, object]:
     return _book(request).archive(actor(request), skill_id)
+
+
+@router.post(
+    "/api/v1/skills:import",
+    dependencies=[Depends(require_permission("skills:create"))],
+)
+@expose(public=False, permission="skills:create")
+async def import_skill(body: SkillImport, request: Request) -> dict[str, object]:
+    import base64  # noqa: PLC0415
+
+    from ar_domain.skills.portable import import_skill as load  # noqa: PLC0415
+
+    archive = b""
+    if body.archive_b64:
+        try:
+            archive = base64.b64decode(body.archive_b64)
+        except ValueError as exc:
+            from ar_common.errors import ValidationFailedError  # noqa: PLC0415
+
+            raise ValidationFailedError("archive is not base64") from exc
+    return load(chat(request), actor(request), markdown=body.markdown, archive=archive)
+
+
+@router.post(
+    "/api/v1/skills/{skill_id}:export",
+    dependencies=[Depends(require_permission("skills:read"))],
+)
+@expose(public=False, permission="skills:read")
+async def export_skill(skill_id: uuid.UUID, request: Request) -> dict[str, object]:
+    from ar_domain.skills.portable import export_skill as dump_skill  # noqa: PLC0415
+
+    return dump_skill(chat(request), actor(request), skill_id)
 
 
 @router.get(

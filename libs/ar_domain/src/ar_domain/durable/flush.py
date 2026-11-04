@@ -407,19 +407,22 @@ async def _collections(session: AsyncSession, rows: list[dict[str, Any]]) -> Non
     sql = """
         INSERT INTO knowledge_collections (
             id, tenant_id, slug, name, description, owner_team_id, visibility, acl_mode,
-            sensitivity, classification, embedding_alias, index_version, store_backend,
-            store_collection, text_search_config, chunking, stats, created_by, created_at,
-                updated_at
+            sensitivity, classification, embedding_alias, embedding_model, index_version,
+            store_backend, store_collection, text_search_config, chunking, stats, created_by,
+            created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :slug, :name, :description, :owner_team_id, :visibility, :acl_mode,
-            :sensitivity, :classification, :embedding_alias, :index_version, :store_backend,
-            :store_collection, :text_search_config, CAST(:chunking AS jsonb), CAST(:stats AS jsonb),
-            :created_by, :created_at, :updated_at
+            :sensitivity, :classification, :embedding_alias, :embedding_model, :index_version,
+            :store_backend, :store_collection, :text_search_config, CAST(:chunking AS jsonb),
+            CAST(:stats AS jsonb), :created_by, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
             description = EXCLUDED.description,
             visibility = EXCLUDED.visibility,
+            embedding_alias = EXCLUDED.embedding_alias,
+            embedding_model = EXCLUDED.embedding_model,
+            chunking = EXCLUDED.chunking,
             stats = EXCLUDED.stats,
             updated_at = EXCLUDED.updated_at
     """
@@ -444,6 +447,7 @@ async def _collections(session: AsyncSession, rows: list[dict[str, Any]]) -> Non
                 "sensitivity": as_text(row.get("sensitivity"), "normal"),
                 "classification": as_text(row.get("classification"), "internal"),
                 "embedding_alias": as_text(row.get("embedding_alias"), "embed"),
+                "embedding_model": as_text(row.get("embedding_model")) or None,
                 "index_version": as_int(row.get("index_version"), 1),
                 "store_backend": as_text(row.get("store_backend"), "pgvector"),
                 "store_collection": as_text(

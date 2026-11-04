@@ -135,7 +135,7 @@ async def save_provider(
         )
     if api_key:
         row["has_api_key"] = True
-        row.pop("api_key", None)
+        row["api_key"] = api_key
 
 
 async def save_model(
