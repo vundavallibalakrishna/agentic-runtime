@@ -44,6 +44,15 @@ def test_catalogue_labels_reads_and_writes() -> None:
         "github",
         "confluence",
         "notion",
+        "servicenow",
+        "salesforce",
+        "zendesk",
+        "hubspot",
+        "okta",
+        "entra",
+        "aws",
+        "azure",
+        "gcp",
     }
     for connector in CONNECTORS:
         assert connector.verification in {"live", "public", "not_live"}

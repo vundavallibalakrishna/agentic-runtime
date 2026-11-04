@@ -44,17 +44,27 @@ def dispatch_connector(  # noqa: PLR0911
         )
     except ArError as exc:
         return _fail("credential_required", f"{exc}. Reconnect the account on the connector page.")
-    if tool.kind == "http":
+    public = _overlay(tool, install, public)
+    if tool.kind == "aws" or connector.slug == "aws":
+        from ar_domain.connectors.aws_api import run_aws  # noqa: PLC0415
+
+        return run_aws(store, tool, public, install, username, secret)
+    if connector.slug == "gcp":
+        minted = _gcp_headers(store, install, secret)
+        if minted.get("is_error"):
+            return minted
+        headers = {"Authorization": f"Bearer {minted['token']}"}
+    if tool.kind == "http" or connector.slug == "gcp":
         base = _base(connector, install)
-        if not base:
+        if not base and not str(tool.path).startswith("http"):
             return _fail(
                 "validation_failed", "Set the site URL on the connector before calling it."
             )
-        return run_http(store, connector, tool, public, headers, base)
+        return run_http(store, connector, tool, public, headers, base or "https://invalid.invalid")
     return _special(store, tool, public, install, username, secret, headers)
 
 
-def probe_install(
+def probe_install(  # noqa: PLR0911
     store: Any, install: dict[str, object], actor_tenant: object, actor_user: object
 ) -> dict[str, object]:
     connector = connector_by_slug(str(install.get("slug") or ""))
@@ -71,6 +81,30 @@ def probe_install(
         return _probe_email(store, install, username, secret)
     if connector.slug == "s3":
         return _probe_s3(store, install, username, secret)
+    if connector.slug == "aws":
+        from ar_domain.connectors.aws_api import probe_aws  # noqa: PLC0415
+
+        return probe_aws(store, install, username, secret)
+    if connector.slug == "gcp":
+        minted = _gcp_headers(store, install, secret)
+        if minted.get("is_error"):
+            return {
+                "ok": False,
+                "status": 0,
+                "error": str(minted.get("text") or "credentials rejected"),
+            }
+        headers = {"Authorization": f"Bearer {minted['token']}"}
+    if connector.slug == "azure":
+        subscription = _config(install).get("subscriptionId", "")
+        if not subscription:
+            return {"ok": False, "status": 0, "error": "Set the subscription id on the connector."}
+        return probe_http(
+            store,
+            connector,
+            headers,
+            _base(connector, install),
+            path=f"/subscriptions/{subscription}?api-version=2022-12-01",
+        )
     base = _base(connector, install)
     if not base:
         return {"ok": False, "status": 0, "error": "Set the site URL on the connector first."}
@@ -141,6 +175,59 @@ def _auth(
             return {}, "", ""
         raise ArError(ErrorCode.FORBIDDEN, "Connect an account on the connector page.")
     return account_for(store, arguments.get("_tenant_id"), arguments.get("_user_id"), name)
+
+
+_AZURE_VERSION = {
+    "azure_list_resources": "2021-04-01",
+    "azure_list_resource_groups": "2021-04-01",
+    "azure_vm_state": "2023-07-01",
+    "azure_list_role_assignments": "2022-04-01",
+}
+
+
+def _overlay(
+    tool: ToolDef, install: dict[str, object], arguments: dict[str, object]
+) -> dict[str, object]:
+    config = _config(install)
+    copied = dict(arguments)
+    path = tool.path
+    if "{subscription}" in path and not copied.get("subscription"):
+        copied["subscription"] = config.get("subscriptionId", "")
+    if "{project}" in path and not copied.get("project"):
+        copied["project"] = config.get("projectId", "")
+    if "{zone}" in path and not copied.get("zone"):
+        copied["zone"] = config.get("zone") or "us-central1-a"
+    if "project" in tool.query and not copied.get("project"):
+        copied["project"] = config.get("projectId", "")
+    version = _AZURE_VERSION.get(tool.name)
+    if version and not copied.get("api-version"):
+        copied["api-version"] = version
+    return copied
+
+
+def _gcp_headers(store: Any, install: dict[str, object], secret: str) -> dict[str, object]:
+    from ar_domain.connectors.gcp_auth import bearer_for  # noqa: PLC0415
+
+    row = _connection_row(store, install)
+    if row is None:
+        return _fail("credential_required", "Connect a service account on the connector page.")
+    if not row.get("scopes"):
+        row["scopes"] = ["https://www.googleapis.com/auth/cloud-platform.read-only"]
+    return bearer_for(store, row, secret)
+
+
+def _connection_row(store: Any, install: dict[str, object]) -> dict[str, object] | None:
+    book = getattr(store, "service_connections", None)
+    if not isinstance(book, dict):
+        return None
+    found = book.get(install.get("connection_id"))
+    if isinstance(found, dict):
+        return found
+    name = str(install.get("connection_name") or "")
+    for row in book.values():
+        if isinstance(row, dict) and str(row.get("name")) == name:
+            return row
+    return None
 
 
 def _config(install: dict[str, object]) -> dict[str, str]:

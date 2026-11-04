@@ -997,8 +997,12 @@ def _build() -> tuple[ConnectorDef, ...]:
             ),
         ),
     )
+    from ar_domain.connectors.catalog_batch import batch_definitions  # noqa: PLC0415
+
+    rows: list[tuple[ConnectorDef, tuple[ToolDef, ...]]] = list(raw)
+    rows.extend(batch_definitions())
     built: list[ConnectorDef] = []
-    for connector, tools in raw:
+    for connector, tools in rows:
         built.append(
             ConnectorDef(
                 slug=connector.slug,
@@ -1058,7 +1062,15 @@ def tool_records() -> list[dict[str, object]]:
             for name in (*_path_names(tool.path), *tool.query, *tool.body):
                 kind = (
                     "integer"
-                    if name in {"limit", "maxResults", "pageSize", "per_page"}
+                    if name
+                    in {
+                        "limit",
+                        "maxResults",
+                        "pageSize",
+                        "per_page",
+                        "sysparm_limit",
+                        "sysparm_offset",
+                    }
                     else "string"
                 )
                 properties[name] = {"type": kind}

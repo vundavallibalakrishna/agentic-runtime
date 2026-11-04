@@ -26,6 +26,9 @@ _LIST_KEYS = (
     "messages",
     "comments",
     "channels",
+    "records",
+    "result",
+    "projects",
 )
 _PAGE_CAP = 3
 _ITEM_CAP = 50
@@ -68,6 +71,9 @@ def slack_error(code: str) -> str:
 
 
 def rate_limited(store: Any, tenant: object, slug: str, per_minute: int) -> str | None:
+    shared = _shared_limit(store, tenant, slug, per_minute)
+    if shared is not _SKIP:
+        return shared if isinstance(shared, str) else None
     book = getattr(store, "rate_buckets", None)
     if not isinstance(book, dict):
         store.rate_buckets = {}
@@ -91,7 +97,33 @@ def rate_limited(store: Any, tenant: object, slug: str, per_minute: int) -> str 
     return None
 
 
-def run_http(  # noqa: PLR0911, PLR0912, PLR0917
+_SKIP = object()
+
+
+def _shared_limit(store: Any, tenant: object, slug: str, per_minute: int) -> object:
+    """Count on Valkey so workers share one bucket. ``_SKIP`` means use memory."""
+    client = getattr(store, "valkey_client", None)
+    if client is None:
+        return _SKIP
+    import time  # noqa: PLC0415
+
+    minute = int(time.time() // 60)
+    key = f"ar:connector-rate:{tenant}:{slug}:{minute}"
+    try:
+        count = int(client.incr(key))
+        if count == 1:
+            client.expire(key, 70)
+    except Exception:  # noqa: BLE001 — Valkey loss keeps the process-local bucket
+        return _SKIP
+    if count > per_minute:
+        return (
+            f"{slug} is at its shared limit of {per_minute} calls a minute. "
+            "Wait a minute and try again."
+        )
+    return None
+
+
+def run_http(  # noqa: PLR0911, PLR0912, PLR0915, PLR0917
     store: Any,
     connector: ConnectorDef,
     tool: ToolDef,
@@ -149,9 +181,27 @@ def run_http(  # noqa: PLR0911, PLR0912, PLR0917
         pages += 1
         if len(items) >= _ITEM_CAP or tool.page == "none":
             break
-        nxt = _next(tool.page, payload, response_headers, url)
+        if tool.page == "after":
+            token = _after_token(payload)
+            if not token:
+                break
+            if method == "GET":
+                url = _with_query(url, "after", token)
+                params = {}
+            else:
+                body = dict(body or {})
+                body["after"] = token
+            continue
+        page_url = url
+        if tool.page == "servicenow":
+            for key, value in params.items():
+                page_url = _with_query(page_url, key, value)
+        nxt = _next(tool.page, payload, response_headers, page_url)
         if not nxt or nxt == url:
             break
+        problem = guard_public(nxt, allow=["*"], loopback=True)
+        if problem:
+            return _fail("egress_denied", problem)
         url = nxt
         params = {}
         body = None
@@ -172,8 +222,9 @@ def probe_http(
     connector: ConnectorDef,
     headers: dict[str, str],
     base_url: str,
+    path: str | None = None,
 ) -> dict[str, object]:
-    url = _join(base_url, connector.probe_path)
+    url = _join(base_url, connector.probe_path if path is None else path)
     problem = guard_public(url, allow=["*"], loopback=True)
     if problem:
         return {"ok": False, "status": 0, "error": problem}
@@ -248,6 +299,10 @@ def _provider_headers(connector: ConnectorDef, headers: dict[str, str]) -> dict[
         merged["X-GitHub-Api-Version"] = "2022-11-28"
     if connector.slug == "notion":
         merged["Notion-Version"] = "2022-06-28"
+    if connector.slug == "okta":
+        auth = merged.get("Authorization", "")
+        if auth.lower().startswith("bearer "):
+            merged["Authorization"] = "SSWS " + auth.split(" ", 1)[1]
     return merged
 
 
@@ -287,7 +342,9 @@ def _extract(payload: object) -> list[object] | None:
     return None
 
 
-def _next(mode: str, payload: object, headers: Mapping[str, str], url: str) -> str:
+def _next(  # noqa: PLR0911
+    mode: str, payload: object, headers: Mapping[str, str], url: str
+) -> str:
     if mode == "link":
         return _link(headers.get("link") or headers.get("Link") or "")
     if not isinstance(payload, dict):
@@ -301,6 +358,10 @@ def _next(mode: str, payload: object, headers: Mapping[str, str], url: str) -> s
         if not token:
             token = payload.get("next_cursor")
         return _with_query(url, "cursor", token)
+    if mode == "next_url":
+        return _absolute_next(payload, url)
+    if mode == "servicenow":
+        return _servicenow_next(payload, url)
     if mode == "offset":
         size = payload.get("size")
         start = payload.get("start")
@@ -313,6 +374,57 @@ def _next(mode: str, payload: object, headers: Mapping[str, str], url: str) -> s
         ):
             return _with_query(url, "start", start + limit)
     return ""
+
+
+def _absolute_next(payload: object, url: str) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    raw = (
+        payload.get("nextRecordsUrl")
+        or payload.get("next_page")
+        or payload.get("nextLink")
+        or payload.get("@odata.nextLink")
+    )
+    if not raw:
+        return ""
+    text = str(raw)
+    if text.startswith("http://") or text.startswith("https://"):
+        return text
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}{text if text.startswith('/') else '/' + text}"
+
+
+def _servicenow_next(payload: object, url: str) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    result = payload.get("result")
+    if not isinstance(result, list) or not result:
+        return ""
+    parsed = urlparse(url)
+    pairs = dict(parse_qsl(parsed.query))
+    try:
+        limit = int(pairs.get("sysparm_limit") or "20")
+        offset = int(pairs.get("sysparm_offset") or "0")
+    except ValueError:
+        return ""
+    if len(result) < limit:
+        return ""
+    return _with_query(url, "sysparm_offset", offset + limit)
+
+
+def _after_token(payload: object) -> str:
+    if not isinstance(payload, dict):
+        return ""
+    paging = payload.get("paging")
+    if not isinstance(paging, dict):
+        return ""
+    nxt = paging.get("next")
+    if not isinstance(nxt, dict):
+        return ""
+    token = nxt.get("after")
+    return "" if token in {None, ""} else str(token)
 
 
 def _link(header: str) -> str:

@@ -241,7 +241,10 @@ M26-T02 | done | fd5cc27 | connector runtime and twelve definitions
 M26-T03 | done | fd5cc27 | catalog screen
 M26-T04 | done | fd5cc27 | proof and labels
 
-M27 | deferred | - | connector batch two; most providers cannot be live-tested without customer accounts
+M27-T01 | done | ddd29b9 | cloud signing, token cache, shared rate limit
+M27-T02 | done | ddd29b9 | nine connector definitions
+M27-T03 | done | ddd29b9 | catalog pages and guides
+M27-T04 | done | ddd29b9 | proof and labels
 
 M28-T01 | done | e74db42 | agent calls, parallel, handoff, budgets
 M28-T02 | done | e74db42 | durable tool calls, approvals, policies, sandboxes, questions

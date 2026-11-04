@@ -37,6 +37,10 @@ def test_catalog_install_and_cross_tenant_404() -> None:
     slugs = {item["slug"] for item in listed.json()["items"]}
     assert "github" in slugs
     assert "notion" in slugs
+    assert "servicenow" in slugs
+    assert "aws" in slugs
+    aws = next(item for item in listed.json()["items"] if item["slug"] == "aws")
+    assert aws["verification"] == "not_live"
     notion = next(item for item in listed.json()["items"] if item["slug"] == "notion")
     assert notion["verification"] == "not_live"
     detail = client.get("/api/v1/connectors/github")

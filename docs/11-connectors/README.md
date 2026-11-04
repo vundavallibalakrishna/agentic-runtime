@@ -22,4 +22,13 @@ Verification is one of three labels:
 | [GitHub](github.md) | Live-tested | `docs/11-connectors/github.md` |
 | [Confluence](confluence.md) | Not live-tested | `docs/11-connectors/confluence.md` |
 | [Notion](notion.md) | Not live-tested | `docs/11-connectors/notion.md` |
+| [ServiceNow](servicenow.md) | Not live-tested | `docs/11-connectors/servicenow.md` |
+| [Salesforce](salesforce.md) | Not live-tested | `docs/11-connectors/salesforce.md` |
+| [Zendesk](zendesk.md) | Not live-tested | `docs/11-connectors/zendesk.md` |
+| [HubSpot](hubspot.md) | Not live-tested | `docs/11-connectors/hubspot.md` |
+| [Okta](okta.md) | Not live-tested | `docs/11-connectors/okta.md` |
+| [Microsoft Entra ID](entra.md) | Not live-tested | `docs/11-connectors/entra.md` |
+| [AWS](aws.md) | Not live-tested | `docs/11-connectors/aws.md` |
+| [Azure](azure.md) | Not live-tested | `docs/11-connectors/azure.md` |
+| [Google Cloud](gcp.md) | Not live-tested | `docs/11-connectors/gcp.md` |
 

@@ -1,6 +1,6 @@
 # M28 — Orchestration
 
-Depends on M26. A customer connects their own model, lets one agent call others, watches the run tree, schedules work, and answers a question that unblocks a run. Connector batch two stays deferred: most of those providers cannot be live-tested without customer accounts.
+Depends on M26. A customer connects their own model, lets one agent call others, watches the run tree, schedules work, and answers a question that unblocks a run. Connector batch two is M27 and does not block this milestone.
 
 The GRC pack stays parked. This milestone does not import it and does not change its migrations.
 
@@ -50,4 +50,4 @@ The GRC pack stays parked. This milestone does not import it and does not change
 
 ## Out of scope
 
-Connector batch two. Documents and knowledge beyond what M24 and M25 already shipped. Exposing an agent as an API or MCP server (M29).
+Documents and knowledge beyond what M24 and M25 already shipped. Exposing an agent as an API or MCP server (M29). Connector batch two is M27.

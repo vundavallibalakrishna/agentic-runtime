@@ -33,7 +33,7 @@ def request_path(tool: ToolDef, arguments: dict[str, object]) -> str:
     return _PLACEHOLDER.sub(replace, path)
 
 
-def request_body(  # noqa: PLR0911
+def request_body(  # noqa: PLR0911, PLR0912
     connector: ConnectorDef, tool: ToolDef, arguments: dict[str, object]
 ) -> dict[str, object] | None:
     """JSON body for writes and a few reads. None means no body."""
@@ -84,6 +84,11 @@ def request_body(  # noqa: PLR0911
                 "title": {"title": [{"text": {"content": str(arguments.get("title") or "")}}]}
             },
         }
+    from ar_domain.connectors.shape_batch import batch_body, is_unset  # noqa: PLC0415
+
+    special = batch_body(name, arguments)
+    if not is_unset(special):
+        return special if isinstance(special, dict) else None
     if connector.slug == "slack" and tool.method == "POST":
         return {key: arguments[key] for key in tool.body if key in arguments}
     picked = {
