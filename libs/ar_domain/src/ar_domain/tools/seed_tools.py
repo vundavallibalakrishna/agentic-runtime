@@ -1171,6 +1171,30 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
+            _tool(
+                "create",
+                "Create a document",
+                "Create a DOCX, PDF or XLSX from a title and sections or sheets. "
+                "The file is saved in this run's workspace and can be downloaded from the chat. "
+                "format is docx, pdf or xlsx. A section has heading, paragraphs, bullets "
+                "and an optional table. A sheet has name, columns and rows. "
+                "template is report, brief or sheet.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "format": {"type": "string", "enum": ["docx", "pdf", "xlsx"]},
+                        "title": {"type": "string"},
+                        "subtitle": {"type": "string"},
+                        "author": {"type": "string"},
+                        "template": {"type": "string"},
+                        "fileName": {"type": "string"},
+                        "sections": {"type": "array"},
+                        "sheets": {"type": "array"},
+                    },
+                    "required": ["format", "title"],
+                },
+                "W1",
+            ),
         ],
     )
 

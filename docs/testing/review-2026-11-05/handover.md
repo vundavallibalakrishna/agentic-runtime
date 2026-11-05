@@ -18,7 +18,7 @@ because the main checkout was being driven by other agents at the same time. Not
 | `80f4a04` | M32-T02 | M4 edge test passes the calling tenant to web fetch. |
 | `c775a9b` | M32-T07 | `refresh_models` kept prices and request options (it rebuilt rows before every turn and zeroed cost); budget and provider-error stops record the usage spent. |
 
-Open-question decisions: OQ-70 to OQ-77 in [open-questions](../../open-questions.md). Milestone file:
+Open-question decisions: OQ-78 to OQ-85 in [open-questions](../../open-questions.md). Milestone file:
 [M32-hardening.md](../../09-plan/M32-hardening.md); progress rows in [progress.md](../../09-plan/progress.md).
 
 ## What was verified
@@ -26,9 +26,16 @@ Open-question decisions: OQ-70 to OQ-77 in [open-questions](../../open-questions
 - Python: full suite `uv run pytest -m "not e2e" --cov` on the final commit: **720 passed, 4 failed, 86 %
   branch coverage** (gate 85 %). The four failures also fail on `main` on this laptop: two Qdrant
   conformance tests (no `qdrant_client` installed), the OPA fixture test (no `opa` binary), and
-  `test_w3_requires_step_up_and_reviews_sign_off`, which passes when the API suite runs alone and fails in
-  the full run (order-dependent in-memory state; worth a look, not caused by this branch). The baseline on
-  `main` was 684 passed; the branch adds 36 tests.
+  `test_w3_requires_step_up_and_reviews_sign_off`, where the W3 delete is denied instead of held. On this
+  laptop `pydantic-settings` reads the local `.env` during tests, so `AR_OPA_URL` points at the shared OPA
+  container on 8181, which serves a bundle pushed by another running API; pointing it at an unreachable
+  port makes a second policy test fail too. The test passed on the branch before the merge from `main` and
+  fails on `main` itself here, so it is environment coupling rather than this branch. Worth isolating the
+  unit tests from `.env` and from a live OPA. The baseline on `main` was 684 passed; the branch adds 36 tests.
+- After merging `origin/main` (M33a seeded SoD policy, M34a office create, M33c eval gym): the three
+  documentation conflicts were resolved by keeping both sides, my open-question ids moved to OQ-78 to
+  OQ-85 because upstream had taken OQ-70 to OQ-72, and upstream's `test_requester_mode_deadlocks…` was
+  rewritten to the new behaviour (another approver may decide; the owner still gets 422).
 - `uv run mypy` clean (605 files), `lint-imports` 6 contracts kept, `ruff check` clean, biome clean,
   `scripts/check_public_camel_case.py` 190 models camelCase, web `tsc` clean, web unit tests 44 passed.
 - Migration 0032 upgraded, downgraded and re-upgraded on a fresh database; `alembic check` reports no drift.
@@ -72,7 +79,7 @@ Open-question decisions: OQ-70 to OQ-77 in [open-questions](../../open-questions
   gateway fallback routing, breaker, provider-side JSON schema, native Anthropic adapter; evals that run the
   real agent with an LLM judge; model-driven skill loading; sandbox isolation in prod and a real browser;
   MCP session reuse, pagination, resources; demo tool fixtures (tickets, petstore, warehouse) still seed in
-  every environment (OQ-73).
+  every environment (OQ-81).
 - **Phase 2 (the big one):** retire the process-local write-behind `ChatService` in favour of the
   repository/unit-of-work layer; hydrate per tenant (today only `slug='dev'`); Valkey-backed sessions,
   idempotency, rate limits and SSE fan-out; Temporal activity per step with `continue_as_new`; worker

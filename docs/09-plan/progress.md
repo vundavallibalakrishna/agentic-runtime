@@ -270,3 +270,6 @@ M32-T07 | done | c775a9b | cost from model prices per call; usage events carry r
 M32-T08 | done | 1c1e774 | models.request_options (revision 0032) replaces the Qwen3 name checks; API accepts requestOptions
 M32-T10 | done | 1c1e774 | chart sets AR_APP_MODULE and AR_PORT per service and runs workers through their console scripts
 M32-T09 | done | aab95f3 | features.assurance (default off) gates the assurance routes, permissions and nav; dev seed turns it on; neutral builder starter prompt; session reports tenant features and locale
+M33a-T01 | done | 26f275a | seed users-mode W2 policy; fetch retry; search key path not_live without a key |
+M34a-T01 | done | 9c5080e | documents.create for DOCX, PDF and XLSX; fixture checklist |
+M33c-T01 | done | e77c491 | tool-choice eval gym; dry-run scorecard 12/12; live Qwen behind AR_EVAL_GYM_LIVE |

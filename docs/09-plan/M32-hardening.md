@@ -14,7 +14,7 @@ Depends on: M31.
 - **Done when:** `features.documentAnalysisRedaction` defaults off; check judges paraphrases; a bad settings patch is 422.
 
 ### M32-T02 · Tenant-scoped settings reads
-- **Spec:** [02-identity-tenancy §3.1](../03-specs/02-identity-tenancy.md), [data-protection §3](../06-security/data-protection.md), [OQ-70](../open-questions.md).
+- **Spec:** [02-identity-tenancy §3.1](../03-specs/02-identity-tenancy.md), [data-protection §3](../06-security/data-protection.md), [OQ-78](../open-questions.md).
 - **Do:** `ar_domain.identity.tenant_settings.settings_for`; guardrails, web-fetch feature and evidence TSA read the
   calling tenant only, with no fallback to another row; `privacy.redaction_skip_entities`; pre-commit ruff honours
   `extend-exclude`.

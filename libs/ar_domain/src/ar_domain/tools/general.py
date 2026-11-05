@@ -33,7 +33,7 @@ from ar_common.sandboxkit import (
 from ar_common.time import utcnow
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
-from ar_domain.tools.searching import SearchUnavailableError, provider_for
+from ar_domain.tools.searching import SearchRejectedError, SearchUnavailableError, provider_for
 
 if TYPE_CHECKING:
     from typing import Any
@@ -42,6 +42,9 @@ _MAX_FILE = 1_048_576
 _MAX_OUTPUT = 16_384
 _TIMEOUT = 30
 _HTTP_PER_MINUTE = 30
+_FETCH_ATTEMPTS = 3
+_FETCH_BACKOFF_S = (0.25, 0.75)
+_TRANSIENT_STATUS = frozenset({408, 429, 500, 502, 503, 504})
 _URL = re.compile(r"https?://([^/\s'\"<>]+)")
 _HIDDEN = {"authorization", "x-api-key", "api-key", "proxy-authorization"}
 
@@ -216,7 +219,8 @@ def _fetch(store: Any, arguments: dict[str, object]) -> dict[str, object]:
             timeout=_as_limit(limits["timeout_s"]),
         )
     except httpx.HTTPError:
-        return _error("upstream_error", "The page could not be fetched. Check the URL and retry.")
+        host = urlparse(url).hostname or "the host"
+        return _error("upstream_error", f"Could not fetch {host}. Check the URL and retry.")
     if failure is not None or response is None:
         return failure or _error("upstream_error", "The page could not be fetched.")
     title, text = _readable(response.text, limits["max_output_bytes"])
@@ -246,6 +250,8 @@ def _search(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         hits = provider_for(store, arguments.get("_tenant_id")).search(query, limit=limit)
     except SearchUnavailableError as exc:
         return _error("search_unconfigured", str(exc))
+    except SearchRejectedError as exc:
+        return _error("search_rejected", str(exc))
     except httpx.HTTPError:
         return _error("upstream_error", "The search provider did not answer. Try again shortly.")
     lines = [f"{row['title']} — {row['url']}\n{row['snippet']}" for row in hits]
@@ -510,16 +516,30 @@ def _exchange(
         problem = _public_url(store, arguments, current, tool=tool)
         if problem is not None:
             return None, problem
-        response = _send(
-            store,
-            verb,
-            current,
-            timeout=timeout,
-            headers=headers,
-            params=params,
-            json_body=json_body,
-            form_body=form_body,
-        )
+        if tool == "fetch":
+            response, failure = _send_fetch(
+                store,
+                verb,
+                current,
+                timeout=timeout,
+                headers=headers,
+                params=params,
+                json_body=json_body,
+                form_body=form_body,
+            )
+            if failure is not None or response is None:
+                return None, failure or _error("upstream_error", "The page could not be fetched.")
+        else:
+            response = _send(
+                store,
+                verb,
+                current,
+                timeout=timeout,
+                headers=headers,
+                params=params,
+                json_body=json_body,
+                form_body=form_body,
+            )
         if response.status_code not in {301, 302, 303, 307, 308}:
             return response, None
         location = response.headers.get("location")
@@ -532,6 +552,77 @@ def _exchange(
             json_body = None
             form_body = None
     return None, _error("egress_denied", "Too many redirects.")
+
+
+def _send_fetch(
+    store: Any,
+    method: str,
+    url: str,
+    *,
+    timeout: int,
+    headers: dict[str, str] | None,
+    params: dict[str, object] | None,
+    json_body: object,
+    form_body: dict[str, object] | None,
+) -> tuple[httpx.Response | None, dict[str, object] | None]:
+    """Retry transient fetch failures. Allowlist denials never reach this helper."""
+    host = urlparse(url).hostname or "the host"
+    for attempt in range(1, _FETCH_ATTEMPTS + 1):
+        try:
+            response = _send(
+                store,
+                method,
+                url,
+                timeout=timeout,
+                headers=headers,
+                params=params,
+                json_body=json_body,
+                form_body=form_body,
+            )
+        except httpx.TransportError as exc:
+            if attempt == _FETCH_ATTEMPTS:
+                return None, _fetch_transport_error(host, exc, attempt)
+            _pause(store, _FETCH_BACKOFF_S[attempt - 1])
+            continue
+        except httpx.HTTPError:
+            return None, _error(
+                "upstream_error",
+                f"Could not fetch {host}. Check the URL and retry.",
+                attempts=attempt,
+            )
+        if response.status_code not in _TRANSIENT_STATUS:
+            return response, None
+        if attempt == _FETCH_ATTEMPTS:
+            return None, _error(
+                "upstream_error",
+                (
+                    f"{host} returned HTTP {response.status_code} after {attempt} attempts. "
+                    "The host is unavailable. Retry shortly."
+                ),
+                attempts=attempt,
+            )
+        _pause(store, _FETCH_BACKOFF_S[attempt - 1])
+    return None, _error(
+        "upstream_error",
+        f"Could not fetch {host}. Check the URL and retry.",
+        attempts=_FETCH_ATTEMPTS,
+    )
+
+
+def _fetch_transport_error(host: str, exc: httpx.HTTPError, attempts: int) -> dict[str, object]:
+    if isinstance(exc, httpx.TimeoutException):
+        message = f"{host} timed out. Fetch tried {attempts} times. Retry shortly."
+    else:
+        message = f"Could not reach {host}. Fetch tried {attempts} times. Check the URL and retry."
+    return _error("upstream_error", message, attempts=attempts)
+
+
+def _pause(store: Any, delay: float) -> None:
+    sleeper = getattr(store, "fetch_retry_sleep", None)
+    if callable(sleeper):
+        sleeper(delay)
+        return
+    time.sleep(delay)
 
 
 def _send(
@@ -818,10 +909,14 @@ def _ok(text: str, presentation: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _error(code: str, message: str) -> dict[str, object]:
+def _error(code: str, message: str, *, attempts: int | None = None) -> dict[str, object]:
+    presentation: dict[str, object] = {"kind": "error", "message": message}
+    if attempts is not None:
+        presentation["attempts"] = attempts
+        presentation["retryable"] = True
     return {
         "text": message,
-        "structured": {"presentation": {"kind": "error", "message": message}, "code": code},
+        "structured": {"presentation": presentation, "code": code},
         "is_error": True,
         "code": code,
     }

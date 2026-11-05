@@ -54,8 +54,10 @@ Progress is tracked in `docs/09-plan/progress.md` (created by M0-T01): one line 
 | M30 | [M30-removal.md](M30-removal.md) | Remove the retired pack | The parked industry pack, its schema, screens and flag are gone. General tools stay. | 1 |
 | M31 | — | Final certification | Whole-platform certification on a real model ([report](../testing/m31-certification.md)). | 1 |
 | M32 | [M32-hardening.md](M32-hardening.md) | Hardening after the Nov 2026 review | Tenant-scoped settings, real builder and cost, scripted paths removed, chart fixes ([review](../testing/review-2026-11-05/review-and-remediation-plan.md)). | 11 |
+| M33a | [M33a-trust.md](M33a-trust.md) | Seed SoD and fetch/search trust | A fresh seed can finish a W2 write. Fetch retries transient failures. Search stays off until a key is set. | 1 |
+| M34a | [M34a-office-create.md](M34a-office-create.md) | Office create | An agent creates a DOCX, PDF or XLSX from a title, sections and tables, and the chat can download it. | 1 |
 
-Total: **231 tasks** across 35 milestones (M0–M32, including M2.5 between M2 and M3). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). M16–M19 shipped a pack that M30 removed. M16 started after M14-T13 and could run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M22 follows M21b. M23 follows M22. M24 follows M23. M25 follows M24. M26 follows M25. M27 follows M26. M28 already shipped from M26 and does not wait on M27. M29 follows M28. M30 follows M29.
+Total: **233 tasks** across 37 milestones (M0–M34a, including M2.5 between M2 and M3). Core 1.0 is M0–M15 and includes the core tasks added for any regulated buyer (M3-T09, M3-T10, M5-T08, M5-T09, M7-T11, M13-T07, M14-T08..M14-T13, M1-T16). M16–M19 shipped a pack that M30 removed. M16 started after M14-T13 and could run in parallel with M15. M13-T07 waits for M14-T08 and is not an M13 exit task. M22 follows M21b. M23 follows M22. M24 follows M23. M25 follows M24. M26 follows M25. M27 follows M26. M28 already shipped from M26 and does not wait on M27. M29 follows M28. M30 follows M29. M33a is the seed SoD and fetch/search trust task. M34a follows M32 and adds `documents.create`. OCR, vision and the eval gym stay on their own milestones.
 
 ## Dependency graph
 
