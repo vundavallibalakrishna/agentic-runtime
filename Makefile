@@ -132,6 +132,9 @@ eval:
 eval-gym:
 	uv run python -m ar_domain.evals.gym
 
+live-pack:
+	uv run python -m ar_domain.connectors.live_pack
+
 reset-db:
 	$(COMPOSE) --profile deps exec -T postgres dropdb -U ar_owner --if-exists agentic_runtime
 	$(COMPOSE) --profile deps exec -T postgres createdb -U ar_owner agentic_runtime

@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "note": "Dry ledger. A live canary with --record adds a row. Values are redacted evidence, never tokens.",
+  "rows": []
+}

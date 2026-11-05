@@ -2,8 +2,9 @@
 
 List events, find free time and create an event.
 
+**Implementation:** Built
 **Category:** Calendar
-**Auth:** oauth_authorization_code
+**Auth:** oauth_authorization_code, bearer
 **Verification:** Not live-tested
 **Note:** Implemented from the Calendar API docs. No Google account was connected.
 **Local rate limit:** 40 calls a minute.
@@ -16,7 +17,8 @@ List events, find free time and create an event.
 3. Create an OAuth client ID of type Web application. Add this platform's callback as an authorized redirect URI.
 4. Scopes: https://www.googleapis.com/auth/calendar.events and https://www.googleapis.com/auth/calendar.freebusy.
 5. Put the client id and client secret on the connection. Creating an event asks for approval.
-6. Calendar id defaults to primary, which is the signed-in calendar.
+6. A bearer token you already hold can be pasted instead of completing OAuth. It is not shown again.
+7. Calendar id defaults to primary, which is the signed-in calendar.
 
 ## Scopes
 

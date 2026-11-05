@@ -2,8 +2,9 @@
 
 Search, list, download and upload files.
 
+**Implementation:** Built
 **Category:** Files
-**Auth:** oauth_authorization_code
+**Auth:** oauth_authorization_code, bearer
 **Verification:** Not live-tested
 **Note:** Implemented from the Drive API v3 docs. No Drive was connected.
 **Local rate limit:** 40 calls a minute.
@@ -16,6 +17,7 @@ Search, list, download and upload files.
 3. Read tools need https://www.googleapis.com/auth/drive.readonly.
 4. Upload needs https://www.googleapis.com/auth/drive.file, which only covers files this app creates or the user opens.
 5. Grant both only when the agent should upload. An upload asks for approval.
+6. A bearer token you already hold can be pasted instead of completing OAuth. It is not shown again.
 
 ## Scopes
 

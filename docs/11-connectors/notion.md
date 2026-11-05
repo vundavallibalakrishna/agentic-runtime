@@ -2,6 +2,7 @@
 
 Search, read a page or database, and create a page.
 
+**Implementation:** Built
 **Category:** Work
 **Auth:** bearer, oauth_authorization_code
 **Verification:** Not live-tested

@@ -2,6 +2,7 @@
 
 List channels in a team and post a message.
 
+**Implementation:** Built
 **Category:** Communication
 **Auth:** oauth_authorization_code, bearer
 **Verification:** Not live-tested
@@ -16,7 +17,8 @@ List channels in a team and post a message.
 3. API permissions, Microsoft Graph, delegated: Channel.ReadBasic.All, ChannelMessage.Send and offline_access.
 4. Grant admin consent when the tenant requires it.
 5. Certificates & secrets, New client secret. Put the application id in Client id and the secret in the connection.
-6. A channel post asks for approval. The team id is the id in the Teams link.
+6. The built read lists channels in a team. It does not read message text. The team id is the id in the Teams link.
+7. A channel post asks for approval.
 
 ## Scopes
 

@@ -57,6 +57,7 @@ test("batch-two catalog and setup pages", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Connectors", exact: true })).toBeVisible();
   await page.getByLabel("Search connectors").fill("service");
   await expect(page.getByRole("link", { name: /ServiceNow/ })).toBeVisible();
+  await expect(page.getByText("Built", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Not live-tested").first()).toBeVisible();
   await capture(page, "catalog");
 
@@ -66,6 +67,7 @@ test("batch-two catalog and setup pages", async ({ page }) => {
   for (const [slug, name] of pages) {
     await page.goto(`/connectors/${slug}`);
     await expect(page.getByRole("heading", { name })).toBeVisible();
+    await expect(page.getByText("Built", { exact: true })).toBeVisible();
     await expect(page.getByText("Not live-tested", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Open the provider's app page" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Setup guide" })).toBeVisible();

@@ -1,8 +1,9 @@
 """Connector catalogue. Each row is a definition, not a live account.
 
+``implementation`` is ``built`` when the tools and setup steps ship in the product.
 Verification is one of ``live``, ``public`` or ``not_live``. ``not_live`` means the
 tools were checked against recorded provider examples and have not been called
-on a customer account.
+on a customer account. A recorded M36 canary can promote that label to ``live``.
 """
 
 from __future__ import annotations
@@ -69,6 +70,7 @@ class ConnectorDef:
     fields: tuple[FieldDef, ...] = ()
     allows_anonymous: bool = False
     prefix: str = ""
+    implementation: str = "built"
 
     def tool_prefix(self) -> str:
         return self.prefix or self.slug.replace("-", "")
@@ -225,7 +227,8 @@ def _build() -> tuple[ConnectorDef, ...]:
             "API permissions, Microsoft Graph, delegated: Channel.ReadBasic.All, ChannelMessage.Send and offline_access.",
             "Grant admin consent when the tenant requires it.",
             "Certificates & secrets, New client secret. Put the application id in Client id and the secret in the connection.",
-            "A channel post asks for approval. The team id is the id in the Teams link.",
+            "The built read lists channels in a team. It does not read message text. The team id is the id in the Teams link.",
+            "A channel post asks for approval.",
         ),
         verification="not_live",
         verification_note="Implemented from Microsoft Graph docs. No tenant was connected.",
@@ -242,7 +245,7 @@ def _build() -> tuple[ConnectorDef, ...]:
         category="Calendar",
         summary="List events, find free time and create an event.",
         auth_kind="oauth_authorization_code",
-        auth_kinds=("oauth_authorization_code",),
+        auth_kinds=("oauth_authorization_code", "bearer"),
         scopes=(
             "https://www.googleapis.com/auth/calendar.events",
             "https://www.googleapis.com/auth/calendar.freebusy",
@@ -256,6 +259,7 @@ def _build() -> tuple[ConnectorDef, ...]:
             "Create an OAuth client ID of type Web application. Add this platform's callback as an authorized redirect URI.",
             "Scopes: https://www.googleapis.com/auth/calendar.events and https://www.googleapis.com/auth/calendar.freebusy.",
             "Put the client id and client secret on the connection. Creating an event asks for approval.",
+            "A bearer token you already hold can be pasted instead of completing OAuth. It is not shown again.",
             "Calendar id defaults to primary, which is the signed-in calendar.",
         ),
         verification="not_live",
@@ -301,7 +305,7 @@ def _build() -> tuple[ConnectorDef, ...]:
         category="Files",
         summary="Search, list, download and upload files.",
         auth_kind="oauth_authorization_code",
-        auth_kinds=("oauth_authorization_code",),
+        auth_kinds=("oauth_authorization_code", "bearer"),
         scopes=(
             "https://www.googleapis.com/auth/drive.readonly",
             "https://www.googleapis.com/auth/drive.file",
@@ -315,6 +319,7 @@ def _build() -> tuple[ConnectorDef, ...]:
             "Read tools need https://www.googleapis.com/auth/drive.readonly.",
             "Upload needs https://www.googleapis.com/auth/drive.file, which only covers files this app creates or the user opens.",
             "Grant both only when the agent should upload. An upload asks for approval.",
+            "A bearer token you already hold can be pasted instead of completing OAuth. It is not shown again.",
         ),
         verification="not_live",
         verification_note="Implemented from the Drive API v3 docs. No Drive was connected.",
@@ -341,6 +346,7 @@ def _build() -> tuple[ConnectorDef, ...]:
             "Delegated Graph permission Files.Read is enough for search, list and download.",
             "Add Files.ReadWrite only if the agent should upload. offline_access lets the token refresh.",
             "Create a client secret and set the redirect URI to this platform's callback.",
+            "These tools call the signed-in OneDrive (/me/drive). They do not take a SharePoint site id.",
             "An upload asks for approval. The path is inside the signed-in user's drive.",
         ),
         verification="not_live",
@@ -1027,6 +1033,7 @@ def _build() -> tuple[ConnectorDef, ...]:
                 fields=connector.fields,
                 allows_anonymous=connector.allows_anonymous,
                 prefix=connector.prefix,
+                implementation=connector.implementation,
             )
         )
     return tuple(built)

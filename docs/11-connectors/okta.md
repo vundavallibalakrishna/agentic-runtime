@@ -2,6 +2,7 @@
 
 List and read users and groups, list app assignments, and deactivate a user.
 
+**Implementation:** Built
 **Category:** Identity
 **Auth:** bearer, oauth_authorization_code
 **Verification:** Not live-tested

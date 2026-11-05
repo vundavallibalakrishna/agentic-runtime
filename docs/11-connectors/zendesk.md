@@ -2,6 +2,7 @@
 
 Search tickets, read a ticket, create a ticket and add a comment.
 
+**Implementation:** Built
 **Category:** Work
 **Auth:** basic, bearer
 **Verification:** Not live-tested
