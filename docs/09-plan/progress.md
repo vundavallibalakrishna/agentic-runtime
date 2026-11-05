@@ -50,8 +50,8 @@ M2.5-T01 | done | e29016a | design system, shell, sign-in, chat, restyled pages
 M2.5-T02 | done | e29016a | Keycloak callback and local-run bugs
 M2.5-T03 | done | e29016a | fresh-clone CI job
 M2.5-T04 | done | e29016a | checklist, screenshots, walkthrough
-M2.5-T01b | in_progress | 25593f8 | 2026-10-28 local verification passed: make check (460 Python, 85.21%), make test (478 Python, 85.77%), production build, 42 browser checks, six live SSO/widget checks, worker chat/ingestion/manual and scheduled routines; hosted CI pending; docs/testing/full-stack-review.md
-M2.5-T01a | in_progress | e73cd78 | 2026-10-27 workspace management/detail/state refinement implemented; web build/typecheck/lint/unit and light/dark mobile/desktop axe checks pass; make test passes (371 Python tests, 85.02%); the coverage and full Temporal/widget gaps are closed locally by M2.5-T01b; hosted CI remains outside verification; docs/testing/detail-flow-review.md
+M2.5-T01b | done | 25593f8 | 2026-10-28 local verification passed: make check (460 Python, 85.21%), make test (478 Python, 85.77%), production build, 42 browser checks, six live SSO/widget checks, worker chat/ingestion/manual and scheduled routines; hosted CI pending; docs/testing/full-stack-review.md
+M2.5-T01a | done | e73cd78 | 2026-10-27 workspace management/detail/state refinement implemented; web build/typecheck/lint/unit and light/dark mobile/desktop axe checks pass; make test passes (371 Python tests, 85.02%); the coverage and full Temporal/widget gaps are closed locally by M2.5-T01b; hosted CI remains outside verification; docs/testing/detail-flow-review.md
 
 M3-T01 | done | 8d6d5b0 | lifecycle API, access rules, audit and domain events
 M3-T02 | done | 8d6d5b0 | schema then reference validation, definition hash
@@ -260,3 +260,5 @@ M30-T01 | done | 3bfd4b8 | retired pack removed; revision 0031 drops its schema
 M31-T01 | done | 9aa4dd1 | final certification of the whole platform
 
 M32-T01 | done | 0e34c9c | document analysis keeps evidence; paraphrased check |
+M32-T00 | done | - | review record, fresh-pass and GRC-flow evidence committed
+M32-T02 | in_progress | - | 2026-11-05 tenant-scoped settings reads

@@ -32,18 +32,30 @@ class _Engine(Protocol):
 _engine_cache: list[object] = []
 
 
-def redact(text: str, *, enabled: bool = True, profile: str = "outbound") -> str:
+def redact(
+    text: str,
+    *,
+    enabled: bool = True,
+    profile: str = "outbound",
+    skip_entities: tuple[str, ...] = (),
+) -> str:
     """Replace recognised PII with tokens.
 
     ``outbound`` masks every recogniser. ``analysis`` leaves dates, locations,
     names and control-id shaped tokens in place so a compliance check can read
-    them. Disabled callers receive the original text.
+    them. ``skip_entities`` names further entity types (case-insensitive) the
+    tenant chose not to mask. Disabled callers receive the original text.
     """
     if not enabled or not text:
         return text
-    spans = [span for span in (*find_indian(text), *_presidio(text)) if _closed_span(text, span)]
+    skipped = {name.lower() for name in skip_entities}
     if profile == "analysis":
-        spans = [span for span in spans if str(span["entity"]).lower() not in _EVIDENCE]
+        skipped |= _EVIDENCE
+    spans = [
+        span
+        for span in (*find_indian(text), *_presidio(text))
+        if _closed_span(text, span) and str(span["entity"]).lower() not in skipped
+    ]
     spans.sort(key=lambda item: int(str(item["start"])), reverse=True)
     updated = text
     for span in spans:

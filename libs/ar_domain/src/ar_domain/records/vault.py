@@ -63,7 +63,7 @@ class EvidenceBook:
         existing = self._idempotent(actor, idempotency_key)
         if existing is not None:
             return self._summary(existing, full=True)
-        if payload.get("tsa_fail") is True or self._tsa_required_and_down():
+        if payload.get("tsa_fail") is True or self._tsa_required_and_down(actor.tenant_id):
             raise ArError(ErrorCode.TSA_UNAVAILABLE, "tsa_unavailable")
         self._drop_orphan(idempotency_key)
         item_id = new_id()
@@ -293,11 +293,11 @@ class EvidenceBook:
         if isinstance(orphan, dict):
             blobs(self.store, "evidence").pop(orphan.get("id"), None)
 
-    def _tsa_required_and_down(self) -> bool:
-        settings = getattr(self.store, "tenant_settings", {})
-        row = settings.get(next(iter(settings), None)) if isinstance(settings, dict) else None
-        evidence = row.get("evidence") if isinstance(row, dict) else None
-        if isinstance(evidence, dict) and evidence.get("tsa_enabled") is True:
+    def _tsa_required_and_down(self, tenant_id: uuid.UUID) -> bool:
+        from ar_domain.identity.tenant_settings import section, settings_for  # noqa: PLC0415
+
+        evidence = section(settings_for(self.store, tenant_id), "evidence")
+        if evidence.get("tsa_enabled") is True:
             return evidence.get("tsa_ok") is not True
         return False
 
