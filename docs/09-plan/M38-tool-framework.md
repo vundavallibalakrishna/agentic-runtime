@@ -67,6 +67,15 @@ terminal state.
 
 **Tests:** `test_m38_fixture_gate.py`.
 
+## M38-T03a Browser tests retry in CI
+
+**Spec:** [testing-strategy §6](../08-quality/testing-strategy.md#6-end-to-end-tests), [OQ-95](../open-questions.md).
+
+**Do:** in CI, Playwright retries a failed test up to twice and reports a test that then passes as flaky. The
+default wait for an element is ten seconds. There is no retry outside CI.
+
+**Done when:** a single slow page no longer fails `web-e2e`, and a test that fails every try still does.
+
 ## M38-T04 Loop state in one place
 
 **Depends on:** T02.

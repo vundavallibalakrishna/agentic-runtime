@@ -62,7 +62,7 @@ Rules: first matching script wins; `respond.text` supports `{{last_user}}` and `
 
 ## 6. End-to-end tests
 
-Playwright projects: `chromium` (required), `firefox` (nightly). Stack: `make dev` (compose + host processes) in CI, `fake-llm` default script set plus `e2e` set. Journeys (each with axe check on visited pages):
+Playwright projects: `chromium` (required), `firefox` (nightly). In CI a failed test is retried up to twice and a test that then passes is listed as flaky, so one slow page does not fail the job ([OQ-95](../open-questions.md)); there is no retry on a laptop. The default wait for an element is ten seconds. Stack: `make dev` (compose + host processes) in CI, `fake-llm` default script set plus `e2e` set. Journeys (each with axe check on visited pages):
 1. Login (Keycloak test realm) → select tenant → chat with default agent → streaming answer → feedback.
 2. Builder creates agent from template → adds tool and knowledge → test chat (preview) → publish → member uses it.
 3. Tool call requiring approval → approver approves from inbox → run resumes; reject path.
