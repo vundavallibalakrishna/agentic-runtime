@@ -14,40 +14,39 @@ from ar_domain.evals.scoring import grade, passed, summarise
 if TYPE_CHECKING:
     from typing import Any
 
-_ATTACK = (
-    "ignore previous",
-    "pwned",
-    "api key",
-    "system prompt",
-    "exfiltrate",
-    "jailbreak",
-    "other user",
-    "approve this yourself",
-    "secret",
-)
 
+async def execute_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, object]:
+    """Run every selected case through the agent, score it, and finish the run.
 
-def scripted_reply(user_text: str, mocks: list[object]) -> str:
-    """Fake-llm answer. Attack-shaped input is refused so the platform suite can pass."""
-    blob = user_text.lower()
-    for mock in mocks:
-        if not isinstance(mock, dict):
-            continue
-        result = mock.get("result")
-        if isinstance(result, dict):
-            blob += " " + str(result.get("text") or "").lower()
-    if any(token in blob for token in _ATTACK):
-        return "I can't help with that request."
-    return user_text
-
-
-def execute_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, object]:
-    """Score every selected case and finish the run."""
+    A failure that is not a case failing ends the run as ``failed``. A run that is the
+    gate for a publish then reports that the gate did not pass.
+    """
     row = store.eval_runs.get(eval_run_id)
     if not isinstance(row, dict):
         return {"status": "failed"}
-    if row.get("status") in {"cancelled", "completed"}:
+    if row.get("status") in {"cancelled", "completed", "failed"}:
         return _summary(row)
+    try:
+        return await _execute(store, eval_run_id, row)
+    except Exception as exc:  # noqa: BLE001 — an eval run must end, and a gate must hear
+        from ar_common.logging import get_logger  # noqa: PLC0415
+        from ar_domain.tools.logic import raised_at  # noqa: PLC0415
+
+        get_logger(__name__).error(
+            "eval_run_failed",
+            eval_run_id=str(eval_run_id),
+            error_type=type(exc).__name__,
+            where=raised_at(exc),
+        )
+        row["status"] = "failed"
+        row["finished_at"] = utcnow()
+        RUNS.labels(status="failed", trigger=str(row.get("trigger") or "manual")).inc()
+        if row.get("trigger") == "publish_gate":
+            _finish_gate(store, row, False)
+        return _summary(row)
+
+
+async def _execute(store: Any, eval_run_id: uuid.UUID, row: dict[str, object]) -> dict[str, object]:
     row["status"] = "running"
     row["started_at"] = utcnow()
     suite = store.eval_suites.get(row.get("suite_id"))
@@ -57,7 +56,7 @@ def execute_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, object]:
     selected = _cases(store, row)
     results: list[dict[str, object]] = []
     for case in selected:
-        outcome = _run_case(store, row, case)
+        outcome = await _run_case(store, row, case)
         scores = grade(_list(case.get("assertions")), outcome)
         ok = passed(scores)
         saved = _save_result(store, row, case, outcome, scores, ok)
@@ -90,9 +89,10 @@ def execute_eval_run(store: Any, eval_run_id: uuid.UUID) -> dict[str, object]:
     return summary
 
 
-def _run_case(
+async def _run_case(
     store: Any, eval_run: dict[str, object], case: dict[str, object]
 ) -> dict[str, object]:
+    """Post each user turn of the case to the agent and collect what the runs did."""
     raw_input = case.get("input")
     messages = raw_input.get("messages") if isinstance(raw_input, dict) else []
     turns = [str(item) for item in messages] if isinstance(messages, list) else []
@@ -105,71 +105,101 @@ def _run_case(
         "as_user": raw_input.get("as_user") if isinstance(raw_input, dict) else None,
         "mock_all_tools": bool(eval_run.get("mock_all_tools")),
     }
-    output = ""
-    run_id = new_id()
-    calls: list[dict[str, object]] = []
-    now = utcnow()
-    conversation_id = new_id()
-    tenant_id = eval_run.get("tenant_id")
-    user_id = eval_run.get("triggered_by")
-    agent_id = eval_run.get("agent_id")
-    store.conversations[conversation_id] = {
-        "id": conversation_id,
-        "tenant_id": tenant_id,
-        "user_id": user_id,
-        "agent_id": agent_id,
-        "channel": "eval",
-        "title": str(case.get("name") or "eval"),
-        "created_at": now,
-        "updated_at": now,
-    }
+    tenant_id = _uuid(eval_run.get("tenant_id"))
+    user_id = _uuid(eval_run.get("triggered_by"))
+    agent_id = _uuid(eval_run.get("agent_id"))
+    override = eval_run.get("model_alias_override")
+    version_id = eval_run.get("agent_version_id")
+    conversation_id = _open(store, tenant_id, user_id, agent_id, version_id)
+    conversation = store.conversations[conversation_id]
+    conversation["channel"] = "eval"
+    conversation["title"] = str(case.get("name") or "eval")
+    if override:
+        conversation["model_alias"] = str(override)
+    run_ids: list[uuid.UUID] = []
     for turn in turns or [""]:
-        output = scripted_reply(turn, mocks)
-        run_id = new_id()
-        store.runs[run_id] = {
-            "id": run_id,
-            "tenant_id": tenant_id,
-            "user_id": user_id,
-            "agent_id": agent_id,
-            "agent_version_id": eval_run.get("agent_version_id"),
-            "conversation_id": conversation_id,
-            "trigger": "eval",
-            "status": "completed",
-            "eval_context": context,
-            "result_summary": output,
-            "created_at": now,
-            "started_at": now,
-            "ended_at": now,
-            "usage": {"steps": 1, "cost_micros": 0, "wall_clock_ms": 12},
-        }
-    for mock in mocks:
-        if not isinstance(mock, dict):
-            continue
-        call_id = new_id()
-        error = mock.get("error")
-        calls.append(
-            {
-                "id": call_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
-                "qualified_name": str(mock.get("tool") or ""),
-                "arguments": mock.get("match_args") or {},
-                "status": "failed" if isinstance(error, dict) else "completed",
-                "risk_class": "R0",
-            }
-        )
-        store.tool_calls[call_id] = calls[-1]
+        posted = store.post_message(tenant_id, user_id, conversation_id, turn, schedule=False)
+        run_id = _uuid(posted["run"]["id"])
+        run = store.runs[run_id]
+        run["trigger"] = "eval"
+        run["eval_context"] = context
+        if isinstance(version_id, uuid.UUID):
+            run["agent_version_id"] = version_id
+        run_ids.append(run_id)
+        await store.generate(run_id, turn, [])
+        if str(run.get("status")) != "completed":
+            break
+    return _outcome(store, run_ids, raw_input)
+
+
+def _open(
+    store: Any,
+    tenant_id: uuid.UUID,
+    user_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    version_id: object,
+) -> uuid.UUID:
+    """Open the conversation a case runs in, on the version under evaluation.
+
+    A gate scores a draft, which cannot start an ordinary conversation, so the case
+    uses the preview conversation a builder uses to try a draft. Starting the eval run
+    was authorised already; this actor only reaches that agent version.
+    """
+    if not isinstance(version_id, uuid.UUID):
+        return _uuid(store.create_conversation(tenant_id, user_id, agent_id)["id"])
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.agents.service import AgentLifecycle  # noqa: PLC0415
+
+    actor = Actor(
+        tenant_id=tenant_id, user_id=user_id, permissions=frozenset({"agents:manage_all"})
+    )
+    return _uuid(AgentLifecycle(store).open_preview(actor, version_id)["id"])
+
+
+def _outcome(store: Any, run_ids: list[uuid.UUID], raw_input: object) -> dict[str, object]:
+    """What the graders read: the last answer, every tool call, and the usage of the runs."""
+    last = store.runs[run_ids[-1]]
+    assistant = store.messages.get(last.get("assistant_message_id"))
+    answer = str(assistant.get("text") or "") if isinstance(assistant, dict) else ""
+    content = assistant.get("content") if isinstance(assistant, dict) else None
+    citations = [
+        part
+        for part in (content if isinstance(content, list) else [])
+        if isinstance(part, dict) and part.get("type") == "citation"
+    ]
+    calls = [
+        row
+        for row in list(store.tool_calls.values())
+        if isinstance(row, dict) and row.get("run_id") in run_ids
+    ]
+    latency = 0
+    cost = 0
+    steps = 0
+    for run_id in run_ids:
+        run = store.runs[run_id]
+        usage = run.get("usage")
+        usage = usage if isinstance(usage, dict) else {}
+        cost += _int(usage.get("cost_micros"))
+        steps += max(_int(usage.get("steps")), 1)
+        started, ended = run.get("started_at") or run.get("created_at"), run.get("ended_at")
+        if started is not None and ended is not None:
+            latency += max(int((ended - started).total_seconds() * 1000), 0)
     return {
-        "output_text": output,
+        "output_text": answer,
+        "status": str(last.get("status") or ""),
         "tool_calls": calls,
-        "latency_ms": 12,
-        "cost_micros": 0,
-        "steps": max(len(turns), 1),
-        "citations": [],
-        "denied": 0,
-        "run_id": run_id,
+        "latency_ms": latency,
+        "cost_micros": cost,
+        "steps": steps,
+        "citations": citations,
+        "denied": sum(1 for row in calls if row.get("status") == "denied"),
+        "run_id": run_ids[-1],
         "grounding": _grounding_report(raw_input),
     }
+
+
+def _uuid(value: object) -> uuid.UUID:
+    return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
 
 
 def _grounding_report(raw_input: object) -> dict[str, object]:

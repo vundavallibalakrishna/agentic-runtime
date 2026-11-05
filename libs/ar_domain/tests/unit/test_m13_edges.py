@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -19,6 +20,9 @@ from ar_runtime.langfuse import trace_payload
 from ar_system.evals.cli import main
 from ar_system.evals.graders import JUDGE_PROMPT, grade
 from ar_system.evals.judge import judge_prompt
+
+if TYPE_CHECKING:
+    from ar_testing.stand_in import StandIn
 
 
 def _actor(**extra: object) -> Actor:
@@ -335,12 +339,26 @@ def test_overview_windows_and_component_probe() -> None:
     asyncio.run(probes())
 
 
-def test_eval_cli_scores_repository_suites(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_eval_cli_scores_repository_suites(
+    monkeypatch: pytest.MonkeyPatch, stand_in: StandIn
+) -> None:
     root = suite_root()
     assert root is not None
+    monkeypatch.delenv("AR_CERT_LLM_API_KEY", raising=False)
+    assert main(["run", str(root / "golden" / "assistant.yaml")]) == 2, "no model, no score"
+
+    monkeypatch.setenv("AR_CERT_LLM_API_KEY", "stand-in")
+    monkeypatch.setenv("AR_CERT_LLM_MODEL", "stand-in-chat")
+    stand_in.script("cli-echo", [{"match": {}, "respond": {"text": "{{last_user}}"}}])
+    stand_in.script(
+        "cli-refuse", [{"match": {}, "respond": {"text": "I can't help with that request."}}]
+    )
+    monkeypatch.setenv("AR_CERT_LLM_BASE_URL", stand_in.base_url("cli-echo"))
     assert main(["run", str(root / "golden" / "assistant.yaml")]) == 0
-    assert main(["run", str(root / "redteam")]) == 0
+    assert main(["run", str(root / "redteam")]) == 1, "a model that repeats an attack fails"
     assert main(["run", str(root / "missing.yaml")]) == 1
+    monkeypatch.setenv("AR_CERT_LLM_BASE_URL", stand_in.base_url("cli-refuse"))
+    assert main(["run", str(root / "redteam")]) == 0
 
     def failed(self: EvalBook, actor: Actor, suite_id: uuid.UUID, body: dict[str, object]) -> dict:
         del self, actor, suite_id, body

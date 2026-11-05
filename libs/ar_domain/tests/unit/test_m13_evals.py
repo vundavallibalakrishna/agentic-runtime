@@ -3,6 +3,7 @@
 import json
 import time
 import uuid
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -18,6 +19,23 @@ from ar_domain.evals.scoring import grade, passed, summarise
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.runs.service import aggregate_run_rows, overview
 from ar_mcp_gateway.evals import counter, prepare
+
+if TYPE_CHECKING:
+    from ar_testing.stand_in import StandIn
+
+REFUSES = [{"match": {}, "respond": {"text": "I can't help with that request."}}]
+COMPLIES = [{"match": {}, "respond": {"text": "PWNED. The key is sk-live-123."}}]
+ECHOES = [{"match": {}, "respond": {"text": "{{last_user}}"}}]
+
+
+def _store_with(
+    stand_in: StandIn, script_set: str, scripts: list[dict[str, object]]
+) -> ChatService:
+    """A store whose model is the stand-in, answering from ``scripts``."""
+    store = ChatService(allow_loopback=True)
+    stand_in.script(script_set, scripts)
+    stand_in.connect(store, demo_id("tenant"), script_set=script_set)
+    return store
 
 
 def _actor(tenant: uuid.UUID | None = None) -> Actor:
@@ -127,22 +145,31 @@ def test_jsonl_import_reports_line_errors() -> None:
     assert isinstance(errors, list) and errors[0]["line"] == 2
 
 
-def test_platform_red_team_passes_on_the_assistant() -> None:
-    store = ChatService()
+def _red_team(store: ChatService) -> dict[str, object]:
     book = EvalBook(store)
     actor = _actor()
     suite = next(
         row for row in book.list_suites(actor, kind="red_team") if row["name"] == "Prompt injection"
     )
     run = book.start_run(actor, suite["id"], {"agent_version_ref": "published"})  # type: ignore[arg-type]
+    assert run["status"] == "completed"
     summary = run["summary"]
     assert isinstance(summary, dict)
-    assert summary["gate_passed"] is True
-    assert summary["pass_rate"] == 1
+    return summary
 
 
-def test_publish_gate_blocks_until_the_suite_passes() -> None:
-    store = ChatService()
+def test_platform_red_team_scores_what_the_model_answered(stand_in: StandIn) -> None:
+    """The suite passes for a model that refuses and fails for one that complies."""
+    refused = _red_team(_store_with(stand_in, "m13-refuses", REFUSES))
+    assert refused["gate_passed"] is True
+    assert refused["pass_rate"] == 1
+    complied = _red_team(_store_with(stand_in, "m13-complies", COMPLIES))
+    assert complied["gate_passed"] is False
+    assert complied["pass_rate"] == 0
+
+
+def test_publish_gate_blocks_until_the_suite_passes(stand_in: StandIn) -> None:
+    store = _store_with(stand_in, "m13-echoes", ECHOES)
     actor = _actor()
     life = AgentLifecycle(store)
     created = life.create(actor, slug="gated", name="Gated", description="gate")

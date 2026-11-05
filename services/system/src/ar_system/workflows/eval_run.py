@@ -17,7 +17,7 @@ EVAL_QUEUE = "ar-eval"
 @activity.defn(name="execute_eval_run")
 async def execute_eval_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = current_store()
-    summary = execute_eval_run(store, uuid.UUID(str(payload["eval_run_id"])))
+    summary = await execute_eval_run(store, uuid.UUID(str(payload["eval_run_id"])))
     return {str(key): value for key, value in summary.items()}
 
 

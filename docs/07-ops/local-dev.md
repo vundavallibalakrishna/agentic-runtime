@@ -34,7 +34,7 @@ Exact versions: [stack.md](../stack.md).
 | `make test` | Unit + integration (testcontainers) + `opa test policies/` + web unit tests |
 | `make test-e2e` | Playwright against `make dev` stack |
 | `make gen` | Regenerates `openapi.json`, JSON Schemas, `CLAUDE.md`, `@ar/api-client`, `ar_client`; CI fails if the tree changes |
-| `make eval` | Runs golden eval suites against the configured models (`fake-llm` by default) |
+| `make eval` | Runs the repository eval suites through the agent. Needs a model: set `AR_CERT_LLM_API_KEY`, and optionally `AR_CERT_LLM_BASE_URL` and `AR_CERT_LLM_MODEL`. Without a key it exits 2 and scores nothing |
 | `make reset-db` | Drops and recreates the dev database, then `migrate seed` |
 | `make kind-up` / `make kind-down` | kind cluster with the Helm chart (`values-dev.yaml`), gVisor runtime class (if available) and the Kubernetes sandbox driver |
 | `make images` / `make images-bundle` | Build all images locally / export them for air-gapped installs |

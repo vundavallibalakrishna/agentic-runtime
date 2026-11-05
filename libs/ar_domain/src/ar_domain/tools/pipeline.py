@@ -148,6 +148,19 @@ class ToolPipeline:
                 tool,
             )
         version = self._effective_version(version, arguments, request)
+        from ar_domain.evals.mocks import prepare as eval_prepare  # noqa: PLC0415
+
+        staged = eval_prepare(
+            self.store,
+            {
+                **request,
+                "arguments": arguments,
+                "qualified_name": version.get("qualified_name"),
+                "risk_class": version.get("risk_class"),
+            },
+        )
+        if staged is not None:
+            return self._eval_outcome(request, version, tool, staged, started)
         held = self._gate(request, version, tool, server, arguments, started)
         if held is not None:
             return held
@@ -348,6 +361,46 @@ class ToolPipeline:
             structured=outcome.get("structured"),
         )
         stored["wrapped"] = wrapped
+        return stored
+
+    def _eval_outcome(
+        self,
+        request: dict[str, object],
+        version: dict[str, object],
+        tool: dict[str, object],
+        staged: dict[str, object],
+        started: float,
+    ) -> dict[str, object]:
+        """Record what an eval run gets in place of a real call: a mock, or a refusal."""
+        error = staged.get("error")
+        if isinstance(error, dict):
+            return self._fail(
+                request,
+                str(error.get("code") or "upstream_error"),
+                str(error.get("message") or ""),
+                started,
+                version,
+                tool,
+                policy=False,
+            )
+        text = str(staged.get("text") or "")
+        stored = self._stored(
+            request,
+            version,
+            tool,
+            "succeeded",
+            "allow",
+            text,
+            False,
+            started,
+            None,
+            structured=staged.get("structured"),
+        )
+        stored["wrapped"] = wrap_tool_result(
+            tool=str(version.get("qualified_name")),
+            call_id=str(request.get("model_call_id") or "call"),
+            content=text,
+        )
         return stored
 
     def _effective_version(

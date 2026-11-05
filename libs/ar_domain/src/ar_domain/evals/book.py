@@ -1,5 +1,6 @@
 """Evaluation suite catalogue. Spec: docs/03-specs/18-observability-eval.md §4.3."""
 
+import asyncio
 import uuid
 from typing import TYPE_CHECKING, cast
 
@@ -260,7 +261,7 @@ class EvalBook:
         self._audit(actor, "eval_run.started", run_id, {"suite_id": str(suite_id)})
         RUNS.labels(status="queued", trigger=trigger).inc()
         if _inline(self.store):
-            execute_eval_run(self.store, run_id)
+            _start(self.store, run_id)
         stored = self.store.eval_runs.get(run_id)
         return self._run_view(stored if isinstance(stored, dict) else row)
 
@@ -528,6 +529,20 @@ class EvalBook:
     @staticmethod
     def _visible(row: object, tenant_id: uuid.UUID) -> bool:
         return isinstance(row, dict) and row.get("tenant_id") == tenant_id
+
+
+def _start(store: Any, run_id: uuid.UUID) -> None:
+    """Run the suite in the background of a serving process, or to the end when there is no loop.
+
+    A case calls the model, so a request that starts a run gets ``queued`` back and reads
+    the result later. A command-line caller has no loop and waits for the result.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(execute_eval_run(store, run_id))
+        return
+    store.tasks.append(loop.create_task(execute_eval_run(store, run_id)))
 
 
 def _inline(store: Any) -> bool:

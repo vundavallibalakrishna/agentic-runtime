@@ -1,5 +1,6 @@
 """Observability and evaluation HTTP surface."""
 
+import asyncio
 import uuid
 
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 from ar_api.main import create_application
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
+from ar_domain.evals.runner import execute_eval_run
 from ar_domain.identity.permissions import PERMISSION_KEYS
 
 
@@ -70,7 +72,12 @@ def test_overview_health_suites_and_isolation() -> None:
     assert case.status_code == 201
     run = client.post(f"/api/v1/eval-suites/{suite_id}:run", json={"agentVersionRef": "published"})
     assert run.status_code == 202
-    assert run.json()["summary"]["passRate"] == 1
+    # A case calls the model, so the request answers before the suite is scored.
+    assert run.json()["status"] == "queued"
+    assert run.json()["summary"] == {}
+    store = client.app.state.chat  # type: ignore[attr-defined]
+    scored = asyncio.run(execute_eval_run(store, uuid.UUID(run.json()["id"])))
+    assert scored["pass_rate"] == 1
     holder["principal"] = _principal(tenant=uuid.uuid4())
     hidden = client.get(f"/api/v1/eval-suites/{suite_id}")
     assert hidden.status_code == 404
