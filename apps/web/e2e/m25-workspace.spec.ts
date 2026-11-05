@@ -123,9 +123,20 @@ test("knowledge, memory, skills and a cited chat", async ({ page }) => {
 
   await page.goto("/memory");
   await expect(page.getByRole("heading", { name: "Memory", exact: true })).toBeVisible();
+  const remember = page.getByRole("button", { name: "Remember this" });
+  await expect(remember).toBeEnabled();
   await page.getByLabel("What should the assistant remember?").fill("Call the user Captain Bala");
-  await page.getByRole("button", { name: "Remember this" }).click();
-  await expect(page.getByText("Call the user Captain Bala")).toBeVisible();
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/v1/memory") &&
+      response.request().method() === "POST" &&
+      response.ok(),
+  );
+  await remember.click();
+  await saved;
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "Call the user Captain Bala" }),
+  ).toBeVisible();
   await capture(page, "memory");
 
   await page.goto("/skills");

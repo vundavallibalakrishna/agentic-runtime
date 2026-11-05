@@ -104,6 +104,11 @@ def test_scanned_pdf_canary_goes_through_ocr(monkeypatch: pytest.MonkeyPatch) ->
         return "\n".join(_expected())
 
     monkeypatch.setattr("ar_domain.documents.extract._tesseract", fake_ocr)
+
+    def no_pillow(_page: object) -> list[bytes]:
+        raise AssertionError("scanned PDF OCR must not require Pillow")
+
+    monkeypatch.setattr("ar_domain.documents.extract._pillow_images", no_pillow)
     store = ChatService()
     tenant = demo_id("tenant")
     file_id = _attach(
