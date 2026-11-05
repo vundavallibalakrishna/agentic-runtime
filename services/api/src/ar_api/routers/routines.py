@@ -254,7 +254,7 @@ async def list_events(routine_id: uuid.UUID, request: Request) -> dict[str, obje
 async def tick_routine(
     routine_id: uuid.UUID, body: TickBody, request: Request
 ) -> dict[str, object]:
-    """Fire a due schedule in this process. A live model run waits for the answer."""
+    """Fire a due schedule in this process when Temporal's clock is not connected."""
     from ar_domain.orchestration.triggers import fire_schedule  # noqa: PLC0415
 
     await reload_routines(chat(request))

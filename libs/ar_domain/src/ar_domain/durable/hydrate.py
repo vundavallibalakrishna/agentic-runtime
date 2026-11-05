@@ -142,6 +142,9 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
         from ar_domain.durable.m29 import load_exposure  # noqa: PLC0415
 
         await load_exposure(session, store, tenant_id)
+        from ar_domain.durable.m35 import load_durability  # noqa: PLC0415
+
+        await load_durability(session, store, tenant_id)
         await _events(session, store, tenant_id)
         await _channel_integrations(session, store, tenant_id)
         await _channel_identities(session, store, tenant_id)

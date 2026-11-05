@@ -8,6 +8,7 @@ from temporalio.worker import Worker
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.routines.book import RoutineBook
+from ar_domain.routines.clock import build_schedule
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn
 from ar_runtime.activities.expire_approval import bind_store as bind_runtime
 from ar_runtime.workflows.turn import TurnWorkflow
@@ -118,3 +119,52 @@ async def test_routine_run_poll_and_reconcile(temporal_env: object) -> None:
             task_queue="ar-system",
         )
         assert repaired["repaired"] >= 0
+
+
+async def test_schedule_fires_from_the_temporal_clock() -> None:
+    """A Temporal dev server fires the schedule. This does not call the in-process tick.
+
+    The time-skipping test server does not implement CreateSchedule. The dev
+    server does. The production spec is cron; this wait uses a one-second
+    interval so the suite does not sit for a full minute. The action is the
+    one ``build_schedule`` registers.
+    """
+    import asyncio
+    from datetime import timedelta
+
+    from temporalio.client import Schedule, ScheduleIntervalSpec, ScheduleSpec
+    from temporalio.testing import WorkflowEnvironment
+
+    store, routine_id = _ready()
+    routine = store.routines[uuid.UUID(routine_id)]
+    routine["trigger_type"] = "schedule"
+    routine["status"] = "active"
+    routine["trigger_config"] = {"cron": "* * * * *", "timezone": "UTC", "jitter_s": 0}
+    built = build_schedule(routine)
+    assert built.spec.cron_expressions == ["* * * * *"]
+    schedule = Schedule(
+        action=built.action,
+        spec=ScheduleSpec(intervals=[ScheduleIntervalSpec(every=timedelta(seconds=1))]),
+        policy=built.policy,
+        state=built.state,
+    )
+    async with await WorkflowEnvironment.start_local() as env:
+        async with Worker(
+            env.client,
+            task_queue="ar-system",
+            workflows=[RoutineRunWorkflow, TurnWorkflow],
+            activities=[
+                accept_activity,
+                prepare_activity,
+                complete_activity,
+                execute_chat_turn,
+            ],
+        ):
+            await env.client.create_schedule(f"routine-{routine_id}", schedule)
+            for _ in range(20):
+                sources = [str(row.get("source")) for row in store.routine_events.values()]
+                if "schedule" in sources:
+                    break
+                await asyncio.sleep(0.5)
+    sources = [str(row.get("source")) for row in store.routine_events.values()]
+    assert "schedule" in sources

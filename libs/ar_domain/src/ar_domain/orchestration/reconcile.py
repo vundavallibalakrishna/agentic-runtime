@@ -22,6 +22,9 @@ def reconcile_interrupted(store: Any) -> list[str]:
             continue
         _fail(store, run)
         changed.append(str(run.get("id")))
+    from ar_domain.jobs.progress import mark_jobs_interrupted  # noqa: PLC0415
+
+    mark_jobs_interrupted(store)
     return changed
 
 

@@ -144,6 +144,9 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             from ar_domain.durable.m29 import save_exposure  # noqa: PLC0415
 
             await save_exposure(session, pending)
+            from ar_domain.durable.m35 import save_durability  # noqa: PLC0415
+
+            await save_durability(session, pending)
             await _channel_integrations(session, pending["channel_integrations"], store)
             await _channel_identities(session, pending["channel_identities"])
             await _channel_threads(session, pending["channel_threads"])

@@ -14,18 +14,23 @@ Implemented JSON-RPC methods:
 | `message/send`, `tasks/send` | Run the agent and return the task, including an artifact |
 | `message/stream`, `tasks/sendSubscribe` | The same task as `text/event-stream` |
 | `tasks/get` | The task this key created |
-| `tasks/cancel` | Mark the task canceled |
+| `tasks/cancel` | Mark the task canceled and POST any saved webhook |
+| `tasks/list` | One page of this key's tasks. `pageSize` defaults to 20 and is capped at 100. `pageToken` is the last task id from the previous page. The result has `tasks` and `nextPageToken` |
+| `tasks/pushNotificationConfig/set` | Store `url` and optional `token` for one task. The token is returned to this key on get. It is not written to the audit detail |
+| `tasks/pushNotificationConfig/get` | The config for this key and task |
+| `tasks/pushNotificationConfig/delete` | Remove that config |
+| `tasks/pushNotificationConfig/list` | The configs for one task |
+
+`message/send` accepts `configuration.pushNotificationConfig`. When the task is saved or canceled, the server POSTs the task to each saved URL. A failed POST does not fail the task. The card sets `pushNotifications` to true.
 
 A task that is waiting on approval has `status.state` of `input-required` and the text `Approval required`.
 
-Not implemented, and not claimed:
+Still not implemented, and not claimed:
 
-- `tasks/pushNotificationConfig/set`, `get`, `delete`, `list`
 - `tasks/resubscribe`
 - gRPC
-- listing every historical task
 
-Those methods return JSON-RPC error `-32601` with `Method not implemented` or `Method not found`. See [OQ-64](../open-questions.md).
+Those methods return JSON-RPC error `-32601`. See [OQ-64](../open-questions.md).
 
 ## Calling a remote agent
 
