@@ -797,6 +797,35 @@ def _stop_error(
     store._emit(run, "run.failed", {"error": run["error"]})
 
 
+_UNEXPECTED = "Something went wrong while working on this. The run was stopped."
+
+
+def fail_unexpected(store: Any, run_id: object, exc: BaseException) -> bool:
+    """End a run that an unexpected error left working. Return whether it was ended.
+
+    The log carries the error type and where it was raised, never the message:
+    an exception text can hold prompt or tool content.
+    """
+    from ar_common.logging import get_logger  # noqa: PLC0415
+    from ar_domain.conversations.logic import run_is_working  # noqa: PLC0415
+    from ar_domain.tools.logic import raised_at  # noqa: PLC0415
+
+    get_logger(__name__).error(
+        "run_failed_unexpectedly",
+        run_id=str(run_id),
+        error_type=type(exc).__name__,
+        where=raised_at(exc),
+    )
+    run = store.runs.get(run_id)
+    if not isinstance(run, dict) or not run_is_working(str(run.get("status"))):
+        return False
+    assistant = store.messages.get(run.get("assistant_message_id"))
+    if not isinstance(assistant, dict):
+        return False
+    _stop_error(store, run, assistant, _UNEXPECTED, code="internal_error")
+    return True
+
+
 def _audit(
     store: Any,
     run: dict[str, object],

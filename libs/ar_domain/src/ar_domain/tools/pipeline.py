@@ -8,8 +8,9 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from ar_common.errors import QuotaExceededError
+from ar_common.errors import ArError, QuotaExceededError
 from ar_common.ids import new_id
+from ar_common.logging import get_logger
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.tools.credentials import CredentialBook
@@ -21,12 +22,15 @@ from ar_domain.tools.logic import (
     clearance_allows,
     interim_decision,
     preview,
+    raised_at,
     redact,
     schema_errors,
 )
 from ar_domain.tools.remote_mcp import RemoteError, call_remote
 from ar_domain.usage.logic import UsageRecord
 from ar_domain.usage.service import UsageBook, note
+
+_log = get_logger(__name__)
 
 _IMPLICIT = frozenset(
     {
@@ -153,7 +157,6 @@ class ToolPipeline:
         endpoint = str(server_version.get("endpoint_url") or "")
         connection_name = str(config.get("connection") or "")
         if connection_name and endpoint.startswith(("https://", "http://")):
-            from ar_common.errors import ArError  # noqa: PLC0415
             from ar_domain.tools.service_connections import headers_for  # noqa: PLC0415
 
             try:
@@ -215,47 +218,69 @@ class ToolPipeline:
         }
         timeout = float(as_int(version.get("timeout_s"), 30))
         remote_name = _remote_name(version)
-        if endpoint.startswith("stdio://"):
-            from ar_domain.tools.remote_mcp import call_stdio  # noqa: PLC0415
+        try:
+            if endpoint.startswith("stdio://"):
+                from ar_domain.tools.remote_mcp import call_stdio  # noqa: PLC0415
 
-            command = config.get("command")
-            try:
-                outcome = call_stdio(
-                    self.store,
-                    command if isinstance(command, list) else [],
-                    remote_name,
-                    public_args,
-                    timeout=int(timeout),
-                )
-            except RemoteError as exc:
-                outcome = {
-                    "text": exc.reason,
-                    "structured": {},
-                    "is_error": True,
-                    "code": "upstream_error",
-                }
-        elif endpoint.startswith(("https://", "http://")):
-            try:
-                outcome = call_remote(
-                    self.store,
-                    endpoint,
-                    remote_name,
-                    public_args,
-                    token,
-                    "none" if headers else str(server_version.get("auth_mode") or "none"),
-                    headers=headers,
-                    timeout=timeout,
-                    transport=str(config.get("transport") or "streamable"),
-                )
-            except RemoteError as exc:
-                outcome = {
-                    "text": exc.reason,
-                    "structured": {},
-                    "is_error": True,
-                    "code": "upstream_error",
-                }
-        else:
-            outcome = dispatch(self.store, endpoint, str(version.get("name")), call_args, token)
+                command = config.get("command")
+                try:
+                    outcome = call_stdio(
+                        self.store,
+                        command if isinstance(command, list) else [],
+                        remote_name,
+                        public_args,
+                        timeout=int(timeout),
+                    )
+                except RemoteError as exc:
+                    outcome = {
+                        "text": exc.reason,
+                        "structured": {},
+                        "is_error": True,
+                        "code": "upstream_error",
+                    }
+            elif endpoint.startswith(("https://", "http://")):
+                try:
+                    outcome = call_remote(
+                        self.store,
+                        endpoint,
+                        remote_name,
+                        public_args,
+                        token,
+                        "none" if headers else str(server_version.get("auth_mode") or "none"),
+                        headers=headers,
+                        timeout=timeout,
+                        transport=str(config.get("transport") or "streamable"),
+                    )
+                except RemoteError as exc:
+                    outcome = {
+                        "text": exc.reason,
+                        "structured": {},
+                        "is_error": True,
+                        "code": "upstream_error",
+                    }
+            else:
+                outcome = dispatch(self.store, endpoint, str(version.get("name")), call_args, token)
+        except ArError as exc:
+            # A handler that refuses on purpose tells the model why.
+            outcome = {
+                "text": exc.detail,
+                "structured": {},
+                "is_error": True,
+                "code": exc.code.value,
+            }
+        except Exception as exc:  # noqa: BLE001 — a tool bug is a failed call, never a stuck run
+            _log.error(
+                "tool_handler_failed",
+                tool=str(version.get("qualified_name")),
+                error_type=type(exc).__name__,
+                where=raised_at(exc),
+            )
+            outcome = {
+                "text": "The tool failed with an internal error. Its result is not available.",
+                "structured": {},
+                "is_error": True,
+                "code": "internal_error",
+            }
         if endpoint.startswith(("http://", "https://", "stdio://")):
             outcome = _mark_mcp(outcome, token, str(version.get("name") or ""))
         if outcome.get("is_error"):

@@ -172,6 +172,18 @@ def redact(value: dict[str, object]) -> dict[str, object]:
     return clean
 
 
+def raised_at(exc: BaseException) -> str:
+    """Where an exception was raised, as ``file.py:line``. Safe to log: it holds no content."""
+    import traceback  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    frames = traceback.extract_tb(exc.__traceback__)
+    if not frames:
+        return ""
+    last = frames[-1]
+    return f"{Path(last.filename).name}:{last.lineno}"
+
+
 def preview(text: str, limit: int = 2048) -> str:
     if len(text) <= limit:
         return text

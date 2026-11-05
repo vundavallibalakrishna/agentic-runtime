@@ -73,6 +73,28 @@ async def test_quota_failure_emits_terminal_event_and_releases_chat(
     assert run["error"]["code"] == "quota_exceeded"
 
 
+async def test_a_crashed_turn_fails_the_run_and_is_not_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The activity returns, so Temporal does not run the turn's tools a second time."""
+    store, run_id = queued()
+    monkeypatch.setattr("ar_runtime.activities.execute_chat_turn.current_store", lambda: store)
+    monkeypatch.setattr("ar_domain.durable.flush.flush_store", AsyncMock())
+    monkeypatch.setattr("ar_domain.durable.hydrate.reload_run", AsyncMock())
+
+    async def crash(*_args: object, **_kwargs: object) -> bool:
+        raise RuntimeError("handler bug")
+
+    monkeypatch.setattr("ar_domain.tools.agent_loop.run_agent_loop", crash)
+    result = await execute_chat_turn({"run_id": str(run_id)})
+    run = store.runs[run_id]
+    assert result["status"] == "failed"
+    assert run["error"]["code"] == "internal_error"
+    assert store.conversations[run["conversation_id"]]["active_run_id"] is None
+    assert store.events[run_id][-1]["type"] == "run.failed"
+    assert (await execute_chat_turn({"run_id": str(run_id)}))["status"] == "failed"
+
+
 def test_database_uuid_subclass_can_stream_without_losing_camel_case() -> None:
     class DatabaseUUID(uuid.UUID):
         pass

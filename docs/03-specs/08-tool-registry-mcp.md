@@ -219,6 +219,8 @@ Every built-in reads only the calling tenant's rows, and a call that names no ca
 | OPA unreachable | **Fail closed**: `denied` with reason `policy_unavailable` (except R0 built-ins `knowledge.*`, `memory.search`, `files.list/read`, `plan.update`, which are allowed by the in-process fallback evaluator). Alert. |
 | Approval row conflict (double execute) | Second execution sees `consumed_at` set → returns stored result of the first (idempotency on `tool_calls.idempotency_key`). |
 | Result > 20 MiB | Truncated; `warning tool_result_truncated`. |
+| A handler raises | The call is `failed`. A typed refusal (`ArError`) keeps its code and message so the model can correct the call. Any other exception is `internal_error` with a fixed message. The log has the exception type and the file and line, and no message text. |
+| A turn raises outside a tool call | The run ends `failed` with `internal_error` and `run.failed` is emitted. The worker activity returns, so the turn's tools are not run again by a retry. A run that is waiting for a person is left as it is. |
 
 ## 14. Metrics
 
