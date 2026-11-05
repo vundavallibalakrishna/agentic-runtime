@@ -124,6 +124,10 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 agent_version_id=_agent_version(arguments),
             )
             return _ok(_field_text(body), body)
+        if name == "create":
+            from ar_domain.documents.create import publish  # noqa: PLC0415
+
+            return publish(store, arguments)
     except ArError as exc:
         return _error(exc.code.value, exc.detail)
     return _error("unknown_tool", f"unknown tool {name}")

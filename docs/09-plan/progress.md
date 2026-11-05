@@ -262,3 +262,4 @@ M31-T01 | done | 9aa4dd1 | final certification of the whole platform
 M32-T01 | done | 0e34c9c | document analysis keeps evidence; paraphrased check |
 
 M33a-T01 | done | 26f275a | seed users-mode W2 policy; fetch retry; search key path not_live without a key |
+M34a-T01 | in_progress | - | 2026-11-05 office create pack |
