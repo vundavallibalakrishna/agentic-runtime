@@ -9,7 +9,7 @@ Spec: docs/03-specs/04-model-gateway.md.
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select, text
@@ -21,6 +21,7 @@ from ar_common.settings import get_settings
 from ar_domain.audit.actions import AuditAction
 from ar_domain.audit.service import record
 from ar_domain.db.engine import platform_database_url
+from ar_domain.models.options import default_request_options, request_options_of
 from ar_domain.models.tables import Model, ModelAlias, ModelProvider
 from ar_domain.secrets.crypto import parse_keyring
 from ar_domain.secrets.stores.db_encrypted import DbEncryptedStore
@@ -45,6 +46,7 @@ class UpstreamTarget:
     upstream_model: str
     timeout_s: int
     kind: str
+    request_options: dict[str, object] = field(default_factory=dict)
 
 
 def _secret_path(tenant_id: uuid.UUID, secret_id: uuid.UUID) -> str:
@@ -163,8 +165,10 @@ async def save_model(
                     upstream_model=str(row.get("upstream_model") or row.get("name") or ""),
                     kind=str(row.get("kind") or "chat"),
                     capabilities=["streaming", "tools"],
-                    price_input_micros_per_mtok=0,
-                    price_output_micros_per_mtok=0,
+                    price_input_micros_per_mtok=_price(row, "price_input_micros_per_mtok"),
+                    price_output_micros_per_mtok=_price(row, "price_output_micros_per_mtok"),
+                    request_options=request_options_of(row)
+                    or default_request_options(str(row.get("upstream_model") or "")),
                     licence="",
                     status="active",
                 )
@@ -172,6 +176,10 @@ async def save_model(
         else:
             existing.upstream_model = str(row.get("upstream_model") or existing.upstream_model)
             existing.name = str(row.get("name") or existing.name)
+            existing.price_input_micros_per_mtok = _price(row, "price_input_micros_per_mtok")
+            existing.price_output_micros_per_mtok = _price(row, "price_output_micros_per_mtok")
+            if row.get("request_options") is not None:
+                existing.request_options = request_options_of(row)
         await record(
             session,
             tenant_id=owner,
@@ -182,6 +190,13 @@ async def save_model(
             target_id=str(model_id),
             detail={"name": row.get("name"), "upstream_model": row.get("upstream_model")},
         )
+
+
+def _price(row: dict[str, object], name: str) -> int:
+    value = row.get(name)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, value)
 
 
 async def save_alias(
@@ -273,6 +288,25 @@ async def read_api_key(engine: AsyncEngine, provider_id: uuid.UUID) -> str:
         return value.decode()
 
 
+def model_row_from(model: Any) -> dict[str, object]:
+    """The cache row for one ``models`` record. Prices and request options ride along,
+    or every refresh before a turn would silently zero the cost of that turn."""
+    return {
+        "id": model.id,
+        "tenant_id": model.tenant_id,
+        "provider_id": model.provider_id,
+        "name": model.name,
+        "upstream_model": model.upstream_model,
+        "kind": model.kind,
+        "capabilities": list(model.capabilities or []),
+        "price_input_micros_per_mtok": int(model.price_input_micros_per_mtok or 0),
+        "price_output_micros_per_mtok": int(model.price_output_micros_per_mtok or 0),
+        "request_options": request_options_of(model),
+        "status": model.status,
+        "platform": model.tenant_id is None,
+    }
+
+
 async def load_into(engine: AsyncEngine, store: Any) -> None:
     """Merge database providers, models and aliases into the process cache."""
     async with AsyncSession(engine, expire_on_commit=False) as session:
@@ -293,17 +327,7 @@ async def load_into(engine: AsyncEngine, store: Any) -> None:
             "has_api_key": provider.api_key_ref_id is not None,
         }
     for model in models:
-        store.models[model.id] = {
-            "id": model.id,
-            "tenant_id": model.tenant_id,
-            "provider_id": model.provider_id,
-            "name": model.name,
-            "upstream_model": model.upstream_model,
-            "kind": model.kind,
-            "capabilities": list(model.capabilities or []),
-            "status": model.status,
-            "platform": model.tenant_id is None,
-        }
+        store.models[model.id] = model_row_from(model)
     for alias in aliases:
         store.aliases[alias.id] = {
             "id": alias.id,
@@ -332,7 +356,8 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
                     await session.execute(
                         text(
                             """
-                        SELECT p.id, p.base_url, p.kind, p.timeout_s, m.upstream_model
+                        SELECT p.id, p.base_url, p.kind, p.timeout_s, m.upstream_model,
+                               m.request_options
                         FROM models m
                         JOIN model_providers p ON p.id = m.provider_id
                         WHERE m.upstream_model = :name
@@ -367,6 +392,7 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
         upstream_model=str(found["upstream_model"]),
         timeout_s=int(found["timeout_s"] or 120),
         kind=str(found["kind"]),
+        request_options=request_options_of(found),
     )
 
 

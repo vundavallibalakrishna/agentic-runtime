@@ -147,6 +147,8 @@ def save_checkpoint(run: dict[str, object], state: dict[str, object], call_id: s
         "messages": state.get("messages") or [],
         "steps": state.get("steps") or 0,
         "tokens": state.get("tokens") or 0,
+        "tokens_in": state.get("tokens_in") or 0,
+        "tokens_out": state.get("tokens_out") or 0,
         "cost": state.get("cost") or 0,
         "used_calls": state.get("used_calls") or 0,
         "previews": state.get("previews") or [],
@@ -161,6 +163,8 @@ class RestoredRun(TypedDict):
     messages: list[dict[str, object]]
     steps: int
     tokens: int
+    tokens_in: int
+    tokens_out: int
     cost: int
     used_calls: int
     previews: list[dict[str, object]]
@@ -202,6 +206,8 @@ def restore_checkpoint(run: dict[str, object]) -> RestoredRun | None:
         "messages": messages,
         "steps": whole(raw.get("steps"), 0),
         "tokens": whole(raw.get("tokens"), 0),
+        "tokens_in": whole(raw.get("tokens_in"), 0),
+        "tokens_out": whole(raw.get("tokens_out"), 0),
         "cost": whole(raw.get("cost"), 0),
         "used_calls": whole(raw.get("used_calls"), 0),
         "previews": previews,

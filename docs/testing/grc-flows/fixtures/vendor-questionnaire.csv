@@ -1,0 +1,10 @@
+id,question
+Q1,Do you enforce multi-factor authentication for access to production systems?
+Q2,Is customer data encrypted at rest? Which algorithm?
+Q3,What TLS version do you require for data in transit?
+Q4,How long do you retain security logs?
+Q5,Within what time do you notify customers of a personal data breach?
+Q6,How often are user access rights reviewed?
+Q7,Do you hold a current SOC 2 Type II report?
+Q8,Do you hold ISO 27001 certification?
+Q9,Do you perform annual third-party penetration tests?

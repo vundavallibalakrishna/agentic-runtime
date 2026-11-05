@@ -1049,6 +1049,7 @@ from .meta_api_v1_meta_get_response_meta_api_v1_meta_get import (
     MetaApiV1MetaGetResponseMetaApiV1MetaGet,
 )
 from .model_body import ModelBody
+from .model_body_request_options_type_0 import ModelBodyRequestOptionsType0
 from .my_identities_api_v1_me_channel_identities_get_response_my_identities_api_v1_me_channel_identities_get import (
     MyIdentitiesApiV1MeChannelIdentitiesGetResponseMyIdentitiesApiV1MeChannelIdentitiesGet,
 )
@@ -2034,6 +2035,7 @@ __all__ = (
     "MetaApiV1MetaGetResponseMetaApiV1MetaGet",
     "MeTeamsItem",
     "ModelBody",
+    "ModelBodyRequestOptionsType0",
     "MyIdentitiesApiV1MeChannelIdentitiesGetResponseMyIdentitiesApiV1MeChannelIdentitiesGet",
     "MyUsageApiV1MeUsageGetResponseMyUsageApiV1MeUsageGet",
     "NotesBody",

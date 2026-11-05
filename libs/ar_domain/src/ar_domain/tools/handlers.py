@@ -255,7 +255,7 @@ def _web(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     url = str(arguments.get("url") or "")
     if not url.startswith("https://"):
         return _error("validation_failed", "url must be https")
-    settings = _settings(store)
+    settings = _settings(store, arguments)
     features = settings.get("features") if isinstance(settings.get("features"), dict) else {}
     if not (isinstance(features, dict) and features.get("web_fetch") is True):
         return _error("feature_disabled", "web fetch is not enabled for this workspace")
@@ -472,12 +472,11 @@ def _memory(store: Any, name: str, arguments: dict[str, object]) -> dict[str, ob
     return _error("unknown_tool", f"unknown tool {name}")
 
 
-def _settings(store: Any) -> dict[str, object]:
-    settings = getattr(store, "tenant_settings", {})
-    for row in settings.values():
-        if isinstance(row, dict):
-            return row
-    return {}
+def _settings(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    """The calling tenant's settings. A call without a tenant gets the defaults."""
+    from ar_domain.identity.tenant_settings import settings_for  # noqa: PLC0415
+
+    return settings_for(store, arguments.get("_tenant_id"))
 
 
 def _strings(value: object) -> list[str]:

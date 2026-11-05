@@ -29,6 +29,7 @@ class FeatureFlags(_Model):
     guardrails: bool = False
     injection_classifier: bool = True
     pii_redaction: bool = True
+    assurance: bool = False
     document_analysis_redaction: bool = False
     tenant_model_providers: bool = False
 
@@ -94,6 +95,7 @@ class GrievanceContact(_Model):
 class PrivacySettings(_Model):
     notice_text_md: str = ""
     notice_version: str = "0"
+    redaction_skip_entities: list[str] = Field(default_factory=list)
     grievance_contact: GrievanceContact = Field(default_factory=GrievanceContact)
 
 

@@ -106,7 +106,12 @@ export function AppShell({
   }, [session]);
 
   const items = useMemo(
-    () => primaryNav.filter((item) => session?.permissions?.includes(item.permission)),
+    () =>
+      primaryNav.filter(
+        (item) =>
+          session?.permissions?.includes(item.permission) &&
+          (!item.feature || session?.features?.[item.feature] === true),
+      ),
     [session],
   );
   const current = items.find((item) => path === item.href || path.startsWith(`${item.href}/`));

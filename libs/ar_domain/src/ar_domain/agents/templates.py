@@ -64,7 +64,7 @@ def builder_definition() -> dict[str, object]:
         "Do not publish the agent. Leave a warning when a tool is not connected yet."
     )
     definition["starter_prompts"] = [
-        "Create an agent that reviews vendor SOC 2 reports and flags gaps",
+        "Create an agent that reads incoming support tickets and drafts a reply",
     ]
     definition["channels"] = {
         "web": True,

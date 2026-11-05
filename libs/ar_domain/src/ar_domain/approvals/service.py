@@ -561,6 +561,10 @@ class ApprovalBook:
         rule = row.get("approver_rule")
         mode = rule.get("mode") if isinstance(rule, dict) else "requester"
         if mode == "requester":
+            from ar_domain.approvals.logic import requester_blocked  # noqa: PLC0415
+
+            if requester_blocked(self.store, row):
+                return self._deciders(str(row.get("requested_for_user_id")))
             return [str(row.get("requested_for_user_id"))]
         if mode == "users" and isinstance(rule, dict):
             return [str(item) for item in rule.get("users") or []]
@@ -576,6 +580,21 @@ class ApprovalBook:
             if isinstance(agent, dict) and agent.get("owner_user_id") is not None:
                 return [str(agent["owner_user_id"])]
         return []
+
+    def _deciders(self, requester: str) -> list[str]:
+        """Users whose system roles grant ``approvals:decide``, except the requester."""
+        from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS  # noqa: PLC0415
+
+        granting = {
+            name for name, keys in SYSTEM_ROLE_PERMISSIONS.items() if "approvals:decide" in keys
+        }
+        roles = getattr(self.store, "user_roles", {})
+        found: list[str] = []
+        if isinstance(roles, dict):
+            for user_id, held in roles.items():
+                if str(user_id) != requester and granting.intersection(set(held)):
+                    found.append(str(user_id))
+        return found
 
     def _standing_view(self, row: dict[str, object]) -> dict[str, object]:
         agent = self.store.agents.get(row.get("agent_id"))

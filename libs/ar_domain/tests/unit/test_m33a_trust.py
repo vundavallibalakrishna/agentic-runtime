@@ -64,7 +64,7 @@ def _post(
     )
 
 
-def test_requester_mode_deadlocks_when_the_owner_is_the_requester() -> None:
+def test_requester_mode_lets_an_approver_decide_when_the_owner_is_the_requester() -> None:
     store = ChatService()
     tenant = demo_id("tenant")
     admin = demo_id("admin")
@@ -80,11 +80,12 @@ def test_requester_mode_deadlocks_when_the_owner_is_the_requester() -> None:
     with pytest.raises(ValidationFailedError, match="sod_violation") as blocked:
         ApprovalBook(store).decide(owner, approval_id, body, stepped_up=True)
     assert blocked.value.status == 422
-    with pytest.raises(ForbiddenError):
-        ApprovalBook(store).decide(
-            _actor(tenant, approver, "approver"), approval_id, body, stepped_up=True
-        )
-    assert store.approvals[approval_id]["status"] == "pending"
+    # M32-T03: segregation of duties blocks the owner, so another approver may decide
+    # instead of the request waiting forever.
+    ApprovalBook(store).decide(
+        _actor(tenant, approver, "approver"), approval_id, body, stepped_up=True
+    )
+    assert store.approvals[approval_id]["status"] != "pending"
 
 
 def test_seeded_users_policy_lets_the_approver_finish_the_write() -> None:

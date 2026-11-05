@@ -2022,6 +2022,20 @@ export type ModelBody = {
      * Kind
      */
     kind?: string;
+    /**
+     * Priceinputmicrospermtok
+     */
+    priceInputMicrosPerMtok?: number;
+    /**
+     * Priceoutputmicrospermtok
+     */
+    priceOutputMicrosPerMtok?: number;
+    /**
+     * Requestoptions
+     */
+    requestOptions?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**

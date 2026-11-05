@@ -4,6 +4,7 @@ import httpx
 from fastapi.responses import JSONResponse
 
 from ar_domain.models.logic import completion_text
+from ar_domain.models.options import apply_request_options
 from ar_domain.models.registry import UpstreamTarget, lookup_upstream
 
 _UNAVAILABLE = {
@@ -28,8 +29,7 @@ async def complete_upstream(body: dict[str, object], target: UpstreamTarget) -> 
     """POST ``/chat/completions`` with the stored key. The key is not copied into the result."""
     payload = dict(body)
     payload["model"] = target.upstream_model
-    if "qwen3" in target.upstream_model.lower():
-        payload.setdefault("chat_template_kwargs", {"enable_thinking": False})
+    apply_request_options(payload, target.request_options)
     headers: dict[str, str] = {}
     if target.api_key:
         headers["Authorization"] = f"Bearer {target.api_key}"

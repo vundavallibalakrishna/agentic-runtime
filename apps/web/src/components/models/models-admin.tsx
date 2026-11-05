@@ -16,6 +16,15 @@ type Row = Record<string, unknown>;
 
 const MODE_KEY = "ar-settings-mode";
 
+/** Price per million tokens in the tenant currency, stored as integer micros. */
+function toMicros(value: string): number {
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 0;
+  }
+  return Math.round(parsed * 1_000_000);
+}
+
 export function ModelsAdmin() {
   const t = useTranslations("models");
   const [providers, setProviders] = useState<Row[]>([]);
@@ -27,6 +36,8 @@ export function ModelsAdmin() {
   const [kind, setKind] = useState("fake");
   const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:8099/v1");
   const [apiKey, setApiKey] = useState("");
+  const [priceIn, setPriceIn] = useState("0");
+  const [priceOut, setPriceOut] = useState("0");
   const [upstream, setUpstream] = useState("fake-chat");
   const [sample, setSample] = useState("");
   const [advanced, setAdvanced] = useState(false);
@@ -99,6 +110,8 @@ export function ModelsAdmin() {
           name: `${name} chat`,
           upstreamModel: upstream,
           kind: "chat",
+          priceInputMicrosPerMtok: toMicros(priceIn),
+          priceOutputMicrosPerMtok: toMicros(priceOut),
         }),
       });
       const reasoning = aliases.find((row) => row.alias === "reasoning" && row.platform !== true);
@@ -194,6 +207,37 @@ export function ModelsAdmin() {
                     value={upstream}
                   />
                 </label>
+                {kind === "openai_compatible" ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="text-sm" htmlFor="provider-price-in">
+                      {t("priceInput")}
+                      <Input
+                        id="provider-price-in"
+                        inputMode="decimal"
+                        min="0"
+                        onChange={(event) => setPriceIn(event.target.value)}
+                        step="0.000001"
+                        type="number"
+                        value={priceIn}
+                      />
+                    </label>
+                    <label className="text-sm" htmlFor="provider-price-out">
+                      {t("priceOutput")}
+                      <Input
+                        id="provider-price-out"
+                        inputMode="decimal"
+                        min="0"
+                        onChange={(event) => setPriceOut(event.target.value)}
+                        step="0.000001"
+                        type="number"
+                        value={priceOut}
+                      />
+                    </label>
+                    <p className="text-sm text-[var(--muted-foreground)] sm:col-span-2">
+                      {t("priceHint")}
+                    </p>
+                  </div>
+                ) : null}
                 {kind === "openai_compatible" ? (
                   <div className="grid gap-1">
                     <label className="text-sm" htmlFor="provider-key">

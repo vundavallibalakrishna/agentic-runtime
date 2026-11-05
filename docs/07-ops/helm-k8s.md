@@ -23,6 +23,8 @@ One umbrella chart `deploy/helm/agentic-runtime` installs every deployable for b
 | `bootstrap` | Job (post-install, single_tenant) | — | | | `python -m ar_domain.bootstrap` |
 | Sandboxes | Pods created by sandbox-manager | per run | | warm pool | Namespace `ar-sandboxes` (or `ar-sbx-{tenant_slug}` for dedicated tenants); `runtimeClassName` gVisor/Kata |
 
+Every Python deployable runs the shared `python-service` image, whose entrypoint is `python -m ar_common.serve`. The chart sets `AR_APP_MODULE` and `AR_PORT` per workload (`workloads.<name>.appModule`) for the HTTP services, and overrides `command` with the worker console script (`ar-runtime`, `ar-system`, `ar-ingest`) for the Temporal workers, because only their `main()` starts the poller; the ASGI factory alone serves health probes and nothing else.
+
 All pods: `runAsNonRoot`, UID 10001, `readOnlyRootFilesystem: true` (writable `emptyDir` at `/tmp`), drop ALL capabilities, `seccompProfile: RuntimeDefault`, resource requests/limits from values, topology spread across zones, PodDisruptionBudget `minAvailable: 1` (≥ 2 replicas), automountServiceAccountToken false except sandbox-manager and workers using Kubernetes API.
 
 ## 2. Networking

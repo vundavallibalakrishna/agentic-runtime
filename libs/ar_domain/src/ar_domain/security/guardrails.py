@@ -78,10 +78,11 @@ def apply_result_safety(
     """
     from ar_domain.pii.analyzer import redact  # noqa: PLC0415
 
+    skip = redaction_skip_entities(store, tenant_id)
     if analysis and not analysis_redaction_enabled(store, tenant_id, agent_version_id):
-        cleaned = redact(text, enabled=True, profile="analysis")
+        cleaned = redact(text, enabled=True, profile="analysis", skip_entities=skip)
     elif analysis or pii_redaction_enabled(store, tenant_id):
-        cleaned = redact(text, enabled=True, profile="outbound")
+        cleaned = redact(text, enabled=True, profile="outbound", skip_entities=skip)
     else:
         cleaned = text
     raw_flag = injection_flag(cleaned) if open_world else {"suspected": False, "failed_open": False}
@@ -109,17 +110,19 @@ def pii_redaction_enabled(store: Any, tenant_id: uuid.UUID | None) -> bool:
     return _flag(_settings_for(store, tenant_id), "pii_redaction", default=True)
 
 
+def redaction_skip_entities(store: Any, tenant_id: uuid.UUID | None) -> tuple[str, ...]:
+    """Entity types the tenant listed under ``privacy.redaction_skip_entities``."""
+    from ar_domain.identity.tenant_settings import section  # noqa: PLC0415
+
+    raw = section(_settings_for(store, tenant_id), "privacy").get("redaction_skip_entities")
+    return tuple(str(item) for item in raw) if isinstance(raw, list) else ()
+
+
 def _settings_for(store: Any, tenant_id: uuid.UUID | None) -> dict[str, object]:
-    book = getattr(store, "tenant_settings", {})
-    if not isinstance(book, dict):
-        return {}
-    if isinstance(tenant_id, uuid.UUID):
-        row = book.get(tenant_id)
-        return row if isinstance(row, dict) else {}
-    for row in book.values():
-        if isinstance(row, dict):
-            return row
-    return {}
+    """The calling tenant's row only. No tenant means the defaults, never another tenant."""
+    from ar_domain.identity.tenant_settings import settings_for  # noqa: PLC0415
+
+    return settings_for(store, tenant_id)
 
 
 def _flag(settings: dict[str, object], name: str, *, default: bool) -> bool:

@@ -50,8 +50,8 @@ M2.5-T01 | done | e29016a | design system, shell, sign-in, chat, restyled pages
 M2.5-T02 | done | e29016a | Keycloak callback and local-run bugs
 M2.5-T03 | done | e29016a | fresh-clone CI job
 M2.5-T04 | done | e29016a | checklist, screenshots, walkthrough
-M2.5-T01b | in_progress | 25593f8 | 2026-10-28 local verification passed: make check (460 Python, 85.21%), make test (478 Python, 85.77%), production build, 42 browser checks, six live SSO/widget checks, worker chat/ingestion/manual and scheduled routines; hosted CI pending; docs/testing/full-stack-review.md
-M2.5-T01a | in_progress | e73cd78 | 2026-10-27 workspace management/detail/state refinement implemented; web build/typecheck/lint/unit and light/dark mobile/desktop axe checks pass; make test passes (371 Python tests, 85.02%); the coverage and full Temporal/widget gaps are closed locally by M2.5-T01b; hosted CI remains outside verification; docs/testing/detail-flow-review.md
+M2.5-T01b | done | 25593f8 | 2026-10-28 local verification passed: make check (460 Python, 85.21%), make test (478 Python, 85.77%), production build, 42 browser checks, six live SSO/widget checks, worker chat/ingestion/manual and scheduled routines; hosted CI pending; docs/testing/full-stack-review.md
+M2.5-T01a | done | e73cd78 | 2026-10-27 workspace management/detail/state refinement implemented; web build/typecheck/lint/unit and light/dark mobile/desktop axe checks pass; make test passes (371 Python tests, 85.02%); the coverage and full Temporal/widget gaps are closed locally by M2.5-T01b; hosted CI remains outside verification; docs/testing/detail-flow-review.md
 
 M3-T01 | done | 8d6d5b0 | lifecycle API, access rules, audit and domain events
 M3-T02 | done | 8d6d5b0 | schema then reference validation, definition hash
@@ -260,7 +260,16 @@ M30-T01 | done | 3bfd4b8 | retired pack removed; revision 0031 drops its schema
 M31-T01 | done | 9aa4dd1 | final certification of the whole platform
 
 M32-T01 | done | 0e34c9c | document analysis keeps evidence; paraphrased check |
-
+M32-T00 | done | 938ab73 | review record, fresh-pass and GRC-flow evidence committed
+M32-T02 | done | 574df81 | tenant-scoped settings reads; privacy.redactionSkipEntities
+M32-T03 | done | 267de52 | requester-mode approvals accept another approver when SoD blocks the requester
+M32-T04 | done | 267de52 | no fake echo outside dev/ci: run fails model_unavailable; gateway 502
+M32-T05 | done | 43f9ab6 | scripted compose and keyword tool paths run only where fake models are allowed (dev/ci)
+M32-T06 | done | 43f9ab6 | builder drafts with the reasoning model, repairs once from errors, scripted proposal last
+M32-T07 | done | c775a9b | cost from model prices per call; usage events carry run/model ids, flush to usage_events and reload on bind; prices on the models API and screen
+M32-T08 | done | 1c1e774 | models.request_options (revision 0032) replaces the Qwen3 name checks; API accepts requestOptions
+M32-T10 | done | 1c1e774 | chart sets AR_APP_MODULE and AR_PORT per service and runs workers through their console scripts
+M32-T09 | done | aab95f3 | features.assurance (default off) gates the assurance routes, permissions and nav; dev seed turns it on; neutral builder starter prompt; session reports tenant features and locale
 M33a-T01 | done | 26f275a | seed users-mode W2 policy; fetch retry; search key path not_live without a key |
 M33b-T01 | done | 2b6766c | OCR canary live on tesseract; image.ask live on Qwen2.5-VL, vision_unavailable on fake-llm |
 M34a-T01 | done | 9c5080e | documents.create for DOCX, PDF and XLSX; fixture checklist |

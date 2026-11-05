@@ -126,6 +126,12 @@ PERMISSIONS: tuple[Permission, ...] = (
 
 PERMISSION_KEYS: frozenset[str] = frozenset(item.key for item in PERMISSIONS)
 
+# Evidence, holds, retention schedules, guests, binders, the AI register and run records
+# ship with the platform but stay behind the tenant feature ``features.assurance``.
+ASSURANCE_PERMISSIONS: frozenset[str] = frozenset(
+    item.key for item in PERMISSIONS if item.category == "records"
+)
+
 _MEMBER = (
     "tenant:read",
     "chat:use",

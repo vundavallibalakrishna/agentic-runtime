@@ -36,8 +36,11 @@ def ask_model(store: Any, tenant_id: uuid.UUID, alias: str, task: str, evidence:
         ],
         "max_tokens": 1800,
     }
-    if "qwen3" in str(model).lower():
-        body["chat_template_kwargs"] = {"enable_thinking": False}
+    from ar_domain.models.options import apply_request_options  # noqa: PLC0415
+
+    options_for = getattr(store, "request_options", None)
+    options = options_for(tenant_id, alias or "reasoning") if callable(options_for) else {}
+    apply_request_options(body, options)
     try:
         with httpx.Client(timeout=timeout_s) as client:
             response = client.post(url, json=body, headers=headers)

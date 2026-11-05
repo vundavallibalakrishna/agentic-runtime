@@ -9,7 +9,11 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
+from typing import cast
 from uuid import UUID
+
+if TYPE_CHECKING:
+    from ..models.model_body_request_options_type_0 import ModelBodyRequestOptionsType0
 
 
 T = TypeVar("T", bound="ModelBody")
@@ -23,14 +27,22 @@ class ModelBody:
         name (str):
         upstream_model (str):
         kind (str | Unset):  Default: 'chat'.
+        price_input_micros_per_mtok (int | Unset):  Default: 0.
+        price_output_micros_per_mtok (int | Unset):  Default: 0.
+        request_options (ModelBodyRequestOptionsType0 | None | Unset):
     """
 
     provider_id: UUID
     name: str
     upstream_model: str
     kind: str | Unset = "chat"
+    price_input_micros_per_mtok: int | Unset = 0
+    price_output_micros_per_mtok: int | Unset = 0
+    request_options: ModelBodyRequestOptionsType0 | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.model_body_request_options_type_0 import ModelBodyRequestOptionsType0  # noqa: PLC0415
+
         provider_id = str(self.provider_id)
 
         name = self.name
@@ -38,6 +50,18 @@ class ModelBody:
         upstream_model = self.upstream_model
 
         kind = self.kind
+
+        price_input_micros_per_mtok = self.price_input_micros_per_mtok
+
+        price_output_micros_per_mtok = self.price_output_micros_per_mtok
+
+        request_options: dict[str, Any] | None | Unset
+        if isinstance(self.request_options, Unset):
+            request_options = UNSET
+        elif isinstance(self.request_options, ModelBodyRequestOptionsType0):
+            request_options = self.request_options.to_dict()
+        else:
+            request_options = self.request_options
 
         field_dict: dict[str, Any] = {}
 
@@ -50,11 +74,19 @@ class ModelBody:
         )
         if kind is not UNSET:
             field_dict["kind"] = kind
+        if price_input_micros_per_mtok is not UNSET:
+            field_dict["priceInputMicrosPerMtok"] = price_input_micros_per_mtok
+        if price_output_micros_per_mtok is not UNSET:
+            field_dict["priceOutputMicrosPerMtok"] = price_output_micros_per_mtok
+        if request_options is not UNSET:
+            field_dict["requestOptions"] = request_options
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.model_body_request_options_type_0 import ModelBodyRequestOptionsType0  # noqa: PLC0415
+
         d = dict(src_dict)
         provider_id = UUID(d.pop("providerId"))
 
@@ -64,11 +96,35 @@ class ModelBody:
 
         kind = d.pop("kind", UNSET)
 
+        price_input_micros_per_mtok = d.pop("priceInputMicrosPerMtok", UNSET)
+
+        price_output_micros_per_mtok = d.pop("priceOutputMicrosPerMtok", UNSET)
+
+        def _parse_request_options(data: object) -> ModelBodyRequestOptionsType0 | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                request_options_type_0 = ModelBodyRequestOptionsType0.from_dict(data)
+
+                return request_options_type_0
+            except TypeError, ValueError, AttributeError, KeyError:
+                pass
+            return cast(ModelBodyRequestOptionsType0 | None | Unset, data)
+
+        request_options = _parse_request_options(d.pop("requestOptions", UNSET))
+
         model_body = cls(
             provider_id=provider_id,
             name=name,
             upstream_model=upstream_model,
             kind=kind,
+            price_input_micros_per_mtok=price_input_micros_per_mtok,
+            price_output_micros_per_mtok=price_output_micros_per_mtok,
+            request_options=request_options,
         )
 
         return model_body

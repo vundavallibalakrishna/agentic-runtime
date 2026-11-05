@@ -1,0 +1,271 @@
+{
+  "approval": {
+    "heading": "Approvals",
+    "sawHttp": false,
+    "sawGitHub": false,
+    "decided": [],
+    "after": "Skip to content\nAgentic Runtime\nNew chat\n⌘⇧O\n\nWORKSPACE\n\nChat\nAgents\nRoutines\nSchedules\nInbox\n\nRESOURCES\n\nTools\nDocuments\nConnectors\nConnections\nKnowledge\nMemory\nSkills\n\nMANAGE\n\nSettings\nApprovals\nRuns\nModels\nCollapse sidebar\nDev\nApprovals\nSearch anything\n⌘K\nDev Approver\napprover@dev.local\n\nApprovals\n\nReview requests and decide what your assistants can do next.\n\nSettings detail\nSimple\nAdvanced\nReviews\nPolicies\nApproval filters\nTo decide\nRequested\nAll\nRisk\nRisk\nW2\nW3\n\nNothing is waiting for you.\n\nNew requests will appear here when an action needs your approval.\n\nRefresh",
+    "videoPath": "/tmp/m31-video/page@e35c072cd9105b4583a3d472f0f74954.webm"
+  },
+  "flow": {
+    "chatHeading": "Chat",
+    "chatText": "Skip to content\nAgentic Runtime\nNew chat\n⌘⇧O\n\nWORKSPACE\n\nChat\nAgents\nRoutines\nSchedules\nInbox\n\nRESOURCES\n\nTools\nDocuments\nConnectors\nConnections\nKnowledge\nMemory\nSkills\n\nMANAGE\n\nSettings\nChannels\nEvaluations\nPlatform health\nUsage\nQuotas\nApprovals\nRuns\nModels\nComputers\nAssurance\nUsers\nCreate an agent\nCollapse sidebar\nDev\nChat\nSearch anything\n⌘K\nDev Admin\nadmin@dev.local\n\nRECENT CONVERSATIONS\n\nNew chat\n\nNo conversations yet.\n\nChat\n\nDev\n\nA LITTLE HELP. A LOT MORE POSSIBILITY.\n\nWhat can we work on?\n",
+    "sample": "Sample: pong (1565 ms)",
+    "keyCleared": true,
+    "keyStoredLabel": true,
+    "createdAgent": "http://127.0.0.1:18232/chat?agent=certification-clerk-mw3e8pg2",
+    "notLive": true,
+    "exposeHydrated": true,
+    "keyShownOnce": true,
+    "secretStillVisible": false,
+    "retired": "Page not found"
+  },
+  "desktopLight": [
+    {
+      "route": "/chat",
+      "heading": "Chat"
+    },
+    {
+      "route": "/agents/new",
+      "heading": "New agent"
+    },
+    {
+      "route": "/agents",
+      "heading": "Agents"
+    },
+    {
+      "route": "/documents",
+      "heading": "Documents"
+    },
+    {
+      "route": "/knowledge",
+      "heading": "Knowledge"
+    },
+    {
+      "route": "/memory",
+      "heading": "Memory"
+    },
+    {
+      "route": "/skills",
+      "heading": "Skills"
+    },
+    {
+      "route": "/connectors",
+      "heading": "Connectors"
+    },
+    {
+      "route": "/runs",
+      "heading": "Runs"
+    },
+    {
+      "route": "/inbox",
+      "heading": "Inbox"
+    },
+    {
+      "route": "/approvals",
+      "heading": "Approvals"
+    },
+    {
+      "route": "/schedules",
+      "heading": "Schedules"
+    },
+    {
+      "route": "/settings/profile",
+      "heading": "Profile"
+    },
+    {
+      "route": "/admin/models",
+      "heading": "Models"
+    },
+    {
+      "route": "/grc",
+      "heading": "Page not found"
+    }
+  ],
+  "desktopDark": [
+    {
+      "route": "/chat",
+      "heading": "Chat"
+    },
+    {
+      "route": "/agents/new",
+      "heading": "New agent"
+    },
+    {
+      "route": "/agents",
+      "heading": "Agents"
+    },
+    {
+      "route": "/documents",
+      "heading": "Documents"
+    },
+    {
+      "route": "/knowledge",
+      "heading": "Knowledge"
+    },
+    {
+      "route": "/memory",
+      "heading": "Memory"
+    },
+    {
+      "route": "/skills",
+      "heading": "Skills"
+    },
+    {
+      "route": "/connectors",
+      "heading": "Connectors"
+    },
+    {
+      "route": "/runs",
+      "heading": "Runs"
+    },
+    {
+      "route": "/inbox",
+      "heading": "Inbox"
+    },
+    {
+      "route": "/approvals",
+      "heading": "Approvals"
+    },
+    {
+      "route": "/schedules",
+      "heading": "Schedules"
+    },
+    {
+      "route": "/settings/profile",
+      "heading": "Profile"
+    },
+    {
+      "route": "/admin/models",
+      "heading": "Models"
+    },
+    {
+      "route": "/grc",
+      "heading": "Page not found"
+    }
+  ],
+  "mobileLight": [
+    {
+      "route": "/chat",
+      "heading": "Chat"
+    },
+    {
+      "route": "/agents/new",
+      "heading": "New agent"
+    },
+    {
+      "route": "/agents",
+      "heading": "Agents"
+    },
+    {
+      "route": "/documents",
+      "heading": "Documents"
+    },
+    {
+      "route": "/knowledge",
+      "heading": "Knowledge"
+    },
+    {
+      "route": "/memory",
+      "heading": "Memory"
+    },
+    {
+      "route": "/skills",
+      "heading": "Skills"
+    },
+    {
+      "route": "/connectors",
+      "heading": "Connectors"
+    },
+    {
+      "route": "/runs",
+      "heading": "Runs"
+    },
+    {
+      "route": "/inbox",
+      "heading": "Inbox"
+    },
+    {
+      "route": "/approvals",
+      "heading": "Approvals"
+    },
+    {
+      "route": "/schedules",
+      "heading": "Schedules"
+    },
+    {
+      "route": "/settings/profile",
+      "heading": "Profile"
+    },
+    {
+      "route": "/admin/models",
+      "heading": "Models"
+    },
+    {
+      "route": "/grc",
+      "heading": "Page not found"
+    }
+  ],
+  "mobileDark": [
+    {
+      "route": "/chat",
+      "heading": "Chat"
+    },
+    {
+      "route": "/agents/new",
+      "heading": "New agent"
+    },
+    {
+      "route": "/agents",
+      "heading": "Agents"
+    },
+    {
+      "route": "/documents",
+      "heading": "Documents"
+    },
+    {
+      "route": "/knowledge",
+      "heading": "Knowledge"
+    },
+    {
+      "route": "/memory",
+      "heading": "Memory"
+    },
+    {
+      "route": "/skills",
+      "heading": "Skills"
+    },
+    {
+      "route": "/connectors",
+      "heading": "Connectors"
+    },
+    {
+      "route": "/runs",
+      "heading": "Runs"
+    },
+    {
+      "route": "/inbox",
+      "heading": "Inbox"
+    },
+    {
+      "route": "/approvals",
+      "heading": "Approvals"
+    },
+    {
+      "route": "/schedules",
+      "heading": "Schedules"
+    },
+    {
+      "route": "/settings/profile",
+      "heading": "Profile"
+    },
+    {
+      "route": "/admin/models",
+      "heading": "Models"
+    },
+    {
+      "route": "/grc",
+      "heading": "Page not found"
+    }
+  ]
+}

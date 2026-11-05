@@ -25,6 +25,7 @@ from ar_domain.identity.models import (
     User,
 )
 from ar_domain.identity.permissions import SYSTEM_ROLE_NAMES, SYSTEM_ROLE_PERMISSIONS
+from ar_domain.identity.tenant_settings import dev_tenant_settings
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -178,10 +179,19 @@ async def _tenant(session: AsyncSession, plan_id: uuid.UUID) -> Tenant:
             name="Dev",
             status="active",
             plan_id=plan_id,
-            settings=TenantSettings().model_dump(by_alias=False),
+            settings=dev_tenant_settings(),
         )
         session.add(row)
         await session.flush()
+    else:
+        # A dev tenant seeded before the assurance flag existed keeps every screen.
+        current = dict(row.settings or {})
+        features = dict(current.get("features") or {})
+        if "assurance" not in features:
+            features["assurance"] = True
+            current["features"] = features
+            row.settings = current
+            await session.flush()
     return row
 
 

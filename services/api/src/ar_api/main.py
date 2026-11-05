@@ -188,6 +188,9 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
         from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
 
         permissions = permissions | permissions_for(app.state.chat, data.tenant_id, roles)
+        from ar_domain.identity.tenant_settings import permissions_for_features  # noqa: PLC0415
+
+        permissions = permissions_for_features(app.state.chat, data.tenant_id, permissions)
         return Principal(
             kind="user",
             id=str(data.user_id),
@@ -211,7 +214,8 @@ async def _signup(slug: str, name: str, email: str) -> str:
 
 
 def _configure_chat(chat: ChatService, settings: Settings) -> None:
-    """Pack trust follows the environment. Dev and CI accept unsigned packs."""
+    """Pack trust follows the environment. Dev and CI accept unsigned packs and fake models."""
+    chat.fake_models_allowed = settings.env in {EnvName.DEV, EnvName.CI}
     raw = os.environ.get("AR_PACK_SIGNATURE_REQUIRED")
     if raw is None:
         chat.pack_signature_required = settings.env not in {EnvName.DEV, EnvName.CI}
