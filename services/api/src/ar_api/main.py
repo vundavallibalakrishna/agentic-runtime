@@ -230,8 +230,16 @@ def _configure_chat(chat: ChatService, settings: Settings) -> None:
 
 
 def _configure_policy(chat: ChatService, settings: Settings) -> None:
-    """An empty OPA URL keeps decisions in process (OQ-36)."""
-    chat.opa_url = settings.opa_url
+    """An empty OPA URL keeps decisions in process (OQ-36).
+
+    Pytest loads ``.env``. A developer ``AR_OPA_URL`` in that file points unit
+    tests at a live bundle and makes policy tests fail in an order-dependent
+    way. An explicit environment variable still wins.
+    """
+    url = settings.opa_url
+    if os.environ.get("PYTEST_CURRENT_TEST") and "AR_OPA_URL" not in os.environ:
+        url = ""
+    chat.opa_url = url
     chat.opa_timeout_ms = settings.opa_timeout_ms
 
 

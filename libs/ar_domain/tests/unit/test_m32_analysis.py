@@ -286,6 +286,38 @@ def test_installed_recogniser_keeps_grc_tokens() -> None:
         assert "[US_DRIVER_LICENSE]" not in kept
 
 
+def test_workspace_uuid_path_is_not_masked(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A tool error must keep the sandbox path the model has to reuse."""
+    path = "/var/ar-sandboxes/01a1ab39-7c4e-4b2a-8f11-abcdef012345/workspace/outputs/note.txt"
+    guest = "/workspace/outputs/01a1ab39-7c4e-4b2a-8f11-abcdef012345.txt"
+    sample = f"FileNotFoundError: {path} and {guest} ada@example.com"
+
+    def spans(text: str) -> list[dict[str, object]]:
+        found: list[dict[str, object]] = []
+        for token, kind in (
+            ("7c4e-4b2a-8f11", "us_driver_license"),
+            ("ada@example.com", "email_address"),
+        ):
+            start = text.find(token)
+            if start >= 0:
+                found.append({"entity": kind, "start": start, "end": start + len(token)})
+        return found
+
+    monkeypatch.setattr("ar_domain.pii.analyzer._presidio", spans)
+    kept = redact(sample, profile="outbound")
+    assert path in kept
+    assert guest in kept
+    assert "[US_DRIVER_LICENSE]" not in kept
+    assert "ada@example.com" not in kept
+    assert "[EMAIL_ADDRESS]" in kept
+    store = ChatService()
+    cleaned, _flag = apply_result_safety(
+        store, sample, open_world=False, analysis=False, tenant_id=demo_id("tenant")
+    )
+    assert path in cleaned
+    assert "[US_DRIVER_LICENSE]" not in cleaned
+
+
 def test_agent_mask_is_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("ar_domain.pii.analyzer._presidio", _fake_presidio)
     store: Any = ChatService()

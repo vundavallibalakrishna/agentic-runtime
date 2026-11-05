@@ -1,5 +1,6 @@
 """Redact PII. Presidio is used when the extra is installed."""
 
+import re
 from typing import Protocol, cast
 
 from ar_domain.pii.recognizers_in import find_indian
@@ -31,6 +32,16 @@ class _Engine(Protocol):
 
 _engine_cache: list[object] = []
 
+# A sandbox path is not a licence. Presidio's US driver-licence pattern matches
+# hex groups inside a UUID (``01a1ab39-[US_DRIVER_LICENSE]-…``), and the model
+# then cannot reuse the path. The whole path, and any UUID in it, stays.
+_UUID = re.compile(
+    r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+)
+_WORKSPACE_PATH = re.compile(
+    r"(?:[A-Za-z]:)?(?:/[\w.+\-]+)*?/ar-sandboxes(?:/[\w.+\-]+)+|/workspace(?:/[\w.+\-]+)*"
+)
+
 
 def redact(
     text: str,
@@ -43,18 +54,22 @@ def redact(
 
     ``outbound`` masks every recogniser. ``analysis`` leaves dates, locations,
     names and control-id shaped tokens in place so a compliance check can read
-    them. ``skip_entities`` names further entity types (case-insensitive) the
-    tenant chose not to mask. Disabled callers receive the original text.
+    them.     ``skip_entities`` names further entity types (case-insensitive) the
+    tenant chose not to mask. Run-workspace paths and UUID segments inside
+    them are left as written (OQ-66). Disabled callers receive the original text.
     """
     if not enabled or not text:
         return text
     skipped = {name.lower() for name in skip_entities}
     if profile == "analysis":
         skipped |= _EVIDENCE
+    protected = _protected_ranges(text)
     spans = [
         span
         for span in (*find_indian(text), *_presidio(text))
-        if _closed_span(text, span) and str(span["entity"]).lower() not in skipped
+        if _closed_span(text, span)
+        and str(span["entity"]).lower() not in skipped
+        and not _overlaps_protected(span, protected)
     ]
     spans.sort(key=lambda item: int(str(item["start"])), reverse=True)
     updated = text
@@ -64,6 +79,19 @@ def redact(
         kind = str(span["entity"]).upper()
         updated = updated[:start] + f"[{kind}]" + updated[end:]
     return updated
+
+
+def _protected_ranges(text: str) -> list[tuple[int, int]]:
+    """Character ranges that redaction must leave alone."""
+    ranges = [(match.start(), match.end()) for match in _UUID.finditer(text)]
+    ranges.extend((match.start(), match.end()) for match in _WORKSPACE_PATH.finditer(text))
+    return ranges
+
+
+def _overlaps_protected(span: dict[str, object], ranges: list[tuple[int, int]]) -> bool:
+    start = int(str(span["start"]))
+    end = int(str(span["end"]))
+    return any(start < stop and end > begin for begin, stop in ranges)
 
 
 def _closed_span(text: str, span: dict[str, object]) -> bool:

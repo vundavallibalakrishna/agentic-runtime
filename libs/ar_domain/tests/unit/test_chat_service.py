@@ -216,3 +216,24 @@ async def test_catalogue_agents_and_chat_ops() -> None:
     service.delete_provider(tenant, provider_id, platform=False)
     service.delete_conversation(tenant, user, conversation_id)
     assert service.conversations[conversation_id]["deleted_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_active_run_stream_pings_through_silence() -> None:
+    tenant, user = _ids()
+    service = ChatService()
+    conversation = service.create_conversation(tenant, user, None)
+    posted = service.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "still working", schedule=False
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    seen: list[str] = []
+    stream = service.iter_events(tenant, run_id, 0, idle_s=0.01)
+    async for event in stream:
+        seen.append(str(event["type"]))
+        if event["type"] == "heartbeat":
+            break
+    await stream.aclose()
+    assert seen[0] == "run.queued"
+    assert seen[-1] == "heartbeat"
+    assert service.subscribers[run_id] == []

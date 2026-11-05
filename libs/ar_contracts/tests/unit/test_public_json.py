@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 
+from ar_common.json_api import camelize
 from ar_contracts.budget import RunBudget
 from ar_contracts.identity import Me
 from ar_contracts.json_api import Page, ProblemDetails, page_body, public_dump
@@ -43,6 +44,19 @@ def test_problem_and_page_envelopes() -> None:
     assert page["nextCursor"] is None
     assert page["hasMore"] is False
     assert Page.model_validate(page).has_more is False
+
+
+def test_request_options_are_not_camelized() -> None:
+    body = {
+        "request_options": {"chat_template_kwargs": {"enable_thinking": False}},
+        "created_at": "2026-11-05",
+    }
+    public = camelize(body)
+    assert public == {
+        "requestOptions": {"chat_template_kwargs": {"enable_thinking": False}},
+        "createdAt": "2026-11-05",
+    }
+    assert camelize(public) == public
 
 
 def test_identity_me_accepts_alias_and_python_name() -> None:

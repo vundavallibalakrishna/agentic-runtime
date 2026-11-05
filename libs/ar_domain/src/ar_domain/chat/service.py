@@ -737,10 +737,13 @@ class ChatService:
         row["upstream_model"] = upstream_model
         row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
         row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
-        from ar_domain.models.options import default_request_options  # noqa: PLC0415
+        from ar_domain.models.options import (  # noqa: PLC0415
+            copy_request_options,
+            default_request_options,
+        )
 
         row["request_options"] = (
-            dict(request_options)
+            copy_request_options(request_options)
             if request_options is not None
             else default_request_options(upstream_model)
         )
@@ -2109,8 +2112,18 @@ class ChatService:
         self.sse_counts[user_id] = max(0, self.sse_counts.get(user_id, 1) - 1)
 
     async def iter_events(
-        self, tenant_id: uuid.UUID, run_id: uuid.UUID, after: int
+        self,
+        tenant_id: uuid.UUID,
+        run_id: uuid.UUID,
+        after: int,
+        *,
+        idle_s: float = 10,
     ) -> AsyncIterator[dict[str, object]]:
+        """Yield run events. A silence while the run is active is a heartbeat, not the end.
+
+        ``idle_s`` is the gap between SSE keep-alive comments (stream-events §3).
+        The comment is not stored and does not advance ``seq``.
+        """
         for event in self.events_after(tenant_id, run_id, after):
             after = max(after, _seq(event))
             yield event
@@ -2123,7 +2136,14 @@ class ChatService:
         )
         try:
             while True:
-                event = await asyncio.wait_for(queue.get(), timeout=15)
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=idle_s)
+                except TimeoutError:
+                    current = self.runs.get(run_id)
+                    if current is None or not run_is_active(str(current.get("status"))):
+                        return
+                    yield {"type": "heartbeat", "seq": after, "data": {}}
+                    continue
                 if _seq(event) <= after:
                     continue
                 after = _seq(event)
@@ -2137,8 +2157,6 @@ class ChatService:
                     "input.required",
                 }:
                     return
-        except TimeoutError:
-            return
         finally:
             if watcher is not None:
                 watcher.cancel()
