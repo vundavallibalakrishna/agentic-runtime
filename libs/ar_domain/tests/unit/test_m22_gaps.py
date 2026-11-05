@@ -758,7 +758,7 @@ def test_registry_refresh_and_pipeline_helpers() -> None:
     assert _search_mode({"tool_search": {"mode": "pinned"}}) == "pinned"
     pipe = ToolPipeline(store)
     promoted = pipe._effective_version(
-        {"qualified_name": "general.http", "risk_class": "R0"}, {"method": "POST"}
+        {"qualified_name": "general.http", "risk_class": "R0"}, {"method": "POST"}, {}
     )
     assert promoted["risk_class"] == "W2"
     run_id = uuid.uuid4()

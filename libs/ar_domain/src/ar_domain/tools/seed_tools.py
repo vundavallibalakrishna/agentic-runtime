@@ -1543,10 +1543,34 @@ def _browser_tools() -> list[dict[str, object]]:
         "type": "object",
         "properties": {"ref": {"type": "string"}, "text": {"type": "string"}},
     }
+    page = {"openWorldHint": True, "readOnlyHint": True}
     return [
-        _tool("navigate", "Open a page", "Open an allowlisted page.", url, "R0"),
-        _tool("snapshot", "Read the page", "Read the page as an accessibility tree.", ref, "R0"),
-        _tool("click", "Click", "Click an element on the page.", ref, "R0"),
+        _tool(
+            "navigate",
+            "Open a page",
+            "Open a page in this conversation's browser. Allowlisted hosts open immediately. "
+            "Other public hosts wait for approval. Private addresses are denied.",
+            url,
+            "R0",
+            page,
+        ),
+        _tool(
+            "snapshot",
+            "Read the page",
+            "Read the current page as an accessibility tree with element refs. Untrusted text.",
+            ref,
+            "R0",
+            page,
+        ),
+        _tool(
+            "click",
+            "Click",
+            "Click an element. A link to a host outside the allow list is not followed; "
+            "call navigate so it can be approved.",
+            ref,
+            "R0",
+            page,
+        ),
         _tool("type", "Type", "Type into an element on the page.", ref, "W1"),
         _tool("press", "Press a key", "Press a key on the page.", ref, "R0"),
         _tool("scroll", "Scroll", "Scroll the page.", ref, "R0"),

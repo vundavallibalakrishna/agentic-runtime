@@ -143,7 +143,7 @@ class ToolPipeline:
                 version,
                 tool,
             )
-        version = self._effective_version(version, arguments)
+        version = self._effective_version(version, arguments, request)
         held = self._gate(request, version, tool, server, arguments, started)
         if held is not None:
             return held
@@ -198,6 +198,11 @@ class ToolPipeline:
         call_args = dict(arguments)
         if endpoint.startswith("builtin://"):
             call_args.update(self._sandbox_context(request))
+        if endpoint == "builtin://browser" and str(version.get("name")) in {
+            "navigate",
+            "submit_form",
+        }:
+            call_args["_browser_cleared"] = True
         if endpoint == "builtin://http_operation":
             notes = version.get("annotations")
             http = notes.get("_http") if isinstance(notes, dict) else None
@@ -274,7 +279,13 @@ class ToolPipeline:
                 ("http://", "https://", "builtin://web", "builtin://http_operation", "stdio://")
             )
             or endpoint
-            in {"builtin://data", "builtin://documents", "builtin://connectors", "builtin://image"}
+            in {
+                "builtin://data",
+                "builtin://documents",
+                "builtin://connectors",
+                "builtin://image",
+                "builtin://browser",
+            }
             or (
                 endpoint == "builtin://general"
                 and tool_name in {"inspect_table", "query_table", "export_table"}
@@ -315,17 +326,29 @@ class ToolPipeline:
         return stored
 
     def _effective_version(
-        self, version: dict[str, object], arguments: dict[str, object]
+        self,
+        version: dict[str, object],
+        arguments: dict[str, object],
+        request: dict[str, object],
     ) -> dict[str, object]:
-        """Non-GET HTTP calls wait for approval even though the tool is registered as a read."""
-        if str(version.get("qualified_name") or "") != "general.http":
-            return version
-        method = str(arguments.get("method") or "GET").upper()
-        if method in {"GET", "HEAD"}:
-            return version
-        copied = dict(version)
-        copied["risk_class"] = "W2"
-        return copied
+        """Raise risk when a read tool is about to write or leave the allow list."""
+        qualified = str(version.get("qualified_name") or "")
+        if qualified == "general.http":
+            method = str(arguments.get("method") or "GET").upper()
+            if method in {"GET", "HEAD"}:
+                return version
+            copied = dict(version)
+            copied["risk_class"] = "W2"
+            return copied
+        if qualified == "browser.navigate":
+            from ar_domain.sandboxes.browser import navigation_class  # noqa: PLC0415
+
+            kind = navigation_class(self.store, request, str(arguments.get("url") or ""))
+            if kind == "approve":
+                copied = dict(version)
+                copied["risk_class"] = "W2"
+                return copied
+        return version
 
     def _sandbox_context(self, request: dict[str, object]) -> dict[str, object]:
         context: dict[str, object] = {
