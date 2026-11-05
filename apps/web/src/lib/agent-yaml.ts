@@ -14,9 +14,13 @@ function quote(value: string): string {
 
 function emit(value: JsonValue, indent: number): string {
   const pad = "  ".repeat(indent);
-  // A missing map (null or undefined) must not reach Object.entries.
-  if (value == null) {
+  // A missing map must not reach Object.entries. A null is a value: an empty
+  // map in its place fails validation when the document is imported.
+  if (value === undefined) {
     return "{}";
+  }
+  if (value === null) {
+    return "null";
   }
   if (typeof value === "boolean" || typeof value === "number") {
     return String(value);

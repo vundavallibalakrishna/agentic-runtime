@@ -237,3 +237,21 @@ async def test_active_run_stream_pings_through_silence() -> None:
     assert seen[0] == "run.queued"
     assert seen[-1] == "heartbeat"
     assert service.subscribers[run_id] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", ["waiting_approval", "waiting_input"])
+async def test_paused_run_stream_ends_instead_of_pinging(status: str) -> None:
+    tenant, user = _ids()
+    service = ChatService()
+    conversation = service.create_conversation(tenant, user, None)
+    posted = service.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "needs a person", schedule=False
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    service.runs[run_id]["status"] = status
+    seen = [
+        str(event["type"]) async for event in service.iter_events(tenant, run_id, 0, idle_s=0.01)
+    ]
+    assert seen == ["run.queued"]
+    assert service.subscribers.get(run_id, []) == []
