@@ -177,6 +177,8 @@ Temporal Schedule `tool-drift-check` hourly (`AR_TOOL_DRIFT_INTERVAL`, default `
 | `sandbox.*`, `browser.*` | see [spec 12 §7](12-sandbox-manager.md#7-sandbox-agent-tools) | Forwarded to `sandbox-agent` |
 | `agents.delegate`, `plan.update`, `tools.search` | see [spec 07](07-agent-runtime.md) | Executed by `runtime-worker` |
 
+Every built-in reads only the calling tenant's rows, and a call that names no caller returns nothing. `files.list` and `files.read` apply the file API's read rule: the file's owner, or the owner of the conversation it belongs to. A file id that fails the rule is `not_found`. `conversations.search_history` reads the caller's own conversations with the calling agent. `tools.search` ranks platform tools and the calling tenant's tools, on the current version of an approved server.
+
 ## 10. `mcp-sql` connector runtime (`connectors/mcp_sql`, port 8010)
 
 - MCP server exposing, per tool server version: `{slug}.list_tables` (R0), `{slug}.describe_table` (R0), `{slug}.run_query` (R1) `{sql: string, params?: object, limit?: int}`.

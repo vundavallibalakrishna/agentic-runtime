@@ -4,6 +4,7 @@ import uuid
 from typing import Any
 
 from ar_common.errors import ArError
+from ar_domain.files.logic import FileView, can_read_file
 from ar_domain.tools.logic import as_int
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 
@@ -207,10 +208,56 @@ def _sql(store: Any, name: str, arguments: dict[str, object]) -> dict[str, objec
     return {"text": text, "structured": structured, "is_error": False}
 
 
+def _caller(arguments: dict[str, object]) -> tuple[str, str]:
+    """The calling tenant and user as text. Empty when the call names no caller."""
+    tenant = arguments.get("_tenant_id")
+    user = arguments.get("_user_id")
+    return (str(tenant) if tenant else "", str(user) if user else "")
+
+
+def _own_conversations(store: Any, tenant: str, user: str, agent: str = "") -> set[object]:
+    """Ids of the caller's conversations, with one agent when named. No caller owns none."""
+    if not tenant or not user:
+        return set()
+    return {
+        key
+        for key, row in list(store.conversations.items())
+        if str(row.get("tenant_id")) == tenant
+        and str(row.get("user_id")) == user
+        and row.get("deleted_at") is None
+        and (not agent or str(row.get("agent_id")) == agent)
+    }
+
+
+def _may_read_file(row: object, tenant: str, user: str, own: set[object]) -> bool:
+    """The file API's rule: same tenant, and the owner or the owner of its conversation."""
+    if not tenant or not user or not isinstance(row, dict):
+        return False
+    conversation_id = row.get("conversation_id")
+    owner = row.get("owner_user_id")
+    view = FileView(
+        tenant_id=str(row.get("tenant_id")),
+        owner_user_id=str(owner) if owner else None,
+        conversation_id=str(conversation_id) if conversation_id else None,
+        status="deleted" if row.get("deleted_at") is not None else str(row.get("status") or ""),
+    )
+    return can_read_file(
+        view,
+        tenant_id=tenant,
+        user_id=user,
+        conversation_owner=conversation_id in own,
+        read_all=False,
+    )
+
+
 def _files(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+    tenant, user = _caller(arguments)
+    own = _own_conversations(store, tenant, user)
     if name == "list":
         rows = [
-            str(row.get("name")) for row in store.files.values() if row.get("deleted_at") is None
+            str(row.get("name"))
+            for row in list(store.files.values())
+            if _may_read_file(row, tenant, user, own)
         ]
         return {
             "text": "\n".join(rows) or "No files.",
@@ -223,7 +270,7 @@ def _files(store: Any, name: str, arguments: dict[str, object]) -> dict[str, obj
     except ValueError:
         return _error("not_found", "file was not found")
     blob = store.blobs.get(key)
-    if blob is None:
+    if blob is None or not _may_read_file(store.files.get(key), tenant, user, own):
         return _error("not_found", "file was not found")
     offset = as_int(arguments.get("offset"), 0)
     limit = as_int(arguments.get("limit"), 65536)
@@ -235,8 +282,13 @@ def _history(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     del name
     query = str(arguments.get("query") or "").lower()
     limit = min(as_int(arguments.get("limit"), 10), 10)
+    tenant, user = _caller(arguments)
+    agent = arguments.get("_agent_id")
+    own = _own_conversations(store, tenant, user, str(agent) if agent else "")
     hits: list[str] = []
-    for row in store.messages.values():
+    for row in list(store.messages.values()):
+        if str(row.get("tenant_id")) != tenant or row.get("conversation_id") not in own:
+            continue
         text = str(row.get("text") or "")
         if query and query not in text.lower():
             continue
@@ -292,7 +344,7 @@ def _control(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
 
         return call_remote(store, arguments)
     query = str(arguments.get("query") or "").lower()
-    ranked = _search(store, query)
+    ranked = _search(store, query, _caller(arguments)[0])
     lines = [f"{row['qualified_name']}: {row['description']}" for row in ranked[:12]]
     return {"text": "\n".join(lines), "structured": {"tools": ranked[:12]}, "is_error": False}
 
@@ -341,12 +393,30 @@ def _propose_change(store: Any, arguments: dict[str, object]) -> dict[str, objec
     return {"text": "Change saved.", "structured": {"saved": True}, "is_error": False}
 
 
-def _search(store: Any, query: str) -> list[dict[str, object]]:
+def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
+    """A platform tool or the caller's tenant's tool, on an approved server's current version."""
+    owner = row.get("tenant_id")
+    if owner is not None and (not tenant or str(owner) != tenant):
+        return False
+    tool = store.tool_defs.get(row.get("tool_id"))
+    if not isinstance(tool, dict) or tool.get("disabled_at") is not None:
+        return False
+    server = store.tool_servers.get(tool.get("tool_server_id"))
+    if not isinstance(server, dict):
+        return False
+    if server.get("status") != "approved" or server.get("disabled_at") is not None:
+        return False
+    return row.get("tool_server_version_id") == server.get("current_version_id")
+
+
+def _search(store: Any, query: str, tenant: str) -> list[dict[str, object]]:
     from ar_domain.tools.logic import cosine, hash_embedding  # noqa: PLC0415
 
     query_vector = hash_embedding(query or "tool")
     scored: list[tuple[float, dict[str, object]]] = []
-    for row in store.tool_versions.values():
+    for row in list(store.tool_versions.values()):
+        if not _searchable(store, row, tenant):
+            continue
         embedding = row.get("embedding")
         vector = (
             embedding
