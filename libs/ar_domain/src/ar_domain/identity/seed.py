@@ -13,7 +13,17 @@ from sqlalchemy import select
 from ar_common.ids import new_id
 from ar_contracts.tenants import PlanLimits, TenantSettings
 from ar_domain.demo_ids import demo_id
-from ar_domain.identity.models import Plan, Role, RoleAssignment, Team, TeamMember, Tenant, User
+from ar_domain.identity.models import (
+    Group,
+    GroupMember,
+    Plan,
+    Role,
+    RoleAssignment,
+    Team,
+    TeamMember,
+    Tenant,
+    User,
+)
 from ar_domain.identity.permissions import SYSTEM_ROLE_NAMES, SYSTEM_ROLE_PERMISSIONS
 
 if TYPE_CHECKING:
@@ -58,6 +68,38 @@ async def user_id_for_email(session: AsyncSession, tenant_id: uuid.UUID, email: 
     if user is None:
         raise RuntimeError("dev admin was not seeded")
     return user.id
+
+
+async def ensure_local_group(
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    *,
+    name: str,
+    member_id: uuid.UUID,
+    group_id: uuid.UUID,
+) -> None:
+    """Create a local group and one member. Safe to run twice."""
+    group = await session.scalar(
+        select(Group).where(Group.tenant_id == tenant_id, Group.name == name)
+    )
+    if group is None:
+        group = Group(
+            id=group_id,
+            tenant_id=tenant_id,
+            name=name,
+            source="local",
+            external_id=name,
+        )
+        session.add(group)
+        await session.flush()
+    member = await session.scalar(
+        select(GroupMember).where(
+            GroupMember.group_id == group.id,
+            GroupMember.user_id == member_id,
+        )
+    )
+    if member is None:
+        session.add(GroupMember(tenant_id=tenant_id, group_id=group.id, user_id=member_id))
 
 
 async def ensure_everyone_team(

@@ -14,12 +14,11 @@ import uuid
 from typing import TYPE_CHECKING, Any
 
 import orjson
-from sqlalchemy import select
 
 from ar_common.time import utcnow
 from ar_domain.demo_ids import demo_id
-from ar_domain.identity.models import Group, GroupMember
-from ar_domain.policy.models import Policy, PolicyVersion
+from ar_domain.identity.seed import ensure_local_group
+from ar_domain.policy.seed import ensure_seeded_write_policy
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -109,50 +108,22 @@ async def apply(
     approver_id: uuid.UUID,
 ) -> None:
     """Insert the approvers group and the active W2 policy. Safe to run twice."""
-    await _group(session, tenant_id, approver_id)
-    existing = await session.scalar(
-        select(Policy).where(Policy.tenant_id == tenant_id, Policy.name == POLICY_NAME)
+    await ensure_local_group(
+        session,
+        tenant_id,
+        name=GROUP_NAME,
+        member_id=approver_id,
+        group_id=demo_id("group-approvers"),
     )
-    if existing is not None:
-        return
-    policy_id = demo_id("policy-seeded-w2")
-    version_id = demo_id("policy-seeded-w2-v1")
-    now = utcnow()
-    document = write_approval_document(approver_id=approver_id, owner_id=admin_id)
-    session.add(
-        Policy(
-            id=policy_id,
-            tenant_id=tenant_id,
-            name=POLICY_NAME,
-            description=_description(),
-            kind="rules",
-            status="active",
-            priority=_PRIORITY,
-            created_by=admin_id,
-            created_at=now,
-            updated_at=now,
-        )
+    await ensure_seeded_write_policy(
+        session,
+        tenant_id,
+        admin_id=admin_id,
+        name=POLICY_NAME,
+        description=_description(),
+        priority=_PRIORITY,
+        document=write_approval_document(approver_id=approver_id, owner_id=admin_id),
     )
-    await session.flush()
-    session.add(
-        PolicyVersion(
-            id=version_id,
-            tenant_id=tenant_id,
-            policy_id=policy_id,
-            version=1,
-            document=document,
-            rego=None,
-            hash=_hash(document),
-            test_report={"passed": True, "failed": []},
-            created_by=admin_id,
-            created_at=now,
-        )
-    )
-    await session.flush()
-    stored = await session.get(Policy, policy_id)
-    if stored is not None:
-        stored.active_version_id = version_id
-        stored.updated_at = now
 
 
 def _description() -> str:
@@ -165,27 +136,3 @@ def _description() -> str:
 
 def _hash(document: dict[str, object]) -> str:
     return hashlib.sha256(orjson.dumps(document, option=orjson.OPT_SORT_KEYS)).hexdigest()
-
-
-async def _group(session: AsyncSession, tenant_id: uuid.UUID, approver_id: uuid.UUID) -> None:
-    group = await session.scalar(
-        select(Group).where(Group.tenant_id == tenant_id, Group.name == GROUP_NAME)
-    )
-    if group is None:
-        group = Group(
-            id=demo_id("group-approvers"),
-            tenant_id=tenant_id,
-            name=GROUP_NAME,
-            source="local",
-            external_id=GROUP_NAME,
-        )
-        session.add(group)
-        await session.flush()
-    member = await session.scalar(
-        select(GroupMember).where(
-            GroupMember.group_id == group.id,
-            GroupMember.user_id == approver_id,
-        )
-    )
-    if member is None:
-        session.add(GroupMember(tenant_id=tenant_id, group_id=group.id, user_id=approver_id))
