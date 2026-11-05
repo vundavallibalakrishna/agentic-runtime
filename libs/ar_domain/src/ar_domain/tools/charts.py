@@ -1,4 +1,4 @@
-"""Bar, line, scatter and pie charts as PNG files in the run workspace."""
+"""Bar, line, area, scatter and pie charts as PNG files in the run workspace."""
 
 from __future__ import annotations
 
@@ -8,16 +8,15 @@ from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from ar_common.sandboxkit import confine
+from ar_domain.analytics.slide import render_slide
+from ar_domain.analytics.themes import THEMES, ChartTheme, theme_for
 
 if TYPE_CHECKING:
     from typing import Any
 
 _WIDTH = 640
 _HEIGHT = 360
-_INK = (37, 99, 168)
-_GRID = (226, 232, 240)
-_PAPER = (255, 255, 255)
-_ACCENT = ((37, 99, 168), (14, 116, 144), (180, 83, 9), (22, 101, 52), (136, 19, 55))
+_KINDS = frozenset({"bar", "line", "area", "scatter", "pie"})
 
 
 def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object] | None:
@@ -29,9 +28,13 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
             "validation_failed", "chart needs rows, or xKey and yKey over a list of objects"
         )
     kind = str(arguments.get("kind") or "bar").lower()
-    if kind not in {"bar", "line", "scatter", "pie"}:
-        return _error("validation_failed", "kind must be bar, line, scatter or pie")
-    png = render_chart(kind, rows)
+    if kind not in _KINDS:
+        return _error("validation_failed", "kind must be bar, line, area, scatter or pie")
+    theme = theme_for(str(arguments.get("theme") or "ink"))
+    if theme is None:
+        return _error("validation_failed", "theme must be ink, slate, forest, ember or midnight")
+    png = render_chart(kind, rows, theme=theme.name)
+    slide = _flag(arguments.get("slide") or arguments.get("deck"))
     from ar_domain.tools.general import _prepare, _store_file  # noqa: PLC0415
 
     root = _prepare(store, arguments)
@@ -39,15 +42,24 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(png)
     saved = _store_file(store, arguments, name="chart.png", data=png)
+    files = [saved]
     title = str(arguments.get("title") or kind)
+    if slide:
+        narrative = str(arguments.get("narrative") or "")
+        deck = render_slide(title=title[:200], narrative=narrative[:2000], png=png)
+        deck_path = confine(root, "/workspace/outputs/chart.pptx")
+        deck_path.write_bytes(deck)
+        files.append(_store_file(store, arguments, name="chart.pptx", data=deck))
+    note = " Wrote a slide." if slide else ""
     return {
-        "text": f"Drew a {kind} chart ({len(rows)} points).",
+        "text": f"Drew a {kind} chart ({len(rows)} points, {theme.name}).{note}",
         "structured": {
             "presentation": {
                 "kind": "chart",
                 "chart": kind,
+                "theme": theme.name,
                 "title": title,
-                "files": [saved],
+                "files": files,
                 "truncated": False,
             }
         },
@@ -55,20 +67,23 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
     }
 
 
-def render_chart(kind: str, rows: list[tuple[str, float]]) -> bytes:
-    """Return a PNG. Colours are RGB tuples so the UI keeps its design tokens."""
+def render_chart(kind: str, rows: list[tuple[str, float]], *, theme: str = "ink") -> bytes:
+    """Return a PNG. Colours come from the named theme."""
+    chosen = theme_for(theme) or THEMES["ink"]
     width, height = _WIDTH, _HEIGHT
-    pixels = bytearray(_PAPER * (width * height))
-    _frame(pixels, width, height)
+    pixels = bytearray(chosen.paper * (width * height))
+    _frame(pixels, width, height, chosen)
     peak = max((value for _label, value in rows), default=1) or 1
     if kind == "pie":
-        _pie(pixels, width, height, rows)
+        _pie(pixels, width, height, rows, chosen)
     elif kind == "scatter":
-        _scatter(pixels, width, height, rows, peak)
+        _scatter(pixels, width, height, rows, peak, chosen)
     elif kind == "line":
-        _line(pixels, width, height, rows, peak)
+        _line(pixels, width, height, rows, peak, chosen.ink)
+    elif kind == "area":
+        _area(pixels, width, height, rows, peak, chosen)
     else:
-        _bars(pixels, width, height, rows, peak)
+        _bars(pixels, width, height, rows, peak, chosen)
     raw = bytearray()
     for y in range(height):
         raw.append(0)
@@ -124,41 +139,81 @@ def _number(value: object) -> float | None:
         return None
 
 
-def _frame(pixels: bytearray, width: int, height: int) -> None:
+def _frame(pixels: bytearray, width: int, height: int, theme: ChartTheme) -> None:
     for x in range(48, width - 16):
-        _dot(pixels, width, x, height - 28, _GRID)
+        _dot(pixels, width, x, height - 28, theme.grid)
     for y in range(16, height - 28):
-        _dot(pixels, width, 48, y, _GRID)
+        _dot(pixels, width, 48, y, theme.grid)
 
 
-def _bars(
-    pixels: bytearray, width: int, height: int, rows: list[tuple[str, float]], peak: float
+def _bars(  # noqa: PLR0917
+    pixels: bytearray,
+    width: int,
+    height: int,
+    rows: list[tuple[str, float]],
+    peak: float,
+    theme: ChartTheme,
 ) -> None:
     slot = max(1, (width - 80) // max(1, len(rows)))
     for index, (_label, value) in enumerate(rows):
         bar = int((height - 56) * (value / peak))
         left = 56 + index * slot
-        colour = _ACCENT[index % len(_ACCENT)]
+        colour = theme.accents[index % len(theme.accents)]
         for y in range(height - 28 - bar, height - 28):
             for x in range(left, min(width - 8, left + max(2, slot - 6))):
                 _dot(pixels, width, x, y, colour)
 
 
-def _line(
-    pixels: bytearray, width: int, height: int, rows: list[tuple[str, float]], peak: float
+def _line(  # noqa: PLR0917
+    pixels: bytearray,
+    width: int,
+    height: int,
+    rows: list[tuple[str, float]],
+    peak: float,
+    colour: tuple[int, int, int],
 ) -> None:
     points = _points(width, height, rows, peak)
     for start, end in pairwise(points):
-        _segment(pixels, width, start, end, _INK)
+        _segment(pixels, width, start, end, colour)
 
 
-def _scatter(
-    pixels: bytearray, width: int, height: int, rows: list[tuple[str, float]], peak: float
+def _area(  # noqa: PLR0917
+    pixels: bytearray,
+    width: int,
+    height: int,
+    rows: list[tuple[str, float]],
+    peak: float,
+    theme: ChartTheme,
+) -> None:
+    points = _points(width, height, rows, peak)
+    baseline = height - 28
+    colour = theme.accents[0]
+    if len(points) == 1:
+        _bars(pixels, width, height, rows, peak, theme)
+        return
+    for start, end in pairwise(points):
+        span = max(1, end[0] - start[0])
+        for step in range(span + 1):
+            y = start[1] + (end[1] - start[1]) * step // span
+            x = start[0] + (end[0] - start[0]) * step // span
+            top = min(y, baseline)
+            for yy in range(top, baseline):
+                _dot(pixels, width, x, yy, colour)
+    _line(pixels, width, height, rows, peak, theme.ink)
+
+
+def _scatter(  # noqa: PLR0917
+    pixels: bytearray,
+    width: int,
+    height: int,
+    rows: list[tuple[str, float]],
+    peak: float,
+    theme: ChartTheme,
 ) -> None:
     for x, y in _points(width, height, rows, peak):
         for dx in range(-3, 4):
             for dy in range(-3, 4):
-                _dot(pixels, width, x + dx, y + dy, _INK)
+                _dot(pixels, width, x + dx, y + dy, theme.ink)
 
 
 def _points(
@@ -173,13 +228,19 @@ def _points(
     return points
 
 
-def _pie(pixels: bytearray, width: int, height: int, rows: list[tuple[str, float]]) -> None:
+def _pie(
+    pixels: bytearray,
+    width: int,
+    height: int,
+    rows: list[tuple[str, float]],
+    theme: ChartTheme,
+) -> None:
     total = sum(max(0.0, value) for _label, value in rows) or 1
     cx, cy, radius = width // 2, height // 2, min(width, height) // 3
     start = 0.0
     for index, (_label, value) in enumerate(rows):
         sweep = 360.0 * max(0.0, value) / total
-        colour = _ACCENT[index % len(_ACCENT)]
+        colour = theme.accents[index % len(theme.accents)]
         _wedge(pixels, width, cx, cy, radius, start, start + sweep, colour)
         start += sweep
 
@@ -245,6 +306,12 @@ def _png(width: int, height: int, raw: bytes) -> bytes:
         + chunk(b"IDAT", zlib.compress(raw))
         + chunk(b"IEND", b"")
     )
+
+
+def _flag(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in {"1", "true", "yes", "pptx"}
 
 
 def _error(code: str, message: str) -> dict[str, object]:

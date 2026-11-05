@@ -36,8 +36,8 @@ Depends on M22. A tenant keeps database connections, MCP servers, imported OpenA
 
 **Do:**
 
-- `general.inspect_table`, `general.query_table`, `general.export_table` for CSV, TSV, JSON and xlsx in the run workspace. SQL runs in SQLite (OQ-60).
-- `general.chart` writes a PNG for bar, line, scatter and pie.
+- `general.inspect_table`, `general.query_table`, `general.export_table` for CSV, TSV, JSON and xlsx in the run workspace. M23 ran SQL in SQLite. M34b runs it in memory-only DuckDB (OQ-60).
+- `general.chart` writes a PNG for bar, line, scatter and pie. M34b adds `area`, themes, and an optional one-slide PPTX.
 - An agent `output.jsonSchema` is validated. One invalid answer is audited as `run.retried` and sent back to the model.
 
 **Done when:** a file query and a chart land in the workspace, and a bad final answer is retried once.

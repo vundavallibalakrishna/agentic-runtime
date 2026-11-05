@@ -844,16 +844,20 @@ def _store_file(
 
 
 def _mime(name: str) -> str:
-    if name.endswith(".svg"):
-        return "image/svg+xml"
-    if name.endswith(".png"):
-        return "image/png"
-    if name.endswith(".csv") or name.endswith(".tsv"):
-        return "text/csv"
-    if name.endswith(".xlsx"):
-        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    if name.endswith(".json"):
-        return "application/json"
+    media = {
+        ".svg": "image/svg+xml",
+        ".png": "image/png",
+        ".csv": "text/csv",
+        ".tsv": "text/csv",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".pdf": "application/pdf",
+        ".json": "application/json",
+    }
+    for suffix, kind in media.items():
+        if name.endswith(suffix):
+            return kind
     return "text/plain"
 
 
