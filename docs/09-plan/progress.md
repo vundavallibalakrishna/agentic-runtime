@@ -273,7 +273,7 @@ M32-T09 | done | aab95f3 | features.assurance (default off) gates the assurance 
 M33a-T01 | done | 26f275a | seed users-mode W2 policy; fetch retry; search key path not_live without a key |
 M33b-T01 | done | 2b6766c | OCR canary live on tesseract; image.ask live on Qwen2.5-VL, vision_unavailable on fake-llm |
 M34a-T01 | done | 9c5080e | documents.create for DOCX, PDF and XLSX; fixture checklist |
-M34b-T01 | done | 98423e9 | DuckDB sheet SQL, questionnaire write-back, chart themes and slide; fixture checklist |
+M34b-T01 | done | 3a1a729 | DuckDB sheet SQL, questionnaire write-back, chart themes and slide; fixture checklist |
 M33c-T01 | done | e77c491 | tool-choice eval gym; dry-run scorecard 12/12; live Qwen behind AR_EVAL_GYM_LIVE |
 M35-T01 | done | 2a6e30a | durability, Temporal dev-server schedule fire, cache eviction, A2A list and push, job progress |
 M36-T01 | done | cb3f552 | connector live pack harness; dry CI; ledger promotes a recorded read |
