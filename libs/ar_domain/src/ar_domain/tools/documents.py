@@ -132,6 +132,10 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
             from ar_domain.documents.create import publish  # noqa: PLC0415
 
             return publish(store, arguments)
+        if name == "fill_questionnaire":
+            from ar_domain.spreadsheet.questionnaire import fill_questionnaire  # noqa: PLC0415
+
+            return fill_questionnaire(store, arguments)
     except ArError as exc:
         return _error(exc.code.value, exc.detail)
     return _error("unknown_tool", f"unknown tool {name}")

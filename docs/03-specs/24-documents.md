@@ -22,7 +22,7 @@ Errors:
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `check`, `gaps`, `rewrite`, `redact`, `extract`, `create`, `ocr`.
+Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `check`, `gaps`, `rewrite`, `redact`, `extract`, `create`, `ocr`, `fill_questionnaire`.
 
 `ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. A file is read with local tesseract and stored once, the same way as `ingest`. `documentId` returns text already stored. Another tenant receives 404. `engine` defaults to `tesseract`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and do not call those providers. A missing tesseract binary is `ocr_unavailable`.
 
@@ -59,3 +59,9 @@ Templates are `report` (default for DOCX and PDF), `brief` (tighter, no running 
 The file is written to the run workspace at `outputs/<fileName>` and stored as an artifact. Chat downloads it with the same file content route as other workspace artifacts. The bytes are not a library document until something calls `ingest`. The tool result names the path and the size. It does not echo the body.
 
 Limits: 40 sections, 12 sheets, 500 rows, 32 columns, 30 PDF pages, and the workspace file size cap. A bad payload is `validation_failed`. The writers are in-process and do not call a sandbox (OQ-71).
+
+## 6. Questionnaire fill
+
+`documents.fill_questionnaire` reads one xlsx in the run workspace (`path`, optional `sheet`). It expects a question column and writes `Answer`, `Notes`, `Citation` and `Status` when those columns are missing. A caller `answers` entry matches on `id` or on the question text. Otherwise the tool scores the question against `sources` or against the passages of `documentId`. A score below the overlap floor leaves the answer blank and sets status `unanswered`. `searchLibrary` true also searches the caller's library. The tool does not call the knowledge embedding index.
+
+The file is a new xlsx from the same writer as `documents.create`, plus a Trace sheet. Another tenant's `documentId` is `not_found`. The bytes are an artifact until something calls `ingest` (OQ-86).
