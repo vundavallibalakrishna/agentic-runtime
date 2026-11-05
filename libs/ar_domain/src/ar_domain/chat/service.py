@@ -27,7 +27,12 @@ from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.agents.logic import AgentView, assistant_definition, can_see_agent, can_start_run
 from ar_domain.agents.service import AgentLifecycle
-from ar_domain.conversations.logic import MessageNode, activate_branch, run_is_active
+from ar_domain.conversations.logic import (
+    MessageNode,
+    activate_branch,
+    run_is_active,
+    run_is_working,
+)
 from ar_domain.demo_ids import demo_id as demo_id  # noqa: PLC0414
 from ar_domain.files.logic import (
     MAX_UPLOAD_BYTES,
@@ -2133,7 +2138,10 @@ class ChatService:
         *,
         idle_s: float = 10,
     ) -> AsyncIterator[dict[str, object]]:
-        """Yield run events. A silence while the run is active is a heartbeat, not the end.
+        """Yield run events. A silence while the run is working is a heartbeat, not the end.
+
+        A run paused for a person ends the stream: the client reads to the end
+        before it shows the approval or question, and opens a new stream afterwards.
 
         ``idle_s`` is the gap between SSE keep-alive comments (stream-events §3).
         The comment is not stored and does not advance ``seq``.
@@ -2142,7 +2150,7 @@ class ChatService:
             after = max(after, _seq(event))
             yield event
         run = self.runs.get(run_id)
-        if run is not None and not run_is_active(str(run["status"])) and after > 0:
+        if run is not None and not run_is_working(str(run["status"])) and after > 0:
             return
         queue = self.subscribe(run_id)
         watcher = (
@@ -2154,7 +2162,7 @@ class ChatService:
                     event = await asyncio.wait_for(queue.get(), timeout=idle_s)
                 except TimeoutError:
                     current = self.runs.get(run_id)
-                    if current is None or not run_is_active(str(current.get("status"))):
+                    if current is None or not run_is_working(str(current.get("status"))):
                         return
                     yield {"type": "heartbeat", "seq": after, "data": {}}
                     continue

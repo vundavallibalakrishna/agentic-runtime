@@ -55,3 +55,8 @@ def activate_branch(messages: list[MessageNode], message_id: str) -> dict[str, b
 
 def run_is_active(status: str) -> bool:
     return status in {"queued", "running", "waiting_approval", "waiting_input"}
+
+
+def run_is_working(status: str) -> bool:
+    """A run paused for a person is active, but no event will come until they answer."""
+    return status in {"queued", "running"}

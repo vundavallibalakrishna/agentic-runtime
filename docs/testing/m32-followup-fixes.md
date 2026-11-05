@@ -8,7 +8,7 @@ Defects left by the hardening merge (`123cf366`, PR 49). Phase 2 store retiremen
 - Durable hydrate drops the in-memory `fake-llm` / `reasoning` rows when Postgres already has those names.
 - Redaction leaves `/workspace/…`, `…/ar-sandboxes/…`, and UUIDs inside tool text alone.
 - The run token budget adds prompt growth and output. Usage and cost still record the full provider counts. The assistant cap stays 16,000.
-- Chat SSE sends a `: ping` comment every 10 seconds while the run is active. The stream is not rewritten onto Valkey.
+- Chat SSE sends a `: ping` comment every 10 seconds while the run is queued or running. A run paused for a person ends the stream, so the chat shows the approval or question. The stream is not rewritten onto Valkey.
 - Pytest ignores an `AR_OPA_URL` that arrived only from `.env`. An exported `AR_OPA_URL` still wins.
 
 ## Alembic
