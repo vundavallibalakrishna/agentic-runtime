@@ -129,6 +129,9 @@ gen:
 eval:
 	uv run python -m ar_system.evals.cli run evals/golden evals/redteam
 
+eval-gym:
+	uv run python -m ar_domain.evals.gym
+
 reset-db:
 	$(COMPOSE) --profile deps exec -T postgres dropdb -U ar_owner --if-exists agentic_runtime
 	$(COMPOSE) --profile deps exec -T postgres createdb -U ar_owner agentic_runtime
