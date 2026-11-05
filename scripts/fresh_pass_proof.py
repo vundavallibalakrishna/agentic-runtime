@@ -1,5 +1,6 @@
 # ruff: noqa
 """Fresh-pass live runner. Local only; never commit secrets."""
+
 from __future__ import annotations
 
 import os
@@ -86,8 +87,10 @@ for name in (
 # Force _chat default alias by wrapping
 _orig_chat = proof._chat
 
+
 def _chat(client, agent_id, text, *, alias=proof.ALIAS):
     return _orig_chat(client, agent_id, text, alias=alias)
+
 
 proof._chat = _chat
 

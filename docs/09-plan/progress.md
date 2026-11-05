@@ -260,13 +260,13 @@ M30-T01 | done | 3bfd4b8 | retired pack removed; revision 0031 drops its schema
 M31-T01 | done | 9aa4dd1 | final certification of the whole platform
 
 M32-T01 | done | 0e34c9c | document analysis keeps evidence; paraphrased check |
-M32-T00 | done | - | review record, fresh-pass and GRC-flow evidence committed
+M32-T00 | done | 938ab73 | review record, fresh-pass and GRC-flow evidence committed
 M32-T02 | done | 574df81 | tenant-scoped settings reads; privacy.redactionSkipEntities
-M32-T03 | done | - | requester-mode approvals accept another approver when SoD blocks the requester
-M32-T04 | done | - | no fake echo outside dev/ci: run fails model_unavailable; gateway 502
-M32-T05 | done | - | scripted compose and keyword tool paths run only where fake models are allowed (dev/ci)
-M32-T06 | done | - | builder drafts with the reasoning model, repairs once from errors, scripted proposal last
-M32-T07 | done | - | cost from model prices per call; usage events carry run/model ids, flush to usage_events and reload on bind; prices on the models API and screen
-M32-T08 | done | - | models.request_options (revision 0032) replaces the Qwen3 name checks; API accepts requestOptions
-M32-T10 | done | - | chart sets AR_APP_MODULE and AR_PORT per service and runs workers through their console scripts
-M32-T09 | done | - | features.assurance (default off) gates the assurance routes, permissions and nav; dev seed turns it on; neutral builder starter prompt; session reports tenant features and locale
+M32-T03 | done | 267de52 | requester-mode approvals accept another approver when SoD blocks the requester
+M32-T04 | done | 267de52 | no fake echo outside dev/ci: run fails model_unavailable; gateway 502
+M32-T05 | done | 43f9ab6 | scripted compose and keyword tool paths run only where fake models are allowed (dev/ci)
+M32-T06 | done | 43f9ab6 | builder drafts with the reasoning model, repairs once from errors, scripted proposal last
+M32-T07 | done | c775a9b | cost from model prices per call; usage events carry run/model ids, flush to usage_events and reload on bind; prices on the models API and screen
+M32-T08 | done | 1c1e774 | models.request_options (revision 0032) replaces the Qwen3 name checks; API accepts requestOptions
+M32-T10 | done | 1c1e774 | chart sets AR_APP_MODULE and AR_PORT per service and runs workers through their console scripts
+M32-T09 | done | aab95f3 | features.assurance (default off) gates the assurance routes, permissions and nav; dev seed turns it on; neutral builder starter prompt; session reports tenant features and locale
