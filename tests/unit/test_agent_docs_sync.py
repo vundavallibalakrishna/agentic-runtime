@@ -1,6 +1,7 @@
 """AGENTS.md and CLAUDE.md stay the same instructions."""
 
 import importlib.util
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -21,3 +22,9 @@ def test_claude_file_matches_agents() -> None:
     assert claude == render(agents)
     assert agents in claude
     assert "Agentic Runtime" in claude
+
+
+def test_instructions_import_nothing() -> None:
+    """Claude Code expands a line-leading ``@path``; these files must stand alone."""
+    agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert re.findall(r"^\s*@\S+", agents, flags=re.MULTILINE) == []

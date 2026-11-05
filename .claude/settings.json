@@ -1,0 +1,3 @@
+{
+  "claudeMdExcludes": ["**/cura/CLAUDE.md", "**/cura/ledgerline/AGENTS.md"]
+}

@@ -1,10 +1,10 @@
 # Agentic Runtime
 
-A self-hosted, chat-first platform. A customer connects their own OpenAI-compatible model, defines agents, and gives them tools: sandboxed Python and shell, workspace files, page fetch, web search, and HTTP. Agents can use documents, knowledge bases, memory, skills, and connectors. They plan, act, check, and retry. A parent agent can hand work to other agents, run them in parallel, wait for a person, or fire on a schedule or a signed webhook. A published agent is callable from outside over REST `/v1`, MCP, and A2A.
+A self-hosted, chat-first agentic platform, designed and built by Balakrishna Vundavalli. A customer connects their own OpenAI-compatible model, defines agents, and gives them tools: sandboxed Python and shell, workspace files, page fetch, web search, and HTTP. Agents can use documents, knowledge bases, memory, skills, and connectors. They plan, act, check, and retry. A parent agent can hand work to other agents, run them in parallel, wait for a person, or fire on a schedule or a signed webhook. A published agent is callable from outside over REST `/v1`, MCP, and A2A.
 
 The industry pack that used to live in this repository was removed. A fresh tenant does not see it.
 
-The specification set under `docs/` is still the behaviour contract. [AGENTS.md](AGENTS.md) is for people changing the code. A customer can start from the quick start below. The record of the final pass is [the M31 certification](docs/testing/m31-certification.md).
+The specification set under `docs/` is still the behaviour contract. [AGENTS.md](AGENTS.md) is for people and coding agents changing the code, and `CLAUDE.md` is generated from it. A customer can start from the quick start below. The record of the final pass is [the M31 certification](docs/testing/m31-certification.md).
 
 ## Stack at a glance
 

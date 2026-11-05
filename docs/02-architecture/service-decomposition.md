@@ -99,7 +99,8 @@ Cross-module rule: a module may call another module's `service.py` but never its
 
 ```text
 agentic_runtime/
-├── README.md, AGENTS.md
+├── README.md, AGENTS.md, CLAUDE.md   # CLAUDE.md is generated from AGENTS.md
+├── .claude/settings.json             # keeps instructions from parent folders out of Claude Code
 ├── docs/                         # this specification set
 ├── pyproject.toml                # uv workspace root (members: libs/*, services/*, connectors/*)
 ├── uv.lock

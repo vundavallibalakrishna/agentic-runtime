@@ -33,7 +33,7 @@ Exact versions: [stack.md](../stack.md).
 | `make typecheck` | `mypy --strict` (Pydantic plugin) on libs/services/connectors, `tsc --noEmit` via turbo |
 | `make test` | Unit + integration (testcontainers) + `opa test policies/` + web unit tests |
 | `make test-e2e` | Playwright against `make dev` stack |
-| `make gen` | Regenerates `openapi.json`, JSON Schemas, `@ar/api-client`, `ar_client`; CI fails if the tree changes |
+| `make gen` | Regenerates `openapi.json`, JSON Schemas, `CLAUDE.md`, `@ar/api-client`, `ar_client`; CI fails if the tree changes |
 | `make eval` | Runs golden eval suites against the configured models (`fake-llm` by default) |
 | `make reset-db` | Drops and recreates the dev database, then `migrate seed` |
 | `make kind-up` / `make kind-down` | kind cluster with the Helm chart (`values-dev.yaml`), gVisor runtime class (if available) and the Kubernetes sandbox driver |
