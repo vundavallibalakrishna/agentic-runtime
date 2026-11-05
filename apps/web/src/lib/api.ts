@@ -3,6 +3,7 @@ export type Session = {
   tenant?: { name?: string; slug?: string; id?: string };
   permissions?: string[];
   roles?: string[];
+  features?: Record<string, boolean>;
 };
 
 export class ApiError extends Error {

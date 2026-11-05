@@ -54,6 +54,8 @@ export type NavItem = {
     | "navAssurance";
   section: "workspace" | "resources" | "manage";
   permission: string;
+  /** A tenant feature flag that must be on for the item to show. */
+  feature?: string;
   icon: LucideIcon;
   soon?: boolean;
 };
@@ -212,6 +214,7 @@ export const primaryNav: NavItem[] = [
     section: "manage",
     labelKey: "navAssurance",
     permission: "evidence:read",
+    feature: "assurance",
     icon: ShieldCheck,
   },
   {

@@ -269,3 +269,4 @@ M32-T06 | done | - | builder drafts with the reasoning model, repairs once from 
 M32-T07 | done | - | cost from model prices per call; usage events carry run/model ids, flush to usage_events and reload on bind; prices on the models API and screen
 M32-T08 | done | - | models.request_options (revision 0032) replaces the Qwen3 name checks; API accepts requestOptions
 M32-T10 | done | - | chart sets AR_APP_MODULE and AR_PORT per service and runs workers through their console scripts
+M32-T09 | done | - | features.assurance (default off) gates the assurance routes, permissions and nav; dev seed turns it on; neutral builder starter prompt; session reports tenant features and locale

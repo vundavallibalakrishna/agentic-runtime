@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from ar_common.ids import new_id
-from ar_contracts.tenants import PlanLimits, TenantSettings
+from ar_contracts.tenants import FeatureFlags, PlanLimits, TenantSettings
 from ar_domain.demo_ids import demo_id
 from ar_domain.identity.models import Plan, Role, RoleAssignment, Team, TeamMember, Tenant, User
 from ar_domain.identity.permissions import SYSTEM_ROLE_NAMES, SYSTEM_ROLE_PERMISSIONS
@@ -136,7 +136,11 @@ async def _tenant(session: AsyncSession, plan_id: uuid.UUID) -> Tenant:
             name="Dev",
             status="active",
             plan_id=plan_id,
-            settings=TenantSettings().model_dump(by_alias=False),
+            # The dev tenant shows every screen; a customer tenant starts with
+            # the assurance desk off (features.assurance).
+            settings=TenantSettings(features=FeatureFlags(assurance=True)).model_dump(
+                by_alias=False
+            ),
         )
         session.add(row)
         await session.flush()

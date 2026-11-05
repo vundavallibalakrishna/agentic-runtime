@@ -340,7 +340,7 @@
     "builderTitle": "New agent",
     "builderBody": "Describe the agent you want. You can adjust the form after the preview looks right.",
     "instruction": "What should this agent do?",
-    "instructionPlaceholder": "Create an agent that reviews vendor SOC 2 reports and flags gaps",
+    "instructionPlaceholder": "Create an agent that reads incoming support tickets and drafts a reply",
     "draft": "Draft",
     "preview": "Preview",
     "persona": "Persona",

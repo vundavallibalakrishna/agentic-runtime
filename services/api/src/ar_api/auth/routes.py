@@ -179,13 +179,22 @@ async def session(request: Request) -> dict[str, object]:
     principal: Principal | None = getattr(request.state, "principal", None)
     if principal is None:
         raise UnauthenticatedError()
+    from ar_contracts.tenants import TenantSettings  # noqa: PLC0415
+    from ar_domain.identity.tenant_settings import section, settings_for  # noqa: PLC0415
+
+    defaults = TenantSettings()
+    tenant_settings = settings_for(request.app.state.chat, principal.tenant_id)
+    features = {
+        **defaults.features.model_dump(by_alias=False),
+        **section(tenant_settings, "features"),
+    }
     return {
         "user": {
             "id": principal.id,
             "email": principal.email,
             "display_name": principal.display_name,
-            "locale": "en-IN",
-            "timezone": "Asia/Kolkata",
+            "locale": str(tenant_settings.get("default_locale") or defaults.default_locale),
+            "timezone": str(tenant_settings.get("default_timezone") or defaults.default_timezone),
         },
         "tenant": {
             "id": None if principal.tenant_id is None else str(principal.tenant_id),
@@ -198,7 +207,7 @@ async def session(request: Request) -> dict[str, object]:
         "roles": sorted(principal.roles),
         "memberships": [],
         "csrf_token": principal.csrf_token,
-        "features": {},
+        "features": features,
     }
 
 

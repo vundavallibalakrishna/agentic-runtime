@@ -188,6 +188,9 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
         from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
 
         permissions = permissions | permissions_for(app.state.chat, data.tenant_id, roles)
+        from ar_domain.identity.tenant_settings import permissions_for_features  # noqa: PLC0415
+
+        permissions = permissions_for_features(app.state.chat, data.tenant_id, permissions)
         return Principal(
             kind="user",
             id=str(data.user_id),

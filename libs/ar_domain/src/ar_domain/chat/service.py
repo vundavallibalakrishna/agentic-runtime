@@ -280,6 +280,13 @@ class ChatService:
         ):
             alias_id = demo_id(f"alias-{alias}")
             self.aliases[alias_id] = self._alias(alias_id, None, alias, kind, model_id)
+        # The dev tenant shows every screen, including the assurance desk that a
+        # fresh customer tenant keeps off until it turns the feature on.
+        demo_settings = self.tenant_settings.setdefault(demo_id("tenant"), {})
+        if isinstance(demo_settings, dict):
+            features = demo_settings.setdefault("features", {})
+            if isinstance(features, dict):
+                features.setdefault("assurance", True)
         self.ensure_assistant(demo_id("tenant"), demo_id("admin"))
         AgentLifecycle(self).ensure_builtins(demo_id("tenant"), demo_id("admin"))
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
@@ -434,8 +441,11 @@ class ChatService:
     def _seed_assurance(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         from ar_domain.agents.access import Actor  # noqa: PLC0415
         from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+        from ar_domain.identity.tenant_settings import feature_enabled  # noqa: PLC0415
         from ar_domain.records.vault import EvidenceBook  # noqa: PLC0415
 
+        if not feature_enabled(self, tenant_id, "assurance", default=False):
+            return
         officer = demo_id("officer")
         self.user_roles.setdefault(officer, {"tenant_admin"})
         self.display_names.setdefault(officer, "Compliance officer")

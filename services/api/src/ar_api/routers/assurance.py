@@ -24,7 +24,25 @@ from ar_domain.records.vault import EvidenceBook
 from ar_domain.records.watermark import WatermarkError, watermark
 from ar_domain.runs.records import RunRecordBook
 
-router = APIRouter()
+_UNGATED_PREFIXES = ("/api/v1/auth/guest", "/api/v1/tenant/packs")
+
+
+async def _assurance_enabled(request: Request) -> None:
+    """Evidence, holds, binders, the AI register and run records need ``features.assurance``.
+
+    Guest sign-in and the pack list stay reachable; they are platform features.
+    """
+    if request.url.path.startswith(_UNGATED_PREFIXES):
+        return
+    from ar_domain.identity.tenant_settings import feature_enabled  # noqa: PLC0415
+
+    principal = getattr(request.state, "principal", None)
+    tenant_id = getattr(principal, "tenant_id", None)
+    if not feature_enabled(chat(request), tenant_id, "assurance", default=False):
+        raise ArError(ErrorCode.NOT_FOUND, "feature_disabled")
+
+
+router = APIRouter(dependencies=[Depends(_assurance_enabled)])
 
 
 class EvidenceBody(ApiModel):
