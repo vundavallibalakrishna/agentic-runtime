@@ -37,6 +37,10 @@ calls a tool. No product code changes.
 
 Each of these runs today whatever the environment.
 
+Split into five pull requests: T02a the provider and alias tests, T02b eval runs, T02c delegated children and
+the model-free knowledge answer, T02d the scripted agent draft, T02e the `slow` keyword and the `fake:`
+fallback, which lands with T03 because the tests that read them move at the same time.
+
 **Do:**
 
 - Delete the `slow` keyword and the canned sentences in `chat/service.py` `_tokens`. A failed model call is an

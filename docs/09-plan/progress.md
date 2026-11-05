@@ -286,4 +286,5 @@ M38-T03 | done | 9cdd356 | demo fixtures seeded only in dev and ci, in every pro
 M38-T03a | done | 94dea49 | browser tests retry twice in CI and report flaky tests
 
 M38a-T00 | done | 213e943 | removal plan, review section D, the AGENTS.md rule, OQ-94
-M38a-T01 | done | - | scripted model reached as an ordinary provider; ar_testing.stand_in; sha recorded with M38a-T02a
+M38a-T01 | done | dbb5a3f | scripted model reached as an ordinary provider; ar_testing.stand_in
+M38a-T02a | done | - | a provider or alias test reports a dead endpoint as failed; sha recorded with M38a-T02b

@@ -46,7 +46,6 @@ from ar_domain.models.logic import (
     DEFAULT_DENY_CIDRS,
     AliasRef,
     completion_text,
-    merge_params,
     provider_url_denied,
     resolve_alias,
     valid_alias,
@@ -717,14 +716,18 @@ class ChatService:
         self, tenant_id: uuid.UUID, provider_id: uuid.UUID
     ) -> dict[str, object]:
         row = self._require(self.providers, provider_id, tenant_id)
-        if str(row.get("kind") or "") == "fake":
-            return await self._probe(str(row["base_url"]), "fake-chat")
-        key = str(row.get("api_key") or "")
-        if not key and self.durable_engine is not None:
+        key = await self._provider_key(row)
+        return await self._probe_live(str(row["base_url"]), self._sample_upstream(provider_id), key)
+
+    async def _provider_key(self, provider: dict[str, object]) -> str:
+        """The provider's API key, read from the database when this process has not loaded it."""
+        key = str(provider.get("api_key") or "")
+        provider_id = provider.get("id")
+        if not key and self.durable_engine is not None and isinstance(provider_id, uuid.UUID):
             from ar_domain.models.registry import read_api_key  # noqa: PLC0415
 
             key = await read_api_key(self.durable_engine, provider_id)
-        return await self._probe_live(str(row["base_url"]), self._sample_upstream(provider_id), key)
+        return key
 
     def list_models(self, tenant_id: uuid.UUID) -> list[dict[str, object]]:
         return self._owned(self.models, tenant_id)
@@ -870,9 +873,12 @@ class ChatService:
         if model is None:
             raise NotFoundError("model not found")
         provider = self.providers[uuid.UUID(str(model["provider_id"]))]
-        params = merge_params(_object_dict(row["default_params"]), {"max_tokens": 64})
-        del params
-        return await self._probe(str(provider["base_url"]), str(model["upstream_model"]), messages)
+        return await self._probe_live(
+            str(provider["base_url"]),
+            str(model["upstream_model"]),
+            await self._provider_key(provider),
+            messages,
+        )
 
     def _writable(
         self,
@@ -898,8 +904,19 @@ class ChatService:
                 return str(row.get("upstream_model") or "chat")
         return "chat"
 
-    async def _probe_live(self, base_url: str, model: str, api_key: str) -> dict[str, object]:
-        """Ping a registered provider. The key stays in the request header."""
+    async def _probe_live(
+        self,
+        base_url: str,
+        model: str,
+        api_key: str,
+        messages: list[dict[str, str]] | None = None,
+    ) -> dict[str, object]:
+        """Ask a provider for one answer and report what it did. The key stays in the header.
+
+        With no ``messages`` the provider is asked for the word pong and passes when it
+        says so. With ``messages`` it passes when it returns any text. An endpoint that
+        does not answer is a failure; no answer is made up for it.
+        """
         from ar_domain.models.options import (  # noqa: PLC0415
             apply_request_options,
             default_request_options,
@@ -910,8 +927,9 @@ class ChatService:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         body: dict[str, object] = {
             "model": model,
-            "messages": [{"role": "user", "content": "Reply with the single word pong."}],
-            "max_tokens": 32,
+            "messages": messages
+            or [{"role": "user", "content": "Reply with the single word pong."}],
+            "max_tokens": 64 if messages else 32,
         }
         options = next(
             (
@@ -923,49 +941,23 @@ class ChatService:
         )
         apply_request_options(body, options)
         output = "provider test failed"
+        answered = False
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
                     base_url.rstrip("/") + "/chat/completions", json=body, headers=headers
                 )
             if response.status_code < 300:
-                output = completion_text(response.json()) or "provider test returned no text"
+                text = completion_text(response.json())
+                answered = bool(text)
+                output = text or "provider test returned no text"
             else:
                 output = f"provider test failed ({response.status_code})"
         except httpx.HTTPError:
             output = "provider test failed"
         latency = int((time.perf_counter() - started) * 1000)
         return {
-            "ok": output.startswith("pong") or "pong" in output.lower(),
-            "output": output,
-            "model_id": model,
-            "latency_ms": latency,
-            "ttft_ms": latency,
-            "usage": {"tokens_in": 1, "tokens_out": max(1, len(output.split()))},
-        }
-
-    async def _probe(
-        self, base_url: str, model: str, messages: list[dict[str, str]] | None = None
-    ) -> dict[str, object]:
-        started = time.perf_counter()
-        body = messages or [{"role": "user", "content": "ping"}]
-        output = f"fake: {body[-1]['content']}"
-        try:
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                response = await client.post(
-                    base_url.rstrip("/") + "/chat/completions",
-                    json={"model": model, "messages": body},
-                    headers={"X-Fake-Script-Set": "echo"},
-                )
-                if response.status_code < 300:
-                    payload = response.json()
-                    choices = payload.get("choices") or []
-                    if choices:
-                        output = str(choices[0]["message"]["content"])
-        except httpx.HTTPError:
-            output = f"fake: {body[-1]['content']}"
-        latency = int((time.perf_counter() - started) * 1000)
-        return {
+            "ok": answered if messages else "pong" in output.lower(),
             "output": output,
             "model_id": model,
             "latency_ms": latency,
