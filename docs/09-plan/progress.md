@@ -275,4 +275,4 @@ M33b-T01 | done | 2b6766c | OCR canary live on tesseract; image.ask live on Qwen
 M34a-T01 | done | 9c5080e | documents.create for DOCX, PDF and XLSX; fixture checklist |
 M33c-T01 | done | e77c491 | tool-choice eval gym; dry-run scorecard 12/12; live Qwen behind AR_EVAL_GYM_LIVE |
 
-M36-T01 | in_progress | - | connector live pack harness |
+M36-T01 | done | cb3f552 | connector live pack harness; dry CI; ledger promotes a recorded read |
