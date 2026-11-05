@@ -14,8 +14,9 @@ function quote(value: string): string {
 
 function emit(value: JsonValue, indent: number): string {
   const pad = "  ".repeat(indent);
-  if (value === null) {
-    return "null";
+  // A missing map (null or undefined) must not reach Object.entries.
+  if (value == null) {
+    return "{}";
   }
   if (typeof value === "boolean" || typeof value === "number") {
     return String(value);

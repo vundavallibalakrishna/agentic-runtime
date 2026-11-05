@@ -114,12 +114,14 @@ Exposed by `sandbox-agent` at `POST /mcp` (MCP 2026-07-28, stateless) to `mcp-ga
 | `browser.screenshot` | `{full_page?: false}` | PNG → gateway stores `files(kind='artifact')` and emits `browser.screenshot` |
 | `browser.submit_form` | `{ref}` | Submits a form (W2: approval by default) |
 
+`browser.navigate` stays registered as R0. At call time a public host that is not on the egress allow list is treated as W2 and waits for approval, the same elevation as a non-GET `general.http`. After approval the navigation runs. Private and metadata addresses stay `egress_denied` and approval does not override them. A click that would leave the allow list does not fetch; the agent calls `browser.navigate` so the approval shows the URL. `browser.type` stays W1. `browser.submit_form` stays W2. The page context and its cookie jar belong to one sandbox and, when the call names a run, to that run. A cookie is not copied to another run, conversation or tenant. The dev and CI engine is in-process HTML (OQ-87). Headless Chromium is a canary, not a unit-job dependency.
+
 Paths are confined to `/workspace` and `/tmp` (realpath check; symlinks escaping are rejected). Files under `/workspace/outputs/` that are new or modified after `sandbox.exec` are exported automatically as artifacts (≤ 20 files, ≤ 100 MiB each per call).
 
 Admin endpoints on the agent (manager only, bootstrap/sandbox token): `POST /admin/claim`, `POST /admin/snapshot`, `PUT /admin/restore`, `GET /healthz`, `GET /files`, `GET /files/content`, `PUT /files/content`.
 
 ### 7.1 Image `ar-sandbox` (`images/sandbox/Dockerfile`)
-Debian 13 slim; Python 3.14 with `uv`, `pandas`, `numpy`, `polars`, `matplotlib`, `seaborn`, `scipy`, `openpyxl`, `python-docx`, `python-pptx`, `reportlab`, `pypdf`, `duckdb`; Node 24 with `pnpm`; Chromium + Playwright 1.64 (template `browser`); LibreOffice headless (template `data-science`); `git`, `curl`, `jq`, `ripgrep`, fonts (Noto incl. Indic scripts); user `sandbox` (10001). Image is signed (cosign) and scanned in CI; templates reference digests.
+Debian 13 slim; Python 3.14 with `uv`, `pandas`, `numpy`, `polars`, `matplotlib`, `seaborn`, `scipy`, `openpyxl`, `python-docx`, `python-pptx`, `reportlab`, `pypdf`, `duckdb`; Node 24 with `pnpm`; Chromium + Playwright 1.64 (template `browser`); LibreOffice headless (template `data-science`); `git`, `curl`, `jq`, `ripgrep`, fonts (Noto incl. Indic scripts); user `sandbox` (10001). Image is signed (cosign) and scanned in CI; templates reference digests. The image CI actually builds does not install Chromium (OQ-37, OQ-87). M37's browser tools run in the API process until that image is published.
 
 ## 8. Configuration (`sandbox-manager`)
 
