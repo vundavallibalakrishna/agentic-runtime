@@ -326,11 +326,17 @@ def test_handlers_cover_each_builtin() -> None:
     assert dispatch(store, "builtin://files", "read", {"file_id": "nope"}, "")["is_error"] is True
     history = dispatch(store, "builtin://conversations", "search", {"query": "stapler"}, "")
     assert "stapler" in history["text"]
-    page = dispatch(store, "builtin://web", "fetch", {"url": "https://example.com/page"}, "")
+    # The pipeline always passes the calling tenant; the handler never reads another row.
+    who = {"_tenant_id": demo_id("tenant")}
+    page = dispatch(store, "builtin://web", "fetch", {"url": "https://example.com/page", **who}, "")
     assert page["is_error"] is False
-    blocked = dispatch(store, "builtin://web", "fetch", {"url": "https://evil.example/x"}, "")
+    blocked = dispatch(
+        store, "builtin://web", "fetch", {"url": "https://evil.example/x", **who}, ""
+    )
     assert blocked["code"] == "egress_denied"
-    assert dispatch(store, "builtin://web", "fetch", {"url": "http://example.com"}, "")["is_error"]
+    assert dispatch(store, "builtin://web", "fetch", {"url": "http://example.com", **who}, "")[
+        "is_error"
+    ]
     plan = dispatch(
         store,
         "builtin://control",
