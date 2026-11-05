@@ -158,6 +158,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         tokens = 0
         tokens_in_total = 0
         tokens_out_total = 0
+        prompt_seen = 0
         cost = 0
         previews = []
         started = time.monotonic()
@@ -168,6 +169,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         tokens = restored["tokens"]
         tokens_in_total = restored["tokens_in"]
         tokens_out_total = restored["tokens_out"]
+        prompt_seen = 0
         cost = restored["cost"]
         previews = restored["previews"]
         user_text = str(restored["user_text"] or user_text)
@@ -212,7 +214,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         usage = raw_usage if isinstance(raw_usage, dict) else {}
         step_in = _whole(usage.get("tokens_in"))
         step_out = _whole(usage.get("tokens_out"))
-        tokens += step_in + step_out
+        # The provider reports the whole prompt every call. Usage and cost keep
+        # that full count. The budget adds only the growth since the previous
+        # prompt, plus this step's output, so a six-step tool turn fits in 16k.
+        tokens, prompt_seen = _charge_budget(tokens, prompt_seen, step_in, step_out)
         tokens_in_total += step_in
         tokens_out_total += step_out
         step_cost, model_id = _price_step(store, run, alias, step_in, step_out)
@@ -359,6 +364,16 @@ def _whole(value: object) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         return 0
     return max(0, value)
+
+
+def _charge_budget(tokens: int, prompt_seen: int, step_in: int, step_out: int) -> tuple[int, int]:
+    """Return the new budget total and the prompt size just reported.
+
+    ``step_in`` is the whole prompt. Only the tokens that were not in the
+    previous prompt count, together with this step's output.
+    """
+    growth = step_in if prompt_seen <= 0 else max(0, step_in - prompt_seen)
+    return tokens + growth + step_out, step_in
 
 
 def _price_step(

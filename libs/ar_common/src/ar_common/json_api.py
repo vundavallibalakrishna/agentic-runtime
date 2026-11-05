@@ -8,6 +8,10 @@ free-form objects that are not Pydantic fields, such as pagination items.
 
 from pydantic.alias_generators import to_camel
 
+# Provider protocol objects. Their keys are sent upstream as stored, so a
+# read/write round trip must not rename ``chat_template_kwargs``.
+OPAQUE_JSON_KEYS = frozenset({"request_options", "requestOptions"})
+
 
 def camel_key(name: str) -> str:
     """Return the camelCase form of a JSON object key.
@@ -21,11 +25,19 @@ def camel_key(name: str) -> str:
 
 
 def camelize(value: object) -> object:
-    """Recursively rewrite object keys. Values, including error codes, stay as they are."""
+    """Recursively rewrite object keys. Values, including error codes, stay as they are.
+
+    Values under :data:`OPAQUE_JSON_KEYS` are copied through unchanged.
+    """
     if isinstance(value, dict):
         rewritten: dict[str, object] = {}
         for key, item in value.items():
-            rewritten[camel_key(str(key))] = camelize(item)
+            name = str(key)
+            public = camel_key(name)
+            if name in OPAQUE_JSON_KEYS or public in OPAQUE_JSON_KEYS:
+                rewritten[public] = item
+            else:
+                rewritten[public] = camelize(item)
         return rewritten
     if isinstance(value, list):
         return [camelize(item) for item in value]

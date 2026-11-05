@@ -24,7 +24,29 @@ def request_options_of(model: Any) -> dict[str, object]:
         raw = model.get("request_options")
     else:
         raw = getattr(model, "request_options", None)
-    return {str(key): value for key, value in raw.items()} if isinstance(raw, dict) else {}
+    return copy_request_options(raw) if isinstance(raw, dict) else {}
+
+
+def copy_request_options(options: dict[str, object] | None) -> dict[str, object]:
+    """Copy provider parameters without renaming keys.
+
+    ``chat_template_kwargs`` is a provider field, not a public property. CamelCase
+    on the way out and snake_case on the way in would both corrupt a round trip.
+    """
+    if not isinstance(options, dict):
+        return {}
+    copied: dict[str, object] = {}
+    for key, value in options.items():
+        copied[str(key)] = _copy_json(value)
+    return copied
+
+
+def _copy_json(value: object) -> object:
+    if isinstance(value, dict):
+        return {str(key): _copy_json(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_copy_json(item) for item in value]
+    return value
 
 
 def apply_request_options(body: dict[str, object], options: dict[str, object]) -> dict[str, object]:

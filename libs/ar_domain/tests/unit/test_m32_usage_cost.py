@@ -124,8 +124,20 @@ def test_only_unflushed_rows_of_the_bound_tenant_are_written() -> None:
     assert record.run_id is None and record.model_id is None and record.tool_id is None
 
 
+def _cap(store: ChatService, max_tokens: int) -> None:
+    for version in store.versions.values():
+        definition = version.get("definition")
+        budget = definition.get("budget") if isinstance(definition, dict) else None
+        if isinstance(budget, dict):
+            budget["max_tokens"] = max_tokens
+
+
 def test_budget_stop_keeps_the_usage_spent_so_far() -> None:
     store = _priced_store()
+    # The budget counts prompt growth, not the whole prompt again. A repeated
+    # 7_000-token prompt only adds output after the first step, so the cap has
+    # to sit on that first charge to prove a stop still records usage.
+    _cap(store, 7100)
     tool_turn = {
         "text": "",
         "tool_calls": [{"id": "c1", "name": "control__checkpoint", "arguments": {"note": "x"}}],
@@ -146,3 +158,46 @@ def test_budget_stop_keeps_the_usage_spent_so_far() -> None:
     assert usage["tokens_in"] >= 14000
     assert usage["tokens_out"] >= 200
     assert usage["cost_micros"] > 0
+
+
+def test_six_step_turn_does_not_recount_the_prompt() -> None:
+    """A growing prompt is charged once. Recounting each step exceeds 16k."""
+    store = _priced_store()
+    steps: list[dict[str, object]] = []
+    reported = [3000, 4500, 6000, 7500, 9000, 10500]
+    for index, tokens_in in enumerate(reported):
+        steps.append(
+            {
+                "text": "",
+                "tool_calls": [
+                    {
+                        "id": f"c{index}",
+                        "name": "control__checkpoint",
+                        "arguments": {"note": str(index)},
+                    }
+                ],
+                "usage": {"tokens_in": tokens_in, "tokens_out": 100},
+                "real": True,
+            }
+        )
+    steps.append(
+        {
+            "text": "Done.",
+            "tool_calls": [],
+            "usage": {"tokens_in": 12000, "tokens_out": 100},
+            "real": True,
+        }
+    )
+    _script(store, steps)
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None, model_alias="reasoning")
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "Six tool steps", schedule=False
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    asyncio.run(store.generate(run_id, "Six tool steps", []))
+    run = store.runs[run_id]
+    assert run["status"] == "completed"
+    usage = run["usage"]
+    assert usage["tokens_in"] == sum(reported) + 12000
+    assert usage["tokens_out"] == 700

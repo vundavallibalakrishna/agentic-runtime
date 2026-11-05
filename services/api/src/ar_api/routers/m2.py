@@ -126,6 +126,17 @@ def _page(items: list[dict[str, object]]) -> dict[str, object]:
     return {"data": items}
 
 
+def sse_frame(event: dict[str, object]) -> bytes:
+    """One SSE record. A heartbeat is a comment so a long tool turn stays open.
+
+    Clients ignore the comment, and it does not advance ``Last-Event-ID``.
+    """
+    if event.get("type") == "heartbeat":
+        return b": ping\n\n"
+    payload = public_json_bytes(event)
+    return f"id: {event['seq']}\nevent: {event['type']}\ndata: ".encode() + payload + b"\n\n"
+
+
 def _platform(principal: Principal) -> None:
     if principal.kind != "platform_admin":
         raise ArError(ErrorCode.FORBIDDEN, "platform admin is required")
@@ -850,16 +861,15 @@ async def run_events(run_id: uuid.UUID, request: Request) -> StreamingResponse:
     async def frames() -> AsyncIterator[bytes]:
         try:
             async for event in service.iter_events(_tenant(principal), run_id, after):
-                payload = public_json_bytes(event)
-                yield (
-                    f"id: {event['seq']}\nevent: {event['type']}\ndata: ".encode()
-                    + payload
-                    + b"\n\n"
-                )
+                yield sse_frame(event)
         finally:
             service.release_sse(principal.id)
 
-    return StreamingResponse(frames(), media_type="text/event-stream")
+    return StreamingResponse(
+        frames(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class AnswerBody(ApiModel):

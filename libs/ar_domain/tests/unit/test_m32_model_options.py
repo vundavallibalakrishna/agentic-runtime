@@ -8,6 +8,7 @@ import pytest
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.models.options import (
     apply_request_options,
+    copy_request_options,
     default_request_options,
     request_options_of,
 )
@@ -29,6 +30,11 @@ def test_defaults_and_merge_rules() -> None:
     assert merged["max_tokens"] == 5
     assert request_options_of({"request_options": {"a": 1}}) == {"a": 1}
     assert request_options_of({"request_options": "bad"}) == {}
+    stored = copy_request_options({"chat_template_kwargs": {"enable_thinking": False}})
+    assert stored == {"chat_template_kwargs": {"enable_thinking": False}}
+    # A camelCase provider key is kept, not snake_cased, on the write path.
+    echoed = copy_request_options({"chatTemplateKwargs": {"enableThinking": False}})
+    assert echoed == {"chatTemplateKwargs": {"enableThinking": False}}
 
 
 def test_registration_stores_options_and_aliases_resolve_them() -> None:

@@ -229,6 +229,65 @@ async def load_data_connections(session: AsyncSession, store: object, tenant_id:
         _merge(store, "data_connections", row["id"], row)
 
 
+def drop_catalogue_shadows(
+    providers: dict[object, object],
+    models: dict[object, object],
+    aliases: dict[object, object],
+    *,
+    db_providers: list[dict[str, Any]],
+    db_models: list[dict[str, Any]],
+    db_aliases: list[dict[str, Any]],
+) -> None:
+    """Drop in-memory platform rows that the database already has under another id.
+
+    ``seed_demo`` uses stable demo ids. ``make seed`` inserts the same names with
+    new ids. Hydrating both lists ``fake-llm`` and ``reasoning`` twice.
+    """
+    mapping: dict[uuid.UUID, uuid.UUID] = {}
+    _collect_shadows(providers, db_providers, ("tenant_id", "name"), mapping)
+    _collect_shadows(models, db_models, ("tenant_id", "name"), mapping)
+    _collect_shadows(aliases, db_aliases, ("tenant_id", "alias"), mapping)
+    if not mapping:
+        return
+    for bucket in (providers, models, aliases):
+        for shadowed in [
+            item for item in bucket if isinstance(item, uuid.UUID) and item in mapping
+        ]:
+            bucket.pop(shadowed, None)
+        for kept, body in list(bucket.items()):
+            if isinstance(body, dict):
+                bucket[kept] = _retarget(body, mapping)
+
+
+def _collect_shadows(
+    bucket: dict[object, object],
+    db_rows: list[dict[str, Any]],
+    fields: tuple[str, ...],
+    mapping: dict[uuid.UUID, uuid.UUID],
+) -> None:
+    index: dict[tuple[object, ...], uuid.UUID] = {}
+    for row in db_rows:
+        found = row.get("id")
+        if isinstance(found, uuid.UUID):
+            index[tuple(row.get(field) for field in fields)] = found
+    for memory_id, memory_row in bucket.items():
+        if not isinstance(memory_id, uuid.UUID) or not isinstance(memory_row, dict):
+            continue
+        found = index.get(tuple(memory_row.get(field) for field in fields))
+        if isinstance(found, uuid.UUID) and found != memory_id:
+            mapping[memory_id] = found
+
+
+def _retarget(value: object, mapping: dict[uuid.UUID, uuid.UUID]) -> object:
+    if isinstance(value, uuid.UUID):
+        return mapping.get(value, value)
+    if isinstance(value, dict):
+        return {str(key): _retarget(item, mapping) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_retarget(item, mapping) for item in value]
+    return value
+
+
 async def load_model_catalog(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     """Registered models survive a restart, including the encrypted provider key."""
     from ar_domain.durable.hydrate import _rows  # noqa: PLC0415
@@ -250,8 +309,19 @@ async def load_model_catalog(session: AsyncSession, store: object, tenant_id: uu
         (models, "SELECT * FROM models WHERE tenant_id = :tenant_id OR tenant_id IS NULL"),
         (aliases, "SELECT * FROM model_aliases WHERE tenant_id = :tenant_id OR tenant_id IS NULL"),
     )
+    loaded: list[tuple[dict[object, object], list[dict[str, Any]]]] = []
     for bucket, sql in queries:
-        for row in await _rows(session, sql, tenant_id):
+        loaded.append((bucket, await _rows(session, sql, tenant_id)))
+    drop_catalogue_shadows(
+        providers,
+        models,
+        aliases,
+        db_providers=loaded[0][1],
+        db_models=loaded[1][1],
+        db_aliases=loaded[2][1],
+    )
+    for bucket, rows in loaded:
+        for row in rows:
             key = row.get("id")
             current = bucket.get(key)
             body = dict(current) if isinstance(current, dict) else {}

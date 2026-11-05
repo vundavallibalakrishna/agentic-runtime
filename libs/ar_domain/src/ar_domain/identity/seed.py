@@ -185,19 +185,21 @@ async def _tenant(session: AsyncSession, plan_id: uuid.UUID) -> Tenant:
         await session.flush()
     else:
         # A dev tenant seeded before the assurance flag existed keeps every screen.
-        current = dict(row.settings or {})
-        raw_features = current.get("features")
-        features = (
-            {str(key): value for key, value in raw_features.items()}
-            if isinstance(raw_features, dict)
-            else {}
-        )
+        current = _settings_dict(row.settings)
+        features = _settings_dict(current.get("features"))
         if "assurance" not in features:
             features["assurance"] = True
             current["features"] = features
             row.settings = current
             await session.flush()
     return row
+
+
+def _settings_dict(value: object) -> dict[str, object]:
+    """Copy a JSON object. ``dict(loose)`` is not a valid mypy overload."""
+    if not isinstance(value, dict):
+        return {}
+    return {str(key): item for key, item in value.items()}
 
 
 async def _users(session: AsyncSession, tenant_id: uuid.UUID, roles: dict[str, Role]) -> None:
