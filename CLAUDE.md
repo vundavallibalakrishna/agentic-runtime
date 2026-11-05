@@ -53,7 +53,7 @@ So:
 
 ## How work is picked and tracked
 
-1. The owner's request comes first. Without one, take the next open item from the review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
+1. The owner's request comes first. Without one, take the next open task in [M38](docs/09-plan/M38-tool-framework.md) and the milestones after it ([tool review](docs/testing/tools-review-2026-11-05/tools-review.md)), then the open items in the November review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
 2. Earlier milestone files record how the platform was built. Use them as history and do not re-implement a task marked `done` in [progress.md](docs/09-plan/progress.md).
 3. New work gets a task in a milestone file, written in the [plan's task format](docs/09-plan/README.md#task-format), with a row in the plan's milestone table if the milestone is new. Never renumber a task; split one as `M{n}-T{nn}a`.
 4. Mark the task `in_progress` in `progress.md`, then `done` with the commit sha. One task per pull request unless the task says otherwise.

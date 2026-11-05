@@ -278,3 +278,5 @@ M33c-T01 | done | e77c491 | tool-choice eval gym; dry-run scorecard 12/12; live 
 M35-T01 | done | 2a6e30a | durability, Temporal dev-server schedule fire, cache eviction, A2A list and push, job progress |
 M36-T01 | done | cb3f552 | connector live pack harness; dry CI; ledger promotes a recorded read |
 M37-T01 | done | d4bdd66 | controlled browser on the M6 session; Chromium canary not_live when dump-dom does not finish |
+
+M38-T00 | done | - | tool review, M38 tasks, M39 to M42 outlines; sha recorded with M38-T01
