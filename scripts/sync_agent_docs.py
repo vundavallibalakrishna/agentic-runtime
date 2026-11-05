@@ -1,6 +1,6 @@
-"""Keep Claude's instructions identical to the Cursor agent instructions.
+"""Keep Claude's instructions identical to the other coding agents' instructions.
 
-``AGENTS.md`` is the authored source (the spec). Claude Code reads ``CLAUDE.md``.
+``AGENTS.md`` is the authored source. Claude Code reads ``CLAUDE.md``.
 ``make gen`` rewrites ``CLAUDE.md`` from ``AGENTS.md`` so the two cannot drift.
 """
 

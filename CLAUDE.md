@@ -1,48 +1,91 @@
 <!-- Generated from AGENTS.md by scripts/sync_agent_docs.py. Edit AGENTS.md, then run make gen. -->
 
-# AGENTS.md — instructions for implementers
+# AGENTS.md — Agentic Runtime
 
-You are building **Agentic Runtime** from this specification. Follow this file exactly. When anything here conflicts with a lower-level document, this file wins for *process*; the specs win for *behaviour*.
+Agentic Runtime is a self-hosted platform on which a company builds, governs and runs AI agents on its own infrastructure and models. Balakrishna Vundavalli designed and built it and owns its product decisions. The platform exists and was certified end to end in M31 ([report](docs/testing/m31-certification.md)). Work now hardens and extends it, so read the code before assuming what a spec says is how it behaves.
+
+These are the instructions for anyone changing this repository, person or coding agent. This file is complete on its own: it imports nothing, and instructions from any folder above this repository do not apply here. `CLAUDE.md` is generated from it, so edit this file and run `make gen`. When anything here conflicts with a lower-level document, this file wins for *process*; the specs win for *behaviour*.
 
 ## Non-negotiable principles
 
 Full text: [docs/00-overview/principles.md](docs/00-overview/principles.md). The goals are **CLEAN CODE**, **CUSTOMISABLE**, **EXTENSIBLE**, **SIMPLE UI/UX**, **OUTSTANDING PRESENTATION**.
 
-1. **camelCase on the wire.** Public JSON (REST, SSE, webhooks, definition files the UI shows) uses camelCase properties. Python stays snake_case via `ar_contracts.api_model.ApiModel` (`alias_generator=to_camel`, `populate_by_name=True`, `serialize_by_alias=True`). Database columns and env vars are unchanged. CI runs `scripts/check_public_camel_case.py`. Apply this on M1 response models ([M1-T16](docs/09-plan/M01-foundation.md)); do not wait.
+1. **camelCase on the wire.** Public JSON (REST, SSE, webhooks, definition files the UI shows) uses camelCase properties. Python stays snake_case via `ar_contracts.api_model.ApiModel` (`alias_generator=to_camel`, `populate_by_name=True`, `serialize_by_alias=True`). Database columns and env vars are unchanged. CI runs `scripts/check_public_camel_case.py`.
 2. **Demo-grade UI.** The primary create-agent path is a natural-language instruction handled by the built-in `builder` agent, with a reviewable preview and a form/YAML escape hatch. Empty, loading, and error states are mandatory. Bar: [ux-quality](docs/08-quality/ux-quality.md). Visual design follows [design-system](docs/08-quality/design-system.md): tokens in `apps/web/src/app/globals.css`, no new hex colours in feature code, light and dark both finished, theme defaults to the system preference.
 3. **No industry in core.** Evidence, sign-off, segregation of duties, legal hold, retention, the AI register, external participants, and binders are generic. New capabilities are packs or connector plugins ([extension-framework](docs/05-contracts/extension-framework.md)). The former industry pack was removed in M30.
 4. **The product is the generic platform.** A customer connects a model, builds agents, and gives them tools, connectors, skills and files.
 5. **Defaults.** A tenant works after secrets and identity. Every other setting has a default. Settings UI has Simple and Advanced modes.
 6. **North star.** A corporate assistant with its own computer, in the customer's environment, able to automate any work ([vision](docs/00-overview/vision.md)).
 
-## Read order
+## What is in the repository
 
-Before your first task, read in this order (≈ 1 hour):
-1. [README.md](README.md) — what the product is.
-2. [docs/00-overview/vision.md](docs/00-overview/vision.md), [principles](docs/00-overview/principles.md), [glossary](docs/00-overview/glossary.md), [scope](docs/00-overview/scope.md), [deployment-modes](docs/00-overview/deployment-modes.md).
-3. [docs/02-architecture/system-context.md](docs/02-architecture/system-context.md), [service-decomposition.md](docs/02-architecture/service-decomposition.md), [request-flows.md](docs/02-architecture/request-flows.md), [tenancy-isolation.md](docs/02-architecture/tenancy-isolation.md), the [ADR index](docs/02-architecture/adr/README.md).
-4. [docs/stack.md](docs/stack.md) and [docs/08-quality/coding-standards-python.md](docs/08-quality/coding-standards-python.md), [coding-standards-typescript.md](docs/08-quality/coding-standards-typescript.md), [testing-strategy.md](docs/08-quality/testing-strategy.md).
-5. [docs/05-contracts/api-conventions.md](docs/05-contracts/api-conventions.md) and [docs/04-data/rls.md](docs/04-data/rls.md).
-6. [docs/09-plan/README.md](docs/09-plan/README.md).
+| Path | What |
+|---|---|
+| `apps/web` | Next.js app: every user and admin screen, no business logic |
+| `services/api` | FastAPI: public REST and SSE, sessions, `/v1` agent API, MCP and A2A exposure |
+| `services/runtime`, `services/system`, `services/ingest` | Temporal workers: agent runs; routines and housekeeping; knowledge ingestion |
+| `services/model_gateway`, `services/mcp_gateway` | The model endpoint behind aliases; the tool-call choke point |
+| `services/sandbox_manager`, `services/sandbox_agent` | Sandbox allocation; the process inside a sandbox |
+| `services/channels`, `services/fake_llm` | Slack, Teams and email; the scripted model for development and tests |
+| `libs/ar_domain` | All business logic and the Alembic migrations |
+| `libs/ar_common`, `ar_contracts`, `ar_connector_sdk`, `ar_testing`, `ar_client` | Shared basics; cross-process models; connector SDK; test fixtures; generated Python client |
+| `connectors/`, `policies/`, `deploy/`, `evals/` | MCP connector servers; OPA Rego; Compose and Helm; golden and red-team suites |
+| `docs/` | Specs, plan, decisions and test evidence |
 
-For each task, additionally read every document in the task's **Spec** line, the relevant [PRD](docs/01-prd/README.md) stories, and the security documents it touches ([docs/06-security](docs/06-security/)).
+The canonical list of deployables and modules is [service-decomposition](docs/02-architecture/service-decomposition.md). How the running system fits together: [docs/architecture/README.md](docs/architecture/README.md). Stack and exact versions: [docs/stack.md](docs/stack.md).
 
-## How to pick the next task
+## Where the code and the specs differ
 
-1. Open `docs/09-plan/progress.md` (created by M0-T01). Tasks marked `done` are complete.
-2. Take the **lowest-numbered milestone** that has unfinished tasks; within it, the lowest-numbered task whose **Depends on** tasks are all `done`. Never start a task with unfinished dependencies; never skip ahead to a later milestone while an earlier one is unfinished (milestone exit criteria are implicit dependencies). M2.5 (design polish) sits between M2 and M3. Two exceptions: M13-T07 waits for M14-T08 and is not an M13 exit task. M16 may start after M14-T13 while M15 is unfinished. Do not implement guest tables or records tables in M1; those land in M14. Do apply camelCase ([M1-T16](docs/09-plan/M01-foundation.md)) while writing M1 API models.
-3. Mark it `in_progress` in `progress.md` (`M2-T05 | in_progress | - | <date>`), do the work, then mark it `done` with the commit sha. One task per pull request unless a task explicitly says otherwise.
-4. If a task is too big for one PR, split it as `M{n}-T{nn}a`, `…b` in the milestone file (never renumber existing tasks) and record the split in `progress.md`.
-5. At the end of a milestone, run the milestone's exit criteria and demo script ([plan README](docs/09-plan/README.md#vertical-slices-and-demo-checkpoints)) and record the result in `progress.md`.
-6. Every milestone pull request includes **How to test visually** as defined in the plan [Visual test](docs/09-plan/README.md#visual-test) section: exact local start commands, seeded demo login and data, and a numbered click-through of every user-visible feature so far with expected results.
+The specs say how the platform should behave. The [November 2026 review](docs/testing/review-2026-11-05/review-and-remediation-plan.md) found where the code does not yet do that, and its phases are the open work. The largest gap: the product paths built in M21–M31 run on the process-local `ChatService` store (`libs/ar_domain/src/ar_domain/chat/service.py`) with write-behind to Postgres, not on the repository and row-level-security layer. That limits durable mode to one API replica and the `dev` tenant, and those paths do not yet meet never-skip rules 1 and 3 below.
+
+So:
+
+- Do not describe a spec'd behaviour as working until you have checked the code or run it.
+- Do not widen a gap. New code follows the never-skip rules, and a change that cannot says why in its pull request and in [open-questions](docs/open-questions.md).
+- Check [progress.md](docs/09-plan/progress.md) and [open-questions](docs/open-questions.md) for what has landed since the review. M35, for example, made file bytes durable and capped the chat cache, while sessions and rate limits stay in process memory (OQ-59).
+
+## Read before changing code
+
+1. [README.md](README.md), then [principles](docs/00-overview/principles.md) and the [glossary](docs/00-overview/glossary.md).
+2. [Service decomposition](docs/02-architecture/service-decomposition.md), [request flows](docs/02-architecture/request-flows.md), [tenancy and isolation](docs/02-architecture/tenancy-isolation.md).
+3. The coding standards for [Python](docs/08-quality/coding-standards-python.md) and [TypeScript](docs/08-quality/coding-standards-typescript.md), and the [testing strategy](docs/08-quality/testing-strategy.md).
+4. For the change itself: the [component spec](docs/03-specs/) it touches, [API conventions](docs/05-contracts/api-conventions.md) for an endpoint, [RLS](docs/04-data/rls.md) for a table, and any [security document](docs/06-security/) it touches.
+
+## How work is picked and tracked
+
+1. The owner's request comes first. Without one, take the next open item from the review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
+2. Earlier milestone files record how the platform was built. Use them as history and do not re-implement a task marked `done` in [progress.md](docs/09-plan/progress.md).
+3. New work gets a task in a milestone file, written in the [plan's task format](docs/09-plan/README.md#task-format), with a row in the plan's milestone table if the milestone is new. Never renumber a task; split one as `M{n}-T{nn}a`.
+4. Mark the task `in_progress` in `progress.md`, then `done` with the commit sha. One task per pull request unless the task says otherwise.
+5. A pull request that changes a screen includes **How to test visually**, as defined in the plan's [Visual test](docs/09-plan/README.md#visual-test) section: exact start commands, seeded login and data, and a numbered click-through with expected results.
+
+## Running and checking
+
+```bash
+make bootstrap   # toolchains, dependencies, dev keys
+make dev         # dependencies, migrations, seed and every process; AUTO_PORTS=1 moves busy ports
+make check       # lint, typecheck, unit tests
+make test        # unit and integration, OPA and web tests
+make test-e2e    # Playwright against a running stack
+make gen         # regenerate OpenAPI, schemas, clients and CLAUDE.md; CI fails on any diff
+```
+
+Dev login is `admin@dev.local`, password `dev-password`. Details: [local-dev](docs/07-ops/local-dev.md).
+
+Things that catch people out:
+
+- **Several agents may share a checkout.** Work in your own git worktree under `.claude/worktrees/<name>`, on a fresh branch from `origin/main`, with your own ports and database. Never use a bare `git stash`: the stash stack is shared.
+- **`.env` leaks into unit tests.** `pydantic-settings` reads it, so `AR_OPA_URL` can point a test at a shared OPA, and a dev tenant seeded before a flag existed needs `make seed` again. Rule this out before blaming your change.
+- **Next.js rewrites tracked files.** `next build` with `AR_NEXT_DIST` rewrites `apps/web/next-env.d.ts`, and `next dev` manages `apps/web/AGENTS.md`. Do not commit those changes by accident.
+- **This Next.js differs from older versions.** Read `apps/web/node_modules/next/dist/docs/` before writing web code.
 
 ## Conventions
 
 - **Names are fixed**: services, packages, tables, columns, endpoints, events, permissions, audit actions, metrics and env vars are exactly as written in the specs. Do not rename, pluralise differently or add synonyms. If you need a new name, add it to the owning spec and to the relevant catalogue in the same PR ([environments §3](docs/07-ops/environments.md#3-variable-catalogue), [audit §3](docs/06-security/audit.md#3-catalogue), [authn-authz §3](docs/06-security/authn-authz.md#3-permission-catalogue), [domain-events](docs/05-contracts/domain-events.md), [stream-events](docs/05-contracts/stream-events.md), [api-catalogue](docs/05-contracts/api-catalogue.md)).
 - **Layering**: services never import each other; DB access only through `ar_domain` repositories inside a unit of work with tenant context ([coding-standards-python §2–3](docs/08-quality/coding-standards-python.md#2-ruff-and-lint-configuration)).
 - **Contracts first**: cross-process models live in `ar_contracts`; the OpenAPI document and TS client are generated (`make gen`), never hand-written.
-- **Commits**: Conventional Commits with the task id in the body (`Task: M4-T03`).
-- **Docs move with code**: if implementation reveals a spec gap, update the spec in the same PR and, if it is a decision, add an entry to [open-questions](docs/open-questions.md) with the default you applied.
+- **Commits**: Conventional Commits, with the task id in the body (`Task: M4-T03`) when the change belongs to a task. CI checks the pull request title.
+- **Docs move with code**: if the work reveals a spec gap, update the spec in the same PR and, if it is a decision, add an entry to [open-questions](docs/open-questions.md) with the default you applied.
 - **No guessing**: when a spec is silent, apply the default in open-questions; if none exists, choose the safest option (deny, fail closed, smallest scope), document it in open-questions, and continue.
 
 ## Never-skip rules
@@ -62,7 +105,7 @@ For each task, additionally read every document in the task's **Spec** line, the
 
 ## Definition of done
 
-A task is done when **all** of the following hold:
+A change is done when **all** of the following hold:
 - [ ] Every bullet of the task's **Do** is implemented and every **Done when** criterion is demonstrably met.
 - [ ] The task's **Tests** exist and pass; `make check` and `make test` pass locally; all required CI jobs are green ([ci-cd §2](docs/07-ops/ci-cd.md#2-jobs)).
 - [ ] Never-skip rules above are satisfied (isolation test, permission, audit, wrapping, telemetry hygiene, secrets).
@@ -75,5 +118,5 @@ A task is done when **all** of the following hold:
 ## When you are blocked
 
 - A dependency (service, model endpoint) is unavailable locally → use `fake-llm`, testcontainers or the test MCP servers from `ar_testing`.
-- A version pin does not resolve → follow M0-T02 (choose the nearest stable release, update stack.md, note it in OQ-15).
+- A version pin does not resolve → choose the nearest stable release, update [stack.md](docs/stack.md), and note it in OQ-15.
 - Two documents disagree → the more specific spec wins over overview/plan text; fix the other document in the same PR and log it in open-questions.

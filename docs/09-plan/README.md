@@ -1,6 +1,6 @@
-# Implementation plan
+# Plan
 
-This is the ordered backlog an implementing agent follows. **Work strictly in milestone order; inside a milestone, pick the lowest-numbered task whose dependencies are all done** ([AGENTS.md](../../AGENTS.md#how-to-pick-the-next-task)). Each task is sized for one agent session (roughly 300–1,500 changed lines including tests).
+This is the record of how the platform was built, milestone by milestone, and the place new work is added. [progress.md](progress.md) says what is done. Open work comes from the owner and from the [November 2026 review](../testing/review-2026-11-05/review-and-remediation-plan.md) ([AGENTS.md](../../AGENTS.md#how-work-is-picked-and-tracked)). A task is sized for one working session (roughly 300–1,500 changed lines including tests), and its dependencies still have to be done first.
 
 ## Task format
 

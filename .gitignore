@@ -42,3 +42,6 @@ deploy/compose/data/
 
 # Alternate Next.js build dirs used by certification passes
 apps/web/.next-*/
+
+# Local git worktrees for parallel sessions
+.claude/worktrees/
