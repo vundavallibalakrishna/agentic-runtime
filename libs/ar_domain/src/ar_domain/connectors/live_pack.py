@@ -194,7 +194,7 @@ CANARIES: tuple[Canary, ...] = (
         config_default=(("region", "us-east-1"),),
         config_optional=(("region", "AR_M36_S3_REGION"),),
         write_tool="s3_put",
-        write_args=(("key", "m36-canary.txt"), ("text", _CANARY)),
+        write_args=(("key", "canary-not-a-secret"), ("text", _CANARY)),
     ),
     _canary(
         "jira",
