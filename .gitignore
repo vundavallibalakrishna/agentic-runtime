@@ -35,3 +35,9 @@ blob-report/
 .DS_Store
 
 deploy/compose/data/
+
+# Local certification secrets (never commit)
+.secrets/
+
+# Alternate Next.js build dirs used by certification passes
+apps/web/.next-*/

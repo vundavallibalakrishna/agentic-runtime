@@ -1,0 +1,13 @@
+control_id,framework,statement
+CC6.1,SOC 2,Logical access to systems is restricted using unique user accounts and least privilege.
+CC6.1-MFA,SOC 2,Multi-factor authentication is enforced for all access to production systems.
+CC6.2,SOC 2,Access is removed promptly when a person leaves the organisation.
+CC6.3,SOC 2,User access rights are reviewed at least quarterly.
+CC6.7,SOC 2,Data in transit is protected with encryption.
+A.8.24,ISO 27001,Data at rest is protected with strong encryption and managed keys.
+CC7.2,SOC 2,Security events are logged and logs are retained for at least one year.
+CC9.2,SOC 2,Vendors are assessed for security risk before onboarding and re-assessed periodically.
+CC7.4,SOC 2,A documented incident response plan exists and is tested.
+P6.3,SOC 2,Affected individuals are notified of personal data breaches within a defined period.
+A.8.13,ISO 27001,Backups are taken regularly and backup restoration is tested.
+MARS-1,Custom,The organisation operates a disaster recovery site on a Mars colony.

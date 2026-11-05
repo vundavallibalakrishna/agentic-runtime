@@ -1,0 +1,139 @@
+{
+  "flow": {
+    "chatHeading": "Chat",
+    "chatText": "Skip to content\nAgentic Runtime\nNew chat\n⌘⇧O\n\nWORKSPACE\n\nChat\nAgents\nRoutines\nSchedules\nInbox\n\nRESOURCES\n\nTools\nDocuments\nConnectors\nConnections\nKnowledge\nMemory\nSkills\n\nMANAGE\n\nSettings\nChannels\nEvaluations\nPlatform health\nUsage\nQuotas\nApprovals\nRuns\nModels\nComputers\nAssurance\nUsers\nCreate an agent\nCollapse sidebar\nDev\nChat\nSearch anything\n⌘K\nDev Admin\nadmin@dev.local\n\nRECENT CONVERSATIONS\n\nNew chat\nStart the long sleep.\nAsk me now.\nSleep for three minutes now.\nSleep now.\nStart.\nAsk for self-ap",
+    "sample": "Key stored was already on the provider row",
+    "keyCleared": true,
+    "keyStoredLabel": true,
+    "createdAgent": "http://127.0.0.1:18132/chat?agent=certification-clerk-mw39lj8a",
+    "notLive": true,
+    "exposeHydrated": true,
+    "keyShownOnce": true,
+    "secretStillVisible": false,
+    "retired": "Page not found"
+  },
+  "desktopLight": [
+    {
+      "route": "/chat",
+      "heading": "Chat"
+    },
+    {
+      "route": "/agents/new",
+      "heading": "New agent"
+    },
+    {
+      "route": "/agents",
+      "heading": "Agents"
+    },
+    {
+      "route": "/documents",
+      "heading": "Documents"
+    },
+    {
+      "route": "/knowledge",
+      "heading": "Knowledge"
+    },
+    {
+      "route": "/memory",
+      "heading": "Memory"
+    },
+    {
+      "route": "/skills",
+      "heading": "Skills"
+    },
+    {
+      "route": "/connectors",
+      "heading": "Connectors"
+    },
+    {
+      "route": "/runs",
+      "heading": "Runs"
+    },
+    {
+      "route": "/inbox",
+      "heading": "Inbox"
+    },
+    {
+      "route": "/approvals",
+      "heading": "Approvals"
+    },
+    {
+      "route": "/schedules",
+      "heading": "Schedules"
+    },
+    {
+      "route": "/settings/profile",
+      "heading": "Profile"
+    },
+    {
+      "route": "/admin/models",
+      "heading": "Models"
+    },
+    {
+      "route": "/grc",
+      "heading": "Page not found"
+    }
+  ],
+  "desktopDark": [
+    {
+      "route": "/chat",
+      "heading": "Chat"
+    },
+    {
+      "route": "/agents/new",
+      "heading": "New agent"
+    },
+    {
+      "route": "/agents",
+      "heading": "Agents"
+    },
+    {
+      "route": "/documents",
+      "heading": "Documents"
+    },
+    {
+      "route": "/knowledge",
+      "heading": "Knowledge"
+    },
+    {
+      "route": "/memory",
+      "heading": "Memory"
+    },
+    {
+      "route": "/skills",
+      "heading": "Skills"
+    },
+    {
+      "route": "/connectors",
+      "heading": "Connectors"
+    },
+    {
+      "route": "/runs",
+      "heading": "Runs"
+    },
+    {
+      "route": "/inbox",
+      "heading": "Inbox"
+    },
+    {
+      "route": "/approvals",
+      "heading": "Approvals"
+    },
+    {
+      "route": "/schedules",
+      "heading": "Schedules"
+    },
+    {
+      "route": "/settings/profile",
+      "heading": "Profile"
+    },
+    {
+      "route": "/admin/models",
+      "heading": "Models"
+    },
+    {
+      "route": "/grc",
+      "heading": "Page not found"
+    }
+  ]
+}
