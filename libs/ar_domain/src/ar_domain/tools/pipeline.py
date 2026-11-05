@@ -264,6 +264,9 @@ class ToolPipeline:
             plain = plain.encode()[:cap].decode("utf-8", errors="ignore")
         from ar_domain.security.guardrails import apply_result_safety  # noqa: PLC0415
 
+        tool_name = str(version.get("name") or "")
+        tenant_id = request.get("tenant_id")
+        agent_version_id = request.get("agent_version_id")
         plain, flag = apply_result_safety(
             self.store,
             plain,
@@ -273,8 +276,11 @@ class ToolPipeline:
             or endpoint in {"builtin://data", "builtin://documents", "builtin://connectors"}
             or (
                 endpoint == "builtin://general"
-                and str(version.get("name")) in {"inspect_table", "query_table", "export_table"}
+                and tool_name in {"inspect_table", "query_table", "export_table"}
             ),
+            analysis=endpoint == "builtin://documents" and tool_name != "redact",
+            tenant_id=tenant_id if isinstance(tenant_id, uuid.UUID) else None,
+            agent_version_id=agent_version_id if isinstance(agent_version_id, uuid.UUID) else None,
         )
         if flag.get("suspected"):
             outcome["injection_suspected"] = True

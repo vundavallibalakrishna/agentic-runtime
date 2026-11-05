@@ -31,6 +31,7 @@ from ar_domain.documents.grounding import (
 )
 from ar_domain.documents.model import ask_model
 from ar_domain.files.logic import scan_bytes
+from ar_domain.security.guardrails import analysis_redaction_enabled
 
 if TYPE_CHECKING:
     from typing import Any
@@ -224,17 +225,35 @@ class DocumentLibrary:
         }
 
     def summarise(
-        self, actor: Actor, document_id: uuid.UUID, *, alias: str = ""
+        self,
+        actor: Actor,
+        document_id: uuid.UUID,
+        *,
+        alias: str = "",
+        agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         row = self._own(actor, document_id)
-        return summarise(row, self._ask(actor, alias))
+        return summarise(
+            row, self._ask(actor, alias), aggressive=self._aggressive(actor, agent_version_id)
+        )
 
     def compare(
-        self, actor: Actor, document_id: uuid.UUID, other_id: uuid.UUID, *, alias: str = ""
+        self,
+        actor: Actor,
+        document_id: uuid.UUID,
+        other_id: uuid.UUID,
+        *,
+        alias: str = "",
+        agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         left = self._own(actor, document_id)
         right = self._own(actor, other_id)
-        result = compare(left, right, self._ask(actor, alias))
+        result = compare(
+            left,
+            right,
+            self._ask(actor, alias),
+            aggressive=self._aggressive(actor, agent_version_id),
+        )
         comparison_id = new_id()
         now = utcnow()
         self.store.document_comparisons[comparison_id] = {
@@ -259,6 +278,7 @@ class DocumentLibrary:
         standard_id: uuid.UUID | None = None,
         label: str = "",
         alias: str = "",
+        agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         row = self._own(actor, document_id)
         items = [item.strip() for item in requirements if item.strip()]
@@ -266,7 +286,13 @@ class DocumentLibrary:
             items.extend(requirements_from(self._own(actor, standard_id)))
         if not items:
             raise ValidationFailedError("Provide a standard document or a list of requirements.")
-        result = check(row, items[:40], self._ask(actor, alias), label=label)
+        result = check(
+            row,
+            items[:40],
+            self._ask(actor, alias),
+            label=label,
+            aggressive=self._aggressive(actor, agent_version_id),
+        )
         check_id = new_id()
         now = utcnow()
         self.store.document_checks[check_id] = {
@@ -291,12 +317,18 @@ class DocumentLibrary:
         requirements: list[str],
         standard_id: uuid.UUID | None = None,
         alias: str = "",
+        agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         row = self._own(actor, document_id)
         items = [item.strip() for item in requirements if item.strip()]
         if standard_id is not None:
             items.extend(requirements_from(self._own(actor, standard_id)))
-        return gaps(row, items[:40], self._ask(actor, alias))
+        return gaps(
+            row,
+            items[:40],
+            self._ask(actor, alias),
+            aggressive=self._aggressive(actor, agent_version_id),
+        )
 
     def redact(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         row = self._own(actor, document_id)
@@ -312,11 +344,17 @@ class DocumentLibrary:
         fields: list[str],
         *,
         alias: str = "",
+        agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         if not fields:
             raise ValidationFailedError("Name at least one field.")
         row = self._own(actor, document_id)
-        return extract_fields(row, fields[:20], self._ask(actor, alias))
+        return extract_fields(
+            row,
+            fields[:20],
+            self._ask(actor, alias),
+            aggressive=self._aggressive(actor, agent_version_id),
+        )
 
     def propose_rewrite(
         self,
@@ -326,6 +364,7 @@ class DocumentLibrary:
         anchor: str,
         instruction: str,
         alias: str = "",
+        agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         if not instruction.strip():
             raise ValidationFailedError("Say how the passage should change.")
@@ -339,7 +378,12 @@ class DocumentLibrary:
             chosen = passages[:8]
             anchor = ""
         original = "\n\n".join(str(item.get("text") or "") for item in chosen)[:12_000]
-        proposed = rewrite_text(original, instruction, self._ask(actor, alias))
+        proposed = rewrite_text(
+            original,
+            instruction,
+            self._ask(actor, alias),
+            aggressive=self._aggressive(actor, agent_version_id),
+        )
         hunks = line_hunks(original, proposed)
         rewrite_id = new_id()
         now = utcnow()
@@ -457,6 +501,9 @@ class DocumentLibrary:
         else:
             document["passages"] = rewritten
         document["updated_at"] = utcnow()
+
+    def _aggressive(self, actor: Actor, agent_version_id: uuid.UUID | None) -> bool:
+        return analysis_redaction_enabled(self.store, actor.tenant_id, agent_version_id)
 
     def _ask(self, actor: Actor, alias: str) -> Any:
         chosen = alias or "reasoning"
