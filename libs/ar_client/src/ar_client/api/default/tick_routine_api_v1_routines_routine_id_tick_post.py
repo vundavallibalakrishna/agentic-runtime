@@ -89,7 +89,7 @@ def sync_detailed(
 ]:
     """Tick Routine
 
-     Fire a due schedule in this process. A live model run waits for the answer.
+     Fire a due schedule in this process when Temporal's clock is not connected.
 
     Args:
         routine_id (UUID):
@@ -127,7 +127,7 @@ def sync(
 ):
     """Tick Routine
 
-     Fire a due schedule in this process. A live model run waits for the answer.
+     Fire a due schedule in this process when Temporal's clock is not connected.
 
     Args:
         routine_id (UUID):
@@ -159,7 +159,7 @@ async def asyncio_detailed(
 ]:
     """Tick Routine
 
-     Fire a due schedule in this process. A live model run waits for the answer.
+     Fire a due schedule in this process when Temporal's clock is not connected.
 
     Args:
         routine_id (UUID):
@@ -195,7 +195,7 @@ async def asyncio(
 ):
     """Tick Routine
 
-     Fire a due schedule in this process. A live model run waits for the answer.
+     Fire a due schedule in this process when Temporal's clock is not connected.
 
     Args:
         routine_id (UUID):

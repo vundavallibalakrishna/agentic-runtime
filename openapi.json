@@ -16297,7 +16297,7 @@
     "/api/v1/routines/{routine_id}:tick": {
       "post": {
         "summary": "Tick Routine",
-        "description": "Fire a due schedule in this process. A live model run waits for the answer.",
+        "description": "Fire a due schedule in this process when Temporal's clock is not connected.",
         "operationId": "tick_routine_api_v1_routines__routine_id__tick_post",
         "parameters": [
           {

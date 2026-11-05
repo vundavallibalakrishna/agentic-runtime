@@ -2926,7 +2926,7 @@ export const listEventsApiV1RoutinesRoutineIdEventsGet = <ThrowOnError extends b
 /**
  * Tick Routine
  *
- * Fire a due schedule in this process. A live model run waits for the answer.
+ * Fire a due schedule in this process when Temporal's clock is not connected.
  */
 export const tickRoutineApiV1RoutinesRoutineIdTickPost = <ThrowOnError extends boolean = false>(options: Options<TickRoutineApiV1RoutinesRoutineIdTickPostData, ThrowOnError>): RequestResult<TickRoutineApiV1RoutinesRoutineIdTickPostResponses, TickRoutineApiV1RoutinesRoutineIdTickPostErrors, ThrowOnError> => (options.client ?? client).post<TickRoutineApiV1RoutinesRoutineIdTickPostResponses, TickRoutineApiV1RoutinesRoutineIdTickPostErrors, ThrowOnError>({
     url: '/api/v1/routines/{routine_id}:tick',
