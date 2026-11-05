@@ -186,7 +186,12 @@ async def _tenant(session: AsyncSession, plan_id: uuid.UUID) -> Tenant:
     else:
         # A dev tenant seeded before the assurance flag existed keeps every screen.
         current = dict(row.settings or {})
-        features = dict(current.get("features") or {})
+        raw_features = current.get("features")
+        features = (
+            {str(key): value for key, value in raw_features.items()}
+            if isinstance(raw_features, dict)
+            else {}
+        )
         if "assurance" not in features:
             features["assurance"] = True
             current["features"] = features
