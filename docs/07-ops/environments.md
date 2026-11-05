@@ -51,7 +51,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_EGRESS_DENY_CIDRS` | metadata + RFC1918 + cluster | CIDRs always denied for sandbox/tool egress | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For `web.fetch` and remote MCP outside the cluster | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 10](../03-specs/10-knowledge.md) |
 | `AR_EMBEDDING_TIMEOUT_S` | `60` | HTTP timeout for one embedding or rerank request | [spec 10](../03-specs/10-knowledge.md) |
-| `AR_ENV` | `dev` | `dev`, `ci`, `staging`, `prod`; dev-only features (Docker sandbox driver, API docs UI, fake-llm provider) are refused when `prod` | [local-dev](local-dev.md) |
+| `AR_ENV` | `dev` | `dev`, `ci`, `staging`, `prod`; dev-only features (Docker sandbox driver, API docs UI, fake-llm provider) are refused when `prod`. Scripted turns, the demo tool servers (`tickets`, `petstore`, `warehouse`, `web`), the `desk` agent and the test tools `control.checkpoint` and `control.propose_change` exist only when `dev` or `ci`, in every process that builds a store | [local-dev](local-dev.md) |
 | `AR_EVAL_CONCURRENCY` | `4` | Parallel cases per eval run | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_FASTEMBED_CACHE_DIR` | `/var/cache/fastembed` | BM25 model cache for the optional qdrant adapter (pre-baked in image for air-gapped) | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_FILES_PROXY_DOWNLOADS` | `false` | Stream downloads through `api` instead of presigned URLs | [spec 13](../03-specs/13-files-artifacts.md) |

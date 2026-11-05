@@ -527,7 +527,7 @@ class ChatService:
         agent_id = new_id()
         version_id = new_id()
         now = utcnow()
-        definition = assistant_definition()
+        definition = assistant_definition(fixtures=self.fake_models_allowed)
         version = {
             "id": version_id,
             "tenant_id": tenant_id,
@@ -1028,7 +1028,7 @@ class ChatService:
         agent_id = new_id()
         version_id = new_id()
         now = utcnow()
-        definition = assistant_definition()
+        definition = assistant_definition(fixtures=self.fake_models_allowed)
         definition["persona"] = {"display_name": name, "greeting": ""}
         self.versions[version_id] = {
             "id": version_id,

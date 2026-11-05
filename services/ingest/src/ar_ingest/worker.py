@@ -7,7 +7,7 @@ from temporalio.worker import Worker
 
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
-from ar_common.settings import get_settings
+from ar_common.settings import fake_models_allowed, get_settings
 from ar_common.temporal_worker import temporal_worker_kwargs
 from ar_ingest.activities import (
     acl_sync_activity,
@@ -44,7 +44,7 @@ async def _prepare_store() -> None:
     from ar_domain.durable.bind import bind_store as bind_durable  # noqa: PLC0415
 
     settings = get_settings()
-    store = ChatService(allow_loopback=True)
+    store = ChatService(allow_loopback=True, fake_models_allowed=fake_models_allowed(settings.env))
     store._ingest_worker = True  # type: ignore[attr-defined]
     await bind_durable(store, settings.database_url)
     bind_store(store)
