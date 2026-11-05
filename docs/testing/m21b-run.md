@@ -22,7 +22,7 @@ Search does nothing useful until a provider is configured. Either:
 1. Set `AR_SEARCH_PROVIDER` to `brave` or `tavily` and `AR_SEARCH_API_KEY` to that provider's key, or
 2. Create a secret (Secrets) and, on Tools, choose the provider and type the secret's name. Save access.
 
-The key is not shown again and is not written into traces. With no key, `general.search` tells the agent how to configure it and returns no hits.
+The key is not shown again and is not written into traces. The tools screen stores the name as `search.secretName`; the runtime also accepts `secret_name`. A missing secret falls through to `AR_SEARCH_API_KEY`. With no key, `general.search` tells the agent how to configure it and returns no hits. Until that key is set, the live provider path is `not_live` ([m33a checklist](m33a-checklist.md)).
 
 ## Egress
 

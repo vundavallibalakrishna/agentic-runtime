@@ -136,3 +136,25 @@ async def test_seed_is_idempotent(migrated: str) -> None:
         )
     assert plans is not None and plans >= 4
     assert roles == 7
+    async with engine.connect() as connection:
+        policies = await connection.scalar(
+            text(
+                "SELECT count(*) FROM policies "
+                "WHERE name = 'Seeded write approval' AND status = 'active'"
+            )
+        )
+        mode = await connection.scalar(
+            text(
+                "SELECT document->'rules'->0->'approval'->'approvers'->>'mode' "
+                "FROM policy_versions WHERE policy_id IN ("
+                "SELECT id FROM policies WHERE name = 'Seeded write approval')"
+            )
+        )
+        groups = await connection.scalar(
+            text("SELECT count(*) FROM groups WHERE name = 'approvers'")
+        )
+        members = await connection.scalar(text("SELECT count(*) FROM group_members"))
+    assert policies == 1
+    assert mode == "users"
+    assert groups == 1
+    assert members == 1
