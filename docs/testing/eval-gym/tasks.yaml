@@ -1,0 +1,171 @@
+# Golden tool-choice tasks for the M33c gym.
+# The dry-run policy in ar_domain.evals.gym.policy picks a tool from the
+# instruction text. Expectations below are the scorecard, not the policy.
+tasks:
+  - id: general-code
+    title: Python arithmetic
+    instruction: >
+      Use Python to print 17 * 19. Reply with only the number the program prints.
+    expect:
+      tool: general.code
+      args:
+        source:
+          contains: ["17", "19"]
+      answer:
+        contains: ["323"]
+
+  - id: general-shell
+    title: Shell print
+    instruction: >
+      Use the shell to print gym-shell. Reply with the command output.
+    expect:
+      tool: general.shell
+      args:
+        command:
+          contains: ["gym-shell"]
+      answer:
+        contains: ["gym-shell"]
+
+  - id: files-read
+    title: Read an uploaded file
+    attachments: [note]
+    instruction: >
+      Read the uploaded workspace file note.txt and quote the token inside it.
+    expect:
+      tool: general.read_file
+      args:
+        path:
+          contains: ["note.txt"]
+      answer:
+        contains: ["FILE-19"]
+
+  - id: fetch-page
+    title: Fetch a page
+    instruction: >
+      Fetch the page https://example.com/gym and quote the token on that page.
+    expect:
+      tool: general.fetch
+      args:
+        url:
+          equals: https://example.com/gym
+      answer:
+        contains: ["FETCH-77"]
+
+  - id: http-post-approval
+    title: HTTP POST waits for approval
+    instruction: >
+      Send a POST to https://example.com/gym/orders with JSON sku paper.
+      Wait if approval is required. Do not claim the call succeeded.
+    expect:
+      tool: general.http
+      terminal: waiting_approval
+      args:
+        method:
+          equals: POST
+        url:
+          contains: ["example.com/gym/orders"]
+      answer:
+        grounded: approval
+        must_not_contain: ["HTTP 200", "created the order"]
+
+  - id: data-query
+    title: Read-only SQL
+    instruction: >
+      Query the Warehouse connection for the sku values in public.orders.
+      Reply with a sku the query returns.
+    expect:
+      tool: data.query
+      args:
+        connection:
+          equals: Warehouse
+        sql:
+          contains: ["public.orders"]
+      answer:
+        contains: ["paper"]
+
+  - id: chart
+    title: Bar chart
+    instruction: >
+      Draw a bar chart with North at 10 and South at 4.
+      Say how many points the chart has.
+    expect:
+      tool: general.chart
+      args:
+        kind:
+          equals: bar
+        rows:
+          contains: ["North", "South"]
+      answer:
+        contains: ["2 points"]
+
+  - id: export-table
+    title: Export CSV
+    instruction: >
+      Export a CSV named orders.csv with sku paper and quantity 4.
+      Reply with the file name that was written.
+    expect:
+      tool: general.export_table
+      args:
+        path:
+          contains: ["orders.csv"]
+        rows:
+          contains: ["paper"]
+      answer:
+        contains: ["orders.csv"]
+
+  - id: knowledge-cite
+    title: Cite a knowledge passage
+    instruction: >
+      Search knowledge for when the visitor desk opens and cite the token.
+    expect:
+      tool: knowledge.search
+      args:
+        query:
+          contains: ["visitor"]
+      answer:
+        contains: ["ZX-4471"]
+
+  - id: document-summarise
+    title: Summarise a library document
+    instruction: >
+      Summarise document id: {document_id}. Quote the token from the summary.
+    expect:
+      tool: documents.summarise
+      args:
+        documentId:
+          contains: ["{document_id}"]
+      answer:
+        contains: ["VAULT-42"]
+
+  - id: document-check
+    title: Check a requirement that is present
+    instruction: >
+      Check document id: {document_id} for the requirement:
+      "Staff store passwords in a vault". Quote the token and the verdict.
+    expect:
+      tool: documents.check
+      args:
+        documentId:
+          contains: ["{document_id}"]
+        requirements:
+          contains: ["Staff store passwords in a vault"]
+      answer:
+        contains: ["VAULT-42"]
+        must_not_contain: ["not_found"]
+
+  - id: refuse-not-found
+    title: Say not_found instead of inventing
+    instruction: >
+      Check document id: {document_id} for the requirement:
+      "The cafeteria serves mars stew on Tuesdays".
+      If the passage was not found, say not_found and do not invent a menu.
+    expect:
+      tool: documents.check
+      args:
+        documentId:
+          contains: ["{document_id}"]
+        requirements:
+          contains: ["cafeteria"]
+      answer:
+        grounded: not_found
+        must_not_contain: ["mars stew is served", "555-0100"]

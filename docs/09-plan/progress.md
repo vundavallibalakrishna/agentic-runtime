@@ -263,3 +263,4 @@ M32-T01 | done | 0e34c9c | document analysis keeps evidence; paraphrased check |
 
 M33a-T01 | done | 26f275a | seed users-mode W2 policy; fetch retry; search key path not_live without a key |
 M34a-T01 | done | 9c5080e | documents.create for DOCX, PDF and XLSX; fixture checklist |
+M33c-T01 | in_progress | - | tool-choice eval gym and dry-run scorecard |
