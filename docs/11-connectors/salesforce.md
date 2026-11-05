@@ -2,6 +2,7 @@
 
 Run SOQL, read a record, create and update a record, and describe an object.
 
+**Implementation:** Built
 **Category:** Work
 **Auth:** oauth_authorization_code, oauth_client_credentials, bearer
 **Verification:** Not live-tested

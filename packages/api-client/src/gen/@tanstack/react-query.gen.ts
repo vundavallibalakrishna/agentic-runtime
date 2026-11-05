@@ -6643,7 +6643,7 @@ export const listEventsApiV1RoutinesRoutineIdEventsGetOptions = (options: Option
 /**
  * Tick Routine
  *
- * Fire a due schedule in this process. A live model run waits for the answer.
+ * Fire a due schedule in this process when Temporal's clock is not connected.
  */
 export const tickRoutineApiV1RoutinesRoutineIdTickPostMutation = (options?: Partial<Options<TickRoutineApiV1RoutinesRoutineIdTickPostData>>): UseMutationOptions<TickRoutineApiV1RoutinesRoutineIdTickPostResponse, TickRoutineApiV1RoutinesRoutineIdTickPostError, Options<TickRoutineApiV1RoutinesRoutineIdTickPostData>> => {
     const mutationOptions: UseMutationOptions<TickRoutineApiV1RoutinesRoutineIdTickPostResponse, TickRoutineApiV1RoutinesRoutineIdTickPostError, Options<TickRoutineApiV1RoutinesRoutineIdTickPostData>> = {

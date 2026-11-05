@@ -2,6 +2,7 @@
 
 Search, list, download and upload files in the signed-in OneDrive.
 
+**Implementation:** Built
 **Category:** Files
 **Auth:** oauth_authorization_code, bearer
 **Verification:** Not live-tested
@@ -15,7 +16,8 @@ Search, list, download and upload files in the signed-in OneDrive.
 2. Delegated Graph permission Files.Read is enough for search, list and download.
 3. Add Files.ReadWrite only if the agent should upload. offline_access lets the token refresh.
 4. Create a client secret and set the redirect URI to this platform's callback.
-5. An upload asks for approval. The path is inside the signed-in user's drive.
+5. These tools call the signed-in OneDrive (`/me/drive`). They do not take a SharePoint site id.
+6. An upload asks for approval. The path is inside the signed-in user's drive.
 
 ## Scopes
 

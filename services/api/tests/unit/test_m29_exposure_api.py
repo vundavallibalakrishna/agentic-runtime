@@ -215,10 +215,47 @@ def test_rotate_upload_events_and_unimplemented_a2a() -> None:
     )
     assert events.status_code == 200
     assert "text/event-stream" in events.headers["content-type"]
+    sent = client.post(
+        "/v1/a2a",
+        headers=headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "message/send",
+            "params": {"message": {"role": "user", "parts": [{"kind": "text", "text": "hi"}]}},
+        },
+    )
+    assert sent.status_code == 200
+    task_id = sent.json()["result"]["id"]
+    listed = client.post(
+        "/v1/a2a",
+        headers=headers,
+        json={"jsonrpc": "2.0", "id": 2, "method": "tasks/list", "params": {"pageSize": 1}},
+    )
+    assert listed.status_code == 200
+    assert listed.json()["result"]["tasks"]
+    configured = client.post(
+        "/v1/a2a",
+        headers=headers,
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tasks/pushNotificationConfig/set",
+            "params": {
+                "taskId": task_id,
+                "pushNotificationConfig": {
+                    "url": "http://127.0.0.1:9/push",
+                    "token": "echo",
+                },
+            },
+        },
+    )
+    assert configured.status_code == 200
+    assert configured.json()["result"]["pushNotificationConfig"]["url"].endswith("/push")
     missing = client.post(
         "/v1/a2a",
         headers=headers,
-        json={"jsonrpc": "2.0", "id": 1, "method": "tasks/pushNotificationConfig/set"},
+        json={"jsonrpc": "2.0", "id": 4, "method": "tasks/resubscribe"},
     )
     assert missing.status_code == 200
     assert missing.json()["error"]["code"] == -32601

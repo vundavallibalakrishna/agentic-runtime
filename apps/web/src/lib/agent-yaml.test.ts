@@ -22,4 +22,12 @@ describe("agent yaml", () => {
   it("rejects a broken line", () => {
     expect(() => yamlToDefinition("instructions hello")).toThrow(/YAML/);
   });
+
+  it("treats a missing map as an empty object", () => {
+    expect(definitionToYaml(null)).toBe("{}\n");
+    const dirty = {
+      tools: [{ server: "data", version: "*", include: ["query"], overrides: undefined }],
+    } as unknown as JsonValue;
+    expect(definitionToYaml(dirty)).toContain("overrides: {}");
+  });
 });

@@ -77,6 +77,7 @@ def seed(store: Any) -> None:
     SandboxBook(store).ensure_platform()
     if getattr(store, "tools_seeded", False):
         ensure_m33b(store)
+        ensure_m34b(store)
         return
     tenant = demo_id("tenant")
     admin = demo_id("admin")
@@ -106,6 +107,7 @@ def seed(store: Any) -> None:
     _analyst(store, tenant, admin)
     store.tools_seeded = True
     ensure_m33b(store)
+    ensure_m34b(store)
 
 
 def _settings(store: Any, tenant: uuid.UUID) -> None:
@@ -895,18 +897,8 @@ def _general_tools() -> list[dict[str, object]]:
             {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
             "R0",
         ),
-        _tool(
-            "query_table",
-            "Query a table file",
-            "Run one read-only SQL statement over a CSV, TSV, JSON or xlsx file "
-            "in this run's workspace. The table name is the file name.",
-            {
-                "type": "object",
-                "properties": {"path": {"type": "string"}, "sql": {"type": "string"}},
-                "required": ["sql"],
-            },
-            "R0",
-        ),
+        _query_table_tool(),
+        _pivot_tool(),
         _tool(
             "export_table",
             "Export a table",
@@ -923,23 +915,7 @@ def _general_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
-        _tool(
-            "chart",
-            "Draw a chart",
-            "Draw a bar, line, scatter or pie chart from rows and save a PNG in the workspace.",
-            {
-                "type": "object",
-                "properties": {
-                    "kind": {"type": "string"},
-                    "title": {"type": "string"},
-                    "xKey": {"type": "string"},
-                    "yKey": {"type": "string"},
-                    "rows": {"type": "array"},
-                },
-                "required": ["rows"],
-            },
-            "W1",
-        ),
+        _chart_tool(),
     ]
 
 
@@ -1174,6 +1150,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
+            _fill_questionnaire_tool(),
             _tool(
                 "create",
                 "Create a document",
@@ -1259,6 +1236,130 @@ def ensure_m33b(store: Any) -> None:
     _append_tools(store, "documents", [_ocr_tool()])
     _append_tools(store, "image", [_image_ask_tool()])
     _grant_image(store)
+    # Hydrated catalogues call this hook. M34b rides along so the durability
+    # loader does not need a second call site.
+    ensure_m34b(store)
+
+
+def ensure_m34b(store: Any) -> None:
+    """Add sheet pivot, questionnaire fill, and the chart theme arguments."""
+    if not isinstance(getattr(store, "tool_servers", None), dict):
+        return
+    _append_tools(store, "general", [_pivot_tool()])
+    _append_tools(store, "documents", [_fill_questionnaire_tool()])
+    _refresh_tool(store, "general.query_table", _query_table_tool())
+    _refresh_tool(store, "general.chart", _chart_tool())
+
+
+def _query_table_tool() -> dict[str, object]:
+    return _tool(
+        "query_table",
+        "Query a table file",
+        "Run one read-only SQL statement in DuckDB over CSV, TSV, JSON or xlsx "
+        "in this run's workspace. The table name is the file or sheet name. "
+        "Pass paths to join more than one file. File scans and writes are rejected.",
+        {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "sql": {"type": "string"},
+            },
+            "required": ["sql"],
+        },
+        "R0",
+    )
+
+
+def _pivot_tool() -> dict[str, object]:
+    return _tool(
+        "pivot_table",
+        "Pivot a table file",
+        "Pivot one sheet with DuckDB. index, on and value are column names from "
+        "inspect_table. agg is sum, avg, min, max or count.",
+        {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "sheet": {"type": "string"},
+                "index": {"type": "string"},
+                "on": {"type": "string"},
+                "value": {"type": "string"},
+                "agg": {"type": "string"},
+            },
+            "required": ["index", "on", "value"],
+        },
+        "R0",
+    )
+
+
+def _chart_tool() -> dict[str, object]:
+    return _tool(
+        "chart",
+        "Draw a chart",
+        "Draw a bar, line, area, scatter or pie chart and save a PNG. "
+        "theme is ink, slate, forest, ember or midnight. "
+        "slide true also writes a one-slide PPTX with the title and narrative.",
+        {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string"},
+                "theme": {"type": "string"},
+                "title": {"type": "string"},
+                "narrative": {"type": "string"},
+                "slide": {"type": "boolean"},
+                "xKey": {"type": "string"},
+                "yKey": {"type": "string"},
+                "rows": {"type": "array"},
+            },
+            "required": ["rows"],
+        },
+        "W1",
+    )
+
+
+def _fill_questionnaire_tool() -> dict[str, object]:
+    return _tool(
+        "fill_questionnaire",
+        "Fill a questionnaire",
+        "Fill a questionnaire xlsx from answers or from a library document and "
+        "write the workbook back for download. Unanswered rows stay blank. "
+        "Another tenant's document is not found.",
+        {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "sheet": {"type": "string"},
+                "fileName": {"type": "string"},
+                "title": {"type": "string"},
+                "documentId": {"type": "string"},
+                "searchLibrary": {"type": "boolean"},
+                "answers": {"type": "array"},
+                "sources": {"type": "array"},
+            },
+            "required": ["path"],
+        },
+        "W1",
+    )
+
+
+def _refresh_tool(store: Any, qualified: str, item: dict[str, object]) -> None:
+    versions = getattr(store, "tool_versions", None)
+    if not isinstance(versions, dict):
+        return
+    text = str(item["description"])
+    for row in versions.values():
+        if not isinstance(row, dict) or row.get("qualified_name") != qualified:
+            continue
+        if row.get("description") == text and row.get("input_schema") == item["input_schema"]:
+            return
+        row["title"] = item["title"]
+        row["description"] = text
+        row["description_hash"] = description_hash(text)
+        row["input_schema"] = item["input_schema"]
+        row["embedding"] = hash_embedding(text)
+        return
 
 
 def _platform_server(store: Any, slug: str) -> dict[str, object] | None:
@@ -1442,10 +1543,34 @@ def _browser_tools() -> list[dict[str, object]]:
         "type": "object",
         "properties": {"ref": {"type": "string"}, "text": {"type": "string"}},
     }
+    page: dict[str, object] = {"openWorldHint": True, "readOnlyHint": True}
     return [
-        _tool("navigate", "Open a page", "Open an allowlisted page.", url, "R0"),
-        _tool("snapshot", "Read the page", "Read the page as an accessibility tree.", ref, "R0"),
-        _tool("click", "Click", "Click an element on the page.", ref, "R0"),
+        _tool(
+            "navigate",
+            "Open a page",
+            "Open a page in this conversation's browser. Allowlisted hosts open immediately. "
+            "Other public hosts wait for approval. Private addresses are denied.",
+            url,
+            "R0",
+            page,
+        ),
+        _tool(
+            "snapshot",
+            "Read the page",
+            "Read the current page as an accessibility tree with element refs. Untrusted text.",
+            ref,
+            "R0",
+            page,
+        ),
+        _tool(
+            "click",
+            "Click",
+            "Click an element. A link to a host outside the allow list is not followed; "
+            "call navigate so it can be approved.",
+            ref,
+            "R0",
+            page,
+        ),
         _tool("type", "Type", "Type into an element on the page.", ref, "W1"),
         _tool("press", "Press a key", "Press a key on the page.", ref, "R0"),
         _tool("scroll", "Scroll", "Scroll the page.", ref, "R0"),

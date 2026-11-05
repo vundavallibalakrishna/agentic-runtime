@@ -13,7 +13,7 @@ Defects left by the hardening merge (`123cf366`, PR 49). Phase 2 store retiremen
 
 ## Alembic
 
-Main's revision `0032` (`20261105_0032_model_request_options`) adds `models.request_options` and drops it on downgrade. It revises `0031`. It is the single head on this branch. Open M35 work that also claims `0032` must renumber to `0033`.
+Main's revision `0032` (`20261105_0032_model_request_options`) adds `models.request_options` and drops it on downgrade. It revises `0031`. Main's `0033` (`20261105_0033_durability`, M35) follows it and is the single head.
 
 ## Checks run
 

@@ -2,6 +2,7 @@
 
 Read EC2 instances, S3 buckets, IAM users and policies, and CloudTrail events.
 
+**Implementation:** Built
 **Category:** Cloud
 **Auth:** basic
 **Verification:** Not live-tested

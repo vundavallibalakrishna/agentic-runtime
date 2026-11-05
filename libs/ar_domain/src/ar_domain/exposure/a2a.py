@@ -1,4 +1,4 @@
-"""A2A agent card, tasks, and a client tool. Push notifications and gRPC are not implemented."""
+"""A2A agent card, tasks, push webhooks and a client tool. gRPC is not implemented."""
 
 from __future__ import annotations
 
@@ -34,12 +34,13 @@ _IMPLEMENTED = {
     "tasks/sendSubscribe",
     "tasks/get",
     "tasks/cancel",
-}
-_NOT_IMPLEMENTED = {
+    "tasks/list",
     "tasks/pushNotificationConfig/set",
     "tasks/pushNotificationConfig/get",
     "tasks/pushNotificationConfig/delete",
     "tasks/pushNotificationConfig/list",
+}
+_NOT_IMPLEMENTED = {
     "tasks/resubscribe",
 }
 
@@ -58,7 +59,7 @@ def agent_card(store: Any, key: dict[str, Any], slug: str, base_url: str) -> dic
         "url": f"{root}/v1/agents/{slug}/a2a",
         "version": "1",
         "protocol_version": "0.3.0",
-        "capabilities": {"streaming": True, "push_notifications": False},
+        "capabilities": {"streaming": True, "push_notifications": True},
         "default_input_modes": ["text/plain"],
         "default_output_modes": ["text/plain", "application/json"],
         "skills": [
@@ -174,6 +175,10 @@ async def send_task(
         output = "Approval required"
     run_id = uuid.UUID(str(reply["id"])) if reply.get("id") else None
     row = _task_row(store, key, agent, conversation_id, run_id, state, output)
+    embedded = _embedded_push(params)
+    if embedded is not None:
+        with contextlib.suppress(ArError):
+            set_push_config(store, key, row["id"], embedded)
     audit_key(
         store,
         tenant_id=key["tenant_id"],
@@ -183,6 +188,7 @@ async def send_task(
         label=str(key.get("label") or ""),
         extra={"task_id": str(row["id"]), "state": state, "agent_id": str(agent["id"])},
     )
+    deliver_push(store, key, row)
     return task_body(row)
 
 
@@ -221,7 +227,252 @@ def cancel_task(store: Any, key: dict[str, Any], slug: str, task_id: uuid.UUID) 
         label=str(key.get("label") or ""),
         extra={"task_id": str(task_id)},
     )
+    deliver_push(store, key, row)
     return task_body(row)
+
+
+def list_tasks(store: Any, key: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    """One page of tasks this key created. The page token is the last task id."""
+    size = _page_size(params.get("pageSize") if "pageSize" in params else params.get("page_size"))
+    rows = [
+        row
+        for row in _book(store, "a2a_tasks").values()
+        if isinstance(row, dict) and row.get("key_id") == key.get("id")
+    ]
+    context = params.get("contextId") or params.get("context_id")
+    if context:
+        rows = [row for row in rows if str(row.get("conversation_id")) == str(context)]
+    status = params.get("status")
+    if status:
+        rows = [row for row in rows if str(row.get("state")) == str(status)]
+    rows.sort(key=lambda item: (str(item.get("created_at")), str(item.get("id"))), reverse=True)
+    token = str(params.get("pageToken") or params.get("page_token") or "")
+    if token:
+        index = next((pos for pos, row in enumerate(rows) if str(row.get("id")) == token), None)
+        if index is None:
+            raise ArError(ErrorCode.VALIDATION_FAILED, "page token was not found")
+        rows = rows[index + 1 :]
+    page = rows[:size]
+    next_token = str(page[-1]["id"]) if len(rows) > size and page else ""
+    return {"tasks": [task_body(row) for row in page], "next_page_token": next_token}
+
+
+def set_push_config(
+    store: Any, key: dict[str, Any], task_id: uuid.UUID, config: dict[str, Any]
+) -> dict[str, Any]:
+    row = _owned_task(store, key, task_id)
+    url = str(config.get("url") or "").strip()
+    if not url:
+        raise ArError(ErrorCode.VALIDATION_FAILED, "a push url is required")
+    problem = guard_public(url, allow=["*"], loopback=True)
+    if problem:
+        raise ArError(ErrorCode.VALIDATION_FAILED, problem)
+    token = str(config.get("token") or "")
+    if len(token) > 256:
+        raise ArError(ErrorCode.VALIDATION_FAILED, "push token is too long")
+    config_id = str(config.get("id") or config.get("config_id") or "default").strip() or "default"
+    if len(config_id) > 64:
+        raise ArError(ErrorCode.VALIDATION_FAILED, "push config id is too long")
+    book = _book(store, "a2a_push_configs")
+    current = _push_row(book, task_id, config_id)
+    now = utcnow()
+    if current is None:
+        item_id = new_id()
+        current = {
+            "id": item_id,
+            "tenant_id": key["tenant_id"],
+            "task_id": task_id,
+            "key_id": key["id"],
+            "config_id": config_id,
+            "url": url,
+            "token": token,
+            "created_at": now,
+            "updated_at": now,
+        }
+        book[item_id] = current
+    else:
+        current["url"] = url
+        current["token"] = token
+        current["updated_at"] = now
+    audit_key(
+        store,
+        tenant_id=key["tenant_id"],
+        actor_id=_user_id(key),
+        action="a2a_push.configured",
+        key_id=key["id"],
+        label=str(key.get("label") or ""),
+        extra={"task_id": str(task_id), "config_id": config_id},
+    )
+    return _push_body(current, row)
+
+
+def get_push_config(store: Any, key: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    task_id = _task_param(params)
+    _owned_task(store, key, task_id)
+    config_id = str(params.get("id") or params.get("config_id") or params.get("configId") or "")
+    found = _push_for_task(store, task_id, key, config_id or None)
+    if not found:
+        raise NotFoundError("push config not found")
+    chosen = found[0]
+    if config_id:
+        match = next((row for row in found if str(row.get("config_id")) == config_id), None)
+        if match is None:
+            raise NotFoundError("push config not found")
+        chosen = match
+    return _push_body(chosen, _owned_task(store, key, task_id))
+
+
+def delete_push_config(store: Any, key: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    task_id = _task_param(params)
+    task = _owned_task(store, key, task_id)
+    config_id = str(
+        params.get("id") or params.get("config_id") or params.get("configId") or "default"
+    )
+    book = _book(store, "a2a_push_configs")
+    target = next(
+        (
+            row
+            for row in book.values()
+            if isinstance(row, dict)
+            and row.get("task_id") == task_id
+            and row.get("key_id") == key.get("id")
+            and str(row.get("config_id")) == config_id
+        ),
+        None,
+    )
+    if not isinstance(target, dict):
+        raise NotFoundError("push config not found")
+    book.pop(target["id"], None)
+    audit_key(
+        store,
+        tenant_id=key["tenant_id"],
+        actor_id=_user_id(key),
+        action="a2a_push.removed",
+        key_id=key["id"],
+        label=str(key.get("label") or ""),
+        extra={"task_id": str(task_id), "config_id": config_id},
+    )
+    return _push_body(target, task)
+
+
+def list_push_configs(store: Any, key: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    task_id = _task_param(params)
+    task = _owned_task(store, key, task_id)
+    rows = _push_for_task(store, task_id, key, None)
+    return {"configs": [_push_body(row, task) for row in rows]}
+
+
+def deliver_push(store: Any, key: dict[str, Any], task: dict[str, Any]) -> None:
+    """POST the task to each saved webhook. A failed call does not fail the task."""
+    task_id = task.get("id")
+    if not isinstance(task_id, uuid.UUID):
+        return
+    for config in _push_for_task(store, task_id, key, None):
+        url = str(config.get("url") or "")
+        if guard_public(url, allow=["*"], loopback=True):
+            continue
+        headers = {"accept": "application/json", "content-type": "application/json"}
+        token = str(config.get("token") or "")
+        if token:
+            headers["authorization"] = f"Bearer {token}"
+        try:
+            fetch_text(store, "POST", url, headers=headers, json_body=task_body(task), timeout=10)
+        except httpx.HTTPError, ArError, OSError:
+            continue
+
+
+def _push_method(
+    store: Any, key: dict[str, Any], method: str, params: dict[str, Any]
+) -> dict[str, Any]:
+    if method == "tasks/pushNotificationConfig/list":
+        return list_push_configs(store, key, params)
+    if method == "tasks/pushNotificationConfig/get":
+        return get_push_config(store, key, params)
+    if method == "tasks/pushNotificationConfig/delete":
+        return delete_push_config(store, key, params)
+    nested = params.get("pushNotificationConfig") or params.get("push_notification_config")
+    config = nested if isinstance(nested, dict) else {}
+    if not config and params.get("url"):
+        config = params
+    return set_push_config(store, key, _task_param(params), config)
+
+
+def _embedded_push(params: dict[str, Any]) -> dict[str, Any] | None:
+    configuration = params.get("configuration")
+    if not isinstance(configuration, dict):
+        return None
+    raw = configuration.get("pushNotificationConfig") or configuration.get(
+        "push_notification_config"
+    )
+    return raw if isinstance(raw, dict) and raw.get("url") else None
+
+
+def _owned_task(store: Any, key: dict[str, Any], task_id: uuid.UUID) -> dict[str, Any]:
+    row = _book(store, "a2a_tasks").get(task_id)
+    if not isinstance(row, dict) or row.get("key_id") != key.get("id"):
+        raise NotFoundError("task not found")
+    return row
+
+
+def _task_param(params: dict[str, Any]) -> uuid.UUID:
+    raw = params.get("taskId") or params.get("task_id") or params.get("id")
+    if not raw:
+        raise ArError(ErrorCode.VALIDATION_FAILED, "a task id is required")
+    try:
+        return uuid.UUID(str(raw))
+    except ValueError as exc:
+        raise ArError(ErrorCode.VALIDATION_FAILED, "task id is not a uuid") from exc
+
+
+def _page_size(value: object) -> int:
+    if isinstance(value, bool) or value is None:
+        return 20
+    if isinstance(value, int):
+        size = value
+    elif isinstance(value, str) and value.isdigit():
+        size = int(value)
+    else:
+        return 20
+    return min(max(size, 1), 100)
+
+
+def _push_for_task(
+    store: Any, task_id: uuid.UUID, key: dict[str, Any], config_id: str | None
+) -> list[dict[str, Any]]:
+    book = _book(store, "a2a_push_configs")
+    rows = [
+        row
+        for row in book.values()
+        if isinstance(row, dict)
+        and row.get("task_id") == task_id
+        and row.get("key_id") == key.get("id")
+    ]
+    if config_id:
+        rows = [row for row in rows if str(row.get("config_id")) == config_id]
+    rows.sort(key=lambda item: str(item.get("config_id")))
+    return rows
+
+
+def _push_row(book: dict[Any, Any], task_id: uuid.UUID, config_id: str) -> dict[str, Any] | None:
+    for row in book.values():
+        if (
+            isinstance(row, dict)
+            and row.get("task_id") == task_id
+            and str(row.get("config_id")) == config_id
+        ):
+            return row
+    return None
+
+
+def _push_body(config: dict[str, Any], task: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "task_id": str(task.get("id") or config.get("task_id")),
+        "push_notification_config": {
+            "id": str(config.get("config_id") or "default"),
+            "url": str(config.get("url") or ""),
+            "token": str(config.get("token") or ""),
+        },
+    }
 
 
 async def rpc(
@@ -249,6 +500,10 @@ async def _call(
 ) -> dict[str, Any]:
     if method in {"message/send", "tasks/send", "message/stream", "tasks/sendSubscribe"}:
         return await send_task(store, key, slug, params)
+    if method == "tasks/list":
+        return list_tasks(store, key, params)
+    if method.startswith("tasks/pushNotificationConfig/"):
+        return _push_method(store, key, method, params)
     task_raw = params.get("id") or params.get("task_id") or params.get("taskId")
     task_id = uuid.UUID(str(task_raw))
     if method == "tasks/get":

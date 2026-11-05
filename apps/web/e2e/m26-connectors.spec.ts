@@ -43,6 +43,7 @@ test("connector catalog and a setup page", async ({ page }) => {
   await signIn(page);
   await page.goto("/connectors");
   await expect(page.getByRole("heading", { name: "Connectors", exact: true })).toBeVisible();
+  await expect(page.getByText("Built", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Not live-tested").first()).toBeVisible();
   await expect(page.getByText("Tested on the provider API").first()).toBeVisible();
   await page.getByLabel("Search connectors").fill("notion");
@@ -54,6 +55,7 @@ test("connector catalog and a setup page", async ({ page }) => {
 
   await page.getByRole("link", { name: /Notion/ }).click();
   await expect(page.getByRole("heading", { name: "Notion" })).toBeVisible();
+  await expect(page.getByText("Built", { exact: true })).toBeVisible();
   await expect(page.getByText("Not live-tested")).toBeVisible();
   await expect(page.getByRole("link", { name: "Open the provider's app page" })).toBeVisible();
   await expect(page.getByText("Asks first").first()).toBeVisible();

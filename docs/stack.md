@@ -40,6 +40,7 @@ Rules:
 | fastembed | 0.9.0 | **Optional** extra `ar-domain[qdrant]`: CPU BM25 sparse vectors (`Qdrant/bm25`) for the Qdrant adapter's lexical signal (the default pgvector adapter uses Postgres full-text search). |
 | docling | 2.140.0 | Layout-aware parsing of PDF, Office and HTML to Markdown with structure. |
 | sqlglot | 30.23.0 | SQL parsing and validation for the read-only SQL connector. |
+| duckdb | 2.0.0 | In-process spreadsheet SQL for `general.query_table` and `general.pivot_table`. The connection is memory-only and external file access is disabled. The published wheel is `cp312-abi3` and runs on Python 3.14. |
 | pymysql | 1.2.3 | MySQL driver for the read-only database tool. |
 | presidio-analyzer / presidio-anonymizer | 2.2.364 | PII detection and redaction (custom recognisers for Aadhaar, PAN, Indian phone numbers). |
 | rfc8785 | 0.1.4 | JSON Canonicalization Scheme (JCS) used to hash tool arguments for approval binding. |

@@ -26,7 +26,6 @@ from ar_common.ids import new_id
 from ar_common.sandboxkit import (
     DEFAULT_DENY_CIDRS,
     PathEscapeError,
-    accessibility_tree,
     allowed_hosts,
     clean_env,
     confine,
@@ -151,7 +150,7 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         "screenshot",
         "submit_form",
     }:
-        return _browser(store, sandbox, root, name, arguments)
+        return _browser(store, sandbox, name, arguments)
     return _error("unknown_tool", f"unknown tool {name}")
 
 
@@ -417,109 +416,27 @@ def _popen(
     return proc.returncode or 0, text_out, text_err, truncated
 
 
-def _browser(  # noqa: PLR0911
+def _browser(
     store: Any,
     sandbox: dict[str, object],
-    root: Path,
     name: str,
     arguments: dict[str, object],
 ) -> dict[str, object]:
     template = _by_id(store, sandbox.get("template_id")) or {}
     if template.get("allow_browser") is not True and name != "snapshot":
         return _error("validation_failed", "this computer does not include a browser")
-    current = sandbox.get("browser")
-    session: dict[str, object] = (
-        cast("dict[str, object]", current)
-        if isinstance(current, dict)
-        else {"url": "", "html": "", "elements": []}
-    )
-    sandbox["browser"] = session
-    if name == "navigate":
-        return _navigate(store, sandbox, template, session, str(arguments.get("url") or ""))
-    if name == "snapshot":
-        return _snapshot(session, as_int(arguments.get("max_chars"), 40000))
-    if name == "click":
-        return _click(store, sandbox, template, session, str(arguments.get("ref") or ""))
-    if name == "type":
-        return _type(session, str(arguments.get("ref") or ""), str(arguments.get("text") or ""))
-    if name == "press":
-        return _snapshot(session, 4000)
-    if name == "scroll":
-        return _snapshot(session, 4000)
     if name == "screenshot":
-        return _screenshot(store, sandbox, root, session)
-    if name == "submit_form":
-        session["submitted"] = str(arguments.get("ref") or "")
-        return _snapshot(session, 4000)
-    return _error("unknown_tool", name)
+        from ar_domain.sandboxes.browser import open_context  # noqa: PLC0415
 
+        return _screenshot(store, sandbox, open_context(sandbox, arguments))
+    from ar_domain.sandboxes.browser import apply_browser  # noqa: PLC0415
 
-def _navigate(
-    store: Any,
-    sandbox: dict[str, object],
-    template: dict[str, object],
-    session: dict[str, object],
-    url: str,
-) -> dict[str, object]:
-    host = curl_host(f"curl {url}") or ""
-    if not url.startswith(("https://", "http://")) or not _host_ok(store, sandbox, template, host):
-        _deny(store, sandbox, host or url)
-        return _error("egress_denied", f"{host or url} is not on the egress allowlist")
-    import httpx  # noqa: PLC0415
-
-    try:
-        response = httpx.get(url, timeout=5.0, follow_redirects=False)
-        html = response.text
-        status = response.status_code
-    except httpx.HTTPError:
-        return _error("upstream_error", "the page could not be fetched")
-    session["url"] = url
-    session["html"] = html
-    text, title, elements = accessibility_tree(html)
-    session["title"] = title
-    session["elements"] = elements
-    return {
-        "text": text,
-        "structured": {"url": url, "title": title, "status": status, "untrusted": True},
-        "is_error": False,
-    }
-
-
-def _snapshot(session: dict[str, object], max_chars: int) -> dict[str, object]:
-    html = str(session.get("html") or "")
-    text, title, elements = accessibility_tree(html, max_chars=max(1, min(max_chars, 40000)))
-    session["elements"] = elements
-    return {
-        "text": text or "empty page",
-        "structured": {"url": session.get("url") or "", "title": title, "untrusted": True},
-        "is_error": False,
-    }
-
-
-def _click(
-    store: Any,
-    sandbox: dict[str, object],
-    template: dict[str, object],
-    session: dict[str, object],
-    ref: str,
-) -> dict[str, object]:
-    element = _element(session, ref)
-    href = str(element.get("href") or "")
-    if href.startswith("http"):
-        return _navigate(store, sandbox, template, session, href)
-    return _snapshot(session, 4000)
-
-
-def _type(session: dict[str, object], ref: str, text: str) -> dict[str, object]:
-    element = _element(session, ref)
-    element["value"] = text
-    return _snapshot(session, 4000)
+    return apply_browser(store, sandbox, name, arguments)
 
 
 def _screenshot(
-    store: Any, sandbox: dict[str, object], root: Path, session: dict[str, object]
+    store: Any, sandbox: dict[str, object], session: dict[str, object]
 ) -> dict[str, object]:
-    del root
     png = png_chart([1, 2, 3])
     saved = _store_blob(
         store,
@@ -539,6 +456,7 @@ def _screenshot(
             "url": session.get("url") or "",
             "title": session.get("title") or "",
             "untrusted": True,
+            "engine": "fixture",
         },
         "is_error": False,
     }
@@ -680,6 +598,13 @@ def _copy_inputs(store: Any, sandbox: dict[str, object], raw: object) -> None:
         target = confine(root, f"/workspace/inputs/{name}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(bytes(blob))
+
+
+def host_permitted(
+    store: Any, sandbox: dict[str, object], template: dict[str, object], host: str
+) -> bool:
+    """True when ``host`` is on this computer's egress allow list and not denied."""
+    return _host_ok(store, sandbox, template, host)
 
 
 def _host_ok(
@@ -850,14 +775,20 @@ def _emit_artifact(
             {"file_id": str(file_id), "name": name, "mime_type": mime, "size_bytes": size},
         )
         if name == "browser.png":
+            page = sandbox.get("browser")
+            page_url = ""
+            page_title = name
+            if isinstance(page, dict):
+                page_url = str(page.get("url") or "")
+                page_title = str(page.get("title") or name)
             store._emit(
                 run,
                 "browser.screenshot",
                 {
                     "tool_call_id": str(sandbox.get("_tool_call_id") or ""),
                     "file_id": str(file_id),
-                    "url": "",
-                    "title": name,
+                    "url": page_url,
+                    "title": page_title,
                 },
             )
 
@@ -1061,15 +992,6 @@ def _terminate(store: Any, row: dict[str, object], *, actor: object) -> None:
         target_id=row.get("id"),
         detail={"scope_key": row.get("scope_key")},
     )
-
-
-def _element(session: dict[str, object], ref: str) -> dict[str, str]:
-    elements = session.get("elements")
-    if isinstance(elements, list):
-        for item in elements:
-            if isinstance(item, dict) and item.get("ref") == ref:
-                return item
-    return {"ref": ref, "tag": "button", "name": ref, "href": "", "value": ""}
 
 
 def _extra(store: Any, sandbox: dict[str, object]) -> list[str]:

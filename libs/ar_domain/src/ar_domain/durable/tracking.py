@@ -96,6 +96,12 @@ class TrackedDict(dict[object, object]):
         self.touch(key)
         return found
 
+    def evict(self, key: object) -> None:
+        """Drop a cache entry. The database row stays."""
+        super().pop(key, None)
+        self.dirty.discard(key)
+        self.deleted.pop(key, None)
+
 
 def _wrap(bucket: Any, key: object, value: object) -> object:
     if isinstance(value, dict) and not isinstance(value, TrackedRow):
@@ -158,6 +164,10 @@ BUCKETS = (
     "eval_cases",
     "eval_runs",
     "eval_results",
+    "file_blobs",
+    "workspace_files",
+    "job_progress",
+    "a2a_push_configs",
 )
 
 

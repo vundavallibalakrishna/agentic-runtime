@@ -25,7 +25,9 @@ _LETTERHEAD = (
 def seed_composition(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
     """Idempotent demo: two agents that delegate, and one skill that writes a DOCX."""
     import ar_domain.skills.resolver  # noqa: F401, PLC0415
+    from ar_domain.spreadsheet.skill import ensure_questionnaire_skill  # noqa: PLC0415
 
+    ensure_questionnaire_skill(store, tenant_id, user_id)
     if any(row.get("slug") == "brand-guidelines" for row in getattr(store, "skills", {}).values()):
         return
     actor = Actor(tenant_id, user_id, PERMISSION_KEYS, display_name="Admin")

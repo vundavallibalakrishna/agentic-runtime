@@ -33,6 +33,7 @@ dependencies = [
     "cryptography==48.0.1",
     "prometheus-client==0.26.0",
     "pypdf==6.21.1",
+    "duckdb==2.0.0",
 ]
 
 [project.optional-dependencies]

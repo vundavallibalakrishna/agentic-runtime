@@ -26,7 +26,9 @@ from ar_domain.sandboxes.runtime import (
 )
 from ar_domain.sandboxes.runtime import suspend as suspend_row
 
-_HIDDEN = frozenset({"token", "auth_token_hash", "browser", "manifest"})
+_HIDDEN = frozenset(
+    {"token", "auth_token_hash", "browser", "browser_sessions", "browser_active", "manifest"}
+)
 _IMAGE = "registry.local/ar/ar-sandbox@sha256:" + ("ab" * 32)
 _PLATFORMS: tuple[tuple[str, str, bool, bool, list[str]], ...] = (
     ("default", "Default", False, False, []),

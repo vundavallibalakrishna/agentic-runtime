@@ -54,6 +54,8 @@
 | 0028 | `connector_catalog` | `connector_installs`, `oauth_states`, `named_secrets`. Nullable `credential_grants.secret_ref_id` plus access and refresh ciphertext. RLS and grants ship in the same revision. | M26 |
 | 0029 | `orchestration` | Nullable `runs.checkpoint` and `runs.workspace_ref`. `human_questions` with RLS, grants, and the updated-at trigger. | M28 |
 | 0030 | `agent_exposure` | `agent_api_keys`, `agent_api_idempotency`, `agent_api_grants`, `a2a_tasks`. RLS, grants, and updated-at triggers. | M29 |
+| 0032 | `model_request_options` | Nullable `models.request_options` for provider-specific chat parameters merged into every call. The column has a default, so older code keeps working. | M32 |
+| 0033 | `durability` | `file_blobs`, `workspace_files`, `job_progress`, `a2a_push_configs`. RLS, grants and updated-at triggers. Caps are applied in the flush, not as table checks. | M35 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 
@@ -69,4 +71,4 @@ v1 tables are unpartitioned. When `messages`, `run_events`, `usage_events` or `a
 
 ## 6. Pack schemas
 
-Core history stays a single line (revisions 0001–0031 and anything added after). A solution pack does not append to that line. Each pack ships its own Alembic environment created with `ar_domain.packs.alembic_env` ([spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md), [OQ-28](../open-questions.md)). Revision `0031` drops a retired pack schema and its version table when they are present, and it is a no-op when they are not. `alembic heads` for the core environment must still return one head. No pack ships in this tree.
+Core history stays a single line (revisions 0001–0033 and anything added after). A solution pack does not append to that line. Each pack ships its own Alembic environment created with `ar_domain.packs.alembic_env` ([spec 21 §6](../03-specs/21-records-governance.md#6-pack-extension-points), [ADR-0023](../02-architecture/adr/ADR-0023-pack-extensions.md), [OQ-28](../open-questions.md)). Revision `0031` drops a retired pack schema and its version table when they are present, and it is a no-op when they are not. `alembic heads` for the core environment must still return one head. No pack ships in this tree.

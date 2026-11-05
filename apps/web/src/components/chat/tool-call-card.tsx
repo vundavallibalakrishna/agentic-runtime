@@ -5,6 +5,63 @@ import { useTranslations } from "next-intl";
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
 
+function JobMeter({ progress }: { progress: Progress }) {
+  const t = useTranslations("chat");
+  const completed = Number(progress.completed ?? 0);
+  const total = Number(progress.total ?? 0);
+  const status = text(progress.status);
+  const label = text(progress.label);
+  const fraction =
+    status === "interrupted"
+      ? t("jobInterrupted", { completed, total })
+      : status === "failed"
+        ? t("jobFailed")
+        : total > 0
+          ? t("jobProgress", { completed, total })
+          : label;
+  return (
+    <div className="mt-2">
+      <p className="text-[var(--muted-foreground)]">
+        {label ? `${label}. ` : ""}
+        {fraction}
+      </p>
+      {total > 0 ? (
+        <progress
+          aria-label={label || fraction}
+          className="mt-1 h-2 w-full appearance-none overflow-hidden rounded-full bg-[var(--muted)] accent-[var(--foreground)] [&::-moz-progress-bar]:bg-[var(--foreground)] [&::-webkit-progress-bar]:bg-[var(--muted)] [&::-webkit-progress-value]:bg-[var(--foreground)]"
+          max={total}
+          value={Math.min(completed, total)}
+        />
+      ) : null}
+      {text(progress.detail) ? (
+        <p className="mt-1 text-[var(--muted-foreground)]">{text(progress.detail)}</p>
+      ) : null}
+    </div>
+  );
+}
+
+export function JobList({ jobs }: { jobs: Record<string, unknown>[] }) {
+  if (jobs.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-2">
+      {jobs.map((job) => (
+        <JobMeter
+          key={text(job.id)}
+          progress={{
+            completed: Number(job.completed ?? 0),
+            total: Number(job.total ?? 0),
+            label: text(job.label),
+            status: text(job.status),
+            detail: text(job.detail),
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function text(value: unknown) {
   return value == null ? "" : String(value);
 }
@@ -12,6 +69,22 @@ function text(value: unknown) {
 function presentationOf(call: Record<string, unknown>) {
   const raw = call.presentation;
   return raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+}
+
+type Progress = {
+  completed?: number;
+  total?: number;
+  label?: string;
+  status?: string;
+  detail?: string;
+};
+
+function progressOf(presentation: Record<string, unknown>): Progress | null {
+  const raw = presentation.progress;
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  return raw as Progress;
 }
 
 function filesOf(presentation: Record<string, unknown>): FileRow[] {
@@ -41,11 +114,13 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       : "";
   const files = filesOf(presentation);
   const hits = Array.isArray(presentation.results) ? (presentation.results as Hit[]) : [];
+  const progress = progressOf(presentation);
   return (
     <section className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm">
       <p className="sr-only">{label}</p>
       <p className="font-medium">{name}</p>
       <p className="text-[var(--muted-foreground)]">{text(call.status ?? "")}</p>
+      {progress ? <JobMeter progress={progress} /> : null}
       {kind === "code" || kind === "shell" ? (
         <div className="mt-2 space-y-2">
           <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">

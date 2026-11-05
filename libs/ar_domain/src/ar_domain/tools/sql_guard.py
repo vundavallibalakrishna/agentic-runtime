@@ -45,6 +45,22 @@ _WRITE = (
     exp.Copy,
 )
 _SYSTEM = frozenset({"pg_catalog", "information_schema", "pg_toast"})
+_DUCK_FUNCS = frozenset(
+    {
+        "glob",
+        "getenv",
+        "current_setting",
+        "load_aws_credentials",
+        "read_blob",
+        "read_csv",
+        "read_csv_auto",
+        "read_json",
+        "read_json_auto",
+        "read_json_objects",
+        "read_parquet",
+        "read_text",
+    }
+)
 
 
 class SqlRejected(Exception):  # noqa: N818
@@ -74,15 +90,21 @@ def check_sql(  # noqa: PLR0912
     if len(trees) != 1:
         raise SqlRejected("exactly one statement")
     tree = trees[0]
+    _reject_file_reads(tree, dialect)
     if tree.find(*_WRITE) is not None or tree.find(exp.Into) is not None:
         raise SqlRejected("only a single select is allowed")
-    if not isinstance(tree, exp.Select | exp.Union):
+    shapes: tuple[type[exp.Expression], ...] = (exp.Select, exp.Union)
+    if dialect == "duckdb":
+        shapes = (exp.Select, exp.Union, exp.Pivot)
+    if not isinstance(tree, shapes):
         raise SqlRejected("only a single select is allowed")
     if tree.args.get("for") is not None:
         raise SqlRejected("locking reads are not allowed")
     for func in tree.find_all(exp.Anonymous, exp.Func):
         name = func.name.lower() if isinstance(func.name, str) else ""
         if name in _DENY or name.startswith("dblink") or name.startswith("lo_"):
+            raise SqlRejected(f"function {name or 'call'} is not allowed")
+        if dialect == "duckdb" and _duck_blocked(name):
             raise SqlRejected(f"function {name or 'call'} is not allowed")
     ctes = {cte.alias_or_name.lower() for cte in tree.find_all(exp.CTE)}
     for table in tree.find_all(exp.Table):
@@ -116,3 +138,22 @@ def check_sql(  # noqa: PLR0912
     if isinstance(tree, exp.Select) and tree.args.get("limit") is None:
         tree.set("limit", exp.Limit(expression=exp.Literal.number(row_limit + 1)))
     return tree.sql(dialect=dialect)
+
+
+def _reject_file_reads(tree: exp.Expr, dialect: str) -> None:
+    """Reject readers that can escape the loaded tables."""
+    if tree.find(exp.ReadCSV, exp.ReadParquet) is not None:
+        raise SqlRejected("file reads are not allowed")
+    if dialect != "duckdb":
+        return
+    for func in tree.find_all(exp.Anonymous):
+        name = func.name.lower() if isinstance(func.name, str) else ""
+        if _duck_blocked(name):
+            raise SqlRejected(f"function {name or 'call'} is not allowed")
+
+
+def _duck_blocked(name: str) -> bool:
+    return bool(
+        name
+        and (name in _DUCK_FUNCS or name.startswith(("read_", "duckdb_")) or name.endswith("_scan"))
+    )

@@ -1,23 +1,17 @@
 """Submit persisted routines to the local Temporal cluster."""
 
-from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from temporalio.client import (
     Client,
-    Schedule,
-    ScheduleActionStartWorkflow,
     ScheduleAlreadyRunningError,
-    ScheduleOverlapPolicy,
-    SchedulePolicy,
-    ScheduleSpec,
-    ScheduleState,
     ScheduleUpdate,
 )
 from temporalio.service import RPCError, RPCStatusCode
 
 from ar_common.errors import UnavailableError
 from ar_domain.durable.flush import flush_store
+from ar_domain.routines.clock import build_schedule
 
 if TYPE_CHECKING:
     import uuid
@@ -70,28 +64,7 @@ async def sync_schedule(
             if exc.status != RPCStatusCode.NOT_FOUND:
                 raise
         return
-    raw_config = row.get("trigger_config")
-    config = raw_config if isinstance(raw_config, dict) else {}
-    overlap = {
-        "skip": ScheduleOverlapPolicy.SKIP,
-        "buffer_one": ScheduleOverlapPolicy.BUFFER_ONE,
-        "allow": ScheduleOverlapPolicy.ALLOW_ALL,
-    }[str(row.get("concurrency_policy") or "skip")]
-    schedule = Schedule(
-        action=ScheduleActionStartWorkflow(
-            "RoutineRunWorkflow",
-            {"routine_id": str(routine_id), "source": "schedule"},
-            id=f"routine-fire-{routine_id}",
-            task_queue="ar-system",
-        ),
-        spec=ScheduleSpec(
-            cron_expressions=[str(config["cron"])],
-            time_zone_name=str(config.get("timezone") or "UTC"),
-            jitter=timedelta(seconds=int(config.get("jitter_s") or 0)),
-        ),
-        policy=SchedulePolicy(overlap=overlap),
-        state=ScheduleState(paused=row.get("status") != "active"),
-    )
+    schedule = build_schedule(row)
     await flush_store(store)
     try:
         await client.create_schedule(schedule_id, schedule)

@@ -247,6 +247,12 @@ class ChatService:
     feedback_digest: dict[str, dict[str, object]] = field(default_factory=dict)
     eval_gateway: dict[str, int] = field(default_factory=dict)
     records: dict[str, dict[object, dict[str, object]]] = field(default_factory=dict)
+    file_blobs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    workspace_files: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    job_progress: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    a2a_push_configs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    cache_limits: dict[str, int] = field(default_factory=dict)
+    evicted_conversations: set[uuid.UUID] = field(default_factory=set)
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -1133,6 +1139,7 @@ class ChatService:
             "deleted_at": None,
         }
         self.conversations[conversation_id] = row
+        self._evict()
         return self._public(row)
 
     def _pick_agent(
@@ -1175,6 +1182,9 @@ class ChatService:
         row = self._conversation(tenant_id, user_id, conversation_id, read_all=read_all)
         body = self._public(row)
         body["messages"] = self._visible_messages(conversation_id)
+        from ar_domain.jobs.progress import jobs_for  # noqa: PLC0415
+
+        body["jobs"] = jobs_for(self, conversation_id)
         return body
 
     def _conversation(
@@ -1235,6 +1245,9 @@ class ChatService:
         return row
 
     def _visible_messages(self, conversation_id: uuid.UUID) -> list[dict[str, object]]:
+        from ar_domain.chat.eviction import recall_conversation  # noqa: PLC0415
+
+        recall_conversation(self, conversation_id)
         nodes = [
             MessageNode(
                 id=str(row["id"]),
@@ -1340,6 +1353,7 @@ class ChatService:
         conversation["updated_at"] = now
         if schedule:
             self._schedule(run_id, text, names)
+        self._evict()
         return {"message": self._public(user_message), "run": self._public(run)}
 
     def _new_run(
@@ -2581,6 +2595,10 @@ class ChatService:
         }
         self.files[file_id] = row
         self.blobs[file_id] = data
+        from ar_domain.durability.store import remember_blob  # noqa: PLC0415
+
+        remember_blob(self, row, data)
+        self._evict()
         return self._public(row)
 
     def list_files(
@@ -2618,7 +2636,12 @@ class ChatService:
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, file_id: uuid.UUID
     ) -> tuple[bytes, str]:
         self.get_file(tenant_id, user_id, file_id)
-        return self.blobs[file_id], str(self.files[file_id]["mime_type"])
+        from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+        data = read_blob(self, file_id)
+        if data is None:
+            data = self.blobs[file_id]
+        return data, str(self.files[file_id]["mime_type"])
 
     def delete_file(self, tenant_id: uuid.UUID, user_id: uuid.UUID, file_id: uuid.UUID) -> None:
         row = self.files.get(file_id)
@@ -2626,3 +2649,11 @@ class ChatService:
             raise NotFoundError()
         row["status"] = "deleted"
         self.blobs.pop(file_id, None)
+        from ar_domain.durability.store import forget_blob  # noqa: PLC0415
+
+        forget_blob(self, file_id)
+
+    def _evict(self) -> None:
+        from ar_domain.chat.eviction import evict_chat_cache  # noqa: PLC0415
+
+        evict_chat_cache(self)

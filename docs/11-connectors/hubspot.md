@@ -2,6 +2,7 @@
 
 Search and read contacts and companies, create and update a contact, and list deals.
 
+**Implementation:** Built
 **Category:** Work
 **Auth:** bearer, oauth_authorization_code
 **Verification:** Not live-tested
