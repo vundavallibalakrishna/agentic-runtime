@@ -210,6 +210,11 @@ class EnvName(StrEnum):
     PROD = "prod"
 
 
+def fake_models_allowed(env: EnvName) -> bool:
+    """Fake models, scripted turns and demo fixtures exist only in dev and CI."""
+    return env in {EnvName.DEV, EnvName.CI}
+
+
 class DeploymentMode(StrEnum):
     SAAS = "saas"
     SINGLE_TENANT = "single_tenant"

@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from ar_common.host_ports import listen_port
-from ar_common.settings import BaseServiceSettings
+from ar_common.settings import BaseServiceSettings, fake_models_allowed
 from ar_common.web import create_app
 from ar_domain.chat.service import ChatService
 from ar_sandbox_manager.drivers.base import assert_driver_allowed, selected_driver
@@ -24,7 +24,7 @@ def create_application() -> FastAPI:
     assert_driver_allowed(settings.env.value, driver)
     app = create_app("sandbox-manager", settings)
     app.include_router(sandbox_router)
-    app.state.chat = ChatService()
+    app.state.chat = ChatService(fake_models_allowed=fake_models_allowed(settings.env))
     app.state.sandbox_driver = driver
     return app
 

@@ -78,7 +78,7 @@ from ar_api.routers.widget import router as widget_router
 from ar_api.secrets_runtime import MemorySecretApi
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
 from ar_common.host_ports import listen_port
-from ar_common.settings import BaseServiceSettings, EnvName
+from ar_common.settings import BaseServiceSettings, EnvName, fake_models_allowed
 from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatService, demo_id
@@ -215,7 +215,7 @@ async def _signup(slug: str, name: str, email: str) -> str:
 
 def _configure_chat(chat: ChatService, settings: Settings) -> None:
     """Pack trust follows the environment. Dev and CI accept unsigned packs and fake models."""
-    chat.fake_models_allowed = settings.env in {EnvName.DEV, EnvName.CI}
+    chat.fake_models_allowed = fake_models_allowed(settings.env)
     raw = os.environ.get("AR_PACK_SIGNATURE_REQUIRED")
     if raw is None:
         chat.pack_signature_required = settings.env not in {EnvName.DEV, EnvName.CI}
@@ -340,6 +340,8 @@ def create_application() -> FastAPI:
     app.state.chat = ChatService(
         allow_loopback=settings.env in {EnvName.DEV, EnvName.CI},
         scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
+        # Read when the store seeds itself, so it is passed here and not set afterwards.
+        fake_models_allowed=fake_models_allowed(settings.env),
     )
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)

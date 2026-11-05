@@ -67,7 +67,7 @@ PETSTORE: dict[str, object] = {
 
 
 def seed(store: Any) -> None:
-    """Insert built-ins, the ticket server, petstore and the warehouse."""
+    """Insert the built-ins, and the demo fixtures only where fake models are allowed."""
     import ar_domain.knowledge.resolver  # noqa: PLC0415
     import ar_domain.sandboxes.resolver  # noqa: PLC0415
     import ar_domain.skills.resolver  # noqa: PLC0415
@@ -81,18 +81,23 @@ def seed(store: Any) -> None:
         return
     tenant = demo_id("tenant")
     admin = demo_id("admin")
+    # Fixtures back the offline demo, the unit suite and the e2e specs. A store built
+    # for staging or production does not get them.
+    fixtures = bool(getattr(store, "fake_models_allowed", True))
     _settings(store, tenant)
     _builtin(store, "files", "Files", "builtin://files", _file_tools())
     _builtin(store, "records", "Records", "builtin://records", _record_tools())
     _builtin(store, "conversations", "Conversations", "builtin://conversations", _history_tools())
-    _builtin(store, "web", "Web", "builtin://web", _web_tools())
-    _builtin(store, "control", "Control", "builtin://control", _control_tools())
-    provider = _provider(store, tenant, admin)
-    _tickets(store, tenant, admin, provider)
-    _echo(store, tenant, admin)
-    _petstore(store, tenant, admin)
-    _warehouse(store, tenant, admin)
-    _desk(store, tenant, demo_id("builder"))
+    _builtin(store, "control", "Control", "builtin://control", _control_tools(fixtures=fixtures))
+    if fixtures:
+        # `web.fetch` answers one canned page. The real page reader is `general.fetch`.
+        _builtin(store, "web", "Web", "builtin://web", _web_tools())
+        provider = _provider(store, tenant, admin)
+        _tickets(store, tenant, admin, provider)
+        _echo(store, tenant, admin)
+        _petstore(store, tenant, admin)
+        _warehouse(store, tenant, admin)
+        _desk(store, tenant, demo_id("builder"))
     _reviews(store, tenant)
     _sandbox_server(store)
     _browser_server(store)
@@ -1652,7 +1657,18 @@ def _web_tools() -> list[dict[str, object]]:
     ]
 
 
-def _control_tools() -> list[dict[str, object]]:
+_TEST_CONTROL_TOOLS = frozenset({"checkpoint", "propose_change"})
+
+
+def _control_tools(*, fixtures: bool = True) -> list[dict[str, object]]:
+    """Control tools. `checkpoint` and `propose_change` exist to exercise retry and approval."""
+    tools = _all_control_tools()
+    if fixtures:
+        return tools
+    return [tool for tool in tools if tool["name"] not in _TEST_CONTROL_TOOLS]
+
+
+def _all_control_tools() -> list[dict[str, object]]:
     return [
         _tool(
             "plan_update",

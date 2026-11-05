@@ -179,6 +179,8 @@ Temporal Schedule `tool-drift-check` hourly (`AR_TOOL_DRIFT_INTERVAL`, default `
 
 Every built-in reads only the calling tenant's rows, and a call that names no caller returns nothing. `files.list` and `files.read` apply the file API's read rule: the file's owner, or the owner of the conversation it belongs to. A file id that fails the rule is `not_found`. `conversations.search_history` reads the caller's own conversations with the calling agent. `tools.search` ranks platform tools and the calling tenant's tools, on the current version of an approved server.
 
+Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` and `warehouse` servers, the canned `web.fetch`, the `desk` agent, and the test tools `control.checkpoint` and `control.propose_change` are seeded only when `AR_ENV` is `dev` or `ci` (`ar_common.settings.fake_models_allowed`). The page reader for agents is `general.fetch`.
+
 ## 10. `mcp-sql` connector runtime (`connectors/mcp_sql`, port 8010)
 
 - MCP server exposing, per tool server version: `{slug}.list_tables` (R0), `{slug}.describe_table` (R0), `{slug}.run_query` (R1) `{sql: string, params?: object, limit?: int}`.
