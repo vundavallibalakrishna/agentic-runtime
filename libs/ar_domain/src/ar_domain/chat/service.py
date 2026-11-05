@@ -148,6 +148,7 @@ class ChatService:
     builder_scripts: list[str] = field(default_factory=list)
     builder_strict: bool = False
     fake_models_allowed: bool = True
+    last_remote_usage: dict[str, int] | None = None
     pack_signature_required: bool = False
     pack_trusted_keys: dict[str, str] = field(default_factory=dict)
     tool_servers: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -582,6 +583,8 @@ class ChatService:
             "upstream_model": name,
             "kind": kind,
             "capabilities": ["streaming"],
+            "price_input_micros_per_mtok": 0,
+            "price_output_micros_per_mtok": 0,
             "status": "active",
             "platform": tenant_id is None,
             "created_at": now,
@@ -715,13 +718,41 @@ class ChatService:
         kind: str,
         *,
         platform: bool,
+        price_input_micros_per_mtok: int = 0,
+        price_output_micros_per_mtok: int = 0,
     ) -> dict[str, object]:
         self._require(self.providers, provider_id, tenant_id or demo_id("tenant"))
         model_id = new_id()
         row = self._model(model_id, None if platform else tenant_id, provider_id, name, kind)
         row["upstream_model"] = upstream_model
+        row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
+        row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
         self.models[model_id] = row
         return self._public(row)
+
+    def model_cost(
+        self, tenant_id: uuid.UUID, alias: str, tokens_in: int, tokens_out: int
+    ) -> tuple[int, str | None]:
+        """Cost in micros for one model call on ``alias`` and the model id it resolved to."""
+        from ar_domain.usage.logic import model_cost_micros  # noqa: PLC0415
+
+        found = self._alias_target(tenant_id, alias)
+        if found is None:
+            return 0, None
+        _provider, model = found
+
+        def _price(name: str) -> int:
+            value = model.get(name)
+            return int(value) if isinstance(value, int) and not isinstance(value, bool) else 0
+
+        cost = model_cost_micros(
+            tokens_in,
+            tokens_out,
+            price_in_per_mtok=_price("price_input_micros_per_mtok"),
+            price_out_per_mtok=_price("price_output_micros_per_mtok"),
+        )
+        model_id = model.get("id")
+        return cost, str(model_id) if model_id is not None else None
 
     def delete_model(self, tenant_id: uuid.UUID, model_id: uuid.UUID, *, platform: bool) -> None:
         self._writable(self.models, model_id, tenant_id, platform=platform)
@@ -1693,7 +1724,17 @@ class ChatService:
             run["status"] = "budget_exceeded"
             self._emit(run, "run.budget_exceeded", {"limit": limit})
             return
-        usage = {"tokens_in": max(1, len(text.split())), "tokens_out": max(1, len(answer.split()))}
+        provider_usage = self.last_remote_usage
+        self.last_remote_usage = None
+        usage = (
+            {
+                "tokens_in": int(provider_usage["tokens_in"]),
+                "tokens_out": int(provider_usage["tokens_out"]),
+            }
+            if provider_usage
+            and (provider_usage.get("tokens_in") or provider_usage.get("tokens_out"))
+            else {"tokens_in": max(1, len(text.split())), "tokens_out": max(1, len(answer.split()))}
+        )
         run["usage"] = usage
         run["status"] = "completed"
         run["result_summary"] = answer[:8000]
@@ -1761,7 +1802,12 @@ class ChatService:
                 )
             if response.status_code >= 300:
                 return "The model provider returned an error." if real else None
-            text_out = completion_text(response.json())
+            payload = response.json()
+            text_out = completion_text(payload)
+            if real:
+                from ar_domain.models.logic import completion_message  # noqa: PLC0415
+
+                self.last_remote_usage = dict(completion_message(payload)["usage"])  # type: ignore[arg-type]
             if text_out:
                 return text_out
         except httpx.HTTPError:
@@ -1819,6 +1865,8 @@ class ChatService:
         return parsed
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
+        """Meter a single-call turn: tokens priced from the resolved model (spec 17 §2)."""
+        from ar_domain.tools.agent_loop import model_alias_for  # noqa: PLC0415
         from ar_domain.usage.service import note  # noqa: PLC0415
 
         request_id = str(run["id"])
@@ -1827,36 +1875,32 @@ class ChatService:
         now = utcnow()
         user = str(run["user_id"]) if run.get("user_id") else None
         agent = str(run["agent_id"]) if run.get("agent_id") else None
-        note(
-            self,
-            UsageRecord(
-                tenant,
-                now,
-                "model_input_tokens",
-                usage["tokens_in"],
-                0,
-                keys[0],
-                user_id=user,
-                agent_id=agent,
-                model_alias="reasoning",
-                source="model-gateway",
-            ),
-        )
-        note(
-            self,
-            UsageRecord(
-                tenant,
-                now,
-                "model_output_tokens",
-                usage["tokens_out"],
-                0,
-                keys[1],
-                user_id=user,
-                agent_id=agent,
-                model_alias="reasoning",
-                source="model-gateway",
-            ),
-        )
+        alias = model_alias_for(self, run)
+        tenant_id = uuid.UUID(tenant)
+        in_cost, model_id = self.model_cost(tenant_id, alias, usage["tokens_in"], 0)
+        out_cost, _ = self.model_cost(tenant_id, alias, 0, usage["tokens_out"])
+        usage["cost_micros"] = in_cost + out_cost
+        for metric, quantity, cost, key in (
+            ("model_input_tokens", usage["tokens_in"], in_cost, keys[0]),
+            ("model_output_tokens", usage["tokens_out"], out_cost, keys[1]),
+        ):
+            note(
+                self,
+                UsageRecord(
+                    tenant,
+                    now,
+                    metric,
+                    quantity,
+                    cost,
+                    key,
+                    user_id=user,
+                    agent_id=agent,
+                    model_alias=alias,
+                    source="model-gateway",
+                    run_id=request_id,
+                    model_id=model_id,
+                ),
+            )
 
     def _meter_run(self, run: dict[str, object]) -> None:
         from ar_domain.usage.service import note  # noqa: PLC0415

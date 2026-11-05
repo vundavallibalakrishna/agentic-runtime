@@ -52,7 +52,7 @@ Body `{name, kind, base_url, api_key?, headers?, timeout_s?, max_concurrency?}`.
 Probes `GET /models` and returns `{ok, latency_ms, models: [id], error?}`.
 
 #### GET /api/v1/models
-Filters `kind`, `provider_id`, `status`. Item `Model {id, scope, provider_id, name, upstream_model, kind, capabilities, context_window, max_output_tokens, embedding_dimensions, price_input_micros_per_mtok, price_output_micros_per_mtok, licence, status}`.
+Filters `kind`, `provider_id`, `status`. Item `Model {id, scope, provider_id, name, upstream_model, kind, capabilities, context_window, max_output_tokens, embedding_dimensions, price_input_micros_per_mtok, price_output_micros_per_mtok, licence, status}`. `POST /api/v1/models` accepts `priceInputMicrosPerMtok` and `priceOutputMicrosPerMtok` (integers ≥ 0, default 0); the Models screen exposes them in Advanced mode as a price per million tokens in the tenant currency.
 
 #### POST /api/v1/models
 #### PATCH /api/v1/models/{model_id}

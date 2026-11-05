@@ -147,6 +147,7 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
         await _channel_identities(session, store, tenant_id)
         await _channel_threads(session, store, tenant_id)
         await _channel_posts(session, store, tenant_id)
+        await _usage_events(session, store, tenant_id)
 
 
 async def reload_run(store: object, run_id: uuid.UUID) -> None:
@@ -187,6 +188,48 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
             if body.get("run_id") == run_id and body.get("role") == "assistant":
                 _merge(store, "runs", run_id, {"assistant_message_id": body["id"]})
         await _events_for(session, store, run_id, run.get("conversation_id"), run.get("tenant_id"))
+
+
+async def _usage_events(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    """Reload the last 400 days of usage so summaries and quotas survive a restart."""
+    from ar_domain.usage.logic import UsageRecord, record_usage  # noqa: PLC0415
+
+    usage = getattr(store, "usage", None)
+    if not isinstance(usage, dict):
+        return
+    flushed = getattr(store, "_usage_flushed", None)
+    if not isinstance(flushed, set):
+        flushed = set()
+        store._usage_flushed = flushed  # type: ignore[attr-defined]
+    for row in await _rows(
+        session,
+        "SELECT * FROM usage_events WHERE tenant_id = :tenant_id "
+        "AND occurred_at >= now() - interval '400 days' ORDER BY occurred_at",
+        tenant_id,
+    ):
+        item = UsageRecord(
+            str(row["tenant_id"]),
+            row["occurred_at"],
+            str(row["metric"]),
+            int(row["quantity"]),
+            int(row.get("cost_micros") or 0),
+            str(row["dedupe_key"]),
+            user_id=_text_or_none(row.get("user_id")),
+            team_id=_text_or_none(row.get("team_id")),
+            agent_id=_text_or_none(row.get("agent_id")),
+            model_alias=str(row.get("model_alias") or ""),
+            source=str(row.get("source") or "api"),
+            run_id=_text_or_none(row.get("run_id")),
+            model_id=_text_or_none(row.get("model_id")),
+            tool_id=_text_or_none(row.get("tool_id")),
+            routine_id=_text_or_none(row.get("routine_id")),
+        )
+        record_usage(usage, item)
+        flushed.add((item.tenant_id, item.dedupe_key))
+
+
+def _text_or_none(value: object) -> str | None:
+    return None if value is None else str(value)
 
 
 async def _rows(session: AsyncSession, sql: str, tenant_id: uuid.UUID) -> list[dict[str, Any]]:

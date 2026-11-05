@@ -24362,6 +24362,18 @@
             "type": "string",
             "title": "Kind",
             "default": "chat"
+          },
+          "priceInputMicrosPerMtok": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Priceinputmicrospermtok",
+            "default": 0
+          },
+          "priceOutputMicrosPerMtok": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Priceoutputmicrospermtok",
+            "default": 0
           }
         },
         "additionalProperties": false,

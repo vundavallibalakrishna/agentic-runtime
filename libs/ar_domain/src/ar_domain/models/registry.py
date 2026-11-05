@@ -163,8 +163,8 @@ async def save_model(
                     upstream_model=str(row.get("upstream_model") or row.get("name") or ""),
                     kind=str(row.get("kind") or "chat"),
                     capabilities=["streaming", "tools"],
-                    price_input_micros_per_mtok=0,
-                    price_output_micros_per_mtok=0,
+                    price_input_micros_per_mtok=_price(row, "price_input_micros_per_mtok"),
+                    price_output_micros_per_mtok=_price(row, "price_output_micros_per_mtok"),
                     licence="",
                     status="active",
                 )
@@ -172,6 +172,8 @@ async def save_model(
         else:
             existing.upstream_model = str(row.get("upstream_model") or existing.upstream_model)
             existing.name = str(row.get("name") or existing.name)
+            existing.price_input_micros_per_mtok = _price(row, "price_input_micros_per_mtok")
+            existing.price_output_micros_per_mtok = _price(row, "price_output_micros_per_mtok")
         await record(
             session,
             tenant_id=owner,
@@ -182,6 +184,13 @@ async def save_model(
             target_id=str(model_id),
             detail={"name": row.get("name"), "upstream_model": row.get("upstream_model")},
         )
+
+
+def _price(row: dict[str, object], name: str) -> int:
+    value = row.get(name)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, value)
 
 
 async def save_alias(

@@ -23,12 +23,16 @@ class ModelBody:
         name (str):
         upstream_model (str):
         kind (str | Unset):  Default: 'chat'.
+        price_input_micros_per_mtok (int | Unset):  Default: 0.
+        price_output_micros_per_mtok (int | Unset):  Default: 0.
     """
 
     provider_id: UUID
     name: str
     upstream_model: str
     kind: str | Unset = "chat"
+    price_input_micros_per_mtok: int | Unset = 0
+    price_output_micros_per_mtok: int | Unset = 0
 
     def to_dict(self) -> dict[str, Any]:
         provider_id = str(self.provider_id)
@@ -38,6 +42,10 @@ class ModelBody:
         upstream_model = self.upstream_model
 
         kind = self.kind
+
+        price_input_micros_per_mtok = self.price_input_micros_per_mtok
+
+        price_output_micros_per_mtok = self.price_output_micros_per_mtok
 
         field_dict: dict[str, Any] = {}
 
@@ -50,6 +58,10 @@ class ModelBody:
         )
         if kind is not UNSET:
             field_dict["kind"] = kind
+        if price_input_micros_per_mtok is not UNSET:
+            field_dict["priceInputMicrosPerMtok"] = price_input_micros_per_mtok
+        if price_output_micros_per_mtok is not UNSET:
+            field_dict["priceOutputMicrosPerMtok"] = price_output_micros_per_mtok
 
         return field_dict
 
@@ -64,11 +76,17 @@ class ModelBody:
 
         kind = d.pop("kind", UNSET)
 
+        price_input_micros_per_mtok = d.pop("priceInputMicrosPerMtok", UNSET)
+
+        price_output_micros_per_mtok = d.pop("priceOutputMicrosPerMtok", UNSET)
+
         model_body = cls(
             provider_id=provider_id,
             name=name,
             upstream_model=upstream_model,
             kind=kind,
+            price_input_micros_per_mtok=price_input_micros_per_mtok,
+            price_output_micros_per_mtok=price_output_micros_per_mtok,
         )
 
         return model_body

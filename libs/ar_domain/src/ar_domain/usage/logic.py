@@ -22,6 +22,34 @@ class UsageRecord:
     agent_id: str | None = None
     model_alias: str = ""
     source: str = "api"
+    run_id: str | None = None
+    model_id: str | None = None
+    tool_id: str | None = None
+    routine_id: str | None = None
+
+
+def model_cost_micros(
+    tokens_in: int, tokens_out: int, *, price_in_per_mtok: int, price_out_per_mtok: int
+) -> int:
+    """Cost in micros of the tenant currency from per-million-token prices (spec 17 §2)."""
+    return (
+        max(0, tokens_in) * max(0, price_in_per_mtok)
+        + max(0, tokens_out) * max(0, price_out_per_mtok)
+    ) // 1_000_000
+
+
+def usage_rows_to_flush(
+    usage: dict[tuple[str, str], UsageRecord], flushed: set[tuple[str, str]], tenant_id: object
+) -> list[tuple[tuple[str, str], UsageRecord]]:
+    """Records for the bound tenant that Postgres has not seen yet, oldest first."""
+    wanted = str(tenant_id)
+    rows = [
+        (key, item)
+        for key, item in usage.items()
+        if key not in flushed and item.tenant_id == wanted
+    ]
+    rows.sort(key=lambda pair: pair[1].occurred_at)
+    return rows
 
 
 @dataclass(frozen=True, slots=True)

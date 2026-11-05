@@ -153,6 +153,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         steps = 0
         used_calls = 0
         tokens = 0
+        tokens_in_total = 0
+        tokens_out_total = 0
         cost = 0
         previews = []
         started = time.monotonic()
@@ -161,6 +163,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         steps = restored["steps"]
         used_calls = restored["used_calls"]
         tokens = restored["tokens"]
+        tokens_in_total = restored["tokens_in"]
+        tokens_out_total = restored["tokens_out"]
         cost = restored["cost"]
         previews = restored["previews"]
         user_text = str(restored["user_text"] or user_text)
@@ -200,10 +204,16 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         provider_retries = 0
         raw_usage = turn.get("usage")
         usage = raw_usage if isinstance(raw_usage, dict) else {}
-        tokens_in = usage.get("tokens_in")
-        tokens_out = usage.get("tokens_out")
-        tokens += int(tokens_in or 0) + int(tokens_out or 0)
-        cost += int(tokens_out or 1)
+        step_in = _whole(usage.get("tokens_in"))
+        step_out = _whole(usage.get("tokens_out"))
+        tokens += step_in + step_out
+        tokens_in_total += step_in
+        tokens_out_total += step_out
+        step_cost, model_id = _price_step(store, run, alias, step_in, step_out)
+        cost += step_cost
+        _note_model_usage(
+            store, run, alias, model_id, step=steps, tokens_in=step_in, tokens_out=step_out
+        )
         calls = turn.get("tool_calls")
         if not isinstance(calls, list) or not calls:
             answer = str(turn.get("text") or "").strip() or "The model returned an empty answer."
@@ -231,7 +241,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     )
                     continue
             answer = _checked(store, run, answer, failed_open=failed_open, tool_calls=used_calls)
-            _remember_usage(run, tokens, cost, steps)
+            _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
             _finish(store, run, assistant, answer, previews)
             return True
         if not planned:
@@ -253,6 +263,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     "messages": messages,
                     "steps": steps,
                     "tokens": tokens,
+                    "tokens_in": tokens_in_total,
+                    "tokens_out": tokens_out_total,
                     "cost": cost,
                     "used_calls": used_calls,
                     "previews": previews,
@@ -272,7 +284,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 if isinstance(added_cost, int) and not isinstance(added_cost, bool):
                     cost += added_cost
                 if outcome.get("stop"):
-                    _remember_usage(run, tokens, cost, steps)
+                    _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
                     _finish(store, run, assistant, str(outcome.get("answer") or ""), previews)
                     return True
             else:
@@ -326,13 +338,82 @@ async def _flush_run(store: Any) -> None:
     await flush_store(store)
 
 
-def _remember_usage(run: dict[str, object], tokens: int, cost: int, steps: int) -> None:
+def _remember_usage(
+    run: dict[str, object], tokens_in: int, tokens_out: int, cost: int, steps: int
+) -> None:
     run["usage"] = {
-        "tokens_in": tokens,
-        "tokens_out": max(cost, 1),
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
         "cost_micros": cost,
         "steps": steps,
     }
+
+
+def _whole(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, value)
+
+
+def _price_step(
+    store: Any, run: dict[str, object], alias: str, tokens_in: int, tokens_out: int
+) -> tuple[int, str | None]:
+    """Cost of one model call from the resolved model's prices (spec 17 §2)."""
+    pricing = getattr(store, "model_cost", None)
+    if pricing is None:
+        return 0, None
+    try:
+        tenant_id = uuid.UUID(str(run.get("tenant_id")))
+    except ValueError:
+        return 0, None
+    cost, model_id = pricing(tenant_id, alias, tokens_in, tokens_out)
+    return int(cost), model_id
+
+
+def _note_model_usage(
+    store: Any,
+    run: dict[str, object],
+    alias: str,
+    model_id: str | None,
+    *,
+    step: int,
+    tokens_in: int,
+    tokens_out: int,
+) -> None:
+    """One input and one output usage event per model call, priced separately."""
+    from ar_domain.usage.logic import UsageRecord  # noqa: PLC0415
+    from ar_domain.usage.service import note  # noqa: PLC0415
+
+    tenant = str(run.get("tenant_id") or "")
+    if not tenant or not hasattr(store, "usage"):
+        return
+    run_id = str(run.get("id"))
+    now = utcnow()
+    user = str(run["user_id"]) if run.get("user_id") else None
+    agent = str(run["agent_id"]) if run.get("agent_id") else None
+    in_cost, _ = _price_step(store, run, alias, tokens_in, 0)
+    out_cost, _ = _price_step(store, run, alias, 0, tokens_out)
+    for metric, quantity, cost, suffix in (
+        ("model_input_tokens", tokens_in, in_cost, "in"),
+        ("model_output_tokens", tokens_out, out_cost, "out"),
+    ):
+        note(
+            store,
+            UsageRecord(
+                tenant,
+                now,
+                metric,
+                quantity,
+                cost,
+                f"mg:{run_id}:{step}:{suffix}",
+                user_id=user,
+                agent_id=agent,
+                model_alias=alias,
+                source="model-gateway",
+                run_id=run_id,
+                model_id=model_id,
+            ),
+        )
 
 
 def _definition(store: Any, run: dict[str, object]) -> dict[str, object] | None:

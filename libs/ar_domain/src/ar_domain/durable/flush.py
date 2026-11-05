@@ -1,7 +1,7 @@
 """Write tracked product rows into the Postgres schema."""
 
 import asyncio
-import uuid  # noqa: TC003
+import uuid
 from typing import TYPE_CHECKING
 
 from sqlalchemy import text
@@ -80,7 +80,8 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
         for row in audit_log[audit_start:audit_end]
         if row.get("target_type") == "routine" or row.get("action") in run_actions
     ]
-    if not any(pending.values()) and not audits:
+    usage_pending = _usage_pending(store)
+    if not any(pending.values()) and not audits and not usage_pending:
         return
     original = {name: list(rows) for name, rows in pending.items()}
     try:
@@ -148,6 +149,7 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             await _channel_threads(session, pending["channel_threads"])
             await _channel_posts(session, pending["channel_posts"])
             await _routine_audits(session, audits)
+            await _usage_events(session, store, usage_pending)
     except BaseException:
         # The transaction rolled back; a retry must include every original row.
         for name, rows in original.items():
@@ -162,6 +164,68 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             for row in rows:
                 if row.get("_deleted"):
                     bucket.deleted.pop(row["id"], None)
+
+
+def _usage_pending(store: object) -> list[tuple[tuple[str, str], Any]]:
+    """Usage records for the bound tenant that have not reached ``usage_events``."""
+    from ar_domain.usage.logic import usage_rows_to_flush  # noqa: PLC0415
+
+    usage = getattr(store, "usage", None)
+    binding = getattr(store, "dev_binding", None)
+    tenant_id = getattr(binding, "tenant_id", None)
+    if not isinstance(usage, dict) or tenant_id is None:
+        return []
+    flushed = getattr(store, "_usage_flushed", None)
+    if not isinstance(flushed, set):
+        flushed = set()
+        store._usage_flushed = flushed  # type: ignore[attr-defined]
+    return usage_rows_to_flush(usage, flushed, tenant_id)
+
+
+_USAGE_INSERT = text(
+    """
+    INSERT INTO usage_events (
+        id, tenant_id, occurred_at, metric, quantity, cost_micros, user_id, team_id, agent_id,
+        routine_id, run_id, model_id, model_alias, tool_id, source, dedupe_key
+    ) VALUES (
+        :id, :tenant_id, :occurred_at, :metric, :quantity, :cost_micros, :user_id, :team_id,
+        :agent_id, :routine_id, :run_id, :model_id, :model_alias, :tool_id, :source, :dedupe_key
+    )
+    ON CONFLICT (tenant_id, dedupe_key) DO NOTHING
+    """
+)
+
+
+async def _usage_events(
+    session: AsyncSession, store: object, rows: list[tuple[tuple[str, str], Any]]
+) -> None:
+    """Append usage events. The dedupe key keeps a retried flush idempotent."""
+    if not rows:
+        return
+    flushed = getattr(store, "_usage_flushed", set())
+    for key, item in rows:
+        await session.execute(
+            _USAGE_INSERT,
+            {
+                "id": uuid.uuid4(),
+                "tenant_id": as_uuid(item.tenant_id),
+                "occurred_at": item.occurred_at,
+                "metric": item.metric,
+                "quantity": int(item.quantity),
+                "cost_micros": int(item.cost_micros),
+                "user_id": as_uuid(item.user_id),
+                "team_id": as_uuid(item.team_id),
+                "agent_id": as_uuid(item.agent_id),
+                "routine_id": as_uuid(item.routine_id),
+                "run_id": as_uuid(item.run_id),
+                "model_id": as_uuid(item.model_id),
+                "model_alias": item.model_alias or None,
+                "tool_id": as_uuid(item.tool_id),
+                "source": item.source or "api",
+                "dedupe_key": item.dedupe_key,
+            },
+        )
+        flushed.add(key)
 
 
 async def _deletions(session: AsyncSession, pending: dict[str, list[dict[str, Any]]]) -> None:
