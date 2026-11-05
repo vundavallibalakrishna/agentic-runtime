@@ -274,5 +274,5 @@ M33a-T01 | done | 26f275a | seed users-mode W2 policy; fetch retry; search key p
 M33b-T01 | done | 2b6766c | OCR canary live on tesseract; image.ask live on Qwen2.5-VL, vision_unavailable on fake-llm |
 M34a-T01 | done | 9c5080e | documents.create for DOCX, PDF and XLSX; fixture checklist |
 M33c-T01 | done | e77c491 | tool-choice eval gym; dry-run scorecard 12/12; live Qwen behind AR_EVAL_GYM_LIVE |
-M35-T01 | in_progress | - | 2026-11-05 durability, Temporal clock, cache eviction, A2A list and push, job progress |
+M35-T01 | done | 2a6e30a | durability, Temporal dev-server schedule fire, cache eviction, A2A list and push, job progress |
 M36-T01 | done | cb3f552 | connector live pack harness; dry CI; ledger promotes a recorded read |
