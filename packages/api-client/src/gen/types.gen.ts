@@ -2030,6 +2030,12 @@ export type ModelBody = {
      * Priceoutputmicrospermtok
      */
     priceOutputMicrosPerMtok?: number;
+    /**
+     * Requestoptions
+     */
+    requestOptions?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**

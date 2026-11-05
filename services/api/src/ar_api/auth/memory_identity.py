@@ -10,11 +10,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from ar_common.time import utcnow
-from ar_contracts.tenants import TenantSettings
 from ar_domain.chat.service import demo_id
 from ar_domain.identity.models import Plan, Tenant, User
 from ar_domain.identity.seed import DEV_USERS, plan_limits
 from ar_domain.identity.service import IdentityService, IdentityStore
+from ar_domain.identity.tenant_settings import dev_tenant_settings
 
 if TYPE_CHECKING:
     import uuid
@@ -40,7 +40,7 @@ class MemoryIdentityStore:
             isolation_tier="shared",
             data_residency="in",
             billing_currency="INR",
-            settings=TenantSettings().model_dump(by_alias=False),
+            settings=dev_tenant_settings(),
             created_at=now,
         )
         self.plan = Plan(

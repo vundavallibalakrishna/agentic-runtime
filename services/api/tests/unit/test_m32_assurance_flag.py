@@ -71,3 +71,24 @@ def test_session_reports_tenant_features_and_locale() -> None:
     assert body["features"]["piiRedaction"] is True or body["features"]["pii_redaction"] is True
     assert body["user"]["locale"]
     assert body["user"]["timezone"]
+
+
+def test_a_settings_patch_keeps_the_dev_tenants_assurance_flag() -> None:
+    """The in-memory identity store and the chat store seed the same dev settings, so a
+    patch from the Tools screen does not switch the assurance desk off (the web-e2e
+    failure on PR 49)."""
+    app = create_application()
+    app.state.chat.seed_showcase()
+    client = TestClient(app, base_url="http://localhost:3000")
+    client.post("/api/v1/auth/dev-login", data={"email": "admin@dev.local"}, follow_redirects=False)
+    before = client.get("/api/v1/auth/session").json()
+    assert before["features"]["assurance"] is True
+    headers = {"X-CSRF-Token": before["csrfToken"], "Origin": "http://localhost:3000"}
+    patched = client.patch(
+        "/api/v1/tenant", headers=headers, json={"settings": {"chat": {"allowSharing": False}}}
+    )
+    assert patched.status_code == 200, patched.text
+    after = client.get("/api/v1/auth/session").json()
+    assert after["features"]["assurance"] is True
+    assert after["features"]["assurance"] is True
+    assert client.get("/api/v1/evidence").status_code == 200

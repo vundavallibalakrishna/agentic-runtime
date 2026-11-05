@@ -282,11 +282,9 @@ class ChatService:
             self.aliases[alias_id] = self._alias(alias_id, None, alias, kind, model_id)
         # The dev tenant shows every screen, including the assurance desk that a
         # fresh customer tenant keeps off until it turns the feature on.
-        demo_settings = self.tenant_settings.setdefault(demo_id("tenant"), {})
-        if isinstance(demo_settings, dict):
-            features = demo_settings.setdefault("features", {})
-            if isinstance(features, dict):
-                features.setdefault("assurance", True)
+        # Kept sparse on purpose: a full settings dump here changes defaults that other
+        # code reads as "unset" (tool review, self-review), see test_m22_api.
+        self.tenant_settings.setdefault(demo_id("tenant"), {"features": {"assurance": True}})
         self.ensure_assistant(demo_id("tenant"), demo_id("admin"))
         AgentLifecycle(self).ensure_builtins(demo_id("tenant"), demo_id("admin"))
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415

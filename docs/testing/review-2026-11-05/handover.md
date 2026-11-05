@@ -72,6 +72,18 @@ Open-question decisions: OQ-78 to OQ-85 in [open-questions](../../open-questions
 6. **`next build` with `AR_NEXT_DIST` rewrites `apps/web/next-env.d.ts`** to the alternate directory; it
    must be reverted before committing (done on this branch).
 
+## CI fixes after the merge
+
+The first CI run on PR 49 failed three checks. `codegen-drift`: the merge brought new endpoints, so
+`make gen` was re-run and the generated OpenAPI document and clients committed. `web`: knip flagged the
+GRC-flow helper script as an unused file; `docs/testing/**/*.cjs` is now ignored. `web-e2e`: the assurance
+spec saw `feature_disabled` because the in-memory identity store built the dev tenant from bare
+`TenantSettings()` defaults, so the first tenant-settings patch from any screen replaced the chat store's
+row and switched `features.assurance` off. All three places that create the dev tenant now share
+`dev_tenant_settings()`, `make seed` turns the flag on for a dev tenant seeded before the flag existed, and a
+regression test patches settings and checks the desk stays reachable. Locally the same spec also fails when
+`.env` points the e2e API at a database whose dev tenant predates the flag; run `make seed` once.
+
 ## What remains (from the plan)
 
 - **Phase 1 leftovers:** async and parallel tool execution (tool calls still block the event loop); token
