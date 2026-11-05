@@ -1626,7 +1626,10 @@ class ChatService:
         from ar_domain.tools.agent_loop import model_alias_for, read_budget, run_agent_loop  # noqa: PLC0415
         from ar_domain.tools.chat_loop import maybe_tools  # noqa: PLC0415
 
-        if await maybe_compose(self, run, assistant, text):
+        # Scripted compositions and keyword-triggered tool calls exist for the offline
+        # demo and the unit suite. They never run where fake models are not allowed.
+        scripted = self.fake_models_allowed
+        if scripted and await maybe_compose(self, run, assistant, text):
             return
         from ar_domain.workspace.turn import ground_run  # noqa: PLC0415
 
@@ -1635,7 +1638,7 @@ class ChatService:
             if str(run.get("status")) not in {"waiting_input", "waiting_approval"}:
                 self._emit_memory(run, text, str(assistant.get("text") or ""))
             return
-        if await maybe_tools(self, run, assistant, text):
+        if scripted and await maybe_tools(self, run, assistant, text):
             return
         from ar_domain.knowledge.answer import compose  # noqa: PLC0415
 

@@ -264,3 +264,5 @@ M32-T00 | done | - | review record, fresh-pass and GRC-flow evidence committed
 M32-T02 | done | 574df81 | tenant-scoped settings reads; privacy.redactionSkipEntities
 M32-T03 | done | - | requester-mode approvals accept another approver when SoD blocks the requester
 M32-T04 | done | - | no fake echo outside dev/ci: run fails model_unavailable; gateway 502
+M32-T05 | done | - | scripted compose and keyword tool paths run only where fake models are allowed (dev/ci)
+M32-T06 | done | - | builder drafts with the reasoning model, repairs once from errors, scripted proposal last
