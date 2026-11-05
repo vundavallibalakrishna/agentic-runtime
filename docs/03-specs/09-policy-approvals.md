@@ -21,6 +21,8 @@ Endpoints served by `api`; evaluation called from `mcp-gateway` and `runtime-wor
 
 Agent override `require_approval: always` upgrades `allow` to `require_approval` (requester) for that tool.
 
+`make seed` adds one active policy, `Seeded write approval`, for the dev tenant. It matches risk class `W2` and sets approvers to `{mode: users}` listing `approver@dev.local` and `admin@dev.local`. The owner is listed so a self-approval is eligible and then blocked by the agent-owner invariant (`sod_violation`, HTTP 422). The approver can decide, so the call does not stay pending. A local group named `approvers` contains the approver. Priority is 1000, so a tenant rule with a lower priority number replaces these approvers. A tenant with no active rule keeps the requester-mode default in the table above. The seed still inserts no conflicting-role pairs. See [OQ-70](../open-questions.md) and [m33a checklist](../testing/m33a-checklist.md).
+
 ## 3. Policy evaluation
 
 `ar_domain.policy.service.evaluate(input: PolicyInput) -> PolicyDecision`:
@@ -198,7 +200,7 @@ Platform invariants, always enforced for approvals and sign-offs, not stored as 
 3. The owner of the agent that produced the subject (`agents.owner_user_id`) cannot sign a review item whose subject is a `message`, `artifact`, `run_record` or `binder` produced by that agent, and cannot decide a tool-call approval for that agent when the decision would approve the call.
 4. A standing approval cannot be granted by the routine owner to themselves for a tool the same owner would also execute unattended. Granting a standing approval still follows §6; this invariant adds: `granted_by` must differ from the routine's `owner_user_id` when the standing approval would otherwise let that owner skip approval. Existing rows keep working; new grants that violate this return 422 `sod_self_approval`.
 
-Tenant constraints live in `sod_constraints` (`kind='conflicting_roles'`, `role_a`, `role_b`, `applies_to` `approval` | `signoff` | `both`). A principal who holds `role_a` cannot decide when the preparer or requester holds `role_b`, and the reverse. The seed contains no pairs.
+Tenant constraints live in `sod_constraints` (`kind='conflicting_roles'`, `role_a`, `role_b`, `applies_to` `approval` | `signoff` | `both`). A principal who holds `role_a` cannot decide when the preparer or requester holds `role_b`, and the reverse. The seed contains no pairs. The dev seed's W2 users-mode policy is a policy row, not a constraint pair (§2).
 
 `POST /api/v1/policies:simulate` gains a `sod` object in the response: `{allowed: bool, violations: [{invariant, principal_id}]}`. The decision value is unchanged; simulation reports SoD separately so a policy author sees a call that policy would allow and SoD would block. The gateway blocks execution when SoD fails, with `policy_decision='deny'` and reason `sod_violation`, and audits `sod.violation_blocked`.
 
