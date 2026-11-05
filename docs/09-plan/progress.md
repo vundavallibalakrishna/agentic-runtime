@@ -287,4 +287,5 @@ M38-T03a | done | 94dea49 | browser tests retry twice in CI and report flaky tes
 
 M38a-T00 | done | 213e943 | removal plan, review section D, the AGENTS.md rule, OQ-94
 M38a-T01 | done | dbb5a3f | scripted model reached as an ordinary provider; ar_testing.stand_in
-M38a-T02a | done | - | a provider or alias test reports a dead endpoint as failed; sha recorded with M38a-T02b
+M38a-T02a | done | 28a33f0 | a provider or alias test reports a dead endpoint as failed
+M38a-T02f | done | - | a tool-less agent's turn goes to the tenant's provider; sha recorded with M38a-T02b
