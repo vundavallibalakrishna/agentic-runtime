@@ -72,6 +72,8 @@ Body `{alias, kind, primary_model_id, fallback_model_ids?, traffic_split?, defau
 #### POST /api/v1/model-aliases/{alias_id}:test
 Permission `models:manage`. Body `{messages: [{role, content}], max_tokens? (≤ 512)}` → `{output, model_id, latency_ms, ttft_ms, usage}` via the gateway (`X-AR-Purpose: test`).
 
+The test sends the messages to the alias's provider with that provider's key and returns what the model said, with `ok: true`. An endpoint that does not answer, answers with an error status, or returns no text is `ok: false` with `output` saying so. No answer is written in its place. The provider test follows the same rule and passes when the model replies with the word it was asked for.
+
 Platform equivalents (role `platform_admin`; same bodies; rows with `tenant_id NULL`):
 
 #### GET /api/v1/platform/model-providers
