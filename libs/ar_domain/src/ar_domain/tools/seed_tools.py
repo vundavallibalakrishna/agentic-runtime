@@ -1543,7 +1543,7 @@ def _browser_tools() -> list[dict[str, object]]:
         "type": "object",
         "properties": {"ref": {"type": "string"}, "text": {"type": "string"}},
     }
-    page = {"openWorldHint": True, "readOnlyHint": True}
+    page: dict[str, object] = {"openWorldHint": True, "readOnlyHint": True}
     return [
         _tool(
             "navigate",

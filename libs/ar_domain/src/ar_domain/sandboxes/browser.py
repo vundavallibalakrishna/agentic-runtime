@@ -97,16 +97,17 @@ def open_context(sandbox: dict[str, object], arguments: dict[str, object]) -> di
     run = arguments.get("_run_id")
     if run:
         key = f"run:{run}"
-        current = _owned(sessions.get(key), tenant) or _fresh(tenant)
-        sessions[key] = current
-        sandbox["browser_active"] = key
+        current: dict[str, object] = _owned(sessions.get(key), tenant) or _fresh(tenant)
     else:
         active = sandbox.get("browser_active")
-        current = _owned(sessions.get(active), tenant) if isinstance(active, str) else None
-        if current is None:
-            current = _owned(sessions.get("sandbox"), tenant) or _fresh(tenant)
-            sessions["sandbox"] = current
-            sandbox["browser_active"] = "sandbox"
+        key = active if isinstance(active, str) else "sandbox"
+        found = _owned(sessions.get(key), tenant)
+        if found is None:
+            key = "sandbox"
+            found = _owned(sessions.get(key), tenant) or _fresh(tenant)
+        current = found
+    sessions[key] = current
+    sandbox["browser_active"] = key
     current["tenant_id"] = tenant
     sandbox["browser"] = current
     return current
@@ -332,7 +333,8 @@ def _render(session: dict[str, object], max_chars: int) -> tuple[str, str]:
     _restore_values(session, elements)
     session["elements"] = elements
     session["title"] = title
-    offset = int(session.get("scroll") or 0) if isinstance(session.get("scroll"), int) else 0
+    scroll = session.get("scroll")
+    offset = scroll if isinstance(scroll, int) else 0
     lines = text.splitlines()
     if offset > 0:
         lines = lines[offset:] or lines[-1:]
