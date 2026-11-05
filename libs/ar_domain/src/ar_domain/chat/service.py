@@ -1825,6 +1825,11 @@ class ChatService:
         prefix = f"Attached {', '.join(names)}. " if names else ""
         owner = tenant_id or demo_id("tenant")
         model, headers, timeout_s, real = self._completion_call(owner, alias)
+        if real:
+            await self._ensure_provider_key(owner, alias)
+            model, headers, timeout_s, real = self._completion_call(owner, alias)
+        # The same endpoint and key the agent loop uses for this alias.
+        url = self._completion_url_for(owner, alias, headers)
         remote = await self._remote_completion(
             text,
             system,
@@ -1833,6 +1838,7 @@ class ChatService:
             timeout_s=timeout_s,
             real=real,
             options=self.request_options(owner, alias),
+            url=url,
         )
         if remote:
             return [prefix + remote]
@@ -1851,6 +1857,7 @@ class ChatService:
         timeout_s: float = 3.0,
         real: bool = False,
         options: dict[str, object] | None = None,
+        url: str | None = None,
     ) -> str | None:
         from ar_domain.models.options import apply_request_options  # noqa: PLC0415
 
@@ -1865,7 +1872,7 @@ class ChatService:
         try:
             async with httpx.AsyncClient(timeout=timeout_s) as client:
                 response = await client.post(
-                    self.completion_url(),
+                    url or self.completion_url(),
                     json=body,
                     headers=headers or {},
                 )
