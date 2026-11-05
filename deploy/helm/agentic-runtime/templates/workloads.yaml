@@ -80,12 +80,29 @@ spec:
                 name: {{ $.Release.Name }}-config
             - secretRef:
                 name: {{ $secretName }}
-          {{- if and (or (eq $name "runtime-worker") (eq $name "system-worker") (eq $name "ingest-worker")) $.Values.temporal.workerVersioning }}
+          {{- $versioning := and (or (eq $name "runtime-worker") (eq $name "system-worker") (eq $name "ingest-worker")) $.Values.temporal.workerVersioning }}
+          {{- if or $workload.appModule $versioning }}
           env:
+            {{- if $workload.appModule }}
+            # The shared image starts ``python -m ar_common.serve``, which imports
+            # ``AR_APP_MODULE`` and listens on ``AR_PORT``.
+            - name: AR_APP_MODULE
+              value: {{ $workload.appModule | quote }}
+            - name: AR_PORT
+              value: {{ $workload.port | quote }}
+            {{- end }}
+            {{- if $versioning }}
             - name: TEMPORAL_WORKER_BUILD_ID
               value: {{ $.Values.global.imageTag | toString | quote }}
             - name: TEMPORAL_USE_WORKER_VERSIONING
               value: "true"
+            {{- end }}
+          {{- end }}
+          {{- if $workload.command }}
+          # Workers poll Temporal only from their console script's ``main()``; the
+          # health-only ASGI factory would leave the queue unserved.
+          command:
+            {{- toYaml $workload.command | nindent 12 }}
           {{- end }}
           {{- if gt (int $workload.preStopSeconds) 0 }}
           lifecycle:

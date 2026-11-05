@@ -585,6 +585,7 @@ class ChatService:
             "capabilities": ["streaming"],
             "price_input_micros_per_mtok": 0,
             "price_output_micros_per_mtok": 0,
+            "request_options": {},
             "status": "active",
             "platform": tenant_id is None,
             "created_at": now,
@@ -720,6 +721,7 @@ class ChatService:
         platform: bool,
         price_input_micros_per_mtok: int = 0,
         price_output_micros_per_mtok: int = 0,
+        request_options: dict[str, object] | None = None,
     ) -> dict[str, object]:
         self._require(self.providers, provider_id, tenant_id or demo_id("tenant"))
         model_id = new_id()
@@ -727,8 +729,22 @@ class ChatService:
         row["upstream_model"] = upstream_model
         row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
         row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
+        from ar_domain.models.options import default_request_options  # noqa: PLC0415
+
+        row["request_options"] = (
+            dict(request_options)
+            if request_options is not None
+            else default_request_options(upstream_model)
+        )
         self.models[model_id] = row
         return self._public(row)
+
+    def request_options(self, tenant_id: uuid.UUID, alias: str) -> dict[str, object]:
+        """Provider parameters stored on the model ``alias`` resolves to."""
+        from ar_domain.models.options import request_options_of  # noqa: PLC0415
+
+        found = self._alias_target(tenant_id, alias)
+        return request_options_of(found[1]) if found is not None else {}
 
     def model_cost(
         self, tenant_id: uuid.UUID, alias: str, tokens_in: int, tokens_out: int
@@ -862,6 +878,12 @@ class ChatService:
 
     async def _probe_live(self, base_url: str, model: str, api_key: str) -> dict[str, object]:
         """Ping a registered provider. The key stays in the request header."""
+        from ar_domain.models.options import (  # noqa: PLC0415
+            apply_request_options,
+            default_request_options,
+            request_options_of,
+        )
+
         started = time.perf_counter()
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         body: dict[str, object] = {
@@ -869,8 +891,15 @@ class ChatService:
             "messages": [{"role": "user", "content": "Reply with the single word pong."}],
             "max_tokens": 32,
         }
-        if "qwen3" in model.lower():
-            body["chat_template_kwargs"] = {"enable_thinking": False}
+        options = next(
+            (
+                request_options_of(row)
+                for row in self.models.values()
+                if str(row.get("upstream_model")) == model and row.get("request_options")
+            ),
+            default_request_options(model),
+        )
+        apply_request_options(body, options)
         output = "provider test failed"
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -1765,7 +1794,13 @@ class ChatService:
         owner = tenant_id or demo_id("tenant")
         model, headers, timeout_s, real = self._completion_call(owner, alias)
         remote = await self._remote_completion(
-            text, system, model=model, headers=headers, timeout_s=timeout_s, real=real
+            text,
+            system,
+            model=model,
+            headers=headers,
+            timeout_s=timeout_s,
+            real=real,
+            options=self.request_options(owner, alias),
         )
         if remote:
             return [prefix + remote]
@@ -1783,7 +1818,10 @@ class ChatService:
         headers: dict[str, str] | None = None,
         timeout_s: float = 3.0,
         real: bool = False,
+        options: dict[str, object] | None = None,
     ) -> str | None:
+        from ar_domain.models.options import apply_request_options  # noqa: PLC0415
+
         messages: list[dict[str, str]] = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -1791,8 +1829,7 @@ class ChatService:
         body: dict[str, object] = {"model": model, "messages": messages}
         if real:
             body["max_tokens"] = 700
-            if "qwen3" in model.lower():
-                body["chat_template_kwargs"] = {"enable_thinking": False}
+            apply_request_options(body, options or {})
         try:
             async with httpx.AsyncClient(timeout=timeout_s) as client:
                 response = await client.post(
@@ -1807,7 +1844,12 @@ class ChatService:
             if real:
                 from ar_domain.models.logic import completion_message  # noqa: PLC0415
 
-                self.last_remote_usage = dict(completion_message(payload)["usage"])  # type: ignore[arg-type]
+                parsed_usage = completion_message(payload)["usage"]
+                self.last_remote_usage = (
+                    {str(key): int(value) for key, value in parsed_usage.items()}
+                    if isinstance(parsed_usage, dict)
+                    else None
+                )
             if text_out:
                 return text_out
         except httpx.HTTPError:
@@ -1835,9 +1877,10 @@ class ChatService:
             body["tools"] = tools
             body["tool_choice"] = "auto"
         if real:
+            from ar_domain.models.options import apply_request_options  # noqa: PLC0415
+
             body["max_tokens"] = 1500 if tools else 800
-            if "qwen3" in model.lower():
-                body["chat_template_kwargs"] = {"enable_thinking": False}
+            apply_request_options(body, self.request_options(tenant_id, model_alias))
         url = self._completion_url_for(tenant_id, model_alias, headers)
         try:
             async with httpx.AsyncClient(timeout=timeout_s) as client:

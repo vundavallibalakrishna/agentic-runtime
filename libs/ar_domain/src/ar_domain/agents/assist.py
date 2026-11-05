@@ -278,9 +278,11 @@ async def _ask_model(
         ],
         "max_tokens": 1200,
     }
-    if "qwen3" in model.lower():
-        # Per-model options move to the model row in M32-T08.
-        body["chat_template_kwargs"] = {"enable_thinking": False}
+    from ar_domain.models.options import apply_request_options  # noqa: PLC0415
+
+    options_for = getattr(store, "request_options", None)
+    options = options_for(actor.tenant_id, "reasoning") if callable(options_for) else {}
+    apply_request_options(body, options)
     url = store._completion_url_for(actor.tenant_id, "reasoning", headers)
     try:
         async with httpx.AsyncClient(timeout=max(timeout_s, 30.0)) as client:

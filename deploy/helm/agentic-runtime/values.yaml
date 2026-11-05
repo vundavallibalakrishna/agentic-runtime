@@ -355,6 +355,7 @@ workloads:
         memory: 1Gi
   api:
     enabled: true
+    appModule: ar_api.main
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -386,6 +387,7 @@ workloads:
         memory: 2Gi
   runtime-worker:
     enabled: true
+    command: ["tini", "--", "ar-runtime"]
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -418,6 +420,7 @@ workloads:
         memory: 2Gi
   system-worker:
     enabled: true
+    command: ["tini", "--", "ar-system"]
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -451,6 +454,7 @@ workloads:
         memory: 2Gi
   ingest-worker:
     enabled: true
+    command: ["tini", "--", "ar-ingest"]
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -483,6 +487,7 @@ workloads:
         memory: 4Gi
   model-gateway:
     enabled: true
+    appModule: ar_model_gateway.main
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -514,6 +519,7 @@ workloads:
         memory: 1Gi
   mcp-gateway:
     enabled: true
+    appModule: ar_mcp_gateway.main
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -545,6 +551,7 @@ workloads:
         memory: 1Gi
   sandbox-manager:
     enabled: true
+    appModule: ar_sandbox_manager.main
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -576,6 +583,7 @@ workloads:
         memory: 1Gi
   channels:
     enabled: true
+    appModule: ar_channels.main
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -607,6 +615,7 @@ workloads:
         memory: 1Gi
   mcp-sql:
     enabled: true
+    appModule: ar_mcp_sql.main
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -638,6 +647,7 @@ workloads:
         memory: 512Mi
   mcp-openapi:
     enabled: true
+    appModule: ar_mcp_openapi.main
     tag: ''
     probe: http
     livenessPath: /healthz
@@ -731,6 +741,7 @@ workloads:
         memory: 512Mi
   fake-llm:
     enabled: false
+    appModule: ar_fake_llm.app
     tag: ''
     probe: http
     livenessPath: /healthz

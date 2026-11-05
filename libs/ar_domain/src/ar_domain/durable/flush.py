@@ -202,7 +202,7 @@ async def _usage_events(
     """Append usage events. The dedupe key keeps a retried flush idempotent."""
     if not rows:
         return
-    flushed = getattr(store, "_usage_flushed", set())
+    flushed: set[tuple[str, str]] = getattr(store, "_usage_flushed", set())
     for key, item in rows:
         await session.execute(
             _USAGE_INSERT,

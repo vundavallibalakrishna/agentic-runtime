@@ -4,7 +4,7 @@ import uuid  # noqa: TC003
 from datetime import datetime  # noqa: TC003
 
 from sqlalchemy import BigInteger, CheckConstraint, ForeignKey, Index, Integer, Text, text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ar_domain.db.base import Base
@@ -74,6 +74,9 @@ class Model(Base):
     )
     licence: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
+    request_options: Mapped[dict[str, object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
 

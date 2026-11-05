@@ -43,6 +43,7 @@ class ModelBody(ApiModel):
     kind: str = "chat"
     price_input_micros_per_mtok: int = Field(default=0, ge=0)
     price_output_micros_per_mtok: int = Field(default=0, ge=0)
+    request_options: dict[str, object] | None = None
 
 
 class AliasBody(ApiModel):
@@ -266,6 +267,7 @@ async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
         platform=False,
         price_input_micros_per_mtok=body.price_input_micros_per_mtok,
         price_output_micros_per_mtok=body.price_output_micros_per_mtok,
+        request_options=body.request_options,
     )
     await _persist_model(service, created, principal)
     return created

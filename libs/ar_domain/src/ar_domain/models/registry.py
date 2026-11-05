@@ -9,7 +9,7 @@ Spec: docs/03-specs/04-model-gateway.md.
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select, text
@@ -21,6 +21,7 @@ from ar_common.settings import get_settings
 from ar_domain.audit.actions import AuditAction
 from ar_domain.audit.service import record
 from ar_domain.db.engine import platform_database_url
+from ar_domain.models.options import default_request_options, request_options_of
 from ar_domain.models.tables import Model, ModelAlias, ModelProvider
 from ar_domain.secrets.crypto import parse_keyring
 from ar_domain.secrets.stores.db_encrypted import DbEncryptedStore
@@ -45,6 +46,7 @@ class UpstreamTarget:
     upstream_model: str
     timeout_s: int
     kind: str
+    request_options: dict[str, object] = field(default_factory=dict)
 
 
 def _secret_path(tenant_id: uuid.UUID, secret_id: uuid.UUID) -> str:
@@ -165,6 +167,8 @@ async def save_model(
                     capabilities=["streaming", "tools"],
                     price_input_micros_per_mtok=_price(row, "price_input_micros_per_mtok"),
                     price_output_micros_per_mtok=_price(row, "price_output_micros_per_mtok"),
+                    request_options=request_options_of(row)
+                    or default_request_options(str(row.get("upstream_model") or "")),
                     licence="",
                     status="active",
                 )
@@ -174,6 +178,8 @@ async def save_model(
             existing.name = str(row.get("name") or existing.name)
             existing.price_input_micros_per_mtok = _price(row, "price_input_micros_per_mtok")
             existing.price_output_micros_per_mtok = _price(row, "price_output_micros_per_mtok")
+            if row.get("request_options") is not None:
+                existing.request_options = request_options_of(row)
         await record(
             session,
             tenant_id=owner,
@@ -341,7 +347,8 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
                     await session.execute(
                         text(
                             """
-                        SELECT p.id, p.base_url, p.kind, p.timeout_s, m.upstream_model
+                        SELECT p.id, p.base_url, p.kind, p.timeout_s, m.upstream_model,
+                               m.request_options
                         FROM models m
                         JOIN model_providers p ON p.id = m.provider_id
                         WHERE m.upstream_model = :name
@@ -376,6 +383,7 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
         upstream_model=str(found["upstream_model"]),
         timeout_s=int(found["timeout_s"] or 120),
         kind=str(found["kind"]),
+        request_options=request_options_of(found),
     )
 
 
