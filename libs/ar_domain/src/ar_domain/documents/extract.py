@@ -212,19 +212,75 @@ def _pdf(data: bytes, ocr: Ocr) -> Extracted:
 
 
 def _ocr_page(page: object, text: str, ocr: Ocr) -> str:
-    images = getattr(page, "images", None)
-    if not images:
-        return text
     parts = [text.strip()]
-    for image in images:
-        blob = getattr(image, "data", None)
-        if not isinstance(blob, bytes) or not blob:
-            continue
+    for blob in _page_images(page):
         try:
             parts.append(ocr(blob).strip())
         except ExtractError:
             continue
     return "\n".join(part for part in parts if part)
+
+
+def _page_images(page: object) -> list[bytes]:
+    """Image bytes from the page. Raw streams do not need Pillow."""
+    blobs = _xobject_images(page)
+    if blobs:
+        return blobs
+    return _pillow_images(page)
+
+
+def _pdf_object(value: object) -> object:
+    getter = getattr(value, "get_object", None)
+    if callable(getter):
+        return getter()
+    return value
+
+
+def _xobject_images(page: object) -> list[bytes]:
+    getter = getattr(page, "get", None)
+    if not callable(getter):
+        return []
+    resources = _pdf_object(getter("/Resources"))
+    resource_get = getattr(resources, "get", None)
+    if not callable(resource_get):
+        return []
+    xobjects = _pdf_object(resource_get("/XObject"))
+    values = getattr(xobjects, "values", None)
+    if not callable(values):
+        return []
+    blobs: list[bytes] = []
+    for item in values():
+        stream = _pdf_object(item)
+        stream_get = getattr(stream, "get", None)
+        data_fn = getattr(stream, "get_data", None)
+        if not callable(stream_get) or not callable(data_fn):
+            continue
+        if str(stream_get("/Subtype") or "") != "/Image":
+            continue
+        data: object = None
+        try:
+            data = data_fn()
+        except Exception:  # noqa: BLE001 — one bad image must not drop the page
+            data = None
+        if isinstance(data, bytes) and data:
+            blobs.append(data)
+    return blobs
+
+
+def _pillow_images(page: object) -> list[bytes]:
+    try:
+        images = getattr(page, "images", None)
+        if not images:
+            return []
+        blobs: list[bytes] = []
+        for image in images:
+            blob = getattr(image, "data", None)
+            if isinstance(blob, bytes) and blob:
+                blobs.append(blob)
+    except ImportError:
+        return []
+    else:
+        return blobs
 
 
 def _image(data: bytes, filename: str, ocr: Ocr) -> Extracted:
