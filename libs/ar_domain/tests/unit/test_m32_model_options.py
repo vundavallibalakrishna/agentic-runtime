@@ -102,3 +102,28 @@ async def test_gateway_applies_the_target_options(monkeypatch: pytest.MonkeyPatc
     )
     await complete_upstream({"model": "alias", "messages": []}, plain)
     assert "chat_template_kwargs" not in seen[1], "the name alone no longer changes the request"
+
+
+def test_catalogue_refresh_keeps_prices_and_options() -> None:
+    from types import SimpleNamespace
+
+    from ar_domain.models.registry import model_row_from
+
+    record = SimpleNamespace(
+        id=uuid.uuid4(),
+        tenant_id=uuid.uuid4(),
+        provider_id=uuid.uuid4(),
+        name="priced",
+        upstream_model="Qwen/Qwen3-32B",
+        kind="chat",
+        capabilities=["tools"],
+        price_input_micros_per_mtok=100_000,
+        price_output_micros_per_mtok=300_000,
+        request_options={"chat_template_kwargs": {"enable_thinking": False}},
+        status="active",
+    )
+    row = model_row_from(record)
+    assert row["price_input_micros_per_mtok"] == 100_000
+    assert row["price_output_micros_per_mtok"] == 300_000
+    assert row["request_options"] == {"chat_template_kwargs": {"enable_thinking": False}}
+    assert row["platform"] is False

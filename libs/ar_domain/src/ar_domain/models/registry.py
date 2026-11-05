@@ -288,6 +288,25 @@ async def read_api_key(engine: AsyncEngine, provider_id: uuid.UUID) -> str:
         return value.decode()
 
 
+def model_row_from(model: Any) -> dict[str, object]:
+    """The cache row for one ``models`` record. Prices and request options ride along,
+    or every refresh before a turn would silently zero the cost of that turn."""
+    return {
+        "id": model.id,
+        "tenant_id": model.tenant_id,
+        "provider_id": model.provider_id,
+        "name": model.name,
+        "upstream_model": model.upstream_model,
+        "kind": model.kind,
+        "capabilities": list(model.capabilities or []),
+        "price_input_micros_per_mtok": int(model.price_input_micros_per_mtok or 0),
+        "price_output_micros_per_mtok": int(model.price_output_micros_per_mtok or 0),
+        "request_options": request_options_of(model),
+        "status": model.status,
+        "platform": model.tenant_id is None,
+    }
+
+
 async def load_into(engine: AsyncEngine, store: Any) -> None:
     """Merge database providers, models and aliases into the process cache."""
     async with AsyncSession(engine, expire_on_commit=False) as session:
@@ -308,17 +327,7 @@ async def load_into(engine: AsyncEngine, store: Any) -> None:
             "has_api_key": provider.api_key_ref_id is not None,
         }
     for model in models:
-        store.models[model.id] = {
-            "id": model.id,
-            "tenant_id": model.tenant_id,
-            "provider_id": model.provider_id,
-            "name": model.name,
-            "upstream_model": model.upstream_model,
-            "kind": model.kind,
-            "capabilities": list(model.capabilities or []),
-            "status": model.status,
-            "platform": model.tenant_id is None,
-        }
+        store.models[model.id] = model_row_from(model)
     for alias in aliases:
         store.aliases[alias.id] = {
             "id": alias.id,

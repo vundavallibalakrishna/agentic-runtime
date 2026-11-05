@@ -178,6 +178,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         steps += 1
         limit = _over(limits, steps, tokens, cost, started, used_calls)
         if limit is not None:
+            # What was spent before the stop still counts.
+            _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps - 1)
             _stop_budget(store, run, assistant, limit)
             return True
         turn = await store.complete_turn(
@@ -199,6 +201,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     outcome="failure",
                 )
                 continue
+            _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
             _stop_error(store, run, assistant, "The model provider did not answer.")
             return True
         provider_retries = 0

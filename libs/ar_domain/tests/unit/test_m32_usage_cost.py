@@ -122,3 +122,27 @@ def test_only_unflushed_rows_of_the_bound_tenant_are_written() -> None:
     assert [key for key, _ in rows] == [(bound, "b-early"), (bound, "b-late")]
     record = UsageRecord(bound, early, "runs", 1, 0, "x")
     assert record.run_id is None and record.model_id is None and record.tool_id is None
+
+
+def test_budget_stop_keeps_the_usage_spent_so_far() -> None:
+    store = _priced_store()
+    tool_turn = {
+        "text": "",
+        "tool_calls": [{"id": "c1", "name": "control__checkpoint", "arguments": {"note": "x"}}],
+        "usage": {"tokens_in": 7000, "tokens_out": 100},
+        "real": True,
+    }
+    _script(store, [tool_turn, dict(tool_turn), dict(tool_turn), dict(tool_turn)])
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None, model_alias="reasoning")
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "Loop until the budget", schedule=False
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    asyncio.run(store.generate(run_id, "Loop until the budget", []))
+    run = store.runs[run_id]
+    assert run["status"] == "budget_exceeded"
+    usage = run["usage"]
+    assert usage["tokens_in"] >= 14000
+    assert usage["tokens_out"] >= 200
+    assert usage["cost_micros"] > 0
