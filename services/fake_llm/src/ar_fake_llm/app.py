@@ -19,7 +19,39 @@ from ar_fake_llm.scripts import ChatTurn, Script, ScriptResponse, select, token_
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Mapping
 
+    from starlette.types import ASGIApp, Receive, Scope, Send
+
 SCRIPT_HEADER = "x-fake-script-set"
+SCRIPT_PATH = "/s/"
+
+
+class ScriptPath:
+    """Take the script set from a ``/s/<set>`` path prefix.
+
+    A provider is registered with a base URL and nothing else. With the set in the
+    URL (``http://host/s/billing/v1``) the caller needs no special header.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = str(scope.get("path") or "")
+        if scope["type"] != "http" or not path.startswith(SCRIPT_PATH):
+            await self.app(scope, receive, send)
+            return
+        name, _, rest = path.removeprefix(SCRIPT_PATH).partition("/")
+        if not name or not rest:
+            await self.app(scope, receive, send)
+            return
+        header = SCRIPT_HEADER.encode()
+        headers = [item for item in scope["headers"] if item[0].lower() != header]
+        headers.append((header, name.encode()))
+        inner = dict(scope)
+        inner["path"] = "/" + rest
+        inner["raw_path"] = inner["path"].encode()
+        inner["headers"] = headers
+        await self.app(inner, receive, send)
 
 
 class FakeLlmSettings(BaseServiceSettings):
@@ -101,14 +133,18 @@ def turn_from(messages: list[ChatMessage]) -> ChatTurn:
     system = ""
     last_tool_name: str | None = None
     last_tool_result: str | None = None
+    called: dict[str, str] = {}
     for message in messages:
         text = _content_text(message.content)
         if message.role == "system":
             system = text
         elif message.role == "user":
             last_user = text
+        elif message.role == "assistant":
+            called.update(_called_names(message))
         elif message.role == "tool":
-            last_tool_name = message.name
+            # An OpenAI tool message carries the call id, not the tool name.
+            last_tool_name = message.name or called.get(message.tool_call_id or "")
             last_tool_result = text
     return ChatTurn(
         last_user=last_user,
@@ -116,6 +152,19 @@ def turn_from(messages: list[ChatMessage]) -> ChatTurn:
         last_tool_name=last_tool_name,
         last_tool_result=last_tool_result,
     )
+
+
+def _called_names(message: ChatMessage) -> dict[str, str]:
+    """Call id to tool name, from an assistant message's ``tool_calls``."""
+    calls = (message.model_extra or {}).get("tool_calls")
+    if not isinstance(calls, list):
+        return {}
+    names: dict[str, str] = {}
+    for call in calls:
+        function = call.get("function") if isinstance(call, dict) else None
+        if isinstance(function, dict) and call.get("id") and function.get("name"):
+            names[str(call["id"])] = str(function["name"])
+    return names
 
 
 def _content_text(content: str | list[object] | None) -> str:
@@ -140,6 +189,7 @@ def create_application() -> FastAPI:
     load_scenarios(scenarios, store)
     models = [item.strip() for item in settings.fake_llm_models.split(",") if item.strip()]
     app = create_app("fake-llm", settings)
+    app.add_middleware(ScriptPath)
     app.state.scripts = store
     app.state.models = models
 

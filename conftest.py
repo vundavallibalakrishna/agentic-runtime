@@ -4,6 +4,7 @@ pytest_plugins = [
     "ar_testing.containers",
     "ar_testing.temporal",
     "ar_testing.fake_llm",
+    "ar_testing.stand_in",
     "ar_testing.auth",
 ]
 
