@@ -261,4 +261,6 @@ M31-T01 | done | 9aa4dd1 | final certification of the whole platform
 
 M32-T01 | done | 0e34c9c | document analysis keeps evidence; paraphrased check |
 M32-T00 | done | - | review record, fresh-pass and GRC-flow evidence committed
-M32-T02 | in_progress | - | 2026-11-05 tenant-scoped settings reads
+M32-T02 | done | 574df81 | tenant-scoped settings reads; privacy.redactionSkipEntities
+M32-T03 | done | - | requester-mode approvals accept another approver when SoD blocks the requester
+M32-T04 | done | - | no fake echo outside dev/ci: run fails model_unavailable; gateway 502

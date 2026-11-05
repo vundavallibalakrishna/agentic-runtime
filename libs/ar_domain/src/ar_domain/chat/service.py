@@ -147,6 +147,7 @@ class ChatService:
     builder_sessions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     builder_scripts: list[str] = field(default_factory=list)
     builder_strict: bool = False
+    fake_models_allowed: bool = True
     pack_signature_required: bool = False
     pack_trusted_keys: dict[str, str] = field(default_factory=dict)
     tool_servers: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)

@@ -94,7 +94,19 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         uuid.UUID(str(run["tenant_id"])), alias
     )
     if not real:
-        return False
+        if getattr(store, "fake_models_allowed", True):
+            return False
+        # Outside dev and CI an alias that resolves to the local fake must not echo
+        # the prompt back as an answer (fresh-pass defect 5).
+        _stop_error(
+            store,
+            run,
+            assistant,
+            f"The model alias '{alias}' is not connected to a registered model. "
+            "Open Models and point the alias at a provider.",
+            code="model_unavailable",
+        )
+        return True
     version_id = run.get("agent_version_id")
     user_id = run.get("user_id")
     if not isinstance(version_id, uuid.UUID) or not isinstance(user_id, uuid.UUID):
@@ -663,14 +675,19 @@ def _stop_budget(
 
 
 def _stop_error(
-    store: Any, run: dict[str, object], assistant: dict[str, object], text: str
+    store: Any,
+    run: dict[str, object],
+    assistant: dict[str, object],
+    text: str,
+    *,
+    code: str = "model_error",
 ) -> None:
     assistant["text"] = text
     assistant["content"] = [{"type": "text", "text": text}]
     assistant["status"] = "completed"
     run["status"] = "failed"
     run["ended_at"] = utcnow()
-    run["error"] = {"code": "model_error", "message": text}
+    run["error"] = {"code": code, "message": text}
     run["result_summary"] = text
     conversation = store.conversations.get(run.get("conversation_id"))
     if isinstance(conversation, dict):

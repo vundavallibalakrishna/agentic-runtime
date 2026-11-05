@@ -211,7 +211,8 @@ async def _signup(slug: str, name: str, email: str) -> str:
 
 
 def _configure_chat(chat: ChatService, settings: Settings) -> None:
-    """Pack trust follows the environment. Dev and CI accept unsigned packs."""
+    """Pack trust follows the environment. Dev and CI accept unsigned packs and fake models."""
+    chat.fake_models_allowed = settings.env in {EnvName.DEV, EnvName.CI}
     raw = os.environ.get("AR_PACK_SIGNATURE_REQUIRED")
     if raw is None:
         chat.pack_signature_required = settings.env not in {EnvName.DEV, EnvName.CI}

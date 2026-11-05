@@ -141,3 +141,5 @@ Recorded by M14-T07 after the security campaign (each with owner, rationale, rev
 | 2026-11-04 | OQ-67 | M31 proved the in-process schedule tick and webhook idempotency. An unattended Temporal fire was not run on a private cluster. |
 | 2026-11-04 | OQ-68 | The process cache grew with the soak and was not exhausted. Eviction is not implemented. |
 | 2026-11-05 | OQ-70 | Settings reads are per calling tenant with no fallback. `privacy.redactionSkipEntities` added. |
+| 2026-11-05 | OQ-71 | A `requester`-mode approval whose requester owns the agent (or is four-eyes blocked) may be decided by any holder of `approvals:decide`; those users are notified. A fresh seed no longer deadlocks on the first W2 write. |
+| 2026-11-05 | OQ-72 | Outside dev and ci an alias that resolves to the fake provider fails the run with `model_unavailable` instead of echoing, and the gateway answers 502 when fake-llm is down. |

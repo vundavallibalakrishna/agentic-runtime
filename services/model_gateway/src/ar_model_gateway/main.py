@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from ar_common.host_ports import fake_llm_base_url, listen_port
-from ar_common.settings import BaseServiceSettings
+from ar_common.settings import BaseServiceSettings, EnvName
 from ar_common.web import create_app
 
 LISTEN_PORT = 8001
@@ -17,7 +17,9 @@ class Settings(BaseServiceSettings):
 
 def create_application() -> FastAPI:
     """Build the ASGI app. Embeddings and rerank share the knowledge path."""
-    app = create_app("model-gateway", Settings())
+    settings = Settings()
+    app = create_app("model-gateway", settings)
+    echo_allowed = settings.env in {EnvName.DEV, EnvName.CI}
 
     @app.post("/v1/embeddings")
     async def embeddings(request: Request) -> dict[str, object]:
@@ -94,6 +96,17 @@ def create_application() -> FastAPI:
                     return parsed
         except httpx.HTTPError:
             pass
+        if not echo_allowed:
+            # A missing fake-llm is an outage, not an answer, outside dev and CI.
+            return JSONResponse(
+                status_code=502,
+                content={
+                    "error": {
+                        "code": "no_healthy_upstream",
+                        "message": "the local fake model is unavailable",
+                    }
+                },
+            )
         messages = body.get("messages") if isinstance(body.get("messages"), list) else []
         text = ""
         if messages and isinstance(messages[-1], dict):

@@ -70,7 +70,7 @@ def is_approver(store: Any, actor: Any, approval: dict[str, object]) -> bool:
         groups = list(rule.get("groups") or [])
         users = list(rule.get("users") or [])
     if mode == "requester":
-        return str(actor.user_id) == str(approval.get("requested_for_user_id"))
+        return _requester_or_substitute(store, actor, approval)
     if mode == "agent_owner":
         return _owns(store, actor, approval)
     if "approvals:decide" not in actor.permissions:
@@ -81,6 +81,25 @@ def is_approver(store: Any, actor: Any, approval: dict[str, object]) -> bool:
         have = set(store.user_groups.get(actor.user_id, []))
         return any(str(item) in have for item in groups)
     return False
+
+
+def _requester_or_substitute(store: Any, actor: Any, approval: dict[str, object]) -> bool:
+    """Requester mode. When segregation of duties stops the requester approving their
+    own request (they own the agent, or four-eyes applies), anyone else allowed to
+    decide may, or the approval waits forever (fresh-pass defect 1)."""
+    if str(actor.user_id) == str(approval.get("requested_for_user_id")):
+        return True
+    return requester_blocked(store, approval) and "approvals:decide" in actor.permissions
+
+
+def requester_blocked(store: Any, approval: dict[str, object]) -> bool:
+    """True when separation of duties stops the requester approving their own request."""
+    if approval.get("four_eyes"):
+        return True
+    agent = store.agents.get(approval.get("agent_id")) if hasattr(store, "agents") else None
+    return isinstance(agent, dict) and str(agent.get("owner_user_id")) == str(
+        approval.get("requested_for_user_id")
+    )
 
 
 def can_view(actor: Any, approval: dict[str, object], *, eligible: bool) -> bool:
