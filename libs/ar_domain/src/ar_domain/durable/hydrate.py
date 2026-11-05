@@ -147,6 +147,9 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
         await _channel_identities(session, store, tenant_id)
         await _channel_threads(session, store, tenant_id)
         await _channel_posts(session, store, tenant_id)
+        from ar_domain.tools.seed_tools import ensure_m33b  # noqa: PLC0415
+
+        ensure_m33b(store)
 
 
 async def reload_run(store: object, run_id: uuid.UUID) -> None:

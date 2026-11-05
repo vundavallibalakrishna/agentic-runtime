@@ -67,6 +67,8 @@ def assistant_definition() -> dict[str, object]:
             "Use the documents tools for uploaded files. Cite the anchor they return. "
             "To produce a DOCX, PDF or XLSX, call documents.create. "
             "Do not write a one-off script for those formats. "
+            "Use documents.ocr for a scanned PDF or a photo of text. "
+            "Use image.ask for a question about a screenshot, chart or diagram. "
             "If a tool says the passage was not found, say that and do not invent it. "
             "Anything that sends, deletes, spends or changes stored data must wait for approval."
         ),
@@ -86,6 +88,11 @@ def assistant_definition() -> dict[str, object]:
                 "server": "documents",
                 "version": "*",
                 "include": ["*"],
+            },
+            {
+                "server": "image",
+                "version": "*",
+                "include": ["ask"],
             },
             {
                 "server": "general",

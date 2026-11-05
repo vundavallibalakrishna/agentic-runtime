@@ -10,7 +10,9 @@ The library rejects files over 25 MB and over 600 pages. `POST /api/v1/library-d
 
 ## OCR
 
-Images and PDF pages with almost no text layer are sent to the `tesseract` binary when it is on `PATH`. The process gets a scrubbed environment and a temporary file that is deleted afterwards. There is no network. A runtime without tesseract returns `ocr_unavailable` (OQ-61). Office and PDF parsing stays in the API process: the general sandbox does not ship those parsers, and the byte and page caps bound the work.
+Images and PDF pages with almost no text layer are sent to the `tesseract` binary when it is on `PATH`. The process gets a scrubbed environment and a temporary file that is deleted afterwards. There is no network. A runtime without tesseract returns `ocr_unavailable` (OQ-61). `documents.ocr` is that path as a tool. The canary fixture in `docs/testing/fixtures/m33b/` must yield `M33B CANARY` and `CODE 4821`. A trailing all-caps line is kept, so the second line is not dropped as an empty heading. Google Document AI, Amazon Textract and Azure Document Intelligence are not called. Those engine names return `not_live` and the tesseract install path (OQ-70). Office and PDF parsing stays in the API process: the general sandbox does not ship those parsers, and the byte and page caps bound the work.
+
+`image.ask` sends the image to the vision alias. The provider key is the sealed chat key and is placed only on the outbound `Authorization` header. It is stripped from the model text before the tool result is stored. A model whose capabilities do not include `vision`, and whose name is not a known vision model, is not called. The default seeded `vision` alias is fake-llm, so the tool returns `vision_unavailable` until an operator points that alias at a vision model. The image is untrusted. Instructions inside it are not followed. A chart answer keeps dates and numbers the way document analysis does, so a code such as `4821` is not masked as a date.
 
 ## Redaction
 

@@ -184,13 +184,17 @@ def _pdf(data: bytes, ocr: Ocr) -> Extracted:
             f"This PDF has {pages} pages. The limit is {MAX_PAGES}. Split it and upload the parts.",
         )
     passages: list[Passage] = []
+    used_ocr = False
     for index, page in enumerate(reader.pages, start=1):
         try:
             text = page.extract_text() or ""
         except Exception as exc:
             raise ExtractError("corrupt", "This PDF could not be read.") from exc
         if len(text.strip()) < 20:
-            text = _ocr_page(page, text, ocr)
+            read = _ocr_page(page, text, ocr)
+            if read.strip() != text.strip():
+                used_ocr = True
+            text = read
         passages.extend(_sections(text, index, len(passages)))
     title = ""
     meta = reader.metadata
@@ -203,7 +207,7 @@ def _pdf(data: bytes, ocr: Ocr) -> Extracted:
         media_type="application/pdf",
         page_count=pages,
         passages=_chunk_all(passages),
-        metadata={"pages": pages},
+        metadata={"pages": pages, **({"ocr": True} if used_ocr else {})},
     )
 
 
@@ -594,6 +598,7 @@ def _sections(
     current = heading or f"Page {page}"
     current_level = level if heading else 1
     buffer: list[str] = []
+    pending_heading = False
     for line in text.splitlines():
         stripped = line.strip()
         if _is_heading(stripped) and buffer:
@@ -601,11 +606,15 @@ def _sections(
             current = stripped.lstrip("#").strip()
             current_level = 2
             buffer = []
+            pending_heading = True
             continue
         if stripped:
             buffer.append(stripped)
+            pending_heading = False
     if buffer:
         blocks.append((current, current_level, buffer))
+    elif pending_heading and current:
+        blocks.append((current, current_level, [current]))
     if not blocks and text.strip():
         blocks.append((current, current_level, [text.strip()]))
     passages: list[Passage] = []

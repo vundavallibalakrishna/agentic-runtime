@@ -273,12 +273,14 @@ class ToolPipeline:
             open_world=str(endpoint).startswith(
                 ("http://", "https://", "builtin://web", "builtin://http_operation", "stdio://")
             )
-            or endpoint in {"builtin://data", "builtin://documents", "builtin://connectors"}
+            or endpoint
+            in {"builtin://data", "builtin://documents", "builtin://connectors", "builtin://image"}
             or (
                 endpoint == "builtin://general"
                 and tool_name in {"inspect_table", "query_table", "export_table"}
             ),
-            analysis=endpoint == "builtin://documents" and tool_name != "redact",
+            analysis=(endpoint == "builtin://documents" and tool_name != "redact")
+            or endpoint == "builtin://image",
             tenant_id=tenant_id if isinstance(tenant_id, uuid.UUID) else None,
             agent_version_id=agent_version_id if isinstance(agent_version_id, uuid.UUID) else None,
         )

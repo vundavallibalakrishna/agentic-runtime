@@ -22,7 +22,11 @@ Errors:
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `check`, `gaps`, `rewrite`, `redact`, `extract`, `create`.
+Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `check`, `gaps`, `rewrite`, `redact`, `extract`, `create`, `ocr`.
+
+`ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. A file is read with local tesseract and stored once, the same way as `ingest`. `documentId` returns text already stored. Another tenant receives 404. `engine` defaults to `tesseract`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and do not call those providers. A missing tesseract binary is `ocr_unavailable`.
+
+`image.ask` is server `builtin://image`, tool `ask`. It takes `fileId`, a workspace `path`, or a `url`, plus `question`. The image is PNG, JPEG, GIF or WebP, at most 8 MB. A PDF is refused; the caller uses `documents.ocr`. The call uses the agent `visionAlias` when it is set, otherwise the alias `vision`, through the same sealed provider key as chat. The key is not logged and is not returned. A fake alias, or a model that is not vision-capable, returns `vision_unavailable` and does not send the image. The image is untrusted data.
 
 `ingest` takes `fileId`, a workspace `path`, or a `url`. A URL uses the same egress rules as `general.fetch`.
 
