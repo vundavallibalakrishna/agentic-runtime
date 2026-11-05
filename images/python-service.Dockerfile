@@ -5,7 +5,7 @@ FROM python:3.14.8-slim-bookworm
 
 COPY --from=uvbin /uv /uvx /usr/local/bin/
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tini \
+    && apt-get install -y --no-install-recommends tini tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin app
 

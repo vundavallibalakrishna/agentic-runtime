@@ -16,7 +16,7 @@ from ar_common.errors import (
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.documents.chunk import passage_dicts
-from ar_domain.documents.extract import ExtractError, extract_bytes
+from ar_domain.documents.extract import Extracted, ExtractError, extract_bytes
 from ar_domain.documents.grounding import (
     apply_hunks,
     check,
@@ -59,6 +59,7 @@ class DocumentLibrary:
         source: str = "upload",
         source_ref: str = "",
         ocr: Any = None,
+        extracted: Extracted | None = None,
     ) -> dict[str, object]:
         if source not in {"upload", "workspace", "connection"}:
             raise ValidationFailedError("source must be upload, workspace or connection")
@@ -76,22 +77,25 @@ class DocumentLibrary:
             view = self._view(existing)
             view["deduped"] = True
             return view
-        try:
-            extracted = extract_bytes(
-                data,
-                filename=filename or "upload",
-                media_type=media_type,
-                ocr=ocr,
-            )
-        except ExtractError as exc:
-            self._audit(
-                actor,
-                "library_document.rejected",
-                None,
-                {"reason": exc.code, "filename": filename},
-                "failure",
-            )
-            raise _extract_error(exc) from exc
+        if extracted is None:
+            try:
+                extracted = extract_bytes(
+                    data,
+                    filename=filename or "upload",
+                    media_type=media_type,
+                    ocr=ocr,
+                )
+            except ExtractError as exc:
+                self._audit(
+                    actor,
+                    "library_document.rejected",
+                    None,
+                    {"reason": exc.code, "filename": filename},
+                    "failure",
+                )
+                raise _extract_error(exc) from exc
+        elif not isinstance(extracted, Extracted):
+            raise ValidationFailedError("The extraction could not be stored.")
         now = utcnow()
         document_id = new_id()
         row = {

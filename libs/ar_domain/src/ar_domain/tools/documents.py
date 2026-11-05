@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING
 from ar_common.errors import ArError, ErrorCode
 from ar_common.sandboxkit import PathEscapeError, confine
 from ar_domain.agents.access import Actor
+from ar_domain.documents.extract import ExtractError, extract_bytes
 from ar_domain.documents.library import DocumentLibrary
+from ar_domain.documents.ocr import cloud_refusal
 from ar_domain.identity.permissions import PERMISSION_KEYS
 
 if TYPE_CHECKING:
@@ -40,6 +42,8 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
             return _ok(_OPEN + "\n" + _lines(hits), {"kind": "document", "hits": hits})
         if name == "ingest":
             return _ingest(library, store, actor, arguments)
+        if name == "ocr":
+            return _ocr(library, store, actor, arguments)
         if name == "read":
             body = library.read(
                 actor,
@@ -131,6 +135,71 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
     except ArError as exc:
         return _error(exc.code.value, exc.detail)
     return _error("unknown_tool", f"unknown tool {name}")
+
+
+def _ocr(  # noqa: PLR0911
+    library: DocumentLibrary, store: Any, actor: Actor, arguments: dict[str, object]
+) -> dict[str, object]:
+    """Read a scanned page with local tesseract and store the extraction."""
+    refused = cloud_refusal(str(arguments.get("engine") or ""))
+    if refused is not None:
+        code = "validation_failed" if refused.startswith("Unknown") else "not_live"
+        return _error(code, refused)
+    document_id = _optional_uuid(arguments.get("documentId") or arguments.get("document_id"))
+    has_source = any(arguments.get(key) for key in ("fileId", "file_id", "path", "url"))
+    if document_id is not None and not has_source:
+        try:
+            body = library.read(actor, document_id)
+        except ArError as exc:
+            return _error(exc.code.value, exc.detail)
+        text = str(body.get("text") or "")
+        return _ok(
+            f"Stored text for {body.get('title')} ({document_id}).\n\n{text}",
+            {
+                "kind": "ocr",
+                "engine": "tesseract",
+                "status": "stored",
+                "documentId": str(document_id),
+            },
+        )
+    try:
+        data, filename, media, source, ref = _source_bytes(store, arguments)
+    except ArError as exc:
+        return _error(exc.code.value, exc.detail)
+    try:
+        extracted = extract_bytes(data, filename=filename, media_type=media)
+    except ExtractError as exc:
+        return _error(exc.code, exc.message)
+    try:
+        saved = library.ingest(
+            actor,
+            data=data,
+            filename=filename,
+            media_type=media,
+            source=source,
+            source_ref=ref,
+            extracted=extracted,
+        )
+    except ArError as exc:
+        return _error(exc.code.value, exc.detail)
+    saved_id = _optional_uuid(saved.get("id"))
+    text = ""
+    if saved_id is not None:
+        try:
+            text = str(library.read(actor, saved_id).get("text") or "")
+        except ArError:
+            text = ""
+    header = f"OCR read {saved.get('title')} ({saved.get('id')}) with tesseract."
+    return _ok(
+        f"{header}\n\n{text}",
+        {
+            "kind": "ocr",
+            "engine": "tesseract",
+            "status": "live",
+            "documentId": str(saved.get("id") or ""),
+            "document": saved,
+        },
+    )
 
 
 def _ingest(
