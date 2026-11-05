@@ -4,7 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ToolCallCard } from "@/components/chat/tool-call-card";
+import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { ConnectionsScreen } from "@/components/tools/connections-screen";
 import { ToolsScreen } from "@/components/tools/tools-screen";
 import messages from "@/messages/en.json";
@@ -109,6 +109,40 @@ describe("tool screens", () => {
     expect(screen.getByText("SELECT count(*) FROM public.stores")).toBeTruthy();
     expect(screen.getByText("2992")).toBeTruthy();
     expect(screen.getByText("Showing a sample. The full result was truncated.")).toBeTruthy();
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "documents.ocr",
+            status: "succeeded",
+            presentation: {
+              kind: "ocr",
+              progress: { label: "scan.pdf", completed: 2, total: 4, status: "running" },
+            },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByText("scan.pdf. 2 of 4")).toBeTruthy();
+    expect(screen.getByRole("progressbar")).toBeTruthy();
+    render(
+      wrap(
+        <JobList
+          jobs={[
+            {
+              id: "job-1",
+              label: "scan.pdf",
+              completed: 2,
+              total: 4,
+              status: "interrupted",
+              detail: "Restored 1 files from the interrupted run.",
+            },
+          ]}
+        />,
+      ),
+    );
+    expect(screen.getByText(/Stopped at 2 of 4/)).toBeTruthy();
   });
 
   it("lists servers and a recent call", async () => {

@@ -364,7 +364,12 @@ def _prepare(store: Any, arguments: dict[str, object]) -> Path:
     (root / "workspace" / "inputs").mkdir(parents=True, exist_ok=True)
     (root / "workspace" / "outputs").mkdir(parents=True, exist_ok=True)
     (root / "tmp").mkdir(parents=True, exist_ok=True)
+    from ar_domain.durability.store import restore_workspace, snapshot_workspace  # noqa: PLC0415
+
+    restore_workspace(store, arguments)
     _copy_attachments(store, root, arguments.get("_attachment_ids"))
+    tenant_id = arguments.get("_tenant_id")
+    snapshot_workspace(store, run_id if isinstance(run_id, uuid.UUID) else None, tenant_id)
     if isinstance(run_id, uuid.UUID):
         run = store.runs.get(run_id) if isinstance(getattr(store, "runs", None), dict) else None
         if isinstance(run, dict):
@@ -375,9 +380,11 @@ def _prepare(store: Any, arguments: dict[str, object]) -> Path:
 def _copy_attachments(store: Any, root: Path, raw: object) -> None:
     if not isinstance(raw, list):
         return
+    from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
     for item in raw:
         file_id = _uuid(item)
-        blob = store.blobs.get(file_id) if file_id else None
+        blob = read_blob(store, file_id) if file_id else None
         meta = store.files.get(file_id) if file_id else None
         if file_id is None or blob is None or not isinstance(meta, dict):
             continue
@@ -826,6 +833,13 @@ def _store_file(
         "deleted_at": None,
     }
     store.blobs[file_id] = data
+    from ar_domain.durability.store import remember_blob, snapshot_workspace  # noqa: PLC0415
+
+    remember_blob(store, store.files[file_id], data)
+    run_id = arguments.get("_run_id")
+    snapshot_workspace(
+        store, run_id if isinstance(run_id, uuid.UUID) else None, arguments.get("_tenant_id")
+    )
     return {"file_id": str(file_id), "name": label}
 
 

@@ -197,7 +197,7 @@ def test_agent_card_and_unimplemented_a2a_method() -> None:
     )
     card = a2a.agent_card(store, row, "assistant", "http://localhost:8000")
     assert card["url"].endswith("/v1/agents/assistant/a2a")
-    assert card["capabilities"]["push_notifications"] is False
+    assert card["capabilities"]["push_notifications"] is True
     import asyncio
 
     result = asyncio.run(
@@ -205,7 +205,7 @@ def test_agent_card_and_unimplemented_a2a_method() -> None:
             store,
             row,
             "assistant",
-            {"jsonrpc": "2.0", "id": 1, "method": "tasks/pushNotificationConfig/set", "params": {}},
+            {"jsonrpc": "2.0", "id": 1, "method": "tasks/resubscribe", "params": {}},
         )
     )
     assert result["error"]["code"] == -32601

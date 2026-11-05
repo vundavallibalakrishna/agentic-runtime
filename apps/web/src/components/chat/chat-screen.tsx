@@ -22,7 +22,7 @@ import { AppShell } from "@/components/app-shell";
 import { CitationList, citationsOf } from "@/components/chat/citations";
 import { MarkdownView } from "@/components/chat/markdown-view";
 import { MemoryIndicator } from "@/components/chat/memory-indicator";
-import { ToolCallCard } from "@/components/chat/tool-call-card";
+import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,6 +89,7 @@ export function ChatScreen() {
   const [conversations, setConversations] = useState<Item[]>([]);
   const [activeId, setActiveId] = useState<string>("");
   const [messages, setMessages] = useState<Item[]>([]);
+  const [jobs, setJobs] = useState<Item[]>([]);
   const [agents, setAgents] = useState<Item[]>([]);
   const [aliases, setAliases] = useState<string[]>([]);
   const [agentId, setAgentId] = useState("");
@@ -153,13 +154,14 @@ export function ChatScreen() {
           conversationRequest.current?.abort();
           conversationRequest.current = request;
           try {
-            const body = await api<Item & { messages?: Item[] }>(
+            const body = await api<Item & { messages?: Item[]; jobs?: Item[] }>(
               `/api/v1/conversations/${conversationId}`,
               { signal: request.signal },
             );
             if (!request.signal.aborted) {
               setActiveId(conversationId);
               setMessages(body.messages ?? []);
+              setJobs(body.jobs ?? []);
               setStream(emptyStream);
             }
           } catch (error) {
@@ -188,6 +190,7 @@ export function ChatScreen() {
       runRef.current = "";
       setActiveId("");
       setMessages([]);
+      setJobs([]);
       setStream(emptyStream);
       setBanner("");
       setRunId("");
@@ -243,6 +246,7 @@ export function ChatScreen() {
       runRef.current = "";
       setRunId("");
       setMessages([]);
+      setJobs([]);
       setPlan([]);
       setStream(emptyStream);
       setAttachmentId("");
@@ -253,9 +257,9 @@ export function ChatScreen() {
     params.set("conversation", id);
     window.history.replaceState(null, "", `/chat?${params.toString()}`);
     setBanner("");
-    let body: Item & { messages?: Item[] };
+    let body: Item & { messages?: Item[]; jobs?: Item[] };
     try {
-      body = await api<Item & { messages?: Item[] }>(`/api/v1/conversations/${id}`, {
+      body = await api<Item & { messages?: Item[]; jobs?: Item[] }>(`/api/v1/conversations/${id}`, {
         signal: request.signal,
       });
     } catch (error) {
@@ -264,6 +268,7 @@ export function ChatScreen() {
     }
     if (request.signal.aborted) return;
     setMessages(body.messages ?? []);
+    setJobs(body.jobs ?? []);
     setPlan(planTitles(body.plan));
     if (typeof body.modelAlias === "string") setModelAlias(body.modelAlias);
     setStream(
@@ -735,6 +740,11 @@ export function ChatScreen() {
             onScroll={onScroll}
             ref={parentRef}
           >
+            {jobs.length > 0 ? (
+              <div className="mx-auto max-w-2xl px-5 pt-4">
+                <JobList jobs={jobs} />
+              </div>
+            ) : null}
             <div
               className="relative mx-auto max-w-2xl"
               style={{ height: virtualizer.getTotalSize() }}

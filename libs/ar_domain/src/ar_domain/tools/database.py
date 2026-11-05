@@ -214,7 +214,7 @@ def _query(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     except SqlRejected as exc:
         return _error("sql_rejected", exc.reason)
     if dsn.startswith("memory:"):
-        return _memory_query(checked, limits["row_limit"])
+        return _memory_query(store, arguments, checked, limits["row_limit"])
     found = _execute(
         dsn,
         _engine(row),
@@ -223,7 +223,7 @@ def _query(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         limit=limits["row_limit"],
         allow=as_mapping(row.get("allowlist")),
     )
-    return _render(checked, found)
+    return _with_progress(store, arguments, checked, found, limits["row_limit"])
 
 
 def _bound(
@@ -420,7 +420,9 @@ def _render(sql: str, found: dict[str, Any]) -> dict[str, object]:
     )
 
 
-def _memory_query(sql: str, limit: int) -> dict[str, object]:
+def _memory_query(
+    store: Any, arguments: dict[str, object], sql: str, limit: int
+) -> dict[str, object]:
     from ar_domain.tools.handlers import orders  # noqa: PLC0415
 
     rows = orders()[:limit]
@@ -432,7 +434,29 @@ def _memory_query(sql: str, limit: int) -> dict[str, object]:
             "rows": [[row["id"], row["sku"], row["quantity"]] for row in rows],
             "truncated": False,
         }
-    return _render(sql, found)
+    return _with_progress(store, arguments, sql, found, limit)
+
+
+def _with_progress(
+    store: Any, arguments: dict[str, object], sql: str, found: dict[str, Any], limit: int
+) -> dict[str, object]:
+    from ar_domain.jobs.progress import attach_progress, note_job  # noqa: PLC0415
+
+    rendered = _render(sql, found)
+    rows = found.get("rows")
+    count = len(rows) if isinstance(rows, list) else 0
+    job = note_job(
+        store,
+        arguments,
+        kind="query",
+        tool_name="data.query",
+        label="Database query",
+        completed=count,
+        total=limit,
+        status="completed",
+        detail="truncated" if found.get("truncated") else "",
+    )
+    return attach_progress(rendered, job)
 
 
 def _refuse_unsafe(dsn: str, allow: dict[str, object]) -> None:

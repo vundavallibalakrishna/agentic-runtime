@@ -166,9 +166,34 @@ def _ocr(  # noqa: PLR0911
         data, filename, media, source, ref = _source_bytes(store, arguments)
     except ArError as exc:
         return _error(exc.code.value, exc.detail)
+    from ar_domain.jobs.progress import note_job, progress_view  # noqa: PLC0415
+
+    def _page(done: int, total: int) -> None:
+        note_job(
+            store,
+            arguments,
+            kind="ocr",
+            tool_name="documents.ocr",
+            label=filename or "Document",
+            completed=done,
+            total=total,
+            status="running",
+        )
+
     try:
-        extracted = extract_bytes(data, filename=filename, media_type=media)
+        extracted = extract_bytes(data, filename=filename, media_type=media, on_page=_page)
     except ExtractError as exc:
+        note_job(
+            store,
+            arguments,
+            kind="ocr",
+            tool_name="documents.ocr",
+            label=filename or "Document",
+            completed=0,
+            total=0,
+            status="failed",
+            detail=exc.message,
+        )
         return _error(exc.code, exc.message)
     try:
         saved = library.ingest(
@@ -190,16 +215,27 @@ def _ocr(  # noqa: PLR0911
         except ArError:
             text = ""
     header = f"OCR read {saved.get('title')} ({saved.get('id')}) with tesseract."
-    return _ok(
-        f"{header}\n\n{text}",
-        {
-            "kind": "ocr",
-            "engine": "tesseract",
-            "status": "live",
-            "documentId": str(saved.get("id") or ""),
-            "document": saved,
-        },
+    pages = max(int(getattr(extracted, "page_count", 1) or 1), 1)
+    job = note_job(
+        store,
+        arguments,
+        kind="ocr",
+        tool_name="documents.ocr",
+        label=filename or "Document",
+        completed=pages,
+        total=pages,
+        status="completed",
     )
+    presentation: dict[str, object] = {
+        "kind": "ocr",
+        "engine": "tesseract",
+        "status": "live",
+        "documentId": str(saved.get("id") or ""),
+        "document": saved,
+    }
+    if job is not None:
+        presentation["progress"] = progress_view(job)
+    return _ok(f"{header}\n\n{text}", presentation)
 
 
 def _ingest(
@@ -223,7 +259,11 @@ def _ingest(
 def _source_bytes(store: Any, arguments: dict[str, object]) -> tuple[bytes, str, str, str, str]:
     file_id = _optional_uuid(arguments.get("fileId") or arguments.get("file_id"))
     if file_id is not None:
-        blob = store.blobs.get(file_id) if isinstance(getattr(store, "blobs", None), dict) else None
+        from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+        blob = (
+            read_blob(store, file_id) if isinstance(getattr(store, "blobs", None), dict) else None
+        )
         meta = store.files.get(file_id) if isinstance(getattr(store, "files", None), dict) else None
         if not isinstance(blob, bytes) or not isinstance(meta, dict):
             raise ArError(ErrorCode.VALIDATION_FAILED, "That file is not on this run.")

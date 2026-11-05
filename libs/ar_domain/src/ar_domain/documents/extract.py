@@ -70,13 +70,14 @@ def extract_bytes(  # noqa: PLR0911
     filename: str,
     media_type: str = "",
     ocr: Ocr | None = None,
+    on_page: Callable[[int, int], None] | None = None,
 ) -> Extracted:
     """Read one file. Encrypted, corrupt and unsupported files raise ExtractError."""
     if not data:
         raise ExtractError("corrupt", "The file is empty.")
     kind = sniff(data, filename, media_type)
     if kind == "pdf":
-        return _pdf(data, ocr or _tesseract)
+        return _pdf(data, ocr or _tesseract, on_page)
     if kind == "docx":
         return _docx(data)
     if kind == "xlsx":
@@ -160,7 +161,7 @@ def _looks_text(data: bytes) -> bool:
     )
 
 
-def _pdf(data: bytes, ocr: Ocr) -> Extracted:
+def _pdf(data: bytes, ocr: Ocr, on_page: Callable[[int, int], None] | None = None) -> Extracted:
     from pypdf import PdfReader  # noqa: PLC0415
     from pypdf.errors import PdfReadError  # noqa: PLC0415
 
@@ -196,6 +197,8 @@ def _pdf(data: bytes, ocr: Ocr) -> Extracted:
                 used_ocr = True
             text = read
         passages.extend(_sections(text, index, len(passages)))
+        if on_page is not None:
+            on_page(index, pages)
     title = ""
     meta = reader.metadata
     if meta is not None and meta.title:
