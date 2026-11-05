@@ -267,15 +267,43 @@ def test_remote_discovery_and_openapi_version() -> None:
 def test_handlers_cover_each_builtin() -> None:
     file_id = uuid.uuid4()
     conversation_id = uuid.uuid4()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    server_id, server_version_id, tool_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     store = SimpleNamespace(
         tickets=[],
         pets=[{"id": 1, "name": "doggie"}],
-        files={file_id: {"name": "notes.txt", "deleted_at": None}},
+        files={
+            file_id: {
+                "name": "notes.txt",
+                "tenant_id": tenant,
+                "owner_user_id": user,
+                "status": "ready",
+                "deleted_at": None,
+            }
+        },
         blobs={file_id: b"hello file"},
-        messages={uuid.uuid4(): {"role": "user", "text": "where is the stapler"}},
-        conversations={conversation_id: {}},
+        messages={
+            uuid.uuid4(): {
+                "role": "user",
+                "text": "where is the stapler",
+                "tenant_id": tenant,
+                "conversation_id": conversation_id,
+            }
+        },
+        conversations={conversation_id: {"tenant_id": tenant, "user_id": user}},
+        tool_servers={
+            server_id: {
+                "status": "approved",
+                "disabled_at": None,
+                "current_version_id": server_version_id,
+            }
+        },
+        tool_defs={tool_id: {"tool_server_id": server_id, "disabled_at": None}},
         tool_versions={
             uuid.uuid4(): {
+                "tenant_id": None,
+                "tool_id": tool_id,
+                "tool_server_version_id": server_version_id,
                 "qualified_name": "files.list",
                 "description": "list files",
                 "embedding": hash_embedding("files"),
@@ -319,15 +347,19 @@ def test_handlers_cover_each_builtin() -> None:
     assert counted["text"] == "3"
     rejected = dispatch(store, "memory://warehouse", "run_query", {"sql": "DROP TABLE t"}, "")
     assert rejected["code"] == "sql_rejected"
-    listed = dispatch(store, "builtin://files", "list", {}, "")
+    # The pipeline always passes the caller; a handler never reads another tenant's or person's row.
+    me = {"_tenant_id": tenant, "_user_id": user}
+    listed = dispatch(store, "builtin://files", "list", me, "")
     assert "notes.txt" in listed["text"]
-    read = dispatch(store, "builtin://files", "read", {"file_id": str(file_id), "limit": 5}, "")
+    assert dispatch(store, "builtin://files", "list", {}, "")["text"] == "No files."
+    read = dispatch(
+        store, "builtin://files", "read", {"file_id": str(file_id), "limit": 5, **me}, ""
+    )
     assert read["text"] == "hello"
     assert dispatch(store, "builtin://files", "read", {"file_id": "nope"}, "")["is_error"] is True
-    history = dispatch(store, "builtin://conversations", "search", {"query": "stapler"}, "")
+    history = dispatch(store, "builtin://conversations", "search", {"query": "stapler", **me}, "")
     assert "stapler" in history["text"]
-    # The pipeline always passes the calling tenant; the handler never reads another row.
-    who = {"_tenant_id": demo_id("tenant")}
+    who = {"_tenant_id": tenant}
     page = dispatch(store, "builtin://web", "fetch", {"url": "https://example.com/page", **who}, "")
     assert page["is_error"] is False
     blocked = dispatch(
