@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
 
-export function JobMeter({ progress }: { progress: Progress }) {
+function JobMeter({ progress }: { progress: Progress }) {
   const t = useTranslations("chat");
   const completed = Number(progress.completed ?? 0);
   const total = Number(progress.total ?? 0);
