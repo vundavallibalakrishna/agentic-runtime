@@ -2,7 +2,7 @@
 
 ## Untrusted content
 
-Extracted text, tables and tool results are data. `docs.summarise`, `check`, `gaps`, `rewrite` and `extract` wrap the passages with `ar_common.wrapping.wrap_untrusted` before a model sees them. The tool pipeline also wraps the tool result and runs the injection check because `builtin://documents` is treated as open-world content. A model answer that cites an anchor which is not in the retrieved passages is dropped. A requirement with no overlapping passage is `not_found` and has no citation.
+Extracted text, tables and tool results are data. `docs.summarise`, `check`, `gaps`, `rewrite` and `extract` wrap the passages with `ar_common.wrapping.wrap_untrusted` before a model sees them. The tool pipeline also wraps the tool result and runs the injection check because `builtin://documents` is treated as open-world content. A model answer that cites an anchor which is not in the retrieved passages is dropped. The citation is the sentence that contains the model's quote, not the first sentence of a weakly related passage. When a model is configured, a paraphrase is judged from those passages and `not_found` means the model found no supporting quote. Without a model, a requirement with no overlapping passage is `not_found` and has no citation.
 
 ## Uploads
 
@@ -14,7 +14,9 @@ Images and PDF pages with almost no text layer are sent to the `tesseract` binar
 
 ## Redaction
 
-`documents.redact` and the redact endpoint return the masked string and entity counts. The original text is not a field of the response. Email and phone patterns always run. Presidio runs when the `pii` extra is installed, through `ar_domain.pii.analyzer.redact`.
+`documents.redact` and the redact endpoint return the masked string and entity counts. The original text is not a field of the response. Email and phone patterns always run. Presidio runs when the `pii` extra is installed, through `ar_domain.pii.analyzer.redact` with the outbound profile.
+
+Check, compare, summarise, rewrite and the library read tools use the analysis profile unless `features.documentAnalysisRedaction` is true or the agent sets `safety.piiMasking`. That profile keeps dates, locations and control ids (`90 days`, `Ireland`, `P6.3`). Chat tool results and outbound previews still use the full mask (`features.piiRedaction`, default true). See [OQ-69](../open-questions.md).
 
 ## Storage
 

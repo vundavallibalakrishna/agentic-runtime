@@ -28,7 +28,7 @@ Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outlin
 
 `read` returns at most 12,000 characters. A longer file is searched and read by page or anchor.
 
-`check` takes `requirements` or `standardDocumentId`. Each row is `met`, `partial`, `not_met` or `not_found`, with a citation and a confidence. `not_found` has no citation.
+`check` takes `requirements` or `standardDocumentId`. Each row is `met`, `partial` or `not_found`, with a citation and a confidence. `not_found` has no citation. When a model is configured, it judges the requirement from the retrieved passages (the whole document when it fits the retrieval budget), including a paraphrase, and the citation is the supporting sentence. A lexical overlap floor does not skip that call. Without a model, a requirement that shares too few words is `not_found`.
 
 `rewrite` stores a proposal. Accepting a change updates the passage. Rejecting leaves it.
 

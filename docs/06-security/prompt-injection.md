@@ -73,7 +73,7 @@ Guardrail decisions are recorded in `run_steps.detail.guardrails` (category, act
 - Rendered Markdown (web, email, Slack, Teams) drops remote images unless the host is in the tenant `egress_allowlist` or is the platform origin (files API); links are rendered with visible full URLs on hover and `rel="noopener noreferrer nofollow"`; links whose query strings exceed 200 characters or contain base64-like segments ≥ 40 chars are rendered as plain text with a warning icon.
 - `web.fetch`, browser navigation and sandbox egress are allowlisted; URLs built from conversation data are visible in tool-call cards.
 - Approval previews show every argument (no truncation in the approval detail view).
-- PII redaction (tenant feature `pii_redaction`, agent `safety.pii_masking`, tool `data_classification`) applies to tool results per mcp-integration §7 and to delivery tool payloads sent outside the tenant (email to external domains, webhooks).
+- PII redaction (tenant feature `pii_redaction`, default on) applies to tool results that are not document analysis, and to delivery tool payloads sent outside the tenant (email to external domains, webhooks). Document analysis keeps dates, locations and control ids unless `features.document_analysis_redaction` or the agent `safety.pii_masking` flag is on. See [mcp-integration §7](../05-contracts/mcp-integration.md).
 
 ## 7. Red-team corpus
 

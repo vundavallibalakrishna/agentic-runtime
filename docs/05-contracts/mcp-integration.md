@@ -70,7 +70,7 @@ Credentials are **never** placed in tool arguments, model context, sandbox envir
 ## 7. Result handling (gateway → runtime)
 
 1. Concatenate text content; images become files (`files.kind='tool_result'`) referenced by `file` parts; `resource_link` items are listed as links (not fetched).
-2. Redact secrets (regex set: private keys, bearer tokens, AWS-style keys, passwords in URLs) and, if the tool's `data_classification` ≥ `confidential` or agent `safety.pii_masking`, PII via Presidio.
+2. Redact secrets (regex set: private keys, bearer tokens, AWS-style keys, passwords in URLs) and PII via Presidio when `features.pii_redaction` is on (the default). Library document tools other than `redact` use the analysis profile instead, which keeps dates, locations and control ids, unless `features.document_analysis_redaction` or the agent's `safety.pii_masking` is on. Approval previews and the redact endpoint stay on the outbound profile.
 3. Neutralise control sequences: strip zero-width and bidi control characters, HTML comments, ANSI escapes.
 4. Truncate to `tool_result_max_tokens` (agent context setting) with a `[truncated: N more bytes; full result: file <id>, use files.read with offset]` trailer; full result stored as a file.
 5. Wrap as untrusted data for the model (format in [prompt-injection.md](../06-security/prompt-injection.md) §3).

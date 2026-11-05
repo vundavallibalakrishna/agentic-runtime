@@ -60,7 +60,12 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
             )
             return _ok(_table_text(body["tables"]), {"kind": "table", "tables": body["tables"]})
         if name == "summarise":
-            body = library.summarise(actor, _required_id(arguments), alias=_alias(arguments))
+            body = library.summarise(
+                actor,
+                _required_id(arguments),
+                alias=_alias(arguments),
+                agent_version_id=_agent_version(arguments),
+            )
             return _ok(_claim_text(body), body)
         if name == "compare":
             body = library.compare(
@@ -68,6 +73,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 _required_id(arguments),
                 _uuid(arguments.get("otherDocumentId") or arguments.get("other_document_id")),
                 alias=_alias(arguments),
+                agent_version_id=_agent_version(arguments),
             )
             return _ok(_change_text(body), body)
         if name == "check":
@@ -80,6 +86,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 ),
                 label=str(arguments.get("label") or ""),
                 alias=_alias(arguments),
+                agent_version_id=_agent_version(arguments),
             )
             return _ok(_check_text(body), body)
         if name == "gaps":
@@ -91,6 +98,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                     arguments.get("standardDocumentId") or arguments.get("standard_document_id")
                 ),
                 alias=_alias(arguments),
+                agent_version_id=_agent_version(arguments),
             )
             return _ok(_check_text(body), body)
         if name == "rewrite":
@@ -100,6 +108,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 anchor=str(arguments.get("anchor") or ""),
                 instruction=str(arguments.get("instruction") or ""),
                 alias=_alias(arguments),
+                agent_version_id=_agent_version(arguments),
             )
             return _ok(_rewrite_text(body), body)
         if name == "redact":
@@ -112,6 +121,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 _required_id(arguments),
                 _strings(arguments.get("fields")),
                 alias=_alias(arguments),
+                agent_version_id=_agent_version(arguments),
             )
             return _ok(_field_text(body), body)
     except ArError as exc:
@@ -208,6 +218,10 @@ def _with_alias(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     return copied
 
 
+def _agent_version(arguments: dict[str, object]) -> uuid.UUID | None:
+    return _optional_uuid(arguments.get("_agent_version_id"))
+
+
 def _alias(arguments: dict[str, object]) -> str:
     named = arguments.get("modelAlias") or arguments.get("model_alias")
     if isinstance(named, str) and named.strip():
@@ -288,7 +302,8 @@ def _change_text(body: dict[str, object]) -> str:
         return "No added, removed or changed passages were found."
     lines = [
         f"{row.get('op')} {row.get('heading')} "
-        f"left={row.get('left_anchor')} right={row.get('right_anchor')}"
+        f"left={row.get('left_anchor')} right={row.get('right_anchor')} "
+        f"before={str(row.get('before') or '')[:240]} after={str(row.get('after') or '')[:240]}"
         for row in changes
         if isinstance(row, dict)
     ]
@@ -305,11 +320,14 @@ def _check_text(body: dict[str, object]) -> str:
             continue
         citation = row.get("citation")
         anchor = ""
+        quote = ""
         if isinstance(citation, dict):
             anchor = f" [{citation.get('anchor')} p.{citation.get('page')}]"
+            if citation.get("quote"):
+                quote = f' "{citation.get("quote")}"'
         lines.append(
-            f"{row.get('requirement')}: {row.get('verdict')} ({row.get('confidence')}){anchor} "
-            f"{row.get('reason')}"
+            f"{row.get('requirement')}: {row.get('verdict')} ({row.get('confidence')}){anchor}"
+            f"{quote} {row.get('reason')}"
         )
     return _OPEN + "\n" + "\n".join(lines)
 

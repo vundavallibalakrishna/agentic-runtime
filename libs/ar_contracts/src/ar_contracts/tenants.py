@@ -29,6 +29,7 @@ class FeatureFlags(_Model):
     guardrails: bool = False
     injection_classifier: bool = True
     pii_redaction: bool = True
+    document_analysis_redaction: bool = False
     tenant_model_providers: bool = False
 
 

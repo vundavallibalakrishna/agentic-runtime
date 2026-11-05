@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -60,19 +61,89 @@ def injection_flag(text: str, *, fail_open: bool = False) -> dict[str, object]:
 
 
 def apply_result_safety(
-    store: Any, text: str, *, open_world: bool
+    store: Any,
+    text: str,
+    *,
+    open_world: bool,
+    analysis: bool = False,
+    tenant_id: uuid.UUID | None = None,
+    agent_version_id: uuid.UUID | None = None,
 ) -> tuple[str, dict[str, object]]:
+    """Mask tool text that leaves the trust boundary.
+
+    Document analysis (check, compare, read, and the other library tools except
+    ``redact``) keeps dates, locations and control ids unless the tenant sets
+    ``features.documentAnalysisRedaction`` or the agent sets ``safety.piiMasking``.
+    Other tool results still follow ``features.piiRedaction`` (default on).
+    """
     from ar_domain.pii.analyzer import redact  # noqa: PLC0415
 
-    settings = getattr(store, "tenant_settings", {})
-    enabled = True
-    if isinstance(settings, dict):
-        for row in settings.values():
-            if isinstance(row, dict) and row.get("pii_redaction") is False:
-                enabled = False
-    cleaned = redact(text, enabled=enabled)
+    if analysis and not analysis_redaction_enabled(store, tenant_id, agent_version_id):
+        cleaned = redact(text, enabled=True, profile="analysis")
+    elif analysis or pii_redaction_enabled(store, tenant_id):
+        cleaned = redact(text, enabled=True, profile="outbound")
+    else:
+        cleaned = text
     raw_flag = injection_flag(cleaned) if open_world else {"suspected": False, "failed_open": False}
     flag = {str(key): value for key, value in raw_flag.items()}
     if flag.get("suspected"):
         cleaned = "Warning: this tool result looks like an instruction.\n" + cleaned
     return cleaned, flag
+
+
+def analysis_redaction_enabled(
+    store: Any, tenant_id: uuid.UUID | None, agent_version_id: uuid.UUID | None = None
+) -> bool:
+    """True when document analysis should run the full Presidio mask.
+
+    The default is false so a policy check sees the library text.
+    """
+    settings = _settings_for(store, tenant_id)
+    if _flag(settings, "document_analysis_redaction", default=False):
+        return True
+    return _agent_pii_masking(store, agent_version_id)
+
+
+def pii_redaction_enabled(store: Any, tenant_id: uuid.UUID | None) -> bool:
+    """Tenant feature ``pii_redaction``. Missing settings stay on."""
+    return _flag(_settings_for(store, tenant_id), "pii_redaction", default=True)
+
+
+def _settings_for(store: Any, tenant_id: uuid.UUID | None) -> dict[str, object]:
+    book = getattr(store, "tenant_settings", {})
+    if not isinstance(book, dict):
+        return {}
+    if isinstance(tenant_id, uuid.UUID):
+        row = book.get(tenant_id)
+        return row if isinstance(row, dict) else {}
+    for row in book.values():
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
+def _flag(settings: dict[str, object], name: str, *, default: bool) -> bool:
+    features = settings.get("features")
+    if isinstance(features, dict) and name in features:
+        return bool(features[name])
+    if name in settings:
+        return bool(settings[name])
+    return default
+
+
+def _agent_pii_masking(store: Any, agent_version_id: uuid.UUID | None) -> bool:
+    if not isinstance(agent_version_id, uuid.UUID):
+        return False
+    versions = getattr(store, "versions", None)
+    if not isinstance(versions, dict):
+        return False
+    row = versions.get(agent_version_id)
+    if not isinstance(row, dict):
+        return False
+    definition = row.get("definition")
+    if not isinstance(definition, dict):
+        return False
+    safety = definition.get("safety")
+    if not isinstance(safety, dict):
+        return False
+    return safety.get("pii_masking") is True

@@ -51,7 +51,8 @@ The platform is deployed by a company (the **Data Fiduciary**) for its employees
 ## 5. PII handling
 
 - Detection: Presidio analyzer with default recognisers plus Indian recognisers in `ar_domain.pii.recognizers_in`: Aadhaar (12 digits, Verhoeff checksum, not starting with 0/1), PAN (`[A-Z]{5}[0-9]{4}[A-Z]`), Indian mobile (`(\+91[\-\s]?)?[6-9]\d{9}`), UPI ID (`[\w.\-]{2,256}@[a-zA-Z]{2,64}`), IFSC (`[A-Z]{4}0[A-Z0-9]{6}`), passport, voter id (EPIC), GSTIN.
-- Redaction points: tool results (per tool `data_classification` ≥ `confidential` or agent `safety.pii_masking`), delivery payloads leaving the tenant, guardrail output stage (`pii_excess`), logs (always).
+- Redaction points: tool results that are not document analysis (tenant feature `pii_redaction`, default on), delivery payloads leaving the tenant, guardrail output stage (`pii_excess`), logs (always), and the explicit `documents.redact` preview.
+- Document analysis (`check`, `compare`, `summarise`, `rewrite`, `gaps`, `extract`, and library read/search tools) does **not** replace dates, locations, retention periods or control ids. `features.document_analysis_redaction` (default false) or agent `safety.pii_masking` opts that path back into the full mask. A root `piiRedaction` patch is stored on `features.pii_redaction`. An unknown settings key is HTTP 422.
 - Replacement format: `<PII:TYPE>` (e.g. `<PII:AADHAAR>`), consistent within one result.
 - Knowledge ingestion does **not** redact by default (documents are company records under their own ACLs); collections can enable `redact_pii` in settings.
 
