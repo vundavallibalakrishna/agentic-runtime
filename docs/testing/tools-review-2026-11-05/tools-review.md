@@ -73,6 +73,24 @@ limits, so the framework is fixed first ([M38](../../09-plan/M38-tool-framework.
 - In chat, nothing shows while a tool runs. Arguments and error detail are hidden. An approval cannot be
   decided inline. The run trace shows a status and nothing else. Answers arrive whole, not as tokens.
 
+## D. Test doubles in product code
+
+Added after the owner asked why a fake model is in the execution path. A second pass found that a gate is not
+enough, because several scripted paths run in any environment.
+
+| # | Finding | Where | |
+|---|---|---|---|
+| D1 | Every store is seeded with a `fake-llm` provider, three `fake-*` models and five aliases. `environments.md` says the fake provider is refused in `prod`; no code refuses it. | `chat/service.py:262-300`, `seed/m2.py:26-49` | V |
+| D2 | A turn whose text contains `slow` returns twelve canned sentences. A model call that returns nothing becomes `fake: <the question>`. | `chat/service.py` `_tokens` | V |
+| D3 | A provider or alias test that cannot reach the endpoint reports `fake: ping` as its output. | `chat/service.py` `_probe` | V |
+| D4 | An eval run never calls a model. It echoes the input, or refuses when the text looks like an attack. | `evals/runner.py:30,127` | V |
+| D5 | Every tool server of kind `sql` is pointed at an in-memory demo warehouse, and an `openapi` server without a base URL at the demo pet store. | `tools/registry.py:468-473` | V |
+| D6 | Memory always embeds with `fake-embed` hash vectors, and tool search always ranks with hash vectors, so both rankings carry no meaning. | `memory/book.py:926-929`, `tools/logic.py:148` | V memory, R tool search |
+| D7 | Keyword turns (`maybe_compose`, `maybe_tools`), canned child answers, a model-free knowledge answer and a scripted agent draft sit in the turn. The first two are gated to dev and CI; the rest are not. | `skills/turn.py`, `tools/chat_loop.py`, `skills/delegate.py:149`, `knowledge/answer.py`, `agents/assist.py:37` | R |
+
+The stand-in server already speaks the OpenAI protocol, with tool calls, streaming, embeddings and rerank. It
+can be registered as an ordinary provider, which is what [M38a](../../09-plan/M38a-one-model-path.md) does.
+
 ## What already holds
 
 - Native tool calling, with the error returned to the model so that it can correct the call.
@@ -93,6 +111,7 @@ skills, and run code and the browser in a container for each conversation.
 | Milestone | Outcome |
 |---|---|
 | [M38](../../09-plan/M38-tool-framework.md) | A1 to A12 and A14 are fixed. The schema's default limits apply. |
+| [M38a](../../09-plan/M38a-one-model-path.md) | Product code has one model path and no fake model, scripted turn or demo fixture. |
 | [M39](../../09-plan/M39-tool-surface.md) | Every tool has described parameters, with a lint. One workspace, with edit and search. Tools load on demand above a threshold. The model chooses skills. A15. |
 | [M40](../../09-plan/M40-computer.md) | A container for each conversation, with the libraries spec 12 lists, and a Chromium browser driven through Playwright. |
 | [M41](../../09-plan/M41-documents-media.md) | Skills for PDF, DOCX, PPTX and XLSX that drive the computer. Image generation and transcription through models the tenant registers. |

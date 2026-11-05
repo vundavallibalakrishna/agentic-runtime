@@ -51,7 +51,7 @@ So:
 
 ## How work is picked and tracked
 
-1. The owner's request comes first. Without one, take the next open task in [M38](docs/09-plan/M38-tool-framework.md) and the milestones after it ([tool review](docs/testing/tools-review-2026-11-05/tools-review.md)), then the open items in the November review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
+1. The owner's request comes first. Without one, take the next open task in [M38](docs/09-plan/M38-tool-framework.md), [M38a](docs/09-plan/M38a-one-model-path.md) and the milestones after them ([tool review](docs/testing/tools-review-2026-11-05/tools-review.md)), then the open items in the November review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
 2. Earlier milestone files record how the platform was built. Use them as history and do not re-implement a task marked `done` in [progress.md](docs/09-plan/progress.md).
 3. New work gets a task in a milestone file, written in the [plan's task format](docs/09-plan/README.md#task-format), with a row in the plan's milestone table if the milestone is new. Never renumber a task; split one as `M{n}-T{nn}a`.
 4. Mark the task `in_progress` in `progress.md`, then `done` with the commit sha. One task per pull request unless the task says otherwise.
@@ -81,6 +81,7 @@ Things that catch people out:
 
 - **Names are fixed**: services, packages, tables, columns, endpoints, events, permissions, audit actions, metrics and env vars are exactly as written in the specs. Do not rename, pluralise differently or add synonyms. If you need a new name, add it to the owning spec and to the relevant catalogue in the same PR ([environments §3](docs/07-ops/environments.md#3-variable-catalogue), [audit §3](docs/06-security/audit.md#3-catalogue), [authn-authz §3](docs/06-security/authn-authz.md#3-permission-catalogue), [domain-events](docs/05-contracts/domain-events.md), [stream-events](docs/05-contracts/stream-events.md), [api-catalogue](docs/05-contracts/api-catalogue.md)).
 - **Layering**: services never import each other; DB access only through `ar_domain` repositories inside a unit of work with tenant context ([coding-standards-python §2–3](docs/08-quality/coding-standards-python.md#2-ruff-and-lint-configuration)).
+- **No test doubles in product code**: a fake model, a scripted or keyword-triggered answer, and a demo fixture never live in `ar_domain` or a service, gated or not. A test stand-in lives in `ar_testing` and is registered from test or dev setup as an ordinary provider ([OQ-94](docs/open-questions.md), [M38a](docs/09-plan/M38a-one-model-path.md)).
 - **Contracts first**: cross-process models live in `ar_contracts`; the OpenAPI document and TS client are generated (`make gen`), never hand-written.
 - **Commits**: Conventional Commits, with the task id in the body (`Task: M4-T03`) when the change belongs to a task. CI checks the pull request title.
 - **Docs move with code**: if the work reveals a spec gap, update the spec in the same PR and, if it is a decision, add an entry to [open-questions](docs/open-questions.md) with the default you applied.

@@ -283,4 +283,6 @@ M38-T00 | done | 7cc9a21 | tool review, M38 tasks, M39 to M42 outlines
 M38-T01 | done | 8370ed6 | history, tool search and files read only the caller's rows
 M38-T02 | done | 3fc0cfd | a handler failure is a tool error; a crashed turn ends the run
 M38-T03 | done | 9cdd356 | demo fixtures seeded only in dev and ci, in every process; a stopgap that M38a-T07 deletes
-M38-T03a | done | - | browser tests retry twice in CI and report flaky tests; sha recorded with M38a-T00
+M38-T03a | done | 94dea49 | browser tests retry twice in CI and report flaky tests
+
+M38a-T00 | done | - | removal plan, review section D, the AGENTS.md rule, OQ-94; sha recorded with M38a-T01
