@@ -40,6 +40,7 @@ describe("connector catalog", () => {
               name: "Notion",
               category: "Work",
               summary: "Search pages",
+              implementation: "built",
               verification: "not_live",
               verificationNote: "No workspace was connected.",
               installed: false,
@@ -49,7 +50,9 @@ describe("connector catalog", () => {
       ),
     );
     render(wrap(<ConnectorsScreen />));
-    expect(await screen.findByText("Not live-tested")).toBeTruthy();
+    expect(await screen.findByText("Built")).toBeTruthy();
+    expect(screen.getByText("Not live-tested")).toBeTruthy();
+    expect(screen.getByText(/Built means the tools are in the product/)).toBeTruthy();
     expect(screen.getByText("No workspace was connected.")).toBeTruthy();
   });
 });

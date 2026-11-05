@@ -2,6 +2,7 @@
 
 Search issues, create and update an issue, and add a comment.
 
+**Implementation:** Built
 **Category:** Work
 **Auth:** basic, oauth_authorization_code
 **Verification:** Not live-tested

@@ -2,6 +2,7 @@
 
 Send and read mail through the customer's SMTP and IMAP servers.
 
+**Implementation:** Built
 **Category:** Communication
 **Auth:** basic
 **Verification:** Live-tested

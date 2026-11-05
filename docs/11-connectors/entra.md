@@ -2,6 +2,7 @@
 
 List and read users and groups, and read app registrations and sign-in logs.
 
+**Implementation:** Built
 **Category:** Identity
 **Auth:** oauth_client_credentials, oauth_authorization_code
 **Verification:** Not live-tested

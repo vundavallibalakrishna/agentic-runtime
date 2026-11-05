@@ -2,6 +2,7 @@
 
 Read, create and update incidents and changes, and query a table.
 
+**Implementation:** Built
 **Category:** Work
 **Auth:** basic, oauth_authorization_code
 **Verification:** Not live-tested

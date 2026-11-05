@@ -10,6 +10,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.connectors.catalog import CONNECTORS, ConnectorDef, connector_by_slug
 from ar_domain.connectors.dispatch import probe_install
+from ar_domain.connectors.live_pack import shown_verification
 
 if TYPE_CHECKING:
     from typing import Any
@@ -145,7 +146,8 @@ class ConnectorBook:
             "name": connector.name,
             "category": connector.category,
             "summary": connector.summary,
-            "verification": connector.verification,
+            "implementation": connector.implementation,
+            "verification": shown_verification(connector),
             "verification_note": connector.verification_note,
             "docs": connector.docs,
             "installed": install is not None,

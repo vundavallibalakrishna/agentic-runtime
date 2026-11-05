@@ -579,6 +579,8 @@
     "open": "Set up",
     "installed": "Installed",
     "notInstalled": "Not installed",
+    "built": "Built",
+    "builtHint": "Built means the tools are in the product. Live-tested means a canary called the provider.",
     "live": "Live-tested",
     "public": "Tested on the provider API",
     "not_live": "Not live-tested",

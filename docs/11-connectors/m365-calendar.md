@@ -2,6 +2,7 @@
 
 List events, find free time and create an event on Microsoft 365.
 
+**Implementation:** Built
 **Category:** Calendar
 **Auth:** oauth_authorization_code, bearer
 **Verification:** Not live-tested

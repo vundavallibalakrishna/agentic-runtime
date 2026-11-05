@@ -2,6 +2,7 @@
 
 Read resources, resource groups, virtual machine state and role assignments.
 
+**Implementation:** Built
 **Category:** Cloud
 **Auth:** oauth_client_credentials, bearer
 **Verification:** Not live-tested

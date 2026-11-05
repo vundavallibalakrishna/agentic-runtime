@@ -219,6 +219,7 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
             </label>
           </div>
           {!error && visible.length === 0 ? <EmptyState title={t("empty")} /> : null}
+          <p className="mb-4 text-sm text-[var(--muted-foreground)]">{t("builtHint")}</p>
           <ul className="grid gap-3 md:grid-cols-2">
             {visible.map((row) => {
               const rowSlug = String(row.slug);
@@ -231,6 +232,7 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{String(row.name)}</span>
+                      <Badge>{t("built")}</Badge>
                       <Badge>{verificationLabel(t, verification)}</Badge>
                       {row.installed ? <Badge>{t("installed")}</Badge> : null}
                     </div>
@@ -250,9 +252,11 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <section>
             <div className="flex flex-wrap gap-2">
+              <Badge>{t("built")}</Badge>
               <Badge>{verificationLabel(t, String(detail.verification ?? ""))}</Badge>
               <Badge>{detail.installed ? t("installed") : t("notInstalled")}</Badge>
             </div>
+            <p className="mt-3 text-sm text-[var(--muted-foreground)]">{t("builtHint")}</p>
             <p className="mt-3 text-sm">{String(detail.verificationNote ?? "")}</p>
             <p className="mt-2 text-sm text-[var(--muted-foreground)]">
               {t("rate", { count: Number(detail.ratePerMinute ?? 0) })}

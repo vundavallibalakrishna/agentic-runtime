@@ -2,6 +2,7 @@
 
 List repositories, issues and pull requests, read a file, open an issue and comment.
 
+**Implementation:** Built
 **Category:** Work
 **Auth:** bearer, oauth_authorization_code
 **Verification:** Live-tested
@@ -20,7 +21,9 @@ List repositories, issues and pull requests, read a file, open an issue and comm
 
 ## Scopes
 
-- `public_repo`
+- `public_repo` for a classic token that reads and writes public repositories.
+
+Fine-grained tokens are repository permissions, not this OAuth scope. Grant Contents (read), Issues (read and write) and Pull requests (read) on the one repository. A private repository needs the classic `repo` scope instead of `public_repo`. The M36 canary reads `octocat/Hello-World` `README` without a token. Creating an issue needs `AR_M36_GITHUB_TOKEN` plus `AR_M36_WRITE=1` and `AR_M36_WRITE_APPROVED=1`.
 
 ## Settings
 

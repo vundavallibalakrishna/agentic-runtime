@@ -2,6 +2,7 @@
 
 List channels, read a channel, post a message and search.
 
+**Implementation:** Built
 **Category:** Communication
 **Auth:** bearer, oauth_authorization_code
 **Verification:** Not live-tested

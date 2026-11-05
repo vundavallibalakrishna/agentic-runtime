@@ -2,6 +2,7 @@
 
 Read projects, compute instances, storage buckets and IAM policies.
 
+**Implementation:** Built
 **Category:** Cloud
 **Auth:** api_key
 **Verification:** Not live-tested
