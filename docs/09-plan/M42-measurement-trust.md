@@ -17,7 +17,7 @@ result, and tasks that do not name the tool.
 
 ## M42-T03 The eval runner runs the agent
 
-**Do:** suites under `evals/` run the real loop and tools. The echo reply is removed.
+**Do:** M38a-T02 makes an eval run call the agent loop. This task rewrites the suites under `evals/` so that they assert on what a real model and real tools produce.
 
 ## M42-T04 Chat shows a tool at work
 

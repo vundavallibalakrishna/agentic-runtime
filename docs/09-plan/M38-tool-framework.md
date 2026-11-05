@@ -6,7 +6,7 @@ Goal: fix the tool-calling framework so that a strong model is not held back by 
 Depends on: M37. One pull request for each task. Paths are under `libs/ar_domain/src/ar_domain/` unless they
 start with another top-level folder. Tests are under `libs/ar_domain/tests/unit/` unless stated.
 
-Order: T01, T02 and T03 do not depend on each other. T04 follows T02. T05 to T08 follow T04. T02, T09, T10,
+Order: T01, T02 and T03 do not depend on each other. [M38a](M38a-one-model-path.md) follows T03 and is finished before T04. T04 follows T02. T05 to T08 follow T04. T02, T09, T10,
 T12 and T13 are in strict order because they change the same call site (`tools/agent_loop.py`, the
 `ToolPipeline.execute` call). T11 goes beside T10. T14 follows T06 and T08. T15 follows T10.
 
@@ -208,7 +208,7 @@ checks the flag before each step and each call. The run ends `cancelled` and kee
 - A decision resumes the loop through the path `agents_ask` uses. Approved: the held call runs with the
   approval. Rejected or expired: the model receives that as the tool result. Then the rest of the batch runs
   and the model takes its next step.
-- A run on a scripted fake model has no loop state and keeps the current behaviour.
+- After M38a there is no scripted turn, so every paused run has loop state.
 
 **Done when:** after an approval the model uses the result in a further step, and after a rejection it
 answers without the call.
