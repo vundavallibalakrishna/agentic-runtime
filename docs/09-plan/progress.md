@@ -277,4 +277,4 @@ M34b-T01 | done | f51262c | DuckDB sheet SQL, questionnaire write-back, chart th
 M33c-T01 | done | e77c491 | tool-choice eval gym; dry-run scorecard 12/12; live Qwen behind AR_EVAL_GYM_LIVE |
 M35-T01 | done | 2a6e30a | durability, Temporal dev-server schedule fire, cache eviction, A2A list and push, job progress |
 M36-T01 | done | cb3f552 | connector live pack harness; dry CI; ledger promotes a recorded read |
-M37-T01 | done | f61edb7 | controlled browser on the M6 session; Chromium canary not_live when dump-dom does not finish |
+M37-T01 | done | d4bdd66 | controlled browser on the M6 session; Chromium canary not_live when dump-dom does not finish |
