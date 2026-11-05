@@ -40,6 +40,10 @@ Principles: test behaviour at the cheapest level that proves it; real dependenci
 | `POST /v1/tokenize`, `GET /v1/models` | Simple tokenisation; model list from `FAKE_LLM_MODELS` (default `fake-small,fake-large,fake-embed`) |
 | `POST /_scripts`, `DELETE /_scripts` | Register/clear scripts for the script set in header `X-Fake-Script-Set` (default set `default`) |
 
+The script set can also come from the URL path: `http://host:port/s/<set>/v1` answers from `<set>`, and the path wins over the header. This lets a store register the server as an ordinary provider of kind `openai_compatible`, with a base URL and an API key and no special header. A tool result is matched by the tool's name, which the server reads from the assistant message that made the call when the tool message has no `name`.
+
+`ar_testing.stand_in` is the way a test uses it. The session fixture `stand_in` starts the server on a free loopback port. `stand_in.script(set, scripts)` loads a script set and `stand_in.connect(store, tenant_id, script_set=...)` registers a provider, a model and the `reasoning` and `fast` aliases through the store's own calls. The turn then runs the real agent loop and tools. A test does not replace the model call in product code and does not rely on an answer written without a model ([M38a](../09-plan/M38a-one-model-path.md), [OQ-94](../open-questions.md)).
+
 Script format (also used in YAML scenario files `services/fake_llm/scenarios/*.yaml`, loaded at startup, each file = one script set named after the file):
 
 ```yaml

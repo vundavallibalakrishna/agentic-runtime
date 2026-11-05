@@ -285,4 +285,5 @@ M38-T02 | done | 3fc0cfd | a handler failure is a tool error; a crashed turn end
 M38-T03 | done | 9cdd356 | demo fixtures seeded only in dev and ci, in every process; a stopgap that M38a-T07 deletes
 M38-T03a | done | 94dea49 | browser tests retry twice in CI and report flaky tests
 
-M38a-T00 | done | - | removal plan, review section D, the AGENTS.md rule, OQ-94; sha recorded with M38a-T01
+M38a-T00 | done | 213e943 | removal plan, review section D, the AGENTS.md rule, OQ-94
+M38a-T01 | done | - | scripted model reached as an ordinary provider; ar_testing.stand_in; sha recorded with M38a-T02a
