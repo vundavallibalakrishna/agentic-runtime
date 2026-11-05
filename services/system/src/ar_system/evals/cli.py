@@ -1,4 +1,9 @@
-"""Run repository suites. ``uv run python -m ar_system.evals.cli run evals/golden``."""
+"""Run repository suites. ``uv run python -m ar_system.evals.cli run evals/golden``.
+
+A suite is scored by running the agent, so the command needs a model. It reads the
+certification variables: ``AR_CERT_LLM_API_KEY``, and optionally ``AR_CERT_LLM_BASE_URL``
+and ``AR_CERT_LLM_MODEL``. Without a key it exits 2 and scores nothing.
+"""
 
 import argparse
 import sys
@@ -9,6 +14,7 @@ from ar_common.logging import get_logger
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.evals.book import EvalBook
+from ar_domain.evals.gym.live import LiveConfigError, install_live, live_settings
 from ar_domain.evals.seed_suites import suite_name
 from ar_domain.identity.permissions import PERMISSION_KEYS
 
@@ -24,7 +30,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model-alias", default="reasoning")
     args = parser.parse_args(argv)
     del args.agent_template, args.model_alias
+    try:
+        key, base_url, model = live_settings()
+    except LiveConfigError:
+        _log.error("model_required", detail="set AR_CERT_LLM_API_KEY to score a suite")
+        return 2
     store = ChatService()
+    install_live(store, demo_id("tenant"), key=key, base_url=base_url, model=model)
     actor = Actor(
         tenant_id=demo_id("tenant"),
         user_id=demo_id("admin"),

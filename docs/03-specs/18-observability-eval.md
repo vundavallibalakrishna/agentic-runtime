@@ -78,13 +78,15 @@ Run inspector data comes from [spec 06](06-conversations-runs.md) endpoints (`/r
 | `max_latency_ms` / `max_cost_micros` / `max_steps` | `value` | from run usage |
 | `no_policy_denials` | – | no `denied` tool calls |
 
-- **ToolMock** `{tool, match_args?: {path: value}, result: {text?, structured?} | error: {code, message}}`. In eval runs, `mcp-gateway` returns mocks for matching calls; **all `W2`/`W3` tool calls are mocked or denied** (never executed) in eval runs; `R0`/`R1`/`W1` calls execute for real unless mocked (suite option `mock_all_tools: true` forces mocks for everything).
+- **ToolMock** `{tool, match_args?: {path: value}, result: {text?, structured?} | error: {code, message}}`. In eval runs, `mcp-gateway` returns mocks for matching calls; **all `W2`/`W3` tool calls are mocked or denied** (never executed) in eval runs; `R0`/`R1`/`W1` calls execute for real unless mocked (suite option `mock_all_tools: true` forces mocks for everything). The rule is `ar_domain.evals.mocks.prepare`, and the tool pipeline applies it after argument validation and before policy and approval, so an eval run never waits for a person.
 
 ### 4.2 `EvalRunWorkflow(eval_run_id)` (queue `ar-eval`, id `eval-{eval_run_id}`)
 1. Load suite + cases; resolve agent version (draft, published, explicit version) and optional model alias override (applied as a run-level override; only for `evals:manage`).
 2. For each case (concurrency `AR_EVAL_CONCURRENCY=4`): create conversation (`channel='eval'`, owner = triggering user) and run (`trigger='eval'`, `runs.eval_context` = `{suite_id, case_id, tool_mocks, as_user, mock_all_tools}`), post each user turn sequentially awaiting each run, then score assertions (`score_eval_case` activity) → `eval_results`.
 3. Summary `{cases, passed, pass_rate, mean_scores, cost_micros, p95_latency_ms, gate_passed, regressions: [case_id]}` vs baseline; `eval.completed` outbox; notification `eval_completed`.
 4. If `trigger='publish_gate'` → `agents.service.complete_gated_publish(agent_version_id, passed)`.
+
+A case is scored on what the agent did. The runner opens a conversation on the version under evaluation (the preview conversation, so a draft can be scored), posts each user turn, runs the agent loop, and reads the last answer, the tool calls, the cost and the elapsed time from the runs. No answer is written without a model call. In a serving process a run is started in the background and the request that started it gets `queued`; a command-line caller waits for the result. A run that breaks for a reason other than a failing case ends as `failed`, and a publish that was waiting on it is told the gate did not pass. `ar_system.evals.cli` needs a model and reads `AR_CERT_LLM_API_KEY`, `AR_CERT_LLM_BASE_URL` and `AR_CERT_LLM_MODEL`; without a key it exits 2.
 
 ### 4.3 API
 Permissions: `evals:manage` (suites/cases), `evals:run` (start runs).

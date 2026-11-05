@@ -13,6 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 
+// A run is scored in the background. Ask once a second, for at most three minutes.
+const RUN_POLL_MS = 1000;
+const RUN_POLL_LIMIT = 180;
+
 type Suite = {
   id: string;
   name?: string;
@@ -109,6 +113,17 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
     }
   }
 
+  async function runFinished(runId: string): Promise<string> {
+    for (let attempt = 0; attempt < RUN_POLL_LIMIT; attempt += 1) {
+      const run = await api<{ status: string }>(`/api/v1/eval-runs/${runId}`);
+      if (run.status !== "queued" && run.status !== "running") {
+        return run.status;
+      }
+      await new Promise((resolve) => setTimeout(resolve, RUN_POLL_MS));
+    }
+    return "running";
+  }
+
   async function runSuite(suiteId: string) {
     setBusy(true);
     setActive(suiteId);
@@ -118,8 +133,13 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
         method: "POST",
         body: JSON.stringify({ agentVersionRef: "published", agentId }),
       });
+      // A case calls the model, so the run is scored in the background.
+      const status = await runFinished(run.id);
       const page = await api<{ items: Result[] }>(`/api/v1/eval-runs/${run.id}/results`);
       setResults(page.items ?? []);
+      if (status !== "completed") {
+        setError(t("runUnfinished"));
+      }
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));

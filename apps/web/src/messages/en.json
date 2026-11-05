@@ -927,6 +927,7 @@
     "added": "Added to the suite.",
     "results": "Latest results",
     "noResults": "Run the suite to see results.",
+    "runUnfinished": "The run did not finish. The results below may be incomplete.",
     "gate": "Publish gate",
     "back": "Back"
   },

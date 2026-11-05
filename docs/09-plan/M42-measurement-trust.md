@@ -17,7 +17,7 @@ result, and tasks that do not name the tool.
 
 ## M42-T03 The eval runner runs the agent
 
-**Do:** M38a-T02 makes an eval run call the agent loop. This task rewrites the suites under `evals/` so that they assert on what a real model and real tools produce.
+**Do:** M38a-T02 makes an eval run call the agent loop. This task rewrites the suites under `evals/` so that they assert on what a real model and real tools produce. Until then `evals/golden/assistant.yaml` still asserts that the reply repeats the question, which only a scripted model does, so `make eval` against a real model fails those cases.
 
 ## M42-T04 Chat shows a tool at work
 
