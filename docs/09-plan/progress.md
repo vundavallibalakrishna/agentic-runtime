@@ -280,4 +280,5 @@ M36-T01 | done | cb3f552 | connector live pack harness; dry CI; ledger promotes 
 M37-T01 | done | d4bdd66 | controlled browser on the M6 session; Chromium canary not_live when dump-dom does not finish |
 
 M38-T00 | done | 7cc9a21 | tool review, M38 tasks, M39 to M42 outlines
-M38-T01 | done | - | history, tool search and files read only the caller's rows; sha recorded with M38-T02
+M38-T01 | done | 8370ed6 | history, tool search and files read only the caller's rows
+M38-T02 | done | - | a handler failure is a tool error; a crashed turn ends the run; sha recorded with M38-T03

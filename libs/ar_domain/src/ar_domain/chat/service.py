@@ -1676,7 +1676,17 @@ class ChatService:
         self._emit_memory(run, user_text, answer)
         self._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": usage})
 
-    async def generate(  # noqa: PLR0911, PLR0915
+    async def generate(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
+        """Run one turn. An unexpected failure ends the run; it is never left working."""
+        try:
+            await self._generate(run_id, text, names)
+        except Exception as exc:  # the run must reach a terminal state
+            from ar_domain.tools.agent_loop import fail_unexpected  # noqa: PLC0415
+
+            if not fail_unexpected(self, run_id, exc):
+                raise
+
+    async def _generate(  # noqa: PLR0911, PLR0915
         self, run_id: uuid.UUID, text: str, names: list[str]
     ) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""

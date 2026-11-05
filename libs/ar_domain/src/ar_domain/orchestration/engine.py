@@ -224,9 +224,13 @@ async def resume_run(store: Any, run_id: object) -> None:
     assistant = store.messages.get(assistant_id)
     if not isinstance(assistant, dict):
         return
-    from ar_domain.tools.agent_loop import run_agent_loop  # noqa: PLC0415
+    from ar_domain.tools.agent_loop import fail_unexpected, run_agent_loop  # noqa: PLC0415
 
-    await run_agent_loop(store, run, assistant, str(run.get("user_text") or ""))
+    try:
+        await run_agent_loop(store, run, assistant, str(run.get("user_text") or ""))
+    except Exception as exc:  # a resumed run must reach a terminal state
+        if not fail_unexpected(store, run_id, exc):
+            raise
 
 
 def _add(
