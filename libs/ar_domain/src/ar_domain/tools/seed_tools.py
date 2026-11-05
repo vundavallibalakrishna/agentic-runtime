@@ -4,7 +4,7 @@ import hashlib
 from typing import TYPE_CHECKING, Any
 
 from ar_common.time import utcnow
-from ar_domain.agents.logic import assistant_definition
+from ar_domain.agents.logic import assistant_definition, definition_hash
 from ar_domain.chat.service import demo_id
 from ar_domain.tools.logic import description_hash, hash_embedding, manifest_hash
 from ar_domain.tools.openapi_import import operations_from
@@ -76,6 +76,7 @@ def seed(store: Any) -> None:
 
     SandboxBook(store).ensure_platform()
     if getattr(store, "tools_seeded", False):
+        ensure_m33b(store)
         return
     tenant = demo_id("tenant")
     admin = demo_id("admin")
@@ -97,12 +98,14 @@ def seed(store: Any) -> None:
     _general_server(store)
     _data_server(store)
     _documents_server(store)
+    _image_server(store)
     _knowledge_server(store)
     _memory_server(store)
     _skills_server(store)
     _connector_server(store)
     _analyst(store, tenant, admin)
     store.tools_seeded = True
+    ensure_m33b(store)
 
 
 def _settings(store: Any, tenant: uuid.UUID) -> None:
@@ -1195,8 +1198,199 @@ def _documents_server(store: Any) -> None:
                 },
                 "W1",
             ),
+            _ocr_tool(),
         ],
     )
+
+
+def _image_server(store: Any) -> None:
+    _builtin(store, "image", "Image", "builtin://image", [_image_ask_tool()])
+
+
+def _ocr_tool() -> dict[str, object]:
+    return _tool(
+        "ocr",
+        "Read a scanned document",
+        "Read text from a scanned PDF or an image with local tesseract and store the "
+        "extraction. Pass fileId, a workspace path, a url, or documentId. "
+        "Cloud OCR engines return not_live.",
+        {
+            "type": "object",
+            "properties": {
+                "fileId": {"type": "string"},
+                "path": {"type": "string"},
+                "url": {"type": "string"},
+                "documentId": {"type": "string"},
+                "engine": {"type": "string"},
+            },
+        },
+        "W1",
+    )
+
+
+def _image_ask_tool() -> dict[str, object]:
+    return _tool(
+        "ask",
+        "Ask about an image",
+        "Answer a question about an uploaded screenshot, chart, UI or diagram. "
+        "Pass fileId, a workspace path, or a url, plus question. "
+        "Uses the vision alias through the same sealed provider key as chat. "
+        "Fails with vision_unavailable when that alias is not a vision model.",
+        {
+            "type": "object",
+            "properties": {
+                "fileId": {"type": "string"},
+                "path": {"type": "string"},
+                "url": {"type": "string"},
+                "question": {"type": "string"},
+                "visionAlias": {"type": "string"},
+            },
+            "required": ["question"],
+        },
+        "R0",
+    )
+
+
+def ensure_m33b(store: Any) -> None:
+    """Add OCR and image.ask to a catalogue that was seeded before this milestone."""
+    if not isinstance(getattr(store, "tool_servers", None), dict):
+        return
+    _image_server(store)
+    _append_tools(store, "documents", [_ocr_tool()])
+    _append_tools(store, "image", [_image_ask_tool()])
+    _grant_image(store)
+
+
+def _platform_server(store: Any, slug: str) -> dict[str, object] | None:
+    for row in store.tool_servers.values():
+        if isinstance(row, dict) and row.get("slug") == slug and row.get("tenant_id") is None:
+            return row
+    return None
+
+
+def _append_tools(store: Any, slug: str, tools: list[dict[str, object]]) -> None:
+    server = _platform_server(store, slug)
+    if server is None:
+        return
+    version_id = server.get("current_version_id")
+    version = store.tool_server_versions.get(version_id)
+    if not isinstance(version, dict):
+        return
+    present = {
+        str(row.get("name"))
+        for row in store.tool_versions.values()
+        if isinstance(row, dict) and row.get("tool_server_version_id") == version_id
+    }
+    added: list[str] = []
+    for item in tools:
+        name = str(item["name"])
+        if name in present:
+            continue
+        _add_tool(store, server, version_id, slug, item)
+        added.append(name)
+    if not added:
+        return
+    manifest = version.get("manifest")
+    listed = manifest.get("tools") if isinstance(manifest, dict) else None
+    names = [str(item) for item in listed] if isinstance(listed, list) else sorted(present)
+    for name in added:
+        if name not in names:
+            names.append(name)
+    fresh = {"tools": names}
+    digest = manifest_hash(fresh)
+    version["manifest"] = fresh
+    version["manifest_hash"] = digest
+    version["upstream_hash"] = digest
+
+
+def _add_tool(
+    store: Any,
+    server: dict[str, object],
+    version_id: object,
+    slug: str,
+    item: dict[str, object],
+) -> None:
+    now = utcnow()
+    name = str(item["name"])
+    tool_id = demo_id(f"tool-{slug}-{name}")
+    version_tool_id = demo_id(f"tool-version-{slug}-{name}")
+    text = str(item["description"])
+    tenant_id = server.get("tenant_id")
+    store.tool_defs[tool_id] = {
+        "id": tool_id,
+        "tenant_id": tenant_id,
+        "tool_server_id": server.get("id"),
+        "name": name,
+        "qualified_name": f"{slug}.{name}",
+        "disabled_at": None,
+        "disabled_reason": None,
+        "created_at": now,
+        "updated_at": now,
+    }
+    store.tool_versions[version_tool_id] = {
+        "id": version_tool_id,
+        "tenant_id": tenant_id,
+        "tool_id": tool_id,
+        "tool_server_version_id": version_id,
+        "name": name,
+        "qualified_name": f"{slug}.{name}",
+        "title": item["title"],
+        "description": text,
+        "description_hash": description_hash(text),
+        "input_schema": item["input_schema"],
+        "output_schema": None,
+        "annotations": item.get("annotations") or {},
+        "risk_class": item["risk_class"],
+        "proposed_risk_class": item["risk_class"],
+        "risk_confirmed": True,
+        "data_classification": "internal",
+        "timeout_s": 60,
+        "rate_limit_per_minute": 60,
+        "max_result_bytes": 65536,
+        "idempotent": item["risk_class"] in {"R0", "R1"},
+        "approval_preview": {},
+        "embedding": hash_embedding(text),
+        "created_at": now,
+    }
+
+
+def _grant_image(store: Any) -> None:
+    """Give the seeded assistant image.ask without a republish."""
+    agents = getattr(store, "agents", None)
+    versions = getattr(store, "versions", None)
+    if not isinstance(agents, dict) or not isinstance(versions, dict):
+        return
+    for agent in agents.values():
+        if not isinstance(agent, dict) or agent.get("slug") != "assistant":
+            continue
+        version = versions.get(agent.get("published_version_id"))
+        if not isinstance(version, dict):
+            continue
+        definition = version.get("definition")
+        if not isinstance(definition, dict):
+            continue
+        tools = definition.get("tools")
+        if not isinstance(tools, list):
+            continue
+        if any(isinstance(item, dict) and item.get("server") == "image" for item in tools):
+            continue
+        has_documents = any(
+            isinstance(item, dict) and item.get("server") == "documents" for item in tools
+        )
+        if not has_documents and version.get("change_note") != "seed":
+            continue
+        tools.append({"server": "image", "version": "*", "include": ["ask"]})
+        plain = _plain_json(definition)
+        if isinstance(plain, dict):
+            version["definition_hash"] = definition_hash(plain)
+
+
+def _plain_json(value: object) -> object:
+    if isinstance(value, dict):
+        return {str(key): _plain_json(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_plain_json(item) for item in value]
+    return value
 
 
 def _sandbox_tools() -> list[dict[str, object]]:
