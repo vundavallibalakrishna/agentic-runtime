@@ -39,3 +39,9 @@ regexes = [
   '''^ara_example$''',
   '''^4b1c0d2e-6f7a-4b8c-9d0e-1a2b3c4d5e6f$''',
 ]
+
+[[allowlists]]
+description = "M36 S3 canary, commit cb3f552. The argument name key plus a comma made gitleaks treat the object name m36-canary.txt as a generic API key. The working tree uses canary-not-a-secret. Allowlisted so the history scan does not treat the old placeholder as a live key."
+targetRules = ["generic-api-key"]
+regexTarget = "secret"
+regexes = ['''^m36-canary\.txt$''']
