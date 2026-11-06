@@ -178,3 +178,13 @@ def stand_in() -> Iterator[StandIn]:
     server = StandIn()
     yield server
     server.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _stand_in_started_first() -> None:
+    """Start the shared stand-in before any test runs.
+
+    Some tests replace ``uvicorn.Server`` or ``asyncio.run`` for the process while they
+    run. A server that first started inside one of them would not start at all.
+    """
+    shared()

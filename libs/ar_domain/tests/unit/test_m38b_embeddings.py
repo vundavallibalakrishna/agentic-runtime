@@ -8,6 +8,7 @@ and no vector is computed in the product's own process.
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
 from pathlib import Path
 
@@ -460,4 +461,27 @@ def test_no_product_code_names_an_embedding_model_or_makes_a_vector_itself() -> 
                 continue
             text = path.read_text(encoding="utf-8")
             found += [f"{path.relative_to(ROOT)}: {word}" for word in banned if word in text]
+    assert found == []
+
+
+def test_no_test_replaces_a_clock_function_for_every_thread() -> None:
+    """The stand-in model server runs on a thread of the test process.
+
+    A test that replaces ``asyncio.sleep``, ``asyncio.wait_for`` or ``time.sleep`` replaces
+    it for that thread too, and can stop the server or make its idle loop spin. Such a
+    replacement goes through ``ar_testing.sleeping.in_this_thread``.
+    """
+    replaced = re.compile(
+        r"setattr\([^#\n]*(asyncio[^,\n]*,\s*\"(sleep|wait_for)\"|asyncio\.(sleep|wait_for)\""
+        r"|time[^,\n]*,\s*\"sleep\"|time\.sleep\")"
+    )
+    roots = [ROOT / "libs", ROOT / "services", ROOT / "connectors", ROOT / "tests"]
+    found: list[str] = []
+    for root in roots:
+        for path in root.rglob("test_*.py"):
+            if ".venv" in path.parts or path == Path(__file__).resolve():
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                if replaced.search(line) and "in_this_thread(" not in line:
+                    found.append(f"{path.relative_to(ROOT)}:{number}")
     assert found == []

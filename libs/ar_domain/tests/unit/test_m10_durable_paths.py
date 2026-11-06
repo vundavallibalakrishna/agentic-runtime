@@ -586,7 +586,7 @@ async def test_a_worker_waits_for_its_database_and_its_tenant(
         pauses.append(seconds)
 
     monkeypatch.setattr(bind_mod, "bind_store", _bind)
-    monkeypatch.setattr(bind_mod.asyncio, "sleep", _pause)
+    monkeypatch.setattr(bind_mod.asyncio, "sleep", in_this_thread(_pause))
     service = ChatService()
     assert await attach_store(service, "url", retry_s=0.5) == found
     assert pauses == [0.5, 0.5, 0.5]
@@ -647,7 +647,7 @@ async def test_ingest_uses_the_worker_when_temporal_is_up(monkeypatch: pytest.Mo
             close()
         raise TimeoutError
 
-    monkeypatch.setattr(asyncio, "wait_for", _timeout)
+    monkeypatch.setattr(asyncio, "wait_for", in_this_thread(_timeout, asyncio.wait_for))
     assert await ingest_or_enqueue(service, missing, b"late") == "missing"
     await _delete_stored_chunks(service, _DOC)
 
