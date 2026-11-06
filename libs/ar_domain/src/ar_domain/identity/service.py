@@ -15,7 +15,12 @@ from ar_common.errors import (
 from ar_common.time import utcnow
 from ar_contracts.tenants import PlanLimits, TenantSettings, UserSettings
 from ar_domain.audit.actions import AuditAction
-from ar_domain.identity.limits import merge_settings, snakeize, validate_tenant_settings
+from ar_domain.identity.limits import (
+    merge_settings,
+    settings_diff,
+    snakeize,
+    validate_tenant_settings,
+)
 from ar_domain.identity.models import (
     ApiKey,
     Group,
@@ -136,16 +141,20 @@ class IdentityService:
         plan = await self.store.get_plan(tenant.plan_id)
         if plan is None:
             raise NotFoundError("plan not found")
-        if name:
+        detail: dict[str, object] = {"name": tenant.name}
+        if name and name != tenant.name:
+            detail["renamed_from"] = tenant.name
+            detail["name"] = name
             tenant.name = name
         if settings_patch:
             current = TenantSettings.model_validate(tenant.settings)
             merged = merge_settings(current, settings_patch)
             limits = PlanLimits.model_validate(plan.limits)
-            tenant.settings = validate_tenant_settings(merged, limits).model_dump(by_alias=False)
-        await self.store.audit(
-            AuditAction.TENANT_UPDATED, "tenant", str(tenant.id), {"name": tenant.name}
-        )
+            saved = validate_tenant_settings(merged, limits).model_dump(by_alias=False)
+            # The record says which settings changed, from what and to what.
+            detail["changed"] = settings_diff(current.model_dump(by_alias=False), saved)
+            tenant.settings = saved
+        await self.store.audit(AuditAction.TENANT_UPDATED, "tenant", str(tenant.id), detail)
         await self.store.emit("tenant.created", {"tenant_id": str(tenant.id), "updated": True})
         return tenant
 

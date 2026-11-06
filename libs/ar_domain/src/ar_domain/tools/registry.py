@@ -1,12 +1,12 @@
 """Tool server lifecycle on the process store. Spec: docs/03-specs/08-tool-registry-mcp.md."""
 
-import os
 import uuid
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
+from ar_common.settings import loopback_allowed
 from ar_common.time import utcnow
 from ar_domain.tools.logic import (
     as_mapping,
@@ -823,7 +823,7 @@ class ToolRegistry:
 
 
 def _dev_loopback(url: str) -> bool:
-    if os.environ.get("AR_ENV", "dev") not in {"dev", "ci", "test"}:
+    if not loopback_allowed():
         return False
     host = urlparse(url).hostname or ""
     return host in {"localhost", "127.0.0.1", "::1"}

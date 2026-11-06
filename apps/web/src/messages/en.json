@@ -1348,5 +1348,23 @@
       "us_passport": "US passport number",
       "us_ssn": "US social security number"
     }
+  },
+  "webAccess": {
+    "title": "Web access",
+    "body": "The hosts your organisation's tools may reach when they fetch a page, call an API or run a command that names a web address. A host that is not listed is refused before anything is sent. An agent can be limited to fewer of these hosts, never to more.",
+    "loading": "Loading the hosts tools may reach",
+    "error": "The list of hosts could not be loaded.",
+    "retry": "Try again",
+    "empty": "No host is listed, so tools cannot reach the web.",
+    "listed": "Hosts tools may reach",
+    "host": "Host",
+    "hostHint": "A host name with no address or path. Start it with *. to allow every host under it.",
+    "add": "Add host",
+    "added": "{host} can now be reached. It applies to the next tool call.",
+    "already": "{host} is already listed.",
+    "remove": "Remove",
+    "removeNamed": "Remove {host}",
+    "removed": "{host} can no longer be reached.",
+    "readOnly": "Changing this needs the permission to manage the organisation."
   }
 }

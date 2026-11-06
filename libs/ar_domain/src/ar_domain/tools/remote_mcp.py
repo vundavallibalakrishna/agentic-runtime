@@ -8,7 +8,6 @@ inside the general-tool sandbox with network off.
 from __future__ import annotations
 
 import contextlib
-import os
 import queue
 import re
 import shutil
@@ -26,6 +25,7 @@ from ar_common.errors import ArError
 from ar_common.http import assert_public_url
 from ar_common.isolate import run_isolated
 from ar_common.offload import blocking
+from ar_common.settings import loopback_allowed
 from ar_domain.tools.logic import name_ok, propose_risk
 
 if TYPE_CHECKING:
@@ -524,7 +524,7 @@ def _guard(store: Any, url: str) -> None:
     if parsed.scheme not in {"http", "https"}:
         raise RemoteError("a remote server needs an http(s) URL")
     host = parsed.hostname or ""
-    if _loopback(host) and os.environ.get("AR_ENV", "dev") in {"dev", "ci", "test"}:
+    if _loopback(host) and loopback_allowed():
         return
     resolver = getattr(store, "mcp_resolver", None)
     allow = getattr(store, "mcp_allow_hosts", ())

@@ -3,6 +3,8 @@ name: agentic-runtime
 
 x-app-env: &app-env
   AR_ENV: dev
+  # The local stack's model and tool servers are on this machine's own addresses.
+  AR_EGRESS_ALLOW_LOOPBACK: "true"
   AR_DEPLOYMENT_MODE: single_tenant
   AR_DATABASE_URL: postgresql+asyncpg://ar_app:ar_app@postgres:5432/agentic_runtime
   AR_VALKEY_URL: redis://valkey:6379/0

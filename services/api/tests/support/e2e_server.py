@@ -16,6 +16,8 @@ import os
 
 # Say "no database" before the application reads its settings.
 os.environ["AR_DURABLE_STATE"] = "memory"
+# The stand-in model server and the fixture pages are on this machine's own addresses.
+os.environ.setdefault("AR_EGRESS_ALLOW_LOOPBACK", "true")
 
 import uvicorn
 from starlette.requests import Request

@@ -3,7 +3,6 @@
 # ruff: noqa: E501, S105, S106
 
 import asyncio
-import os
 import sys
 import uuid
 from datetime import timedelta
@@ -14,6 +13,7 @@ import pytest
 
 from ar_common.errors import ArError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.isolate import IsolatedRun, _prefixes, _probe, _process, scrubbed_env
+from ar_common.settings import BaseServiceSettings, get_settings, set_settings
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
@@ -812,13 +812,11 @@ def test_isolate_fallback_and_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path:
         root / "workspace", [sys.executable, "-c", "import time; time.sleep(8)"], env, timeout=1
     )
     assert timed.exit_code == 124
-    previous = os.environ.get("AR_ENV")
-    os.environ["AR_ENV"] = "prod"
+    # An install that has not allowed loopback refuses it, whatever its environment is called.
+    previous = get_settings()
+    set_settings(BaseServiceSettings(_env_file=None, egress_allow_loopback=False))
     try:
         with pytest.raises(RemoteError):
             _guard(demo_store(), "http://127.0.0.1/mcp")
     finally:
-        if previous is None:
-            os.environ.pop("AR_ENV", None)
-        else:
-            os.environ["AR_ENV"] = previous
+        set_settings(previous)

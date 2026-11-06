@@ -308,23 +308,37 @@ drawn at all, so the person does not see part of the answer.
 
 **Tests:** `message-masking.test.tsx`.
 
-## M38b-T10 A refused or failed tool call is quick and visible
+## M38b-T10a Which hosts a tool may reach is the organisation's choice
 
-**Depends on:** M38-T09 for the event loop. **Areas:** `tools/general.py`, `apps/web/src/components/chat/`,
-tenant settings. **Finding:** F11.
+**Depends on:** M38-T09 for the event loop. **Areas:** `tools/general.py`, `ar_common/settings.py`,
+`identity/service.py`, `pii/analyzer.py`, `apps/web/src/components/policies/`. **Finding:** F11.
+Decision: OQ-111.
 
 **Do:**
 
 - A host that is not allowed is refused before any network call, with a message that says where to allow it.
 - The tenant has an allowed-hosts setting in the product; an agent may narrow it.
-- A run that fails shows its error in the chat, with a retry.
 - Whether a loopback address may be reached becomes a setting the install controls, not a rule tied to the
   environment name (T03a made the rule the same in every process; this makes it configurable).
 
-**Done when:** a refused fetch answers in under a second, the model tells the user what to change, and a
-failed run is never an empty bubble.
+**Done when:** a refused fetch answers in under a second and the model tells the user what to change.
 
-**Tests:** `test_m38b_egress.py`; Playwright `m38b-failed-run.spec.ts`.
+**Tests:** `test_m38b_egress.py`; `web-access.test.tsx`; Playwright `m38b-web-access.spec.ts`.
+
+**Done (7 Nov 2026).** Also needed, and done with it: an agent's own list used to widen the organisation's;
+the audit record of a settings change now says what changed, from what and to what; and the engine that
+masks tool results is built when a process starts, so the first tool call after a restart is not the one
+that waits (the first refusal took 4.7 s, now 78 ms).
+
+## M38b-T10 A failed run is visible
+
+**Depends on:** T10a. **Areas:** `apps/web/src/components/chat/`. **Finding:** F11.
+
+**Do:** a run that fails shows its error in the chat, with a retry.
+
+**Done when:** a failed run is never an empty bubble.
+
+**Tests:** Playwright `m38b-failed-run.spec.ts`.
 
 ## M38b-T12 What is remembered from a turn is decided by the tenant's model
 

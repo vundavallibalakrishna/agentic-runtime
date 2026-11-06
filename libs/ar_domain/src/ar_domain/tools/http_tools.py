@@ -6,7 +6,6 @@ shown to the model. Private addresses stay denied.
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 
@@ -14,6 +13,7 @@ import httpx
 
 from ar_common.offload import blocking
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, host_denied
+from ar_common.settings import loopback_allowed
 from ar_domain.tools.general import _allow_hosts, _host_ok, _resolve
 
 if TYPE_CHECKING:
@@ -31,8 +31,8 @@ def guard_public(url: str, *, allow: list[str], loopback: bool) -> str | None:
         return "url must be an http or https URL"
     if not _host_ok(host, allow):
         return f"{host} is not on the egress allow list"
-    dev = os.environ.get("AR_ENV", "dev") in {"dev", "ci", "test"}
-    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback and dev):
+    allowed = loopback and loopback_allowed()
+    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=allowed):
         return f"{host} is blocked by the egress deny list"
     return None
 

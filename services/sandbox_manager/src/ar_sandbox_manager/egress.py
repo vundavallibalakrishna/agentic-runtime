@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, allowed_hosts, host_denied
+from ar_common.settings import loopback_allowed
 
 
 def check(store: Any, sandbox_id: str, host: str, token: str) -> int:
@@ -39,8 +40,7 @@ def check(store: Any, sandbox_id: str, host: str, token: str) -> int:
     )
     if host not in hosts and "*" not in hosts:
         return 403
-    allow_loopback = os.environ.get("AR_ENV", "dev") in {"dev", "ci", "test"}
-    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=allow_loopback):
+    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback_allowed()):
         return 403
     return 200
 

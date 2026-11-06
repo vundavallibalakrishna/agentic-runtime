@@ -21,3 +21,9 @@ Breakout checks in `libs/ar_common/tests/unit/test_isolate.py` and `libs/ar_doma
 
 File tools and commands share the run's folder and one way to name a file: a path relative to the working folder, which is the directory a command starts in ([spec 13 §6.1](../03-specs/13-files-artifacts.md)). `general.code` shows the value of a script's last expression, as a notebook does, by rewriting only that last statement before the script runs; a script that does not parse is run unchanged so Python reports the error. A command that prints nothing and writes no file says so.
 
+## Which hosts a tool may reach (M38b-T10a)
+
+The organisation's list (`tenants.settings.egress_allowlist`) is the ceiling for `general.fetch`, `general.http`, and any command that names a web address. It is set on the Policies screen under **Web access**, and takes a host name or `*.` and a domain. An empty list means tools cannot reach the web. An agent's override (`tools[].overrides.<tool>.allow_hosts`) narrows the list for that tool; it never adds a host. A refusal is decided from the two lists alone, before any name is looked up or any request is sent, and its message says which list refused and where that list is changed. A host that passes is still checked against the deny list of address ranges after its name is resolved.
+
+Whether this machine's own addresses (`127.0.0.0/8`, `localhost`) may be reached is the install's setting, `AR_EGRESS_ALLOW_LOOPBACK`, off unless set. Every check and every process reads it through `ar_common.settings.loopback_allowed`; none reads the environment's name. A change to the organisation's list is audited as `tenant.updated`, and the record holds the list before and after.
+

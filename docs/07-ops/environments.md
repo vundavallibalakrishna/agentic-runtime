@@ -48,6 +48,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DEV_MODEL_API_KEY` | (empty) | Dev only: API key for `AR_DEV_MODEL_BASE_URL` | [local-dev](local-dev.md) |
 | `AR_DELTA_COALESCE_MS` | `50` | Token delta coalescing window for stream events | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_DEPLOYMENT_MODE` | `single_tenant` | `saas` or `single_tenant` | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_EGRESS_ALLOW_LOOPBACK` | `false` | Whether a tool, a connector, a sandbox or a model provider may reach this machine's own addresses (`127.0.0.0/8`, `localhost`). Every process and every check reads this one setting; it does not follow from `AR_ENV`. The local stack (`.env.example`, `compose.yaml`) and the test run set it to `true`, because their model and tool servers are local | [tenancy and isolation](../02-architecture/tenancy-isolation.md) |
 | `AR_EGRESS_DENY_CIDRS` | metadata + RFC1918 + cluster | CIDRs always denied for sandbox/tool egress | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For `web.fetch` and remote MCP outside the cluster | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 10](../03-specs/10-knowledge.md) |
 | `AR_EMBEDDING_TIMEOUT_S` | unset | HTTP timeout for one embedding or rerank request. Unset takes the provider's own timeout, and `60` when that is not set | [spec 10](../03-specs/10-knowledge.md) |

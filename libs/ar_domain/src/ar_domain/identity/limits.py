@@ -49,6 +49,32 @@ def _check_masking(settings: TenantSettings) -> None:
         )
 
 
+_SHOWN = 200
+
+
+def settings_diff(
+    before: dict[str, object], after: dict[str, object], prefix: str = ""
+) -> dict[str, object]:
+    """Each setting that changed, by its dotted name, with the old and the new value.
+
+    A long text, such as a privacy notice, is cut to its first 200 characters: the record
+    says that it changed, not all of what it said.
+    """
+    changed: dict[str, object] = {}
+    for key in sorted({*before, *after}):
+        name = f"{prefix}{key}"
+        old, new = before.get(key), after.get(key)
+        if isinstance(old, dict) and isinstance(new, dict):
+            changed.update(settings_diff(old, new, f"{name}."))
+        elif old != new:
+            changed[name] = {"from": _shown(old), "to": _shown(new)}
+    return changed
+
+
+def _shown(value: object) -> object:
+    return value[:_SHOWN] if isinstance(value, str) else value
+
+
 def merge_settings(current: TenantSettings, patch: dict[str, object]) -> TenantSettings:
     """Deep-merge a partial settings document.
 
