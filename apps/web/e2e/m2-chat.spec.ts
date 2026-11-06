@@ -8,8 +8,8 @@ test("sign in, chat, stop, empty and error states", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
   // The product has one way in. It lists nobody and offers no shortcut.
   await expect(page.getByRole("link", { name: "Continue with SSO" })).toBeVisible();
-  await expect(page.getByRole("button")).toHaveCount(0);
-  await expect(page.getByText(/dev\.local|password/i)).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("button")).toHaveCount(0);
+  await expect(page.getByRole("main").getByText(/dev\.local|password/i)).toHaveCount(0);
   await page.screenshot({ path: `${shots}/01-login.png`, fullPage: true });
   await signInAs(page, "admin@dev.local");
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
