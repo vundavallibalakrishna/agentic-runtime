@@ -101,22 +101,24 @@ async def finish_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     run = store.runs[run_id]
     if run.get("status") in {"completed", "failed", "cancelled"}:
         return {"run_id": str(run_id), "status": str(run["status"])}
-    status = "cancelled" if payload.get("status") == "cancelled" else "failed"
-    run["status"] = status
-    run["ended_at"] = utcnow()
-    conversation = store.conversations[uuid.UUID(str(run["conversation_id"]))]
-    if conversation.get("active_run_id") == run_id:
-        conversation["active_run_id"] = None
-    assistant = store.messages.get(uuid.UUID(str(run["assistant_message_id"])))
-    if isinstance(assistant, dict):
-        assistant["status"] = "cancelled" if status == "cancelled" else "completed"
-    event_data: dict[str, object] = {"by": "user"}
-    if status == "failed":
-        run["error"] = {
-            "code": "internal_error",
-            "message": "The agent could not finish this reply. Please try again.",
-        }
-        event_data = {"error": run["error"]}
-    store._emit(run, f"run.{status}", event_data)
+    if payload.get("status") != "cancelled":
+        from ar_domain.runs.failure import fail_run  # noqa: PLC0415
+
+        fail_run(
+            store,
+            run,
+            code="internal_error",
+            message="The agent could not finish this reply. Please try again.",
+        )
+    else:
+        run["status"] = "cancelled"
+        run["ended_at"] = utcnow()
+        conversation = store.conversations[uuid.UUID(str(run["conversation_id"]))]
+        if conversation.get("active_run_id") == run_id:
+            conversation["active_run_id"] = None
+        assistant = store.messages.get(uuid.UUID(str(run["assistant_message_id"])))
+        if isinstance(assistant, dict):
+            assistant["status"] = "cancelled"
+        store._emit(run, "run.cancelled", {"by": "user"})
     await flush_store(store)
-    return {"run_id": str(run_id), "status": status}
+    return {"run_id": str(run_id), "status": str(run["status"])}

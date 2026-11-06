@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from ar_common.offload import run_sync
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
+from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import budget_exceeded
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
@@ -776,17 +777,7 @@ def _stop_error(
     *,
     code: str = "model_error",
 ) -> None:
-    assistant["text"] = text
-    assistant["content"] = [{"type": "text", "text": text}]
-    assistant["status"] = "completed"
-    run["status"] = "failed"
-    run["ended_at"] = utcnow()
-    run["error"] = {"code": code, "message": text}
-    run["result_summary"] = text
-    conversation = store.conversations.get(run.get("conversation_id"))
-    if isinstance(conversation, dict):
-        conversation["active_run_id"] = None
-    store._emit(run, "run.failed", {"error": run["error"]})
+    fail_run(store, run, code=code, message=text, assistant=assistant)
 
 
 _UNEXPECTED = "Something went wrong while working on this. The run was stopped."

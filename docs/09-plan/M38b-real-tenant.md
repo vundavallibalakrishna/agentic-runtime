@@ -338,7 +338,12 @@ that waits (the first refusal took 4.7 s, now 78 ms).
 
 **Done when:** a failed run is never an empty bubble.
 
-**Tests:** Playwright `m38b-failed-run.spec.ts`.
+**Tests:** `test_m38b_failed_run.py`; `failed-reply.test.tsx`; Playwright `m38b-failed-run.spec.ts`.
+
+**Done (7 Nov 2026).** The cause was on the server: five code paths each ended a failed run by marking the
+reply it was making as completed, with the reason as its text, so the chat drew it as an answer from the
+agent. One function now ends every failure; the reply is marked failed and carries the reason; the chat draws
+it as a failure with **Try again**, after a reload too; and a later turn is not given it as an answer.
 
 ## M38b-T12 What is remembered from a turn is decided by the tenant's model
 
