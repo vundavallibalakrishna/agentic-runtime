@@ -7,7 +7,7 @@ from temporalio.worker import Worker
 
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
-from ar_common.settings import fake_models_allowed, get_settings
+from ar_common.settings import fake_models_allowed, get_settings, loopback_allowed
 from ar_common.temporal_worker import temporal_worker_kwargs
 from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
@@ -37,7 +37,11 @@ async def _prepare_store() -> None:
 
     settings = get_settings()
     demo = fake_models_allowed(settings.env)
-    store = ChatService(allow_loopback=True, fake_models_allowed=demo, tenant_seed=False)
+    store = ChatService(
+        allow_loopback=loopback_allowed(settings.env),
+        fake_models_allowed=demo,
+        tenant_seed=False,
+    )
     store.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
     await attach_store(store, settings.database_url, demo_without_database=demo)
     bind_store(store)

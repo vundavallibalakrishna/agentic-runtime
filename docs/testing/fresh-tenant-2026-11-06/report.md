@@ -96,7 +96,7 @@ Each finding was seen in the run unless it says "read in code".
 | F20 | C | Restarting the API signs everyone out, because sessions are held in process memory (already OQ-59). |
 | F21 | C | With no telemetry collector, every process logs an export failure every few seconds. `durable_memory reason=database_unavailable` is logged when the database is up and the tenant is missing. |
 | F22 | C | The Keycloak admin client read the new id from the response body. Keycloak returns it in the `Location` header, so a created user was never added to its organisation. Nothing called it. **Fixed here** with the seed script. |
-| F23 | B | Read in code on 6 Nov while doing M38b-T03: the runtime, system and ingest workers build their store with `allow_loopback=True` in every environment. The API allows loopback only in dev and CI. Tool calls run in the runtime worker. Planned in M38b-T10. |
+| F23 | B | Read in code on 6 Nov while doing M38b-T03: the runtime, system and ingest workers build their store with `allow_loopback=True` in every environment. The API allows loopback only in dev and CI. Tool calls run in the runtime worker. **Fixed** in M38b-T03a: every process asks one rule. |
 
 ## What was fixed during the run
 

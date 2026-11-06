@@ -78,7 +78,7 @@ from ar_api.routers.widget import router as widget_router
 from ar_api.secrets_runtime import MemorySecretApi
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
 from ar_common.host_ports import listen_port
-from ar_common.settings import BaseServiceSettings, EnvName, fake_models_allowed
+from ar_common.settings import BaseServiceSettings, EnvName, fake_models_allowed, loopback_allowed
 from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatService
@@ -338,7 +338,7 @@ def create_application() -> FastAPI:
     app.state.resolve_principal = _resolve_principal
     app.state.credential_loader = _session_loader(app)
     app.state.chat = ChatService(
-        allow_loopback=settings.env in {EnvName.DEV, EnvName.CI},
+        allow_loopback=loopback_allowed(settings.env),
         scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
         # Read when the store seeds itself, so it is passed here and not set afterwards.
         fake_models_allowed=fake_models_allowed(settings.env),
