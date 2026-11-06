@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m5";
 
@@ -9,7 +10,7 @@ test.setTimeout(120_000);
 
 async function signIn(page: Page, email = "admin@dev.local") {
   await page.goto("/login");
-  await page.getByRole("button", { name: `Sign in as ${email}` }).click();
+  await signInAs(page, `${email}`);
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
 }
 

@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { signInAs } from "./support/sign-in";
 
 async function signIn(page: import("@playwright/test").Page) {
   await page.goto("/login");
-  await page.getByRole("button", { name: "Sign in as admin@dev.local", exact: true }).click();
+  await signInAs(page, "admin@dev.local");
   await expect(page.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "What can we work on?" })).toBeVisible();
 }

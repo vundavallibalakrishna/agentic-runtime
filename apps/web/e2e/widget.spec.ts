@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { SIGN_IN_PATH, signInAs } from "./support/sign-in";
 
 let host: Server;
 let hostOrigin = "";
@@ -42,7 +43,7 @@ window.addEventListener('ar-widget:token-request', async event => { const data =
   const address = host.address();
   if (!address || typeof address === "string") throw new Error("Host server did not start");
   hostOrigin = `http://localhost:${address.port}`;
-  await request.post("/api/v1/auth/dev-login", {
+  await request.post(SIGN_IN_PATH, {
     data: { email: "admin@dev.local" },
     maxRedirects: 0,
   });
@@ -75,7 +76,7 @@ window.addEventListener('ar-widget:token-request', async event => { const data =
 
 test.afterAll(async ({ request }) => {
   if (integrationId) {
-    await request.post("/api/v1/auth/dev-login", {
+    await request.post(SIGN_IN_PATH, {
       data: { email: "admin@dev.local" },
       maxRedirects: 0,
     });
@@ -146,7 +147,7 @@ test("a dropped event stream reloads the same conversation", async ({ page }) =>
 
 test("an administrator can configure a portal from the channel form", async ({ page }) => {
   await page.goto("/login");
-  await page.getByRole("button", { name: "Sign in as admin@dev.local" }).click();
+  await signInAs(page, "admin@dev.local");
   await page.goto("/admin/channels");
   await page.getByLabel("Name", { exact: true }).fill("Portal setup review");
   await page.getByLabel("Kind", { exact: true }).selectOption("widget");

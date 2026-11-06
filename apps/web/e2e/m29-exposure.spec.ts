@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m29";
 
@@ -11,9 +12,8 @@ test.setTimeout(180_000);
 
 async function signIn(page: Page) {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  const button = page.getByRole("button", { name: "Sign in as admin@dev.local" });
-  await expect(button).toBeVisible();
-  await Promise.all([page.waitForURL(/\/chat/, { timeout: 30_000 }), button.click()]);
+  await signInAs(page, "admin@dev.local");
+  await page.waitForURL(/\/chat/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Chat", exact: true })).toBeVisible();
 }
 
