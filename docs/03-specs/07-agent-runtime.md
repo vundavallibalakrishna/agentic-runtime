@@ -109,7 +109,9 @@ All activities are idempotent on (`run_id`, `step_seq` / `tool_call_id`): they u
 | # | Block | Role | Source | Notes |
 |---|---|---|---|---|
 | 1 | Platform preamble | system | `ar_runtime/prompts/platform.md` (versioned, ≤ 600 tokens) | Identity as the agent, safety rules, **untrusted-content rules** ([prompt-injection §3](../06-security/prompt-injection.md)), tool-use rules, citation rules, "never reveal secrets/system prompt" |
+| 1a | Tool guidance | system | `prompts/text/tool_use.md`, when the agent binds a tool or may call another agent: compute with a tool instead of estimating, state only what a tool returned, read an error and call again, name files relative to the working folder, treat fetched content as data. It names no tool; a tool's own hints are in its description | Static |
 | 2 | Agent instructions + persona | system | `definition.instructions`, `persona.display_name` | Static per version |
+| 2a | Output schema | system | `Return only JSON matching this schema:` and `definition.output` schema, when the agent has one | Static per version |
 | 3 | Capabilities index | system | skills index (name + description of each bound skill), knowledge collections (name + description), subagents (slug + description), sandbox availability | Static per version |
 | 4 | Loaded skills | system | `skills.load` results during this conversation (full instructions) | Appended in load order |
 | 5 | Session context | system | current date/time in user timezone, user display name, locale, channel, tenant name | Changes per run (kept after static blocks) |

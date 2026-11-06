@@ -2,8 +2,11 @@
 
 from dataclasses import dataclass
 
+import orjson
+
 from ar_common.wrapping import wrap_documents, wrap_untrusted
 from ar_domain.prompts.budget import estimate_tokens, prompt_hash, read_prompt, truncate_history
+from ar_domain.tools.structured import output_schema
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,7 +31,9 @@ def build_prompt(run: dict[str, object]) -> PromptBundle:
     session = raw_session if isinstance(raw_session, dict) else {}
     blocks = [
         read_prompt("platform.md"),
+        read_prompt("tool_use.md") if uses_tools(definition) else "",
         f"You are {display}.\n\n{instructions}".strip(),
+        output_block(definition),
         str(run.get("capabilities") or ""),
         str(run.get("skills") or ""),
         _session(session),
@@ -57,6 +62,24 @@ def build_prompt(run: dict[str, object]) -> PromptBundle:
         estimated_tokens=sum(estimate_tokens(item["content"]) for item in messages),
         prompt_hash=digest,
     )
+
+
+def uses_tools(definition: dict[str, object]) -> bool:
+    """True when the agent can call something: a bound tool or another agent."""
+    if definition.get("tools"):
+        return True
+    subagents = definition.get("subagents")
+    if not isinstance(subagents, dict):
+        return False
+    return bool(subagents.get("allowed")) or subagents.get("allow_self_clone") is True
+
+
+def output_block(definition: dict[str, object]) -> str:
+    """The instruction to answer in the agent's output schema. Empty when it has none."""
+    schema = output_schema(definition)
+    if not schema:
+        return ""
+    return f"Return only JSON matching this schema:\n{orjson.dumps(schema).decode()}"
 
 
 def with_attachments(text: str, lines: str) -> str:

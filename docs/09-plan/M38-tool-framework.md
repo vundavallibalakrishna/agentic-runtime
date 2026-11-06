@@ -100,6 +100,12 @@ when the agent has tools and an output-schema block when the definition has one.
 
 **Tests:** `test_m38_prompt_guidance.py`.
 
+**Done (7 Nov 2026).** T04 was not needed for it. The guidance is one file that names no tool; a tool's own
+hints were already in its description. It adds two rules the live run showed were missing: compute with a
+tool instead of working a sum out, and state only what a tool returned. On the live tenant the question
+"how many units does the CSV hold" was answered 75 for 80 before, and 80 in three runs of three after, each
+by running code (F54).
+
 ## M38-T06 Honest errors for bad model output
 
 **Depends on:** T04.

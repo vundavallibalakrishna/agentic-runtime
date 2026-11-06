@@ -212,6 +212,7 @@ def test_grounding_records_a_skill_and_citation_cards() -> None:
         }
     )
     assert cards[0]["type"] == "citation_ref"
-    assert opening_messages({"prompt_messages": []}, "Help.", "Hi", "guide")[0]["role"] == "system"
+    opened = opening_messages({"prompt_messages": []}, {"instructions": "Help."}, "Hi")
+    assert [item["role"] for item in opened] == ["system", "user"]
     asyncio.run(ground_run(store, {"id": uuid.uuid4()}, "Hello"))
     assert imported["slug"] == "weekly-status"
