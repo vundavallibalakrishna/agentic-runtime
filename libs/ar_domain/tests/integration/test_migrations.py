@@ -48,6 +48,58 @@ def test_downgrade_and_upgrade(migrated: str) -> None:
     assert len(heads) == 1
 
 
+async def test_bootstrap_creates_only_the_tenant_and_its_admin(migrated: str) -> None:
+    """A new install gets a tenant and an admin: no model, no agent, no example rows."""
+    from ar_common.settings import BaseServiceSettings, set_settings
+    from ar_domain.bootstrap import bootstrap
+    from ar_domain.db.engine import dispose_engines, get_engine
+
+    os.environ["AR_DATABASE_URL"] = migrated
+    os.environ["AR_PG_HOST_PORT"] = str(make_url(migrated).port or 5432)
+    set_settings(BaseServiceSettings(_env_file=None))
+    for _ in range(2):
+        slug = await bootstrap(
+            slug="acme", name="Acme", admin_email="Ada@Acme.Example", admin_name="Ada Lovelace"
+        )
+        assert slug == "acme"
+    counts: dict[str, object] = {}
+    async with get_engine(migrated).connect() as connection:
+        for table in ("tenants", "users", "role_assignments", "model_providers", "agents"):
+            counts[table] = await connection.scalar(text(f"SELECT count(*) FROM {table}"))  # noqa: S608 - fixed names
+        person = (
+            await connection.execute(
+                text(
+                    "SELECT t.slug, p.key, u.email, u.display_name, u.status, r.key "
+                    "FROM users u JOIN tenants t ON t.id = u.tenant_id "
+                    "JOIN plans p ON p.id = t.plan_id "
+                    "JOIN role_assignments a ON a.principal_id = u.id "
+                    "JOIN roles r ON r.id = a.role_id"
+                )
+            )
+        ).one()
+    assert counts == {
+        "tenants": 1,
+        "users": 1,
+        "role_assignments": 1,
+        "model_providers": 0,
+        "agents": 0,
+    }
+    assert tuple(person) == (
+        "acme",
+        "self_hosted",
+        "ada@acme.example",
+        "Ada Lovelace",
+        "active",
+        "tenant_admin",
+    )
+    engine = get_engine(migrated)
+    async with engine.begin() as connection:
+        await connection.execute(text("DELETE FROM tenants WHERE slug = 'acme'"))
+    # The cached engine belongs to this test's event loop; the next test opens its own.
+    await engine.dispose()
+    dispose_engines()
+
+
 async def test_retired_pack_schema_drops_and_stays_gone(migrated: str) -> None:
     """Revision 0031 removes a pack schema that already exists, and is a no-op without one."""
     from sqlalchemy.ext.asyncio import create_async_engine

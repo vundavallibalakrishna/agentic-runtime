@@ -4,23 +4,28 @@ import asyncio
 import uuid
 from typing import Any
 
+import pytest
+
 from ar_domain.identity.mail import send_email
 from ar_domain.identity.seed import apply, ensure_admin, plan_limits
 from ar_testing.factories import tenant_factory, user_factory
 from ar_testing.tenancy import fill_path, paths_with_ids
 
 
-class _Plan:
+class _Row:
     id = uuid.uuid4()
 
 
 class _Session:
-    def __init__(self, *, plan_on_call: int | None = None) -> None:
+    """Answers ``scalar`` with a row on the listed calls and with nothing on the others."""
+
+    def __init__(self, *, found_on_calls: frozenset[int] = frozenset()) -> None:
         self.calls = 0
-        self.plan_on_call = plan_on_call
+        self.found_on_calls = found_on_calls
+        self.added: list[object] = []
 
     def add(self, row: object) -> None:
-        del row
+        self.added.append(row)
 
     async def flush(self) -> None:
         return None
@@ -28,8 +33,8 @@ class _Session:
     async def scalar(self, statement: object) -> object | None:
         del statement
         self.calls += 1
-        if self.plan_on_call == self.calls:
-            return _Plan()
+        if self.calls in self.found_on_calls:
+            return _Row()
         return None
 
 
@@ -47,16 +52,44 @@ def test_plan_limits_cover_each_catalogue_key() -> None:
 def test_seed_inserts_when_the_catalogue_is_empty() -> None:
     session = _Session()
     tenant_id = asyncio.run(apply(session))  # type: ignore[arg-type]
+    assert tenant_id
+
+
+def test_ensure_admin_adds_the_tenant_the_person_and_the_admin_role() -> None:
+    # Calls: tenant (missing), plan (found), user (missing), role (found), assignment (missing).
+    session = _Session(found_on_calls=frozenset({2, 4}))
     slug = asyncio.run(
         ensure_admin(
-            _Session(plan_on_call=2),  # type: ignore[arg-type]
+            session,  # type: ignore[arg-type]
             slug="acme",
             name="Acme",
-            email="a@b.c",
+            email="Ada@Acme.Example",
+            display_name="Ada Lovelace",
         )
     )
-    assert tenant_id
     assert slug == "acme"
+    kinds = [type(row).__name__ for row in session.added]
+    assert kinds == ["Tenant", "User", "RoleAssignment"]
+    user = session.added[1]
+    assert user.email == "ada@acme.example"  # type: ignore[attr-defined]
+    assert user.display_name == "Ada Lovelace"  # type: ignore[attr-defined]
+
+
+def test_ensure_admin_refuses_an_install_without_the_catalogue() -> None:
+    """An admin without the admin role is a broken install, so nothing is half-made."""
+    with pytest.raises(RuntimeError, match="self_hosted"):
+        asyncio.run(
+            ensure_admin(_Session(), slug="acme", name="Acme", email="a@b.c")  # type: ignore[arg-type]
+        )
+    with pytest.raises(RuntimeError, match="tenant_admin"):
+        asyncio.run(
+            ensure_admin(
+                _Session(found_on_calls=frozenset({2})),  # type: ignore[arg-type]
+                slug="acme",
+                name="Acme",
+                email="a@b.c",
+            )
+        )
 
 
 def test_factories_and_path_helper() -> None:

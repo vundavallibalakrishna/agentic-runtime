@@ -120,6 +120,12 @@ async def ensure_everyone_team(
     )
 
 
+async def apply_catalogue(session: AsyncSession) -> None:
+    """Insert the plans and system roles every install needs. Safe to run twice."""
+    await _plans(session)
+    await _roles(session)
+
+
 async def apply(session: AsyncSession) -> uuid.UUID:
     """Insert catalogue rows and the dev tenant. Safe to run twice."""
     plans = await _plans(session)
@@ -247,55 +253,60 @@ async def ensure_admin(
     slug: str,
     name: str,
     email: str,
+    display_name: str | None = None,
 ) -> str:
-    """Create a tenant and tenant-admin user when they are missing."""
+    """Create a tenant on plan ``self_hosted`` and its tenant-admin user when they are missing."""
     tenant = await session.scalar(select(Tenant).where(Tenant.slug == slug))
     if tenant is None:
-        plan = await session.scalar(select(Plan).where(Plan.key == "enterprise"))
+        plan = await session.scalar(select(Plan).where(Plan.key == "self_hosted"))
         if plan is None:
-            raise RuntimeError("enterprise plan is missing; run the seed")
+            raise RuntimeError("plan self_hosted is missing; apply the catalogue first")
         tenant = Tenant(
             id=new_id(),
             slug=slug,
             name=name,
+            status="active",
             plan_id=plan.id,
             settings=TenantSettings().model_dump(by_alias=False),
         )
         session.add(tenant)
         await session.flush()
+    address = email.strip().lower()
     user = await session.scalar(
-        select(User).where(User.tenant_id == tenant.id, User.email == email)
+        select(User).where(User.tenant_id == tenant.id, User.email == address)
     )
     if user is None:
         user = User(
             id=new_id(),
             tenant_id=tenant.id,
-            idp_subject=email,
-            email=email,
-            display_name=email.split("@", 1)[0],
+            idp_subject=address,
+            email=address,
+            display_name=display_name or address.split("@", 1)[0],
+            status="active",
         )
         session.add(user)
         await session.flush()
     role = await session.scalar(
         select(Role).where(Role.key == "tenant_admin", Role.tenant_id.is_(None))
     )
-    if role is not None:
-        existing = await session.scalar(
-            select(RoleAssignment).where(
-                RoleAssignment.tenant_id == tenant.id,
-                RoleAssignment.principal_id == user.id,
-                RoleAssignment.role_id == role.id,
+    if role is None:
+        raise RuntimeError("role tenant_admin is missing; apply the catalogue first")
+    existing = await session.scalar(
+        select(RoleAssignment).where(
+            RoleAssignment.tenant_id == tenant.id,
+            RoleAssignment.principal_id == user.id,
+            RoleAssignment.role_id == role.id,
+        )
+    )
+    if existing is None:
+        session.add(
+            RoleAssignment(
+                id=new_id(),
+                tenant_id=tenant.id,
+                role_id=role.id,
+                principal_type="user",
+                principal_id=user.id,
+                scope_type="tenant",
             )
         )
-        if existing is None:
-            session.add(
-                RoleAssignment(
-                    id=new_id(),
-                    tenant_id=tenant.id,
-                    role_id=role.id,
-                    principal_type="user",
-                    principal_id=user.id,
-                    scope_type="tenant",
-                )
-            )
     return slug
