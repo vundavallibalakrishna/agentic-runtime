@@ -12,6 +12,7 @@ import time
 import uuid
 from typing import TYPE_CHECKING
 
+from ar_common.offload import run_sync
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.runs.logic import budget_exceeded
@@ -299,7 +300,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     _finish(store, run, assistant, str(outcome.get("answer") or ""), previews)
                     return True
             else:
-                outcome = _act(
+                # The handler runs here, on the loop thread, and the loop goes on while
+                # it waits for a network call or a command (ar_common.offload).
+                outcome = await run_sync(
+                    _act,
                     store,
                     run,
                     assistant,
@@ -307,6 +311,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     by_name,
                     used_calls,
                     retry=consecutive_errors > 0,
+                    limit_s=_time_left(limits, started),
                 )
             if outcome is None:
                 return True
@@ -494,6 +499,11 @@ def _wire_calls(calls: list[object]) -> list[dict[str, object]]:
             }
         )
     return wired
+
+
+def _time_left(limits: dict[str, int], started: float) -> float:
+    """Seconds of the run's wall clock a tool call may still use, and never under one."""
+    return max(1.0, limits["max_wall_clock_s"] - (time.monotonic() - started))
 
 
 def _over(  # noqa: PLR0917

@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 import httpx
 import orjson
 
+from ar_common.offload import blocking
 from ar_domain.tools.http_tools import guard_public
 
 if TYPE_CHECKING:
@@ -265,7 +266,7 @@ def _once(  # noqa: PLR0917
                 request_kwargs["params"] = {key: str(value) for key, value in params.items()}
             if body is not None:
                 request_kwargs["json"] = body
-            response = client.request(method, url, **request_kwargs)  # type: ignore[arg-type]
+            response = blocking(client.request, method, url, **request_kwargs)
     except httpx.HTTPError:
         return (
             0,

@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 import httpx
 
+from ar_common.offload import blocking
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -92,7 +94,8 @@ class BraveSearch:
         self._key = key
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
-        response = httpx.get(
+        response = blocking(
+            httpx.get,
             "https://api.search.brave.com/res/v1/web/search",
             params={"q": query, "count": max(1, min(limit, 10))},
             headers={"X-Subscription-Token": self._key, "Accept": "application/json"},
@@ -112,7 +115,8 @@ class TavilySearch:
         self._key = key
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
-        response = httpx.post(
+        response = blocking(
+            httpx.post,
             "https://api.tavily.com/search",
             json={
                 "api_key": self._key,

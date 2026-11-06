@@ -24,6 +24,7 @@ import httpx
 
 from ar_common.ids import new_id
 from ar_common.isolate import IsolatedRun, isolation_mode, run_isolated
+from ar_common.offload import blocking
 from ar_common.sandboxkit import (
     DEFAULT_DENY_CIDRS,
     PathEscapeError,
@@ -95,7 +96,8 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     path = root / "workspace" / "_agent.py"
     path.write_text(showing_last_value(source), encoding="utf-8")
     before = _stamp(root)
-    result = run_isolated(
+    result = blocking(
+        run_isolated,
         root,
         [sys.executable, "-I", _guest_path(root, "_agent.py")],
         timeout=_as_limit(limits["timeout_s"]),
@@ -122,7 +124,8 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     (root / "workspace" / "_agent.sh").write_text(command, encoding="utf-8")
     before = _stamp(root)
     shell = "/bin/bash" if Path("/bin/bash").exists() else "/usr/bin/bash"
-    result = run_isolated(
+    result = blocking(
+        run_isolated,
         root,
         [shell, _guest_path(root, "_agent.sh")],
         timeout=_as_limit(limits["timeout_s"]),
@@ -707,7 +710,7 @@ def _pause(store: Any, delay: float) -> None:
     if callable(sleeper):
         sleeper(delay)
         return
-    time.sleep(delay)
+    blocking(time.sleep, delay)
 
 
 def _send(
@@ -745,7 +748,7 @@ def _send(
         query = urlencode({str(key): str(value) for key, value in params.items()})
         url = url + ("&" if "?" in url else "?") + query
     with httpx.Client(timeout=float(timeout), follow_redirects=False) as client:
-        return client.request(method, url, headers=headers, json=body, data=data)
+        return blocking(client.request, method, url, headers=headers, json=body, data=data)
 
 
 def _auth_headers(  # noqa: PLR0911

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ar_common.errors import ArError, ErrorCode
+from ar_common.offload import blocking
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -117,7 +118,8 @@ def embed(
     try:
         with httpx.Client(timeout=_timeout(target)) as http:
             for start in range(0, len(rows), _BATCH):
-                response = http.post(
+                response = blocking(
+                    http.post,
                     f"{target.base_url}/embeddings",
                     json={**payload, "input": rows[start : start + _BATCH]},
                     headers=_headers(target),
@@ -163,7 +165,7 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
             for url, payload in attempts:
                 if not url:
                     continue
-                response = http.post(url, json=payload, headers=_headers(target))
+                response = blocking(http.post, url, json=payload, headers=_headers(target))
                 if response.status_code == httpx.codes.NOT_FOUND:
                     continue
                 response.raise_for_status()

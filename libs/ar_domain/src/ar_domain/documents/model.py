@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from ar_common.offload import blocking
+
 if TYPE_CHECKING:
     import uuid
 
@@ -43,7 +45,7 @@ def ask_model(store: Any, tenant_id: uuid.UUID, alias: str, task: str, evidence:
     apply_request_options(body, options)
     try:
         with httpx.Client(timeout=timeout_s) as client:
-            response = client.post(url, json=body, headers=headers)
+            response = blocking(client.post, url, json=body, headers=headers)
     except httpx.HTTPError:
         return None
     if response.status_code >= 300:

@@ -25,6 +25,7 @@ import orjson
 from ar_common.errors import ArError
 from ar_common.http import assert_public_url
 from ar_common.isolate import run_isolated
+from ar_common.offload import blocking
 from ar_domain.tools.logic import name_ok, propose_risk
 
 if TYPE_CHECKING:
@@ -314,7 +315,7 @@ def _post_once(
     transport = getattr(store, "mcp_transport", None)
     try:
         with httpx.Client(transport=transport, timeout=timeout) as client:
-            response = client.post(url, json=body, headers=headers)
+            response = blocking(client.post, url, json=body, headers=headers)
             response.raise_for_status()
             response_headers = {key.lower(): value for key, value in response.headers.items()}
             if response.status_code in {202, 204} or not response.content:
@@ -372,7 +373,7 @@ def _sse(
     thread = threading.Thread(target=_read, daemon=True)
     thread.start()
     try:
-        event, data = found.get(timeout=timeout)
+        event, data = blocking(found.get, timeout=timeout)
     except queue.Empty as exc:
         raise RemoteError("the remote server did not answer") from exc
     if event == "error":
@@ -406,7 +407,7 @@ def _sse(
     if posted.get("result") is not None or posted.get("error") is not None:
         return posted
     try:
-        event, data = found.get(timeout=timeout)
+        event, data = blocking(found.get, timeout=timeout)
     except queue.Empty as exc:
         raise RemoteError("the remote server did not answer") from exc
     loaded = _json_from_sse(f"event: {event}\ndata: {data}\n\n", expected=body.get("id"))
@@ -438,7 +439,8 @@ def _stdio(
         _frame(body),
     ]
     try:
-        result = run_isolated(
+        result = blocking(
+            run_isolated,
             root,
             argv,
             timeout=max(1, timeout),

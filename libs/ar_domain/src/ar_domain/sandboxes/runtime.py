@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 from ar_common.ids import new_id
+from ar_common.offload import blocking
 from ar_common.sandboxkit import (
     DEFAULT_DENY_CIDRS,
     PathEscapeError,
@@ -372,7 +373,9 @@ def _exec(
     env["SANDBOX_WORKSPACE"] = str(root / "workspace")
     before = _output_stamp(root)
     try:
-        code, stdout, stderr, truncated = _popen(command, cwd=cwd, env=env, timeout=timeout)
+        code, stdout, stderr, truncated = blocking(
+            _popen, command, cwd=cwd, env=env, timeout=timeout
+        )
     except PathEscapeError as exc:
         return _error("validation_failed", str(exc))
     new_files = _new_outputs(root, before)

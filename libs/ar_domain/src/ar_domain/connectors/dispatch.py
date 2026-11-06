@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ar_common.errors import ArError, ErrorCode
+from ar_common.offload import blocking
 from ar_domain.connectors.catalog import CONNECTORS, ToolDef, connector_by_slug, tool_by_name
 from ar_domain.connectors.http import probe_http, rate_limited, run_http
 from ar_domain.tools.service_connections import account_for
@@ -385,7 +386,7 @@ def _gdrive_upload(
         kwargs["transport"] = transport
     try:
         with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
-            response = client.post(url, headers=request_headers, content=payload)
+            response = blocking(client.post, url, headers=request_headers, content=payload)
     except httpx.HTTPError:
         return _fail("upstream_error", "The provider did not answer. Check the host and try again.")
     if response.status_code >= 400:
@@ -416,7 +417,8 @@ def _share_upload(
         kwargs["transport"] = transport
     try:
         with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
-            response = client.put(
+            response = blocking(
+                client.put,
                 url,
                 headers={**headers, "Content-Type": "text/plain"},
                 content=text.encode(),

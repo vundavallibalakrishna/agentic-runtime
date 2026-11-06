@@ -114,6 +114,7 @@ module = [
     "jmespath.*",
     "croniter.*",
     "aioimaplib.*",
+    "greenlet.*",
 ]
 ignore_missing_imports = true
 

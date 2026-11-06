@@ -150,6 +150,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_TOKEN_CACHE_KEY",
         "AR_TOOL_DRIFT_INTERVAL",
         "AR_TOOL_RESULT_MAX_FILE_BYTES",
+        "AR_TOOL_WORKER_THREADS",
         "AR_TRACE_SAMPLE_RATIO",
         "AR_TSA_TIMEOUT_MS",
         "AR_TSA_URL",
