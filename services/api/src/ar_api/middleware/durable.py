@@ -6,7 +6,6 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
-from ar_common.settings import EnvName
 
 _log = get_logger(__name__)
 _PROBE_PATHS = frozenset({"/healthz", "/readyz", "/metrics"})
@@ -85,15 +84,10 @@ async def _bind_once(scope: Scope) -> bool:
         # Migrated, but no tenant has been seeded. Nobody can sign in until one is.
         return False
     if binding is None:
-        if getattr(settings, "env", None) not in {EnvName.DEV, EnvName.CI}:
-            # A deployed API without its database serves nobody. It tries again.
-            _log.warning("durable_database_unavailable")
-            return False
-        # A laptop without Docker and the browser tests run on the demo tenant (OQ-31).
-        _log.info("durable_memory", reason="database_unavailable")
-        chat.seed_demo_tenant()
-        chat.seed_showcase()
-        return True
+        # An API without its database serves nobody, in any environment. It tries again
+        # on the next request. It never falls back to a demo tenant.
+        _log.warning("durable_database_unavailable")
+        return False
     await _attach_temporal(chat, settings)
     from ar_api.plugins import attach_packs  # noqa: PLC0415
 

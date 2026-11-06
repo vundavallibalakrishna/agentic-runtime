@@ -53,13 +53,26 @@ async def test_a_worker_with_a_database_holds_no_demo_tenant(
     assert ("control.checkpoint" in names) is (env is EnvName.DEV)
 
 
-async def test_a_dev_worker_without_a_database_gets_the_demo_tenant(
+async def test_a_worker_without_a_database_waits_and_gets_no_demo_tenant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Task: M38b-T04b. No process falls back to a demo tenant, in any environment."""
+    found = TenantBinding(SimpleNamespace(), "acme", "Acme", "self_hosted", {})  # type: ignore[arg-type]
+    answers: list[object] = [None, None, found]
     built = _prepare(monkeypatch, EnvName.DEV, None)
+
+    async def bind(store: object, url: str) -> object:
+        del store, url
+        return answers.pop(0)
+
+    async def no_pause(seconds: float) -> None:
+        del seconds
+
+    monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind)
+    monkeypatch.setattr("ar_domain.durable.bind.asyncio.sleep", no_pause)
 
     await worker._prepare_store()
 
-    store = built[0]
-    assert {str(row["slug"]) for row in store.agents.values()} >= {"assistant", "builder"}
-    assert "petstore" in {str(row["slug"]) for row in store.tool_servers.values()}
+    assert answers == []
+    assert built[0].agents == {}
+    assert built[0].demo_tenant_seeded is False

@@ -28,13 +28,12 @@ async def _prepare_store() -> None:
     from ar_system.workflows.sandbox_reaper import bind_store as bind_sandboxes  # noqa: PLC0415
 
     settings = get_settings()
-    demo = fake_models_allowed(settings.env)
     store = ChatService(
         allow_loopback=loopback_allowed(settings.env),
-        fake_models_allowed=demo,
+        fake_models_allowed=fake_models_allowed(settings.env),
         tenant_seed=False,
     )
-    await attach_store(store, settings.database_url, demo_without_database=demo)
+    await attach_store(store, settings.database_url)
     bind_routines(store)
     bind_memory(store)
     bind_sandboxes(store)
