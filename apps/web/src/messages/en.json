@@ -239,7 +239,8 @@
     "sync": "Sync now",
     "status": "Status",
     "hidden": "hidden from you",
-    "listTitle": "Collections"
+    "listTitle": "Collections",
+    "closeness": "{percent}% close to the question"
   },
   "computer": {
     "title": "Computer",
@@ -394,6 +395,14 @@
     "priceHint": "In the tenant currency. Usage and quotas price every model call with these numbers. Leave empty to track tokens only.",
     "dimensions": "Vector length",
     "dimensionsHint": "Leave empty to take the model's own length. Set it only for a model that can shorten its vectors.",
+    "rerankPath": "Rerank path",
+    "rerankPathHint": "Under the provider's address, or a full URL. The usual path is /rerank.",
+    "rerankBody": "Request body",
+    "rerankBodyHint": "How the provider wants the request shaped.",
+    "rerankBodyQuery": "model, query and documents",
+    "rerankBodyQueries": "queries and documents",
+    "rerankFloor": "Lowest score that counts",
+    "rerankFloorHint": "From 0 to 1. A passage scored under it does not answer the question. Each model scores on its own scale; 0.2 suits most.",
     "dimensionsBadge": "{count} numbers",
     "aliasesTitle": "Other aliases",
     "aliasesBody": "Names of your own that an agent can ask for, beside the ones the product uses.",

@@ -381,6 +381,9 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
                         {hit.rerankScore === undefined || hit.rerankScore === null
                           ? null
                           : Number(hit.rerankScore).toFixed(2)}
+                        {!scored && typeof hit.similarity === "number"
+                          ? t("closeness", { percent: Math.round(hit.similarity * 100) })
+                          : null}
                       </p>
                     </li>
                   ))}

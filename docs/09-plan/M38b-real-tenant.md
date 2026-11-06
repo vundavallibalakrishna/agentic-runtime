@@ -217,10 +217,14 @@ F29. One pull request for each part:
   the "Local fake" kind is gone. One model can be tested by itself. What an alias sends by default is a
   setting, and only a chat alias starts with a temperature. Whether a model can read images is a setting of
   the model; the image tool no longer guesses it from vendor model names.
-- **T07d** Memory embeds its facts again by itself after the embedding model changes (today it is
-  `scripts/reembed_memory.py`, OQ-102). A knowledge search with no rerank model shows how close each
-  passage is, which needs the similarity from each retrieval backend. The rerank route becomes a setting
-  of the model, in place of the one vendor-shaped address the call still tries.
+- **T07d** (done) Memory embeds its facts again by itself after the `embed` alias moves, beside the
+  request that moved it; `scripts/reembed_memory.py` remains for a model that was down (OQ-102). A
+  knowledge search with no rerank model shows how close each passage is: the dense search of each
+  backend carries the cosine similarity on the hit, and the Knowledge screen shows it as a percentage.
+  Where a rerank model is called, how the body is shaped and the lowest score that counts are the
+  model's own settings (`requestOptions.rerank {path, body, min_score}`, Advanced mode); the
+  vendor-shaped address the call tried is gone, and so are the bars written into the code, which
+  dropped the right passage with every reranker the live provider hosts (F65).
 
 **Done when:** an admin configures a chat model and an embedding model on an empty tenant using only the
 screen, and a collection states the model that indexed it.

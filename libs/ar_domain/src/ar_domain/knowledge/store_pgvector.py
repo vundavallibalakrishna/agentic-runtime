@@ -235,6 +235,7 @@ class PgVectorStore:
                 score=float(row["score"]),
                 dense_rank=None if row["dense_rank"] is None else int(row["dense_rank"]),
                 lexical_rank=None if row["lexical_rank"] is None else int(row["lexical_rank"]),
+                similarity=(None if row.get("similarity") is None else float(row["similarity"])),
             )
             for row in mappings
         ]
@@ -314,8 +315,10 @@ _HYBRID_SQL = """
 WITH targets(collection_id, index_version) AS (
   SELECT * FROM unnest(CAST(:collection_ids AS uuid[]), CAST(:index_versions AS int[]))
 ), dense AS (
-  SELECT chunk_id, row_number() OVER () AS rank FROM (
-    SELECT ce.chunk_id FROM chunk_embeddings ce
+  SELECT chunk_id, similarity, row_number() OVER () AS rank FROM (
+    SELECT ce.chunk_id,
+           1 - (ce.embedding::halfvec(__DIMS__) <=> CAST(:q AS halfvec(__DIMS__))) AS similarity
+    FROM chunk_embeddings ce
     JOIN targets t USING (collection_id, index_version)
     WHERE ce.dims = __DIMS__ AND ce.tenant_id = :tenant_id
       AND ce.acl && CAST(:principals AS text[])
@@ -336,7 +339,7 @@ WITH targets(collection_id, index_version) AS (
 )
 SELECT ce.chunk_id, ce.document_id, ce.collection_id,
        COALESCE(1.0 / (:rrf_k + d.rank), 0) + COALESCE(1.0 / (:rrf_k + l.rank), 0) AS score,
-       d.rank AS dense_rank, l.rank AS lexical_rank
+       d.rank AS dense_rank, l.rank AS lexical_rank, d.similarity AS similarity
 FROM dense d
 FULL JOIN lexical l USING (chunk_id)
 JOIN chunk_embeddings ce USING (chunk_id)

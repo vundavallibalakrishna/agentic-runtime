@@ -485,3 +485,190 @@ def test_no_test_replaces_a_clock_function_for_every_thread() -> None:
                 if replaced.search(line) and "in_this_thread(" not in line:
                     found.append(f"{path.relative_to(ROOT)}:{number}")
     assert found == []
+
+
+# --- M38b-T07d: the rerank route is the model's setting, closeness is shown, memory re-embeds
+
+
+def test_the_rerank_route_is_the_models_own_setting() -> None:
+    from ar_domain.models.embedding import (
+        DEFAULT_RERANK_FLOOR,
+        ModelTarget,
+        rerank_floor,
+        rerank_route,
+    )
+
+    def target(options: dict[str, object] | None = None) -> ModelTarget:
+        return ModelTarget(
+            model_id=uuid.uuid4(),
+            name="vendor/rerank-1",
+            label="Rerank",
+            base_url=BASE,
+            api_key="k-1",
+            timeout_s=5.0,
+            dimensions=None,
+            request_options=options or {},
+        )
+
+    # Nothing set: a ``/rerank`` path under the provider's address, the usual body.
+    assert rerank_route(target()) == (f"{BASE}/rerank", "query")
+    # A path of the customer's choosing, with or without its slash.
+    assert rerank_route(target({"rerank": {"path": "v2/score"}})) == (f"{BASE}/v2/score", "query")
+    assert rerank_route(target({"rerank": {"path": "/v2/score"}})) == (f"{BASE}/v2/score", "query")
+    # A whole address, when the rerank endpoint lives elsewhere than the provider.
+    elsewhere = {"rerank": {"path": "https://score.example/run", "body": "queries"}}
+    assert rerank_route(target(elsewhere)) == ("https://score.example/run", "queries")
+    # The body shape is one of the two; anything else is the usual one.
+    assert rerank_route(target({"rerank": {"body": "queries"}}))[1] == "queries"
+    assert rerank_route(target({"rerank": {"body": "odd"}}))[1] == "query"
+    assert rerank_route(target({"rerank": "not a section"})) == (f"{BASE}/rerank", "query")
+    # The bar a passage's score must clear is the model's too; unset, the product's default.
+    assert rerank_floor(None) == DEFAULT_RERANK_FLOOR == 0.2
+    assert rerank_floor(target()) == 0.2
+    assert rerank_floor(target({"rerank": {"min_score": 0.02}})) == 0.02
+    assert rerank_floor(target({"rerank": {"min_score": 0}})) == 0.0
+    assert rerank_floor(target({"rerank": {"min_score": 7}})) == 0.2
+    assert rerank_floor(target({"rerank": {"min_score": "low"}})) == 0.2
+
+
+def test_a_rerank_model_is_called_on_the_route_it_is_registered_with() -> None:
+    from ar_domain.models.embedding import rerank
+
+    store = demo_store()
+    model_id = _register(store, "vendor/rerank-2", alias="rerank", kind="rerank")
+    store.update_model(
+        TENANT,
+        model_id,
+        platform=False,
+        request_options={"rerank": {"path": "/inference/vendor/rerank-2", "body": "queries"}},
+    )
+    target = rerank_model(store, TENANT)
+    assert target is not None
+    with respx.mock:
+        route = respx.post(f"{BASE}/inference/vendor/rerank-2").mock(
+            return_value=httpx.Response(200, json={"scores": [0.9, 0.1]})
+        )
+        scores = rerank(target, "desk opens", ["Reception opens at 08:30.", "Lunch is at noon."])
+    assert scores == [0.9, 0.1]
+    body = orjson.loads(route.calls[0].request.content)
+    assert body == {
+        "queries": ["desk opens"],
+        "documents": ["Reception opens at 08:30.", "Lunch is at noon."],
+    }
+
+
+def test_fused_passages_carry_how_close_they_are_to_the_question() -> None:
+    from ar_domain.knowledge.store import rrf_fuse
+
+    a, b, c = (str(uuid.uuid4()) for _ in range(3))
+    rows = {key: (str(uuid.uuid4()), str(uuid.uuid4())) for key in (a, b, c)}
+    fused = rrf_fuse([(a, 1, 0.91), (b, 2, 0.72)], [(c, 1)], rows, rrf_k=60, fused_k=10)
+    by_id = {str(chunk.chunk_id): chunk for chunk in fused}
+    assert by_id[a].similarity == pytest.approx(0.91)
+    assert by_id[b].similarity == pytest.approx(0.72)
+    # A passage found only by its words has no similarity to report.
+    assert by_id[c].similarity is None
+    # Dense entries without a similarity still fuse as before.
+    plain = rrf_fuse([(a, 1)], [(c, 1)], rows, rrf_k=60, fused_k=10)
+    assert all(chunk.similarity is None for chunk in plain)
+
+
+def test_an_unscored_search_says_how_close_each_passage_is() -> None:
+    store = demo_store()
+    for alias_id in [key for key, row in store.aliases.items() if row.get("alias") == "rerank"]:
+        del store.aliases[alias_id]
+    actor = _actor()
+    book = KnowledgeBook(store)
+    created = book.create_collection(actor, {"slug": "desk", "name": "Desk"})
+    collection_id = uuid.UUID(str(created["id"]))
+    uploaded = store.upload(
+        TENANT, actor.user_id, "desk.md", "text/markdown", b"# Desk\n\nReception opens at 08:30."
+    )
+    asyncio.run(book.add_documents(actor, collection_id, {"file_ids": [uploaded["id"]]}))
+    found = book.search(actor, {"query": "morning hours", "collection_ids": [collection_id]})
+    assert found["scored"] is False
+    hit = found["hits"][0]
+    assert isinstance(hit["similarity"], float)
+    assert -1.0 <= hit["similarity"] <= 1.0
+
+
+def test_memory_embeds_its_facts_again_by_itself_after_the_embedding_model_changes() -> None:
+    store = demo_store()
+    actor = _actor()
+    book = MemoryBook(store)
+    fact = book.create_user(actor, {"content": "The office closes at noon on Fridays"})
+    row = store.memory_facts[uuid.UUID(str(fact["id"]))]
+    first = row["embedding_model_id"]
+    # Outside a request (a script), the alias change embeds the facts here and now.
+    with respx.mock:
+        respx.post(f"{BASE}/embeddings").mock(side_effect=_answer(value=0.25))
+        second = _register(store, "embed-new")
+    assert second != first
+    assert row["embedding_model_id"] == second
+    assert row["embedding"] == [0.25] * 1024
+    assert MemoryVectors(store, TENANT).of(row) == row["embedding"]
+
+    # Inside a request, the work runs beside it on the loop and finishes on its own.
+    async def change() -> None:
+        with respx.mock:
+            respx.post(f"{BASE}/embeddings").mock(side_effect=_answer(value=0.75))
+            third = _register(store, "embed-newer")
+            assert row["embedding_model_id"] == second  # not yet: the request returns first
+            await asyncio.gather(*store.tasks)
+        assert row["embedding_model_id"] == third
+        assert row["embedding"] == [0.75] * 1024
+
+    asyncio.run(change())
+
+
+def test_a_dead_embedding_model_does_not_undo_the_alias_change() -> None:
+    store = demo_store()
+    actor = _actor()
+    book = MemoryBook(store)
+    fact = book.create_user(actor, {"content": "Prefers the metric system"})
+    row = store.memory_facts[uuid.UUID(str(fact["id"]))]
+    with respx.mock:
+        respx.post(f"{BASE}/embeddings").mock(return_value=httpx.Response(503))
+        new = _register(store, "embed-down")
+    # The alias points at the new model; the fact keeps its old vector and is found by words.
+    assert embedding_model(store, TENANT).model_id == new
+    assert row["embedding_model_id"] != new
+    assert MemoryVectors(store, TENANT).of(row) == []
+    found = book.list_user(actor, query="which system is preferred, metric")
+    assert [item["id"] for item in found] == [fact["id"]]
+
+
+def test_a_passage_counts_when_it_clears_the_rerank_models_own_bar() -> None:
+    """Each rerank model scores on its own scale, so the bar is the model's setting."""
+    from ar_contracts.definitions import KnowledgeSpec
+
+    store = demo_store()
+    model_id = _register(store, "vendor/rerank-3", alias="rerank", kind="rerank")
+    hits = [
+        {"chunk_id": "a", "snippet": "Sick leave is paid in full."},
+        {"chunk_id": "b", "snippet": "Meals are covered up to 45 euros."},
+    ]
+    scores = {"scores": [0.06, 0.001]}  # a model whose scores sit low on its scale
+    with respx.mock:
+        respx.post(f"{BASE}/rerank").mock(return_value=httpx.Response(200, json=scores))
+        # At the product's default bar nothing counts, and the search says so.
+        kept, _ms, _warning, scored = apply_rerank(
+            "sick pay", hits, top_k=5, target=rerank_model(store, TENANT)
+        )
+        assert (kept, scored) == ([], True)
+        # The administrator sets the model's bar, and the right passage counts.
+        store.update_model(
+            TENANT, model_id, platform=False, request_options={"rerank": {"min_score": 0.02}}
+        )
+        kept, _ms, _warning, scored = apply_rerank(
+            "sick pay", hits, top_k=5, target=rerank_model(store, TENANT)
+        )
+        assert [hit["chunk_id"] for hit in kept] == ["a"]
+        # A caller with a bar of its own, such as an agent definition, uses that instead.
+        kept, _ms, _warning, scored = apply_rerank(
+            "sick pay", hits, top_k=5, min_score=0.0, target=rerank_model(store, TENANT)
+        )
+        assert [hit["chunk_id"] for hit in kept] == ["a", "b"]
+    # An agent definition leaves the bar to the model unless it says otherwise.
+    assert KnowledgeSpec().min_score is None
+    assert KnowledgeSpec(min_score=0.5).min_score == 0.5

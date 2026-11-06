@@ -36,18 +36,27 @@ class UnsupportedDims(StoreError):  # noqa: N818 - name is the retrieval port's
 
 
 def rrf_fuse(
-    dense: list[tuple[str, int]],
+    dense: list[tuple[str, int]] | list[tuple[str, int, float]],
     lexical: list[tuple[str, int]],
     rows: dict[str, tuple[str, str]],
     *,
     rrf_k: int,
     fused_k: int,
 ) -> list[ScoredChunk]:
-    """Reciprocal rank fusion. Ties break by chunk id ascending."""
+    """Reciprocal rank fusion. Ties break by chunk id ascending.
+
+    A dense entry may carry the passage's similarity to the question as a third value;
+    it travels with the fused result so an unscored search can still say how close each
+    passage is.
+    """
     scores: dict[str, float] = {}
     dense_rank: dict[str, int] = {}
+    similarity: dict[str, float] = {}
     lexical_rank: dict[str, int] = {}
-    for chunk_id, rank in dense:
+    for entry in dense:
+        chunk_id, rank = entry[0], entry[1]
+        if len(entry) > 2:
+            similarity[chunk_id] = float(entry[2])
         dense_rank[chunk_id] = rank
         scores[chunk_id] = scores.get(chunk_id, 0.0) + 1.0 / (rrf_k + rank)
     for chunk_id, rank in lexical:
@@ -65,6 +74,7 @@ def rrf_fuse(
                 score=scores[chunk_id],
                 dense_rank=dense_rank.get(chunk_id),
                 lexical_rank=lexical_rank.get(chunk_id),
+                similarity=similarity.get(chunk_id),
             )
         )
     return fused

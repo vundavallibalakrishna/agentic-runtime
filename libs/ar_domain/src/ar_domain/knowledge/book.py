@@ -51,6 +51,19 @@ _VISIBILITY = frozenset({"private", "team", "tenant"})
 _CLASS = frozenset({"public", "internal", "confidential", "restricted"})
 
 
+def _bar(value: object) -> float | None:
+    """A caller's own rerank bar, or none to take the rerank model's."""
+    if value is None or value == "":
+        return None
+    try:
+        bar = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError) as exc:
+        raise ValidationFailedError("min_score must be a number between 0 and 1") from exc
+    if not 0.0 <= bar <= 1.0:
+        raise ValidationFailedError("min_score must be a number between 0 and 1")
+    return bar
+
+
 class KnowledgeBook:
     """Object-level access. A missing or foreign row is 404."""
 
@@ -592,7 +605,7 @@ class KnowledgeBook:
             collection_ids=[uuid.UUID(str(item)) for item in raw_ids],
             top_k=top_k,
             debug=bool(body.get("debug")),
-            min_score=float(body.get("min_score") or 0.2),  # type: ignore[arg-type]
+            min_score=_bar(body.get("min_score")),
         )
 
     def _upload_source(self, actor: Actor, collection: dict[str, object]) -> dict[str, object]:

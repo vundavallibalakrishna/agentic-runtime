@@ -141,7 +141,7 @@ spec:
 | `tools[].overrides.<tool>.allowHosts` | string[] | Extra hosts for `general.fetch` and `general.http` |
 | `tool_search.mode` | enum | `auto`, `on`, `off`; `top_k` 4..32 |
 | `knowledge.collections` | slug[] | ≤ 20; caller must be able to see each at save time |
-| `knowledge.min_score` | number | 0..1 |
+| `knowledge.min_score` | number or null | 0..1; unset takes the rerank model's own bar (`requestOptions.rerank.min_score`, [spec 04](../03-specs/04-model-gateway.md)) |
 | `skills` | slug[] | ≤ 30; published skills. A `slug@^1` constraint resolves at publish ([spec 14](../03-specs/14-skills.md)) |
 | `memory.read_scopes` | enum[] | subset of `user`, `agent`, `team`, `agent_user` |
 | `subagents.allowed` | slug[] | published agents; no cycles deeper than `max_depth` |

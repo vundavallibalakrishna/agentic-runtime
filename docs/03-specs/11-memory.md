@@ -87,7 +87,7 @@ Team members (read), team leads (write).
 |---|---|
 | Facts per user | 2,000 (oldest least-recalled superseded first when exceeded) |
 | Facts per agent / team | 5,000 |
-| `AR_PGVECTOR_DIMENSIONS` | `1024` (fixed; changing requires a migration and re-embed job `scripts/reembed_memory.py`) |
+| `AR_PGVECTOR_DIMENSIONS` | `1024` (fixed; changing requires a migration and a run of `scripts/reembed_memory.py`) |
 | `AR_MEMORY_RECALL_MIN_SIM` | `0.25` |
 | `AR_MEMORY_DEDUPE_SIM` | `0.92` |
 
@@ -95,7 +95,7 @@ A fact is embedded by the model the tenant's `embed` alias points at ([spec 04](
 
 Similarity is the larger of the cosine of the two vectors and the share of the query's words the fact contains. Two vectors are compared only when one model wrote both, so a fact embedded by an earlier model, and every fact while no model is set, is matched by words alone.
 
-The embedding model change procedure: new `embed` alias target → `uv run python scripts/reembed_memory.py --tenant <slug>` embeds again every fact the current model did not write and saves it ([OQ-102](../open-questions.md)).
+When the `embed` alias is pointed at another model, the product embeds again every fact the new model did not write, beside the request that made the change, and saves them as it goes; until that finishes those facts are matched by words. A model that fails leaves the alias changed and the facts matched by words; the next alias change or `uv run python scripts/reembed_memory.py --tenant <slug>` tries again ([OQ-102](../open-questions.md)).
 
 ## 7. Metrics
 

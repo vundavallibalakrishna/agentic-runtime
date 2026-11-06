@@ -12,7 +12,7 @@ from __future__ import annotations
 import math
 import os
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import httpx
@@ -48,6 +48,10 @@ class EmbeddingFailedError(ArError):
         super().__init__(ErrorCode.UPSTREAM_ERROR, detail)
 
 
+# The bar a rerank model's scores must clear when the model sets none of its own.
+DEFAULT_RERANK_FLOOR = 0.2
+
+
 @dataclass(frozen=True, slots=True)
 class ModelTarget:
     """A registered model and where its provider is reached."""
@@ -59,6 +63,8 @@ class ModelTarget:
     api_key: str
     timeout_s: float
     dimensions: int | None
+    # Provider-specific options stored on the model (``models.request_options``).
+    request_options: dict[str, object] = field(default_factory=dict)
 
 
 async def refresh_registry(store: Any) -> None:
@@ -155,26 +161,57 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
     docs = list(documents)
     if not docs:
         return []
-    inference = _inference_url(target.base_url, target.name)
-    attempts = (
-        (f"{target.base_url}/rerank", {"model": target.name, "query": query, "documents": docs}),
-        (inference, {"queries": [query], "documents": docs}),
+    url, shape = rerank_route(target)
+    payload: dict[str, object] = (
+        {"queries": [query], "documents": docs}
+        if shape == "queries"
+        else {"model": target.name, "query": query, "documents": docs}
     )
     try:
         with httpx.Client(timeout=_timeout(target)) as http:
-            for url, payload in attempts:
-                if not url:
-                    continue
-                response = blocking(http.post, url, json=payload, headers=_headers(target))
-                if response.status_code == httpx.codes.NOT_FOUND:
-                    continue
-                response.raise_for_status()
-                scores = _scores(response.json(), len(docs))
-                if scores is not None:
-                    return _as_unit(scores)
+            response = blocking(http.post, url, json=payload, headers=_headers(target))
+            response.raise_for_status()
     except httpx.HTTPError as exc:
         raise EmbeddingFailedError(f"The rerank model {target.label} did not answer.") from exc
-    raise EmbeddingFailedError(f"The rerank model {target.label} returned no scores.")
+    scores = _scores(response.json(), len(docs))
+    if scores is None:
+        raise EmbeddingFailedError(f"The rerank model {target.label} returned no scores.")
+    return _as_unit(scores)
+
+
+def rerank_route(target: ModelTarget) -> tuple[str, str]:
+    """Where a rerank model is called and how the request is shaped.
+
+    Both are the model's own settings, ``request_options.rerank`` ``{path, body}``: a
+    path under the provider's address (or a full URL), and ``query`` for the usual
+    ``{model, query, documents}`` body or ``queries`` for ``{queries, documents}``. The
+    defaults are ``/rerank`` and ``query``. No vendor's address is built into the code.
+    """
+    raw = target.request_options.get("rerank")
+    section = raw if isinstance(raw, dict) else {}
+    path = str(section.get("path") or "/rerank").strip()
+    if path.startswith(("http://", "https://")):
+        url = path
+    else:
+        url = f"{target.base_url.rstrip('/')}/{path.lstrip('/')}"
+    shape = "queries" if str(section.get("body") or "").strip() == "queries" else "query"
+    return url, shape
+
+
+def rerank_floor(target: ModelTarget | None) -> float:
+    """The lowest score at which a passage counts as answering the question.
+
+    Each rerank model scores on its own scale, so the bar is the model's setting,
+    ``request_options.rerank.min_score`` (0 to 1). Unset, it is ``DEFAULT_RERANK_FLOOR``.
+    """
+    if target is None:
+        return DEFAULT_RERANK_FLOOR
+    raw = target.request_options.get("rerank")
+    section = raw if isinstance(raw, dict) else {}
+    value = section.get("min_score")
+    if isinstance(value, int | float) and 0.0 <= float(value) <= 1.0:
+        return float(value)
+    return DEFAULT_RERANK_FLOOR
 
 
 def _aliased(store: Any, tenant_id: object, alias: str, kind: str) -> ModelTarget | None:
@@ -216,6 +253,7 @@ def _target(store: Any, tenant_id: object, model: object) -> ModelTarget | None:
         return None
     key = provider.get("api_key")
     raw = model.get("embedding_dimensions")
+    options = model.get("request_options")
     timeout = provider.get("timeout_s")
     return ModelTarget(
         model_id=model_id,
@@ -225,6 +263,7 @@ def _target(store: Any, tenant_id: object, model: object) -> ModelTarget | None:
         api_key=key if isinstance(key, str) else "",
         timeout_s=float(timeout) if isinstance(timeout, int | float) and timeout > 0 else 0.0,
         dimensions=raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else None,
+        request_options=dict(options) if isinstance(options, dict) else {},
     )
 
 
@@ -271,13 +310,6 @@ def _take(body: object, ordered: list[list[float] | None], start: int) -> None:
         slot = start + (index if isinstance(index, int) else position)
         if 0 <= slot < len(ordered):
             ordered[slot] = [float(value) for value in item["embedding"]]
-
-
-def _inference_url(base_url: str, model: str) -> str:
-    marker = "/openai"
-    if base_url.endswith(marker):
-        return f"{base_url[: -len(marker)]}/inference/{model}"
-    return ""
 
 
 def _scores(body: object, count: int) -> list[float] | None:

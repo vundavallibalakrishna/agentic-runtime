@@ -185,6 +185,9 @@ export function ModelsAdmin() {
       priceInputMicrosPerMtok: change.priceIn,
       priceOutputMicrosPerMtok: change.priceOut,
       embeddingDimensions: change.embeddingDimensions,
+      ...(change.kind === "rerank" || target.model?.kind === "rerank"
+        ? { requestOptions: { ...(target.model?.requestOptions ?? {}), rerank: change.rerank } }
+        : {}),
       ...(target.model || change.vision
         ? { capabilities: change.vision ? [...kept, "vision"] : kept }
         : {}),

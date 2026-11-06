@@ -192,7 +192,7 @@ export type Collections =
     ];
 export type Autoretrieve = boolean;
 export type Topk1 = number;
-export type Minscore = number;
+export type Minscore = number | null;
 /**
  * @maxItems 30
  */
