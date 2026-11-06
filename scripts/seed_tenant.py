@@ -3,8 +3,9 @@
     uv run python scripts/seed_tenant.py --slug acme --name "Acme" \\
         --admin-email ada@acme.example --admin-name "Ada Lovelace"
 
-It creates the plans and system roles, the tenant, and one tenant admin. It creates no model
-provider, no agent and no example data. Unless ``--skip-idp`` is given it also creates the
+It creates the plans and system roles, the tenant, one tenant admin, and the two agents
+every tenant has (the assistant and the builder), owned by that admin. It creates no model
+provider and no example data. Unless ``--skip-idp`` is given it also creates the
 tenant's organization and the admin's account in the identity provider named by
 ``AR_OIDC_ISSUER``, so the admin can sign in with a password.
 

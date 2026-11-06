@@ -102,30 +102,49 @@ production a tool could be pointed at a loopback address the API would have refu
 
 **Tests:** `services/runtime/tests/unit/test_m38_worker_store.py`.
 
-## M38b-T04 Nothing is built in memory
+## M38b-T04a A tenant's default agents come from its seed
 
-**Depends on:** T03. **Areas:** `chat/service.py` (`seed_platform`, `seed_demo_tenant`, `seed_showcase`),
-`tools/seed_tools.py`, `agents/`, `services/api/src/ar_api/auth/` (`dev_users.py`, `memory_identity.py`),
-`services/mcp_gateway`, `services/sandbox_manager`, `libs/ar_testing`. **Findings:** F2, F6, F10. Overlaps
-M38a-T05 and M38a-T07, which this task absorbs for the tenant, the users, the agents and the provider.
-
-T03 took the demo tenant out of every process that has a database. What is left:
+**Depends on:** T03. **Areas:** `bootstrap.py`, `agents/service.py`, `agents/builder.py`,
+`bundles/export.py`, `chat/service.py`. **Finding:** F6. Decision: OQ-100.
 
 **Do:**
 
-- The demo tenant, its people, fixtures and showcase move to a helper in `ar_testing`. `ChatService()`
-  starts with no tenant. A dev process without a database is an error, not a demo; the browser tests run
-  against real services (M38b-T11).
-- A new tenant's `assistant` and `builder` agents are created by the seed, owned by its admin. Today they
-  are created when someone first lists agents, and `helpdesk` is created with them. `helpdesk` and
-  `revenue-analyst` are not created.
-- The scripted provider, its models and the platform aliases are not built in memory (with M38a-T07).
-- `mcp-gateway` and `sandbox-manager` stop building a store with a demo tenant.
+- The bootstrap and `scripts/seed_tenant.py` write the tenant's `assistant` and `builder` agents, owned by
+  its admin, and the built-in tool catalogue. They go through the store a process uses, so a process then
+  loads the same rows.
+- No request creates an agent as a side effect. Listing agents, exporting a bundle, starting a draft and
+  starting a conversation created the defaults for whoever asked first, with that person as owner.
+- `helpdesk` is an example of the demo tenant. A real tenant does not get it.
 
-**Done when:** after the seed and the first sign-in, the tenant holds two agents, no provider and no
-conversation, and no product code names a demo tenant or person.
+**Done when:** after the seed alone, a tenant holds `assistant` and `builder` owned by its admin, and after
+sign-in, chat and a draft it holds nothing it did not create.
 
-**Tests:** `test_m38b_empty_store.py`; the browser specs move to the `ar_testing` helper in this pull request.
+**Tests:** `test_m38b_default_agents.py`; `tests/integration/test_migrations.py` (bootstrap on a real
+database, run twice).
+
+## M38b-T04 Nothing is built in memory
+
+**Depends on:** T04a. **Areas:** `chat/service.py` (`seed_platform`, `seed_demo_tenant`, `seed_showcase`),
+`tools/seed_tools.py`, the `showcase.py` modules, `services/api/src/ar_api/auth/` (`dev_users.py`,
+`memory_identity.py`), `services/mcp_gateway`, `services/sandbox_manager`, `libs/ar_testing`,
+`apps/web/playwright.config.ts`. **Findings:** F2, F10. Overlaps M38a-T05 and M38a-T07, which this task
+absorbs for the tenant, the users, the agents and the provider.
+
+T03 took the demo tenant out of every process that has a database, and T04a made the seed the only source of
+a tenant's default agents. What is left, one pull request for each:
+
+- **T04b** The browser tests start the API through a test harness that seeds the demo tenant and adds the
+  test sign-in. The API itself no longer seeds a demo tenant when it has no database: it is not ready, and
+  says so.
+- **T04c** The demo tenant, its people, fixtures and showcase move to `ar_testing`. `ChatService()` starts
+  with no tenant, and tests that need the demo tenant build it with the helper.
+- **T04d** The fixed user catalogue and the memory identity leave the API (with T05).
+- **T04e** `mcp-gateway` and `sandbox-manager` stop building a store with a demo tenant. The scripted
+  provider, its models and the platform aliases are not built in memory (with M38a-T07).
+
+**Done when:** no product code names a demo tenant or person, and the unit suite and the browser tests pass.
+
+**Tests:** `test_m38b_empty_store.py`; the browser specs.
 
 ## M38b-T05 Sign-in shows only what is real
 

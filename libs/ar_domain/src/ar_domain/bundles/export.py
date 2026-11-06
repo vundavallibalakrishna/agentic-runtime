@@ -8,7 +8,6 @@ from pydantic import JsonValue
 
 from ar_contracts.definitions import AgentDefinition
 from ar_domain.agents.access import Actor, can_see
-from ar_domain.agents.service import AgentLifecycle
 
 _SECRET_KEYS = frozenset(
     {"secret", "password", "token", "api_key", "apiKey", "access_key", "private_key"}
@@ -55,8 +54,6 @@ def export_bundle(
     ids: list[uuid.UUID] | None = None,
 ) -> dict[str, object]:
     """YAML-shaped bundle document. Only agents this caller can see."""
-    life = AgentLifecycle(store)
-    life.ensure_builtins(actor.tenant_id, actor.user_id)
     resources: list[dict[str, object]] = []
     for agent in store.agents.values():
         if agent.get("tenant_id") != actor.tenant_id:

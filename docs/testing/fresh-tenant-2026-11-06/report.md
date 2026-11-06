@@ -131,6 +131,7 @@ Then open the web app, choose **Continue with SSO**, and sign in.
 | Date | Task | What changed | Proof |
 |---|---|---|---|
 | 6 Nov 2026 | M38b-T03 | F1 and F5 are fixed, and F2 no longer applies to a process with a database. A fourth empty stack was seeded with tenant `acme` and admin `ada@acme.example`. The API and the three workers logged `durable_bound tenant=acme`, sign-in worked, the header read "Acme", a provider was registered, and a chat turn ran Python and finished. The tenant held `assistant`, `helpdesk` and `builder`, created when the admin first opened the product, and no `revenue-analyst`. | `run4-acme/01-acme-signed-in.png` |
+| 6 Nov 2026 | M38b-T04a | F6 is fixed. On a fifth empty stack the seed alone left `assistant` and `builder`, both owned by `ada@acme.example`, 14 tool servers, no provider and no conversation; a second run of the seed changed nothing. After sign-in, a registered provider, a chat turn and a builder draft, the tenant held those two agents and the draft. | `agents` table before and after |
 
-Still open after T03: `helpdesk` is still created (F6), the sign-in page still lists the demo users (F4), the
+Still open: the sign-in page still lists the demo users (F4), the
 Models screen still lists `fake-llm` (F10), and a dev process with no database still runs on the demo tenant.

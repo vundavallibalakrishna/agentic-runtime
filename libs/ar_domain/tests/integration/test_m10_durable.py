@@ -33,8 +33,8 @@ def _alembic(url: str) -> None:
     )
 
 
-def _open_agents(store: ChatService, binding: object) -> None:
-    """What the product does when the admin first opens Agents: the default agents exist."""
+def _seed_agents(store: ChatService, binding: object) -> None:
+    """What the tenant seed does: the assistant and the builder exist, owned by the admin."""
     from ar_domain.agents.service import AgentLifecycle
 
     AgentLifecycle(store).ensure_builtins(
@@ -55,7 +55,7 @@ async def test_bind_flushes_chat_knowledge_memory_and_skills(database_url: str) 
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await apply(session)
     store = ChatService(tenant_seed=False)
-    binding = await bind_store(store, database_url)
+    binding = await bind_store(store, database_url, tenant_slug="dev")
     assert binding is not None
     assert binding.tenant_id == demo_id("tenant")
     assert (binding.slug, binding.name, binding.plan) == ("dev", "Dev", "enterprise")
@@ -64,7 +64,7 @@ async def test_bind_flushes_chat_knowledge_memory_and_skills(database_url: str) 
     assert store.agents == {}
     assert store.user_roles[binding.users["approver@dev.local"]] == {"approver"}
     assert store.display_names[binding.users["admin@dev.local"]] == "Dev Admin"
-    _open_agents(store, binding)
+    _seed_agents(store, binding)
     admin_id = binding.users["admin@dev.local"]
     actor = Actor(binding.tenant_id, admin_id, PERMISSION_KEYS, roles=frozenset({"tenant_admin"}))
     created = KnowledgeBook(store).create_collection(
@@ -128,13 +128,13 @@ async def test_worker_loads_new_conversation_and_restart_preserves_agent_edits(
     from ar_runtime.activities.expire_approval import bind_store as bind_runtime
 
     api = ChatService(tenant_seed=False)
-    binding = await bind_store(api, database_url)
+    binding = await bind_store(api, database_url, tenant_slug="dev")
     assert binding is not None
     agent = next(row for row in api.agents.values() if row["slug"] == "assistant")
     agent["description"] = "An administrator changed this description"
     await flush_store(api)
     worker = ChatService(tenant_seed=False)
-    await bind_store(worker, database_url)
+    await bind_store(worker, database_url, tenant_slug="dev")
     assert worker.agents[agent["id"]]["description"] == agent["description"]
     conversation = api.create_conversation(
         binding.tenant_id, binding.users["admin@dev.local"], agent["id"]
@@ -192,7 +192,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
         ),
     )
     store = ChatService(tenant_seed=False)
-    binding = await bind_store(store, database_url)
+    binding = await bind_store(store, database_url, tenant_slug="dev")
     assert binding is not None
     store.tenant_settings[binding.tenant_id] = {"features": {"widget": True}}
     actor = Actor(binding.tenant_id, binding.users["admin@dev.local"], PERMISSION_KEYS)
@@ -209,7 +209,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
     )
     await flush_store(store)
     restarted = ChatService(tenant_seed=False)
-    await bind_store(restarted, database_url)
+    await bind_store(restarted, database_url, tenant_slug="dev")
     integration_id = uuid.UUID(str(created["id"]))
     assert (
         load_credentials(restarted, restarted.channel_integrations[integration_id])["widget_secret"]
@@ -256,7 +256,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
     ChannelBook(restarted).delete(actor, integration_id)
     await flush_store(restarted)
     after_delete = ChatService(tenant_seed=False)
-    await bind_store(after_delete, database_url)
+    await bind_store(after_delete, database_url, tenant_slug="dev")
     assert integration_id not in after_delete.channel_integrations
     await after_delete.durable_engine.dispose()
     await store.durable_engine.dispose()
@@ -277,7 +277,7 @@ async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
     from ar_domain.identity.repository import IdentityRepository
 
     store = ChatService(tenant_seed=False)
-    binding = await bind_store(store, database_url)
+    binding = await bind_store(store, database_url, tenant_slug="dev")
     assert binding is not None
     email = f"retained-{uuid.uuid4().hex[:8]}@dev.local"
     user_id = uuid.uuid4()
@@ -383,7 +383,7 @@ async def test_routine_runs_across_api_system_and_runtime_process_stores(
         ChatService(tenant_seed=False),
     )
     for store in (api, system, runtime):
-        await bind_store(store, database_url)
+        await bind_store(store, database_url, tenant_slug="dev")
     binding = api.tenant_binding
     actor = Actor(binding.tenant_id, binding.users["admin@dev.local"], PERMISSION_KEYS)
     assistant = next(row for row in api.agents.values() if row["slug"] == "assistant")
