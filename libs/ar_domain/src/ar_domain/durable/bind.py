@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 
 from ar_common.logging import get_logger
 from ar_domain.db.engine import platform_database_url
+from ar_domain.db.registry import import_models
 from ar_domain.demo_ids import demo_id
 from ar_domain.durable.flush import flush_store, schedule_flush
 from ar_domain.durable.hydrate import hydrate_tenant
@@ -55,6 +56,8 @@ def should_bind() -> bool:
 
 async def bind_store(store: object, database_url: str) -> DevBinding | None:
     """Hydrate and flush when Postgres answers. Return None when it does not."""
+    # Every process that writes through this store needs the whole schema registered.
+    import_models()
     engine = await _connect(platform_database_url(database_url))
     if engine is None:
         return None

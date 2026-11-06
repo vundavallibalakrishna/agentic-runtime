@@ -23,6 +23,9 @@ async def execute_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     await reload_run(store, run_id)
     run = getattr(store, "runs", {}).get(run_id)
     if isinstance(run, dict) and run.get("status") in {"completed", "failed", "cancelled"}:
+        # An earlier attempt may have finished the turn and then failed to save it. The
+        # finished run is then only in memory, so save before reporting it as done.
+        await flush_store(store)
         return {"status": str(run["status"]), "run_id": str(run_id)}
     from ar_common.errors import QuotaExceededError  # noqa: PLC0415
     from ar_runtime.activities.start_run import assert_start  # noqa: PLC0415
