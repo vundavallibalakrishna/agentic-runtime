@@ -163,8 +163,14 @@ a tenant's default agents. What is left, one pull request for each:
   The smoke and proof scripts sign in through the identity provider with `scripts/sign_in.py`. The Users
   screen no longer shows four made-up people when its request fails, and the guest page no longer sends a
   fixed tenant.
-- **T05c** When the session check fails for any reason other than "not signed in", the visitor sees an
-  error page with a retry, never the workspace.
+- **T05c** (done) A visitor who is not signed in goes to the sign-in page. When the session check fails
+  for any other reason, the page is replaced by an error with **Try again** and **Sign in again**; it used
+  to stay up with "Internal Server Error" inside it.
+- **T05d** The web server checks the session before it sends a workspace page, so nothing of the workspace
+  reaches a browser that is not signed in. Depends on M38-T09: a first version of T05c waited for the
+  session check before drawing the page, and the browser suite then failed whenever the API was busy with a
+  tool call, because the API still runs tool calls on its event loop. A gate in front of every page needs an
+  API that always answers quickly.
 
 **Done when:** the product has one way to sign in, and an unauthenticated visitor sees only the sign-in page
 or an error page, whatever the API returns.

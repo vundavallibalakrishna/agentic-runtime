@@ -1,6 +1,10 @@
 {
   "shell": {
     "product": "Agentic Runtime",
+    "sessionProblemTitle": "We could not check your sign-in",
+    "sessionProblemBody": "The server did not answer as expected, so this page is not shown. Your work is not lost. Try again, or sign in again.",
+    "sessionRetry": "Try again",
+    "sessionSignIn": "Sign in again",
     "navHome": "Home",
     "navAgents": "Agents",
     "empty": "Ask for the work in a sentence. The assistant keeps the thread.",

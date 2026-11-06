@@ -28,7 +28,16 @@ describe("document library", () => {
   });
 
   it("shows an empty library", async () => {
-    server.use(http.get("*/api/v1/library-documents", () => HttpResponse.json({ items: [] })));
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({
+          permissions: ["documents:read"],
+          user: { displayName: "Ada Lovelace", email: "ada@acme.example" },
+        }),
+      ),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/library-documents", () => HttpResponse.json({ items: [] })),
+    );
     render(wrap(<LibraryScreen />));
     expect(
       await screen.findByText(
