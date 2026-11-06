@@ -14,6 +14,7 @@ from ar_common.wrapping import wrap_untrusted
 from ar_domain.agents.access import Actor
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
+from ar_domain.prompts.assembler import build_prompt
 from ar_domain.skills.match import match_skill
 
 if TYPE_CHECKING:
@@ -51,16 +52,20 @@ async def ground_run(store: Any, run: dict[str, object], user_text: str) -> None
 
 
 def opening_messages(
-    run: dict[str, object], instructions: str, user_text: str, guide: str
+    run: dict[str, object], definition: dict[str, object], user_text: str
 ) -> list[dict[str, object]]:
-    """Prefer the prepared prompt so history, memory and compaction are included."""
+    """The messages a turn starts with.
+
+    A chat turn has its prompt prepared, with history, memory and compaction. A run that
+    starts without one, such as a child run another agent called, gets the same system
+    blocks from the same builder: platform rules, tool guidance, the agent's
+    instructions and its output schema.
+    """
     prepared = run.get("prompt_messages")
     if isinstance(prepared, list) and prepared:
         return [dict(item) for item in prepared if isinstance(item, dict)]
-    return [
-        {"role": "system", "content": f"{instructions}\n\n{guide}"},
-        {"role": "user", "content": user_text},
-    ]
+    bundle = build_prompt({"definition": definition, "user_text": user_text})
+    return [dict(item) for item in bundle.messages]
 
 
 def citation_parts(retrieval: object) -> list[dict[str, object]]:
