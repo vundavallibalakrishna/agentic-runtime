@@ -678,7 +678,7 @@ CREATE TABLE tool_versions (
   max_result_bytes       int NOT NULL DEFAULT 65536,
   idempotent             boolean NOT NULL DEFAULT false,
   approval_preview       jsonb NOT NULL DEFAULT '{}', -- schema: ar_contracts.tools.PreviewTemplate
-  embedding              vector(1024),                -- tool search
+  embedding              vector(1024),                -- unused since revision 0034; dropped in a later revision (OQ-106)
   created_at             timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tool_id, tool_server_version_id)
 );

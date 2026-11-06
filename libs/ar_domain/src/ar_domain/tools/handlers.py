@@ -343,10 +343,16 @@ def _control(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         from ar_domain.exposure.a2a import call_remote  # noqa: PLC0415
 
         return call_remote(store, arguments)
-    query = str(arguments.get("query") or "").lower()
-    ranked = _search(store, query, _caller(arguments)[0])
-    lines = [f"{row['qualified_name']}: {row['description']}" for row in ranked[:12]]
-    return {"text": "\n".join(lines), "structured": {"tools": ranked[:12]}, "is_error": False}
+    from ar_domain.tools.search import DEFAULT_TOP_K  # noqa: PLC0415
+
+    query = str(arguments.get("query") or "")
+    ranked, how = _search(store, query, _caller(arguments)[0])
+    lines = [f"{row['qualified_name']}: {row['description']}" for row in ranked[:DEFAULT_TOP_K]]
+    return {
+        "text": "\n".join(lines),
+        "structured": {"tools": ranked[:DEFAULT_TOP_K], "ranked_by": how},
+        "is_error": False,
+    }
 
 
 def _checkpoint(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -393,6 +399,11 @@ def _propose_change(store: Any, arguments: dict[str, object]) -> dict[str, objec
     return {"text": "Change saved.", "structured": {"saved": True}, "is_error": False}
 
 
+def searchable_tools(store: Any, tenant: str) -> list[dict[str, object]]:
+    """Every tool ``control.search`` ranks for a caller of this tenant."""
+    return [row for row in list(store.tool_versions.values()) if _searchable(store, row, tenant)]
+
+
 def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
     """A platform tool or the caller's tenant's tool, on an approved server's current version."""
     owner = row.get("tenant_id")
@@ -409,33 +420,25 @@ def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
     return row.get("tool_server_version_id") == server.get("current_version_id")
 
 
-def _search(store: Any, query: str, tenant: str) -> list[dict[str, object]]:
-    from ar_domain.tools.logic import cosine, hash_embedding  # noqa: PLC0415
+def _search(store: Any, query: str, tenant: str) -> tuple[list[dict[str, object]], str]:
+    """The caller's searchable tools, closest to ``query`` first, and how they were ranked."""
+    from ar_domain.tools.search import rank_tools  # noqa: PLC0415
 
-    query_vector = hash_embedding(query or "tool")
-    scored: list[tuple[float, dict[str, object]]] = []
-    for row in list(store.tool_versions.values()):
-        if not _searchable(store, row, tenant):
-            continue
-        embedding = row.get("embedding")
-        vector = (
-            embedding
-            if isinstance(embedding, list)
-            else hash_embedding(str(row.get("description")))
-        )
-        score = cosine(query_vector, [float(item) for item in vector])
-        if query and query in str(row.get("description")).lower():
-            score += 0.5
-        scored.append((score, row))
-    scored.sort(key=lambda item: item[0], reverse=True)
-    return [
+    rows = searchable_tools(store, tenant)
+    try:
+        tenant_id: object = uuid.UUID(tenant) if tenant else None
+    except ValueError:
+        tenant_id = None
+    ranked, how = rank_tools(store, tenant_id, query, rows)
+    found = [
         {
             "qualified_name": str(row.get("qualified_name")),
             "description": str(row.get("description")),
             "score": score,
         }
-        for score, row in scored
+        for score, row in ranked
     ]
+    return found, how
 
 
 def _connection(store: Any, arguments: dict[str, object]) -> dict[str, object]:

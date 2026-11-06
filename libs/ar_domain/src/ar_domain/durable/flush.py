@@ -895,15 +895,14 @@ async def _tool_versions(session: AsyncSession, rows: list[dict[str, Any]]) -> N
         INSERT INTO tool_versions (
             id, tenant_id, tool_id, tool_server_version_id, title, description, description_hash,
             input_schema, annotations, risk_class, data_classification, timeout_s,
-            rate_limit_per_minute, max_result_bytes, idempotent, approval_preview, embedding,
-                created_at
+            rate_limit_per_minute, max_result_bytes, idempotent, approval_preview, created_at
         ) VALUES (
             :id, :tenant_id, :tool_id, :tool_server_version_id, :title, :description,
                 :description_hash,
             CAST(:input_schema AS jsonb), CAST(:annotations AS jsonb), :risk_class,
                 :data_classification,
             :timeout_s, :rate_limit_per_minute, :max_result_bytes, :idempotent,
-            CAST(:approval_preview AS jsonb), CAST(:embedding AS vector), :created_at
+            CAST(:approval_preview AS jsonb), :created_at
         )
         ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
@@ -938,7 +937,6 @@ async def _tool_versions(session: AsyncSession, rows: list[dict[str, Any]]) -> N
                 "max_result_bytes": as_int(row.get("max_result_bytes"), 65536),
                 "idempotent": as_bool(row.get("idempotent")),
                 "approval_preview": as_json(row.get("approval_preview"), {}),
-                "embedding": as_vector(row.get("embedding")),
                 "created_at": as_dt(row.get("created_at")) or utcnow(),
             },
         )

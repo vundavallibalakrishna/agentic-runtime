@@ -15,7 +15,6 @@ from ar_domain.tools.chat_loop import maybe_tools
 from ar_domain.tools.credentials import CredentialBook
 from ar_domain.tools.data_connections import DataConnections
 from ar_domain.tools.drift import check_drift
-from ar_domain.tools.embeddings import DIMENSIONS, cosine, hash_embedding
 from ar_domain.tools.handlers import dispatch
 from ar_domain.tools.openapi_import import OpenApiError, load_document, operations_from
 from ar_domain.tools.pipeline import ToolPipeline
@@ -35,10 +34,7 @@ def _store() -> ChatService:
     return demo_store()
 
 
-def test_embeddings_and_sql_corpus() -> None:
-    vector = hash_embedding("orders")
-    assert len(vector) == DIMENSIONS
-    assert cosine(vector, vector) > 0.99
+def test_sql_corpus() -> None:
     samples = [line for line in _CORPUS.read_text().splitlines() if line.strip()]
     assert len(samples) >= 200
     for sample in samples:
@@ -307,7 +303,6 @@ def test_handlers_cover_each_builtin() -> None:
                 "tool_server_version_id": server_version_id,
                 "qualified_name": "files.list",
                 "description": "list files",
-                "embedding": hash_embedding("files"),
             }
         },
         data_connections={},

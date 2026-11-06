@@ -25,7 +25,10 @@ and command tools are retired with an alias for stored agent versions.
 ## M39-T04 Tools load on demand
 
 **Do:** above a tool-count threshold the model gets the core tools and a search tool. A found tool's schema
-is added to the next model call. Ranking uses the tenant's embedding model when one is set.
+is added to the next model call. Ranking uses the tenant's embedding model when one is set
+(`tools/search.py`, M38a-T06). Because every turn then ranks tools, the vectors move from each process's
+memory to a table for each tenant and model, so the first turn after a restart is not ranked by words
+(OQ-106). A search returns only tools the agent is granted (F45).
 
 ## M39-T05 The model chooses a skill
 

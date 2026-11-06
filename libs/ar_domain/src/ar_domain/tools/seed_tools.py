@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from ar_common.time import utcnow
 from ar_domain.agents.logic import assistant_definition, definition_hash
 from ar_domain.chat.service import demo_id
-from ar_domain.tools.logic import description_hash, hash_embedding, manifest_hash
+from ar_domain.tools.logic import description_hash, manifest_hash
 from ar_domain.tools.openapi_import import operations_from
 
 if TYPE_CHECKING:
@@ -541,7 +541,6 @@ def _approved(
             "max_result_bytes": 65536,
             "idempotent": item["risk_class"] in {"R0", "R1"},
             "approval_preview": {},
-            "embedding": hash_embedding(text),
             "created_at": now,
         }
 
@@ -1382,7 +1381,6 @@ def _refresh_tool(store: Any, qualified: str, item: dict[str, object]) -> None:
         row["description"] = text
         row["description_hash"] = description_hash(text)
         row["input_schema"] = item["input_schema"]
-        row["embedding"] = hash_embedding(text)
         return
 
 
@@ -1474,7 +1472,6 @@ def _add_tool(
         "max_result_bytes": 65536,
         "idempotent": item["risk_class"] in {"R0", "R1"},
         "approval_preview": {},
-        "embedding": hash_embedding(text),
         "created_at": now,
     }
 

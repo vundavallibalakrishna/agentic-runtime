@@ -104,10 +104,17 @@ without one (OQ-98), and the stand-in vectors come from the test model server ov
 - Tool search embeds the catalogue with the model the tenant registered. With no embedding model it ranks
   by words and says so.
 - `tools/logic.py` `hash_embedding` is deleted.
+- A search never waits for the catalogue to be embedded: the vectors are made on their own thread and the
+  first search in a process is ranked by words (OQ-106).
+- Revision 0034 empties `tool_versions.embedding`; nothing reads or writes the column.
 
 **Done when:** no product path computes a hash vector.
 
-**Tests:** `test_m38a_embeddings.py`.
+**Tests:** `test_m38a_tool_search.py`, `test_migrations.py`; `scripts/tool_search_eval.py` against the
+tenant's real embedding model.
+
+**Done.** The chat turn still sends an agent every tool it is bound to, whatever their number; offering the
+closest ones at the start of a turn is M39-T04.
 
 ## M38a-T07 The fake branches are deleted
 

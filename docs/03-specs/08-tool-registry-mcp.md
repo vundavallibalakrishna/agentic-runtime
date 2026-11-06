@@ -108,8 +108,14 @@ Introspected tables/columns within the allowlist (cached 10 min), merged with `s
 
 ## 4. `catalog:resolve`
 
-Input `{agent_version_id, user_id, query?, loaded?: [tool_version_id]}` → `{tools: [{model_name: "jira__create_issue", tool_version_id, qualified_name, description, parameters (input_schema), risk_class}], tool_search_active: bool}`.
-Steps: read `definition.resolved.tools` → drop disabled tools/servers, tools whose `data_classification` exceeds the user's clearance (`users.attributes.clearance`, default `confidential`), and tools whose server requires `user_oauth` from a provider marked `extra.hide_until_connected=true` that the user has not connected → if tool search active, rank by cosine similarity between `query` embedding and `tool_versions.embedding` (pgvector) and return top_k ∪ pinned ∪ `loaded`. Cached in Valkey `ar:catalog:{agent_version_id}:{user_id}` for 60 s.
+Input `{agent_version_id, user_id, query?, loaded?: [tool_version_id]}` → `{tools: [{model_name: "jira__create_issue", tool_version_id, qualified_name, description, parameters (input_schema), risk_class}], tool_search_active: bool, ranked_by?: "meaning_and_words" | "words"}`.
+Steps: read `definition.resolved.tools` → drop disabled tools/servers, tools whose `data_classification` exceeds the user's clearance (`users.attributes.clearance`, default `confidential`), and tools whose server requires `user_oauth` from a provider marked `extra.hide_until_connected=true` that the user has not connected → if tool search active, rank the tools against `query` and return top_k ∪ pinned ∪ `loaded`. Cached in Valkey `ar:catalog:{agent_version_id}:{user_id}` for 60 s.
+
+**Ranking** (`ar_domain/tools/search.py`, used here and by `control.search`). Each tool is matched on its qualified name and description. The score is the cosine between the request and the tool, both embedded with the model the tenant's `embed` alias names, plus half the share of the request's words found in the tool's text. A word is a run of letters and digits in any script. With no embedding model, or when it does not answer, the ranking is by words alone. The result says which was used in `ranked_by`. No vector is made up for a tool.
+
+A search never waits for the catalogue to be embedded, because a provider can take many seconds over a few hundred descriptions. The first search in a process starts that work on a thread of its own and is ranked by words; once the vectors are held, each search costs one embedding call for the request. The vectors are kept in the process's memory, keyed by embedding model and by a hash of the tool's text, so a changed description or a changed model is embedded again. `tool_versions.embedding` is not read or written (OQ-106).
+
+`scripts/tool_search_eval.py --tenant <slug>` ranks one agent's tools, or with `--all` every tool the tenant can search, for 22 requests with the tenant's model and prints where the right tool came out.
 
 ## 5. Execution pipeline (`POST /internal/v1/tool-calls:execute`)
 
