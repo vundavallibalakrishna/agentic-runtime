@@ -264,21 +264,21 @@ class ChatService:
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
             self.fake_llm_url = fake_llm_base_url()
-        # A store starts with the rows that belong to no tenant. Its tenant comes from its
-        # database; a test puts the demo tenant in with ``ar_testing.demo``.
-        self.seed_platform()
+        # A store starts with the built-in tool catalogue, which belongs to no tenant, and
+        # nothing else: no tenant, no model provider, no model and no alias. Those are rows
+        # in its database, put there by the people who run it. A test builds the demo
+        # tenant and its scripted provider with ``ar_testing.demo``.
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
         ToolRegistry(self).ensure_seed(tenant=False)
 
     def seed_demo(self) -> None:
-        """Platform rows and the demo tenant. Safe to call twice."""
-        self.seed_platform()
+        """The demo tenant and its scripted provider. Safe to call twice."""
         self.seed_demo_tenant()
 
-    def seed_platform(self) -> None:
-        """Rows that belong to no tenant: the scripted provider and the standard aliases."""
-        if self.providers:
+    def _seed_scripted_provider(self) -> None:
+        """The demo's provider: a scripted model server, and the aliases that point at it."""
+        if demo_id("provider") in self.providers:
             return
         provider_id = demo_id("provider")
         chat_model = demo_id("model-chat")
@@ -314,6 +314,7 @@ class ChatService:
         if self.demo_tenant_seeded:
             return
         self.demo_tenant_seeded = True
+        self._seed_scripted_provider()
         # The dev tenant shows every screen, including the assurance desk that a
         # fresh customer tenant keeps off until it turns the feature on.
         # Kept sparse on purpose: a full settings dump here changes defaults that other

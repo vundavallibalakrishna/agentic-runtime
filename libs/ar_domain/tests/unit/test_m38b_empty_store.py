@@ -33,6 +33,10 @@ def test_a_new_store_holds_no_tenant() -> None:
         "eval_suites",
         "credential_grants",
         "data_connections",
+        # No model provider, model or alias either: the admin adds those in the product.
+        "providers",
+        "models",
+        "aliases",
     ):
         assert getattr(store, bucket) == {}, bucket
     assert store.demo_tenant_seeded is False
@@ -50,6 +54,15 @@ def test_the_test_library_builds_the_demo_tenant() -> None:
     assert {"assistant", "builder", "helpdesk", "desk", "revenue-analyst"} <= slugs
     assert store.user_roles[demo_id("approver")] == {"approver"}
     assert "tickets" in {str(row["slug"]) for row in store.tool_servers.values()}
+    # The demo's scripted provider and the aliases that point at it are test data too.
+    assert [row["name"] for row in store.providers.values()] == ["fake-llm"]
+    assert {row["alias"] for row in store.aliases.values()} == {
+        "reasoning",
+        "fast",
+        "vision",
+        "embed",
+        "rerank",
+    }
 
 
 def test_no_product_code_builds_the_demo_tenant() -> None:
