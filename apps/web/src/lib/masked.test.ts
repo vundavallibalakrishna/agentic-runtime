@@ -18,6 +18,6 @@ describe("masked values", () => {
     );
     expect(markMasked("already `[EMAIL_ADDRESS]` here")).toBe("already `[EMAIL_ADDRESS]` here");
     expect(markMasked("```\n[EMAIL_ADDRESS]\n```")).toBe("```\n[EMAIL_ADDRESS]\n```");
-    expect(markMasked("[x] done and [TODO list]")).toBe("[x] done and [TODO list]");
+    expect(markMasked("[x] done and [SEE ALSO]")).toBe("[x] done and [SEE ALSO]");
   });
 });
