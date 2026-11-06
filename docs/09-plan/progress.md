@@ -295,4 +295,5 @@ M38b-T01 | done | 645a631 | every process registers the whole schema; a retry sa
 M38b-T02 | done | 928a4c7 | bootstrap creates only a tenant and its admin; scripts/seed_tenant.py also creates the sign-in account
 M38b-T03 | done | b4f06c4 | a process reads its tenant and people from the database and holds no demo tenant; sign-in and the session use the tenant's rows
 M38b-T03a | done | 8e62d47 | the workers follow the API's loopback rule
-M38b-T04a | done | - | the seed writes the assistant and the builder, owned by the admin; no request creates an agent; no Helpdesk for a real tenant; sha recorded with M38b-T04b
+M38b-T04a | done | 767debf | the seed writes the assistant and the builder, owned by the admin; no request creates an agent; no Helpdesk for a real tenant
+M38b-T04b | done | - | no process falls back to a demo tenant; the browser tests start the API through a harness that owns it; sha recorded with M38b-T04c

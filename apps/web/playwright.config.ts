@@ -18,7 +18,9 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${webPort}`, ...devices["Desktop Chrome"] },
   webServer: [
     {
-      command: `uv run --directory ${root} ar-api`,
+      // The product's application over the demo tenant, with no database. The demo tenant
+      // is test data: the harness puts it in, the product never does.
+      command: `uv run --directory ${root} python services/api/tests/support/e2e_server.py`,
       url: `http://127.0.0.1:${apiPort}/healthz`,
       reuseExistingServer: true,
       timeout: 120_000,

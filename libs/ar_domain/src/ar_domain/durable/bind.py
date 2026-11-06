@@ -99,17 +99,11 @@ async def bind_store(
     return binding
 
 
-async def attach_store(
-    store: object,
-    database_url: str,
-    *,
-    demo_without_database: bool,
-    retry_s: float = 2.0,
-) -> TenantBinding | None:
-    """Attach a worker's store, waiting until the database names its tenant.
+async def attach_store(store: object, database_url: str, *, retry_s: float = 2.0) -> TenantBinding:
+    """Attach a worker's store, waiting until the database is up and names its tenant.
 
-    A worker can do nothing without its tenant, so it waits for the schema and for the
-    seed. Only a dev or CI process with no database at all falls back to the demo tenant.
+    A worker can do nothing without its tenant, so it waits for the database, for the
+    schema and for the seed, in any environment.
     """
     while True:
         waiting_for = "database"
@@ -121,11 +115,6 @@ async def attach_store(
             binding, waiting_for = None, "tenant"
         if binding is not None:
             return binding
-        if waiting_for == "database" and demo_without_database:
-            seed = getattr(store, "seed_demo_tenant", None)
-            if callable(seed):
-                seed()
-            return None
         _log.info("durable_waiting", waiting_for=waiting_for)
         await asyncio.sleep(retry_s)
 

@@ -566,9 +566,12 @@ async def test_bind_store_hydrates_the_tenant_it_finds(monkeypatch: pytest.Monke
 
 
 @pytest.mark.asyncio
-async def test_a_worker_waits_for_its_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_a_worker_waits_for_its_database_and_its_tenant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     found = TenantBinding(_TENANT, "acme", "Acme", "self_hosted", {})
-    answers: list[object] = [bind_mod.SchemaNotReadyError(), TenantNotReadyError(), found]
+    # No database, then no schema, then no tenant, then ready.
+    answers: list[object] = [None, bind_mod.SchemaNotReadyError(), TenantNotReadyError(), found]
     pauses: list[float] = []
 
     async def _bind(_store: object, _url: str) -> TenantBinding | None:
@@ -583,17 +586,11 @@ async def test_a_worker_waits_for_its_tenant(monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(bind_mod, "bind_store", _bind)
     monkeypatch.setattr(bind_mod.asyncio, "sleep", _pause)
     service = ChatService(tenant_seed=False)
-    assert await attach_store(service, "url", demo_without_database=True, retry_s=0.5) == found
-    assert pauses == [0.5, 0.5]
+    assert await attach_store(service, "url", retry_s=0.5) == found
+    assert pauses == [0.5, 0.5, 0.5]
+    # It never fell back to a demo tenant while it waited.
     assert service.agents == {}
-
-    # No database at all: a dev process falls back to the demo tenant, a deployed one waits.
-    answers.extend([None, None, found])
-    assert await attach_store(service, "url", demo_without_database=True) is None
-    assert {str(row["slug"]) for row in service.agents.values()} >= {"assistant", "builder"}
-    deployed = ChatService(tenant_seed=False)
-    assert await attach_store(deployed, "url", demo_without_database=False, retry_s=0.1) == found
-    assert deployed.agents == {}
+    assert service.demo_tenant_seeded is False
 
 
 @pytest.mark.asyncio
@@ -711,7 +708,10 @@ async def test_workers_poll_and_retry(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _bound(*_args: object, **_kwargs: object) -> None:
         return None
 
-    monkeypatch.setattr("ar_domain.durable.bind.bind_store", _bound)
+    async def _attached(*_args: object, **_kwargs: object) -> TenantBinding:
+        return TenantBinding(_TENANT, "acme", "Acme", "self_hosted", {})
+
+    monkeypatch.setattr("ar_domain.durable.bind.bind_store", _attached)
     await prepare_runtime()
     await prepare_ingest()
     from ar_ingest.activities import bind_store as bind_ingest

@@ -133,9 +133,8 @@ absorbs for the tenant, the users, the agents and the provider.
 T03 took the demo tenant out of every process that has a database, and T04a made the seed the only source of
 a tenant's default agents. What is left, one pull request for each:
 
-- **T04b** The browser tests start the API through a test harness that seeds the demo tenant and adds the
-  test sign-in. The API itself no longer seeds a demo tenant when it has no database: it is not ready, and
-  says so.
+- **T04b** (done) The browser tests start the API through a test harness that puts the demo tenant in. No
+  product process seeds a demo tenant when it has no database: it waits and tries again.
 - **T04c** The demo tenant, its people, fixtures and showcase move to `ar_testing`. `ChatService()` starts
   with no tenant, and tests that need the demo tenant build it with the helper.
 - **T04d** The fixed user catalogue and the memory identity leave the API (with T05).

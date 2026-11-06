@@ -66,6 +66,8 @@ Rules: first matching script wins; `respond.text` supports `{{last_user}}` and `
 
 ## 6. End-to-end tests
 
+The browser tests start the API through a harness, `services/api/tests/support/e2e_server.py`: the product's own application with no database, given the demo tenant (its people, agents, fixtures and example conversations). The demo tenant is test data, so the harness puts it in. A product process never creates it: an API or a worker that cannot reach its database, or finds no tenant in it, serves nobody and tries again ([OQ-99](../open-questions.md)). The run on real services with a real model is the fresh run ([report](../testing/fresh-tenant-2026-11-06/report.md), M38b-T11).
+
 Playwright projects: `chromium` (required), `firefox` (nightly). In CI a failed test is retried up to twice and a test that then passes is listed as flaky, so one slow page does not fail the job ([OQ-95](../open-questions.md)); there is no retry on a laptop. The default wait for an element is ten seconds. Stack: `make dev` (compose + host processes) in CI, `fake-llm` default script set plus `e2e` set. Journeys (each with axe check on visited pages):
 1. Login (Keycloak test realm) → select tenant → chat with default agent → streaming answer → feedback.
 2. Builder creates agent from template → adds tool and knowledge → test chat (preview) → publish → member uses it.

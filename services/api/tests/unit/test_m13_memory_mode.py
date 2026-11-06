@@ -80,7 +80,7 @@ async def test_probes_do_not_bind(path: str, monkeypatch: pytest.MonkeyPatch) ->
     assert getattr(store, "_bind_attempted", False) is False
 
 
-async def test_missing_schema_retries_and_unavailable_database_seeds_showcase(
+async def test_a_missing_schema_and_an_unavailable_database_both_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     attempts = {"n": 0}
@@ -88,25 +88,25 @@ async def test_missing_schema_retries_and_unavailable_database_seeds_showcase(
     async def bind_store(*_args: object, **_kwargs: object) -> object:
         attempts["n"] += 1
         if attempts["n"] == 1:
-            raise SchemaNotReadyError()
+            raise SchemaNotReadyError
         return None
 
     monkeypatch.setattr("ar_domain.durable.bind.should_bind", lambda: True)
     monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind_store)
-    store = ChatService()
+    store = ChatService(tenant_seed=False)
 
     async def app(scope: object, receive: object, send: object) -> None:
         del scope, receive
         await send({"type": "http.response.start", "status": 204, "headers": []})
 
     middleware = DurableMiddleware(app)
-    await middleware(_scope(store, "/api/v1/conversations"), AsyncMock(), AsyncMock())
-    assert getattr(store, "_bind_attempted", False) is False
-    await middleware(_scope(store, "/api/v1/conversations"), AsyncMock(), AsyncMock())
-    assert store._bind_attempted is True
-    assert attempts["n"] == 2
-    titles = {row.get("title") for row in store.conversations.values()}
-    assert "Weekly status for the platform" in titles
+    for expected in (1, 2, 3):
+        await middleware(_scope(store, "/api/v1/conversations"), AsyncMock(), AsyncMock())
+        # Neither answer is final: the next request tries the database again.
+        assert getattr(store, "_bind_attempted", False) is False
+        assert attempts["n"] == expected
+    # No example conversation appeared while the database was away.
+    assert store.conversations == {}
 
 
 async def test_memory_identity_lists_users_and_enables_widget() -> None:
@@ -131,16 +131,17 @@ async def test_memory_identity_lists_users_and_enables_widget() -> None:
 @pytest.mark.parametrize(
     ("env", "answer", "final", "demo"),
     [
-        (EnvName.CI, None, True, True),
+        (EnvName.CI, None, False, False),
+        (EnvName.DEV, None, False, False),
         (EnvName.PROD, None, False, False),
         (EnvName.PROD, "tenant_not_ready", False, False),
         (EnvName.DEV, "tenant_not_ready", False, False),
     ],
 )
-async def test_only_a_dev_process_without_a_database_gets_the_demo_tenant(
+async def test_an_api_without_its_database_or_tenant_never_gets_a_demo_tenant(
     env: EnvName, answer: str | None, final: bool, demo: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Task: M38b-T03. A deployed API without its tenant serves nobody and tries again."""
+    """Tasks: M38b-T03, M38b-T04b. It serves nobody and tries again, in any environment."""
     from ar_api.middleware.durable import _bind_once
     from ar_domain.durable.bind import TenantNotReadyError
 
