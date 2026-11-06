@@ -74,7 +74,8 @@ class KnowledgeSpec(_Model):
     collections: list[str] = Field(default_factory=list, max_length=20)
     auto_retrieve: bool = False
     top_k: int = Field(default=8, ge=1)
-    min_score: float = Field(default=0.3, ge=0, le=1)
+    # Unset: the rerank model's own bar (``requestOptions.rerank.min_score``).
+    min_score: float | None = Field(default=None, ge=0, le=1)
 
 
 def _default_read_scopes() -> list[Literal["user", "agent", "team", "agent_user"]]:

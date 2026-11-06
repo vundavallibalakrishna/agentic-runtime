@@ -13,8 +13,6 @@ if TYPE_CHECKING:
     from ar_domain.knowledge.store import RetrievalStore
     from ar_domain.models.embedding import ModelTarget
 
-MIN_SCORE = 0.2
-
 
 async def search_targets(
     store: RetrievalStore,
@@ -61,23 +59,26 @@ def apply_rerank(
     hits: list[dict[str, object]],
     *,
     top_k: int,
-    min_score: float = MIN_SCORE,
+    min_score: float | None = None,
     target: ModelTarget | None = None,
 ) -> tuple[list[dict[str, object]], float, str | None, bool]:
     """Score the top candidates against the question with the tenant's rerank model.
 
     Returns the hits to keep, the time taken, a warning, and whether the hits were scored.
-    A rerank model gives each passage a score from 0 to 1, and passages under
-    ``min_score`` are dropped. Without one, or when it fails, nothing here can say how
-    well a passage answers the question: the closest passages are returned in the order
-    the search found them, and the model that reads them judges them.
+    A rerank model gives each passage a score from 0 to 1, and passages under the bar
+    are dropped: ``min_score`` when the caller sets one, else the model's own
+    (``rerank_floor``), because each model scores on its own scale. Without a model, or
+    when it fails, nothing here can say how well a passage answers the question: the
+    closest passages are returned in the order the search found them, and the model that
+    reads them judges them.
     """
     limit = int(os.environ.get("AR_KNOWLEDGE_RERANK_CANDIDATES", "50"))
     window = hits[:limit]
     if target is None:
         return window[:top_k], 0.0, None, False
-    from ar_domain.models.embedding import rerank  # noqa: PLC0415
+    from ar_domain.models.embedding import rerank, rerank_floor  # noqa: PLC0415
 
+    bar = rerank_floor(target) if min_score is None else min_score
     started = time.perf_counter()
     documents = [str(hit.get("rerank_text") or hit.get("snippet") or "") for hit in window]
     try:
@@ -91,7 +92,7 @@ def apply_rerank(
         copied["rerank_score"] = score
         ranked.append(copied)
     ranked.sort(key=lambda item: (-float(item["rerank_score"]), str(item.get("chunk_id"))))  # type: ignore[arg-type]
-    kept = [hit for hit in ranked if float(hit["rerank_score"]) >= min_score][:top_k]  # type: ignore[arg-type]
+    kept = [hit for hit in ranked if float(hit["rerank_score"]) >= bar][:top_k]  # type: ignore[arg-type]
     return kept, elapsed, None, True
 
 
@@ -101,6 +102,6 @@ def _number(value: object) -> float:
     return 0.0
 
 
-def answerable(hits: list[dict[str, object]], *, min_score: float = MIN_SCORE) -> bool:
-    """True when a rerank model scored at least one passage at or above ``min_score``."""
-    return any(_number(hit.get("rerank_score")) >= min_score for hit in hits)
+def answerable(hits: list[dict[str, object]]) -> bool:
+    """True when a rerank model kept at least one passage: ``apply_rerank`` drops the rest."""
+    return any(hit.get("rerank_score") is not None for hit in hits)

@@ -120,7 +120,6 @@ def _librarian(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
             "collections": ["company-library"],
             "auto_retrieve": True,
             "top_k": 4,
-            "min_score": 0.2,
         },
         "output": {"citations": "preferred", "grounding": "preferred"},
         "budget": {

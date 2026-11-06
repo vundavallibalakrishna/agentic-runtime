@@ -214,11 +214,13 @@ def _selected(row: IndexedChunk, selector: DeleteFilter) -> bool:
     return not selector.chunk_ids or row.chunk_id in selector.chunk_ids
 
 
-def _dense_ranks(rows: list[IndexedChunk], query: list[float], limit: int) -> list[tuple[str, int]]:
+def _dense_ranks(
+    rows: list[IndexedChunk], query: list[float], limit: int
+) -> list[tuple[str, int, float]]:
     scored = [(_cosine(query, row.dense), row.chunk_id) for row in rows if row.dense]
     scored.sort(key=lambda item: (-item[0], item[1]))
     ranked = enumerate(scored[:limit], start=1)
-    return [(str(chunk_id), rank) for rank, (_score, chunk_id) in ranked]
+    return [(str(chunk_id), rank, score) for rank, (score, chunk_id) in ranked]
 
 
 def _lexical_ranks(rows: list[IndexedChunk], text: str, limit: int) -> list[tuple[str, int]]:

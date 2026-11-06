@@ -23,7 +23,27 @@ export type Model = {
   capabilities?: string[];
   priceInputMicrosPerMtok?: number;
   priceOutputMicrosPerMtok?: number;
+  /** Provider-specific options kept on the model, such as where a rerank model is called. */
+  requestOptions?: Record<string, unknown>;
 };
+
+/** Where a rerank model is called, how the request is shaped, and the lowest score that counts. */
+export type RerankRoute = { path: string; body: "query" | "queries"; min_score: number };
+
+/** The bar a rerank model's scores clear when the model sets none of its own. */
+export const DEFAULT_RERANK_FLOOR = 0.2;
+
+/** A rerank model's route and bar from its request options; the product's defaults otherwise. */
+export function rerankRoute(model: Model | null): RerankRoute {
+  const raw = model?.requestOptions?.rerank;
+  const section = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const bar = section.min_score;
+  return {
+    path: typeof section.path === "string" && section.path ? section.path : "/rerank",
+    body: section.body === "queries" ? "queries" : "query",
+    min_score: typeof bar === "number" && bar >= 0 && bar <= 1 ? bar : DEFAULT_RERANK_FLOOR,
+  };
+}
 
 export type Alias = {
   id: string;

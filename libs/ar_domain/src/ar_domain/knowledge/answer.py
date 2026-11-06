@@ -33,7 +33,8 @@ def compose(store: Any, run: dict[str, object], question: str) -> dict[str, obje
         text = "No sufficiently relevant documents were found."
         return _pack(text, [], definition, question)
     top_k = int(knowledge.get("top_k") or 8)
-    min_score = float(knowledge.get("min_score") or 0.2)
+    raw_bar = knowledge.get("min_score")
+    min_score = float(raw_bar) if isinstance(raw_bar, int | float) else None
     found = KnowledgeBook(store).search(
         actor,
         {

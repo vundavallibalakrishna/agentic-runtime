@@ -22,6 +22,7 @@ import httpx
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
 from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
+from ar_common.logging import get_logger
 from ar_common.sandboxkit import csv_rows, xlsx_rows
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
@@ -152,6 +153,9 @@ def _preview(mime_type: str, data: bytes) -> dict[str, object]:
     }:
         return {"kind": "xlsx", "rows": xlsx_rows(data)}
     return {}
+
+
+_log = get_logger(__name__)
 
 
 @dataclass
@@ -1113,6 +1117,7 @@ class ChatService:
         if default_params is not None:
             row["default_params"] = _alias_params(default_params)
         self.aliases[alias_id] = row
+        self._embeddings_changed(row)
         return self._public(row)
 
     def update_alias(
@@ -1149,7 +1154,49 @@ class ChatService:
                 Actor(tenant_id=owner, user_id=actor_user_id, permissions=PERMISSION_KEYS),
                 str(row.get("alias") or ""),
             )
+        self._embeddings_changed(row)
         return self._public(row)
+
+    def _embeddings_changed(self, alias_row: dict[str, object]) -> None:
+        """After the ``embed`` alias moves, memory embeds its facts again with the new model.
+
+        Until then older facts are matched by their words (OQ-102). The work runs beside
+        the request that made the change, on this process's loop, and is saved as it goes;
+        a script or a test with no loop does it here and now.
+        """
+        from ar_domain.models.embedding import EMBED_ALIAS  # noqa: PLC0415
+
+        if str(alias_row.get("alias") or "") != EMBED_ALIAS:
+            return
+        tenant_id = alias_row.get("tenant_id")
+        if not isinstance(tenant_id, uuid.UUID):
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                self._reembed_memory(tenant_id)
+            except Exception as exc:  # noqa: BLE001 - the alias change stands; facts match by words
+                _log.warning("memory_reembed_failed", error_type=type(exc).__name__)
+            return
+        self.tasks.append(loop.create_task(self._reembed_memory_soon(tenant_id)))
+
+    async def _reembed_memory_soon(self, tenant_id: uuid.UUID) -> None:
+        from ar_common.offload import run_sync  # noqa: PLC0415
+
+        try:
+            await run_sync(self._reembed_memory, tenant_id)
+        except Exception as exc:  # noqa: BLE001 - the next change or the script tries again
+            _log.warning("memory_reembed_failed", error_type=type(exc).__name__)
+
+    def _reembed_memory(self, tenant_id: uuid.UUID) -> int:
+        from ar_domain.memory.vectors import reembed  # noqa: PLC0415
+
+        count = reembed(self, tenant_id)
+        if count:
+            _log.info("memory_reembedded", count=count)
+            self.flush_soon()
+        return count
 
     def _registry_row(
         self,

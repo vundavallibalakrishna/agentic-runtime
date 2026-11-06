@@ -104,6 +104,9 @@ class ScoredChunk(_Frozen):
     score: float
     dense_rank: int | None = None
     lexical_rank: int | None = None
+    # Cosine similarity between the question and the passage, from the backend, for a
+    # passage the dense search found. None for one only the words found.
+    similarity: float | None = None
 
 
 class ExportedVector(_Frozen):

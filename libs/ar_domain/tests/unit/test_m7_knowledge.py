@@ -144,9 +144,10 @@ def test_sql_builder_always_filters_and_rrf_breaks_ties() -> None:
     )
     assert fused[0].chunk_id == left
     assert fused[0].score == pytest.approx(fused[1].score)
-    assert answerable([{"rerank_score": 0.1}], min_score=0.2) is False
-    assert answerable([{"score": 0.9}], min_score=0.2) is False
-    assert answerable([{"rerank_score": 0.3}], min_score=0.2) is True
+    # Scored hits answer the question once the rerank step kept any of them.
+    assert answerable([]) is False
+    assert answerable([{"score": 0.9}]) is False
+    assert answerable([{"rerank_score": 0.3}]) is True
     kept, _elapsed, warning, scored = apply_rerank(
         "desk", [{"snippet": "desk opens", "chunk_id": "a"}], top_k=1
     )

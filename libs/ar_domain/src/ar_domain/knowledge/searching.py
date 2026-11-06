@@ -31,7 +31,7 @@ def search(
     collection_ids: list[uuid.UUID],
     top_k: int,
     debug: bool,
-    min_score: float = 0.2,
+    min_score: float | None = None,
 ) -> dict[str, object]:
     """Sync wrapper for callers that are not already on the request loop."""
     return run_sync(
@@ -55,7 +55,7 @@ async def search_async(
     collection_ids: list[uuid.UUID],
     top_k: int,
     debug: bool,
-    min_score: float = 0.2,
+    min_score: float | None = None,
 ) -> dict[str, object]:
     """Hybrid search filtered by the caller's principals. Managers are not exempt."""
     await refresh_registry(store)
@@ -89,7 +89,7 @@ async def search_async(
     verified = _late(store, actor, reranked, collections)
     # Scored passages answer the question when one clears the bar. Unscored ones are the
     # closest the search found, and whoever reads them decides.
-    ok = answerable(verified, min_score=min_score) if scored else bool(verified)
+    ok = answerable(verified) if scored else bool(verified)
     if not ok:
         UNANSWERABLE.inc()
     SEARCH_HITS.observe(len(verified))
@@ -176,6 +176,7 @@ def _hit(store: Any, row: Any) -> dict[str, object]:
         "heading": path,
         "library_document_id": library_id,
         "score": row.score,
+        "similarity": getattr(row, "similarity", None),
         "page_from": chunk.get("page_from") if isinstance(chunk, dict) else None,
         "page_to": chunk.get("page_to") if isinstance(chunk, dict) else None,
         "heading_path": heading if isinstance(heading, list) else [],

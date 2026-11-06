@@ -72,7 +72,7 @@
             "collections": [],
             "autoRetrieve": false,
             "topK": 8,
-            "minScore": 0.3
+            "minScore": null
           }
         },
         "skills": {
@@ -715,11 +715,18 @@
           "type": "integer"
         },
         "minScore": {
-          "default": 0.3,
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Minscore",
-          "type": "number"
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minscore"
         }
       },
       "title": "KnowledgeSpec",

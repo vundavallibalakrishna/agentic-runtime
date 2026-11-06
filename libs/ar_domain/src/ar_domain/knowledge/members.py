@@ -147,7 +147,6 @@ async def retrieve(
         collection_ids=collection_ids,
         top_k=min(max(top_k, 1), 20),
         debug=True,
-        min_score=0.05,
     )
     raw_hits = found.get("hits")
     hits = raw_hits if isinstance(raw_hits, list) else []

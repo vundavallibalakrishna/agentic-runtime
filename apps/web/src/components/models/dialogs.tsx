@@ -10,16 +10,25 @@ import { Input } from "@/components/ui/input";
 import { Field, Problem, Select } from "./parts";
 import {
   type Alias,
+  DEFAULT_RERANK_FLOOR,
   fromMicros,
   MODEL_KINDS,
   type Model,
   type ModelKind,
   type Provider,
+  type RerankRoute,
+  rerankRoute,
   type StandardAlias,
   toMicros,
 } from "./types";
 
 /** A dialog with a form, its own error and two buttons. The caller's save may fail. */
+/** A typed bar between 0 and 1; anything else is the product's default. */
+function floorOf(text: string): number {
+  const value = Number.parseFloat(text);
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? value : DEFAULT_RERANK_FLOOR;
+}
+
 function FormDialog({
   open,
   title,
@@ -181,6 +190,8 @@ export type ModelChange = {
   embeddingDimensions: number | null;
   /** True when the tenant says this chat model can read images. */
   vision: boolean;
+  /** Where a rerank model is called and how the request is shaped. */
+  rerank: RerankRoute;
   /** Standard aliases to point at the new model. */
   useFor: string[];
 };
@@ -208,6 +219,9 @@ export function ModelDialog({
   const [priceOut, setPriceOut] = useState("");
   const [dimensions, setDimensions] = useState("");
   const [vision, setVision] = useState(false);
+  const [rerankPath, setRerankPath] = useState("/rerank");
+  const [rerankBody, setRerankBody] = useState<"query" | "queries">("query");
+  const [rerankFloor, setRerankFloor] = useState(String(DEFAULT_RERANK_FLOOR));
   const [useFor, setUseFor] = useState<string[]>([]);
 
   useEffect(() => {
@@ -218,6 +232,10 @@ export function ModelDialog({
     setPriceOut(fromMicros(model?.priceOutputMicrosPerMtok));
     setDimensions(model?.embeddingDimensions ? String(model.embeddingDimensions) : "");
     setVision((model?.capabilities ?? []).includes("vision"));
+    const route = rerankRoute(model);
+    setRerankPath(route.path);
+    setRerankBody(route.body);
+    setRerankFloor(String(route.min_score));
   }, [model]);
 
   // Offer the names the product uses that still have no model of this kind.
@@ -252,6 +270,11 @@ export function ModelDialog({
               ? parsedDimensions
               : null,
           vision: kind === "chat" && vision,
+          rerank: {
+            path: rerankPath.trim() || "/rerank",
+            body: rerankBody,
+            min_score: floorOf(rerankFloor),
+          },
           useFor: model ? [] : useFor.filter((alias) => unset.some((item) => item.alias === alias)),
         })
       }
@@ -349,6 +372,41 @@ export function ModelDialog({
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)] sm:col-span-2">
             {t("priceHint")}
           </p>
+        </div>
+      ) : null}
+      {advanced && kind === "rerank" ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field hint={t("rerankPathHint")} id="model-rerank-path" label={t("rerankPath")}>
+            <Input
+              aria-describedby="model-rerank-path-hint"
+              id="model-rerank-path"
+              onChange={(event) => setRerankPath(event.target.value)}
+              value={rerankPath}
+            />
+          </Field>
+          <Field hint={t("rerankBodyHint")} id="model-rerank-body" label={t("rerankBody")}>
+            <Select
+              id="model-rerank-body"
+              onChange={(next) => setRerankBody(next === "queries" ? "queries" : "query")}
+              value={rerankBody}
+            >
+              <option value="query">{t("rerankBodyQuery")}</option>
+              <option value="queries">{t("rerankBodyQueries")}</option>
+            </Select>
+          </Field>
+          <Field hint={t("rerankFloorHint")} id="model-rerank-floor" label={t("rerankFloor")}>
+            <Input
+              aria-describedby="model-rerank-floor-hint"
+              id="model-rerank-floor"
+              inputMode="decimal"
+              max={1}
+              min={0}
+              onChange={(event) => setRerankFloor(event.target.value)}
+              step="0.01"
+              type="number"
+              value={rerankFloor}
+            />
+          </Field>
         </div>
       ) : null}
       {advanced && kind === "embedding" ? (

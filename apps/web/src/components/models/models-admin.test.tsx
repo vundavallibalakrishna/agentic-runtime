@@ -228,6 +228,52 @@ describe("Models admin", () => {
     );
   });
 
+  it("lets a rerank model say where it is called and how, and sends that with the model", async () => {
+    const state = registry();
+    state.providers.push({
+      id: "prov-1",
+      name: "Main",
+      kind: "openai_compatible",
+      baseUrl: "https://models.example.com/v1",
+      hasApiKey: true,
+      platform: false,
+    });
+    render(wrap(<ModelsAdmin />));
+    fireEvent.click(await screen.findByRole("button", { name: "Advanced" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add model to Main" }));
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByLabelText("Model id"), {
+      target: { value: "vendor/rerank-1" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Kind"), { target: { value: "rerank" } });
+    // The route starts at the usual values; the customer changes both.
+    const path = within(dialog).getByLabelText("Rerank path") as HTMLInputElement;
+    expect(path.value).toBe("/rerank");
+    fireEvent.change(path, { target: { value: "/inference/vendor/rerank-1" } });
+    fireEvent.change(within(dialog).getByLabelText("Request body"), {
+      target: { value: "queries" },
+    });
+    // Each model scores on its own scale, so the bar a score must clear is the model's.
+    const floor = within(dialog).getByLabelText("Lowest score that counts") as HTMLInputElement;
+    expect(floor.value).toBe("0.2");
+    fireEvent.change(floor, { target: { value: "0.02" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add model" }));
+
+    await waitFor(() =>
+      expect(state.calls.find((call) => call.path === "/api/v1/models")).toMatchObject({
+        method: "POST",
+        body: {
+          upstreamModel: "vendor/rerank-1",
+          kind: "rerank",
+          requestOptions: {
+            rerank: { path: "/inference/vendor/rerank-1", body: "queries", min_score: 0.02 },
+          },
+        },
+      }),
+    );
+  });
+
   it("keeps a refusal in the dialog, in the words the API gave", async () => {
     const state = registry();
     state.providers.push({
