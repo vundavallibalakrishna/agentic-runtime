@@ -7,6 +7,7 @@ import pytest
 import ar_domain.skills.turn as skills_turn
 import ar_domain.tools.chat_loop as chat_loop
 from ar_domain.chat.service import ChatService, demo_id
+from ar_testing.demo import demo_store
 
 
 def _turn(store: ChatService) -> uuid.UUID:
@@ -39,12 +40,12 @@ async def test_scripted_paths_are_skipped_when_fake_models_are_not_allowed(
     monkeypatch.setattr(skills_turn, "maybe_compose", compose)
     monkeypatch.setattr(chat_loop, "maybe_tools", tools)
 
-    allowed = ChatService()
+    allowed = demo_store()
     await allowed.generate(_turn(allowed), "file a ticket about printers", [])
     assert calls == ["compose", "tools"]
 
     calls.clear()
-    blocked = ChatService()
+    blocked = demo_store()
     blocked.fake_models_allowed = False
     await blocked.generate(_turn(blocked), "file a ticket about printers", [])
     assert calls == []

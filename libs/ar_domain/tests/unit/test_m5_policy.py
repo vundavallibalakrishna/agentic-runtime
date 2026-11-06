@@ -14,10 +14,11 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.approvals.service import ApprovalBook
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.policy.engine import consume_granted, evaluate_call
 from ar_domain.policy.logic import evaluate, fallback
+from ar_testing.demo import demo_store
 
 _ROOT = Path(__file__).resolve().parents[4]
 
@@ -32,7 +33,7 @@ def _actor(user: str = "admin") -> Actor:
 
 
 def test_desk_owner_is_the_builder() -> None:
-    store = ChatService()
+    store = demo_store()
     desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
     assert desk["owner_user_id"] == demo_id("builder")
 
@@ -87,7 +88,7 @@ def test_fixtures_agree_with_opa() -> None:
 
 
 def test_one_approval_is_consumed_once() -> None:
-    store = ChatService()
+    store = demo_store()
     approval_id = new_id()
     store.approvals[approval_id] = {
         "id": approval_id,
@@ -112,7 +113,7 @@ def test_one_approval_is_consumed_once() -> None:
 
 
 def test_eval_runs_do_not_execute_writes() -> None:
-    store = ChatService()
+    store = demo_store()
     run_id = new_id()
     store.runs[run_id] = {"id": run_id, "eval_context": True, "tenant_id": demo_id("tenant")}
     version = next(row for row in store.tool_versions.values() if row.get("name") == "create_pet")
@@ -137,7 +138,7 @@ def test_eval_runs_do_not_execute_writes() -> None:
 
 
 def test_owner_cannot_approve_and_self_grant_is_rejected() -> None:
-    store = ChatService()
+    store = demo_store()
     desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
     approval_id = new_id()
     store.approvals[approval_id] = {

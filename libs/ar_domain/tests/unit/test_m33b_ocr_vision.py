@@ -5,18 +5,21 @@ from __future__ import annotations
 import shutil
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import pytest
 
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.documents.ocr import engine_catalogue, tesseract_installed
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.handlers import dispatch
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.seed_tools import ensure_m33b
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 _FIXTURES = Path(__file__).resolve().parents[4] / "docs" / "testing" / "fixtures" / "m33b"
 _KEY = "sealed-vision-key"
@@ -77,7 +80,7 @@ def test_ocr_tool_stores_the_canary_and_hides_it_from_another_tenant(
         return "\n".join(expected)
 
     monkeypatch.setattr("ar_domain.documents.extract._tesseract", fake_ocr)
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     file_id = _attach(
@@ -109,7 +112,7 @@ def test_scanned_pdf_canary_goes_through_ocr(monkeypatch: pytest.MonkeyPatch) ->
         raise AssertionError("scanned PDF OCR must not require Pillow")
 
     monkeypatch.setattr("ar_domain.documents.extract._pillow_images", no_pillow)
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     file_id = _attach(
         store,
@@ -126,7 +129,7 @@ def test_scanned_pdf_canary_goes_through_ocr(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_cloud_ocr_is_not_live_and_stores_nothing() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     file_id = _attach(
         store, tenant, (_FIXTURES / "ocr-canary.png").read_bytes(), "ocr-canary.png", "image/png"
@@ -155,7 +158,7 @@ def test_cloud_ocr_is_not_live_and_stores_nothing() -> None:
 def test_ocr_canary_live() -> None:
     if shutil.which("tesseract") is None:
         pytest.skip("tesseract is not installed; OCR canary is not_live on this runner")
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     image_id = _attach(
@@ -178,7 +181,7 @@ def test_ocr_canary_live() -> None:
 
 def test_missing_tesseract_is_ocr_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("ar_domain.documents.extract.shutil.which", lambda _name: None)
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     file_id = _attach(
         store, tenant, (_FIXTURES / "ocr-canary.png").read_bytes(), "ocr-canary.png", "image/png"
@@ -189,7 +192,7 @@ def test_missing_tesseract_is_ocr_unavailable(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_assistant_catalog_includes_ocr_and_image_ask() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     agent = next(
         row
@@ -206,7 +209,7 @@ def test_assistant_catalog_includes_ocr_and_image_ask() -> None:
 
 
 def test_ensure_grants_image_ask_once() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     agent = next(
         row
@@ -240,7 +243,7 @@ def test_ensure_grants_image_ask_once() -> None:
 
 
 def test_image_ask_fails_clearly_without_a_vision_model() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     file_id = _attach(
         store, tenant, (_FIXTURES / "ocr-canary.png").read_bytes(), "ocr-canary.png", "image/png"
@@ -369,7 +372,7 @@ def test_image_ask_sends_the_image_and_keeps_the_key_out_of_the_result(
 
 
 def _vision_store(upstream: str, capabilities: list[str]) -> ChatService:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     provider_id = uuid.uuid4()
     model_id = uuid.uuid4()

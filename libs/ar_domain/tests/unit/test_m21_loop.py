@@ -2,16 +2,20 @@
 
 import asyncio
 import uuid
+from typing import TYPE_CHECKING
 
 from ar_domain.agents.logic import assistant_definition
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.models.logic import completion_message
 from ar_domain.tools.agent_loop import run_agent_loop
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 
 def _store() -> ChatService:
-    store = ChatService()
+    store = demo_store()
     store._completion_call = lambda _tenant, alias="reasoning": (  # type: ignore[method-assign]
         "Qwen/Qwen3-32B",
         {},
@@ -40,7 +44,7 @@ def _script(store: ChatService, steps: list[dict[str, object]]) -> None:
 def test_builtin_handlers_cover_control_memory_and_skills() -> None:
     from ar_domain.tools.handlers import dispatch
 
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     assert dispatch(store, "builtin://control", "checkpoint", {}, "")["is_error"] is True
@@ -135,7 +139,7 @@ def test_completion_message_reads_tool_calls() -> None:
 
 
 def test_fake_provider_leaves_the_turn_alone() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     conversation = store.create_conversation(tenant, user, None)
@@ -403,7 +407,7 @@ def test_reload_keeps_a_running_turn() -> None:
 
 
 def test_complete_turn_reads_a_provider_response(monkeypatch: object) -> None:
-    store = ChatService()
+    store = demo_store()
 
     class _Response:
         status_code = 200

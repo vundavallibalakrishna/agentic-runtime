@@ -5,13 +5,14 @@ from datetime import timedelta
 from temporalio.worker import Worker
 
 from ar_common.time import utcnow
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.sandboxes.runtime import ensure_scope
 from ar_system.workflows.sandbox_reaper import SandboxReaperWorkflow, bind_store, reap_sandboxes
+from ar_testing.demo import demo_store
 
 
 async def test_reaper_suspends_once(temporal_env: object) -> None:
-    store = ChatService()
+    store = demo_store()
     row = ensure_scope(
         store,
         tenant_id=demo_id("tenant"),

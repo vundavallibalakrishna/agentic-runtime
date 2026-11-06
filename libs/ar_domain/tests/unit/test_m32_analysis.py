@@ -10,7 +10,7 @@ import pytest
 from ar_common.errors import ValidationFailedError
 from ar_contracts.tenants import TenantSettings
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.documents.grounding import check, prepare_analysis_text
 from ar_domain.documents.library import DocumentLibrary
 from ar_domain.identity.limits import merge_settings
@@ -19,6 +19,7 @@ from ar_domain.pii.analyzer import redact
 from ar_domain.security.guardrails import apply_result_safety
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.pipeline import ToolPipeline
+from ar_testing.demo import demo_store
 
 PASSAGE = (
     "The annual picnic is on Friday in the courtyard. "
@@ -172,7 +173,7 @@ def test_tool_result_keeps_evidence_unless_the_setting_is_on(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("ar_domain.pii.analyzer._presidio", _fake_presidio)
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     actor = Actor(tenant, demo_id("admin"), PERMISSION_KEYS)
     policy = (
@@ -310,7 +311,7 @@ def test_workspace_uuid_path_is_not_masked(monkeypatch: pytest.MonkeyPatch) -> N
     assert "[US_DRIVER_LICENSE]" not in kept
     assert "ada@example.com" not in kept
     assert "[EMAIL_ADDRESS]" in kept
-    store = ChatService()
+    store = demo_store()
     cleaned, _flag = apply_result_safety(
         store, sample, open_world=False, analysis=False, tenant_id=demo_id("tenant")
     )
@@ -320,7 +321,7 @@ def test_workspace_uuid_path_is_not_masked(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_agent_mask_is_opt_in(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("ar_domain.pii.analyzer._presidio", _fake_presidio)
-    store: Any = ChatService()
+    store: Any = demo_store()
     tenant = demo_id("tenant")
     version_id = uuid.uuid4()
     store.versions[version_id] = {"definition": {"safety": {"pii_masking": True}}}

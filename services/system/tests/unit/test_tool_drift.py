@@ -1,11 +1,11 @@
 """Drift check marks a changed manifest and does not adopt it."""
 
-from ar_domain.chat.service import ChatService
 from ar_system.workflows.tool_drift_check import run_drift_check
+from ar_testing.demo import demo_store
 
 
 def test_drift_workflow_requests_review() -> None:
-    store = ChatService()
+    store = demo_store()
     server = next(row for row in store.tool_servers.values() if row.get("slug") == "tickets")
     version = store.tool_server_versions[server["current_version_id"]]
     original = version["manifest_hash"]

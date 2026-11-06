@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from ar_domain.chat.service import ChatService, demo_id
+from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
     from ar_testing.stand_in import StandIn
@@ -35,7 +36,7 @@ def _alias_on(store: ChatService, base_url: str, kind: str = "openai_compatible"
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["openai_compatible", "fake"])
 async def test_an_alias_test_on_a_dead_endpoint_is_a_failure(kind: str) -> None:
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     alias_id = _alias_on(store, UNREACHABLE, kind)
     tested = await store.test_alias(
         demo_id("tenant"), alias_id, [{"role": "user", "content": "ping"}]
@@ -48,7 +49,7 @@ async def test_an_alias_test_on_a_dead_endpoint_is_a_failure(kind: str) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["openai_compatible", "fake"])
 async def test_a_provider_test_on_a_dead_endpoint_is_a_failure(kind: str) -> None:
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     provider = store.create_provider(
         demo_id("tenant"), "dead", kind, UNREACHABLE, platform=False, api_key="key"
     )
@@ -62,7 +63,7 @@ async def test_an_alias_test_returns_what_the_model_said(stand_in: StandIn) -> N
     stand_in.script(
         SCRIPT_SET, [{"match": {"contains": "ping"}, "respond": {"text": "pong from the model"}}]
     )
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     alias_id = _alias_on(store, stand_in.base_url(SCRIPT_SET))
     tested = await store.test_alias(
         demo_id("tenant"), alias_id, [{"role": "user", "content": "ping"}]
@@ -75,7 +76,7 @@ async def test_an_alias_test_returns_what_the_model_said(stand_in: StandIn) -> N
 @pytest.mark.asyncio
 async def test_a_provider_test_passes_when_the_model_answers_pong(stand_in: StandIn) -> None:
     stand_in.script(SCRIPT_SET, [{"match": {"contains": "pong"}, "respond": {"text": "pong"}}])
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     provider = store.create_provider(
         demo_id("tenant"),
         "live",

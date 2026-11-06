@@ -4,12 +4,12 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from ar_api.main import create_application
 from ar_common.time import utcnow
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import ASSURANCE_PERMISSIONS, PERMISSION_KEYS
 from ar_domain.identity.tenant_settings import feature_enabled, permissions_for_features
+from ar_testing.demo import demo_application
 
 
 def _principal(tenant: uuid.UUID) -> Principal:
@@ -27,7 +27,7 @@ def _principal(tenant: uuid.UUID) -> Principal:
 
 
 def _client(principal: Principal) -> TestClient:
-    app = create_application()
+    app = demo_application()
 
     async def resolve(scope: object) -> Principal:
         del scope
@@ -77,7 +77,7 @@ def test_a_settings_patch_keeps_the_dev_tenants_assurance_flag() -> None:
     """The in-memory identity store and the chat store seed the same dev settings, so a
     patch from the Tools screen does not switch the assurance desk off (the web-e2e
     failure on PR 49)."""
-    app = create_application()
+    app = demo_application()
     app.state.chat.seed_showcase()
     client = TestClient(app, base_url="http://localhost:3000")
     client.post("/api/v1/auth/dev-login", data={"email": "admin@dev.local"}, follow_redirects=False)

@@ -6,10 +6,11 @@ from datetime import UTC, datetime
 
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.usage.logic import UsageRecord, model_cost_micros, usage_rows_to_flush
+from ar_testing.demo import demo_store
 
 
 def _priced_store() -> ChatService:
-    store = ChatService()
+    store = demo_store()
     store._completion_call = lambda _tenant, alias="reasoning": (  # type: ignore[method-assign]
         "Qwen/Qwen3-32B",
         {},

@@ -10,10 +10,11 @@ from ar_common.ids import new_id
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.exposure import a2a, keys, mcp_server, runs
 from ar_domain.identity.tokens import sha256_hex
+from ar_testing.demo import demo_store
 
 
 def _store() -> ChatService:
-    store = ChatService()
+    store = demo_store()
     store.ensure_assistant(demo_id("tenant"), demo_id("admin"))
     agent = next(row for row in store.agents.values() if row["slug"] == "assistant")
     version = store.versions[agent["published_version_id"]]

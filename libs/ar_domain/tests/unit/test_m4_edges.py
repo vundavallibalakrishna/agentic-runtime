@@ -22,6 +22,7 @@ from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.registry import ToolRegistry
 from ar_domain.tools.remote_mcp import RemoteError, auth_headers, call_remote, list_remote
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
+from ar_testing.demo import demo_store
 
 _CORPUS = Path("connectors/mcp_sql/tests/corpus/malicious.txt")
 
@@ -31,7 +32,7 @@ def _actor() -> Actor:
 
 
 def _store() -> ChatService:
-    return ChatService()
+    return demo_store()
 
 
 def test_embeddings_and_sql_corpus() -> None:

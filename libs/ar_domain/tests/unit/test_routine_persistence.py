@@ -5,10 +5,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from ar_common.time import utcnow
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.durable.hydrate import _people, _routines
 from ar_domain.durable.routines import save_events, save_routines
 from ar_domain.durable.tracking import install_tracking
+from ar_testing.demo import demo_store
 
 
 async def test_routine_credentials_are_references_and_event_updates_are_tenant_scoped(monkeypatch):
@@ -57,7 +58,7 @@ async def test_routine_credentials_are_references_and_event_updates_are_tenant_s
 
 
 async def test_routine_reload_recovers_signing_key_status_and_dry_run_without_dirtying(monkeypatch):
-    store = ChatService()
+    store = demo_store()
     install_tracking(store)
     tenant, routine, event, secret, user = (uuid.uuid4() for _ in range(5))
     rows = {
@@ -105,7 +106,7 @@ async def test_routine_reload_recovers_signing_key_status_and_dry_run_without_di
 
 
 async def test_worker_created_run_stream_reloads_without_an_api_dispatch_task(monkeypatch):
-    store = ChatService()
+    store = demo_store()
     tenant, owner = demo_id("tenant"), demo_id("admin")
     conversation = store.create_conversation(tenant, owner, None)
     posted = store.post_message(

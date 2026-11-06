@@ -152,7 +152,6 @@ class ChatService:
     builder_scripts: list[str] = field(default_factory=list)
     builder_strict: bool = False
     fake_models_allowed: bool = True
-    tenant_seed: bool = True
     demo_tenant_seeded: bool = False
     last_remote_usage: dict[str, int] | None = None
     pack_signature_required: bool = False
@@ -265,13 +264,12 @@ class ChatService:
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
             self.fake_llm_url = fake_llm_base_url()
+        # A store starts with the rows that belong to no tenant. Its tenant comes from its
+        # database; a test puts the demo tenant in with ``ar_testing.demo``.
         self.seed_platform()
-        if self.tenant_seed:
-            self.seed_demo_tenant()
-        else:
-            from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
+        from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
-            ToolRegistry(self).ensure_seed(tenant=False)
+        ToolRegistry(self).ensure_seed(tenant=False)
 
     def seed_demo(self) -> None:
         """Platform rows and the demo tenant. Safe to call twice."""
@@ -309,8 +307,9 @@ class ChatService:
     def seed_demo_tenant(self) -> None:
         """A demo tenant with fixed ids, for a store that has no database behind it.
 
-        Unit tests and a dev process without Postgres use it. A process attached to a
-        database never holds it: its tenant, people and agents are rows in that database.
+        Only test setup calls this (``ar_testing.demo``, the browser-test harness and the
+        eval gym). A product process never does: its tenant, people and agents are rows
+        in its database.
         """
         if self.demo_tenant_seeded:
             return

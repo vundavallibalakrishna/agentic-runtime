@@ -6,17 +6,17 @@ import uuid
 import httpx
 import pytest
 
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.tools.agent_loop import run_agent_loop
 from ar_domain.tools.general import dispatch_general, remember_named_secret, sandbox_mode
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.searching import SearchUnavailableError, provider_for
+from ar_testing.demo import demo_store
 
 
 def _ids(qualified: str) -> uuid.UUID:
-    store = ChatService()
+    store = demo_store()
     for version in store.tool_versions.values():
         if version.get("qualified_name") == qualified:
             return uuid.UUID(str(version["id"]))
@@ -24,7 +24,7 @@ def _ids(qualified: str) -> uuid.UUID:
 
 
 def test_python_returns_output_and_a_file() -> None:
-    store = ChatService()
+    store = demo_store()
     run_id = uuid.uuid4()
     result = dispatch_general(
         store,
@@ -50,7 +50,7 @@ def test_python_returns_output_and_a_file() -> None:
 
 
 def test_failed_python_is_an_error_the_agent_can_read() -> None:
-    store = ChatService()
+    store = demo_store()
     result = dispatch_general(
         store,
         "code",
@@ -62,7 +62,7 @@ def test_failed_python_is_an_error_the_agent_can_read() -> None:
 
 
 def test_shell_refuses_network_until_it_is_enabled() -> None:
-    store = ChatService()
+    store = demo_store()
     denied = dispatch_general(
         store,
         "shell",
@@ -72,7 +72,7 @@ def test_shell_refuses_network_until_it_is_enabled() -> None:
 
 
 def test_workspace_round_trip_and_path_escape() -> None:
-    store = ChatService()
+    store = demo_store()
     run_id = uuid.uuid4()
     context = {"_tenant_id": demo_id("tenant"), "_user_id": demo_id("admin"), "_run_id": run_id}
     written = dispatch_general(
@@ -92,7 +92,7 @@ def test_workspace_round_trip_and_path_escape() -> None:
 
 
 def test_uploaded_attachment_appears_in_the_workspace() -> None:
-    store = ChatService()
+    store = demo_store()
     file_id = uuid.uuid4()
     store.files[file_id] = {"name": "data.csv", "deleted_at": None}
     store.blobs[file_id] = b"month,revenue\nJan,1\n"
@@ -105,7 +105,7 @@ def test_uploaded_attachment_appears_in_the_workspace() -> None:
 
 
 def test_fetch_strips_markup_and_marks_the_page_as_data() -> None:
-    store = ChatService()
+    store = demo_store()
     store.tenant_settings[demo_id("tenant")] = {"egress_allowlist": ["example.com"]}
 
     def send(method: str, url: str, **kwargs: object) -> httpx.Response:
@@ -136,7 +136,7 @@ def test_fetch_strips_markup_and_marks_the_page_as_data() -> None:
 
 
 def test_search_is_explicit_when_unconfigured_and_pluggable() -> None:
-    store = ChatService()
+    store = demo_store()
     missing = dispatch_general(store, "search", {"query": "open data"})
     assert missing["code"] == "search_unconfigured"
     assert "AR_SEARCH_PROVIDER" in str(missing["text"])
@@ -153,11 +153,11 @@ def test_search_is_explicit_when_unconfigured_and_pluggable() -> None:
     assert "gdp" in str(result["text"])
     assert "untrusted data" in str(result["text"])
     with pytest.raises(SearchUnavailableError, match="invented"):
-        provider_for(ChatService(), None)
+        provider_for(demo_store(), None)
 
 
 def test_get_runs_and_other_methods_wait_and_secrets_stay_hidden() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     secret = "super-secret-value"  # noqa: S105
     remember_named_secret(store, tenant, "vendor", secret)
@@ -231,7 +231,7 @@ def test_get_runs_and_other_methods_wait_and_secrets_stay_hidden() -> None:
 
 
 def test_the_loop_retries_a_failed_script() -> None:
-    store = ChatService()
+    store = demo_store()
     store._completion_call = lambda _tenant, alias="reasoning": (  # type: ignore[method-assign]
         "Qwen/Qwen3-32B",
         {},

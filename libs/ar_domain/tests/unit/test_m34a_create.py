@@ -20,6 +20,7 @@ from ar_domain.documents.extract import extract_bytes
 from ar_domain.documents.library import DocumentLibrary
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.handlers import dispatch
+from ar_testing.demo import demo_store
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "m34a"
 _A = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -287,9 +288,8 @@ def test_pptx_and_docx_readers_keep_slide_and_heading_text() -> None:
 
 
 def test_documents_create_is_seeded_as_a_write() -> None:
-    from ar_domain.chat.service import ChatService
 
-    store = ChatService()
+    store = demo_store()
     row = next(
         item
         for item in store.tool_versions.values()

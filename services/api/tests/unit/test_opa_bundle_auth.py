@@ -3,11 +3,11 @@
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
-from ar_api.main import create_application
+from ar_testing.demo import demo_application
 
 
 def test_bundle_auth_uses_secret_value_and_preserves_conditional_requests() -> None:
-    app = create_application()
+    app = demo_application()
     app.state.settings.opa_bundle_token = SecretStr("bundle-test-token")
     client = TestClient(app)
     path = "/internal/v1/opa/bundles/ar.tar.gz"

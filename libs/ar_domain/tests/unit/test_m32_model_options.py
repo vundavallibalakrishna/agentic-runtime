@@ -5,7 +5,7 @@ import uuid
 import httpx
 import pytest
 
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.models.options import (
     apply_request_options,
     copy_request_options,
@@ -14,6 +14,7 @@ from ar_domain.models.options import (
 )
 from ar_domain.models.registry import UpstreamTarget
 from ar_model_gateway.upstream import complete_upstream
+from ar_testing.demo import demo_store
 
 
 def test_defaults_and_merge_rules() -> None:
@@ -38,7 +39,7 @@ def test_defaults_and_merge_rules() -> None:
 
 
 def test_registration_stores_options_and_aliases_resolve_them() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     provider = store.providers[demo_id("provider")]
     qwen = store.create_model(

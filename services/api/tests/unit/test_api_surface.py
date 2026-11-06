@@ -15,7 +15,6 @@ from ar_api.auth.csrf import csrf_ok, origin_ok
 from ar_api.auth.oidc import authorize_url, new_pkce, safe_return_to
 from ar_api.auth.session import MemorySessionStore, new_session, session_key_bytes
 from ar_api.auth.step_up import require_step_up, step_up_fresh
-from ar_api.main import create_application
 from ar_api.principal import api_key_matches, api_key_prefix, classify_authorization, hash_text
 from ar_api.ratelimit import MemoryTokenBucket, ValkeyTokenBucket
 from ar_common.errors import ForbiddenError
@@ -26,6 +25,7 @@ from ar_domain.identity.models import User
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.service import IdentityService
 from ar_domain.identity.tokens import sha256_hex
+from ar_testing.demo import demo_application
 
 
 def _mem_store() -> type:
@@ -71,7 +71,7 @@ def _principal(
 
 
 def _app(principal: Principal) -> TestClient:
-    app = create_application()
+    app = demo_application()
     ctx = TenantContext.from_principal(principal, "req-test")
     store = _mem_store()(ctx)
     store.tenant.created_at = utcnow()
@@ -168,7 +168,7 @@ def test_rate_limit_window_and_valkey_fail_open() -> None:
 
 
 def test_anonymous_is_rejected_and_meta_is_public() -> None:
-    app = create_application()
+    app = demo_application()
     client = TestClient(app)
     assert client.get("/api/v1/meta").status_code == 200
     denied = client.get("/api/v1/me")
@@ -501,7 +501,7 @@ def test_scim_and_platform_admin_and_single_tenant_hide() -> None:
     )
     assert platform.get("/api/v1/platform/tenants").status_code == 200
     assert platform.get("/api/v1/me").status_code == 403
-    single = create_application()
+    single = demo_application()
 
     async def resolve(scope: object) -> Principal:
         del scope

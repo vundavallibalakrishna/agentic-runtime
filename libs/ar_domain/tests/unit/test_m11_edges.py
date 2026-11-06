@@ -24,10 +24,11 @@ from ar_domain.channels.service import decide_approval, handle_inbound
 from ar_domain.channels.tokens import issue_link_token, link_ttl_s, read_link_token
 from ar_domain.channels.widget_auth import sign_widget_token, verify_widget_token, widget_user
 from ar_domain.chat.service import ChatService, demo_id
+from ar_testing.demo import demo_store
 
 
 def _store() -> ChatService:
-    store = ChatService()
+    store = demo_store()
     store.seed_demo()
     store.seed_showcase()
     return store
@@ -70,7 +71,7 @@ def test_link_tokens_and_widget_claims(monkeypatch: pytest.MonkeyPatch) -> None:
     assert verify_widget_token(expired, "s", "aud") is None
     assert verify_widget_token("a.b", "s", "aud") is None
     assert verify_widget_token("a.b.c", "s", "aud") is None
-    store = ChatService()
+    store = demo_store()
     assert widget_user(store, demo_id("tenant"), "stranger@example.com") is None
     assert widget_user(store, demo_id("tenant"), "member@dev.local") == demo_id("member")
     store.user_emails = {demo_id("builder"): "Builder@dev.local"}

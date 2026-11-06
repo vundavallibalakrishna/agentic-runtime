@@ -8,11 +8,11 @@ from temporalio.worker import Worker
 
 from ar_common.ids import new_id
 from ar_common.time import utcnow
-from ar_domain.chat.service import ChatService
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
 from ar_runtime.workflows.agent_run import approval_wait_workflow
 from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow
+from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.asyncio
 
@@ -31,7 +31,7 @@ async def test_approval_wait_approves_rejects_expires_cancels_and_accepts_input(
     temporal_env: object,
 ) -> None:
     assert approval_wait_workflow() is ApprovalWaitWorkflow
-    store = ChatService()
+    store = demo_store()
     approval_id = new_id()
     store.approvals[approval_id] = {
         "id": approval_id,

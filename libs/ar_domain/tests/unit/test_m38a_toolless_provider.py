@@ -7,8 +7,9 @@ import pytest
 
 from ar_domain.agents.access import Actor
 from ar_domain.agents.service import AgentLifecycle
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
     from ar_testing.stand_in import StandIn
@@ -19,7 +20,7 @@ SCRIPT_SET = "m38a-t02f"
 @pytest.mark.asyncio
 async def test_a_tool_less_agent_reaches_the_registered_provider(stand_in: StandIn) -> None:
     tenant, user = demo_id("tenant"), demo_id("admin")
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     stand_in.script(SCRIPT_SET, [{"match": {"contains": "capital"}, "respond": {"text": "Paris."}}])
     stand_in.connect(store, tenant, script_set=SCRIPT_SET)
     actor = Actor(tenant_id=tenant, user_id=user, permissions=PERMISSION_KEYS, display_name="A")

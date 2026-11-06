@@ -13,6 +13,7 @@ from ar_api.auth.dev_users import catalogue
 from ar_api.auth.identity import resolve_login_identity
 from ar_domain.chat.service import ChatService
 from ar_domain.durable.bind import TenantBinding
+from ar_testing.demo import demo_store
 
 
 @pytest.mark.parametrize(
@@ -22,7 +23,7 @@ from ar_domain.durable.bind import TenantBinding
 async def test_login_resolves_persisted_identity_and_denies_inactive_accounts(
     outcome: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    store = ChatService()
+    store = demo_store()
     tenant_id, user_id = uuid.uuid4(), uuid.uuid4()
     store.durable_engine = object()
     if outcome != "unbound":
@@ -106,7 +107,7 @@ async def test_the_token_organization_must_be_the_tenant_this_process_serves(
     organization: str, admitted: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Task: M38b-T03. Nothing about the tenant or the person comes from code."""
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     tenant_id, user_id = uuid.uuid4(), uuid.uuid4()
     store.durable_engine = object()
     store.tenant_binding = TenantBinding(tenant_id, "acme", "Acme", "self_hosted", {})
@@ -150,7 +151,7 @@ async def test_the_token_organization_must_be_the_tenant_this_process_serves(
 
 
 async def test_a_store_without_a_database_admits_only_the_demo_tenant() -> None:
-    store = ChatService()
+    store = demo_store()
     known = await resolve_login_identity(
         _request(store), {"email": "approver@dev.local", "organization": "dev"}
     )

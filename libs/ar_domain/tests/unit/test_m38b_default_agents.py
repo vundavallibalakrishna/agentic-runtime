@@ -12,6 +12,7 @@ from ar_domain.bundles.export import export_bundle
 from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_store
 
 
 def _slugs(store: ChatService, tenant_id: uuid.UUID) -> list[str]:
@@ -21,7 +22,7 @@ def _slugs(store: ChatService, tenant_id: uuid.UUID) -> list[str]:
 
 
 def test_the_seed_gives_a_tenant_the_assistant_and_the_builder() -> None:
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     tenant, admin = uuid.uuid4(), uuid.uuid4()
     AgentLifecycle(store).ensure_builtins(tenant, admin)
     AgentLifecycle(store).ensure_builtins(tenant, admin)
@@ -34,7 +35,7 @@ def test_the_seed_gives_a_tenant_the_assistant_and_the_builder() -> None:
 
 
 def test_reading_creates_nothing_for_a_tenant_that_was_not_seeded() -> None:
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     tenant, user = uuid.uuid4(), uuid.uuid4()
     actor = Actor(tenant, user, PERMISSION_KEYS)
     assert AgentLifecycle(store).list_agents(actor) == []
@@ -48,7 +49,7 @@ def test_reading_creates_nothing_for_a_tenant_that_was_not_seeded() -> None:
 
 
 def test_only_the_demo_tenant_has_the_helpdesk_example() -> None:
-    store = ChatService()
+    store = demo_store()
     assert "helpdesk" in _slugs(store, demo_id("tenant"))
     tenant, admin = uuid.uuid4(), uuid.uuid4()
     AgentLifecycle(store).ensure_builtins(tenant, admin)

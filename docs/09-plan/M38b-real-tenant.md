@@ -135,11 +135,16 @@ a tenant's default agents. What is left, one pull request for each:
 
 - **T04b** (done) The browser tests start the API through a test harness that puts the demo tenant in. No
   product process seeds a demo tenant when it has no database: it waits and tries again.
-- **T04c** The demo tenant, its people, fixtures and showcase move to `ar_testing`. `ChatService()` starts
-  with no tenant, and tests that need the demo tenant build it with the helper.
-- **T04d** The fixed user catalogue and the memory identity leave the API (with T05).
-- **T04e** `mcp-gateway` and `sandbox-manager` stop building a store with a demo tenant. The scripted
-  provider, its models and the platform aliases are not built in memory (with M38a-T07).
+- **T04c** (done) A product store starts with no tenant. Tests build the demo tenant with
+  `ar_testing.demo` (`demo_store`, `demo_application`), and a test fails if product code calls the demo
+  seeding. The eval gym and `make eval` are eval tooling that still build it themselves.
+- **T04d** The fixed user catalogue, the memory identity and the test sign-in leave the API (with T05), and
+  the eval gym and `make eval` stop building the demo tenant inside product packages.
+- **T04e** The scripted provider, its models and the platform aliases are not built in memory (with
+  M38a-T07).
+- **T04f** The code that builds the demo tenant (`seed_demo_tenant`, `seed_showcase`, the fixtures in
+  `tools/seed_tools.py` and the `showcase.py` modules) moves out of `ar_domain` into `ar_testing`. After
+  T04c nothing in the product calls it, so this is a move with no change in behaviour.
 
 **Done when:** no product code names a demo tenant or person, and the unit suite and the browser tests pass.
 

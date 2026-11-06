@@ -5,11 +5,11 @@ from dataclasses import replace
 
 from fastapi.testclient import TestClient
 
-from ar_api.main import create_application
 from ar_common.time import utcnow
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_application
 
 
 def _client(
@@ -19,7 +19,7 @@ def _client(
     tenant: uuid.UUID | None = None,
     stepped: bool = False,
 ) -> tuple[TestClient, list[Principal]]:
-    app = create_application()
+    app = demo_application()
     principal = Principal(
         kind="user",
         id=str(demo_id(user)),

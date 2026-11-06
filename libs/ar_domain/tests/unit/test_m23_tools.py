@@ -5,7 +5,6 @@ import uuid
 
 import pytest
 
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.tools.data_connections import DataConnections
 from ar_domain.tools.database import (
@@ -20,6 +19,7 @@ from ar_domain.tools.database import (
 from ar_domain.tools.general import dispatch_general
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 from ar_domain.tools.structured import output_schema, validate_output
+from ar_testing.demo import demo_store
 
 
 def test_sql_guard_rejects_writes_and_side_effects() -> None:
@@ -78,7 +78,7 @@ def test_read_only_session_and_dsn_hygiene(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_connection_secrets_stay_sealed_and_real_names_win() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     from ar_domain.agents.access import Actor
@@ -122,7 +122,7 @@ def test_connection_secrets_stay_sealed_and_real_names_win() -> None:
 
 
 def test_spreadsheet_chart_and_export() -> None:
-    store = ChatService()
+    store = demo_store()
     from ar_domain.tools.general import _prepare
 
     arguments: dict[str, object] = {
@@ -203,7 +203,7 @@ def test_structured_output_retries_once() -> None:
         "required": ["answer"],
     }
     assert output_schema({"output": {"jsonSchema": schema}}) == schema
-    store = ChatService()
+    store = demo_store()
     store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[method-assign]
     calls = {"n": 0}
 
@@ -262,7 +262,7 @@ def test_durable_connection_sql_is_issued() -> None:
         async def execute(self, statement: object, params: dict[str, object] | None = None) -> None:
             self.calls.append((str(statement), params or {}))
 
-    store = ChatService()
+    store = demo_store()
     tenant = uuid.uuid4()
     owner = uuid.uuid4()
     connection_id = uuid.uuid4()
@@ -298,7 +298,7 @@ def test_durable_connection_sql_is_issued() -> None:
 
 
 def test_memory_database_tools_and_mocked_drivers(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     args = {"connection": "Warehouse", "_tenant_id": tenant}
     assert dispatch_data(store, "list_schemas", args)["is_error"] is False
@@ -462,7 +462,7 @@ def test_hydrate_round_trip_and_live_catalogue(monkeypatch: pytest.MonkeyPatch) 
                 )
             return Result([])
 
-    store = ChatService()
+    store = demo_store()
     session = Session()
     asyncio.run(load_service_connections(session, store, tenant))  # type: ignore[arg-type]
     asyncio.run(load_data_connections(session, store, tenant))  # type: ignore[arg-type]
@@ -511,7 +511,7 @@ def test_hydrate_round_trip_and_live_catalogue(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_analysis_edges_and_output_schema() -> None:
-    store = ChatService()
+    store = demo_store()
     from ar_domain.tools.general import _prepare
 
     arguments: dict[str, object] = {"_run_id": uuid.uuid4(), "_tenant_id": uuid.uuid4()}

@@ -7,10 +7,11 @@ import pytest
 
 from ar_common.errors import ArError, ConflictError, NotFoundError
 from ar_domain.agents.logic import assistant_definition
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.files.logic import EICAR, MAX_UPLOAD_BYTES
 from ar_ingest.workflows.file_process import process_upload, thumbnail_png
 from ar_model_gateway.router import merge_params
+from ar_testing.demo import demo_store
 
 
 def _ids() -> tuple[uuid.UUID, uuid.UUID]:
@@ -20,7 +21,7 @@ def _ids() -> tuple[uuid.UUID, uuid.UUID]:
 @pytest.mark.asyncio
 async def test_catalogue_agents_and_chat_ops() -> None:
     tenant, user = _ids()
-    service = ChatService(allow_loopback=True, scanner="clamav")
+    service = demo_store(allow_loopback=True, scanner="clamav")
     assert merge_params({"temperature": 0.2}, {"max_tokens": 8})["temperature"] == 0.2
     assert process_upload(b"hello", scanner="none")["scan_status"] == "skipped"
     assert thumbnail_png().startswith(b"\x89PNG")
@@ -221,7 +222,7 @@ async def test_catalogue_agents_and_chat_ops() -> None:
 @pytest.mark.asyncio
 async def test_active_run_stream_pings_through_silence() -> None:
     tenant, user = _ids()
-    service = ChatService()
+    service = demo_store()
     conversation = service.create_conversation(tenant, user, None)
     posted = service.post_message(
         tenant, user, uuid.UUID(str(conversation["id"])), "still working", schedule=False
@@ -243,7 +244,7 @@ async def test_active_run_stream_pings_through_silence() -> None:
 @pytest.mark.parametrize("status", ["waiting_approval", "waiting_input"])
 async def test_paused_run_stream_ends_instead_of_pinging(status: str) -> None:
     tenant, user = _ids()
-    service = ChatService()
+    service = demo_store()
     conversation = service.create_conversation(tenant, user, None)
     posted = service.post_message(
         tenant, user, uuid.UUID(str(conversation["id"])), "needs a person", schedule=False

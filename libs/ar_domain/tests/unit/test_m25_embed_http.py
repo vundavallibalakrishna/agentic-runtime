@@ -28,6 +28,7 @@ from ar_domain.knowledge.live_embed import (
 from ar_domain.knowledge.members import add_member, refresh_document
 from ar_domain.skills.portable import import_skill, parse_markdown
 from ar_domain.workspace.turn import citation_parts, ground_run, has_grounding, opening_messages
+from ar_testing.demo import demo_store
 
 _MARKDOWN = """---
 name: Weekly status
@@ -61,7 +62,7 @@ def _provider(store: ChatService, *, base: str = "https://embed.example/v1") -> 
 
 
 def test_embed_live_reads_provider_batches() -> None:
-    store = ChatService()
+    store = demo_store()
     _provider(store)
     body = {
         "data": [
@@ -86,7 +87,7 @@ def test_embed_live_reads_provider_batches() -> None:
 
 
 def test_embed_live_reports_a_provider_failure() -> None:
-    store = ChatService()
+    store = demo_store()
     _provider(store)
     with respx.mock:
         respx.post("https://embed.example/v1/embeddings").mock(return_value=httpx.Response(503))
@@ -101,7 +102,7 @@ def test_embed_live_reports_a_provider_failure() -> None:
 
 
 def test_rerank_uses_the_inference_endpoint_and_falls_back() -> None:
-    store = ChatService()
+    store = demo_store()
     provider_id = _provider(store, base="https://api.example/v1/openai")
     model_id = uuid.uuid4()
     store.models[model_id] = {
@@ -151,7 +152,7 @@ def test_collection_embedding_prefers_a_stored_real_model() -> None:
     )
     assert model == "BAAI/bge-m3"
     assert dims == 1024
-    store = ChatService()
+    store = demo_store()
     provider_id = _provider(store)
     store.models[uuid.uuid4()] = {
         "kind": "embedding",
@@ -170,7 +171,7 @@ def test_collection_embedding_prefers_a_stored_real_model() -> None:
 
 
 def test_load_provider_keys_restores_and_skips_bad_rows() -> None:
-    store = ChatService()
+    store = demo_store()
     store.durable_engine = object()
     good = uuid.uuid4()
     store.providers[good] = {"id": good, "api_key": ""}
@@ -193,11 +194,11 @@ def test_load_provider_keys_restores_and_skips_bad_rows() -> None:
         registry.read_api_key = original
     assert store.providers[good]["api_key"] == "restored-key"
     assert store.providers["kept"]["api_key"] == "already"
-    asyncio.run(load_provider_keys(ChatService()))
+    asyncio.run(load_provider_keys(demo_store()))
 
 
 def test_text_member_is_unchanged_until_refresh() -> None:
-    store = ChatService()
+    store = demo_store()
     store.embed_client = lambda texts: [[0.1, 0.2] for _text in texts]
     actor = _actor()
     created = KnowledgeBook(store).create_collection(
@@ -239,7 +240,7 @@ def test_text_member_is_unchanged_until_refresh() -> None:
 
 
 def test_zip_import_keeps_helper_files() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as book:
@@ -266,7 +267,7 @@ def test_zip_import_keeps_helper_files() -> None:
 
 
 def test_rerank_reads_indexed_results() -> None:
-    store = ChatService()
+    store = demo_store()
     _provider(store)
     with respx.mock:
         respx.post("https://embed.example/v1/rerank").mock(
@@ -286,7 +287,7 @@ def test_rerank_reads_indexed_results() -> None:
 
 
 def test_member_edges_and_connection_redaction() -> None:
-    store = ChatService()
+    store = demo_store()
     store.embed_client = lambda texts: [[0.1, 0.2] for _text in texts]
     actor = _actor()
     created = KnowledgeBook(store).create_collection(
@@ -354,7 +355,7 @@ def test_member_edges_and_connection_redaction() -> None:
 
 
 def test_grounding_records_a_skill_and_citation_cards() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     imported = import_skill(store, actor, markdown=_MARKDOWN)
     version = uuid.uuid4()

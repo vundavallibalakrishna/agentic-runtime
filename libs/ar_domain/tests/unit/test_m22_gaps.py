@@ -16,7 +16,7 @@ from ar_common.errors import ArError, ErrorCode, NotFoundError, ValidationFailed
 from ar_common.isolate import IsolatedRun, _prefixes, _probe, _process, scrubbed_env
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.tools.describe import compile_description
 from ar_domain.tools.http_tools import execute_operation, fetch_document, fetch_text, guard_public
@@ -64,6 +64,7 @@ from ar_domain.tools.service_connections import (
     _token_response,
     headers_for,
 )
+from ar_testing.demo import demo_store
 
 
 def _actor() -> Actor:
@@ -79,7 +80,7 @@ def _reader() -> Actor:
 
 
 def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = ChatService()
+    store = demo_store()
     book = ConnectionBook(store)
     actor = _actor()
     with pytest.raises(ValidationFailedError):
@@ -268,7 +269,7 @@ def test_http_operation_limits_and_parsers() -> None:
     assert "allow list" in str(
         guard_public("https://evil.test/x", allow=["example.com"], loopback=False)
     )
-    store = ChatService()
+    store = demo_store()
 
     def redirect(method: str, url: str, **_kwargs: object) -> httpx.Response:
         del method, url
@@ -440,7 +441,7 @@ def test_description_and_openapi_shapes() -> None:
 
 
 def test_import_publish_edges() -> None:
-    store = ChatService()
+    store = demo_store()
     importer = ToolImporter(store)
     with pytest.raises(ValidationFailedError):
         importer.preview_openapi({"document": "{}"})
@@ -559,11 +560,11 @@ def test_mcp_parsers_transports_and_stdio(monkeypatch: pytest.MonkeyPatch) -> No
     with pytest.raises(RemoteError):
         safe_command(["npx-missing-bin"])
     with pytest.raises(RemoteError):
-        _guard(ChatService(), "ftp://example.com/mcp")
+        _guard(demo_store(), "ftp://example.com/mcp")
     with pytest.raises(RemoteError):
-        _guard(ChatService(), "https://169.254.169.254/mcp")
+        _guard(demo_store(), "https://169.254.169.254/mcp")
 
-    store = ChatService()
+    store = demo_store()
     calls = {"n": 0}
 
     def send(request: httpx.Request) -> httpx.Response:
@@ -649,7 +650,7 @@ def test_mcp_parsers_transports_and_stdio(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_registry_refresh_and_pipeline_helpers() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     registry = ToolRegistry(store)
     created = registry.create_server(
@@ -819,7 +820,7 @@ def test_isolate_fallback_and_timeout(monkeypatch: pytest.MonkeyPatch, tmp_path:
     os.environ["AR_ENV"] = "prod"
     try:
         with pytest.raises(RemoteError):
-            _guard(ChatService(), "http://127.0.0.1/mcp")
+            _guard(demo_store(), "http://127.0.0.1/mcp")
     finally:
         if previous is None:
             os.environ.pop("AR_ENV", None)

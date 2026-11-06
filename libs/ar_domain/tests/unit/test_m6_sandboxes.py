@@ -17,7 +17,7 @@ from ar_common.sandboxkit import (
 )
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.sandboxes.runtime import (
     chart_command,
@@ -30,6 +30,7 @@ from ar_domain.sandboxes.runtime import (
 )
 from ar_domain.sandboxes.service import SandboxBook
 from ar_domain.tools.pipeline import ToolPipeline
+from ar_testing.demo import demo_store
 
 
 def _actor(tenant: uuid.UUID | None = None) -> Actor:
@@ -74,7 +75,7 @@ def test_lifecycle_confinement_truncation_and_headers() -> None:
 
 
 def test_template_limits_isolation_and_platform_lock() -> None:
-    store = ChatService()
+    store = demo_store()
     book = SandboxBook(store)
     actor = _actor()
     created = book.create_template(actor, {"slug": "tiny", "name": "Tiny", "cpu_millis": 1000})
@@ -103,7 +104,7 @@ def test_template_limits_isolation_and_platform_lock() -> None:
 
 
 def test_chart_package_gate_browser_and_resume() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     agent = next(row for row in store.agents.values() if row.get("slug") == "revenue-analyst")
@@ -199,7 +200,7 @@ def test_chart_package_gate_browser_and_resume() -> None:
 
 
 def test_concurrent_ensure_and_cap() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     found: list[str] = []
 
@@ -239,7 +240,7 @@ def test_concurrent_ensure_and_cap() -> None:
 def test_reap_suspends_idle() -> None:
     from ar_domain.sandboxes.runtime import reap
 
-    store = ChatService()
+    store = demo_store()
     row = ensure_scope(
         store,
         tenant_id=demo_id("tenant"),

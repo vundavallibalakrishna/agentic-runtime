@@ -19,6 +19,7 @@ from ar_domain.evals.scoring import grade, passed, summarise
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.runs.service import aggregate_run_rows, overview
 from ar_mcp_gateway.evals import counter, prepare
+from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
     from ar_testing.stand_in import StandIn
@@ -32,7 +33,7 @@ def _store_with(
     stand_in: StandIn, script_set: str, scripts: list[dict[str, object]]
 ) -> ChatService:
     """A store whose model is the stand-in, answering from ``scripts``."""
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     stand_in.script(script_set, scripts)
     stand_in.connect(store, demo_id("tenant"), script_set=script_set)
     return store
@@ -120,7 +121,7 @@ def test_gate_regression() -> None:
 
 
 def test_jsonl_import_reports_line_errors() -> None:
-    store = ChatService()
+    store = demo_store()
     book = EvalBook(store)
     actor = _actor()
     suite = book.create_suite(actor, {"name": "Import", "kind": "functional"})
@@ -207,7 +208,7 @@ def test_publish_gate_blocks_until_the_suite_passes(stand_in: StandIn) -> None:
 
 
 def test_gateway_blocks_w2_without_execution() -> None:
-    store = ChatService()
+    store = demo_store()
     run_id = uuid.uuid4()
     store.runs[run_id] = {
         "id": run_id,
@@ -234,7 +235,7 @@ def test_gateway_blocks_w2_without_execution() -> None:
 
 
 def test_feedback_digest_batches_a_day() -> None:
-    store = ChatService()
+    store = demo_store()
     payload = {
         "tenant_id": str(demo_id("tenant")),
         "agent_id": str(demo_id("agent")),
@@ -250,7 +251,7 @@ def test_feedback_digest_batches_a_day() -> None:
 
 
 def test_alias_change_reruns_only_affected_agents() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     life = AgentLifecycle(store)
     first = life.create(actor, slug="uses-reasoning", name="Reasoning", description="")
@@ -289,7 +290,7 @@ def test_alias_change_reruns_only_affected_agents() -> None:
 
 
 def test_overview_and_million_rows() -> None:
-    store = ChatService()
+    store = demo_store()
     body = overview(store, demo_id("tenant"))
     assert "runs" in body
     rows = [("completed", "chat", 20, "agent", "")] * 1_000_000

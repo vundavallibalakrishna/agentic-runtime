@@ -9,7 +9,7 @@ import pytest
 
 from ar_common.errors import ArError, NotFoundError, ValidationFailedError
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.evals.book import EvalBook, _documents, public_row
 from ar_domain.evals.seed_suites import suite_root
 from ar_domain.identity.permissions import PERMISSION_KEYS
@@ -20,6 +20,7 @@ from ar_runtime.langfuse import trace_payload
 from ar_system.evals.cli import main
 from ar_system.evals.graders import JUDGE_PROMPT, grade
 from ar_system.evals.judge import judge_prompt
+from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
     from ar_testing.stand_in import StandIn
@@ -36,7 +37,7 @@ def _actor(**extra: object) -> Actor:
 
 
 def test_suite_catalogue_edges() -> None:
-    store = ChatService()
+    store = demo_store()
     book = EvalBook(store)
     actor = _actor()
     with pytest.raises(ValidationFailedError):
@@ -108,7 +109,7 @@ def test_suite_catalogue_edges() -> None:
 
 
 def test_import_conversation_run_and_feedback() -> None:
-    store = ChatService()
+    store = demo_store()
     book = EvalBook(store)
     actor = _actor()
     suite = book.create_suite(actor, {"name": "Import edges"})
@@ -207,7 +208,7 @@ def test_import_conversation_run_and_feedback() -> None:
 
 
 def test_gateway_mocks_and_trace_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = ChatService()
+    store = demo_store()
     assert prepare(store, {"run_id": "nope"}) is None
     run_id = uuid.uuid4()
     version_id = uuid.uuid4()
@@ -269,7 +270,7 @@ def test_gateway_mocks_and_trace_metadata(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_overview_windows_and_component_probe() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     start = datetime(2020, 1, 1, tzinfo=UTC)
     end = datetime(2030, 1, 1, tzinfo=UTC)

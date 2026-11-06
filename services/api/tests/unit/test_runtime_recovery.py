@@ -15,6 +15,7 @@ from ar_api.routers.m2 import cancel_run
 from ar_common.errors import NotFoundError, UnavailableError
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.db.context import Principal
+from ar_testing.demo import demo_store
 
 
 def request_for(store: ChatService, user: str = "admin") -> Request:
@@ -29,7 +30,7 @@ def request_for(store: ChatService, user: str = "admin") -> Request:
 async def test_temporal_cancel_races_and_ownership(
     outcome: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    store = ChatService()
+    store = demo_store()
     conv = store.create_conversation(demo_id("tenant"), demo_id("admin"), None)
     posted = store.post_message(
         demo_id("tenant"),
@@ -69,7 +70,7 @@ async def test_temporal_cancel_races_and_ownership(
 async def test_durable_commit_failure_prevents_success_headers(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    store = ChatService()
+    store = demo_store()
     store._bind_attempted = True
     sent = []
 
@@ -98,7 +99,7 @@ async def test_tenant_writer_uses_only_authenticated_tenant(
         yield SimpleNamespace()
 
     monkeypatch.setattr("ar_api.deps.platform_session", platform)
-    request = request_for(ChatService())
+    request = request_for(demo_store())
     async for service in get_tenant_writer(request):
         assert service.store.ctx.tenant_id == demo_id("tenant")
         assert service.store.ctx.user_id == demo_id("admin")

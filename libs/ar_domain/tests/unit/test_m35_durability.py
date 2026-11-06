@@ -11,7 +11,7 @@ from pypdf import PdfWriter
 
 from ar_common.errors import NotFoundError
 from ar_domain.chat.eviction import evict_chat_cache, recall_conversation
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.documents.extract import ExtractError, extract_bytes
 from ar_domain.durability.store import clear_workspace_dir, read_blob
 from ar_domain.durability.tables import A2APushConfig, FileBlob, JobProgress, WorkspaceFile
@@ -19,6 +19,7 @@ from ar_domain.exposure import a2a, keys
 from ar_domain.jobs.progress import jobs_for, mark_jobs_interrupted, note_job
 from ar_domain.routines.clock import build_schedule, schedule_workflow_id
 from ar_domain.tools.general import dispatch_general
+from ar_testing.demo import demo_store
 
 
 def test_tables_match_the_migration_names() -> None:
@@ -29,7 +30,7 @@ def test_tables_match_the_migration_names() -> None:
 
 
 def test_file_bytes_survive_when_the_process_cache_drops_them() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     uploaded = store.upload(tenant, user, "note.txt", "text/plain", b"hello durable")
@@ -44,7 +45,7 @@ def test_file_bytes_survive_when_the_process_cache_drops_them() -> None:
 
 
 def test_workspace_bytes_restore_after_the_temp_dir_is_gone() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     run_id = uuid.uuid4()
@@ -77,7 +78,7 @@ def test_workspace_bytes_restore_after_the_temp_dir_is_gone() -> None:
 
 
 def test_a_new_run_can_see_files_from_an_interrupted_run() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     conversation_id = uuid.uuid4()
@@ -122,7 +123,7 @@ def test_a_new_run_can_see_files_from_an_interrupted_run() -> None:
 
 
 def test_chat_cache_drops_old_messages_and_reloads_them() -> None:
-    store = ChatService()
+    store = demo_store()
     store.cache_limits = {"messages": 1, "runs": 10, "events": 10, "blobs_bytes": 10_000}
     tenant = demo_id("tenant")
     user = demo_id("admin")
@@ -193,7 +194,7 @@ def test_chat_cache_drops_old_messages_and_reloads_them() -> None:
 
 
 def test_active_runs_are_not_evicted() -> None:
-    store = ChatService()
+    store = demo_store()
     store.cache_limits = {"messages": 0, "runs": 0, "events": 0, "blobs_bytes": 0}
     tenant = demo_id("tenant")
     user = demo_id("admin")
@@ -221,7 +222,7 @@ def test_active_runs_are_not_evicted() -> None:
 
 
 def test_pdf_pages_report_progress_and_a_restart_interrupts_the_job() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     run_id = uuid.uuid4()
@@ -283,7 +284,7 @@ def test_schedule_workflow_id_is_per_fire() -> None:
 
 
 def test_a2a_lists_tasks_and_stores_a_push_config() -> None:
-    store = ChatService()
+    store = demo_store()
     agent = next(row for row in store.agents.values() if row["slug"] == "assistant")
 
     async def generate(run_id: uuid.UUID, text: str, names: list[str]) -> None:

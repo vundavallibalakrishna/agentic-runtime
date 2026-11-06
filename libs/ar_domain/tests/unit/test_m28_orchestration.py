@@ -3,10 +3,10 @@
 import asyncio
 import uuid
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from ar_common.errors import NotFoundError, ValidationFailedError
 from ar_common.time import utcnow
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.durable.m28 import load_runtime_rows, save_runtime_rows
 from ar_domain.orchestration.ask import (
@@ -22,6 +22,10 @@ from ar_domain.orchestration.triggers import fire_schedule
 from ar_domain.routines.book import RoutineBook
 from ar_domain.routines.signature import header_for
 from ar_domain.tools.agent_loop import run_agent_loop
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 _BUDGET = {
     "max_steps": 6,
@@ -33,7 +37,7 @@ _BUDGET = {
 
 
 def _store() -> ChatService:
-    store = ChatService()
+    store = demo_store()
     store._completion_call = lambda _tenant, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)  # type: ignore[method-assign]
     return store
 
@@ -701,7 +705,7 @@ async def test_durable_rows_round_trip_in_memory() -> None:
     }
     await save_runtime_rows(session, store, pending)
     assert session.calls
-    fresh = ChatService()
+    fresh = demo_store()
     await load_runtime_rows(session, fresh, tenant)
     assert call_id in fresh.tool_calls
     assert question_id in fresh.human_questions

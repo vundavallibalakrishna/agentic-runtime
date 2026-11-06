@@ -12,7 +12,7 @@ from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.agents.cards import GovernanceBook
 from ar_domain.audit.exports import AuditExportBook
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.data_rights import export_user
 from ar_domain.identity.guests import GuestBook, guest_allows
 from ar_domain.identity.permissions import PERMISSION_KEYS
@@ -39,6 +39,7 @@ from ar_domain.records.vault import EvidenceBook
 from ar_domain.records.watermark import WatermarkError, watermark
 from ar_domain.runs.records import RunRecordBook
 from ar_domain.security.guardrails import apply_result_safety, classify_input, classify_output
+from ar_testing.demo import demo_store
 
 
 def _actor(**extra: object) -> Actor:
@@ -77,7 +78,7 @@ def test_table_modules_load() -> None:
 
 
 def test_hold_schedule_sweep_and_release() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     officer = demo_id("officer")
     store.user_roles[officer] = {"holds:manage"}
@@ -178,7 +179,7 @@ def test_hold_schedule_sweep_and_release() -> None:
 
 
 def test_guest_login_edges() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     guests = GuestBook(store)
     with pytest.raises(ArError):
@@ -240,7 +241,7 @@ def test_guest_login_edges() -> None:
 
 
 def test_binder_review_cards_and_records(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     book = BinderBook(store)
     pending = book.create(
@@ -354,7 +355,7 @@ def test_binder_review_cards_and_records(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_pack_registry_crypto_and_safety() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     seen: list[str] = []
 

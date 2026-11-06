@@ -36,6 +36,8 @@ def main(argv: list[str] | None = None) -> int:
         _log.error("model_required", detail="set AR_CERT_LLM_API_KEY to score a suite")
         return 2
     store = ChatService()
+    # The repository suites run against the demo tenant, built here for this command.
+    store.seed_demo_tenant()
     install_live(store, demo_id("tenant"), key=key, base_url=base_url, model=model)
     actor = Actor(
         tenant_id=demo_id("tenant"),

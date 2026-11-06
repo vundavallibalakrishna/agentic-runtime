@@ -11,7 +11,6 @@ import respx
 from fastapi.testclient import TestClient
 
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.knowledge import tables
 from ar_domain.knowledge.book import KnowledgeBook
@@ -47,6 +46,7 @@ from ar_ingest.workflows import source_sync as _sync_workflow
 from ar_model_gateway.main import create_application
 from ar_runtime import citations as runtime_citations
 from ar_runtime import grounding as runtime_grounding
+from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.unit
 
@@ -176,7 +176,7 @@ def test_citations_plan_limits_and_gateway() -> None:
     )
     assert as_uuid("not-a-uuid") is None
     assert as_uuid("") is None
-    store = ChatService()
+    store = demo_store()
     admin = Actor(uuid.uuid4(), uuid.uuid4(), PERMISSION_KEYS, roles=frozenset({"tenant_admin"}))
     book = KnowledgeBook(store)
     store.tenant_settings[admin.tenant_id] = {"plan_limits": {"max_collections": 0}}

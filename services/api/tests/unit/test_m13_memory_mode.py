@@ -12,6 +12,7 @@ from ar_common.settings import EnvName
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.db.context import Principal
 from ar_domain.durable.bind import SchemaNotReadyError
+from ar_testing.demo import demo_store
 
 
 def _scope(store: ChatService, path: str) -> dict[str, object]:
@@ -63,7 +64,7 @@ async def test_probes_do_not_bind(path: str, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr("ar_domain.durable.bind.should_bind", lambda: True)
     monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind_store)
     monkeypatch.setattr("ar_domain.durable.flush.flush_store", flush_store)
-    store = ChatService()
+    store = demo_store()
     sent: list[dict[str, object]] = []
 
     async def app(scope: object, receive: object, send: object) -> None:
@@ -93,7 +94,7 @@ async def test_a_missing_schema_and_an_unavailable_database_both_retry(
 
     monkeypatch.setattr("ar_domain.durable.bind.should_bind", lambda: True)
     monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind_store)
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
 
     async def app(scope: object, receive: object, send: object) -> None:
         del scope, receive
@@ -110,7 +111,7 @@ async def test_a_missing_schema_and_an_unavailable_database_both_retry(
 
 
 async def test_memory_identity_lists_users_and_enables_widget() -> None:
-    store = ChatService()
+    store = demo_store()
     store._bind_attempted = True
     request = _request(store)
     async for identity in get_identity(request):
@@ -151,7 +152,7 @@ async def test_an_api_without_its_database_or_tenant_never_gets_a_demo_tenant(
 
     monkeypatch.setattr("ar_domain.durable.bind.should_bind", lambda: True)
     monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind_store)
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     scope = _scope(store, "/api/v1/agents")
     scope["app"].state.settings.env = env  # type: ignore[attr-defined]
     assert await _bind_once(scope) is final  # type: ignore[arg-type]

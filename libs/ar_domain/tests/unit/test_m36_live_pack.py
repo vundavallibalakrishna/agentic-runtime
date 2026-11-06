@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService
 from ar_domain.connectors.book import ConnectorBook
 from ar_domain.connectors.catalog import connector_by_slug
 from ar_domain.connectors.live_pack import (
@@ -23,6 +22,7 @@ from ar_domain.connectors.live_pack import (
     shown_verification,
 )
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
     import pytest
@@ -178,7 +178,7 @@ def test_ledger_promotes_slack_and_does_not_demote_github(
     assert slack.verification == "not_live"
     assert shown_verification(slack) == "live"
     assert shown_verification(github) == "live"
-    store = ChatService()
+    store = demo_store()
     actor = Actor(uuid.uuid4(), uuid.uuid4(), PERMISSION_KEYS)
     card = next(item for item in ConnectorBook(store).list_items(actor) if item["slug"] == "slack")
     assert card["implementation"] == "built"

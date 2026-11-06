@@ -15,6 +15,7 @@ from ar_domain.durable.flush import flush_store
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.seed import apply
 from ar_domain.knowledge.book import KnowledgeBook
+from ar_testing.demo import demo_application
 
 pytestmark = pytest.mark.integration
 
@@ -54,7 +55,7 @@ async def test_bind_flushes_chat_knowledge_memory_and_skills(database_url: str) 
     engine = create_async_engine(database_url)
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await apply(session)
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     binding = await bind_store(store, database_url, tenant_slug="dev")
     assert binding is not None
     assert binding.tenant_id == demo_id("tenant")
@@ -127,13 +128,13 @@ async def test_worker_loads_new_conversation_and_restart_preserves_agent_edits(
     from ar_runtime.activities.execute_chat_turn import execute_chat_turn
     from ar_runtime.activities.expire_approval import bind_store as bind_runtime
 
-    api = ChatService(tenant_seed=False)
+    api = ChatService()
     binding = await bind_store(api, database_url, tenant_slug="dev")
     assert binding is not None
     agent = next(row for row in api.agents.values() if row["slug"] == "assistant")
     agent["description"] = "An administrator changed this description"
     await flush_store(api)
-    worker = ChatService(tenant_seed=False)
+    worker = ChatService()
     await bind_store(worker, database_url, tenant_slug="dev")
     assert worker.agents[agent["id"]]["description"] == agent["description"]
     conversation = api.create_conversation(
@@ -177,7 +178,6 @@ async def test_widget_credentials_and_user_status_survive_restart(
     import httpx
     from pydantic import SecretStr
 
-    from ar_api.main import create_application
     from ar_common.time import utcnow
     from ar_domain.channels.book import ChannelBook
     from ar_domain.channels.posts import load_credentials
@@ -191,7 +191,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
             db_encryption_active_key="k1",
         ),
     )
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     binding = await bind_store(store, database_url, tenant_slug="dev")
     assert binding is not None
     store.tenant_settings[binding.tenant_id] = {"features": {"widget": True}}
@@ -208,7 +208,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
         },
     )
     await flush_store(store)
-    restarted = ChatService(tenant_seed=False)
+    restarted = ChatService()
     await bind_store(restarted, database_url, tenant_slug="dev")
     integration_id = uuid.UUID(str(created["id"]))
     assert (
@@ -217,7 +217,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
     )
     restarted.tenant_settings[binding.tenant_id] = {"features": {"widget": True}}
     restarted._bind_attempted = True
-    app = create_application()
+    app = demo_application()
     app.state.chat = restarted
     app.state.await_runs = True
     token = sign_widget_token(
@@ -255,7 +255,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
         assert count >= 1
     ChannelBook(restarted).delete(actor, integration_id)
     await flush_store(restarted)
-    after_delete = ChatService(tenant_seed=False)
+    after_delete = ChatService()
     await bind_store(after_delete, database_url, tenant_slug="dev")
     assert integration_id not in after_delete.channel_integrations
     await after_delete.durable_engine.dispose()
@@ -270,13 +270,12 @@ async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
     import httpx
 
     from ar_api.auth.complete import login_result, profile_for
-    from ar_api.main import create_application
     from ar_domain.db.context import Principal, TenantContext
     from ar_domain.db.session import tenant_session
     from ar_domain.identity.models import RoleAssignment, User
     from ar_domain.identity.repository import IdentityRepository
 
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     binding = await bind_store(store, database_url, tenant_slug="dev")
     assert binding is not None
     email = f"retained-{uuid.uuid4().hex[:8]}@dev.local"
@@ -308,7 +307,7 @@ async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
                 scope_type="tenant",
             )
         )
-    app = create_application()
+    app = demo_application()
     store._bind_attempted = True
     app.state.chat = store
     app.state.login_states["saved"] = {"return_to": "/chat"}
@@ -378,9 +377,9 @@ async def test_routine_runs_across_api_system_and_runtime_process_stores(
     )
 
     api, system, runtime = (
-        ChatService(tenant_seed=False),
-        ChatService(tenant_seed=False),
-        ChatService(tenant_seed=False),
+        ChatService(),
+        ChatService(),
+        ChatService(),
     )
     for store in (api, system, runtime):
         await bind_store(store, database_url, tenant_slug="dev")

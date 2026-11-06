@@ -4,10 +4,10 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from ar_api.main import create_application
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_application
 
 
 def _client(
@@ -16,7 +16,7 @@ def _client(
     permissions: frozenset[str] | None = None,
     team_permissions: frozenset[tuple[uuid.UUID, str]] | None = None,
 ) -> TestClient:
-    app = create_application()
+    app = demo_application()
     tenant = tenant_id or demo_id("tenant")
     user = user_id or demo_id("admin")
     principal = Principal(

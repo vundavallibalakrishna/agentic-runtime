@@ -18,6 +18,7 @@ from ar_domain.tools.openapi_import import OpenApiError, index_operations, requi
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.remote_mcp import RemoteError, list_remote, safe_command
 from ar_domain.tools.service_connections import ConnectionBook
+from ar_testing.demo import demo_store
 
 SPEC = {
     "openapi": "3.0.3",
@@ -37,7 +38,7 @@ def _actor() -> Actor:
 
 
 def test_connection_secret_is_not_returned_and_is_owner_scoped() -> None:
-    store = ChatService()
+    store = demo_store()
     book = ConnectionBook(store)
     actor = _actor()
     created = book.create(
@@ -60,7 +61,7 @@ def test_connection_secret_is_not_returned_and_is_owner_scoped() -> None:
 
 
 def test_http_uses_a_connection_without_showing_the_secret() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     ConnectionBook(store).create(
         actor, {"name": "github", "kind": "bearer", "secret": "super-secret-token"}
@@ -90,7 +91,7 @@ def test_http_uses_a_connection_without_showing_the_secret() -> None:
 
 
 def test_openapi_import_selects_operations_and_asks_on_write() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     importer = ToolImporter(store)
     preview = importer.preview_openapi({"document": SPEC})
@@ -172,7 +173,7 @@ def test_described_tool_is_reviewable_and_callable() -> None:
     assert definition["url"] == "https://example.com/zen"
     assert definition["connection"] == "github"
     assert definition["risk_class"] == "R0"
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     ConnectionBook(store).create(
         actor, {"name": "github", "kind": "api_key", "secret": "gh-token-value"}
@@ -217,7 +218,7 @@ def test_mcp_read_only_hint_and_schema_change() -> None:
     assert propose_risk("remote_mcp", annotations={"readOnlyHint": True}) == "R0"
     assert propose_risk("remote_mcp", annotations={}) == "W2"
     assert propose_risk("remote_mcp", annotations={"destructiveHint": True}) == "W3"
-    store = ChatService()
+    store = demo_store()
 
     def send(request: httpx.Request) -> httpx.Response:
         if b"tools/list" in request.content:
@@ -254,7 +255,7 @@ def test_mcp_read_only_hint_and_schema_change() -> None:
 
 
 def test_duplicate_alias_is_a_conflict() -> None:
-    store = ChatService()
+    store = demo_store()
     model = next(iter(store.models.values()))
     store.create_alias(demo_id("tenant"), "planner", "chat", model["id"], platform=False)
     with pytest.raises(ConflictError):
@@ -262,7 +263,7 @@ def test_duplicate_alias_is_a_conflict() -> None:
 
 
 def test_operation_result_is_untrusted_data() -> None:
-    store = ChatService()
+    store = demo_store()
 
     def send(method: str, url: str, **_kwargs: object) -> httpx.Response:
         del method, url

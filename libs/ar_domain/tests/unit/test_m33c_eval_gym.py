@@ -6,13 +6,13 @@ import uuid
 
 import pytest
 
-from ar_domain.chat.service import ChatService
 from ar_domain.evals.gym.cli import main
 from ar_domain.evals.gym.live import LIVE_KEY, LiveConfigError, install_live, live_requested
 from ar_domain.evals.gym.policy import choose
 from ar_domain.evals.gym.runner import run_suite
 from ar_domain.evals.gym.score import ObservedCall, Report, render_scorecard, score_observation
 from ar_domain.evals.gym.tasks import ArgRule, Expectation, Task, load_tasks, tasks_path
+from ar_testing.demo import demo_store
 
 _REQUIRED = (
     "general.code",
@@ -147,12 +147,12 @@ def test_live_flag_without_a_key_does_not_start(monkeypatch: pytest.MonkeyPatch)
 
 def test_dry_run_does_not_store_the_cert_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(LIVE_KEY, "secret-value")
-    store = ChatService()
+    store = demo_store()
     assert "secret-value" not in str(store.providers)
 
 
 def test_live_install_keeps_the_key_on_the_provider_row() -> None:
-    store = ChatService()
+    store = demo_store()
     install_live(store, uuid.uuid4(), key="secret-value")
     assert any(row.get("api_key") == "secret-value" for row in store.providers.values())
     assert "secret-value" not in render_scorecard(Report(mode="dry-run", scores=()))

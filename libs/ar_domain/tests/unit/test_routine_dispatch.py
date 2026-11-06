@@ -9,8 +9,8 @@ from temporalio.client import ScheduleAlreadyRunningError
 from temporalio.service import RPCError, RPCStatusCode
 
 from ar_common.errors import UnavailableError
-from ar_domain.chat.service import ChatService
 from ar_domain.routines.dispatch import client_for, start_run, sync_schedule
+from ar_testing.demo import demo_store
 
 
 class ClientDouble:
@@ -25,7 +25,7 @@ class ClientDouble:
 
 @pytest.mark.parametrize("operation", ["create", "update", "pause", "delete", "missing", "error"])
 async def test_schedules_preserve_timezone_overlap_pause_and_errors(operation, monkeypatch):
-    store = ChatService()
+    store = demo_store()
     store.durable_engine = object()
     client = ClientDouble()
     store.temporal_client = client
@@ -69,7 +69,7 @@ async def test_schedules_preserve_timezone_overlap_pause_and_errors(operation, m
 
 
 async def test_dispatch_flushes_before_start_and_reports_cluster_failure(monkeypatch):
-    store = ChatService()
+    store = demo_store()
     client = ClientDouble()
     store.temporal_client = client
     monkeypatch.setattr("ar_domain.routines.dispatch.Client", ClientDouble)

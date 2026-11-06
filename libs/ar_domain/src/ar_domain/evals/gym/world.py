@@ -38,6 +38,8 @@ class GymWorld:
 def build_world() -> GymWorld:
     """Seed built-in tools and the fixtures the golden tasks read."""
     store = ChatService()
+    # The gym is an eval world of its own: it works on the demo tenant and its fixtures.
+    store.seed_demo_tenant()
     seed(store)
     tenant = demo_id("tenant")
     user = demo_id("admin")
