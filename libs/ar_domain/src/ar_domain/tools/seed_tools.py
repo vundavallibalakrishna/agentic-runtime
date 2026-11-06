@@ -160,6 +160,9 @@ def _settings(store: Any, tenant: uuid.UUID) -> None:
         names.setdefault(demo_id("builder"), "Dev Builder")
         names.setdefault(demo_id("approver"), "Dev Approver")
         names.setdefault(demo_id("member"), "Dev Member")
+    for key in ("admin", "builder", "approver", "member"):
+        store.user_emails.setdefault(demo_id(key), f"{key}@dev.local")
+        store.user_statuses.setdefault(demo_id(key), "active")
 
 
 def _builtin(

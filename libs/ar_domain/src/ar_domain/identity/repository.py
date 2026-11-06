@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
-from ar_domain.audit.service import record_for_context
+from ar_domain.audit.service import record, record_for_context
 from ar_domain.db import BaseRepository
 from ar_domain.events.service import emit
 from ar_domain.identity.models import (
@@ -302,6 +302,18 @@ class IdentityRepository(BaseRepository):
 
     async def delete(self, row: object) -> None:
         await self.session.delete(row)
+
+    async def audit_login(self, user: User) -> None:
+        """Record a sign-in, with the person who signed in as the actor."""
+        await record(
+            self.session,
+            tenant_id=self.ctx.tenant_id,
+            actor_type="user",
+            actor_id=str(user.id),
+            action="auth.login",
+            target_type="user",
+            target_id=str(user.id),
+        )
 
     async def audit(
         self,

@@ -9,6 +9,7 @@ import asyncio
 import uuid
 
 import httpx
+from sign_in import sign_in
 from temporalio.client import Client, WorkflowExecutionStatus
 
 from ar_common.host_ports import local_endpoint
@@ -23,9 +24,7 @@ async def verify(url: str, temporal_address: str) -> None:
     label = f"Local verification {uuid.uuid4().hex[:6]}"
     temporal = await Client.connect(temporal_address)
     async with httpx.AsyncClient(base_url=url, timeout=60) as client:
-        login = await client.post("/api/v1/auth/dev-login", json={"email": "admin@dev.local"})
-        if login.status_code != 303 or "ar_csrf" not in client.cookies:
-            raise RuntimeError("Seeded local sign-in failed")
+        client.cookies.update(await asyncio.to_thread(sign_in, url, "admin@dev.local"))
         client.headers.update({"origin": url, "x-csrf-token": client.cookies["ar_csrf"]})
         agent = checked(
             await client.post(

@@ -22,10 +22,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from ar_api.auth.dev_users import DEV_TENANT_ID, catalogue
-from ar_api.auth.session import new_session, remember_profile
 from ar_api.main import LISTEN_PORT, create_application
 from ar_common.host_ports import listen_port
+from ar_testing.demo import serve_demo_tenant, start_session
+from ar_testing.demo_people import catalogue
 
 SIGN_IN_PATH = "/api/v1/test/sign-in"
 
@@ -46,23 +46,15 @@ class DemoSignIn:
 
     async def _sign_in(self, request: Request) -> Response:
         email = (request.query_params.get("email") or await _posted_email(request)).strip().lower()
-        user = catalogue().get(email)
-        if user is None:
+        if email not in catalogue():
             return JSONResponse({"error": "not a person of the demo tenant"}, status_code=404)
-        state = self.product.state  # type: ignore[attr-defined]
-        session_id, data = new_session(DEV_TENANT_ID, user.user_id)
-        remember_profile(
-            data,
-            email=user.email,
-            display_name=user.display_name,
-            roles=list(user.roles),
-            permissions=sorted(user.permissions),
-        )
-        await state.sessions.put(session_id, data, int(state.settings.session_ttl_s))
+        cookies = await start_session(self.product, email)
         response = RedirectResponse("/chat", status_code=303)
-        response.set_cookie("ar_session", session_id, httponly=True, samesite="lax", secure=False)
         response.set_cookie(
-            "ar_csrf", data.csrf_token, httponly=False, samesite="lax", secure=False
+            "ar_session", cookies["ar_session"], httponly=True, samesite="lax", secure=False
+        )
+        response.set_cookie(
+            "ar_csrf", cookies["ar_csrf"], httponly=False, samesite="lax", secure=False
         )
         return response
 
@@ -79,10 +71,7 @@ async def _posted_email(request: Request) -> str:
 
 def build() -> ASGIApp:
     """The product application over the demo tenant, behind the test sign-in."""
-    app = create_application()
-    store = app.state.chat
-    store.seed_demo_tenant()
-    store.seed_showcase()
+    app = serve_demo_tenant(create_application())
     return DemoSignIn(app, app)
 
 

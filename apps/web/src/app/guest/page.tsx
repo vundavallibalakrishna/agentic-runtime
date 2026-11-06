@@ -17,7 +17,7 @@ export default function GuestPortalPage() {
     setError("");
     await api("/api/v1/auth/guest/request-link", {
       method: "POST",
-      body: JSON.stringify({ email, tenantSlug: "dev" }),
+      body: JSON.stringify({ email }),
     });
     setNotice("If that guest exists, a link is on its way.");
   }

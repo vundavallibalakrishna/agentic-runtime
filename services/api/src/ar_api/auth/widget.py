@@ -5,15 +5,14 @@ import uuid
 from fastapi import Request
 
 from ar_api.auth.session import SessionData
+from ar_api.deps import identity_store
 from ar_api.routers.tooling import chat
 from ar_common.errors import NotFoundError, UnauthenticatedError
 from ar_domain.audit.memory import remember
 from ar_domain.audit.service import record
 from ar_domain.channels.book import ChannelBook
-from ar_domain.channels.widget_auth import widget_user
 from ar_domain.db.context import Principal, TenantContext
 from ar_domain.db.session import tenant_session
-from ar_domain.identity.repository import IdentityRepository
 
 
 def integration(request: Request, integration_id: uuid.UUID | None) -> dict[str, object]:
@@ -37,14 +36,11 @@ def integration(request: Request, integration_id: uuid.UUID | None) -> dict[str,
 async def active_user(request: Request, tenant_id: uuid.UUID, email: str) -> uuid.UUID | None:
     """Resolve an existing active user inside the integration's tenant."""
     store = chat(request)
-    if store.durable_engine is None:
-        return widget_user(store, tenant_id, email)
     principal = Principal(kind="system", id="widget", tenant_id=tenant_id)
     ctx = TenantContext.from_principal(principal, str(request.state.request_id))
-    async with tenant_session(ctx, engine=store.durable_engine) as session:
-        repo = IdentityRepository(session, ctx)
-        tenant = await repo.get_tenant()
-        user = await repo.get_user_by_email(email.lower())
+    async with identity_store(request, ctx, engine=store.durable_engine) as identity:
+        tenant = await identity.get_tenant()
+        user = await identity.get_user_by_email(email.lower())
         if tenant is None or tenant.status != "active" or user is None or user.status != "active":
             return None
         return user.id

@@ -75,7 +75,7 @@ def test_evidence_hold_guest_and_content_gate() -> None:
     assert forbidden.json()["code"] == "guest_forbidden"
     link = client.post(
         "/api/v1/auth/guest/request-link",
-        json={"email": "nobody@example.com", "tenantSlug": "dev"},
+        json={"email": "nobody@example.com"},
     )
     assert link.status_code == 202
     schedules = client.get("/api/v1/retention-schedules")

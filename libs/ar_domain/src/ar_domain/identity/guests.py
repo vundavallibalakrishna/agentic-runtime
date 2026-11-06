@@ -126,9 +126,11 @@ class GuestBook:
         bucket(self.store, "guest_grants").pop(grant_id, None)
         audit(self.store, actor, "guest.grant_revoked", "guest_grant", grant_id, {})
 
-    def request_link(self, email: str, tenant_slug: str) -> None:
-        """Always succeeds from the caller's point of view. Sends a link only for a live guest."""
-        del tenant_slug
+    def request_link(self, email: str) -> None:
+        """Always succeeds from the caller's point of view. Sends a link only for a live guest.
+
+        The guest belongs to the tenant this process serves, so the caller names no tenant.
+        """
         now = utcnow()
         recent = [
             row

@@ -158,9 +158,11 @@ a tenant's default agents. What is left, one pull request for each:
 
 - **T05a** (done) The browser tests sign in through `/api/v1/test/sign-in`, a path that exists only in the
   browser-test harness. The 36 specs stop using the product's sign-in buttons and `dev-login`.
-- **T05b** The sign-in page has no list of users and no password hint. The `dev-login` route, the fixed
-  user catalogue and the memory identity leave the API (this is M38b-T04d for the API). The smoke scripts
-  sign in through the identity provider, as a person does.
+- **T05b** (done) The sign-in page has one button. The `dev-login` route, the fixed user catalogue and
+  the memory identity are out of the API; the last two now live in `ar_testing`, plugged in by test setup.
+  The smoke and proof scripts sign in through the identity provider with `scripts/sign_in.py`. The Users
+  screen no longer shows four made-up people when its request fails, and the guest page no longer sends a
+  fixed tenant.
 - **T05c** When the session check fails for any reason other than "not signed in", the visitor sees an
   error page with a retry, never the workspace.
 

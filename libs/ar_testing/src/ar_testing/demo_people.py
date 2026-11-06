@@ -1,4 +1,4 @@
-"""The four seeded dev users. Stable ids match the in-process chat catalogue."""
+"""The four people of the demo tenant. Test data: the product has no fixed people."""
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -22,7 +22,7 @@ _IDS = {
 
 @dataclass(frozen=True, slots=True)
 class DevUser:
-    """One seeded person the dev login and the OIDC callback can sign in."""
+    """One person of the demo tenant."""
 
     email: str
     display_name: str

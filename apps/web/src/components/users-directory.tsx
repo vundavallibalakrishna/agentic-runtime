@@ -1,23 +1,13 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 import { type UserRow, UsersPanel } from "@/components/users-panel";
 import { api } from "@/lib/api";
 
-const seeded: UserRow[] = [
-  { id: "admin", email: "admin@dev.local", displayName: "Dev Admin" },
-  { id: "builder", email: "builder@dev.local", displayName: "Dev Builder" },
-  { id: "member", email: "member@dev.local", displayName: "Dev Member" },
-  { id: "approver", email: "approver@dev.local", displayName: "Dev Approver" },
-];
-
 export function UsersDirectory() {
-  const t = useTranslations("admin");
   const [status, setStatus] = useState<"loading" | "empty" | "error" | "ready">("loading");
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [seededView, setSeededView] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,9 +32,7 @@ export function UsersDirectory() {
         if (cancelled) {
           return;
         }
-        setUsers(seeded);
-        setSeededView(true);
-        setStatus("ready");
+        setStatus("error");
       }
     })();
     return () => {
@@ -53,13 +41,8 @@ export function UsersDirectory() {
   }, []);
 
   return (
-    <div>
-      {seededView ? (
-        <p className="mb-3 text-sm text-[var(--muted-foreground)]">{t("seedNote")}</p>
-      ) : null}
-      <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
-        <UsersPanel status={status} users={users} />
-      </div>
+    <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+      <UsersPanel status={status} users={users} />
     </div>
   );
 }

@@ -62,22 +62,19 @@
   },
   "auth": {
     "title": "Sign in",
-    "body": "Use your organisation account, or pick a seeded role on this machine.",
+    "body": "Use your organisation account.",
     "lede": "A calm workspace for an assistant that keeps the thread.",
     "continue": "Continue with SSO",
-    "devLogin": "Sign in as admin@dev.local",
-    "devLoginAs": "Sign in as {email}",
-    "devHeading": "Seeded roles",
-    "passwordHint": "Keycloak password for every seeded user is dev-password.",
-    "errorTenant": "This organisation is not set up on this server. Ask an administrator to connect it.",
-    "errorUnknown": "That account is not one of the seeded roles.",
+    "errorTenant": "This account is not a member of the organisation this server is set up for. Ask an administrator to add you.",
+    "errorTenantSuspended": "This organisation is suspended. Ask an administrator.",
+    "errorUserSuspended": "Your account is suspended. Ask an administrator.",
     "errorState": "The sign-in attempt expired. Start again.",
     "errorGeneric": "Sign-in did not complete. Start again."
   },
   "chat": {
     "product": "Agentic Runtime",
     "title": "Chat",
-    "tenant": "Dev tenant",
+    "tenant": "Workspace",
     "signedOut": "Not signed in",
     "newChat": "New chat",
     "conversations": "Conversations",
@@ -312,7 +309,7 @@
     "empty": "No users yet. Invite someone to this tenant.",
     "error": "Users could not be loaded.",
     "forbidden": "You do not have permission to view this page.",
-    "seedNote": "Showing the four accounts created by the dev seed.",
+    "usersBody": "The people who can sign in to this workspace.",
     "role": "Role"
   },
   "soon": {

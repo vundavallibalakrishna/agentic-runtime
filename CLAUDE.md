@@ -83,7 +83,7 @@ make test-e2e    # Playwright against a running stack
 make gen         # regenerate OpenAPI, schemas, clients and CLAUDE.md; CI fails on any diff
 ```
 
-`make dev` still seeds the `dev` tenant and signs in as `admin@dev.local`, password `dev-password`, until M38b removes the built-in tenant. A clean tenant comes from `scripts/seed_tenant.py`. Details: [local-dev](docs/07-ops/local-dev.md).
+`make dev` still seeds the `dev` tenant. Sign in with **Continue with SSO** as `admin@dev.local`, password `dev-password`; the product has no other way in. A clean tenant comes from `scripts/seed_tenant.py`. Details: [local-dev](docs/07-ops/local-dev.md).
 
 Things that catch people out:
 

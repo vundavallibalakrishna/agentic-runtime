@@ -8,6 +8,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from ar_api.main import create_application
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.durable.bind import bind_store
@@ -15,7 +16,6 @@ from ar_domain.durable.flush import flush_store
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.seed import apply
 from ar_domain.knowledge.book import KnowledgeBook
-from ar_testing.demo import demo_application
 
 pytestmark = pytest.mark.integration
 
@@ -217,7 +217,7 @@ async def test_widget_credentials_and_user_status_survive_restart(
     )
     restarted.tenant_settings[binding.tenant_id] = {"features": {"widget": True}}
     restarted._bind_attempted = True
-    app = demo_application()
+    app = create_application()
     app.state.chat = restarted
     app.state.await_runs = True
     token = sign_widget_token(
@@ -269,7 +269,6 @@ async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
     """An OIDC email resolving to a non-demo UUID can immediately create durable rows."""
     import httpx
 
-    from ar_api.auth.complete import login_result, profile_for
     from ar_domain.db.context import Principal, TenantContext
     from ar_domain.db.session import tenant_session
     from ar_domain.identity.models import RoleAssignment, User
@@ -307,13 +306,13 @@ async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
                 scope_type="tenant",
             )
         )
-    app = demo_application()
+    app = create_application()
     store._bind_attempted = True
     app.state.chat = store
     app.state.login_states["saved"] = {"return_to": "/chat"}
 
     async def complete(code, saved):
-        return login_result(profile_for(email, "dev"), access_token="", refresh_token="")
+        return {"email": email, "organization": "dev", "access_token": "", "refresh_token": ""}
 
     app.state.complete_login = complete
     async with httpx.AsyncClient(

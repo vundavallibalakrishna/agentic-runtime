@@ -9,6 +9,7 @@ import time
 from typing import Any
 
 import httpx
+from sign_in import sign_in
 
 BASE = os.environ.get("AR_PROOF_API", "http://127.0.0.1:18131")
 ALIAS = "qwenm31"
@@ -23,9 +24,7 @@ def _scrub(text: str) -> str:
 
 def _client(email: str = "admin@dev.local") -> httpx.Client:
     client = httpx.Client(base_url=BASE, timeout=180.0, follow_redirects=False)
-    response = client.post("/api/v1/auth/dev-login", params={"email": email})
-    if response.status_code not in {200, 302, 303}:
-        raise SystemExit(f"login {email} {response.status_code}")
+    client.cookies.update(sign_in(BASE, email))
     token = client.cookies.get("ar_csrf")
     if not token:
         raise SystemExit("missing csrf")

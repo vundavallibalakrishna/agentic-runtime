@@ -55,7 +55,7 @@ The OPA service loads `deploy/compose/opa/config.yaml`. It contacts the API thro
 
 ## 4. Day-to-day
 
-- Web: http://localhost:3000. The sign-in page lists the four seeded users for dev login, and **Continue with SSO** opens Keycloak. Organisations are on, so Keycloak asks for the username and then the password. Password `dev-password`. The dev realm allows plain HTTP on localhost.
+- Web: http://localhost:3000. The sign-in page has one button, **Continue with SSO**, which opens Keycloak. The product has no shortcut sign-in; scripts sign in the same way through `scripts/sign_in.py`. Organisations are on, so Keycloak asks for the username and then the password. Password `dev-password`. The dev realm allows plain HTTP on localhost.
 - API docs: http://localhost:8000/api/docs (only `AR_ENV != prod`).
 - Temporal UI: http://localhost:8233; Grafana: http://localhost:3001 and Langfuse: http://localhost:3100 (profile `obs`); Mailpit: http://localhost:8025.
 - Using a real model: in **Admin → Models**, switch to Advanced, choose OpenAI-compatible, set the base URL and upstream model, and paste the API key. The key is stored as a secret (`hasApiKey` on the provider; the value is not returned). Point the tenant `reasoning` alias at that model. The gateway then calls it. `fake-chat` stays on fake-llm. Setting `AR_DEV_MODEL_BASE_URL`/`AR_DEV_MODEL_API_KEY` before `make seed` still seeds a provider instead of `fake-llm`.

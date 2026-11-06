@@ -1,4 +1,4 @@
-"""Health, dev login and Keycloak sign-in for a fresh local stack.
+"""Health and Keycloak sign-in for a fresh local stack.
 
 ``make dev`` blocks on honcho, so CI runs the same steps and then this script.
 Keycloak with organizations asks for the username and then the password.
@@ -7,15 +7,18 @@ Keycloak with organizations asks for the username and then the password.
 from __future__ import annotations
 
 import os
-import re
 import sys
 import time
-from html.parser import HTMLParser
-from http.cookiejar import DefaultCookiePolicy
 from pathlib import Path
-from urllib.parse import urljoin
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from sign_in import (
+    SignInError,
+    sign_in,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SEEDED = (
@@ -24,81 +27,6 @@ SEEDED = (
     "member@dev.local",
     "approver@dev.local",
 )
-PASSWORD = "dev-password"  # noqa: S105 - documented dev realm password
-
-
-def allow_secure_cookies_on_localhost() -> None:
-    """Send Keycloak's Secure cookies back to plain HTTP on localhost.
-
-    Keycloak 26 treats localhost as a secure context, so ``AUTH_SESSION_ID``
-    is marked Secure even when the dev realm is served over HTTP. Browsers
-    return that cookie to localhost. The default cookie policy does not, and
-    the login post then has no session.
-    """
-    if getattr(allow_secure_cookies_on_localhost, "done", False):
-        return
-    original = DefaultCookiePolicy.return_ok_secure
-
-    def return_ok_secure(self: DefaultCookiePolicy, cookie: object, request: object) -> bool:
-        host = str(getattr(request, "host", "")).rsplit(":", 1)[0]
-        secure = bool(getattr(cookie, "secure", False))
-        if secure and host in {"localhost", "127.0.0.1"}:
-            return True
-        return bool(original(self, cookie, request))
-
-    DefaultCookiePolicy.return_ok_secure = return_ok_secure  # type: ignore[method-assign]
-    allow_secure_cookies_on_localhost.done = True  # type: ignore[attr-defined]
-
-
-class _FormParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__()
-        self.forms: list[dict[str, object]] = []
-        self._current: dict[str, object] | None = None
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attr = {key: value or "" for key, value in attrs}
-        if tag == "form":
-            self._current = {"action": attr.get("action", ""), "names": [], "fields": {}}
-            self.forms.append(self._current)
-            return
-        if tag != "input" or self._current is None:
-            return
-        name = attr.get("name", "")
-        if not name:
-            return
-        names = self._current["names"]
-        fields = self._current["fields"]
-        if isinstance(names, list):
-            names.append(name)
-        if isinstance(fields, dict):
-            fields[name] = attr.get("value", "")
-
-
-def parse_forms(html: str) -> list[dict[str, object]]:
-    """Return forms with their input names and current values."""
-    parser = _FormParser()
-    parser.feed(html)
-    return parser.forms
-
-
-def fill_login(form: dict[str, object], email: str, password: str) -> dict[str, str] | None:
-    """Fill the username step, the password step, or both when they share a page."""
-    names = form.get("names")
-    fields = form.get("fields")
-    if not isinstance(names, list) or not isinstance(fields, dict):
-        return None
-    if "username" not in names and "password" not in names:
-        return None
-    payload = {str(key): str(value) for key, value in fields.items()}
-    if "username" in names and "password" not in names:
-        payload["username"] = email
-        return payload
-    if "username" in names and not payload.get("username"):
-        payload["username"] = email
-    if "password" in names:
-        payload["password"] = password
-    return payload
 
 
 def _env(name: str, default: str = "") -> str:
@@ -134,28 +62,6 @@ def _wait_ok(url: str, seconds: float = 180) -> None:
         time.sleep(2)
     print(f"timed out waiting for {url}: {last}", file=sys.stderr)
     raise SystemExit(1)
-
-
-def _dev_logins(api: str) -> None:
-    for email in SEEDED:
-        response = httpx.post(
-            f"{api}/api/v1/auth/dev-login",
-            data={"email": email},
-            timeout=15,
-            follow_redirects=False,
-        )
-        location = response.headers.get("location", "")
-        cookie = response.headers.get("set-cookie", "")
-        if (
-            response.status_code != 303
-            or not location.endswith("/chat")
-            or "ar_session=" not in cookie
-        ):
-            print(
-                f"dev login failed for {email}: {response.status_code} {location}", file=sys.stderr
-            )
-            raise SystemExit(1)
-        print(f"dev login {email}")
 
 
 def _ensure_org_members(keycloak: str) -> None:
@@ -216,44 +122,14 @@ def _ensure_org_members(keycloak: str) -> None:
         print(f"org member {email}")
 
 
-def _page_hint(html: str) -> str:
-    flags = re.IGNORECASE | re.DOTALL
-    without_script = re.sub(r"<script\b[^>]*>.*?</script>", " ", html, flags=flags)
-    without_style = re.sub(r"<style\b[^>]*>.*?</style>", " ", without_script, flags=flags)
-    text = re.sub(r"<[^>]+>", " ", without_style)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text[:240]
-
-
 def _keycloak_login(api: str, email: str) -> None:
     """Sign one seeded user in through the username step and then the password."""
-    allow_secure_cookies_on_localhost()
-    with httpx.Client(timeout=30, follow_redirects=True) as client:
-        page = client.get(f"{api}/api/v1/auth/login")
-        for _ in range(6):
-            body = page.text
-            lowered = body.lower()
-            if "https required" in lowered or "update account" in lowered:
-                print(f"keycloak blocked the login page for {email}", file=sys.stderr)
-                raise SystemExit(1)
-            form = next(
-                (item for item in parse_forms(body) if fill_login(item, email, PASSWORD)), None
-            )
-            if form is None:
-                break
-            payload = fill_login(form, email, PASSWORD)
-            action = urljoin(str(page.url), str(form.get("action", "")))
-            page = client.post(action, data=payload)
-        final = str(page.url)
-        if "error=" in final or "ar_session" not in client.cookies:
-            hint = _page_hint(page.text)
-            print(
-                f"keycloak login did not create a session for {email}: "
-                f"{page.status_code} {final} {hint}",
-                file=sys.stderr,
-            )
-            raise SystemExit(1)
-        print(f"keycloak login {email} landed on {final}")
+    try:
+        sign_in(api, email)
+    except SignInError as exc:
+        print(f"keycloak login did not create a session: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
+    print(f"keycloak login {email}")
 
 
 def main() -> None:
@@ -266,7 +142,6 @@ def main() -> None:
         print("expected AUTO_PORTS to move Postgres off 5432", file=sys.stderr)
         raise SystemExit(1)
     _wait_ok(f"{api}/healthz")
-    _dev_logins(api)
     _wait_ok(f"{keycloak}/realms/agentic-runtime")
     _ensure_org_members(keycloak)
     for email in SEEDED:

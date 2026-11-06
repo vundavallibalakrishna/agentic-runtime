@@ -12,6 +12,7 @@ from pathlib import Path
 import httpx
 import orjson
 import psycopg
+from sign_in import sign_in
 
 BASE = os.environ.get("M24_API", "http://127.0.0.1:18124")
 ROOT = Path(os.environ.get("M24_ROOT", str(Path(tempfile.gettempdir()) / "m24-proof")))
@@ -33,9 +34,7 @@ def _scrub(text: str) -> str:
 
 def _client() -> httpx.Client:
     client = httpx.Client(base_url=BASE, timeout=180.0, follow_redirects=False)
-    response = client.post("/api/v1/auth/dev-login", params={"email": "admin@dev.local"})
-    if response.status_code not in {200, 302, 303}:
-        raise SystemExit(f"dev login failed: {response.status_code}")
+    client.cookies.update(sign_in(BASE, "admin@dev.local"))
     token = client.cookies.get("ar_csrf")
     if not token:
         raise SystemExit("dev login did not set a CSRF cookie")

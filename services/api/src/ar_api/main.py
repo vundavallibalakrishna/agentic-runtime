@@ -169,21 +169,10 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
         data = await sessions.get(value)
         if data is None:
             return None
-        from ar_api.auth.dev_users import by_id  # noqa: PLC0415
-
-        known = by_id(data.user_id)
-        email = data.email or (known.email if known is not None else "")
-        display_name = data.display_name or (known.display_name if known is not None else email)
-        permissions = (
-            frozenset(data.permissions)
-            if data.permissions
-            else (known.permissions if known is not None else frozenset())
-        )
-        roles = (
-            frozenset(data.roles)
-            if data.roles
-            else (frozenset(known.roles) if known is not None else frozenset())
-        )
+        email = data.email
+        display_name = data.display_name or email
+        permissions = frozenset(data.permissions)
+        roles = frozenset(data.roles)
         from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
 
         permissions = permissions | permissions_for(app.state.chat, data.tenant_id, roles)
@@ -353,6 +342,8 @@ def create_application() -> FastAPI:
     app.state.rate_limit = 600
     app.state.idempotency = MemoryIdempotencyStore()
     app.state.identity_override = None
+    # Identity is read from the database. Test setup may plug in another source here.
+    app.state.identity_provider = None
     app.state.secret_api = MemorySecretApi()
     app.state.audit_api = AuditApi()
     app.state.platform = PlatformApi()

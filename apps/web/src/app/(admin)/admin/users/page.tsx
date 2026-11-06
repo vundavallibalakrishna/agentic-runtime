@@ -9,7 +9,7 @@ export default async function UsersPage() {
   const admin = await getTranslations("admin");
   return (
     <AppShell>
-      <PageHeader body={admin("seedNote")} title={admin("usersTitle")} />
+      <PageHeader body={admin("usersBody")} title={admin("usersTitle")} />
       <PermissionGate allowed>
         <UsersDirectory />
       </PermissionGate>

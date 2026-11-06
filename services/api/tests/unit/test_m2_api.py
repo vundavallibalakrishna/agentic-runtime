@@ -4,7 +4,6 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from ar_common.settings import EnvName
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.files.logic import EICAR
@@ -81,7 +80,7 @@ def test_chat_round_trip_and_cross_tenant() -> None:
     assert hidden.status_code == 404
 
 
-def test_models_files_and_dev_login() -> None:
+def test_models_and_files() -> None:
     client = _client()
     denied = client.post(
         "/api/v1/model-providers",
@@ -116,14 +115,6 @@ def test_models_files_and_dev_login() -> None:
         data={"mime_type": "application/octet-stream"},
     )
     assert rejected.status_code == 415
-    anonymous = TestClient(demo_application())
-    login = anonymous.post("/api/v1/auth/dev-login", follow_redirects=False)
-    assert login.status_code == 303
-    assert login.headers["location"] == "/chat"
-    anonymous.app.state.settings.env = EnvName.PROD
-    anonymous.cookies.clear()
-    denied = anonymous.post("/api/v1/auth/dev-login", follow_redirects=False)
-    assert denied.status_code == 404
 
 
 def test_regenerate_share_and_callback_guard() -> None:

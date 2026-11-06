@@ -17,23 +17,18 @@ class GuestLinkBody:
     """
     Attributes:
         email (str):
-        tenant_slug (str):
     """
 
     email: str
-    tenant_slug: str
 
     def to_dict(self) -> dict[str, Any]:
         email = self.email
-
-        tenant_slug = self.tenant_slug
 
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
             {
                 "email": email,
-                "tenantSlug": tenant_slug,
             }
         )
 
@@ -44,11 +39,8 @@ class GuestLinkBody:
         d = dict(src_dict)
         email = d.pop("email")
 
-        tenant_slug = d.pop("tenantSlug")
-
         guest_link_body = cls(
             email=email,
-            tenant_slug=tenant_slug,
         )
 
         return guest_link_body

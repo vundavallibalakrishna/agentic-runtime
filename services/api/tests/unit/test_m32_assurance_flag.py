@@ -1,5 +1,6 @@
 """Assurance screens and routes exist only for tenants that turn the feature on. Task: M32-T09."""
 
+import asyncio
 import uuid
 
 from fastapi.testclient import TestClient
@@ -9,7 +10,7 @@ from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import ASSURANCE_PERMISSIONS, PERMISSION_KEYS
 from ar_domain.identity.tenant_settings import feature_enabled, permissions_for_features
-from ar_testing.demo import demo_application
+from ar_testing.demo import demo_application, start_session
 
 
 def _principal(tenant: uuid.UUID) -> Principal:
@@ -80,7 +81,7 @@ def test_a_settings_patch_keeps_the_dev_tenants_assurance_flag() -> None:
     app = demo_application()
     app.state.chat.seed_showcase()
     client = TestClient(app, base_url="http://localhost:3000")
-    client.post("/api/v1/auth/dev-login", data={"email": "admin@dev.local"}, follow_redirects=False)
+    client.cookies.update(asyncio.run(start_session(app, "admin@dev.local")))
     before = client.get("/api/v1/auth/session").json()
     assert before["features"]["assurance"] is True
     headers = {"X-CSRF-Token": before["csrfToken"], "Origin": "http://localhost:3000"}

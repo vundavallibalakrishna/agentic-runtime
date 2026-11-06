@@ -1,16 +1,17 @@
-"""The fresh-clone login parser, without a running Keycloak."""
+"""The sign-in page parser the smoke and proof scripts share, without a running Keycloak."""
 
 import importlib.util
 from pathlib import Path
 
 import httpx
+import pytest
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
 def _forms():
-    path = ROOT / "scripts" / "fresh_clone_smoke.py"
-    spec = importlib.util.spec_from_file_location("fresh_clone_smoke", path)
+    path = ROOT / "scripts" / "sign_in.py"
+    spec = importlib.util.spec_from_file_location("sign_in", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -64,3 +65,14 @@ def test_single_page_login_fills_both_fields() -> None:
     )[0]
     filled = forms.fill_login(page, "builder@dev.local", "dev-password")
     assert filled == {"username": "builder@dev.local", "password": "dev-password"}
+
+
+def test_the_password_comes_from_the_environment_or_the_dev_realm_export(monkeypatch) -> None:
+    forms = _forms()
+    monkeypatch.delenv("AR_SIGN_IN_PASSWORD", raising=False)
+    # A person of the local dev realm: the realm export that created them holds the password.
+    assert forms.password_for("Admin@dev.local")
+    with pytest.raises(forms.SignInError, match="AR_SIGN_IN_PASSWORD"):
+        forms.password_for("ada@acme.example")
+    monkeypatch.setenv("AR_SIGN_IN_PASSWORD", "given-for-this-run")
+    assert forms.password_for("ada@acme.example") == "given-for-this-run"

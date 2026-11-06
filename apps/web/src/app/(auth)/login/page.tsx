@@ -2,17 +2,18 @@ import { getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 
-const seeded = [
-  "admin@dev.local",
-  "builder@dev.local",
-  "member@dev.local",
-  "approver@dev.local",
-] as const;
+type ErrorKey =
+  | "errorTenant"
+  | "errorState"
+  | "errorTenantSuspended"
+  | "errorUserSuspended"
+  | "errorGeneric";
 
-const errors: Record<string, "errorTenant" | "errorUnknown" | "errorState" | "errorGeneric"> = {
+const errors: Record<string, ErrorKey> = {
   tenant_not_found: "errorTenant",
-  unknown_user: "errorUnknown",
   invalid_state: "errorState",
+  tenant_suspended: "errorTenantSuspended",
+  user_suspended: "errorUserSuspended",
 };
 
 export default async function LoginPage({
@@ -44,25 +45,6 @@ export default async function LoginPage({
         <Button asChild className="mt-8 h-10 w-full">
           <a href="/api/v1/auth/login">{t("continue")}</a>
         </Button>
-        <div className="my-8 h-px bg-[var(--border)]" />
-        <h2 className="text-[13px] text-[var(--muted-foreground)]">{t("devHeading")}</h2>
-        <div className="mt-2">
-          {seeded.map((email) => (
-            <form action="/api/v1/auth/dev-login" key={email} method="post">
-              <input name="email" type="hidden" value={email} />
-              <Button
-                className="h-9 w-full justify-start overflow-hidden px-2 font-normal"
-                type="submit"
-                variant="ghost"
-              >
-                <span className="min-w-0 truncate">{t("devLoginAs", { email })}</span>
-              </Button>
-            </form>
-          ))}
-        </div>
-        <p className="mt-4 text-xs leading-relaxed text-[var(--muted-foreground)]">
-          {t("passwordHint")}
-        </p>
       </div>
     </main>
   );

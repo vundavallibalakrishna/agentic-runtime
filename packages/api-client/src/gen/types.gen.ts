@@ -1458,10 +1458,6 @@ export type GuestLinkBody = {
      * Email
      */
     email: string;
-    /**
-     * Tenantslug
-     */
-    tenantSlug: string;
 };
 
 /**
@@ -3883,20 +3879,6 @@ export type LoginApiV1AuthLoginGetErrors = {
 export type LoginApiV1AuthLoginGetError = LoginApiV1AuthLoginGetErrors[keyof LoginApiV1AuthLoginGetErrors];
 
 export type LoginApiV1AuthLoginGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type DevLoginApiV1AuthDevLoginPostData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/auth/dev-login';
-};
-
-export type DevLoginApiV1AuthDevLoginPostResponses = {
     /**
      * Successful Response
      */
