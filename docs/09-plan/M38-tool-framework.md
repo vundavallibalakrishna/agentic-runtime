@@ -153,25 +153,28 @@ when the agent has tools and an output-schema block when the definition has one.
 
 **Tests:** `test_m38_result_budget.py`.
 
-## M38-T09 Tools run off the event loop, with a timeout
+## M38-T09 A tool call does not hold the event loop
 
-**Depends on:** T02, T08. **Spec:** [spec 07 §10](../03-specs/07-agent-runtime.md#10-configuration),
-[environments §3](../07-ops/environments.md#3-variable-catalogue).
+**Depends on:** T02. **Spec:** [spec 07 §10](../03-specs/07-agent-runtime.md#10-configuration),
+[environments §3](../07-ops/environments.md#3-variable-catalogue). **Finding:** F11. Decision: OQ-109.
 
 **Do:**
 
-- New `tools/executor.py`. `ToolPipeline.execute` stays synchronous for its other callers and is split into
-  prepare, invoke and record.
-- Only invoke runs in a bounded thread pool (`AR_TOOL_WORKER_THREADS`), under the smaller of the tool's
-  timeout and the wall clock that is left. Prepare and record stay on the loop thread, so event order, audit
-  rows and usage are written from one thread.
-- A call that overruns is recorded as `upstream_timeout`. Its late return is discarded. A write says that the
-  outcome is unknown.
-- Events raised from a worker thread are passed to the loop thread. Workspace writes take a lock for the run.
+- A tool handler stays on the event loop's thread, where the store is safe to use. Each wait inside it (a
+  request, a command, a sleep) is handed to a bounded thread pool (`AR_TOOL_WORKER_THREADS`) with
+  `ar_common.offload.blocking`, and the loop goes on meanwhile.
+- A call may use the time the run has left. Past that it is stopped at its wait and recorded as
+  `upstream_timeout`. Its late answer is dropped. A write says that the outcome is unknown.
+- A test fails when tool code waits outside `blocking`.
 
 **Done when:** another coroutine makes progress while a handler sleeps.
 
-**Tests:** `test_m38_executor.py`.
+**Tests:** `test_offload.py`; `test_m38_executor.py`.
+
+**Done (7 Nov 2026).** The first plan was to run the handler itself in a thread pool, split into prepare,
+invoke and record. That would have let a handler change the unlocked store while the loop reads it, so only
+the waiting moves (OQ-109). On the live tenant a 25-second command ran once and the turn finished; before,
+any tool call over about ten seconds missed the heartbeat and the turn was cancelled and run three times.
 
 ## M38-T10 Read-only calls run together
 

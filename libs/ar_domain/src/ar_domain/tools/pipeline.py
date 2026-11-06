@@ -8,9 +8,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from ar_common.errors import ArError, QuotaExceededError
+from ar_common.errors import ArError, ErrorCode, QuotaExceededError
 from ar_common.ids import new_id
 from ar_common.logging import get_logger
+from ar_common.offload import CallTimedOutError
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.tools.credentials import CredentialBook
@@ -285,6 +286,18 @@ class ToolPipeline:
                 "structured": {},
                 "is_error": True,
                 "code": exc.code.value,
+            }
+        except CallTimedOutError as exc:
+            # The run had this long left. The tool was stopped where it was waiting.
+            outcome = {
+                "text": (
+                    f"The tool did not finish within {exc.seconds:g} seconds, "
+                    "which is the time this run had left. If the tool changes something, "
+                    "whether it did is not known: check before calling it again."
+                ),
+                "structured": {},
+                "is_error": True,
+                "code": ErrorCode.UPSTREAM_TIMEOUT.value,
             }
         except Exception as exc:  # noqa: BLE001 — a tool bug is a failed call, never a stuck run
             _log.error(

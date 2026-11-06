@@ -244,7 +244,7 @@ the files.
 **Tests:** `test_m38b_attachments.py` (unit and integration); `test_m38b_one_workspace.py`;
 `test_m38b_code_output.py`.
 
-**Landed (7 Nov 2026), not yet closed.** The prompt names each attached file with its id and its path; the
+**Done (7 Nov 2026).** The prompt names each attached file with its id and its path; the
 file is at that path for every tool, in this turn and in later ones; a worker loads the conversation's
 files before a turn (it knew only the files that existed when it started, which is why no tool could read
 an upload); a conversation's working folder carries to its next turn; tools name a file by a path relative
@@ -252,10 +252,10 @@ to the working folder, which works in code on every host; a command that fails a
 where it does not exist is told what to use; a wrong path is answered with what the folder holds; and
 `general.code` shows the value of a script's last expression. Decision: OQ-107.
 
-On the live tenant the CSV totals are right and come from the file. Two things still spoil the answers, and
-the task closes when they are fixed and the two chats are run again: redaction replaces two region names
-and fuses rows of the file text (F12, T09), and the PDF turn is cancelled because a 20-second tool call
-stops the worker's heartbeat (F11, M38-T09).
+Two neighbouring defects spoiled the answers when this landed, and the task closed when they were fixed and
+both chats were run again on the live tenant: redaction (F12, T09) and a long tool call cancelling the turn
+(F11, M38-T09). With `orders.csv` attached the answer is the file's four totals with their region names, and
+with `leave-policy.pdf` attached it is five points from the policy with its own numbers.
 
 ## M38b-T08a The chat shows what was attached
 

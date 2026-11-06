@@ -12,6 +12,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from ar_common.offload import blocking
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, host_denied
 from ar_domain.tools.general import _allow_hosts, _host_ok, _resolve
 
@@ -56,7 +57,9 @@ def fetch_text(
             return sent.status_code, sent.text
     body = None if method in {"GET", "HEAD"} else json_body
     with httpx.Client(timeout=float(timeout), follow_redirects=False) as client:
-        response = client.request(method, url, headers=headers, params=_query(params), json=body)
+        response = blocking(
+            client.request, method, url, headers=headers, params=_query(params), json=body
+        )
     return response.status_code, response.text
 
 
@@ -193,7 +196,7 @@ def _get_raw(store: Any, url: str) -> tuple[int, str, str]:
         if isinstance(sent, httpx.Response):
             return sent.status_code, sent.text, sent.headers.get("location", "")
     with httpx.Client(timeout=20.0, follow_redirects=False) as client:
-        response = client.get(url)
+        response = blocking(client.get, url)
     return response.status_code, response.text, response.headers.get("location", "")
 
 

@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.offload import blocking
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -126,7 +128,7 @@ def ask_image(
         body["chat_template_kwargs"] = {"enable_thinking": False}
     try:
         with httpx.Client(timeout=timeout_s) as client:
-            response = client.post(url, json=body, headers=headers)
+            response = blocking(client.post, url, json=body, headers=headers)
     except httpx.HTTPError as exc:
         raise VisionError(
             "vision_unavailable",

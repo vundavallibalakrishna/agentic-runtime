@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.offload import blocking
 from ar_common.time import utcnow
 from ar_domain.approvals.logic import _standing_ok
 from ar_domain.audit.memory import remember
@@ -141,7 +142,7 @@ def _ask_opa(url: str, policy_input: dict[str, object], timeout: float) -> dict[
     endpoint = url.rstrip("/") + "/v1/data/ar/policy/decision"
     for _attempt in range(2):
         try:
-            response = httpx.post(endpoint, json={"input": policy_input}, timeout=timeout)
+            response = blocking(httpx.post, endpoint, json={"input": policy_input}, timeout=timeout)
         except httpx.HTTPError:
             continue
         if response.status_code >= 300:

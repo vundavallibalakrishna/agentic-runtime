@@ -15,6 +15,7 @@ import httpx
 
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
+from ar_common.offload import blocking
 from ar_common.time import utcnow
 from ar_domain.secrets.crypto import open_sealed, seal
 from ar_domain.tools.http_tools import fetch_text, guard_public
@@ -451,7 +452,7 @@ def _token_response(
         kwargs["transport"] = transport
     try:
         with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
-            response = client.post(token_url, data=form)
+            response = blocking(client.post, token_url, data=form)
             response.raise_for_status()
             loaded = response.json()
     except httpx.HTTPError as exc:

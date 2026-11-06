@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from ar_common.offload import blocking
+
 MAX_PAGES = 600
 _HEADING = re.compile(r"^(?:#{1,6}\s+|(?:\d+|[A-Z])[.)]\s+)(\S.*)$|^(?:[A-Z][A-Z0-9 /,&-]{2,70})$")
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -316,12 +318,14 @@ def _tesseract(data: bytes) -> str:
         path = Path(tmp) / "page"
         path.write_bytes(data)
         try:
-            result = subprocess.run(  # noqa: S603 — binary is the tesseract on PATH
-                [binary, str(path), "stdout", "-l", "eng"],
-                check=False,
-                capture_output=True,
-                timeout=30,
-                env={"PATH": os.environ.get("PATH", ""), "TMPDIR": tmp},
+            result = blocking(
+                lambda: subprocess.run(  # noqa: S603 — binary is the tesseract on PATH
+                    [binary, str(path), "stdout", "-l", "eng"],
+                    check=False,
+                    capture_output=True,
+                    timeout=30,
+                    env={"PATH": os.environ.get("PATH", ""), "TMPDIR": tmp},
+                )
             )
         except subprocess.TimeoutExpired as exc:
             raise ExtractError("ocr_unavailable", "OCR took too long on this image.") from exc

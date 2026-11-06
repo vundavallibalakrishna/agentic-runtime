@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
+from ar_common.offload import blocking
 from ar_common.time import utcnow
 
 if TYPE_CHECKING:
@@ -82,7 +83,7 @@ def _past(raw: str) -> bool:
 
 def _read(client: Any, key: str) -> str:
     try:
-        raw = client.get(key)
+        raw = blocking(client.get, key)
     except Exception:  # noqa: BLE001 — a cache miss falls back to a new token
         return ""
     if raw is None:

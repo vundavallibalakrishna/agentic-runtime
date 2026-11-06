@@ -15,6 +15,7 @@ from xml.etree import ElementTree
 import httpx
 import orjson
 
+from ar_common.offload import blocking
 from ar_domain.connectors.http import explain_status
 from ar_domain.connectors.sigv4 import sign_headers
 from ar_domain.connectors.tokens import cached_token, remember_token
@@ -370,7 +371,9 @@ def _signed(  # noqa: PLR0917
         kwargs["transport"] = transport
     try:
         with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
-            response = client.request(method, url, headers=request_headers, content=body or None)
+            response = blocking(
+                client.request, method, url, headers=request_headers, content=body or None
+            )
     except httpx.HTTPError:
         return 0, {"error": "AWS did not answer. Check the region and the endpoint."}, {}
     return response.status_code, _payload(response), dict(response.headers.items())

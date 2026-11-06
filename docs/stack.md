@@ -42,6 +42,7 @@ Rules:
 | sqlglot | 30.23.0 | SQL parsing and validation for the read-only SQL connector. |
 | duckdb | 2.0.0 | In-process spreadsheet SQL for `general.query_table` and `general.pivot_table`. The connection is memory-only and external file access is disabled. The published wheel is `cp312-abi3` and runs on Python 3.14. |
 | pymysql | 1.2.3 | MySQL driver for the read-only database tool. |
+| greenlet | 3.5.6 | Lets a synchronous tool handler stay on the event loop's thread while its network call or command waits on a worker thread (`ar_common.offload`). Already installed by SQLAlchemy's asyncio support; now also used directly. |
 | presidio-analyzer | 2.2.364 | Personal-data detection for masking, with recognisers for Aadhaar, PAN and Indian phone numbers beside its own. A dependency of `ar_domain`, not an extra, so every install has it. `presidio-anonymizer` was never called and is no longer installed. |
 | en-core-web-sm (spaCy model) | 3.8.0 | The language model Presidio reads sentences with. Installed from its release wheel as a dependency, so nothing is downloaded at run time. `AR_PII_LANGUAGE_MODEL` names a larger installed model for deployments that mask names and places. |
 | rfc8785 | 0.1.4 | JSON Canonicalization Scheme (JCS) used to hash tool arguments for approval binding. |

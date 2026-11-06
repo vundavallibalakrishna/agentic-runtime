@@ -187,6 +187,7 @@ Error classification for `runs.error.code`: `model_unavailable`, `context_length
 | `AR_DELTA_COALESCE_MS` | `50` | |
 | `AR_RUN_STREAM_TTL_S` | `86400` | |
 | `AR_MAX_DEPTH` | `3` | Platform cap for subagents |
+| `AR_TOOL_WORKER_THREADS` | `16` | Threads for the waiting that tool calls do. A tool handler runs on the event loop's thread, where the process's store is safe to use; each network request, command or sleep inside it is handed to one of these threads (`ar_common.offload.blocking`) and the loop goes on meanwhile, so a long tool call does not stop other conversations, streams or the turn's heartbeat. A call may use the time the run has left; when that passes it is stopped at its wait and recorded as `upstream_timeout` (OQ-109) |
 | `AR_CONSECUTIVE_TOOL_ERROR_LIMIT` | `8` | |
 
 ## 11. Metrics

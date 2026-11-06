@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import orjson
 
+from ar_common.offload import blocking
 from ar_domain.connectors.tokens import cached_token, remember_token
 from ar_domain.tools.http_tools import guard_public
 
@@ -102,7 +103,7 @@ def _exchange(store: Any, form: dict[str, str]) -> tuple[int, object]:
         kwargs["transport"] = transport
     try:
         with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
-            response = client.post(_OAUTH_URL, data=form)
+            response = blocking(client.post, _OAUTH_URL, data=form)
     except httpx.HTTPError:
         return 0, {}
     try:

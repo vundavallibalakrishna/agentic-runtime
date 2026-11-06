@@ -19,6 +19,7 @@ from urllib.parse import urlencode, urljoin, urlparse
 
 import httpx
 
+from ar_common.offload import blocking
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, accessibility_tree, host_denied
 
 if TYPE_CHECKING:
@@ -129,24 +130,26 @@ def chromium_canary(url: str) -> dict[str, str]:
         }
     profile = tempfile.mkdtemp(prefix="ar-chromium-")
     try:
-        completed = subprocess.run(  # noqa: S603
-            [
-                binary,
-                "--headless=new",
-                "--no-sandbox",
-                "--disable-dev-shm-usage",
-                "--disable-gpu",
-                f"--user-data-dir={profile}",
-                "--dump-dom",
-                url,
-            ],
-            check=False,
-            capture_output=True,
-            timeout=15,
-            env={
-                "PATH": os.environ.get("PATH", ""),
-                "HOME": os.environ.get("HOME", tempfile.gettempdir()),
-            },
+        completed = blocking(
+            lambda: subprocess.run(  # noqa: S603
+                [
+                    binary,
+                    "--headless=new",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    f"--user-data-dir={profile}",
+                    "--dump-dom",
+                    url,
+                ],
+                check=False,
+                capture_output=True,
+                timeout=15,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "HOME": os.environ.get("HOME", tempfile.gettempdir()),
+                },
+            )
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"status": "not_live", "engine": "chromium", "reason": str(exc)[:200]}
@@ -276,7 +279,7 @@ def _exchange(  # noqa: PLR0917
                 content = None
                 if payload is not None and verb != "GET":
                     content = payload.encode("utf-8")
-                response = client.request(verb, current, headers=headers, content=content)
+                response = blocking(client.request, verb, current, headers=headers, content=content)
                 _store_cookies(session, host, response.headers)
                 location = response.headers.get("location")
                 if response.status_code in {301, 302, 303, 307, 308} and location:
