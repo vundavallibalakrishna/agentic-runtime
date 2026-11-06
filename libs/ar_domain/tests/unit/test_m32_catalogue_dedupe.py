@@ -2,12 +2,13 @@
 
 import uuid
 
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.durable.m23 import drop_catalogue_shadows
+from ar_testing.demo import demo_store
 
 
 def test_database_rows_replace_demo_ids_for_the_same_name() -> None:
-    store = ChatService()
+    store = demo_store()
     db_provider = uuid.uuid4()
     db_chat = uuid.uuid4()
     db_embed = uuid.uuid4()

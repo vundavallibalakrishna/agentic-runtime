@@ -47,7 +47,7 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
     engine = create_async_engine(database_url)
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await apply(session)
-    store = ChatService(tenant_seed=False)
+    store = ChatService()
     binding = await bind_store(store, database_url, tenant_slug="dev")
     assert binding is not None
     actor = Actor(
@@ -74,7 +74,7 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
     await flush_store(store)
     await engine.dispose()
 
-    restarted = ChatService(tenant_seed=False)
+    restarted = ChatService()
     again = await bind_store(restarted, database_url, tenant_slug="dev")
     assert again is not None
     seen = ConnectorBook(restarted).get(actor, "github")
@@ -96,7 +96,7 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
     )
     await CredentialBook(restarted).callback("code-from-the-provider", str(state))
     await flush_store(restarted)
-    third = ChatService(tenant_seed=False)
+    third = ChatService()
     assert await bind_store(third, database_url, tenant_slug="dev") is not None
     grants = [
         row

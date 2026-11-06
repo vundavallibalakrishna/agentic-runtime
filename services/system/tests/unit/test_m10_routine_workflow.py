@@ -22,12 +22,13 @@ from ar_system.workflows.routine_run import (
     prepare_activity,
     reconcile_activity,
 )
+from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.asyncio
 
 
 def _ready() -> tuple[ChatService, str]:
-    store = ChatService()
+    store = demo_store()
     store.seed_demo()
     store.seed_showcase()
     book = RoutineBook(store)

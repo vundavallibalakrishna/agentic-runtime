@@ -1,10 +1,14 @@
 """Built-in read tools stay inside the caller's tenant. Task: M38-T01."""
 
 import uuid
+from typing import TYPE_CHECKING
 
-from ar_domain.chat.service import ChatService
 from ar_domain.tools.embeddings import hash_embedding
 from ar_domain.tools.handlers import dispatch
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 
 def _who(tenant: uuid.UUID, user: uuid.UUID) -> dict[str, object]:
@@ -101,7 +105,7 @@ def _history(store: ChatService, who: dict[str, object], query: str) -> str:
 
 
 def test_history_search_reads_only_the_callers_own_conversations() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant_a, tenant_b = uuid.uuid4(), uuid.uuid4()
     alice, bob, carol = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     _say(store, tenant_a, alice, "zebra plan for alice")
@@ -115,7 +119,7 @@ def test_history_search_reads_only_the_callers_own_conversations() -> None:
 
 
 def test_history_search_stays_with_the_calling_agent() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant, alice = uuid.uuid4(), uuid.uuid4()
     helpdesk, finance = uuid.uuid4(), uuid.uuid4()
     _say(store, tenant, alice, "zebra printer is jammed", agent=helpdesk)
@@ -126,7 +130,7 @@ def test_history_search_stays_with_the_calling_agent() -> None:
 
 
 def test_files_list_and_read_stay_with_the_caller() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant_a, tenant_b = uuid.uuid4(), uuid.uuid4()
     alice, bob, carol = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     thread = _say(store, tenant_a, alice, "hello")
@@ -156,7 +160,7 @@ def test_files_list_and_read_stay_with_the_caller() -> None:
 
 
 def test_tool_search_ranks_platform_and_own_tenant_tools_only() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant_a, tenant_b = uuid.uuid4(), uuid.uuid4()
     user = uuid.uuid4()
     _tool(store, tenant_a, "alpha", "Look up a quasar invoice for tenant a.")
@@ -177,7 +181,7 @@ def test_tool_search_ranks_platform_and_own_tenant_tools_only() -> None:
 
 
 def test_tool_search_skips_disabled_and_superseded_versions() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = uuid.uuid4()
     who = _who(tenant, uuid.uuid4())
     _tool(store, tenant, "alpha", "Look up a quasar invoice.")

@@ -12,7 +12,7 @@ from ar_common.time import utcnow
 from ar_contracts.tenants import PlanLimits
 from ar_domain.agents.access import Actor
 from ar_domain.agents.service import AgentLifecycle
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.plan_limits import LimitContext, check, guard, limit_keys
 from ar_domain.identity.seed import plan_limits
@@ -20,6 +20,7 @@ from ar_domain.usage.logic import UsageRecord
 from ar_domain.usage.quotas import MemoryCounters, period_key, zone
 from ar_domain.usage.reports import usage_csv
 from ar_domain.usage.service import UsageBook, note
+from ar_testing.demo import demo_store
 
 _CEILINGS = frozenset({"max_sandbox_cpu_millis", "max_sandbox_memory_mb"})
 
@@ -39,7 +40,7 @@ def test_period_keys_follow_the_tenant_zone() -> None:
 
 
 def test_counters_converge_with_daily_and_warn_once() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = uuid.uuid4()
     user = uuid.uuid4()
     actor = _actor(tenant, user)
@@ -105,7 +106,7 @@ def test_counter_increments_are_safe_across_threads() -> None:
 
 
 def test_enforcement_stays_under_two_milliseconds() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = uuid.uuid4()
     user = uuid.uuid4()
     book = UsageBook(store)
@@ -129,7 +130,7 @@ def test_enforcement_stays_under_two_milliseconds() -> None:
 
 
 def test_ten_thousand_token_quota_blocks_with_a_clear_message() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = uuid.uuid4()
     user = uuid.uuid4()
     book = UsageBook(store)
@@ -165,7 +166,7 @@ def test_ten_thousand_token_quota_blocks_with_a_clear_message() -> None:
 
 
 def test_csv_matches_the_daily_rows() -> None:
-    store = ChatService()
+    store = demo_store()
     store.seed_showcase()
     actor = _actor()
     book = UsageBook(store)
@@ -243,7 +244,7 @@ def test_every_plan_limit_key_and_self_hosted_defaults() -> None:
 
 
 def test_two_hundredth_agent_is_the_plan_cap() -> None:
-    store = ChatService()
+    store = demo_store()
     store.seed_showcase()
     tenant = demo_id("tenant")
     settings = dict(store.tenant_settings.get(tenant) or {})
@@ -259,7 +260,7 @@ def test_two_hundredth_agent_is_the_plan_cap() -> None:
 
 
 def test_tool_sandbox_and_run_hooks_block() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = uuid.uuid4()
     user = uuid.uuid4()
     book = UsageBook(store)

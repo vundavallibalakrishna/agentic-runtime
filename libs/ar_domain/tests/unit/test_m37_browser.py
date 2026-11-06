@@ -18,6 +18,7 @@ from ar_domain.sandboxes.runtime import run_tool
 from ar_domain.sandboxes.service import SandboxBook
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
+from ar_testing.demo import demo_store
 
 _PAGE = """<!DOCTYPE html>
 <html><head><title>Fixture desk</title></head>
@@ -128,7 +129,7 @@ def _call(
 
 
 def test_fixture_case_reads_types_and_submits() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant, user, agent = _arm(store)
     server, base = _site()
     conversation = uuid.uuid4()
@@ -278,7 +279,7 @@ def test_fixture_case_reads_types_and_submits() -> None:
 
 
 def test_sessions_do_not_share_cookies() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant, user, agent = _arm(store)
     server, base = _site()
     conversation = uuid.uuid4()
@@ -371,7 +372,7 @@ def test_sessions_do_not_share_cookies() -> None:
 
 
 def test_off_list_navigation_waits_and_private_hosts_stay_denied() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant, user, agent = _arm(store)
     version_id = next(
         row["published_version_id"] for row in store.agents.values() if row.get("id") == agent

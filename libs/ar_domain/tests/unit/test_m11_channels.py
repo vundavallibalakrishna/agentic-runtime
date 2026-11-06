@@ -17,10 +17,11 @@ from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.durable.flush import _channel_identities, _channel_integrations, _channel_posts
 from ar_domain.durable.hydrate import _channel_posts as hydrate_posts
 from ar_domain.routines.engine import deliver
+from ar_testing.demo import demo_store
 
 
 def _store() -> ChatService:
-    store = ChatService()
+    store = demo_store()
     store.seed_demo()
     store.seed_showcase()
     return store
@@ -349,7 +350,7 @@ async def test_flush_and_hydrate_channel_rows() -> None:
     await _channel_integrations(
         session,  # type: ignore[arg-type]
         [{"id": integration, "tenant_id": tenant, "kind": "slack", "name": "Workspace Slack"}],
-        ChatService(),
+        demo_store(),
     )
     await _channel_identities(session, [{"id": "not-a-uuid"}])  # type: ignore[arg-type]
     await _channel_posts(
@@ -357,6 +358,6 @@ async def test_flush_and_hydrate_channel_rows() -> None:
         [{"id": uuid.uuid4(), "tenant_id": tenant, "kind": "slack", "body": "kept"}],
     )
     assert session.calls
-    store = ChatService()
+    store = demo_store()
     await hydrate_posts(session, store, tenant)  # type: ignore[arg-type]
     assert store.channel_posts

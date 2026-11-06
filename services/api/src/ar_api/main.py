@@ -83,7 +83,6 @@ from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatService
 from ar_domain.db.context import Principal
-from ar_domain.durable.bind import should_bind
 
 LISTEN_PORT = 8000
 
@@ -342,15 +341,10 @@ def create_application() -> FastAPI:
         scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
         # Read when the store seeds itself, so it is passed here and not set afterwards.
         fake_models_allowed=fake_models_allowed(settings.env),
-        # A process that attaches to a database serves that database's tenant and holds
-        # no demo tenant. Unit tests run without a database and keep it.
-        tenant_seed=not should_bind(),
     )
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)
     app.state.chat.model_gateway_url = settings.model_gateway_url
-    if settings.env in {EnvName.DEV, EnvName.CI} and not should_bind():
-        app.state.chat.seed_showcase()
     from ar_api.plugins import attach_packs  # noqa: PLC0415
 
     attach_packs(app)

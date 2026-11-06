@@ -296,4 +296,5 @@ M38b-T02 | done | 928a4c7 | bootstrap creates only a tenant and its admin; scrip
 M38b-T03 | done | b4f06c4 | a process reads its tenant and people from the database and holds no demo tenant; sign-in and the session use the tenant's rows
 M38b-T03a | done | 8e62d47 | the workers follow the API's loopback rule
 M38b-T04a | done | 767debf | the seed writes the assistant and the builder, owned by the admin; no request creates an agent; no Helpdesk for a real tenant
-M38b-T04b | done | - | no process falls back to a demo tenant; the browser tests start the API through a harness that owns it; sha recorded with M38b-T04c
+M38b-T04b | done | a110ea4 | no process falls back to a demo tenant; the browser tests start the API through a harness that owns it
+M38b-T04c | done | - | a product store starts with no tenant; tests build the demo tenant with ar_testing.demo; a test guards against product code building it; sha recorded with M38b-T04d

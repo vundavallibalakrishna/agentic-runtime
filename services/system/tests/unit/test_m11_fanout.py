@@ -5,7 +5,7 @@ import uuid
 import pytest
 from temporalio.worker import Worker
 
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_system.routines_store import bind_store
 from ar_system.workflows.notification_fanout import (
     NotificationFanoutWorkflow,
@@ -13,12 +13,13 @@ from ar_system.workflows.notification_fanout import (
     notices_for,
     resolve_activity,
 )
+from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.asyncio
 
 
 async def test_fanout_posts_to_slack(temporal_env: object) -> None:
-    store = ChatService()
+    store = demo_store()
     store.seed_demo()
     store.seed_showcase()
     bind_store(store)

@@ -8,7 +8,6 @@ import httpx
 import pytest
 import respx
 
-from ar_domain.chat.service import ChatService
 from ar_domain.knowledge.store import StoreError, StoreUnavailable, get_retrieval_store
 from ar_domain.knowledge.store_pgvector import (
     PgVectorStore,
@@ -34,6 +33,7 @@ from ar_ingest.activities import (
     reindex_activity,
     sync_source_activity,
 )
+from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.unit
 
@@ -417,7 +417,7 @@ def test_qdrant_methods_against_a_fake_client(
 
 
 def test_migrate_and_sync_activities_record_the_switch() -> None:
-    store = ChatService()
+    store = demo_store()
     collection_id = uuid.uuid4()
     source_id = uuid.uuid4()
     document_id = uuid.uuid4()

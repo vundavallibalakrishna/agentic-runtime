@@ -6,10 +6,10 @@ import io
 import uuid
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.documents.create import parse, render
 from ar_domain.documents.extract import extract_bytes
@@ -21,12 +21,16 @@ from ar_domain.tools.charts import render_chart
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.general import _prepare, dispatch_general
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "m34a"
 
 
 def _args() -> tuple[ChatService, dict[str, object]]:
-    store = ChatService()
+    store = demo_store()
     arguments: dict[str, object] = {
         "_run_id": uuid.uuid4(),
         "_tenant_id": uuid.uuid4(),
@@ -277,7 +281,7 @@ def test_docx_and_skill_canaries() -> None:
     text = "\n".join(row.text for row in extracted.passages)
     assert "Summary" in text
     assert "café" in text
-    store = ChatService()
+    store = demo_store()
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     published = SkillBook(store).published_by_slug(demo_id("tenant"), SLUG)
     assert published is not None

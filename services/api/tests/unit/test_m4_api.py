@@ -4,16 +4,16 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from ar_api.main import create_application
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_application
 
 
 def _client(
     permissions: frozenset[str] | None = None, tenant: uuid.UUID | None = None
 ) -> TestClient:
-    app = create_application()
+    app = demo_application()
     principal = Principal(
         kind="user",
         id=str(demo_id("admin")),
@@ -81,7 +81,12 @@ def test_catalogue_register_and_log() -> None:
     assert forbidden.status_code == 403
     tools = client.get("/api/v1/tools", params={"q": "create_ticket"})
     assert tools.status_code == 200
-    tool_id = tools.json()["items"][0]["toolId"]
+    # Several servers have a tool of this name. This test means the demo tenant's fixture.
+    tool_id = next(
+        item["toolId"]
+        for item in tools.json()["items"]
+        if item["qualifiedName"] == "tickets.create_ticket"
+    )
     tested = client.post(
         f"/api/v1/tools/{tool_id}:test", json={"arguments": {"title": "from the console"}}
     )

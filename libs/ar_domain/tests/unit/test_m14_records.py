@@ -12,7 +12,7 @@ from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.agents.cards import GovernanceBook
 from ar_domain.audit.exports import verify_chain, write_jsonl_gzip
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.guests import GuestBook, totp_matches
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.packs.alembic_env import alembic_env
@@ -24,6 +24,7 @@ from ar_domain.records.holds import HoldBook
 from ar_domain.records.vault import EvidenceBook
 from ar_domain.records.watermark import WatermarkError, watermark
 from ar_domain.runs.records import RunRecordBook
+from ar_testing.demo import demo_store
 from ar_testing.packs import install_fixture
 
 
@@ -69,7 +70,7 @@ def test_filename_suffix_is_not_redacted_as_a_url() -> None:
 
 
 def test_evidence_signature_and_immutability_fields() -> None:
-    store = ChatService()
+    store = demo_store()
     book = EvidenceBook(store)
     actor = _actor()
     item = book.capture(
@@ -96,7 +97,7 @@ def test_evidence_signature_and_immutability_fields() -> None:
 
 
 def test_hold_minimum_and_erasure_skip() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     officer = demo_id("officer")
     store.user_roles[officer] = {"tenant_admin"}
@@ -131,7 +132,7 @@ def test_hold_minimum_and_erasure_skip() -> None:
 
 
 def test_guest_scope_and_watermark_fails_closed() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     guests = GuestBook(store)
     evidence = EvidenceBook(store).capture(
@@ -168,7 +169,7 @@ def test_guest_scope_and_watermark_fails_closed() -> None:
 
 
 def test_binder_tamper_and_run_replay() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     evidence = EvidenceBook(store).capture(
         actor,
@@ -236,7 +237,7 @@ def test_export_stream_and_pack_fixture() -> None:
     payload = write_jsonl_gzip({"id": index} for index in range(1000))
     assert payload[:2] == b"\x1f\x8b"
     assert verify_chain([{"action": "a", "target_id": "1"}])
-    store = ChatService()
+    store = demo_store()
     installed = install_fixture(store, _actor())
     assert installed["pack_id"] == "fixture"
     env = alembic_env("fixture", "fixture_pack")
@@ -272,7 +273,7 @@ def _code(secret: bytes) -> str:
 
 
 def test_build_zip_hashes() -> None:
-    store = ChatService()
+    store = demo_store()
     digest = hashlib.sha256(b"binder-bytes").hexdigest()
     row = {
         "title": "Pack",

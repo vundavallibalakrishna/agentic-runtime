@@ -9,10 +9,11 @@ from ar_common.errors import QuotaExceededError
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.events.sign import public_json_bytes
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
+from ar_testing.demo import demo_store
 
 
 def queued() -> tuple[ChatService, uuid.UUID]:
-    store = ChatService()
+    store = demo_store()
     conversation = store.create_conversation(demo_id("tenant"), demo_id("admin"), None)
     posted = store.post_message(
         demo_id("tenant"),

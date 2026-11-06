@@ -3,6 +3,7 @@
 from ar_common.settings import EnvName, fake_models_allowed
 from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import ChatService, demo_id
+from ar_testing.demo import demo_store
 
 FIXTURE_SERVERS = {"tickets", "petstore", "warehouse", "web"}
 FIXTURE_TOOLS = {"control.checkpoint", "control.propose_change", "web.fetch"}
@@ -35,7 +36,7 @@ def test_only_dev_and_ci_allow_fakes() -> None:
 
 
 def test_a_production_store_has_no_fixtures() -> None:
-    store = ChatService(fake_models_allowed=False)
+    store = demo_store(fake_models_allowed=False)
     assert _servers(store).isdisjoint(FIXTURE_SERVERS)
     assert _tools(store).isdisjoint(FIXTURE_TOOLS)
     assert "desk" not in _agents(store)
@@ -46,7 +47,7 @@ def test_a_production_store_has_no_fixtures() -> None:
 
 
 def test_a_production_store_keeps_the_real_tools_and_the_assistant() -> None:
-    store = ChatService(fake_models_allowed=False)
+    store = demo_store(fake_models_allowed=False)
     tools = _tools(store)
     for name in (
         "files.read",
@@ -65,7 +66,7 @@ def test_a_production_store_keeps_the_real_tools_and_the_assistant() -> None:
 
 
 def test_a_dev_store_keeps_the_fixtures() -> None:
-    store = ChatService()
+    store = demo_store()
     assert FIXTURE_SERVERS <= _servers(store)
     assert FIXTURE_TOOLS <= _tools(store)
     assert "desk" in _agents(store)

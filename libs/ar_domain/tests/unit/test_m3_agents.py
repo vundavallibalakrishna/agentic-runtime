@@ -27,6 +27,7 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.prompts.assembler import build_prompt
 from ar_domain.prompts.blocks import BLOCK_ORDER
 from ar_runtime.context import build_prompt as runtime_build_prompt
+from ar_testing.demo import demo_store
 
 
 def _actor(**extra: object) -> Actor:
@@ -40,7 +41,7 @@ def _actor(**extra: object) -> Actor:
 
 
 def _life() -> tuple[ChatService, AgentLifecycle, Actor]:
-    store = ChatService()
+    store = demo_store()
     return store, AgentLifecycle(store), _actor()
 
 
@@ -315,7 +316,7 @@ def test_bundle_round_trip_strips_secrets() -> None:
     document = export_bundle(store, actor, ids=[agent_id])
     text = to_yaml(document)
     assert marker not in text
-    other = ChatService()
+    other = demo_store()
     other_actor = Actor(uuid.uuid4(), uuid.uuid4(), PERMISSION_KEYS)
     preview = import_bundle(other, other_actor, text, dry_run=True)
     assert preview["results"][0]["action"] == "create"
@@ -361,7 +362,7 @@ def test_prompt_blocks_and_history_budget() -> None:
 
 @pytest.mark.asyncio
 async def test_generate_stores_prompt_hash() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     conversation = store.create_conversation(tenant, user, None)

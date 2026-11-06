@@ -17,7 +17,7 @@ from ar_domain.approvals.logic import can_decide, consume_standing, render_previ
 from ar_domain.approvals.reviews import ReviewBook
 from ar_domain.approvals.service import ApprovalBook
 from ar_domain.approvals.sod import SodBook
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.policy import models as policy_models
 from ar_domain.policy import repository as policy_repository
@@ -34,6 +34,7 @@ from ar_domain.policy.service import PolicyBook
 from ar_domain.rows import as_datetime, as_dict, as_int, as_list, as_uuid, as_uuid_or_none
 from ar_mcp_gateway.approvals import book as gateway_book
 from ar_mcp_gateway.policy import decide as gateway_decide
+from ar_testing.demo import demo_store
 
 _SETTINGS = {
     "approvals": {"default_ttl_s": 86400},
@@ -240,7 +241,7 @@ def test_predicates_and_paths() -> None:
 
 
 def test_standing_grant_and_w3_block() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     book = ApprovalBook(store)
     tool = next(row for row in store.tool_defs.values() if row.get("name") == "create_pet")
@@ -304,7 +305,7 @@ def test_standing_grant_and_w3_block() -> None:
 
 
 def test_reviews_and_sod_paths() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     reviews = ReviewBook(store)
     queue = reviews.create_queue(
@@ -408,7 +409,7 @@ def test_reviews_and_sod_paths() -> None:
 
 
 def test_expire_cancel_edit_and_bulk() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     book = ApprovalBook(store)
     run_id = new_id()
@@ -529,7 +530,7 @@ def _digest(kind: str, subject: uuid.UUID) -> str:
 
 
 def test_reviews_queues_signoff_and_sod() -> None:
-    store = ChatService()
+    store = demo_store()
     admin = _actor()
     builder = _actor("builder")
     reviews = ReviewBook(store)
@@ -931,7 +932,7 @@ def test_reviews_queues_signoff_and_sod() -> None:
 
 
 def test_policy_book_and_gateway_wrappers() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = Actor(
         demo_id("tenant"),
         demo_id("admin"),

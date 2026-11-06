@@ -49,6 +49,7 @@ from ar_domain.knowledge.pipeline import (
     ingest_or_enqueue,
 )
 from ar_domain.knowledge.store import active_index
+from ar_testing.demo import demo_store
 
 
 class _Engine:
@@ -388,7 +389,7 @@ def test_tracking_records_every_mutation() -> None:
     before = set(bucket.dirty)
     bucket.touch("row")
     assert bucket.dirty == before
-    service = ChatService()
+    service = demo_store()
     service.document_chunks = []  # type: ignore[assignment]
     install_tracking(service)
     install_tracking(service)
@@ -399,7 +400,7 @@ def test_tracking_records_every_mutation() -> None:
 async def test_flush_writes_each_bucket(monkeypatch: pytest.MonkeyPatch) -> None:
     _Session.raise_once = True
     engine = _patch_engines(monkeypatch)
-    service = ChatService()
+    service = demo_store()
     _seed(service)
     service.durable_engine = engine
     with pytest.raises(RuntimeError, match="row rejected"):
@@ -436,7 +437,7 @@ def test_schedule_flush_queues_one_task(monkeypatch: pytest.MonkeyPatch) -> None
 async def test_hydrate_and_reload_merge_rows(monkeypatch: pytest.MonkeyPatch) -> None:
     _Session.raise_once = False
     engine = _patch_engines(monkeypatch)
-    service = ChatService()
+    service = demo_store()
     install_tracking(service)
     service.durable_engine = engine
     service.durable = True
@@ -522,7 +523,7 @@ async def test_the_tenant_is_read_from_the_database(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(bind_mod, "flush_store", _noop)
     monkeypatch.setattr(bind_mod, "hydrate_tenant", _noop)
     monkeypatch.setattr(bind_mod, "create_async_engine", lambda *_a, **_k: _Engine())
-    service = ChatService(tenant_seed=False)
+    service = ChatService()
     _Lookup.tenants = []
     with pytest.raises(TenantNotReadyError):
         await bind_store(service, "postgresql+asyncpg://unused", tenant_slug="")
@@ -553,7 +554,7 @@ async def test_bind_store_hydrates_the_tenant_it_finds(monkeypatch: pytest.Monke
     monkeypatch.setattr(bind_mod, "_lookup", _named)
     monkeypatch.setattr(bind_mod, "flush_store", _noop)
     monkeypatch.setattr(bind_mod, "hydrate_tenant", _hydrate)
-    service = ChatService(tenant_seed=False)
+    service = ChatService()
     binding = await bind_store(service, "postgresql+asyncpg://unused", tenant_slug=" acme ")
     assert binding == found
     assert hydrated == [_TENANT]
@@ -585,7 +586,7 @@ async def test_a_worker_waits_for_its_database_and_its_tenant(
 
     monkeypatch.setattr(bind_mod, "bind_store", _bind)
     monkeypatch.setattr(bind_mod.asyncio, "sleep", _pause)
-    service = ChatService(tenant_seed=False)
+    service = ChatService()
     assert await attach_store(service, "url", retry_s=0.5) == found
     assert pauses == [0.5, 0.5, 0.5]
     # It never fell back to a demo tenant while it waited.
@@ -595,7 +596,7 @@ async def test_a_worker_waits_for_its_database_and_its_tenant(
 
 @pytest.mark.asyncio
 async def test_ingest_uses_the_worker_when_temporal_is_up(monkeypatch: pytest.MonkeyPatch) -> None:
-    service = ChatService()
+    service = demo_store()
     missing = uuid.uuid4()
     assert ingest_document(service, missing, b"") == "missing"
     assert await ingest_or_enqueue(service, missing, b"x" * (WORKFLOW_MAX_BYTES + 1)) == "missing"
@@ -938,7 +939,7 @@ async def test_concurrent_flush_waits_for_commit(monkeypatch: pytest.MonkeyPatch
 
 
 def test_hydrating_another_row_does_not_discard_pending_edits() -> None:
-    store = ChatService()
+    store = demo_store()
     install_tracking(store)
     key = next(iter(store.agents))
     store.agents[key]["name"] = "Pending administrator edit"
@@ -970,7 +971,7 @@ async def test_deletion_retry_keeps_tombstone_and_commits_tenant_filter(
     from unittest.mock import AsyncMock
 
     engine = _patch_engines(monkeypatch)
-    store = ChatService()
+    store = demo_store()
     install_tracking(store)
     for bucket in flush_mod.BUCKETS:
         getattr(store, bucket).dirty.clear()

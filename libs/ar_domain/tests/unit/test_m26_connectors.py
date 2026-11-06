@@ -6,19 +6,23 @@ import asyncio
 import socket
 import threading
 import uuid
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
 
 from ar_common.errors import NotFoundError
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService
 from ar_domain.connectors.book import ConnectorBook
 from ar_domain.connectors.catalog import CONNECTORS
 from ar_domain.connectors.dispatch import dispatch_connector
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.tools.named_secrets import read_named_secret, write_named_secret
 from ar_domain.tools.seed_tools import seed
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 
 def _actor(tenant: uuid.UUID | None = None) -> Actor:
@@ -26,7 +30,7 @@ def _actor(tenant: uuid.UUID | None = None) -> Actor:
 
 
 def _store() -> ChatService:
-    return ChatService()
+    return demo_store()
 
 
 def test_catalogue_labels_reads_and_writes() -> None:

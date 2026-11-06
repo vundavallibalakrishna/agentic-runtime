@@ -52,7 +52,7 @@ async def provision_defaults(tenant_slug: str, owner_email: str) -> None:
     from ar_domain.durable.bind import bind_store  # noqa: PLC0415
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
-    store = ChatService(tenant_seed=False, fake_models_allowed=False)
+    store = ChatService(fake_models_allowed=False)
     binding = await bind_store(store, app_database_url(), tenant_slug=tenant_slug)
     if binding is None:
         raise SystemExit("The database stopped answering before the default agents were made.")

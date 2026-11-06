@@ -1,8 +1,9 @@
 """Durable cutover helpers. Postgres round-trips live in the integration suite."""
 
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.durable.bind import should_bind
 from ar_domain.durable.tracking import install_tracking
+from ar_testing.demo import demo_store
 
 
 def test_should_bind_stays_off_under_pytest() -> None:
@@ -10,7 +11,7 @@ def test_should_bind_stays_off_under_pytest() -> None:
 
 
 def test_completion_url_prefers_the_gateway() -> None:
-    service = ChatService()
+    service = demo_store()
     assert service.completion_url().endswith("/chat/completions")
     service.model_gateway_url = "http://gateway.test"
     assert service.completion_url() == "http://gateway.test/v1/chat/completions"
@@ -24,7 +25,7 @@ def test_demo_id_is_stable() -> None:
 
 
 def test_tracking_marks_a_new_row_dirty() -> None:
-    service = ChatService()
+    service = demo_store()
     install_tracking(service)
     skill_id = demo_id("skill")
     service.skills[skill_id] = {"id": skill_id, "slug": "status"}

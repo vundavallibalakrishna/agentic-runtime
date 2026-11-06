@@ -47,7 +47,6 @@ async def _prepare_store() -> None:
     store = ChatService(
         allow_loopback=loopback_allowed(settings.env),
         fake_models_allowed=fake_models_allowed(settings.env),
-        tenant_seed=False,
     )
     store._ingest_worker = True  # type: ignore[attr-defined]
     await attach_store(store, settings.database_url)

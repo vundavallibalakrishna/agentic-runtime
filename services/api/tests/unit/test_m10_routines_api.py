@@ -7,10 +7,10 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from ar_api.main import create_application
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS, SYSTEM_ROLE_PERMISSIONS
+from ar_testing.demo import demo_application
 
 
 def _principal(
@@ -33,7 +33,7 @@ def _principal(
 
 
 def _app(holder: dict[str, Principal | None]) -> TestClient:
-    app = create_application()
+    app = demo_application()
 
     async def resolve(scope: object) -> Principal | None:
         del scope

@@ -10,18 +10,20 @@ database is not ready.
 
 import os
 
+from ar_testing.demo import demo_application
+
 # Say "no database" before the application reads its settings.
 os.environ["AR_DURABLE_STATE"] = "memory"
 
 import uvicorn
 
-from ar_api.main import LISTEN_PORT, create_application
+from ar_api.main import LISTEN_PORT
 from ar_common.host_ports import listen_port
 
 
 def main() -> None:
     """Build the application over the demo tenant and listen on ``AR_PORT``."""
-    app = create_application()
+    app = demo_application()
     store = app.state.chat
     store.seed_demo_tenant()
     store.seed_showcase()

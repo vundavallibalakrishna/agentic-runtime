@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import uuid
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from urllib.parse import parse_qs, unquote
 
 import httpx
@@ -18,13 +19,16 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService
 from ar_domain.connectors.book import ConnectorBook
 from ar_domain.connectors.catalog import CONNECTORS
 from ar_domain.connectors.dispatch import dispatch_connector
 from ar_domain.connectors.gcp_auth import service_account_assertion, token_form
 from ar_domain.connectors.sigv4 import sign_headers, signature_of
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 _BATCH = {
     "servicenow",
@@ -145,7 +149,7 @@ def test_batch_is_labelled_and_writes_wait() -> None:
 
 
 def test_servicenow_example_pagination_and_errors() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     detail = _install(store, actor, "servicenow", kind="basic")
     seen: list[str] = []
@@ -206,7 +210,7 @@ def test_servicenow_example_pagination_and_errors() -> None:
 
 
 def test_salesforce_zendesk_and_hubspot_examples() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(store, actor, "salesforce", kind="bearer")
     _install(store, actor, "zendesk", kind="basic", username="ada@example.com/token")
@@ -298,7 +302,7 @@ def test_salesforce_zendesk_and_hubspot_examples() -> None:
 
 
 def test_okta_sends_ssws_and_entra_follows_the_next_link() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(store, actor, "okta", kind="bearer", secret="okta-token")
     _install(store, actor, "entra", kind="oauth_client_credentials", secret="entra-secret")
@@ -355,7 +359,7 @@ def test_okta_sends_ssws_and_entra_follows_the_next_link() -> None:
 
 
 def test_azure_token_matches_the_published_form_and_is_cached() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(store, actor, "azure", kind="oauth_client_credentials", secret="azure-secret")
     posts: list[str] = []
@@ -433,7 +437,7 @@ def test_gcp_exchanges_a_jwt_once_and_lists_the_documented_project() -> None:
     secret = orjson.dumps(
         {"client_email": "worker@demo.iam.gserviceaccount.com", "private_key": private}
     ).decode()
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(store, actor, "gcp", kind="api_key", secret=secret)
     posts = 0
@@ -462,7 +466,7 @@ def test_gcp_exchanges_a_jwt_once_and_lists_the_documented_project() -> None:
 
 
 def test_aws_reads_recorded_xml_and_caches_a_role() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(
         store,
@@ -546,8 +550,8 @@ def test_shared_rate_limit_counts_across_stores() -> None:
             return True
 
     client = _Valkey()
-    first = ChatService()
-    second = ChatService()
+    first = demo_store()
+    second = demo_store()
     first.valkey_client = client  # type: ignore[attr-defined]
     second.valkey_client = client  # type: ignore[attr-defined]
     actor = _actor()
@@ -585,7 +589,7 @@ def test_token_cache_is_sealed_and_shared() -> None:
                 raise RuntimeError("down")
             self.data[key] = value
 
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(store, actor, "azure", kind="oauth_client_credentials")
     row = next(iter(store.service_connections.values()))
@@ -620,7 +624,7 @@ def test_aws_reads_buckets_policies_events_and_errors() -> None:
     from ar_domain.connectors.aws_api import probe_aws, run_aws
     from ar_domain.connectors.catalog import tool_by_name
 
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(
         store,
@@ -709,7 +713,7 @@ def test_recorded_bodies_and_a_failed_google_exchange() -> None:
     assert batch_body("salesforce_create_record", {"fields": "not-json"}) == {}
     assert batch_body("salesforce_update_record", {"fields": ["nope"]}) == {}
     assert is_unset(batch_body("not_a_tool", {}))
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(store, actor, "gcp", kind="api_key", secret="not-json")
     failed = dispatch_connector(store, "gcp_list_projects", _args(actor))
@@ -722,7 +726,7 @@ def test_recorded_bodies_and_a_failed_google_exchange() -> None:
     secret = orjson.dumps(
         {"client_email": "worker@demo.iam.gserviceaccount.com", "private_key": private}
     ).decode()
-    store = ChatService()
+    store = demo_store()
     _install(store, actor, "gcp", kind="api_key", secret=secret)
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -737,7 +741,7 @@ def test_aws_refuses_metadata_and_a_failed_role() -> None:
     from ar_domain.connectors.aws_api import probe_aws, run_aws
     from ar_domain.connectors.catalog import ToolDef
 
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(
         store,
@@ -774,7 +778,7 @@ def test_aws_refuses_metadata_and_a_failed_role() -> None:
     missed = run_aws(store, unknown, {}, install, "AKIDEXAMPLE", "secret-key")
     assert missed["code"] == "unknown_tool"
     secret = orjson.dumps({"client_email": "worker@demo.iam.gserviceaccount.com"}).decode()
-    gcp = ChatService()
+    gcp = demo_store()
     _install(gcp, actor, "gcp", kind="api_key", secret=secret)
     assert (
         dispatch_connector(gcp, "gcp_list_projects", _args(actor))["code"] == "credential_required"
@@ -787,7 +791,7 @@ def test_valkey_rate_limit_falls_back_when_the_client_errors() -> None:
             del key
             raise RuntimeError("down")
 
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     _install(store, actor, "okta", kind="bearer")
     store.valkey_client = _Down()  # type: ignore[attr-defined]

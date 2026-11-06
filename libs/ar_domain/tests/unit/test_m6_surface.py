@@ -21,6 +21,7 @@ from ar_domain.sandboxes.runtime import (
     suspend,
 )
 from ar_domain.sandboxes.service import SandboxBook
+from ar_testing.demo import demo_store
 
 _IMAGE = "registry.local/ar/ar-sandbox@sha256:" + ("ab" * 32)
 
@@ -59,7 +60,7 @@ def test_tables_and_resolver() -> None:
 
 
 def test_template_lifecycle_and_files() -> None:
-    store = ChatService()
+    store = demo_store()
     book = SandboxBook(store)
     book.ensure_platform()
     actor = _actor()
@@ -134,7 +135,7 @@ def test_template_lifecycle_and_files() -> None:
 
 
 def test_browser_attach_export_and_reap() -> None:
-    store = ChatService()
+    store = demo_store()
     conversation = uuid.uuid4()
     run_id = uuid.uuid4()
     store.events[run_id] = []

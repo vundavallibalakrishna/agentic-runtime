@@ -5,6 +5,7 @@ import uuid
 import pytest
 
 from ar_domain.chat.service import ChatService, demo_id
+from ar_testing.demo import demo_store
 from ar_testing.stand_in import MODEL, StandIn
 
 SCRIPT_SET = "m38a-t01"
@@ -21,7 +22,7 @@ SCRIPTS: list[dict[str, object]] = [
 
 
 def _connected(stand_in: StandIn) -> ChatService:
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     stand_in.script(SCRIPT_SET, SCRIPTS)
     stand_in.connect(store, demo_id("tenant"), script_set=SCRIPT_SET)
     return store

@@ -4,10 +4,10 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from ar_api.main import create_application
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_application
 
 SPEC = {
     "openapi": "3.0.3",
@@ -18,7 +18,7 @@ SPEC = {
 
 
 def _client(tenant: uuid.UUID | None = None, user: str | None = None) -> TestClient:
-    app = create_application()
+    app = demo_application()
     principal = Principal(
         kind="user",
         id=user or str(demo_id("admin")),

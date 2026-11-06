@@ -10,7 +10,7 @@ import pytest
 from ar_common.errors import NotFoundError, ValidationFailedError
 from ar_common.vectors import unit_vector
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.live_embed import (
     DEFAULT_EMBEDDING_MODEL,
@@ -24,6 +24,7 @@ from ar_domain.memory.session import prepare_prompt
 from ar_domain.skills.match import match_skill
 from ar_domain.skills.portable import export_skill, import_skill, parse_markdown
 from ar_domain.workspace.turn import ground_run
+from ar_testing.demo import demo_store
 
 _MARKDOWN = """---
 name: Weekly status
@@ -60,7 +61,7 @@ def _vectors(texts: list[str]) -> list[list[float]]:
 def test_fake_alias_is_not_a_live_embedding() -> None:
     assert is_fake_embedding("fake-embed")
     assert is_fake_embedding("embed")
-    store = ChatService()
+    store = demo_store()
     with pytest.raises(EmbeddingUnconfiguredError):
         embed_live(store, demo_id("tenant"), ["north dock"], model="fake-embed", dimensions=1024)
     with pytest.raises(EmbeddingUnconfiguredError):
@@ -68,7 +69,7 @@ def test_fake_alias_is_not_a_live_embedding() -> None:
 
 
 def test_a_real_provider_selects_the_default_model() -> None:
-    store = ChatService()
+    store = demo_store()
     provider_id = uuid.uuid4()
     store.providers[provider_id] = {
         "id": provider_id,
@@ -91,7 +92,7 @@ def test_a_real_provider_selects_the_default_model() -> None:
 
 
 def test_library_url_and_connection_round_trip() -> None:
-    store = ChatService()
+    store = demo_store()
     store.embed_client = _vectors
     actor = _actor()
     library_id = uuid.uuid4()
@@ -199,7 +200,7 @@ def test_library_url_and_connection_round_trip() -> None:
 
 
 def test_skill_import_matches_and_exports() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     imported = import_skill(store, actor, markdown=_MARKDOWN)
     assert imported["slug"] == "weekly-status"
@@ -238,7 +239,7 @@ def test_skill_import_matches_and_exports() -> None:
 
 
 def test_turn_cites_a_passage_and_stays_inside_the_budget() -> None:
-    store = ChatService()
+    store = demo_store()
     store.embed_client = _vectors
     actor = _actor()
     created = KnowledgeBook(store).create_collection(

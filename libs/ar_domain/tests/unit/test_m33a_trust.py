@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -9,7 +10,6 @@ import pytest
 from ar_common.errors import ForbiddenError, ValidationFailedError
 from ar_domain.agents.access import Actor
 from ar_domain.approvals.service import ApprovalBook
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS
 from ar_domain.seed.approvals import (
@@ -22,6 +22,10 @@ from ar_domain.tools.general import dispatch_general, remember_named_secret
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.searching import SearchUnavailableError, provider_for
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 
 def _actor(tenant: uuid.UUID, user: uuid.UUID, role: str) -> Actor:
@@ -65,7 +69,7 @@ def _post(
 
 
 def test_requester_mode_lets_an_approver_decide_when_the_owner_is_the_requester() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     admin = demo_id("admin")
     approver = demo_id("approver")
@@ -89,7 +93,7 @@ def test_requester_mode_lets_an_approver_decide_when_the_owner_is_the_requester(
 
 
 def test_seeded_users_policy_lets_the_approver_finish_the_write() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     admin = demo_id("admin")
     approver = demo_id("approver")
@@ -154,7 +158,7 @@ def test_seeded_users_policy_lets_the_approver_finish_the_write() -> None:
 
 
 def test_fetch_retries_transient_failures_and_keeps_the_allowlist() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     store.tenant_settings[tenant] = {"egress_allowlist": ["example.com"]}
     sleeps: list[float] = []
@@ -196,7 +200,7 @@ def test_fetch_retries_transient_failures_and_keeps_the_allowlist() -> None:
 
 
 def test_fetch_reports_a_timeout_after_the_retries_are_used() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     store.tenant_settings[tenant] = {"egress_allowlist": ["example.com"]}
     store.fetch_retry_sleep = lambda _delay: None  # type: ignore[attr-defined]
@@ -224,7 +228,7 @@ def test_fetch_reports_a_timeout_after_the_retries_are_used() -> None:
 def test_search_uses_the_named_secret_and_hides_the_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_SEARCH_PROVIDER", "tavily")
     monkeypatch.setenv("AR_SEARCH_API_KEY", "env-key-value")
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     remember_named_secret(store, tenant, "search-live", "secret-key-value")
     store.tenant_settings[tenant] = {"search": {"provider": "brave", "secretName": "search-live"}}
@@ -265,7 +269,7 @@ def test_search_uses_the_named_secret_and_hides_the_key(monkeypatch: pytest.Monk
 
 def test_search_falls_back_to_the_environment_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_SEARCH_API_KEY", "env-key-value")
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     store.tenant_settings[tenant] = {"search": {"provider": "tavily", "secret_name": "missing"}}
     seen: dict[str, str] = {}
@@ -290,7 +294,7 @@ def test_search_falls_back_to_the_environment_key(monkeypatch: pytest.MonkeyPatc
 def test_search_without_a_key_does_not_call_a_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AR_SEARCH_API_KEY", raising=False)
     monkeypatch.setenv("AR_SEARCH_PROVIDER", "brave")
-    store = ChatService()
+    store = demo_store()
     called = {"n": 0}
 
     def fake_get(url: str, **kwargs: object) -> httpx.Response:
@@ -304,7 +308,7 @@ def test_search_without_a_key_does_not_call_a_provider(monkeypatch: pytest.Monke
     assert "not_live" in str(missing["text"])
     assert called["n"] == 0
     with pytest.raises(SearchUnavailableError, match="invented"):
-        provider_for(ChatService(), None)
+        provider_for(demo_store(), None)
 
 
 def test_live_search_skips_until_a_provider_key_is_set() -> None:
@@ -312,6 +316,6 @@ def test_live_search_skips_until_a_provider_key_is_set() -> None:
     key = os.environ.get("AR_SEARCH_API_KEY", "").strip()
     if provider not in {"brave", "tavily"} or not key:
         pytest.skip("not_live: AR_SEARCH_PROVIDER and AR_SEARCH_API_KEY are not set")
-    store = ChatService()
+    store = demo_store()
     result = dispatch_general(store, "search", {"query": "example domain"})
     assert result["code"] != "search_unconfigured"

@@ -10,6 +10,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.evals.book import EvalBook
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
     from ar_testing.stand_in import StandIn
@@ -63,7 +64,7 @@ def _actor() -> Actor:
 def _suite(
     stand_in: StandIn, script_set: str, scripts: list[dict[str, object]], case: dict[str, object]
 ) -> tuple[ChatService, EvalBook, uuid.UUID]:
-    store = ChatService(allow_loopback=True)
+    store = demo_store(allow_loopback=True)
     stand_in.script(script_set, scripts)
     stand_in.connect(store, demo_id("tenant"), script_set=script_set)
     book = EvalBook(store)

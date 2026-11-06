@@ -9,7 +9,7 @@ from hypothesis import strategies as st
 from ar_common.errors import ArError, ErrorCode
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.tools.credentials import CredentialBook
 from ar_domain.tools.drift import check_drift
@@ -18,6 +18,7 @@ from ar_domain.tools.openapi_import import operations_from
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.registry import ToolRegistry
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
+from ar_testing.demo import demo_store
 
 PET = {
     "openapi": "3.1.0",
@@ -81,7 +82,7 @@ def test_sql_guard_rejects_writes_and_limits_selects() -> None:
 
 
 def test_seeded_servers_and_files_can_be_bound() -> None:
-    store = ChatService()
+    store = demo_store()
     life_actor = _actor()
     registry = ToolRegistry(store)
     slugs = {row["slug"] for row in registry.list_servers(life_actor)}
@@ -104,7 +105,7 @@ def test_seeded_servers_and_files_can_be_bound() -> None:
 
 
 def test_register_review_and_four_eyes() -> None:
-    store = ChatService()
+    store = demo_store()
     admin = _actor()
     registry = ToolRegistry(store)
     created = registry.create_server(
@@ -138,7 +139,7 @@ def test_register_review_and_four_eyes() -> None:
 
 
 def test_oauth_cache_is_ciphertext_and_refresh_rotates() -> None:
-    store = ChatService()
+    store = demo_store()
     admin = _actor()
     book = CredentialBook(store)
     provider = book.create_provider(
@@ -166,7 +167,7 @@ def test_oauth_cache_is_ciphertext_and_refresh_rotates() -> None:
 
 @pytest.mark.asyncio
 async def test_desk_creates_a_ticket_and_counts_orders() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
     desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
@@ -194,7 +195,7 @@ async def test_desk_creates_a_ticket_and_counts_orders() -> None:
 
 
 def test_invalid_arguments_do_not_call_the_server() -> None:
-    store = ChatService()
+    store = demo_store()
     version = next(
         row
         for row in store.tool_versions.values()
@@ -216,7 +217,7 @@ def test_invalid_arguments_do_not_call_the_server() -> None:
 
 
 def test_w2_is_denied_until_approvals_exist() -> None:
-    store = ChatService()
+    store = demo_store()
     version = next(row for row in store.tool_versions.values() if row.get("name") == "create_pet")
     result = ToolPipeline(store).execute(
         {
@@ -249,7 +250,7 @@ def test_w2_is_denied_until_approvals_exist() -> None:
 
 
 def test_manifest_drift_blocks_calls() -> None:
-    store = ChatService()
+    store = demo_store()
     server = next(row for row in store.tool_servers.values() if row.get("slug") == "tickets")
     version = store.tool_server_versions[server["current_version_id"]]
     version["upstream_manifest"] = {"tools": ["create_ticket", "list_tickets", "extra"]}
@@ -274,7 +275,7 @@ def test_manifest_drift_blocks_calls() -> None:
 
 
 def test_tool_search_activates_past_thirty_tools() -> None:
-    store = ChatService()
+    store = demo_store()
     desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
     version = store.versions[desk["published_version_id"]]
     definition = version["definition"]

@@ -4,10 +4,10 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from ar_api.main import create_application
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_application
 
 
 def _client(
@@ -17,7 +17,7 @@ def _client(
     permissions: frozenset[str] = PERMISSION_KEYS,
     roles: frozenset[str] = frozenset({"tenant_admin"}),
 ) -> TestClient:
-    app = create_application()
+    app = demo_application()
     principal = Principal(
         kind="user",
         id=str(demo_id(user)),
@@ -41,7 +41,7 @@ def _client(
 
 def _shared() -> tuple[TestClient, object]:
     """One process store so the member sees the same assistant the admin listed."""
-    app = create_application()
+    app = demo_application()
     holder = {
         "user": "admin",
         "permissions": PERMISSION_KEYS,

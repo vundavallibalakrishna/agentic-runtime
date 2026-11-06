@@ -13,7 +13,7 @@ import pytest
 from ar_common.errors import ArError, ConflictError, ValidationFailedError
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.tools.describe import compile_description
 from ar_domain.tools.http_tools import execute_operation, fetch_document, guard_public
@@ -29,6 +29,7 @@ from ar_domain.tools.remote_mcp import (
     safe_command,
 )
 from ar_domain.tools.service_connections import ConnectionBook, headers_for
+from ar_testing.demo import demo_store
 
 
 def _actor() -> Actor:
@@ -36,7 +37,7 @@ def _actor() -> Actor:
 
 
 def test_connection_kinds_oauth_and_test() -> None:
-    store = ChatService()
+    store = demo_store()
     book = ConnectionBook(store)
     actor = _actor()
     with pytest.raises(ValidationFailedError):
@@ -131,7 +132,7 @@ def test_connection_kinds_oauth_and_test() -> None:
 
 
 def test_expired_connection_and_bad_token_host() -> None:
-    store = ChatService()
+    store = demo_store()
     book = ConnectionBook(store)
     actor = _actor()
     created = book.create(
@@ -184,7 +185,7 @@ def test_oauth_token_endpoint_and_refresh(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(httpx, "Client", _client)
     monkeypatch.setattr(httpx, "AsyncClient", _async)
-    store = ChatService()
+    store = demo_store()
     book = ConnectionBook(store)
     actor = _actor()
     created = book.create(
@@ -227,7 +228,7 @@ def test_oauth_token_endpoint_and_refresh(monkeypatch: pytest.MonkeyPatch) -> No
 def test_http_import_edges() -> None:
     assert guard_public("ftp://example.com", allow=["*"], loopback=False)
     assert guard_public("https://127.0.0.1/x", allow=["*"], loopback=False)
-    store = ChatService()
+    store = demo_store()
 
     def send(method: str, url: str, **_kwargs: object) -> httpx.Response:
         if url.endswith("/gone"):
@@ -297,9 +298,9 @@ def test_stdio_and_sse_parsers() -> None:
         encoding="utf-8",
     )
     try:
-        listed = list_stdio(ChatService(), [sys.executable, str(script)], timeout=20)
+        listed = list_stdio(demo_store(), [sys.executable, str(script)], timeout=20)
         assert listed[0]["name"] == "ping"
-        called = call_stdio(ChatService(), [sys.executable, str(script)], "ping", {}, timeout=20)
+        called = call_stdio(demo_store(), [sys.executable, str(script)], "ping", {}, timeout=20)
         assert called["is_error"] is False
     finally:
         script.unlink(missing_ok=True)
@@ -312,7 +313,7 @@ def test_stdio_and_sse_parsers() -> None:
     assert safe_command([sys.executable, str(script)])[0]
     with pytest.raises(RemoteError):
         safe_command(["python", "-c", "print(1)"])
-    store = ChatService()
+    store = demo_store()
 
     def send(request: httpx.Request) -> httpx.Response:
         if request.method == "GET":
@@ -340,7 +341,7 @@ def test_stdio_and_sse_parsers() -> None:
 
 
 def test_refresh_reports_a_changed_manifest() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     calls = {"n": 0}
 

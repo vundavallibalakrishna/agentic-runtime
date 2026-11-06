@@ -34,6 +34,7 @@ from ar_domain.skills.logic import (
     split_skill_ref,
 )
 from ar_domain.skills.showcase import seed_composition
+from ar_testing.demo import demo_store
 
 _ACTOR_PERMS = PERMISSION_KEYS
 
@@ -97,7 +98,7 @@ def test_constraints_hash_paths_cycles_and_budget(monkeypatch: pytest.MonkeyPatc
 
 
 def test_publish_pins_version_and_rejects_cycles() -> None:
-    store = ChatService()
+    store = demo_store()
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     actor = _actor(store)
     life = AgentLifecycle(store)
@@ -119,7 +120,7 @@ def test_publish_pins_version_and_rejects_cycles() -> None:
 
 
 def test_skill_archive_is_blocked_and_versions_increment() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor(store)
     book = SkillBook(store)
     created = book.create(
@@ -146,7 +147,7 @@ def test_skill_archive_is_blocked_and_versions_increment() -> None:
 
 
 def test_archive_conflict_lists_the_writer() -> None:
-    store = ChatService()
+    store = demo_store()
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     actor = _actor(store)
     book = SkillBook(store)
@@ -158,7 +159,7 @@ def test_archive_conflict_lists_the_writer() -> None:
 
 
 def test_research_lead_merges_two_children_and_cancel_stops_them() -> None:
-    store = ChatService()
+    store = demo_store()
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     lead = next(row for row in store.agents.values() if row["slug"] == "research-lead")
     parent_id = uuid.uuid4()
@@ -198,7 +199,7 @@ def test_research_lead_merges_two_children_and_cancel_stops_them() -> None:
 
 
 def test_loaded_skill_is_trusted_in_the_next_prompt() -> None:
-    store = ChatService()
+    store = demo_store()
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     writer = next(row for row in store.agents.values() if row["slug"] == "writer")
     conversation_id = uuid.uuid4()
@@ -237,7 +238,7 @@ def test_loaded_skill_is_trusted_in_the_next_prompt() -> None:
 
 
 def test_child_memory_save_is_denied_and_subagent_policy_matches() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor(store)
     with pytest.raises(ForbiddenError):
         MemoryBook(store).save_from_tool(
@@ -259,7 +260,7 @@ def test_skill_edits_republish_and_runtime_wrappers() -> None:
     from ar_runtime.control.delegate import delegate as runtime_delegate
     from ar_runtime.control.delegate import plan as runtime_plan
 
-    store = ChatService()
+    store = demo_store()
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     actor = _actor(store)
     book = SkillBook(store)
@@ -353,7 +354,7 @@ async def test_compose_and_child_activity_cover_the_edges() -> None:
     from ar_runtime.activities.create_child_run import create_child_run
     from ar_runtime.activities.expire_approval import bind_store
 
-    store = ChatService()
+    store = demo_store()
     assert await maybe_compose(store, {}, {}, "hello") is False
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
     actor = _actor(store)

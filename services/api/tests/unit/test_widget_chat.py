@@ -7,19 +7,19 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ar_api.auth.session import MemorySessionStore, new_session
-from ar_api.main import create_application
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.channels.book import ChannelBook
 from ar_domain.channels.widget_auth import sign_widget_token
 from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_application
 
 
 @pytest.fixture
 def widget_client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, str, str]:
     monkeypatch.setenv("AR_PUBLIC_URL", "https://localhost:3000")
-    app = create_application()
+    app = demo_application()
     app.state.await_runs = True
     store = app.state.chat
     tenant = demo_id("tenant")

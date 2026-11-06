@@ -39,7 +39,6 @@ async def _prepare_store() -> None:
     store = ChatService(
         allow_loopback=loopback_allowed(settings.env),
         fake_models_allowed=fake_models_allowed(settings.env),
-        tenant_seed=False,
     )
     store.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
     await attach_store(store, settings.database_url)

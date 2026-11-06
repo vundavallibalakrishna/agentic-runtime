@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
@@ -10,7 +11,6 @@ import pytest
 import ar_domain.connectors.tables  # noqa: F401
 from ar_common.errors import NotFoundError
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService
 from ar_domain.connectors.book import ConnectorBook
 from ar_domain.connectors.catalog import CONNECTORS, ToolDef
 from ar_domain.connectors.dispatch import dispatch_connector
@@ -19,6 +19,10 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.secrets.crypto import seal
 from ar_domain.tools.named_secrets import read_named_secret
 from ar_domain.tools.service_connections import connection_key
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 
 def _actor() -> Actor:
@@ -65,7 +69,7 @@ def test_status_copy() -> None:
 
 
 def test_every_catalog_tool_against_a_stand_in() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     book = ConnectorBook(store)
 
@@ -125,7 +129,7 @@ def test_every_catalog_tool_against_a_stand_in() -> None:
 
 
 def test_mail_and_storage_edges() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     book = ConnectorBook(store)
     book.install(
@@ -199,7 +203,7 @@ def test_mail_and_storage_edges() -> None:
 
 
 def test_uploads_pagination_and_probes() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     book = ConnectorBook(store)
     pages = {"n": 0}
@@ -279,7 +283,7 @@ def test_uploads_pagination_and_probes() -> None:
 
 
 def test_install_updates_and_a_bad_named_secret() -> None:
-    store = ChatService()
+    store = demo_store()
     actor = _actor()
     book = ConnectorBook(store)
     detail = book.install(

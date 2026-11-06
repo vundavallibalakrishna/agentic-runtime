@@ -2,13 +2,17 @@
 
 import uuid
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ar_domain.approvals.logic import can_decide, is_approver, requester_blocked
 from ar_domain.approvals.service import ApprovalBook
-from ar_domain.chat.service import ChatService
 from ar_domain.tools.agent_loop import run_agent_loop
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 
 def _actor(user_id: uuid.UUID, *perms: str) -> SimpleNamespace:
@@ -29,7 +33,7 @@ def _approval(store: ChatService, requester: uuid.UUID, *, owner: uuid.UUID) -> 
 
 
 def test_requester_mode_lets_another_approver_decide_when_sod_blocks_the_requester() -> None:
-    store = ChatService()
+    store = demo_store()
     requester, approver, bystander = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     blocked = _approval(store, requester, owner=requester)
     assert requester_blocked(store, blocked) is True
@@ -46,7 +50,7 @@ def test_requester_mode_lets_another_approver_decide_when_sod_blocks_the_request
 
 
 def test_blocked_requester_notifies_role_holders_who_can_decide() -> None:
-    store = ChatService()
+    store = demo_store()
     requester, approver, member = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     store.user_roles[requester] = {"tenant_admin"}
     store.user_roles[approver] = {"approver"}
@@ -62,7 +66,7 @@ def test_blocked_requester_notifies_role_holders_who_can_decide() -> None:
 
 @pytest.mark.asyncio
 async def test_fake_alias_fails_the_run_when_fake_models_are_not_allowed() -> None:
-    store = ChatService()
+    store = demo_store()
     store.fake_models_allowed = False
     tenant_id = next(iter(store.agents.values()))["tenant_id"]
     agent = next(row for row in store.agents.values() if row.get("slug") == "assistant")

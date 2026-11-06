@@ -133,7 +133,8 @@ Then open the web app, choose **Continue with SSO**, and sign in.
 | 6 Nov 2026 | M38b-T03 | F1 and F5 are fixed, and F2 no longer applies to a process with a database. A fourth empty stack was seeded with tenant `acme` and admin `ada@acme.example`. The API and the three workers logged `durable_bound tenant=acme`, sign-in worked, the header read "Acme", a provider was registered, and a chat turn ran Python and finished. The tenant held `assistant`, `helpdesk` and `builder`, created when the admin first opened the product, and no `revenue-analyst`. | `run4-acme/01-acme-signed-in.png` |
 | 6 Nov 2026 | M38b-T04a | F6 is fixed. On a fifth empty stack the seed alone left `assistant` and `builder`, both owned by `ada@acme.example`, 14 tool servers, no provider and no conversation; a second run of the seed changed nothing. After sign-in, a registered provider, a chat turn and a builder draft, the tenant held those two agents and the draft. | `agents` table before and after |
 | 6 Nov 2026 | M38b-T04b | No process falls back to a demo tenant. An API or worker without its database, or without a tenant in it, waits and tries again in every environment. The browser tests start the API through a harness that puts the demo tenant in. | `test_m13_memory_mode.py`, `test_m38b_e2e_harness.py`; `m2-chat.spec.ts` passed through the harness |
+| 6 Nov 2026 | M38b-T04c | A product store starts with no tenant: the API, the workers, `mcp-gateway` and `sandbox-manager` build none. Unit tests and the browser-test harness put the demo tenant in through `ar_testing.demo`, and a test fails if product code calls the demo seeding. | `test_m38b_empty_store.py` |
 
 Still open: the sign-in page still lists the demo users (F4), the
-Models screen still lists `fake-llm` (F10), and the demo tenant's code still lives in the product packages
-although only unit tests and the browser-test harness call it (M38b-T04c).
+Models screen still lists `fake-llm` (F10), and the code that builds the demo tenant still sits in the product packages,
+although only test setup and the eval tooling call it (M38b-T04d and T04f).

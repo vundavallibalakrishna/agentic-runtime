@@ -1,15 +1,19 @@
 """A failing tool handler is a failed call, and a run always ends. Task: M38-T02."""
 
 import uuid
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ar_common.errors import ArError, ErrorCode
-from ar_domain.chat.service import ChatService
 from ar_domain.demo_ids import demo_id
 from ar_domain.orchestration.engine import resume_run
 from ar_domain.tools.logic import raised_at
 from ar_domain.tools.pipeline import ToolPipeline
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 PRIVATE = "card 4111 1111 1111 1111"
 
@@ -40,7 +44,7 @@ def _queued(store: ChatService) -> uuid.UUID:
 def test_a_handler_bug_is_a_failed_call_without_its_message(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    store = ChatService()
+    store = demo_store()
     assert _call(store)["status"] == "succeeded"
 
     def boom(*_args: object) -> dict[str, object]:
@@ -62,7 +66,7 @@ def test_a_handler_that_refuses_tells_the_model_why(monkeypatch: pytest.MonkeyPa
         raise ArError(ErrorCode.VALIDATION_FAILED, "path must be inside the workspace")
 
     monkeypatch.setattr("ar_domain.tools.pipeline.dispatch", refuse)
-    result = _call(ChatService())
+    result = _call(demo_store())
     assert result["status"] == "failed"
     assert result["error"] == {
         "code": "validation_failed",
@@ -86,7 +90,7 @@ def test_raised_at_names_the_file_and_line_only() -> None:
 
 @pytest.mark.asyncio
 async def test_a_turn_that_crashes_ends_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = ChatService()
+    store = demo_store()
     run_id = _queued(store)
 
     async def crash(*_args: object, **_kwargs: object) -> bool:
@@ -109,7 +113,7 @@ async def test_a_turn_that_crashes_ends_the_run(monkeypatch: pytest.MonkeyPatch)
 
 @pytest.mark.asyncio
 async def test_a_resumed_turn_that_crashes_ends_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = ChatService()
+    store = demo_store()
     run_id = _queued(store)
     store.runs[run_id]["status"] = "running"
 
@@ -125,7 +129,7 @@ async def test_a_resumed_turn_that_crashes_ends_the_run(monkeypatch: pytest.Monk
 async def test_an_error_outside_a_working_run_is_still_raised(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    store = ChatService()
+    store = demo_store()
     with pytest.raises(KeyError):
         await store.generate(uuid.uuid4(), "hello", [])
 

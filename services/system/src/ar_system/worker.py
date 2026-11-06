@@ -31,7 +31,6 @@ async def _prepare_store() -> None:
     store = ChatService(
         allow_loopback=loopback_allowed(settings.env),
         fake_models_allowed=fake_models_allowed(settings.env),
-        tenant_seed=False,
     )
     await attach_store(store, settings.database_url)
     bind_routines(store)

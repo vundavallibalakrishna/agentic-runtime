@@ -13,7 +13,7 @@ import respx
 from ar_common.errors import ArError, ConflictError, NotFoundError, ValidationFailedError
 from ar_common.vectors import lexical_score, unit_vector
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.knowledge.access import can_manage, can_read_document, can_see
 from ar_domain.knowledge.acl import (
@@ -60,6 +60,7 @@ from ar_ingest.activities import bind_store, ingest_document_activity
 from ar_ingest.cli import main as ingest_main
 from ar_runtime.activities.auto_retrieve_knowledge import auto_retrieve_knowledge
 from ar_runtime.activities.auto_retrieve_knowledge import bind_store as bind_runtime
+from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.unit
 
@@ -113,7 +114,7 @@ def test_access_model_and_principal_mapping() -> None:
     )
     assert "tenant:*" in mapped and f"user:{owner}" in mapped and "group:g1" in mapped
     assert dropped == 2
-    store = ChatService()
+    store = demo_store()
     store.user_groups[owner] = ["g1"]
     store.user_clearance[owner] = "restricted"
     document = {"status": "indexed", "classification": "internal", "acl_principals": ["tenant:*"]}
@@ -236,7 +237,7 @@ def test_chunk_parse_ground_and_cite(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_collection_acl_search_and_delete_at_source() -> None:
-    store = ChatService()
+    store = demo_store()
     admin = _admin(demo_id("tenant"))
     member = _reader(demo_id("tenant"), demo_id("member"))
     store.user_emails[admin.user_id] = "admin@dev.local"
@@ -371,7 +372,7 @@ def test_embedder_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> 
     filt = build_filter(query)
     assert "should" in str(filt)
     assert hashed_sparse("ZX-4471")[0]
-    store = ChatService()
+    store = demo_store()
     admin = _admin()
     book = KnowledgeBook(store)
     created = book.create_collection(admin, {"slug": "box", "name": "Box"})
@@ -410,7 +411,7 @@ def test_embedder_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_librarian_answers_only_from_readable_documents() -> None:
-    store = ChatService()
+    store = demo_store()
     store.seed_demo()
     store.seed_showcase()
     from ar_domain.knowledge.answer import compose as compose_answer
@@ -436,7 +437,7 @@ def test_librarian_answers_only_from_readable_documents() -> None:
 
 
 def test_acl_sync_does_not_require_reembed() -> None:
-    store = ChatService()
+    store = demo_store()
     admin = _admin(demo_id("tenant"))
     store.user_emails[admin.user_id] = "admin@dev.local"
     store.company_domains = {"dev.local"}

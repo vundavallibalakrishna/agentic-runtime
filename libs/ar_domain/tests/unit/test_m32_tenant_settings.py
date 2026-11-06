@@ -1,20 +1,24 @@
 """Tenant settings are read for the calling tenant only. Task: M32-T02."""
 
 import uuid
+from typing import TYPE_CHECKING
 
-from ar_domain.chat.service import ChatService
 from ar_domain.identity.tenant_settings import section, settings_for
 from ar_domain.pii.analyzer import _presidio, redact
 from ar_domain.pii.recognizers_in import find_indian
 from ar_domain.records.vault import EvidenceBook
 from ar_domain.security.guardrails import apply_result_safety
 from ar_domain.tools.handlers import dispatch
+from ar_testing.demo import demo_store
+
+if TYPE_CHECKING:
+    from ar_domain.chat.service import ChatService
 
 PHONE = "call 9876543210 now"
 
 
 def _store() -> tuple[ChatService, uuid.UUID, uuid.UUID]:
-    store = ChatService()
+    store = demo_store()
     tenant_a, tenant_b = uuid.uuid4(), uuid.uuid4()
     store.tenant_settings[tenant_a] = {"features": {"pii_redaction": False}}
     store.tenant_settings[tenant_b] = {"features": {"pii_redaction": True}}
@@ -63,7 +67,7 @@ def test_tenant_can_skip_entity_types() -> None:
 
 
 def test_web_fetch_feature_is_read_per_tenant() -> None:
-    store = ChatService()
+    store = demo_store()
     tenant_on, tenant_off = uuid.uuid4(), uuid.uuid4()
     store.tenant_settings[tenant_on] = {"features": {"web_fetch": True}}
     store.tenant_settings[tenant_off] = {"features": {"web_fetch": False}}
@@ -77,7 +81,7 @@ def test_web_fetch_feature_is_read_per_tenant() -> None:
 
 
 def test_evidence_tsa_requirement_is_the_actors_tenant() -> None:
-    store = ChatService()
+    store = demo_store()
     tsa_down, plain = uuid.uuid4(), uuid.uuid4()
     store.tenant_settings[tsa_down] = {"evidence": {"tsa_enabled": True, "tsa_ok": False}}
     store.tenant_settings[plain] = {}

@@ -5,8 +5,9 @@ import uuid
 import httpx
 import pytest
 
-from ar_domain.chat.service import ChatService, demo_id
+from ar_domain.chat.service import demo_id
 from ar_domain.models.logic import completion_text, strip_think
+from ar_testing.demo import demo_store
 
 
 def test_completion_text_drops_a_think_trace() -> None:
@@ -16,7 +17,7 @@ def test_completion_text_drops_a_think_trace() -> None:
 
 
 def test_provider_response_never_includes_the_api_key() -> None:
-    service = ChatService(allow_loopback=True)
+    service = demo_store(allow_loopback=True)
     tenant = demo_id("tenant")
     created = service.create_provider(
         tenant,
@@ -35,7 +36,7 @@ def test_provider_response_never_includes_the_api_key() -> None:
 
 @pytest.mark.asyncio
 async def test_chat_calls_the_registered_upstream_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    service = ChatService(allow_loopback=True)
+    service = demo_store(allow_loopback=True)
     tenant, user = demo_id("tenant"), demo_id("admin")
     created = service.create_provider(
         tenant,
@@ -102,7 +103,7 @@ async def test_chat_calls_the_registered_upstream_model(monkeypatch: pytest.Monk
 
 @pytest.mark.asyncio
 async def test_live_probe_sends_the_key_only_as_a_header(monkeypatch: pytest.MonkeyPatch) -> None:
-    service = ChatService(allow_loopback=True)
+    service = demo_store(allow_loopback=True)
     tenant = demo_id("tenant")
     created = service.create_provider(
         tenant,

@@ -13,8 +13,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
 from ar_api.auth.complete import LoginError, choose_organization, organization_aliases, profile_for
-from ar_api.main import create_application
 from ar_domain.secrets.crypto import parse_keyring
+from ar_testing.demo import demo_application
 
 ISSUER = "http://localhost:8180/realms/agentic-runtime"
 ROOT = Path(__file__).resolve().parents[4]
@@ -84,7 +84,7 @@ def test_organization_claim_shapes() -> None:
 def test_callback_signs_in_a_seeded_user() -> None:
     pem = _rsa_pem()
     token = _id_token(pem, email="approver@dev.local", nonce="n1", organization={"dev": {}})
-    app = create_application()
+    app = demo_application()
     app.state.login_states["state1"] = {
         "verifier": "verifier",
         "nonce": "n1",
@@ -124,7 +124,7 @@ def test_callback_asks_for_a_tenant_when_several_match() -> None:
         nonce="n2",
         organization={"dev": {}, "other": {}},
     )
-    app = create_application()
+    app = demo_application()
     app.state.login_states["state2"] = {
         "verifier": "verifier",
         "nonce": "n2",
@@ -145,7 +145,7 @@ def test_callback_asks_for_a_tenant_when_several_match() -> None:
 
 
 def test_dev_login_accepts_each_seeded_user() -> None:
-    client = TestClient(create_application())
+    client = TestClient(demo_application())
     for email, permission in (
         ("admin@dev.local", "tenant:manage"),
         ("builder@dev.local", "agents:create"),
@@ -230,7 +230,7 @@ def test_callback_rejects_invalid_exchange_without_issuing_a_session(failure: st
         nonce="wrong" if failure == "nonce" else "n1",
         organization={"other" if failure == "organization" else "dev": {}},
     )
-    app = create_application()
+    app = demo_application()
     app.state.login_states["invalid"] = {
         "verifier": "verifier",
         "nonce": "n1",

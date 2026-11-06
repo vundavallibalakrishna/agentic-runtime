@@ -11,6 +11,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.agents.assist import draft_from_description
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_testing.demo import demo_store
 
 GOOD = {
     "persona": {"display_name": "Vendor reviewer", "greeting": "Send me the report."},
@@ -26,7 +27,7 @@ def _actor() -> Actor:
 
 
 def _real_store() -> ChatService:
-    store = ChatService()
+    store = demo_store()
     store._completion_call = lambda _tenant, alias="reasoning": (  # type: ignore[method-assign]
         "Qwen/Qwen3-32B",
         {},
@@ -106,7 +107,7 @@ async def test_scripted_proposal_is_the_last_resort(monkeypatch: pytest.MonkeyPa
 
 @pytest.mark.asyncio
 async def test_fake_model_never_calls_a_provider(monkeypatch: pytest.MonkeyPatch) -> None:
-    store = ChatService()
+    store = demo_store()
     seen = _responses(monkeypatch, [])
     drafted = await draft_from_description(store, _actor(), "Answer HR questions")
     assert seen == []

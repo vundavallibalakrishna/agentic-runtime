@@ -10,6 +10,8 @@ def test_execute_lists_and_calls_a_seeded_tool() -> None:
     app = create_application()
     client = TestClient(app)
     store = app.state.chat
+    # The gateway holds no tenant of its own. This test puts the demo tenant in.
+    store.seed_demo_tenant()
     desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
     version = next(
         row for row in store.tool_versions.values() if row.get("qualified_name") == "files.list"
