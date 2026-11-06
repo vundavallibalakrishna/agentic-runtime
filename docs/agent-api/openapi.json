@@ -6978,6 +6978,28 @@
         ],
         "title": "UpgradeBody"
       },
+      "UploadLimits": {
+        "properties": {
+          "mimeTypes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Mimetypes"
+          },
+          "maxBytes": {
+            "type": "integer",
+            "title": "Maxbytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mimeTypes",
+          "maxBytes"
+        ],
+        "title": "UploadLimits"
+      },
       "UserPatch": {
         "properties": {
           "status": {

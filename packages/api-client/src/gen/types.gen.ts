@@ -3712,6 +3712,20 @@ export type UpgradeBody = {
 };
 
 /**
+ * UploadLimits
+ */
+export type UploadLimits = {
+    /**
+     * Mimetypes
+     */
+    mimeTypes: Array<string>;
+    /**
+     * Maxbytes
+     */
+    maxBytes: number;
+};
+
+/**
  * UserPatch
  */
 export type UserPatch = {
@@ -9257,6 +9271,22 @@ export type ExportConversationApiV1ConversationsConversationIdExportGetResponses
 };
 
 export type ExportConversationApiV1ConversationsConversationIdExportGetResponse = ExportConversationApiV1ConversationsConversationIdExportGetResponses[keyof ExportConversationApiV1ConversationsConversationIdExportGetResponses];
+
+export type UploadLimitsApiV1FilesLimitsGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/files:limits';
+};
+
+export type UploadLimitsApiV1FilesLimitsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: UploadLimits;
+};
+
+export type UploadLimitsApiV1FilesLimitsGetResponse = UploadLimitsApiV1FilesLimitsGetResponses[keyof UploadLimitsApiV1FilesLimitsGetResponses];
 
 export type UploadFileApiV1FilesUploadPostData = {
     body: BodyUploadFileApiV1FilesUploadPost;

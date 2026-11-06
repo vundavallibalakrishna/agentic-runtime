@@ -6,6 +6,25 @@ from pydantic import Field
 
 from ar_contracts.api_model import ApiModel
 
+# Every type the product can read from an attached file: text, PDF, Office documents and
+# images. A tenant narrows this with ``security.allowed_upload_mime_types``.
+READABLE_UPLOAD_MIME_TYPES: tuple[str, ...] = (
+    "application/pdf",
+    "text/plain",
+    "text/markdown",
+    "text/html",
+    "text/csv",
+    "application/csv",
+    "application/json",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+)
+
 
 class _Model(ApiModel):
     """Tenant document. Keys on the wire are camelCase."""
@@ -63,18 +82,11 @@ class ApprovalSettings(_Model):
 class SecuritySettings(_Model):
     require_step_up_for_w3: bool = True
     allow_self_review: bool = False
+    # The types a person may attach. The default is every type the product can read.
     allowed_upload_mime_types: list[str] = Field(
-        default_factory=lambda: [
-            "text/plain",
-            "text/markdown",
-            "text/csv",
-            "application/pdf",
-            "application/json",
-            "image/png",
-            "image/jpeg",
-        ]
+        default_factory=lambda: list(READABLE_UPLOAD_MIME_TYPES)
     )
-    max_upload_mb: int = 100
+    max_upload_mb: int = Field(default=25, ge=1)
 
 
 class SiemSettings(_Model):

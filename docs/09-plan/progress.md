@@ -312,4 +312,5 @@ M38b-T09 | done | c2ecec7 | a kind of personal data is masked only when the tena
 M38-T09 | done | 0f13d68 | a tool handler stays on the loop thread and only its waiting moves to a worker thread; a long tool call no longer stops the process or cancels the turn; a call may use the time the run has left
 M38-T05 | done | 61e833d | the tool guidance and the output schema are part of the system prompt on every path; the guidance says to compute with a tool and to state only what a tool returned
 M38b-T10a | done | b31faa7 | the organisation's list of hosts is the ceiling and an agent only narrows it; a refusal comes before any network call and says where to change the list; loopback is an install setting; a settings change is audited with what changed
-M38b-T10 | done | - | every failure ends a run one way, the reply is marked failed with the reason, and the chat draws it as a failure with a retry; sha recorded with the next task
+M38b-T10 | done | 23985e4 | every failure ends a run one way, the reply is marked failed with the reason, and the chat draws it as a failure with a retry
+M38b-T08a | done | - | a sent message shows its files; several files per message; the composer offers the types the tenant allows; the upload rules are the tenant's settings; sha recorded with the next task

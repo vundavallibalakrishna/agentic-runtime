@@ -35,13 +35,14 @@ from ar_domain.conversations.logic import (
 )
 from ar_domain.demo_ids import demo_id as demo_id  # noqa: PLC0414
 from ar_domain.files.logic import (
-    MAX_UPLOAD_BYTES,
     FileView,
     can_read_file,
-    mime_allowed,
     object_key,
     scan_bytes,
+    typed_by_name,
+    upload_rules,
 )
+from ar_domain.identity.tenant_settings import settings_for
 from ar_domain.models.aliases import default_params as default_alias_params
 from ar_domain.models.logic import (
     DEFAULT_DENY_CIDRS,
@@ -1657,6 +1658,7 @@ class ChatService:
                     "file_id": str(file_id),
                     "name": file["name"],
                     "mime_type": file["mime_type"],
+                    "size_bytes": file.get("size_bytes"),
                 }
             )
         user_message["content"] = content
@@ -2905,13 +2907,28 @@ class ChatService:
             names.append(str(row["name"]))
         return names
 
+    def upload_limits(self, tenant_id: uuid.UUID) -> dict[str, object]:
+        """The types this tenant's people may attach and the largest file, for the composer."""
+        rules = upload_rules(settings_for(self, tenant_id))
+        return {"mime_types": list(rules.mime_types), "max_bytes": rules.max_bytes}
+
     def upload(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, name: str, mime_type: str, data: bytes
     ) -> dict[str, object]:
-        if not mime_allowed(mime_type):
-            raise ArError(ErrorCode.UNSUPPORTED_MEDIA_TYPE, "file type is not allowed")
-        if len(data) > MAX_UPLOAD_BYTES:
-            raise ArError(ErrorCode.PAYLOAD_TOO_LARGE, "file is too large")
+        rules = upload_rules(settings_for(self, tenant_id))
+        mime_type = typed_by_name(name, mime_type)
+        if not rules.allows(mime_type):
+            shown = mime_type or "an unknown type"
+            raise ArError(
+                ErrorCode.UNSUPPORTED_MEDIA_TYPE,
+                f"Files of type {shown} cannot be attached here. "
+                "An administrator sets the allowed types in the organisation's settings.",
+            )
+        if len(data) > rules.max_bytes:
+            limit = rules.max_bytes // (1024 * 1024)
+            raise ArError(
+                ErrorCode.PAYLOAD_TOO_LARGE, f"The file is over the {limit} MB limit for an upload."
+            )
         from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
 
         existing = 0

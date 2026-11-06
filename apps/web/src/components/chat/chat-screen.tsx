@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { create } from "zustand";
 
 import { AppShell } from "@/components/app-shell";
+import { type Attached, AttachmentList, attachedOf } from "@/components/chat/attachment-list";
 import { CitationList, citationsOf } from "@/components/chat/citations";
 import { FailedReply } from "@/components/chat/failed-reply";
 import { MarkdownView } from "@/components/chat/markdown-view";
@@ -102,8 +103,8 @@ export function ChatScreen() {
   const [stream, setStream] = useState<StreamState>(emptyStream);
   const [runId, setRunId] = useState("");
   const [banner, setBanner] = useState("");
-  const [attachmentName, setAttachmentName] = useState("");
-  const [attachmentId, setAttachmentId] = useState("");
+  const [attachments, setAttachments] = useState<Attached[]>([]);
+  const [accept, setAccept] = useState("");
   const [offline, setOffline] = useState(false);
   const [live, setLive] = useState("");
   const [stuck, setStuck] = useState(false);
@@ -130,6 +131,9 @@ export function ChatScreen() {
     setLoadError("");
     try {
       const me = await api<Session>("/api/v1/auth/session");
+      void api<{ mimeTypes: string[] }>("/api/v1/files:limits")
+        .then((limits) => setAccept((limits.mimeTypes ?? []).join(",")))
+        .catch(() => setAccept(""));
       setSession(me);
       const listed = await api<{ items: Item[] }>("/api/v1/conversations");
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
@@ -207,8 +211,7 @@ export function ChatScreen() {
       setBanner("");
       setRunId("");
       setPlan([]);
-      setAttachmentId("");
-      setAttachmentName("");
+      setAttachments([]);
     }
     window.addEventListener("ar-new-chat", onNew);
     return () => {
@@ -262,8 +265,7 @@ export function ChatScreen() {
       setPlan([]);
       lateRunRef.current = "";
       setStream(emptyStream);
-      setAttachmentId("");
-      setAttachmentName("");
+      setAttachments([]);
     }
     setActiveId(id);
     const params = new URLSearchParams(window.location.search);
@@ -469,7 +471,7 @@ export function ChatScreen() {
           method: "POST",
           body: JSON.stringify({
             text,
-            attachmentIds: attachmentId ? [attachmentId] : [],
+            attachmentIds: attachments.map((file) => file.id),
           }),
         },
       );
@@ -485,8 +487,7 @@ export function ChatScreen() {
       if (request.signal.aborted) return;
       setConversations(fresh.items ?? []);
       runRef.current = "";
-      setAttachmentId("");
-      setAttachmentName("");
+      setAttachments([]);
     } catch (error) {
       if (request.signal.aborted) return;
       if (!conversationReady && !useComposer.getState().draft) setDraft(text);
@@ -557,26 +558,31 @@ export function ChatScreen() {
     }
   }
 
-  async function onUpload(file: File) {
-    const body = new FormData();
-    body.set("upload", file);
-    body.set("mime_type", file.type || "application/pdf");
-    try {
-      const saved = await api<{ id: string; name: string; status: string }>(
-        "/api/v1/files:upload",
-        {
-          method: "POST",
-          body,
-        },
-      );
-      if (saved.status !== "ready") {
-        setBanner(t("uploadError"));
-        return;
+  async function onUpload(files: FileList) {
+    for (const file of Array.from(files)) {
+      const body = new FormData();
+      body.set("upload", file);
+      // The server types a file by its name when the browser gives no type.
+      body.set("mime_type", file.type);
+      try {
+        const saved = await api<{
+          id: string;
+          name: string;
+          mimeType: string;
+          sizeBytes: number;
+          status: string;
+        }>("/api/v1/files:upload", { method: "POST", body });
+        if (saved.status !== "ready") {
+          setBanner(t("uploadError", { name: file.name }));
+          continue;
+        }
+        setAttachments((current) => [
+          ...current.filter((item) => item.id !== saved.id),
+          { id: saved.id, name: saved.name, mimeType: saved.mimeType, sizeBytes: saved.sizeBytes },
+        ]);
+      } catch (caught) {
+        setBanner(caught instanceof Error ? caught.message : t("uploadError", { name: file.name }));
       }
-      setAttachmentId(saved.id);
-      setAttachmentName(saved.name);
-    } catch {
-      setBanner(t("uploadError"));
     }
   }
 
@@ -828,6 +834,7 @@ export function ChatScreen() {
                         ) : (
                           <MarkdownView text={body} />
                         )}
+                        {!streamingHere ? <AttachmentList files={attachedOf(message)} /> : null}
                         {streamingHere && stream.tools.length > 0 ? (
                           <div>
                             <p className="text-xs font-medium text-[var(--muted-foreground)]">
@@ -1039,11 +1046,13 @@ export function ChatScreen() {
                   ))}
                 </select>
               </div>
-              {attachmentName ? (
-                <p className="px-1 pb-1 text-xs text-[var(--muted-foreground)]">
-                  {t("attached")}: {attachmentName}
-                </p>
-              ) : null}
+              <AttachmentList
+                busy={stream.status === "streaming"}
+                files={attachments}
+                onRemove={(id) =>
+                  setAttachments((current) => current.filter((item) => item.id !== id))
+                }
+              />
               <label className="sr-only" htmlFor="composer">
                 {t("composer")}
               </label>
@@ -1069,14 +1078,15 @@ export function ChatScreen() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
                   <input
-                    accept="application/pdf,text/plain,text/csv,.csv,image/png"
+                    accept={accept}
                     aria-label={t("attach")}
                     className="sr-only"
+                    multiple
                     onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) {
-                        void onUpload(file);
+                      if (event.target.files?.length) {
+                        void onUpload(event.target.files);
                       }
+                      event.target.value = "";
                     }}
                     ref={fileRef}
                     type="file"
