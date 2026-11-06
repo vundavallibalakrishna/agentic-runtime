@@ -313,4 +313,5 @@ M38-T09 | done | 0f13d68 | a tool handler stays on the loop thread and only its 
 M38-T05 | done | 61e833d | the tool guidance and the output schema are part of the system prompt on every path; the guidance says to compute with a tool and to state only what a tool returned
 M38b-T10a | done | b31faa7 | the organisation's list of hosts is the ceiling and an agent only narrows it; a refusal comes before any network call and says where to change the list; loopback is an install setting; a settings change is audited with what changed
 M38b-T10 | done | 23985e4 | every failure ends a run one way, the reply is marked failed with the reason, and the chat draws it as a failure with a retry
-M38b-T08a | done | - | a sent message shows its files; several files per message; the composer offers the types the tenant allows; the upload rules are the tenant's settings; sha recorded with the next task
+M38b-T08a | done | adeba98 | a sent message shows its files; several files per message; the composer offers the types the tenant allows; the upload rules are the tenant's settings
+M38b-T14 | done | - | no form starts with a value the person did not type; save buttons wait for what they need; sha recorded with the next task

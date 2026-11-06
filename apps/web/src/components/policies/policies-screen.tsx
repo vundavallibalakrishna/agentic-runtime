@@ -27,10 +27,10 @@ export function PoliciesScreen() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [advanced, setAdvanced] = useState(false);
-  const [name, setName] = useState("Pet writes");
-  const [tool, setTool] = useState("petstore.create_pet");
+  const [name, setName] = useState("");
+  const [tool, setTool] = useState("");
   const [effect, setEffect] = useState("requireApproval");
-  const [message, setMessage] = useState("Ask before creating a pet.");
+  const [message, setMessage] = useState("");
   const [documentText, setDocumentText] = useState("");
   const [decision, setDecision] = useState("");
 
@@ -54,6 +54,11 @@ export function PoliciesScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // A policy needs a name and either a rule (a tool and a message) or a document.
+  const complete =
+    name.trim() !== "" &&
+    (advanced && documentText.trim() !== "" ? true : tool.trim() !== "" && message.trim() !== "");
 
   function documentBody(): Record<string, unknown> {
     if (advanced && documentText.trim()) {
@@ -192,7 +197,9 @@ export function PoliciesScreen() {
               </label>
             ) : null}
             <div className="flex gap-2">
-              <Button type="submit">{t("save")}</Button>
+              <Button disabled={!complete} type="submit">
+                {t("save")}
+              </Button>
               <Button type="button" variant="outline" onClick={() => void simulate()}>
                 {t("simulate")}
               </Button>

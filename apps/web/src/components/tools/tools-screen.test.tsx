@@ -201,7 +201,14 @@ describe("tool screens", () => {
       ),
     );
     render(wrap(<ToolsScreen />));
-    fireEvent.click(await screen.findByRole("button", { name: "Register" }));
+    // The form starts empty: nothing is filled in for the person.
+    expect((screen.getByLabelText("Short name") as HTMLInputElement).value).toBe("");
+    fireEvent.change(screen.getByLabelText("Short name"), { target: { value: "echo" } });
+    fireEvent.change(screen.getByLabelText("Name", { exact: true }), { target: { value: "Echo" } });
+    fireEvent.change(screen.getByLabelText("Server address"), {
+      target: { value: "memory://echo" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
     expect(await screen.findByText(/Submitted for review/)).toBeTruthy();
     expect(screen.queryByText("four_eyes")).toBeNull();
   });

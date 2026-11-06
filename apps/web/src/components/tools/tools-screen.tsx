@@ -31,9 +31,9 @@ export function ToolsScreen() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [advanced, setAdvanced] = useState(false);
-  const [slug, setSlug] = useState("echo");
-  const [name, setName] = useState("Echo");
-  const [address, setAddress] = useState("memory://echo");
+  const [slug, setSlug] = useState("");
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
   const [kind, setKind] = useState("remote_mcp");
   const [transport, setTransport] = useState("streamable");
   const [connectionName, setConnectionName] = useState("");
@@ -268,7 +268,9 @@ export function ToolsScreen() {
                   </select>
                 </label>
               ) : null}
-              <Button type="submit">{t("save")}</Button>
+              <Button disabled={!slug.trim() || !name.trim() || !address.trim()} type="submit">
+                {t("save")}
+              </Button>
               {notice ? <p role="status">{notice}</p> : null}
             </form>
           }

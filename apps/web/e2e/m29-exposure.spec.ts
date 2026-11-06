@@ -57,6 +57,8 @@ test("expose tab shows a key once and a public test console", async ({ page }) =
   await expect(page.getByText("Send through the API")).toBeVisible();
   await capture(page, "expose-key");
 
+  // Nothing is typed in for the person: the message to send is their own.
+  await page.getByLabel("Test console").fill("What is 2 + 2?");
   await page.getByRole("button", { name: "Send through the API" }).click();
   await expect(page.getByRole("region", { name: "Raw response" })).toContainText(/output|status/, {
     timeout: 60_000,
