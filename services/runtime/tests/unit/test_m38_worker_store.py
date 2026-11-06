@@ -18,9 +18,16 @@ if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
 
 
-def _prepare(monkeypatch: pytest.MonkeyPatch, env: EnvName, answer: object) -> list[ChatService]:
+def _prepare(
+    monkeypatch: pytest.MonkeyPatch, env: EnvName, answer: object, *, loopback: bool = False
+) -> list[ChatService]:
     built: list[ChatService] = []
-    settings = SimpleNamespace(env=env, database_url="postgresql://unused", model_gateway_url="")
+    settings = SimpleNamespace(
+        env=env,
+        egress_allow_loopback=loopback,
+        database_url="postgresql://unused",
+        model_gateway_url="",
+    )
 
     async def bind(store: object, url: str) -> object:
         del store, url
@@ -43,8 +50,9 @@ async def test_a_worker_with_a_database_holds_no_demo_tenant(
 
     store = built[0]
     assert store.fake_models_allowed is (env is EnvName.DEV)
-    # A tool call runs in this process. It may reach a loopback address only in dev and CI.
-    assert store.allow_loopback is (env is EnvName.DEV)
+    # A tool call runs in this process. Whether it may reach a loopback address is the
+    # install's setting, off unless set, whatever the environment is called.
+    assert store.allow_loopback is False
     assert store.agents == {}
     assert store.user_roles == {}
     slugs = {str(row["slug"]) for row in store.tool_servers.values()}
@@ -77,3 +85,15 @@ async def test_a_worker_without_a_database_waits_and_gets_no_demo_tenant(
     assert answers == []
     assert built[0].agents == {}
     assert built[0].demo_tenant_seeded is False
+
+
+@pytest.mark.parametrize("env", [EnvName.PROD, EnvName.DEV])
+async def test_loopback_follows_the_installs_setting_not_the_environments_name(
+    env: EnvName, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    found = TenantBinding(SimpleNamespace(), "acme", "Acme", "self_hosted", {})  # type: ignore[arg-type]
+    built = _prepare(monkeypatch, env, found, loopback=True)
+
+    await worker._prepare_store()
+
+    assert built[0].allow_loopback is True

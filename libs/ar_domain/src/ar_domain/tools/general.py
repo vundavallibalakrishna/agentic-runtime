@@ -33,6 +33,7 @@ from ar_common.sandboxkit import (
     relative_path,
     sanitise_name,
 )
+from ar_common.settings import loopback_allowed
 from ar_common.time import utcnow
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
@@ -523,19 +524,45 @@ def _bounded(
     return max(low, min(raw, high))
 
 
-def _allow_hosts(store: Any, arguments: dict[str, object], tool: str) -> list[str]:
-    hosts: list[str] = []
-    override = _override(store, arguments, tool)
-    extra = override.get("allow_hosts", override.get("allowHosts"))
-    if isinstance(extra, list):
-        hosts.extend(str(item) for item in extra if str(item).strip())
+def _tenant_hosts(store: Any, arguments: dict[str, object]) -> list[str]:
+    """The hosts the organisation lets its tools reach (``egress_allowlist``)."""
     tenant = arguments.get("_tenant_id")
     settings = store.tenant_settings.get(tenant) if isinstance(tenant, uuid.UUID) else None
-    if isinstance(settings, dict):
-        allow = settings.get("egress_allowlist")
-        if isinstance(allow, list):
-            hosts.extend(str(item) for item in allow)
-    return hosts
+    allow = settings.get("egress_allowlist") if isinstance(settings, dict) else None
+    return [str(item) for item in allow if str(item).strip()] if isinstance(allow, list) else []
+
+
+def _agent_hosts(store: Any, arguments: dict[str, object], tool: str) -> list[str]:
+    """The hosts the agent limits this tool to. Empty when it sets no limit of its own."""
+    override = _override(store, arguments, tool)
+    extra = override.get("allow_hosts", override.get("allowHosts"))
+    return [str(item) for item in extra if str(item).strip()] if isinstance(extra, list) else []
+
+
+def _allow_hosts(store: Any, arguments: dict[str, object], tool: str) -> list[str]:
+    """The organisation's hosts, for a caller that adds a host of its own to check."""
+    del tool
+    return _tenant_hosts(store, arguments)
+
+
+def host_refusal(store: Any, arguments: dict[str, object], tool: str, host: str) -> str | None:
+    """Why this call may not reach ``host``, or None when it may.
+
+    The organisation's list is the ceiling. An agent can narrow it for a tool and can
+    never widen it. Nothing is looked up or sent to decide this.
+    """
+    if not _host_ok(host, _tenant_hosts(store, arguments)):
+        return (
+            f"{host} is not on the list of hosts this organisation's tools may reach. "
+            "An administrator adds it on the Policies screen, under Web access."
+        )
+    limited = _agent_hosts(store, arguments, tool)
+    if limited and not _host_ok(host, limited):
+        return (
+            f"This agent limits the {tool} tool to {', '.join(limited)}, so it may not reach "
+            f"{host}. The agent's builder changes that list."
+        )
+    return None
 
 
 def _public_url(
@@ -545,13 +572,10 @@ def _public_url(
     host = parsed.hostname or ""
     if parsed.scheme not in {"https", "http"} or not host:
         return _error("validation_failed", "url must be an http or https URL")
-    if not _host_ok(host, _allow_hosts(store, arguments, tool)):
-        return _error(
-            "egress_denied",
-            f"{host} is not on the egress allow list. Add it in settings or the tool limits.",
-        )
-    allow_loopback = os.environ.get("AR_ENV", "dev") in {"dev", "ci", "test"}
-    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=allow_loopback):
+    refused = host_refusal(store, arguments, tool, host)
+    if refused is not None:
+        return _error("egress_denied", refused)
+    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback_allowed()):
         return _error("egress_denied", f"{host} is blocked by the egress deny list")
     return None
 
@@ -567,15 +591,25 @@ def _host_ok(host: str, allow: list[str]) -> bool:
     return False
 
 
+def _command_refusal(store: Any, arguments: dict[str, object], text: str) -> str | None:
+    """Why a command that names a URL may not run, or None when every host is allowed.
+
+    A host is allowed for a command when the code tool or the shell tool may reach it.
+    """
+    for host in dict.fromkeys(_URL.findall(text)):
+        for_code = host_refusal(store, arguments, "code", host)
+        if for_code is not None and host_refusal(store, arguments, "shell", host) is not None:
+            return for_code
+    return None
+
+
 def _command_hosts_ok(store: Any, arguments: dict[str, object], text: str) -> bool:
-    allow = _allow_hosts(store, arguments, "code") + _allow_hosts(store, arguments, "shell")
-    return all(_host_ok(host, allow) for host in _URL.findall(text))
+    return _command_refusal(store, arguments, text) is None
 
 
 def _egress_block(store: Any, arguments: dict[str, object], text: str) -> dict[str, object]:
-    hosts = ", ".join(sorted(set(_URL.findall(text)))) or "that host"
-    del store, arguments
-    return _error("egress_denied", f"{hosts} is not on the egress allow list")
+    refused = _command_refusal(store, arguments, text)
+    return _error("egress_denied", refused or "That host may not be reached.")
 
 
 def _resolve(host: str) -> list[str]:

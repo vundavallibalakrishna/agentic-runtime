@@ -326,13 +326,18 @@ def create_application() -> FastAPI:
     app.state.resolve_principal = _resolve_principal
     app.state.credential_loader = _session_loader(app)
     app.state.chat = ChatService(
-        allow_loopback=loopback_allowed(settings.env),
+        allow_loopback=loopback_allowed(settings),
         scanner="none" if settings.env in {EnvName.DEV, EnvName.CI} else "clamav",
         # Read when the store seeds itself, so it is passed here and not set afterwards.
         fake_models_allowed=fake_models_allowed(settings.env),
     )
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)
+    # Tool calls can run in this process. The engine that masks their results is built
+    # now, on its own thread, not in the first call.
+    from ar_domain.pii.analyzer import warm_up  # noqa: PLC0415
+
+    warm_up()
     app.state.chat.model_gateway_url = settings.model_gateway_url
     from ar_api.plugins import attach_packs  # noqa: PLC0415
 

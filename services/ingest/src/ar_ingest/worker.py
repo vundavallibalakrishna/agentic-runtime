@@ -45,7 +45,7 @@ async def _prepare_store() -> None:
 
     settings = get_settings()
     store = ChatService(
-        allow_loopback=loopback_allowed(settings.env),
+        allow_loopback=loopback_allowed(settings),
         fake_models_allowed=fake_models_allowed(settings.env),
     )
     store._ingest_worker = True  # type: ignore[attr-defined]

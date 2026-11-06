@@ -36,6 +36,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DEV_MODEL_BASE_URL",
         "AR_DELTA_COALESCE_MS",
         "AR_DEPLOYMENT_MODE",
+        "AR_EGRESS_ALLOW_LOOPBACK",
         "AR_EGRESS_DENY_CIDRS",
         "AR_EGRESS_PROXY_URL",
         "AR_EMBEDDING_TIMEOUT_S",
@@ -217,15 +218,6 @@ def fake_models_allowed(env: EnvName) -> bool:
     return env in {EnvName.DEV, EnvName.CI}
 
 
-def loopback_allowed(env: EnvName) -> bool:
-    """A tool or a provider may reach a loopback address only in dev and CI.
-
-    Every process that builds a store asks here, so the API and the workers that run the
-    tool calls apply one rule.
-    """
-    return env in {EnvName.DEV, EnvName.CI}
-
-
 class DeploymentMode(StrEnum):
     SAAS = "saas"
     SINGLE_TENANT = "single_tenant"
@@ -244,6 +236,9 @@ class BaseServiceSettings(BaseSettings):
 
     env: EnvName = EnvName.DEV
     deployment_mode: DeploymentMode = DeploymentMode.SINGLE_TENANT
+    # Whether a tool, a connector or a model provider may reach this machine's own
+    # addresses (127.0.0.0/8, localhost). An install decides; the default is no.
+    egress_allow_loopback: bool = False
     # Empty means the only tenant in the database (a single-tenant install has one).
     bootstrap_tenant_slug: str = ""
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
@@ -314,6 +309,16 @@ class BaseServiceSettings(BaseSettings):
 
 class _SettingsState:
     current: BaseServiceSettings | None = None
+
+
+def loopback_allowed(settings: BaseServiceSettings | None = None) -> bool:
+    """Whether a loopback address may be reached: ``AR_EGRESS_ALLOW_LOOPBACK``.
+
+    Every process and every check asks here, so the API, the workers that run tool calls
+    and the checks inside the tools apply one rule. It is a setting of the install, not a
+    consequence of the environment's name.
+    """
+    return (settings or get_settings()).egress_allow_loopback
 
 
 def get_settings() -> BaseServiceSettings:

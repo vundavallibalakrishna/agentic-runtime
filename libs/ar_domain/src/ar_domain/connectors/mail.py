@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import imaplib
-import os
 import smtplib
 from email.message import EmailMessage
 from typing import TYPE_CHECKING
 
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, host_denied
+from ar_common.settings import loopback_allowed
 from ar_domain.tools.general import _resolve
 
 if TYPE_CHECKING:
@@ -16,8 +16,7 @@ if TYPE_CHECKING:
 
 
 def host_blocked(host: str) -> str | None:
-    dev = os.environ.get("AR_ENV", "dev") in {"dev", "ci", "test"}
-    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=dev):
+    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback_allowed()):
         return f"{host} is blocked by the egress deny list"
     return None
 

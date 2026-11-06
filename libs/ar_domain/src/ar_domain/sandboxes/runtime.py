@@ -38,6 +38,7 @@ from ar_common.sandboxkit import (
     truncate_output,
     virtual_path,
 )
+from ar_common.settings import loopback_allowed
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.files.logic import object_key
@@ -625,8 +626,7 @@ def _host_ok(
     )
     if host not in hosts and "*" not in hosts:
         return False
-    allow_loopback = os.environ.get("AR_ENV", "dev") in {"dev", "ci", "test"}
-    return not host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=allow_loopback)
+    return not host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback_allowed())
 
 
 def _deny(store: Any, sandbox: dict[str, object], host: str) -> None:

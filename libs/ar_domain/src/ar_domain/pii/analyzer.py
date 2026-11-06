@@ -11,6 +11,7 @@ only when the tenant lists it and the match is at least as sure as the tenant as
 import importlib.util
 import os
 import re
+import threading
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
@@ -123,6 +124,7 @@ class _Engine(Protocol):
 
 
 _engine_cache: list[object] = []
+_engine_lock = threading.Lock()
 
 # A sandbox path is not a licence. Presidio's US driver-licence pattern matches
 # hex groups inside a UUID (``01a1ab39-[US_DRIVER_LICENSE]-…``), and the model
@@ -252,6 +254,23 @@ def _cached_engine() -> object:
     """
     if _engine_cache:
         return _engine_cache[0]
+    with _engine_lock:
+        if not _engine_cache:
+            _engine_cache.append(_build_engine())
+    return _engine_cache[0]
+
+
+def warm_up() -> None:
+    """Build the engine now, on a thread of its own.
+
+    It takes a few seconds, mostly loading the language model. A process that runs tool
+    calls does this when it starts, so the first tool result is not the one that waits.
+    """
+    if not _engine_cache:
+        threading.Thread(target=_cached_engine, name="pii-engine", daemon=True).start()
+
+
+def _build_engine() -> object:
     from presidio_analyzer import AnalyzerEngine  # noqa: PLC0415
     from presidio_analyzer.context_aware_enhancers import (  # noqa: PLC0415
         LemmaContextAwareEnhancer,
@@ -270,13 +289,11 @@ def _cached_engine() -> object:
     named = LemmaContextAwareEnhancer(
         context_similarity_factor=0.45, min_score_with_context_similarity=_NAMED_SCORE
     )
-    engine = AnalyzerEngine(
+    return AnalyzerEngine(
         nlp_engine=provider.create_engine(),
         supported_languages=["en"],
         context_aware_enhancer=named,
     )
-    _engine_cache.append(engine)
-    return engine
 
 
 def _language_model() -> str:

@@ -21,6 +21,7 @@ import httpx
 
 from ar_common.offload import blocking
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, accessibility_tree, host_denied
+from ar_common.settings import loopback_allowed
 
 if TYPE_CHECKING:
     from typing import Any
@@ -416,8 +417,6 @@ def _template_for(store: Any, request: dict[str, object]) -> dict[str, object]:
 
 
 def _denied(store: Any, host: str) -> bool:
-    allow_loopback = os.environ.get("AR_ENV", "dev") in {"dev", "ci", "test"}
-
     def resolve(name: str) -> list[str]:
         custom = getattr(store, "browser_resolve", None)
         if custom is not None:
@@ -425,7 +424,7 @@ def _denied(store: Any, host: str) -> bool:
             return [str(item) for item in found]
         return _resolve(name)
 
-    return host_denied(host, DEFAULT_DENY_CIDRS, resolve, allow_loopback=allow_loopback)
+    return host_denied(host, DEFAULT_DENY_CIDRS, resolve, allow_loopback=loopback_allowed())
 
 
 def _resolve(host: str) -> list[str]:

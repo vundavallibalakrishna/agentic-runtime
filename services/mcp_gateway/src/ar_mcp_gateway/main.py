@@ -22,7 +22,7 @@ def create_application() -> FastAPI:
     app = create_app("mcp-gateway", settings)
     app.include_router(tools_router)
     app.state.chat = ChatService(
-        allow_loopback=loopback_allowed(settings.env),
+        allow_loopback=loopback_allowed(settings),
         fake_models_allowed=fake_models_allowed(settings.env),
     )
     return app

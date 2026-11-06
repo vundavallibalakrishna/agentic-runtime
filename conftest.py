@@ -1,5 +1,12 @@
 """Root pytest plugins."""
 
+import os
+
+# Tests run model servers, tool servers and web pages on this machine's own addresses.
+# Reaching them is a setting of the install (``AR_EGRESS_ALLOW_LOOPBACK``), off by default,
+# so the test run turns it on here, before any settings are read.
+os.environ.setdefault("AR_EGRESS_ALLOW_LOOPBACK", "true")
+
 pytest_plugins = [
     "ar_testing.containers",
     "ar_testing.temporal",
