@@ -31,7 +31,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_BILLING_CURRENCY` | `INR` | Currency of platform model prices and the default `tenants.billing_currency` | [spec 17](../03-specs/17-audit-usage-metering.md) |
 | `AR_BOOTSTRAP_ADMIN_EMAIL` | (required in single_tenant) | First tenant_admin; receives the invitation | [deployment-modes](../00-overview/deployment-modes.md) |
 | `AR_BOOTSTRAP_TENANT_NAME` | `Default` | Single-tenant mode: display name of the bootstrap tenant | [deployment-modes](../00-overview/deployment-modes.md) |
-| `AR_BOOTSTRAP_TENANT_SLUG` | `default` | Single-tenant mode: slug of the tenant created by the bootstrap Job | [deployment-modes](../00-overview/deployment-modes.md) |
+| `AR_BOOTSTRAP_TENANT_SLUG` | (empty) | The tenant this install serves. The bootstrap Job creates a tenant with this slug (`default` when empty). Every process attaches to the tenant with this slug, read from the `tenants` table; when empty it attaches to the only tenant there is, and waits when there is none or more than one | [deployment-modes](../00-overview/deployment-modes.md), [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_CHANNELS_EMAIL_POLL_S` | `60` | IMAP poll interval for email channels | [spec 16](../03-specs/16-channels.md) |
 | `AR_CHANNELS_PORT` | `8004` | Listen port of `channels` | [spec 16](../03-specs/16-channels.md) |
 | `AR_CHANNELS_SLACK_UPDATE_INTERVAL_MS` | `1500` | Minimum interval between streamed Slack message edits | [spec 16](../03-specs/16-channels.md) |

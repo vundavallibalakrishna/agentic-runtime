@@ -174,7 +174,7 @@ def _usage_pending(store: object) -> list[tuple[tuple[str, str], Any]]:
     from ar_domain.usage.logic import usage_rows_to_flush  # noqa: PLC0415
 
     usage = getattr(store, "usage", None)
-    binding = getattr(store, "dev_binding", None)
+    binding = getattr(store, "tenant_binding", None)
     tenant_id = getattr(binding, "tenant_id", None)
     if not isinstance(usage, dict) or tenant_id is None:
         return []

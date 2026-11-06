@@ -57,42 +57,59 @@ provider, agent or example row. Running it twice changes nothing.
 
 ## M38b-T03 The tenant comes from the database
 
-**Depends on:** T02. **Areas:** `durable/bind.py`, `services/api/src/ar_api/auth/`,
-`services/api/src/ar_api/middleware/durable.py`, worker store builders. **Spec:**
-[identity and tenancy](../03-specs/02-identity-tenancy.md), [tenancy isolation](../02-architecture/tenancy-isolation.md).
-**Findings:** F1, F5.
+**Depends on:** T02. **Areas:** `durable/bind.py`, `durable/hydrate.py`, `chat/service.py`,
+`tools/seed_tools.py`, `services/api/src/ar_api/auth/`, `services/api/src/ar_api/middleware/durable.py`,
+worker store builders. **Spec:** [identity and tenancy](../03-specs/02-identity-tenancy.md).
+**Findings:** F1, F5, and F2 for a process with a database. Decision: OQ-99.
 
 **Do:**
 
-- A process attaches to the tenant named by the deployment (`AR_BOOTSTRAP_TENANT_SLUG` in single-tenant
-  mode), read from the `tenants` table. No slug, tenant id or user id is written in code.
-- Sign-in maps the organization in the token to a tenant row and the address to a user row. A person who is
-  not in that tenant is refused. The fixed user catalogue leaves the sign-in path.
-- The session returns the tenant's own slug, name and plan.
-- Multi-tenant mode still needs the repository layer (the November review's largest gap). This task records
-  what remains in open-questions and does not pretend to close it.
+- A process reads the tenant it serves from the `tenants` table: the one named by
+  `AR_BOOTSTRAP_TENANT_SLUG`, or the only tenant when that is empty. It waits while there is none. The
+  renaming of built-in ids onto database ids is deleted.
+- A process with a database holds no demo tenant. The store's start-up seeding is split into the tool
+  catalogue, which belongs to no tenant, and the demo tenant, which only a store without a database gets.
+  A deployed API whose database is down serves nobody and tries again; it no longer falls back to the demo
+  tenant.
+- People, their names, status and roles are loaded from the database on attach, before each run and at
+  sign-in. They were in memory only, and only for the four demo users, so policy and approvals saw no roles
+  for a real person.
+- Sign-in matches the token's organization against the tenant served and the address against that tenant's
+  users. The session returns the tenant's own slug, name and plan.
+- Serving several tenants from one process still needs the repository layer (the November review's largest
+  gap). OQ-99 records it.
 
-**Done when:** a tenant called `acme` with an admin at any address signs in, and the header reads "Acme".
+**Done when:** a tenant called `acme` with an admin at any address signs in, the header reads "Acme", and a
+chat turn runs.
 
-**Tests:** `test_m38b_tenant_binding.py`; `services/api/tests/unit/test_m38b_sign_in.py` (a second tenant's
-person is refused; the cross-tenant case returns 404).
+**Tests:** `test_m10_durable_paths.py` (tenant lookup, waiting, no demo tenant, a worker waits);
+`tests/integration/test_m10_durable.py` and `test_m26_durable.py` on a real database (binding fields, roles
+from rows, a connection started in one process and finished in the next);
+`services/api/tests/unit/test_login_identity.py` (an organization that is not the tenant served is refused);
+`test_routine_persistence.py`; `services/runtime/tests/unit/test_m38_worker_store.py`.
 
 ## M38b-T04 Nothing is built in memory
 
-**Depends on:** T03. **Areas:** `chat/service.py` (`seed_demo`, `seed_showcase`), `tools/seed_tools.py`,
-`agents/`, `libs/ar_testing`. **Findings:** F2, F6, F10. Overlaps M38a-T05 and M38a-T07, which this task
-absorbs for the tenant, the users, the agents and the provider.
+**Depends on:** T03. **Areas:** `chat/service.py` (`seed_platform`, `seed_demo_tenant`, `seed_showcase`),
+`tools/seed_tools.py`, `agents/`, `services/api/src/ar_api/auth/` (`dev_users.py`, `memory_identity.py`),
+`services/mcp_gateway`, `services/sandbox_manager`, `libs/ar_testing`. **Findings:** F2, F6, F10. Overlaps
+M38a-T05 and M38a-T07, which this task absorbs for the tenant, the users, the agents and the provider.
+
+T03 took the demo tenant out of every process that has a database. What is left:
 
 **Do:**
 
-- A store starts empty. The built-in tool catalogue is product data and is created for the tenant by the
-  seed and by provisioning, with the tenant's own ids.
-- A new tenant gets the `assistant` and `builder` agents from provisioning, owned by its admin. `helpdesk`,
-  `revenue-analyst`, the showcase conversations and the `fake-llm` provider are not created.
-- Tests that need a populated store build one with a helper in `ar_testing`.
+- The demo tenant, its people, fixtures and showcase move to a helper in `ar_testing`. `ChatService()`
+  starts with no tenant. A dev process without a database is an error, not a demo; the browser tests run
+  against real services (M38b-T11).
+- A new tenant's `assistant` and `builder` agents are created by the seed, owned by its admin. Today they
+  are created when someone first lists agents, and `helpdesk` is created with them. `helpdesk` and
+  `revenue-analyst` are not created.
+- The scripted provider, its models and the platform aliases are not built in memory (with M38a-T07).
+- `mcp-gateway` and `sandbox-manager` stop building a store with a demo tenant.
 
 **Done when:** after the seed and the first sign-in, the tenant holds two agents, no provider and no
-conversation, and no request fails for want of a built-in user.
+conversation, and no product code names a demo tenant or person.
 
 **Tests:** `test_m38b_empty_store.py`; the browser specs move to the `ar_testing` helper in this pull request.
 
@@ -177,13 +194,16 @@ still masked.
 ## M38b-T10 A refused or failed tool call is quick and visible
 
 **Depends on:** M38-T09 for the event loop. **Areas:** `tools/general.py`, `apps/web/src/components/chat/`,
-tenant settings. **Finding:** F11.
+tenant settings, worker store builders. **Findings:** F11, F23.
 
 **Do:**
 
 - A host that is not allowed is refused before any network call, with a message that says where to allow it.
 - The tenant has an allowed-hosts setting in the product; an agent may narrow it.
 - A run that fails shows its error in the chat, with a retry.
+- The three workers build their store with `allow_loopback=True` in every environment, so a tool call in
+  production may reach loopback addresses that the API refuses (F23, read in code while doing T03). They
+  follow the environment, as the API does.
 
 **Done when:** a refused fetch answers in under a second, the model tells the user what to change, and a
 failed run is never an empty bubble.

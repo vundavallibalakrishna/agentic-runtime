@@ -233,6 +233,8 @@ class BaseServiceSettings(BaseSettings):
 
     env: EnvName = EnvName.DEV
     deployment_mode: DeploymentMode = DeploymentMode.SINGLE_TENANT
+    # Empty means the only tenant in the database (a single-tenant install has one).
+    bootstrap_tenant_slug: str = ""
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     log_hash_user_ids: bool = False
     cursor_secret: SecretStr = SecretStr("dev-cursor-secret")

@@ -21,6 +21,7 @@ from ar_common.time import utcnow
 
 if TYPE_CHECKING:
     from ar_domain.db.context import Principal
+    from ar_domain.identity.service import IdentityStore
 
 router = APIRouter()
 
@@ -173,6 +174,39 @@ async def logout(request: Request) -> JSONResponse:
     return response
 
 
+async def _tenant_summary(request: Request, principal: Principal) -> dict[str, str | None]:
+    """Slug, name and plan of the caller's tenant, as its row says."""
+    if principal.tenant_id is None:
+        return {"slug": None, "name": None, "plan": None}
+    from ar_api.auth.memory_identity import memory_identity  # noqa: PLC0415
+    from ar_domain.db.context import TenantContext  # noqa: PLC0415
+    from ar_domain.db.session import tenant_session  # noqa: PLC0415
+    from ar_domain.identity.repository import IdentityRepository  # noqa: PLC0415
+
+    ctx = TenantContext.from_principal(principal, str(request.state.request_id))
+    override = getattr(request.app.state, "identity_override", None)
+    chat = request.app.state.chat
+    engine = getattr(chat, "durable_engine", None)
+    if override is not None:
+        return await _summary(override.store)
+    if engine is None:
+        return await _summary(memory_identity(chat, ctx).store)
+    async with tenant_session(ctx, engine=engine) as session:
+        return await _summary(IdentityRepository(session, ctx))
+
+
+async def _summary(identity: IdentityStore) -> dict[str, str | None]:
+    tenant = await identity.get_tenant()
+    if tenant is None:
+        return {"slug": None, "name": None, "plan": None}
+    plan = await identity.get_plan(tenant.plan_id)
+    return {
+        "slug": str(tenant.slug),
+        "name": tenant.name,
+        "plan": None if plan is None else plan.key,
+    }
+
+
 @router.get("/api/v1/auth/session")
 @expose(public=False, permission=None)
 async def session(request: Request) -> dict[str, object]:
@@ -198,9 +232,7 @@ async def session(request: Request) -> dict[str, object]:
         },
         "tenant": {
             "id": None if principal.tenant_id is None else str(principal.tenant_id),
-            "slug": "dev",
-            "name": "Dev",
-            "plan": "enterprise",
+            **(await _tenant_summary(request, principal)),
             "deployment_mode": request.app.state.settings.deployment_mode.value,
         },
         "permissions": sorted(principal.permissions),

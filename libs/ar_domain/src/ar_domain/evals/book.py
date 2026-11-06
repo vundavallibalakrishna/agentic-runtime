@@ -44,6 +44,10 @@ class EvalBook:
         kind: str | None = None,
     ) -> list[dict[str, object]]:
         self._need(actor, "evals:manage")
+        installed = getattr(self.store, "eval_platform_tenants", None)
+        if isinstance(installed, set) and actor.tenant_id not in installed:
+            installed.add(actor.tenant_id)
+            self.ensure_platform(actor)
         rows = [
             self._suite_view(row)
             for row in self.store.eval_suites.values()

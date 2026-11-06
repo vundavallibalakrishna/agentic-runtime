@@ -61,11 +61,16 @@ async def _ensure(scope: Scope) -> None:
 
 
 async def _bind_once(scope: Scope) -> bool:
-    """Return True when this attempt is final. A missing schema retries later."""
+    """Return True when this attempt is final. A database that is not ready retries later."""
     chat = scope["app"].state.chat
     settings = scope["app"].state.settings
     chat.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
-    from ar_domain.durable.bind import SchemaNotReadyError, bind_store, should_bind  # noqa: PLC0415
+    from ar_domain.durable.bind import (  # noqa: PLC0415
+        SchemaNotReadyError,
+        TenantNotReadyError,
+        bind_store,
+        should_bind,
+    )
 
     if not should_bind():
         return True
@@ -76,27 +81,19 @@ async def _bind_once(scope: Scope) -> bool:
         # request tries again once `tenants` exists.
         _log.info("durable_schema_not_ready")
         return False
+    except TenantNotReadyError:
+        # Migrated, but no tenant has been seeded. Nobody can sign in until one is.
+        return False
     if binding is None:
-        # Postgres is optional for unit tests, Playwright and a laptop without Docker.
-        # The memory cache stays (OQ-31). A live database still binds above.
+        if getattr(settings, "env", None) not in {EnvName.DEV, EnvName.CI}:
+            # A deployed API without its database serves nobody. It tries again.
+            _log.warning("durable_database_unavailable")
+            return False
+        # A laptop without Docker and the browser tests run on the demo tenant (OQ-31).
         _log.info("durable_memory", reason="database_unavailable")
-        if getattr(settings, "env", None) in {EnvName.DEV, EnvName.CI} and hasattr(
-            chat, "seed_showcase"
-        ):
-            chat.seed_showcase()
+        chat.seed_demo_tenant()
+        chat.seed_showcase()
         return True
-    scope["app"].state.demo_tenant_id = binding.tenant_id
-    admin = binding.users.get("admin@dev.local")
-    if admin is not None:
-        scope["app"].state.demo_user_id = admin
-        if hasattr(chat, "eval_suites"):
-            from ar_domain.agents.access import Actor  # noqa: PLC0415
-            from ar_domain.evals.book import EvalBook  # noqa: PLC0415
-            from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
-
-            EvalBook(chat).ensure_platform(
-                Actor(tenant_id=binding.tenant_id, user_id=admin, permissions=PERMISSION_KEYS)
-            )
     await _attach_temporal(chat, settings)
     from ar_api.plugins import attach_packs  # noqa: PLC0415
 

@@ -158,7 +158,7 @@ def widget_user(store: Any, tenant_id: uuid.UUID, email: str) -> uuid.UUID | Non
     """Memory-mode dev identities are confined to their seeded tenant."""
     from ar_domain.chat.service import demo_id  # noqa: PLC0415
 
-    binding = getattr(store, "dev_binding", None)
+    binding = getattr(store, "tenant_binding", None)
     if binding is not None and binding.tenant_id == tenant_id:
         found = binding.users.get(email.lower())
         return found if isinstance(found, uuid.UUID) else None

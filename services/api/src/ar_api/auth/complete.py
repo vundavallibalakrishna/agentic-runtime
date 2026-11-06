@@ -48,9 +48,13 @@ def choose_organization(
     aliases: list[str],
     *,
     hint: str | None,
-    email: str,
 ) -> str | None:
-    """Pick one organization. ``None`` means the browser must choose."""
+    """Pick the organization named by the token.
+
+    ``None`` means the browser must choose between several. An empty string means the
+    token names none, which a single-tenant install accepts: the tenant is then the one
+    the process serves, and the person must still be one of its users.
+    """
     if hint:
         if aliases and hint not in aliases:
             raise LoginError("tenant_not_found")
@@ -59,15 +63,17 @@ def choose_organization(
         return None
     if len(aliases) == 1:
         return aliases[0]
-    domain = email.split("@", 1)[1] if "@" in email else ""
-    if domain == "dev.local":
-        return "dev"
-    raise LoginError("tenant_not_found")
+    return ""
 
 
 def profile_for(email: str, organization: str) -> DevUser:
-    """Map a known seeded user. Other people in ``dev`` become members."""
-    if organization != "dev":
+    """A person in the demo tenant of a store that has no database behind it.
+
+    Only the memory-mode sign-in calls this. A process attached to a database resolves
+    the tenant and the person from its rows (``auth/identity.py``).
+    """
+    domain = email.split("@", 1)[1] if "@" in email else ""
+    if organization != "dev" and not (organization == "" and domain == "dev.local"):
         raise LoginError("tenant_not_found")
     known = catalogue().get(email.lower())
     if known is not None:
@@ -150,7 +156,7 @@ async def complete_oidc_login(
     *,
     client: httpx.AsyncClient | None = None,
 ) -> dict[str, object]:
-    """Exchange the code, check the ID token, and resolve the dev tenant."""
+    """Exchange the code and check the ID token. Return who signed in, not which tenant."""
     issuer = settings.oidc_issuer.rstrip("/")
     redirect_uri = settings.public_url.rstrip("/") + "/api/v1/auth/callback"
     form = {
@@ -204,16 +210,13 @@ async def complete_oidc_login(
         raise LoginError("tenant_not_found")
     hint = saved.get("tenant")
     tenant_hint = hint if isinstance(hint, str) and hint else None
-    organization = choose_organization(organization_aliases(claims), hint=tenant_hint, email=email)
+    organization = choose_organization(organization_aliases(claims), hint=tenant_hint)
     if organization is None:
         return {"select_tenant": "1"}
-    try:
-        user = profile_for(email, organization)
-    except LoginError:
-        logger.warning("oidc_organization_rejected", organization=organization)
-        raise
-    return login_result(
-        user,
-        access_token=str(body.get("access_token", "")),
-        refresh_token=str(body.get("refresh_token", "")),
-    )
+    return {
+        "email": email,
+        "organization": organization,
+        "display_name": str(claims.get("name") or ""),
+        "access_token": str(body.get("access_token", "")),
+        "refresh_token": str(body.get("refresh_token", "")),
+    }

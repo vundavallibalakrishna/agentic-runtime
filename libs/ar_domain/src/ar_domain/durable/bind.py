@@ -3,7 +3,6 @@
 import asyncio
 import os
 import sys
-import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -11,14 +10,15 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from ar_common.logging import get_logger
+from ar_common.settings import get_settings
 from ar_domain.db.engine import platform_database_url
 from ar_domain.db.registry import import_models
-from ar_domain.demo_ids import demo_id
 from ar_domain.durable.flush import flush_store, schedule_flush
 from ar_domain.durable.hydrate import hydrate_tenant
 from ar_domain.durable.tracking import BUCKETS, TrackedDict, install_tracking
 
 if TYPE_CHECKING:
+    import uuid
     from typing import Any
 
 _log = get_logger(__name__)
@@ -28,19 +28,18 @@ class SchemaNotReadyError(Exception):
     """Postgres answered, but the tenant tables are not migrated yet."""
 
 
-_EMAIL_KEYS = {
-    "admin@dev.local": "admin",
-    "builder@dev.local": "builder",
-    "member@dev.local": "member",
-    "approver@dev.local": "approver",
-}
+class TenantNotReadyError(Exception):
+    """The schema is there, but the tenant this process serves is not in it yet."""
 
 
 @dataclass(frozen=True, slots=True)
-class DevBinding:
-    """Database ids for the dev tenant. Sessions use these when the API is durable."""
+class TenantBinding:
+    """The tenant a process serves, read from the database when it attaches."""
 
     tenant_id: uuid.UUID
+    slug: str
+    name: str
+    plan: str
     users: dict[str, uuid.UUID]
 
 
@@ -54,22 +53,26 @@ def should_bind() -> bool:
     return "pytest" not in sys.modules
 
 
-async def bind_store(store: object, database_url: str) -> DevBinding | None:
-    """Hydrate and flush when Postgres answers. Return None when it does not."""
+async def bind_store(
+    store: object, database_url: str, *, tenant_slug: str | None = None
+) -> TenantBinding | None:
+    """Attach the store to its tenant's rows. Return None when Postgres does not answer.
+
+    The tenant is read from the ``tenants`` table: the one named by ``tenant_slug`` (by
+    default ``AR_BOOTSTRAP_TENANT_SLUG``), or the only tenant when no slug is set. Nothing
+    about the tenant or its people is taken from code.
+    """
     # Every process that writes through this store needs the whole schema registered.
     import_models()
     engine = await _connect(platform_database_url(database_url))
     if engine is None:
         return None
-    found = await _lookup(engine)
-    if found is None:
+    slug = get_settings().bootstrap_tenant_slug if tenant_slug is None else tenant_slug
+    try:
+        binding = await _lookup(engine, slug.strip())
+    except BaseException:
         await engine.dispose()
-        _log.info("durable_waiting_for_seed")
-        return None
-    tenant_id, users = found
-    _remap(store, _id_map(tenant_id, users))
-    await _remap_agents(store, engine, tenant_id)
-    await _remap_catalogues(store, engine, tenant_id)
+        raise
     install_tracking(store)
     store.durable_engine = engine  # type: ignore[attr-defined]
     store.durable = True  # type: ignore[attr-defined]
@@ -78,21 +81,53 @@ async def bind_store(store: object, database_url: str) -> DevBinding | None:
     loaded: dict[str, set[object]] = {}
     store._initial_loaded = loaded  # type: ignore[attr-defined]
     try:
-        await hydrate_tenant(store, engine, tenant_id)
+        await hydrate_tenant(store, engine, binding.tenant_id)
     finally:
         store._initial_loaded = None  # type: ignore[attr-defined]
     from ar_domain.orchestration.reconcile import reconcile_interrupted  # noqa: PLC0415
 
     reconcile_interrupted(store)
+    # Platform rows built in this process (the built-in tool catalogue) that the database
+    # does not hold yet are written once.
     for name, keys in seeded.items():
         bucket = getattr(store, name, None)
         if isinstance(bucket, TrackedDict):
             bucket.dirty.update(keys - loaded.get(name, set()))
     await flush_store(store)
-    binding = DevBinding(tenant_id=tenant_id, users=users)
-    store.dev_binding = binding  # type: ignore[attr-defined]
-    _log.info("durable_bound", tenant_id=str(tenant_id))
+    store.tenant_binding = binding  # type: ignore[attr-defined]
+    _log.info("durable_bound", tenant_id=str(binding.tenant_id), tenant=binding.slug)
     return binding
+
+
+async def attach_store(
+    store: object,
+    database_url: str,
+    *,
+    demo_without_database: bool,
+    retry_s: float = 2.0,
+) -> TenantBinding | None:
+    """Attach a worker's store, waiting until the database names its tenant.
+
+    A worker can do nothing without its tenant, so it waits for the schema and for the
+    seed. Only a dev or CI process with no database at all falls back to the demo tenant.
+    """
+    while True:
+        waiting_for = "database"
+        try:
+            binding = await bind_store(store, database_url)
+        except SchemaNotReadyError:
+            binding, waiting_for = None, "schema"
+        except TenantNotReadyError:
+            binding, waiting_for = None, "tenant"
+        if binding is not None:
+            return binding
+        if waiting_for == "database" and demo_without_database:
+            seed = getattr(store, "seed_demo_tenant", None)
+            if callable(seed):
+                seed()
+            return None
+        _log.info("durable_waiting", waiting_for=waiting_for)
+        await asyncio.sleep(retry_s)
 
 
 async def _connect(url: str) -> AsyncEngine | None:
@@ -113,24 +148,45 @@ async def _connect(url: str) -> AsyncEngine | None:
     return engine
 
 
-async def _lookup(engine: AsyncEngine) -> tuple[uuid.UUID, dict[str, uuid.UUID]] | None:
+async def _lookup(engine: AsyncEngine, slug: str) -> TenantBinding:
+    """Find the tenant to serve, or raise when the database does not name one yet."""
     try:
-        async with AsyncSession(engine, expire_on_commit=False) as session:
-            tenant = await session.scalar(text("SELECT id FROM tenants WHERE slug = 'dev'"))
-            if not isinstance(tenant, uuid.UUID):
-                return None
-            result = await session.execute(
-                text("SELECT id, email FROM users WHERE tenant_id = :tenant_id"),
-                {"tenant_id": tenant},
-            )
-            users = {str(email).lower(): user_id for user_id, email in result}
+        found, users = await _tenant_rows(engine, slug)
     except Exception as exc:
         if _missing_relation(exc):
-            raise SchemaNotReadyError() from exc
+            raise SchemaNotReadyError from exc
         raise
-    if not users:
-        return None
-    return tenant, users
+    if len(found) != 1:
+        _log.info("durable_tenant_not_ready", tenants=len(found), slug=slug or None)
+        raise TenantNotReadyError
+    tenant_id, tenant_slug, name, plan = found[0]
+    return TenantBinding(
+        tenant_id=tenant_id, slug=str(tenant_slug), name=str(name), plan=str(plan), users=users
+    )
+
+
+async def _tenant_rows(
+    engine: AsyncEngine, slug: str
+) -> tuple[list[tuple[uuid.UUID, str, str, str]], dict[str, uuid.UUID]]:
+    """Up to two matching tenants, and the people of the first."""
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        result = await session.execute(
+            text(
+                "SELECT t.id, t.slug, t.name, p.key FROM tenants t "
+                "JOIN plans p ON p.id = t.plan_id "
+                "WHERE t.deleted_at IS NULL AND (:slug = '' OR t.slug = :slug) "
+                "ORDER BY t.created_at LIMIT 2"
+            ),
+            {"slug": slug},
+        )
+        found = [(row[0], str(row[1]), str(row[2]), str(row[3])) for row in result]
+        if len(found) != 1:
+            return found, {}
+        people = await session.execute(
+            text("SELECT id, email FROM users WHERE tenant_id = :tenant_id"),
+            {"tenant_id": found[0][0]},
+        )
+        return found, {str(email).lower(): user_id for user_id, email in people}
 
 
 def _missing_relation(exc: BaseException) -> bool:
@@ -147,115 +203,13 @@ def _missing_relation(exc: BaseException) -> bool:
     return False
 
 
-def _id_map(tenant_id: uuid.UUID, users: dict[str, uuid.UUID]) -> dict[uuid.UUID, uuid.UUID]:
-    mapping = {demo_id("tenant"): tenant_id}
-    for email, key in _EMAIL_KEYS.items():
-        user_id = users.get(email)
-        if user_id is not None:
-            mapping[demo_id(key)] = user_id
-    return {left: right for left, right in mapping.items() if left != right}
-
-
-def _remap(store: object, mapping: dict[uuid.UUID, uuid.UUID]) -> None:
-    if not mapping:
-        return
-    for name in BUCKETS:
-        current = getattr(store, name, None)
-        if isinstance(current, dict):
-            setattr(store, name, _remap_dict(current, mapping))
-
-
-def _remap_dict(
-    current: dict[object, object], mapping: dict[uuid.UUID, uuid.UUID]
-) -> dict[object, object]:
-    rebuilt: dict[object, object] = {}
-    for key, value in current.items():
-        new_key = mapping.get(key, key) if isinstance(key, uuid.UUID) else key
-        rebuilt[new_key] = _remap_value(value, mapping)
-    return rebuilt
-
-
-def _remap_value(value: object, mapping: dict[uuid.UUID, uuid.UUID]) -> object:
-    if isinstance(value, uuid.UUID):
-        return mapping.get(value, value)
-    if isinstance(value, dict):
-        return {str(key): _remap_value(item, mapping) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_remap_value(item, mapping) for item in value]
-    return value
-
-
-async def _remap_agents(store: object, engine: AsyncEngine, tenant_id: uuid.UUID) -> None:
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        result = await session.execute(
-            text("SELECT id, slug, published_version_id FROM agents WHERE tenant_id = :tenant_id"),
-            {"tenant_id": tenant_id},
-        )
-        by_slug = {str(slug): (agent_id, version_id) for agent_id, slug, version_id in result}
-    agents = getattr(store, "agents", None)
-    if not isinstance(agents, dict):
-        return
-    mapping: dict[uuid.UUID, uuid.UUID] = {}
-    for agent in agents.values():
-        if not isinstance(agent, dict):
-            continue
-        found = by_slug.get(str(agent.get("slug")))
-        if found is None:
-            continue
-        agent_id = agent.get("id")
-        if isinstance(agent_id, uuid.UUID) and agent_id != found[0]:
-            mapping[agent_id] = found[0]
-        published = agent.get("published_version_id")
-        if isinstance(published, uuid.UUID) and found[1] is not None and published != found[1]:
-            mapping[published] = found[1]
-    _remap(store, mapping)
-
-
-async def _remap_catalogues(store: object, engine: AsyncEngine, tenant_id: uuid.UUID) -> None:
-    """Match demo catalogue rows by their database uniqueness keys before inserting."""
-    catalogues = (
-        ("skills", "skills", ("slug",)),
-        ("skill_versions", "skill_versions", ("skill_id", "version")),
-        ("knowledge_collections", "knowledge_collections", ("slug",)),
-        ("knowledge_sources", "knowledge_sources", ("collection_id", "name")),
-        ("knowledge_documents", "documents", ("source_id", "external_id")),
-        ("document_chunks", "document_chunks", ("document_id", "ordinal", "index_version")),
-        ("channel_integrations", "channel_integrations", ("kind", "name")),
-        ("channel_identities", "channel_identities", ("integration_id", "external_user_id")),
-        (
-            "channel_threads",
-            "channel_threads",
-            ("integration_id", "external_channel_id", "external_thread_id"),
-        ),
-    )
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        for bucket_name, table, keys in catalogues:
-            result = await session.execute(
-                text(f"SELECT * FROM {table} WHERE tenant_id = :tenant_id"),  # noqa: S608 - fixed table catalogue
-                {"tenant_id": tenant_id},
-            )
-            existing = {
-                tuple(row.get(key) for key in keys): row["id"]
-                for row in result.mappings()
-                if all(row.get(key) is not None for key in keys)
-            }
-            bucket = getattr(store, bucket_name, {})
-            mapping = {}
-            for row in bucket.values():
-                identity = tuple(row.get(key) for key in keys)
-                found = existing.get(identity)
-                if found is not None and row.get("id") != found:
-                    mapping[row["id"]] = found
-            _remap(store, mapping)
-
-
-def user_for_email(binding: DevBinding | None, email: str) -> uuid.UUID | None:
-    """Database user id for a dev email, when the API is bound."""
+def user_for_email(binding: TenantBinding | None, email: str) -> uuid.UUID | None:
+    """Database user id for an address, when the process is attached to a tenant."""
     if binding is None:
         return None
     return binding.users.get(email.lower())
 
 
-def binding_from(store: Any) -> DevBinding | None:
-    found = getattr(store, "dev_binding", None)
-    return found if isinstance(found, DevBinding) else None
+def binding_from(store: Any) -> TenantBinding | None:
+    found = getattr(store, "tenant_binding", None)
+    return found if isinstance(found, TenantBinding) else None

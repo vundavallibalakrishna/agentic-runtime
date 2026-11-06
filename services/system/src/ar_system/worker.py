@@ -22,14 +22,15 @@ def _address() -> str:
 
 async def _prepare_store() -> None:
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
-    from ar_domain.durable.bind import bind_store  # noqa: PLC0415
+    from ar_domain.durable.bind import attach_store  # noqa: PLC0415
     from ar_system.routines_store import bind_store as bind_routines  # noqa: PLC0415
     from ar_system.workflows.memory_extraction import bind_store as bind_memory  # noqa: PLC0415
     from ar_system.workflows.sandbox_reaper import bind_store as bind_sandboxes  # noqa: PLC0415
 
     settings = get_settings()
-    store = ChatService(allow_loopback=True, fake_models_allowed=fake_models_allowed(settings.env))
-    await bind_store(store, settings.database_url)
+    demo = fake_models_allowed(settings.env)
+    store = ChatService(allow_loopback=True, fake_models_allowed=demo, tenant_seed=False)
+    await attach_store(store, settings.database_url, demo_without_database=demo)
     bind_routines(store)
     bind_memory(store)
     bind_sandboxes(store)

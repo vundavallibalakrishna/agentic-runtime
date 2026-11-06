@@ -16,6 +16,9 @@ Hosted in `api` (routers `ar_api.routers.identity`, `ar_api.routers.scim`, `ar_a
 - Each tenant = one Keycloak **Organization** (`tenants.keycloak_org_id`). Org domains = verified `tenant_domains`. Brokered IdPs (`identity_providers.keycloak_alias`) are linked to the org with domain-based routing so users are sent to their company IdP after entering their email.
 - Token claims mapped by client scopes: `organization` (org id/alias), `groups` (IdP group names, when the tenant does not use SCIM), `email`, `name`, `acr`.
 - Single-tenant mode: the same realm layout with exactly one organization created by `TenantProvisioningWorkflow` at install (`AR_BOOTSTRAP_TENANT_SLUG`); org selection is skipped.
+- Which tenant a process serves: each process reads its tenant from the `tenants` table when it attaches to the database, by `AR_BOOTSTRAP_TENANT_SLUG`, or the only tenant when that is empty. It waits, and nobody can sign in, while the table names none or leaves the choice open. No tenant, user or agent id is written in code. A process with a database holds no demo tenant; only a dev or CI process with no database at all runs on one ([OQ-99](../open-questions.md)).
+- Sign-in: the token's `organization` must be the slug of the tenant the process serves; a token that names no organization is accepted and the tenant is the one served. The address must belong to an active user of that tenant, and the person's roles and permissions are read from its rows. Anyone else is refused with `tenant_not_found`.
+- People in the process store: names, addresses, status and tenant-scope roles (direct and through groups) are loaded from the database when a process attaches, before each run, and when a person signs in. Policy, approvals and reviews read roles from there.
 - Keycloak admin calls go through `ar_domain.identity.keycloak.KeycloakAdmin` (httpx, client-credentials token cached until expiry - 30 s).
 
 ## 3. Public API
