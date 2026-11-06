@@ -292,4 +292,5 @@ M38a-T02f | done | 4f572f4 | a tool-less agent's turn goes to the tenant's provi
 M38a-T02b | done | dbf8826 | an eval case runs the agent; tool mocks in the pipeline; runs are queued and scored in the background
 M38b-T00 | done | b367b5b | fresh tenant run on an empty database, the strict rules in AGENTS.md, the M38b plan, OQ-96 to OQ-98
 M38b-T01 | done | 645a631 | every process registers the whole schema; a retry saves a finished turn
-M38b-T02 | done | - | bootstrap creates only a tenant and its admin; scripts/seed_tenant.py also creates the sign-in account; sha recorded with M38b-T03
+M38b-T02 | done | 928a4c7 | bootstrap creates only a tenant and its admin; scripts/seed_tenant.py also creates the sign-in account
+M38b-T03 | done | - | a process reads its tenant and people from the database and holds no demo tenant; sign-in and the session use the tenant's rows; sha recorded with M38b-T04

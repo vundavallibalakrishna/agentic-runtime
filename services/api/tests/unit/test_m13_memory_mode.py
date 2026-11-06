@@ -24,8 +24,6 @@ def _scope(store: ChatService, path: str) -> dict[str, object]:
                 model_gateway_url="",
                 temporal_address="localhost:1",
             ),
-            demo_tenant_id=None,
-            demo_user_id=None,
         )
     )
     return {"type": "http", "path": path, "app": app, "method": "GET", "headers": [], "state": {}}
@@ -128,3 +126,33 @@ async def test_memory_identity_lists_users_and_enables_widget() -> None:
     assert same is not None
     assert await same.get_user_by_email("missing@dev.local") is None
     assert await same.get_plan(demo_id("other")) is None
+
+
+@pytest.mark.parametrize(
+    ("env", "answer", "final", "demo"),
+    [
+        (EnvName.CI, None, True, True),
+        (EnvName.PROD, None, False, False),
+        (EnvName.PROD, "tenant_not_ready", False, False),
+        (EnvName.DEV, "tenant_not_ready", False, False),
+    ],
+)
+async def test_only_a_dev_process_without_a_database_gets_the_demo_tenant(
+    env: EnvName, answer: str | None, final: bool, demo: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Task: M38b-T03. A deployed API without its tenant serves nobody and tries again."""
+    from ar_api.middleware.durable import _bind_once
+    from ar_domain.durable.bind import TenantNotReadyError
+
+    async def bind_store(*_args: object, **_kwargs: object) -> None:
+        if answer == "tenant_not_ready":
+            raise TenantNotReadyError
+
+    monkeypatch.setattr("ar_domain.durable.bind.should_bind", lambda: True)
+    monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind_store)
+    store = ChatService(tenant_seed=False)
+    scope = _scope(store, "/api/v1/agents")
+    scope["app"].state.settings.env = env  # type: ignore[attr-defined]
+    assert await _bind_once(scope) is final  # type: ignore[arg-type]
+    assert bool(store.agents) is demo
+    assert bool(store.conversations) is demo

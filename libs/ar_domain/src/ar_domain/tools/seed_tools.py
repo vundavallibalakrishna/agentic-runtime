@@ -66,8 +66,13 @@ PETSTORE: dict[str, object] = {
 }
 
 
-def seed(store: Any) -> None:
-    """Insert the built-ins, and the demo fixtures only where fake models are allowed."""
+def seed(store: Any, *, tenant: bool = True) -> None:
+    """Insert the built-in tool catalogue, and the demo tenant's rows when ``tenant`` is set.
+
+    The catalogue belongs to no tenant. The demo tenant's settings, sample review queue,
+    example agent and fixtures use fixed ids and exist only in a store that has no
+    database behind it.
+    """
     import ar_domain.knowledge.resolver  # noqa: PLC0415
     import ar_domain.sandboxes.resolver  # noqa: PLC0415
     import ar_domain.skills.resolver  # noqa: PLC0415
@@ -75,42 +80,53 @@ def seed(store: Any) -> None:
     from ar_domain.sandboxes.service import SandboxBook  # noqa: PLC0415
 
     SandboxBook(store).ensure_platform()
-    if getattr(store, "tools_seeded", False):
+    catalogue = not getattr(store, "tools_seeded", False)
+    demo = tenant and not getattr(store, "tenant_tools_seeded", False)
+    if not catalogue and not demo:
         ensure_m33b(store)
         ensure_m34b(store)
         return
-    tenant = demo_id("tenant")
+    tenant_id = demo_id("tenant")
     admin = demo_id("admin")
     # Fixtures back the offline demo, the unit suite and the e2e specs. A store built
     # for staging or production does not get them.
-    fixtures = bool(getattr(store, "fake_models_allowed", True))
-    _settings(store, tenant)
-    _builtin(store, "files", "Files", "builtin://files", _file_tools())
-    _builtin(store, "records", "Records", "builtin://records", _record_tools())
-    _builtin(store, "conversations", "Conversations", "builtin://conversations", _history_tools())
-    _builtin(store, "control", "Control", "builtin://control", _control_tools(fixtures=fixtures))
+    fixtures = demo and bool(getattr(store, "fake_models_allowed", True))
+    if demo:
+        _settings(store, tenant_id)
+    if catalogue:
+        _builtin(store, "files", "Files", "builtin://files", _file_tools())
+        _builtin(store, "records", "Records", "builtin://records", _record_tools())
+        _builtin(
+            store, "conversations", "Conversations", "builtin://conversations", _history_tools()
+        )
+        control = _control_tools(fixtures=bool(getattr(store, "fake_models_allowed", True)))
+        _builtin(store, "control", "Control", "builtin://control", control)
     if fixtures:
         # `web.fetch` answers one canned page. The real page reader is `general.fetch`.
         _builtin(store, "web", "Web", "builtin://web", _web_tools())
-        provider = _provider(store, tenant, admin)
-        _tickets(store, tenant, admin, provider)
-        _echo(store, tenant, admin)
-        _petstore(store, tenant, admin)
-        _warehouse(store, tenant, admin)
-        _desk(store, tenant, demo_id("builder"))
-    _reviews(store, tenant)
-    _sandbox_server(store)
-    _browser_server(store)
-    _general_server(store)
-    _data_server(store)
-    _documents_server(store)
-    _image_server(store)
-    _knowledge_server(store)
-    _memory_server(store)
-    _skills_server(store)
-    _connector_server(store)
-    _analyst(store, tenant, admin)
-    store.tools_seeded = True
+        provider = _provider(store, tenant_id, admin)
+        _tickets(store, tenant_id, admin, provider)
+        _echo(store, tenant_id, admin)
+        _petstore(store, tenant_id, admin)
+        _warehouse(store, tenant_id, admin)
+        _desk(store, tenant_id, demo_id("builder"))
+    if demo:
+        _reviews(store, tenant_id)
+    if catalogue:
+        _sandbox_server(store)
+        _browser_server(store)
+        _general_server(store)
+        _data_server(store)
+        _documents_server(store)
+        _image_server(store)
+        _knowledge_server(store)
+        _memory_server(store)
+        _skills_server(store)
+        _connector_server(store)
+        store.tools_seeded = True
+    if demo:
+        _analyst(store, tenant_id, admin)
+        store.tenant_tools_seeded = True
     ensure_m33b(store)
     ensure_m34b(store)
 

@@ -19,12 +19,11 @@ from ar_domain.durable import bind as bind_mod
 from ar_domain.durable import flush as flush_mod
 from ar_domain.durable import hydrate as hydrate_mod
 from ar_domain.durable.bind import (
-    DevBinding,
+    TenantBinding,
+    TenantNotReadyError,
     _connect,
-    _id_map,
     _lookup,
-    _remap,
-    _remap_agents,
+    attach_store,
     bind_store,
     binding_from,
     should_bind,
@@ -460,44 +459,37 @@ async def test_hydrate_and_reload_merge_rows(monkeypatch: pytest.MonkeyPatch) ->
     await reload_run(SimpleNamespace(), _RUN)
 
 
-def test_bind_remaps_dev_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_should_bind_and_the_binding_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_DURABLE_STATE", "memory")
     assert should_bind() is False
     monkeypatch.setenv("AR_DURABLE_STATE", "postgres")
     assert should_bind() is True
     monkeypatch.delenv("AR_DURABLE_STATE", raising=False)
     assert should_bind() is False
-    tenant = uuid.uuid4()
-    admin = uuid.uuid4()
-    same = demo_id("builder")
-    users = {
-        "admin@dev.local": admin,
-        "builder@dev.local": same,
-        "member@dev.local": uuid.uuid4(),
-        "approver@dev.local": uuid.uuid4(),
-    }
-    mapping = _id_map(tenant, users)
-    assert mapping[demo_id("tenant")] == tenant
-    assert demo_id("builder") not in mapping
-    service = ChatService()
-    service.agents[demo_id("assistant")] = {
-        "id": demo_id("assistant"),
-        "slug": "assistant",
-        "owner_user_id": demo_id("admin"),
-        "tags": [demo_id("admin")],
-    }
-    _remap(service, {})
-    _remap(service, {demo_id("admin"): admin, demo_id("assistant"): _AGENT})
-    assert service.agents[_AGENT]["owner_user_id"] == admin
-    binding = DevBinding(tenant_id=tenant, users=users)
-    assert user_for_email(None, "admin@dev.local") is None
-    assert user_for_email(binding, "Admin@dev.local") == admin
+    binding = TenantBinding(_TENANT, "acme", "Acme", "self_hosted", {"ada@acme.example": _USER})
+    assert user_for_email(None, "ada@acme.example") is None
+    assert user_for_email(binding, "Ada@Acme.Example") == _USER
     assert binding_from(SimpleNamespace()) is None
-    assert binding_from(SimpleNamespace(dev_binding=binding)) == binding
+    assert binding_from(SimpleNamespace(tenant_binding=binding)) == binding
+
+
+class _Lookup(_Session):
+    """Answers the tenant query, then the people query, from class lists."""
+
+    tenants: ClassVar[list[tuple[Any, ...]]] = []
+    users: ClassVar[list[tuple[Any, ...]]] = []
+    slugs: ClassVar[list[str]] = []
+
+    async def execute(self, statement: object, params: object = None) -> _Rows:
+        if isinstance(params, dict) and "slug" in params:
+            _Lookup.slugs.append(str(params["slug"]))
+            return _Rows(_Lookup.tenants)
+        del statement
+        return _Rows(_Lookup.users)
 
 
 @pytest.mark.asyncio
-async def test_bind_connects_and_waits_for_seed(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_tenant_is_read_from_the_database(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(bind_mod, "create_async_engine", lambda *_a, **_k: _Engine())
     engine = await _connect("postgresql+asyncpg://ar:ar@127.0.0.1:1/none")
     assert isinstance(engine, _Engine)
@@ -509,77 +501,99 @@ async def test_bind_connects_and_waits_for_seed(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(bind_mod, "create_async_engine", lambda *_a, **_k: _Down())
     assert await _connect("postgresql+asyncpg://ar:ar@127.0.0.1:1/none") is None
 
-    class _Lookup(_Session):
-        tenant: ClassVar[uuid.UUID | None] = _TENANT
-        users: ClassVar[list[tuple[Any, ...]]] = [(_USER, "admin@dev.local")]
-
-        async def scalar(self, *_args: object, **_kwargs: object) -> uuid.UUID | None:
-            return _Lookup.tenant
-
-        async def execute(self, statement: object, params: object = None) -> _Rows:
-            del statement, params
-            return _Rows(_Lookup.users)
-
     monkeypatch.setattr(bind_mod, "AsyncSession", _Lookup)
-    assert await _lookup(_Engine()) == (_TENANT, {"admin@dev.local": _USER})  # type: ignore[arg-type]
-    _Lookup.tenant = None
-    assert await _lookup(_Engine()) is None  # type: ignore[arg-type]
-    _Lookup.tenant = _TENANT
-    _Lookup.users = []
-    assert await _lookup(_Engine()) is None  # type: ignore[arg-type]
-
-    published = uuid.uuid4()
-    _Lookup.users = [(_AGENT, "assistant", published)]
-
-    service = ChatService()
-    service.agents[demo_id("assistant")] = {
-        "id": demo_id("assistant"),
-        "slug": "assistant",
-        "published_version_id": demo_id("version"),
-    }
-    service.versions[demo_id("version")] = {"id": demo_id("version")}
-    await _remap_agents(service, _Engine(), _TENANT)  # type: ignore[arg-type]
-    assert service.agents[_AGENT]["slug"] == "assistant"
+    _Lookup.tenants = [(_TENANT, "acme", "Acme", "self_hosted")]
+    _Lookup.users = [(_USER, "Ada@Acme.Example")]
+    found = await _lookup(_Engine(), "")  # type: ignore[arg-type]
+    assert found == TenantBinding(
+        _TENANT, "acme", "Acme", "self_hosted", {"ada@acme.example": _USER}
+    )
+    await _lookup(_Engine(), "acme")  # type: ignore[arg-type]
+    assert _Lookup.slugs[-2:] == ["", "acme"]
+    # No tenant yet, and two tenants with no slug to choose between, both wait.
+    for rows in ([], [(_TENANT, "acme", "Acme", "team"), (uuid.uuid4(), "beta", "Beta", "team")]):
+        _Lookup.tenants = rows
+        with pytest.raises(TenantNotReadyError):
+            await _lookup(_Engine(), "")  # type: ignore[arg-type]
 
     async def _noop(*_args: object, **_kwargs: object) -> None:
         return None
 
     monkeypatch.setattr(bind_mod, "flush_store", _noop)
     monkeypatch.setattr(bind_mod, "hydrate_tenant", _noop)
-    monkeypatch.setattr(bind_mod, "_remap_agents", _noop)
-    monkeypatch.setattr(bind_mod, "_remap_catalogues", _noop)
-    _Lookup.tenant = None
     monkeypatch.setattr(bind_mod, "create_async_engine", lambda *_a, **_k: _Engine())
-    missed = await bind_store(service, "postgresql+asyncpg://unused")
-    assert missed is None
-    assert getattr(service, "dev_binding", None) is None
+    service = ChatService(tenant_seed=False)
+    _Lookup.tenants = []
+    with pytest.raises(TenantNotReadyError):
+        await bind_store(service, "postgresql+asyncpg://unused", tenant_slug="")
+    assert service.tenant_binding is None
+    assert service.durable is False
 
 
 @pytest.mark.asyncio
-async def test_bind_store_hydrates_when_the_seed_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_bind_store_hydrates_the_tenant_it_finds(monkeypatch: pytest.MonkeyPatch) -> None:
     engine = _Engine()
+    found = TenantBinding(_TENANT, "acme", "Acme", "self_hosted", {"ada@acme.example": _USER})
+    hydrated: list[uuid.UUID] = []
 
     async def _ready(_url: str) -> _Engine:
         return engine
 
-    async def _found(_engine: object) -> tuple[uuid.UUID, dict[str, uuid.UUID]]:
-        return _TENANT, {"admin@dev.local": _USER}
+    async def _named(_engine: object, slug: str) -> TenantBinding:
+        assert slug == "acme"
+        return found
+
+    async def _hydrate(_store: object, _engine: object, tenant_id: uuid.UUID) -> None:
+        hydrated.append(tenant_id)
 
     async def _noop(*_args: object, **_kwargs: object) -> None:
         return None
 
     monkeypatch.setattr(bind_mod, "_connect", _ready)
-    monkeypatch.setattr(bind_mod, "_lookup", _found)
-    monkeypatch.setattr(bind_mod, "_remap_agents", _noop)
-    monkeypatch.setattr(bind_mod, "_remap_catalogues", _noop)
+    monkeypatch.setattr(bind_mod, "_lookup", _named)
     monkeypatch.setattr(bind_mod, "flush_store", _noop)
-    monkeypatch.setattr(bind_mod, "hydrate_tenant", _noop)
-    service = ChatService()
-    binding = await bind_store(service, "postgresql+asyncpg://unused")
-    assert binding is not None
-    assert binding.tenant_id == _TENANT
+    monkeypatch.setattr(bind_mod, "hydrate_tenant", _hydrate)
+    service = ChatService(tenant_seed=False)
+    binding = await bind_store(service, "postgresql+asyncpg://unused", tenant_slug=" acme ")
+    assert binding == found
+    assert hydrated == [_TENANT]
     assert service.durable is True
-    assert service.dev_binding == binding
+    assert service.tenant_binding == binding
+    # A store attached to a database holds no demo tenant: no agent, no demo person.
+    assert service.agents == {}
+    assert service.user_roles == {}
+    assert service.tool_servers, "the tool catalogue belongs to no tenant and is still there"
+
+
+@pytest.mark.asyncio
+async def test_a_worker_waits_for_its_tenant(monkeypatch: pytest.MonkeyPatch) -> None:
+    found = TenantBinding(_TENANT, "acme", "Acme", "self_hosted", {})
+    answers: list[object] = [bind_mod.SchemaNotReadyError(), TenantNotReadyError(), found]
+    pauses: list[float] = []
+
+    async def _bind(_store: object, _url: str) -> TenantBinding | None:
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer  # type: ignore[return-value]
+
+    async def _pause(seconds: float) -> None:
+        pauses.append(seconds)
+
+    monkeypatch.setattr(bind_mod, "bind_store", _bind)
+    monkeypatch.setattr(bind_mod.asyncio, "sleep", _pause)
+    service = ChatService(tenant_seed=False)
+    assert await attach_store(service, "url", demo_without_database=True, retry_s=0.5) == found
+    assert pauses == [0.5, 0.5]
+    assert service.agents == {}
+
+    # No database at all: a dev process falls back to the demo tenant, a deployed one waits.
+    answers.extend([None, None, found])
+    assert await attach_store(service, "url", demo_without_database=True) is None
+    assert {str(row["slug"]) for row in service.agents.values()} >= {"assistant", "builder"}
+    deployed = ChatService(tenant_seed=False)
+    assert await attach_store(deployed, "url", demo_without_database=False, retry_s=0.1) == found
+    assert deployed.agents == {}
 
 
 @pytest.mark.asyncio
@@ -765,10 +779,10 @@ async def test_worker_mains_serve_health(monkeypatch: pytest.MonkeyPatch) -> Non
 async def test_durable_middleware_binds_once(monkeypatch: pytest.MonkeyPatch) -> None:
     from ar_api.middleware.durable import DurableMiddleware
 
-    binding = DevBinding(tenant_id=_TENANT, users={"admin@dev.local": _USER})
+    binding = TenantBinding(_TENANT, "acme", "Acme", "self_hosted", {"ada@acme.example": _USER})
     calls = {"bind": 0, "flush": 0}
 
-    async def _bind(_chat: object, _url: str) -> DevBinding:
+    async def _bind(_chat: object, _url: str) -> TenantBinding:
         calls["bind"] += 1
         return binding
 

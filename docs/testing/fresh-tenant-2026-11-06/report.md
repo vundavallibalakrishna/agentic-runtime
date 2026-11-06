@@ -96,6 +96,7 @@ Each finding was seen in the run unless it says "read in code".
 | F20 | C | Restarting the API signs everyone out, because sessions are held in process memory (already OQ-59). |
 | F21 | C | With no telemetry collector, every process logs an export failure every few seconds. `durable_memory reason=database_unavailable` is logged when the database is up and the tenant is missing. |
 | F22 | C | The Keycloak admin client read the new id from the response body. Keycloak returns it in the `Location` header, so a created user was never added to its organisation. Nothing called it. **Fixed here** with the seed script. |
+| F23 | B | Read in code on 6 Nov while doing M38b-T03: the runtime, system and ingest workers build their store with `allow_loopback=True` in every environment. The API allows loopback only in dev and CI. Tool calls run in the runtime worker. Planned in M38b-T10. |
 
 ## What was fixed during the run
 
@@ -123,5 +124,13 @@ KC_BOOTSTRAP_ADMIN_USERNAME=admin KC_BOOTSTRAP_ADMIN_PASSWORD=admin \
 grep -v '^fake-llm' Procfile.dev > /tmp/Procfile.real && uv run honcho start -f /tmp/Procfile.real
 ```
 
-Then open the web app, choose **Continue with SSO**, and sign in. Until M38b-T03 and T04 land, step 2 has to
-use `--slug dev --admin-email admin@dev.local` for the product to start.
+Then open the web app, choose **Continue with SSO**, and sign in.
+
+## Since the run
+
+| Date | Task | What changed | Proof |
+|---|---|---|---|
+| 6 Nov 2026 | M38b-T03 | F1 and F5 are fixed, and F2 no longer applies to a process with a database. A fourth empty stack was seeded with tenant `acme` and admin `ada@acme.example`. The API and the three workers logged `durable_bound tenant=acme`, sign-in worked, the header read "Acme", a provider was registered, and a chat turn ran Python and finished. The tenant held `assistant`, `helpdesk` and `builder`, created when the admin first opened the product, and no `revenue-analyst`. | `run4-acme/01-acme-signed-in.png` |
+
+Still open after T03: `helpdesk` is still created (F6), the sign-in page still lists the demo users (F4), the
+Models screen still lists `fake-llm` (F10), and a dev process with no database still runs on the demo tenant.

@@ -47,7 +47,7 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
     engine = create_async_engine(database_url)
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await apply(session)
-    store = ChatService()
+    store = ChatService(tenant_seed=False)
     binding = await bind_store(store, database_url)
     assert binding is not None
     actor = Actor(
@@ -74,7 +74,7 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
     await flush_store(store)
     await engine.dispose()
 
-    restarted = ChatService()
+    restarted = ChatService(tenant_seed=False)
     again = await bind_store(restarted, database_url)
     assert again is not None
     seen = ConnectorBook(restarted).get(actor, "github")
@@ -87,9 +87,20 @@ async def test_connector_records_survive_a_new_process(database_url: str) -> Non
     ]
     assert states
     assert states[0].get("verifier")
+    # The sign-in that one process started is finished by the next, and the grant it
+    # produces is there for a third.
+    state = next(
+        key
+        for key, row in restarted.oauth_states.items()
+        if isinstance(row, dict) and row.get("tenant_id") == binding.tenant_id
+    )
+    await CredentialBook(restarted).callback("code-from-the-provider", str(state))
+    await flush_store(restarted)
+    third = ChatService(tenant_seed=False)
+    assert await bind_store(third, database_url) is not None
     grants = [
         row
-        for row in restarted.credential_grants.values()
+        for row in third.credential_grants.values()
         if row.get("tenant_id") == binding.tenant_id and row.get("provider_id")
     ]
     assert grants

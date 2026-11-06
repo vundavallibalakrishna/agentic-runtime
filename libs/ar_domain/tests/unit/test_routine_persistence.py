@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock
 
 from ar_common.time import utcnow
 from ar_domain.chat.service import ChatService, demo_id
-from ar_domain.durable.hydrate import _routines
+from ar_domain.durable.hydrate import _people, _routines
 from ar_domain.durable.routines import save_events, save_routines
 from ar_domain.durable.tracking import install_tracking
 
@@ -61,7 +61,13 @@ async def test_routine_reload_recovers_signing_key_status_and_dry_run_without_di
     install_tracking(store)
     tenant, routine, event, secret, user = (uuid.uuid4() for _ in range(5))
     rows = {
-        "users": [{"id": user, "status": "suspended"}],
+        "users": [
+            {"id": user, "status": "suspended", "email": "Ada@Acme.Example", "display_name": "Ada"}
+        ],
+        "role_assignments": [
+            {"user_id": user, "key": "approver"},
+            {"user_id": user, "key": "builder"},
+        ],
         "routines": [{"id": routine, "name": "Saved", "webhook_secret_ref_id": secret}],
         "routine_events": [{"id": event, "status": "accepted", "envelope": {"dry_run": True}}],
     }
@@ -75,13 +81,25 @@ async def test_routine_reload_recovers_signing_key_status_and_dry_run_without_di
         return_value=b'{"current":"signing-value","previous":"old-value","previousUntil":null}'
     )
     monkeypatch.setattr("ar_domain.secrets.cached.load_cached_secret", load)
+    store.user_roles[user] = {"tenant_admin"}
+    await _people(object(), store, tenant)
     await _routines(object(), store, tenant)
+    # People come from the database: a role it no longer holds is gone from the store.
+    assert store.user_roles[user] == {"approver", "builder"}
+    assert store.display_names[user] == "Ada"
+    assert store.user_emails[user] == "ada@acme.example"
     assert store.routines[routine]["webhook_secret"] == "signing-value"  # noqa: S105
     assert store.routine_events[event]["dry_run"] is True
     assert store.user_statuses[user] == "suspended"
     assert not store.routines.dirty
     store.routines[routine]["name"] = "Unsaved edit"
+    store.user_roles[user] = {"tenant_admin"}
+    await _people(object(), store, tenant)
     await _routines(object(), store, tenant)
+    # People come from the database: a role it no longer holds is gone from the store.
+    assert store.user_roles[user] == {"approver", "builder"}
+    assert store.display_names[user] == "Ada"
+    assert store.user_emails[user] == "ada@acme.example"
     assert store.routines[routine]["name"] == "Unsaved edit"
     load.assert_awaited()
 

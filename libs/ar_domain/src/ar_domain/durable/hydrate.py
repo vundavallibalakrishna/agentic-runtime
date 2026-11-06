@@ -107,6 +107,7 @@ async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUI
     """Merge one tenant's durable rows into the cache. Memory-only fields stay."""
     async with AsyncSession(engine, expire_on_commit=False) as session:
         await _settings(session, store, tenant_id)
+        await _people(session, store, tenant_id)
         await _agents(session, store, tenant_id)
         await _versions(session, store, tenant_id)
         await _skills(session, store, tenant_id)
@@ -171,6 +172,7 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
             return
         _merge(store, "runs", run_id, dict(run))
         tenant_id = run["tenant_id"]
+        await _people(session, store, tenant_id)
         await _conversations(session, store, tenant_id)
         await _agents(session, store, tenant_id)
         await _versions(session, store, tenant_id)
@@ -465,15 +467,51 @@ async def _events_for(  # noqa: PLR0917 - the event row needs the run, conversat
         _load(store, bucket, run_id, shaped)
 
 
+_ROLES_SQL = (
+    "SELECT a.principal_id AS user_id, r.key FROM role_assignments a "
+    "JOIN roles r ON r.id = a.role_id "
+    "WHERE a.tenant_id = :tenant_id AND a.principal_type = 'user' AND a.scope_type = 'tenant' "
+    "UNION "
+    "SELECT m.user_id, r.key FROM role_assignments a "
+    "JOIN roles r ON r.id = a.role_id "
+    "JOIN group_members m ON m.group_id = a.principal_id AND m.tenant_id = a.tenant_id "
+    "WHERE a.tenant_id = :tenant_id AND a.principal_type = 'group' AND a.scope_type = 'tenant'"
+)
+
+
+async def _people(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    """The tenant's people, their names, status and roles, as the database holds them.
+
+    Policy, approvals and reviews read roles from the store. A person's roles are replaced,
+    not merged, so a role taken away in the database is gone here too.
+    """
+    roles: dict[uuid.UUID, set[str]] = {}
+    for row in await _rows(session, _ROLES_SQL, tenant_id):
+        roles.setdefault(row["user_id"], set()).add(str(row["key"]))
+    buckets = {
+        name: getattr(store, name, None)
+        for name in ("user_statuses", "display_names", "user_emails", "user_roles")
+    }
+    for user in await _rows(
+        session,
+        "SELECT id, email, display_name, status FROM users WHERE tenant_id = :tenant_id",
+        tenant_id,
+    ):
+        values = {
+            "user_statuses": user["status"],
+            "display_names": str(user["display_name"]),
+            "user_emails": str(user["email"]).lower(),
+            "user_roles": roles.get(user["id"], set()),
+        }
+        for name, value in values.items():
+            bucket = buckets[name]
+            if isinstance(bucket, dict):
+                bucket[user["id"]] = value
+
+
 async def _routines(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     from ar_domain.secrets.cached import load_cached_secret  # noqa: PLC0415
 
-    statuses = getattr(store, "user_statuses", None)
-    if isinstance(statuses, dict):
-        for user in await _rows(
-            session, "SELECT id, status FROM users WHERE tenant_id = :tenant_id", tenant_id
-        ):
-            statuses[user["id"]] = user["status"]
     for row in await _rows(
         session, "SELECT * FROM routines WHERE tenant_id = :tenant_id", tenant_id
     ):
@@ -503,4 +541,6 @@ async def reload_routines(store: object) -> None:
     engine = getattr(store, "durable_engine", None)
     if binding is not None and isinstance(engine, AsyncEngine):
         async with AsyncSession(engine, expire_on_commit=False) as session:
+            # A routine does not run for an owner who has been suspended since.
+            await _people(session, store, binding.tenant_id)
             await _routines(session, store, binding.tenant_id)

@@ -65,12 +65,20 @@ def test_organization_claim_shapes() -> None:
     assert organization_aliases({"organization": {"dev": {}}}) == ["dev"]
     assert organization_aliases({"organization": {"8f1c": {"alias": "dev"}}}) == ["dev"]
     assert organization_aliases({"organization": ["dev", "other"]}) == ["dev", "other"]
-    assert choose_organization(["dev", "other"], hint=None, email="a@dev.local") is None
-    assert choose_organization(["dev", "other"], hint="dev", email="a@dev.local") == "dev"
-    assert choose_organization(["other"], hint=None, email="a@dev.local") == "other"
+    assert choose_organization(["dev", "other"], hint=None) is None
+    assert choose_organization(["dev", "other"], hint="dev") == "dev"
+    assert choose_organization(["other"], hint=None) == "other"
+    # A token that names no organization is left to the tenant the process serves.
+    assert choose_organization([], hint=None) == ""
     with pytest.raises(LoginError) as caught:
-        profile_for("a@dev.local", "other")
+        choose_organization(["other"], hint="dev")
     assert caught.value.code == "tenant_not_found"
+    # The demo tenant of a store without a database accepts only its own people.
+    assert profile_for("a@dev.local", "").roles == ("member",)
+    for email, organization in (("a@dev.local", "other"), ("ada@acme.example", "")):
+        with pytest.raises(LoginError) as caught:
+            profile_for(email, organization)
+        assert caught.value.code == "tenant_not_found"
 
 
 def test_callback_signs_in_a_seeded_user() -> None:

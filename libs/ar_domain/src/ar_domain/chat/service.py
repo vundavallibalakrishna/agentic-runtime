@@ -152,6 +152,8 @@ class ChatService:
     builder_scripts: list[str] = field(default_factory=list)
     builder_strict: bool = False
     fake_models_allowed: bool = True
+    tenant_seed: bool = True
+    demo_tenant_seeded: bool = False
     last_remote_usage: dict[str, int] | None = None
     pack_signature_required: bool = False
     pack_trusted_keys: dict[str, str] = field(default_factory=dict)
@@ -178,6 +180,7 @@ class ChatService:
     pets: list[dict[str, object]] = field(default_factory=lambda: [{"id": 1, "name": "doggie"}])
     rate_buckets: dict[str, list[float]] = field(default_factory=dict)
     tools_seeded: bool = False
+    tenant_tools_seeded: bool = False
     notifications: list[dict[str, object]] = field(default_factory=list)
     policies: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     policy_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -238,7 +241,7 @@ class ChatService:
     temporal_client: object | None = None
     durable: bool = False
     durable_engine: AsyncEngine | None = None
-    dev_binding: object | None = None
+    tenant_binding: object | None = None
     reloading: bool = False
     quotas: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     quota_counters: dict[str, tuple[int, datetime]] = field(default_factory=dict)
@@ -250,6 +253,7 @@ class ChatService:
     eval_results: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     feedback_digest: dict[str, dict[str, object]] = field(default_factory=dict)
     eval_gateway: dict[str, int] = field(default_factory=dict)
+    eval_platform_tenants: set[uuid.UUID] = field(default_factory=set)
     records: dict[str, dict[object, dict[str, object]]] = field(default_factory=dict)
     file_blobs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     workspace_files: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -261,10 +265,21 @@ class ChatService:
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
             self.fake_llm_url = fake_llm_base_url()
-        self.seed_demo()
+        self.seed_platform()
+        if self.tenant_seed:
+            self.seed_demo_tenant()
+        else:
+            from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
+
+            ToolRegistry(self).ensure_seed(tenant=False)
 
     def seed_demo(self) -> None:
-        """Idempotent demo tenant catalogue: fake-llm, aliases, assistant."""
+        """Platform rows and the demo tenant. Safe to call twice."""
+        self.seed_platform()
+        self.seed_demo_tenant()
+
+    def seed_platform(self) -> None:
+        """Rows that belong to no tenant: the scripted provider and the standard aliases."""
         if self.providers:
             return
         provider_id = demo_id("provider")
@@ -290,6 +305,16 @@ class ChatService:
         ):
             alias_id = demo_id(f"alias-{alias}")
             self.aliases[alias_id] = self._alias(alias_id, None, alias, kind, model_id)
+
+    def seed_demo_tenant(self) -> None:
+        """A demo tenant with fixed ids, for a store that has no database behind it.
+
+        Unit tests and a dev process without Postgres use it. A process attached to a
+        database never holds it: its tenant, people and agents are rows in that database.
+        """
+        if self.demo_tenant_seeded:
+            return
+        self.demo_tenant_seeded = True
         # The dev tenant shows every screen, including the assurance desk that a
         # fresh customer tenant keeps off until it turns the feature on.
         # Kept sparse on purpose: a full settings dump here changes defaults that other
