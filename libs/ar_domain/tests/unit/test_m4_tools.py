@@ -13,7 +13,7 @@ from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.tools.credentials import CredentialBook
 from ar_domain.tools.drift import check_drift
-from ar_domain.tools.logic import hash_embedding, propose_risk
+from ar_domain.tools.logic import propose_risk
 from ar_domain.tools.openapi_import import operations_from
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.registry import ToolRegistry
@@ -294,7 +294,6 @@ def test_tool_search_activates_past_thirty_tools() -> None:
             "disabled_at": None,
         }
         description = "order count helper" if index == 7 else f"unrelated tool {index}"
-        embedding = hash_embedding("order count") if index == 7 else hash_embedding(description)
         store.tool_versions[version_id] = {
             "id": version_id,
             "tool_id": tool_id,
@@ -305,7 +304,6 @@ def test_tool_search_activates_past_thirty_tools() -> None:
             "input_schema": {"type": "object"},
             "risk_class": "R0",
             "data_classification": "internal",
-            "embedding": embedding,
             "disabled_at": None,
         }
         names.append(name)

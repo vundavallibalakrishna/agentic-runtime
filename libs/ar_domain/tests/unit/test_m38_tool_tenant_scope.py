@@ -3,7 +3,6 @@
 import uuid
 from typing import TYPE_CHECKING
 
-from ar_domain.tools.embeddings import hash_embedding
 from ar_domain.tools.handlers import dispatch
 from ar_testing.demo import demo_store
 
@@ -92,7 +91,6 @@ def _tool(store: ChatService, tenant: uuid.UUID, slug: str, description: str) ->
         "name": "lookup",
         "qualified_name": f"{slug}.lookup",
         "description": description,
-        "embedding": hash_embedding(description),
     }
 
 

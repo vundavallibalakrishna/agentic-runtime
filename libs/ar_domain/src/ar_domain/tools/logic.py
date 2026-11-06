@@ -1,8 +1,6 @@
 """Pure tool-registry decisions. Spec: docs/03-specs/08-tool-registry-mcp.md."""
 
 import hashlib
-import math
-import random
 import re
 from typing import TYPE_CHECKING, cast
 
@@ -143,21 +141,6 @@ def schema_errors(schema: dict[str, object], arguments: dict[str, object]) -> st
 
 def clearance_allows(tool_class: str, user_class: str) -> bool:
     return _RANK.get(tool_class, 1) <= _RANK.get(user_class, 2)
-
-
-def hash_embedding(text: str, dimensions: int = 1024) -> list[float]:
-    """Deterministic unit vector. The embed alias replaces this when the gateway is wired."""
-    seed = int.from_bytes(hashlib.sha256(text.encode()).digest()[:8], "big")
-    rng = random.Random(seed)  # noqa: S311 — stable tool search, not a secret
-    raw = [rng.uniform(-1.0, 1.0) for _ in range(dimensions)]
-    norm = math.sqrt(sum(item * item for item in raw)) or 1.0
-    return [item / norm for item in raw]
-
-
-def cosine(left: list[float], right: list[float]) -> float:
-    if not left or not right or len(left) != len(right):
-        return 0.0
-    return sum(a * b for a, b in zip(left, right, strict=True))
 
 
 def redact(value: dict[str, object]) -> dict[str, object]:

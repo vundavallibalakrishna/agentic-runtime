@@ -37,6 +37,7 @@ Exact versions: [stack.md](../stack.md).
 | `make gen` | Regenerates `openapi.json`, JSON Schemas, `CLAUDE.md`, `@ar/api-client`, `ar_client`; CI fails if the tree changes |
 | `make eval` | Runs the repository eval suites through the agent. Needs a model: set `AR_CERT_LLM_API_KEY`, and optionally `AR_CERT_LLM_BASE_URL` and `AR_CERT_LLM_MODEL`. Without a key it exits 2 and scores nothing |
 | `uv run python scripts/memory_extraction_eval.py` | Sends the memory extraction prompt for nineteen exchanges to a real model and prints what it kept. Needs `AR_CERT_LLM_BASE_URL`, `AR_CERT_LLM_MODEL` and `AR_CERT_LLM_API_KEY`. Run it after changing the prompt. |
+| `uv run python scripts/tool_search_eval.py --tenant <slug>` | Ranks one agent's tools (`--agent`, default `assistant`), or with `--all` every tool the tenant can search, for 22 requests with the tenant's embedding model and prints where the right tool came out. Reads the tenant from the database in `AR_DATABASE_URL`. Run it after changing tool descriptions or the ranking. |
 | `make reset-db` | Drops and recreates the dev database, then `migrate seed` |
 | `make kind-up` / `make kind-down` | kind cluster with the Helm chart (`values-dev.yaml`), gVisor runtime class (if available) and the Kubernetes sandbox driver |
 | `make images` / `make images-bundle` | Build all images locally / export them for air-gapped installs |

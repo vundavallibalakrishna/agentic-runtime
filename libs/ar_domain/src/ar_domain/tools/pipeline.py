@@ -82,7 +82,12 @@ class ToolPipeline:
             tools.extend(self._bound(server_slug, names, user_id))
         active = len(tools) > 30 or _search_mode(definition) == "on"
         if active and query:
-            tools = _rank(tools, query)
+            from ar_domain.tools.search import rank_tools  # noqa: PLC0415
+
+            tenant_id = version.get("tenant_id") if isinstance(version, dict) else None
+            ranked, how = rank_tools(self.store, tenant_id, query, tools)
+            tools = [tool for _score, tool in ranked[: _search_limit(definition)]]
+            return {"tools": tools, "tool_search_active": True, "ranked_by": how}
         return {"tools": tools, "tool_search_active": active or len(tools) > 30}
 
     def execute(  # noqa: PLR0911, PLR0912, PLR0915
@@ -963,16 +968,12 @@ def _search_mode(definition: dict[str, object]) -> str:
     return "auto"
 
 
-def _rank(tools: list[dict[str, object]], query: str) -> list[dict[str, object]]:
-    from ar_domain.tools.logic import cosine, hash_embedding  # noqa: PLC0415
+def _search_limit(definition: dict[str, object]) -> int:
+    """``tool_search.top_k`` from the agent's definition, 4 to 32."""
+    from ar_domain.tools.search import DEFAULT_TOP_K  # noqa: PLC0415
 
-    vector = hash_embedding(query)
-    scored = []
-    for tool in tools:
-        description = str(tool.get("description") or "")
-        score = cosine(vector, hash_embedding(description))
-        if query.lower() in description.lower():
-            score += 0.5
-        scored.append((score, tool))
-    scored.sort(key=lambda item: item[0], reverse=True)
-    return [tool for _score, tool in scored[:12]]
+    search = definition.get("tool_search")
+    raw = search.get("top_k", search.get("topK")) if isinstance(search, dict) else None
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return min(32, max(4, raw))
+    return DEFAULT_TOP_K

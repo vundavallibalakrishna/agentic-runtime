@@ -422,8 +422,8 @@ async def _tools(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> 
     )
     for row in tool_versions.mappings():
         body = dict(row)
-        if body.get("embedding") is not None:
-            body["embedding"] = vector_values(body["embedding"])
+        # Tool search keeps its own vectors, made by the tenant's model (tools/search.py).
+        body.pop("embedding", None)
         _merge(store, "tool_versions", body["id"], body)
 
 

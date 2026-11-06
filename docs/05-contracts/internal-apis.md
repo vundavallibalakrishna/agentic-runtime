@@ -29,7 +29,7 @@ Allowed callers: `runtime-worker`, `api` (discovery, test calls), `system-worker
 
 | Method | Path | Purpose |
 |---|---|---|
-| POST | `/internal/v1/catalog:resolve` | Input: `{agent_version_id, user_id, query?: string}` → model-facing tool list (names, descriptions, schemas) after entitlement filtering and optional tool search. |
+| POST | `/internal/v1/catalog:resolve` | Input: `{agent_version_id, user_id, query?: string}` → model-facing tool list (names, descriptions, schemas) after entitlement filtering and optional tool search. With a `query` and tool search active, the answer carries `ranked_by`: `meaning_and_words` when the tenant's embedding model ranked the tools, `words` when there is none or it did not answer. |
 | POST | `/internal/v1/tool-calls:execute` | Input: `ExecuteToolCallRequest` → `ExecuteToolCallResult`. |
 | POST | `/internal/v1/discover` | Input: `{tool_server_version_id}` → manifest + created tool versions. |
 | POST | `/internal/v1/tool-calls:test` | Builder "test tool" with explicit arguments (always runs policy; W2/W3 refused in test mode unless `dry_run` supported). |

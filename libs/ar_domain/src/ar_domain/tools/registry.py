@@ -11,7 +11,6 @@ from ar_common.time import utcnow
 from ar_domain.tools.logic import (
     as_mapping,
     description_hash,
-    hash_embedding,
     manifest_hash,
     name_ok,
     semver_greater,
@@ -283,9 +282,6 @@ class ToolRegistry:
         server["status"] = "approved"
         server["current_version_id"] = version_id
         server["updated_at"] = now
-        for row in self.store.tool_versions.values():
-            if row.get("tool_server_version_id") == version_id:
-                row["embedding"] = hash_embedding(str(row.get("description") or ""))
         self._audit(actor, "tool_server.approved", server_id, {})
         self._event(
             "tool_server.review_decided",
@@ -662,7 +658,6 @@ class ToolRegistry:
                 "max_result_bytes": 65536,
                 "idempotent": risk in {"R0", "R1"},
                 "approval_preview": {},
-                "embedding": hash_embedding(text),
                 "changed_since_previous": changed,
                 "created_at": now,
             }
@@ -716,7 +711,6 @@ class ToolRegistry:
             row["annotations"] = bag
             row["description"] = override
             row["description_hash"] = description_hash(override)
-            row["embedding"] = hash_embedding(override)
 
     def _four_eyes(self, actor: Actor, version: dict[str, object]) -> None:
         if version.get("created_by") != actor.user_id:

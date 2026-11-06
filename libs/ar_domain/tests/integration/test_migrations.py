@@ -126,6 +126,58 @@ async def test_bootstrap_creates_the_tenant_its_admin_and_two_agents(migrated: s
     dispose_engines()
 
 
+async def test_made_up_tool_vectors_are_cleared(migrated: str) -> None:
+    """Revision 0034 empties ``tool_versions.embedding``, also on an approved version."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(migrated)
+    _alembic(migrated, "downgrade", "0033")
+    vector = "[" + ",".join(["0.5"] * 1024) + "]"
+    async with engine.begin() as connection:
+        server = await connection.scalar(
+            text(
+                "INSERT INTO tool_servers (slug, name, kind, status) "
+                "VALUES ('m38a_vectors', 'Vectors', 'builtin', 'approved') RETURNING id"
+            )
+        )
+        released = await connection.scalar(
+            text(
+                "INSERT INTO tool_server_versions (tool_server_id, version, review_status) "
+                "VALUES (:server, '1.0.0', 'approved') RETURNING id"
+            ),
+            {"server": server},
+        )
+        tool = await connection.scalar(
+            text(
+                "INSERT INTO tools (tool_server_id, name, qualified_name) "
+                "VALUES (:server, 'look', 'm38a_vectors.look') RETURNING id"
+            ),
+            {"server": server},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO tool_versions (tool_id, tool_server_version_id, description, "
+                "description_hash, input_schema, risk_class, embedding) VALUES "
+                "(:tool, :released, 'Look.', 'h', '{}'::jsonb, 'R0', CAST(:vector AS vector))"
+            ),
+            {"tool": tool, "released": released, "vector": vector},
+        )
+    _alembic(migrated, "upgrade", "head")
+    async with engine.begin() as connection:
+        left = await connection.scalar(
+            text("SELECT count(*) FROM tool_versions WHERE embedding IS NOT NULL")
+        )
+        kept = await connection.scalar(
+            text("SELECT description FROM tool_versions WHERE tool_id = :tool"), {"tool": tool}
+        )
+        await connection.execute(
+            text("DELETE FROM tool_servers WHERE id = :server"), {"server": server}
+        )
+    await engine.dispose()
+    assert left == 0
+    assert kept == "Look.", "only the vector changes"
+
+
 async def test_retired_pack_schema_drops_and_stays_gone(migrated: str) -> None:
     """Revision 0031 removes a pack schema that already exists, and is a no-op without one."""
     from sqlalchemy.ext.asyncio import create_async_engine
