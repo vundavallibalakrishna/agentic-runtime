@@ -19,11 +19,12 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import { CommandPalette, type PaletteCommand } from "@/components/command-palette";
 import { primaryNav } from "@/components/nav";
 import { useTheme } from "@/components/theme-provider";
+import { Button } from "@/components/ui/button";
 import { ApiError, api, type Session } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +51,9 @@ export function AppShell({
   const path = usePathname();
   const { choice, setChoice } = useTheme();
   const [session, setSession] = useState<Session | null>(null);
+  // "failed" is any answer to the session check other than a session or "not signed in".
+  // The page is then replaced by an error with a retry: a failed check is not a sign-in.
+  const [check, setCheck] = useState<"unknown" | "signed-in" | "failed">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [packLinks, setPackLinks] = useState<{ href: string; label: string }[]>([]);
@@ -58,25 +62,34 @@ export function AppShell({
     if (rememberedSession) setSession(rememberedSession);
   }, []);
 
-  useEffect(() => {
-    setCollapsed(window.localStorage.getItem(SIDEBAR_KEY) === "collapsed");
+  const checkSession = useCallback(() => {
     let cancelled = false;
     void api<Session>("/api/v1/auth/session")
       .then((body) => {
         rememberedSession = body;
-        if (!cancelled && typeof window !== "undefined") setSession(body);
+        if (cancelled || typeof window === "undefined") return;
+        setSession(body);
+        setCheck("signed-in");
       })
       .catch((error: unknown) => {
         rememberedSession = null;
-        if (!cancelled && typeof window !== "undefined") {
-          setSession(null);
-          if (error instanceof ApiError && error.status === 401) replaceRoute("/login");
+        if (cancelled || typeof window === "undefined") return;
+        setSession(null);
+        if (error instanceof ApiError && error.status === 401) {
+          replaceRoute("/login");
+          return;
         }
+        setCheck("failed");
       });
     return () => {
       cancelled = true;
     };
   }, [replaceRoute]);
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem(SIDEBAR_KEY) === "collapsed");
+    return checkSession();
+  }, [checkSession]);
 
   useEffect(() => {
     if (!session) return;
@@ -473,7 +486,24 @@ export function AppShell({
           tabIndex={-1}
           className={cn("min-h-0 flex-1", flush ? "overflow-hidden" : "overflow-auto")}
         >
-          {flush ? (
+          {check === "failed" ? (
+            <div className="mx-auto w-full max-w-xl p-5 md:p-10">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+                <div role="alert">
+                  <h1 className="font-serif text-2xl tracking-tight">{t("sessionProblemTitle")}</h1>
+                  <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
+                    {t("sessionProblemBody")}
+                  </p>
+                </div>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <Button onClick={() => checkSession()}>{t("sessionRetry")}</Button>
+                  <Button asChild variant="outline">
+                    <a href="/login">{t("sessionSignIn")}</a>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : flush ? (
             children
           ) : (
             <div className="mx-auto w-full max-w-6xl p-5 md:p-10">{children}</div>
