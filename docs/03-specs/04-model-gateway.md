@@ -35,6 +35,7 @@ Deployable `model-gateway` (`services/model_gateway`, package `ar_model_gateway`
 - Nothing is built in. With no `embed` alias the caller gets `409 invalid_state` with a message that names the Models screen ([OQ-98](../open-questions.md)). No model id is assumed, no provider is picked for the tenant, and no vector is computed in the product's own process.
 - The request is `POST {provider.base_url}/embeddings` with `{model, input}` in batches of 32. `dimensions` is sent only when the model's `embedding_dimensions` is set or the caller asks for a length; otherwise the model's own length is taken. A reply with the wrong number of vectors, or a vector of a length the caller cannot store, is an error and never a stored vector.
 - A model has an optional `embedding_dimensions` (`POST` and `PATCH /api/v1/models`; `null` clears it). It is accepted only for `kind='embedding'`.
+- A model has `capabilities`, set by the tenant from `streaming`, `tools` and `vision` (`POST` and `PATCH /api/v1/models`). The image tool uses a model only when the tenant marked it `vision`; the product does not guess what a model can do from its name.
 - Reranking is optional. With no `rerank` alias nothing is scored ([spec 10 §6.4](10-knowledge.md)).
 - `:test` on an alias of kind `embedding` or `rerank` asks the model for one vector or one set of scores and reports what came back. `:test` on a provider uses one of its chat models, else one of its other models, and with no model asks the provider for its model list; no model name is made up.
 - A conversation's model alias must be a chat alias. The chat and agent pickers list chat aliases only.
@@ -69,16 +70,21 @@ Filters `kind`, `provider_id`, `status`. Item `Model {id, scope, provider_id, na
 #### PATCH /api/v1/models/{model_id}
 Setting `status='disabled'` is a **kill switch**: takes effect within 1 s via cache invalidation; aliases fall back to fallbacks. Audit `model.disabled`.
 #### DELETE /api/v1/models/{model_id}
-409 while an alias points at the model, as primary or as a fallback. Audit `model.deleted`.
+409 while an alias points at the model, as primary or as a fallback, or while a knowledge collection was indexed with it. Audit `model.deleted`.
+
+#### POST /api/v1/models/{model_id}:test
+Permission `models:manage`. No body. Asks the one model for an answer and returns `{ok, output, model_id, latency_ms, ttft_ms, usage}`: a chat model is asked for a word, an embedding model for a vector and a rerank model for scores. A model that does not answer is `ok: false` with `output` saying so. Another tenant's model is 404.
 
 #### GET /api/v1/model-aliases
 Effective aliases for the tenant (tenant overrides marked). Item `ModelAlias {id, scope, alias, kind, primary_model_id, fallback_model_ids, traffic_split, default_params, status}`.
+
+The response also carries `standard`: the aliases the product itself calls, each as `{alias, kind, required, capability, set, alias_id, platform, model_id, model_name}`. They are `reasoning` and `vision` (chat), `embed` (embedding) and `rerank` (rerank); `reasoning` and `embed` are required, and `vision` needs a model with the capability `vision`. None is set for a tenant: the Models screen lists them with whether each is set, and the tenant points each at a model. A tenant may add aliases of its own beside them. An agent definition also names `fast`; no code sends work to it yet, so it is not listed until something does ([OQ-104](../open-questions.md)).
 
 #### POST /api/v1/model-aliases
 Body `{alias, kind, primary_model_id, fallback_model_ids?, traffic_split?, default_params?}`; validation: models of the same `kind`, visible, active; split weights 0..100 and sum ≤ 100 (remainder → primary). Emits `model_alias.updated`.
 
 #### PATCH /api/v1/model-aliases/{alias_id}
-Body `{primary_model_id, fallback_model_ids?}`. The models must be of the alias's kind.
+Body `{primary_model_id, fallback_model_ids?, default_params?}`. The models must be of the alias's kind. `default_params` is what the alias sends when the caller gives no value: names with a number, a text, a boolean or null. A new chat alias starts with `{temperature: 0.2}`; an embedding or rerank alias starts empty.
 #### DELETE /api/v1/model-aliases/{alias_id}
 409 if referenced by published agent versions (via `agent_version_bindings` kind `model_alias`) and no platform alias of the same name exists.
 

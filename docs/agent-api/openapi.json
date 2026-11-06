@@ -711,6 +711,18 @@
             },
             "type": "array",
             "title": "Fallbackmodelids"
+          },
+          "defaultParams": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultparams"
           }
         },
         "additionalProperties": false,
@@ -742,6 +754,18 @@
               }
             ],
             "title": "Fallbackmodelids"
+          },
+          "defaultParams": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultparams"
           }
         },
         "additionalProperties": false,
@@ -4041,6 +4065,20 @@
               }
             ],
             "title": "Embeddingdimensions"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
           }
         },
         "additionalProperties": false,
@@ -4123,6 +4161,20 @@
               }
             ],
             "title": "Embeddingdimensions"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
           }
         },
         "additionalProperties": false,

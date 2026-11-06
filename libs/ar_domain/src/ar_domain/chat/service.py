@@ -42,6 +42,7 @@ from ar_domain.files.logic import (
     object_key,
     scan_bytes,
 )
+from ar_domain.models.aliases import default_params as default_alias_params
 from ar_domain.models.logic import (
     DEFAULT_DENY_CIDRS,
     AliasRef,
@@ -97,6 +98,34 @@ def _parent_text(row: dict[str, object]) -> str | None:
     if parent is None:
         return None
     return str(parent)
+
+
+def _capabilities(value: list[str]) -> list[str]:
+    """What a tenant says a model can do, from the known set and without repeats."""
+    from ar_domain.models.aliases import CAPABILITIES  # noqa: PLC0415
+
+    unknown = sorted(set(value) - CAPABILITIES)
+    if unknown:
+        raise ArError(
+            ErrorCode.VALIDATION_FAILED,
+            f"Unknown capability: {', '.join(unknown)}. Known: {', '.join(sorted(CAPABILITIES))}.",
+        )
+    return sorted(set(value))
+
+
+def _alias_params(value: dict[str, object]) -> dict[str, object]:
+    """The parameters an alias sends when the caller gives none: names and plain values."""
+    cleaned: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str) or not key or len(key) > 64:
+            raise ArError(ErrorCode.VALIDATION_FAILED, "A parameter name is invalid.")
+        if not isinstance(item, str | int | float | bool) and item is not None:
+            raise ArError(
+                ErrorCode.VALIDATION_FAILED,
+                f"The parameter {key} must be a number, a text, true, false or empty.",
+            )
+        cleaned[key] = item
+    return cleaned
 
 
 def _vector_length(kind: str, value: int | None) -> int | None:
@@ -656,7 +685,7 @@ class ChatService:
             "kind": kind,
             "primary_model_id": model_id,
             "fallback_model_ids": [],
-            "default_params": {"temperature": 0.2},
+            "default_params": default_alias_params(kind),
             "status": "active",
             "platform": tenant_id is None,
             "created_at": now,
@@ -881,11 +910,14 @@ class ChatService:
         price_output_micros_per_mtok: int = 0,
         request_options: dict[str, object] | None = None,
         embedding_dimensions: int | None = None,
+        capabilities: list[str] | None = None,
     ) -> dict[str, object]:
         self._registry_row(self.providers, provider_id, tenant_id)
         model_id = new_id()
         row = self._model(model_id, None if platform else tenant_id, provider_id, name, kind)
         row["upstream_model"] = upstream_model
+        if capabilities is not None:
+            row["capabilities"] = _capabilities(capabilities)
         row["embedding_dimensions"] = _vector_length(kind, embedding_dimensions)
         row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
         row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
@@ -946,10 +978,13 @@ class ChatService:
         request_options: dict[str, object] | None = None,
         embedding_dimensions: int | None = None,
         clear_embedding_dimensions: bool = False,
+        capabilities: list[str] | None = None,
     ) -> dict[str, object]:
         """Change what a registered model is called, which upstream model it is, its prices,
         or the vector length an embedding model is asked for."""
         row = self._writable(self.models, model_id, tenant_id, platform=platform)
+        if capabilities is not None:
+            row["capabilities"] = _capabilities(capabilities)
         if clear_embedding_dimensions:
             row["embedding_dimensions"] = None
         elif embedding_dimensions is not None:
@@ -1057,6 +1092,7 @@ class ChatService:
         *,
         platform: bool,
         fallback_model_ids: list[uuid.UUID] | None = None,
+        default_params: dict[str, object] | None = None,
     ) -> dict[str, object]:
         if not valid_alias(alias):
             raise ArError(ErrorCode.VALIDATION_FAILED, "alias is invalid")
@@ -1070,6 +1106,8 @@ class ChatService:
         alias_id = new_id()
         row = self._alias(alias_id, None if platform else tenant_id, alias, kind, model_id)
         row["fallback_model_ids"] = list(fallback_model_ids or [])
+        if default_params is not None:
+            row["default_params"] = _alias_params(default_params)
         self.aliases[alias_id] = row
         return self._public(row)
 
@@ -1082,6 +1120,7 @@ class ChatService:
         platform: bool,
         actor_user_id: uuid.UUID | None = None,
         fallback_model_ids: list[uuid.UUID] | None = None,
+        default_params: dict[str, object] | None = None,
     ) -> dict[str, object]:
         """Point an alias at a new model and re-run gated suites for agents that use it."""
         row = self._writable(self.aliases, alias_id, tenant_id, platform=platform)
@@ -1091,6 +1130,8 @@ class ChatService:
         row["primary_model_id"] = model_id
         if fallback_model_ids is not None:
             row["fallback_model_ids"] = list(fallback_model_ids)
+        if default_params is not None:
+            row["default_params"] = _alias_params(default_params)
         row["updated_at"] = utcnow()
         owner = tenant_id if row.get("tenant_id") is None else row.get("tenant_id")
         if isinstance(owner, uuid.UUID) and actor_user_id is not None:
@@ -1135,6 +1176,18 @@ class ChatService:
             for row in self.aliases.values()
         ]
         return resolve_alias(refs, str(tenant_id), name)
+
+    async def test_model(self, tenant_id: uuid.UUID, model_id: uuid.UUID) -> dict[str, object]:
+        """Ask one registered model for an answer and report what it did."""
+        model = self._require(self.models, model_id, tenant_id)
+        if model.get("kind") in {"embedding", "rerank"}:
+            return await self._probe_vectors(tenant_id, model)
+        provider = self.providers[uuid.UUID(str(model["provider_id"]))]
+        return await self._probe_live(
+            str(provider["base_url"]),
+            str(model["upstream_model"]),
+            await self._provider_key(provider),
+        )
 
     async def test_alias(
         self, tenant_id: uuid.UUID, alias_id: uuid.UUID, messages: list[dict[str, str]]

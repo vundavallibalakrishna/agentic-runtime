@@ -211,14 +211,16 @@ F29. One pull request for each part:
   model that wrote their vectors. A model has an optional vector length. Without a rerank model, passages
   are returned unscored; nothing stands in for one (OQ-103). The test action works for an embedding or a
   rerank model, and a conversation can only be pointed at a chat alias.
-- **T07c** The Models screen lists providers, models and aliases, and each can be added, edited, tested
-  and removed. A model has a kind (chat, embedding, rerank). The standard aliases are listed with whether
-  each is set. No vendor address or model name is filled in by the form, and the "Local fake" kind is gone.
-  The rerank route becomes a setting of the model, in place of the one vendor-shaped address the call still
-  tries, and an alias no longer gets a built-in `temperature`.
+- **T07c** (done) The Models screen lists providers, models and aliases, and each can be added, edited,
+  tested and removed. A model has a kind (chat, embedding, rerank). The aliases the product calls are
+  listed with whether each is set (OQ-104). No vendor address or model name is filled in by the form, and
+  the "Local fake" kind is gone. One model can be tested by itself. What an alias sends by default is a
+  setting, and only a chat alias starts with a temperature. Whether a model can read images is a setting of
+  the model; the image tool no longer guesses it from vendor model names.
 - **T07d** Memory embeds its facts again by itself after the embedding model changes (today it is
   `scripts/reembed_memory.py`, OQ-102). A knowledge search with no rerank model shows how close each
-  passage is, which needs the similarity from each retrieval backend.
+  passage is, which needs the similarity from each retrieval backend. The rerank route becomes a setting
+  of the model, in place of the one vendor-shaped address the call still tries.
 
 **Done when:** an admin configures a chat model and an embedding model on an empty tenant using only the
 screen, and a collection states the model that indexed it.
@@ -284,7 +286,8 @@ failed run is never an empty bubble.
 
 **Do:** after a turn, the tenant's model is asked what to remember and its answer is applied. The two
 keyword patterns ("remember that …", "I prefer …") that decide it today are removed. With no model the turn
-remembers nothing and says so in the trace.
+remembers nothing and says so in the trace. This is the first work sent to the `fast` alias that every agent
+definition names; when it is, `fast` joins the aliases the Models screen lists (F36, OQ-104).
 
 **Done when:** "My daughter's name is Mira" is remembered without the word "remember", on a real model.
 

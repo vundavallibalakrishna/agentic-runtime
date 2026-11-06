@@ -72,7 +72,7 @@ Each finding was seen in the run unless it says "read in code".
 | # | Sev | Finding | Evidence |
 |---|---|---|---|
 | F10 | B | The Models screen of a new tenant in production mode lists a platform provider `fake-llm` at `http://127.0.0.1:8099/v1` with three models and five aliases. The form opens with the name "Local fake". Choosing OpenAI-compatible fills in DeepInfra's address and `Qwen/Qwen3-32B`. | `run3/02-models-first-look.png`; `models-admin.tsx` |
-| F16 | A | Only one chat model can be registered from the screen, and only the `reasoning` alias is pointed at it. There is no way to add an embedding, rerank or vision model, to edit or delete a provider or model, or to change `fast`, `vision`, `embed` or `rerank`, which stay on `fake-llm`. | `models-admin.tsx` `registerProvider` |
+| F16 | A | Only one chat model can be registered from the screen, and only the `reasoning` alias is pointed at it. There is no way to add an embedding, rerank or vision model, to edit or delete a provider or model, or to change `fast`, `vision`, `embed` or `rerank`, which stay on `fake-llm`. | `models-admin.tsx` `registerProvider` **Fixed** in M38b-T07c: the screen adds, edits, tests and removes providers, models of each kind and aliases. |
 | F15 | B | Knowledge indexing used an embedding model nobody configured. With no embedding model registered, the code takes the first real provider and calls the model id `BAAI/bge-m3` on it. The document text went to that model, and the screen states "Embedding model BAAI/bge-m3". It works on this provider by coincidence. | `knowledge/live_embed.py` `resolve_embedding`; `run3/13-knowledge-indexed.png` **Fixed** in M38b-T07b: no model id is built in and no provider is picked. |
 | F18 | C | The chat model picker offers `embed` and `rerank` as chat models and lists `reasoning` twice (React reports a duplicate key). | Browser console during run 3 **Fixed** in M38b-T07b: the pickers list chat aliases only, each once, and the API refuses a conversation pointed at another kind of alias. |
 
@@ -107,6 +107,9 @@ Each finding was seen in the run unless it says "read in code".
 | F33 | B | Tool search still ranks the catalogue with vectors made from a hash of the text, which carry no meaning. | `tools/logic.py` `hash_embedding`; M38a-T06 |
 | F34 | C | With the memory "Ada is allergic to peanuts" recalled ("Using 1 memories"), one of two answers said "I don't have access to your medical or dietary records" before mentioning peanuts as an example. The other used the fact directly. The wording that hands a memory to the model needs a look. | `run7-embeddings/06-chat-recalls-the-memory.png` |
 | F35 | A | Creating a collection, adding a document and saving a memory left no row in `audit_events`; only the model registry changes and sign-ins are there. This is the gap the November review already names: changes made through the process store are audited in memory and not saved. | Live run 7, `audit_events`; review phase on the repository layer |
+| F36 | C | Every agent definition names a `fast` alias, and the definition spec says titles, compaction and memory extraction use it. No code sends work to it. The Models screen therefore does not list it (OQ-104). | `agents/defaults.py`; `docs/05-contracts/definition-schema.md`; M38b-T12 |
+| F37 | C | When the identity provider refused the seed's admin call, the seed said only "status 403". The provider had said "HTTPS required": its admin realm refuses plain HTTP from an address it treats as external. **Fixed** in M38b-T07c: the seed repeats the provider's own reason. | Seeding a second tenant for run 8 |
+| F38 | B | The image tool decided whether a model can read images from vendor model names written into the code, and its setup message named a vendor and a model. **Fixed** in M38b-T07c: it is a setting of the model ("This model can read images"), and the message names the Models screen. | `documents/vision.py` |
 
 ## What was fixed during the run
 
@@ -136,6 +139,12 @@ grep -v '^fake-llm' Procfile.dev > /tmp/Procfile.real && uv run honcho start -f 
 
 Then open the web app, choose **Continue with SSO**, and sign in.
 
+Two things to know when repeating it. One process serves one tenant: with more than one tenant in the
+database, start the processes with `AR_BOOTSTRAP_TENANT_SLUG=<slug>`. And the local identity provider's
+admin realm refuses plain HTTP from an address it treats as external ("HTTPS required"); the seed now
+repeats that reason, and on a local stack the realm's `sslRequired` can be set to `NONE` from inside the
+container.
+
 ## Since the run
 
 | Date | Task | What changed | Proof |
@@ -149,7 +158,7 @@ Then open the web app, choose **Continue with SSO**, and sign in.
 | 6 Nov 2026 | M38b-T04e | F10 is fixed at its source: no process builds the `fake-llm` provider, its models or the aliases that pointed at it. A new tenant's Models screen lists only what its admin registered. | `test_m38b_empty_store.py`; the live Models screen |
 | 6 Nov 2026 | M38b-T07a | F26 to F29 are fixed. On the live stack, through the API as the signed-in admin: a provider was renamed, a second provider and model were added and removed (the provider was refused while it still had a model), and the database then held one provider, one model, one stored key and an audit row for each step. Chat still answered after the rename. | `tests/integration/test_m38b_model_registry.py` on a real Postgres; the `model_providers`, `models`, `secret_refs` and `audit_events` tables |
 | 6 Nov 2026 | M38b-T07b | F15, F18 and F32 are fixed. On the live `acme` tenant, as the signed-in admin and with a real model: with no embedding model, **Create collection** and **Remember this** answered "No embedding model is set. An administrator sets one on the Models screen…" (409). The admin then registered an embedding model on the existing provider and pointed `embed` at it through the API, and the alias test returned a vector of 1024 numbers. A collection was created and states its model; two documents were indexed into 7 chunks; four questions that share no key word with the handbook each ranked the right section first; a memory was saved and found by a question in other words; and the assistant answered a lunch question from that memory. The database holds the model's id on the collection and on the fact, and 1024-number vectors. The registry and the collection survived a restart of every process. New findings: F30, F31, F33, F34, F35. | `test_m38b_embeddings.py` (unit and integration); `run7-embeddings/01-…` to `06-…` |
+| 6 Nov 2026 | M38b-T07c | F16, F37 and F38 are fixed. Two more tenants were seeded in the same database (`globex`, then `initech`), each empty: two default agents, no provider. On `initech`, signed in as its admin, using only the Models screen: the page listed the four names the product calls, two marked "Not set, needed", and an empty form. The admin added a provider (address and key typed in), added a chat model in the dialog that opens next and left "Use this model for: Answers" ticked, tested Answers ("It answered. pong"), added an embedding model the same way and tested it ("Returned a vector of 1024 numbers."). In Advanced mode the admin renamed the provider, was refused when removing a provider that still has models and a model an alias points at (each with its reason in the dialog), changed the temperature the answers alias sends (it was 0.2), and added and tested an alias of their own. Chat then answered, and a new knowledge collection read "Embedding model BAAI/bge-m3 · 6 chunks" and found the right passage. The database has an audit row for each registry change. New finding: F36. | `test_m38b_models_api.py`; `models-admin.test.tsx`; Playwright `m38b-models.spec.ts`; `run8-models-screen/01-…` to `10-…` |
 
 Still open: the code that builds the demo tenant still sits in the product packages, although only test
-setup and the eval tooling call it (M38b-T04d and T04f). The Models screen cannot yet add an embedding
-model; run 7 did it through the API (F16, M38b-T07c).
+setup and the eval tooling call it (M38b-T04d and T04f).

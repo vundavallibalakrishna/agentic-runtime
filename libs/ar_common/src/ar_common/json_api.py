@@ -10,7 +10,9 @@ from pydantic.alias_generators import to_camel
 
 # Provider protocol objects. Their keys are sent upstream as stored, so a
 # read/write round trip must not rename ``chat_template_kwargs``.
-OPAQUE_JSON_KEYS = frozenset({"request_options", "requestOptions"})
+OPAQUE_JSON_KEYS = frozenset(
+    {"request_options", "requestOptions", "default_params", "defaultParams"}
+)
 
 
 def camel_key(name: str) -> str:

@@ -47,6 +47,8 @@ class ModelPatch(ApiModel):
     # The vector length an embedding model is asked for. Null puts it back to the
     # model's own length.
     embedding_dimensions: int | None = Field(default=None, gt=0)
+    # What the model can do, for example ``vision`` for a model that reads images.
+    capabilities: list[str] | None = None
 
 
 class ModelBody(ApiModel):
@@ -58,6 +60,7 @@ class ModelBody(ApiModel):
     price_output_micros_per_mtok: int = Field(default=0, ge=0)
     request_options: dict[str, object] | None = None
     embedding_dimensions: int | None = Field(default=None, gt=0)
+    capabilities: list[str] | None = None
 
 
 class AliasBody(ApiModel):
@@ -65,11 +68,14 @@ class AliasBody(ApiModel):
     kind: str = "chat"
     primary_model_id: uuid.UUID
     fallback_model_ids: list[uuid.UUID] = Field(default_factory=list)
+    default_params: dict[str, object] | None = None
 
 
 class AliasPatch(ApiModel):
     primary_model_id: uuid.UUID
     fallback_model_ids: list[uuid.UUID] | None = None
+    # What the alias sends when the caller gives no value, for example a temperature.
+    default_params: dict[str, object] | None = None
 
 
 class AliasTestBody(ApiModel):
@@ -325,6 +331,7 @@ async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
         price_output_micros_per_mtok=body.price_output_micros_per_mtok,
         request_options=body.request_options,
         embedding_dimensions=body.embedding_dimensions,
+        capabilities=body.capabilities,
     )
     await _persist_model(service, created, principal)
     return created
@@ -351,6 +358,7 @@ async def patch_model(model_id: uuid.UUID, body: ModelPatch, request: Request) -
         clear_embedding_dimensions=(
             "embedding_dimensions" in body.model_fields_set and body.embedding_dimensions is None
         ),
+        capabilities=body.capabilities,
     )
     await _persist_model(service, updated, principal)
     return updated
@@ -373,11 +381,28 @@ async def delete_model(model_id: uuid.UUID, request: Request) -> dict[str, bool]
     return {"deleted": True}
 
 
+@router.post(
+    "/api/v1/models/{model_id}:test",
+    dependencies=[Depends(require_permission("models:manage"))],
+)
+@expose(public=False, permission="models:manage")
+async def test_model(model_id: uuid.UUID, request: Request) -> dict[str, object]:
+    """Ask one registered model for an answer. A chat model is asked for a word, an
+    embedding model for a vector and a rerank model for scores."""
+    principal = _principal(request)
+    return await _chat(request).test_model(_tenant(principal), model_id)
+
+
 @router.get("/api/v1/model-aliases", dependencies=[Depends(require_permission("models:read"))])
 @expose(public=False, permission="models:read")
 async def list_aliases(request: Request) -> dict[str, object]:
+    from ar_domain.models.aliases import standard_aliases  # noqa: PLC0415
+
     principal = _principal(request)
-    return _page(_chat(request).list_aliases(_tenant(principal)))
+    service = _chat(request)
+    tenant = _tenant(principal)
+    # ``standard`` lists the aliases the product itself uses and whether each is set.
+    return {**_page(service.list_aliases(tenant)), "standard": standard_aliases(service, tenant)}
 
 
 @router.post("/api/v1/model-aliases", dependencies=[Depends(require_permission("models:manage"))])
@@ -392,6 +417,7 @@ async def create_alias(body: AliasBody, request: Request) -> dict[str, object]:
         body.primary_model_id,
         platform=False,
         fallback_model_ids=body.fallback_model_ids,
+        default_params=body.default_params,
     )
     try:
         await _persist_alias(service, created, principal)
@@ -418,6 +444,7 @@ async def update_alias(
         platform=False,
         actor_user_id=_actor_user(principal),
         fallback_model_ids=body.fallback_model_ids,
+        default_params=body.default_params,
     )
     await _persist_alias(service, updated, principal)
     return updated

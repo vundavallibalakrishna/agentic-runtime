@@ -6124,6 +6124,49 @@
         }
       }
     },
+    "/api/v1/models/{model_id}:test": {
+      "post": {
+        "summary": "Test Model",
+        "description": "Ask one registered model for an answer. A chat model is asked for a word, an\nembedding model for a vector and a rerank model for scores.",
+        "operationId": "test_model_api_v1_models__model_id__test_post",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Test Model Api V1 Models  Model Id  Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/model-aliases": {
       "get": {
         "summary": "List Aliases",
@@ -21299,6 +21342,18 @@
             },
             "type": "array",
             "title": "Fallbackmodelids"
+          },
+          "defaultParams": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultparams"
           }
         },
         "additionalProperties": false,
@@ -21327,6 +21382,18 @@
               }
             ],
             "title": "Fallbackmodelids"
+          },
+          "defaultParams": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaultparams"
           }
         },
         "additionalProperties": false,
@@ -24495,6 +24562,20 @@
               }
             ],
             "title": "Embeddingdimensions"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
           }
         },
         "additionalProperties": false,
@@ -24573,6 +24654,20 @@
               }
             ],
             "title": "Embeddingdimensions"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities"
           }
         },
         "additionalProperties": false,

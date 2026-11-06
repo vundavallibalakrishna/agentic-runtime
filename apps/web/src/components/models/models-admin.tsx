@@ -1,70 +1,104 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
-import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TableScroll } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, type Session } from "@/lib/api";
 
-type Row = Record<string, unknown>;
+import {
+  type AliasChange,
+  AliasDialog,
+  ConfirmDialog,
+  type ModelChange,
+  ModelDialog,
+  type ProviderChange,
+  ProviderDialog,
+} from "./dialogs";
+import { Field, Problem, Select } from "./parts";
+import { AliasesSection, ProvidersSection, UsesSection } from "./sections";
+import type { Alias, Model, Provider, StandardAlias, TestResult, Tests } from "./types";
 
 const MODE_KEY = "ar-settings-mode";
+const PROVIDER_KINDS = ["openai_compatible", "vllm", "tei"];
 
-/** Price per million tokens in the tenant currency, stored as integer micros. */
-function toMicros(value: string): number {
-  const parsed = Number.parseFloat(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return 0;
-  }
-  return Math.round(parsed * 1_000_000);
+type Page<T> = { items?: T[] };
+type Removal = { title: string; body: string; run: () => Promise<void> };
+
+function post<T>(path: string, body: unknown = {}): Promise<T> {
+  return api<T>(path, { method: "POST", body: JSON.stringify(body) });
+}
+
+function patch<T>(path: string, body: unknown): Promise<T> {
+  return api<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+}
+
+function remove(path: string): Promise<unknown> {
+  return api(path, { method: "DELETE" });
 }
 
 export function ModelsAdmin() {
   const t = useTranslations("models");
-  const [providers, setProviders] = useState<Row[]>([]);
-  const [models, setModels] = useState<Row[]>([]);
-  const [aliases, setAliases] = useState<Row[]>([]);
-  const [error, setError] = useState("");
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
+  const [aliases, setAliases] = useState<Alias[]>([]);
+  const [standard, setStandard] = useState<StandardAlias[]>([]);
+  const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [name, setName] = useState("Local fake");
-  const [kind, setKind] = useState("fake");
-  const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:8099/v1");
-  const [apiKey, setApiKey] = useState("");
-  const [priceIn, setPriceIn] = useState("0");
-  const [priceOut, setPriceOut] = useState("0");
-  const [upstream, setUpstream] = useState("fake-chat");
-  const [sample, setSample] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [error, setError] = useState("");
+  const [tests, setTests] = useState<Tests>({});
   const [advanced, setAdvanced] = useState(false);
+
+  const [name, setName] = useState("");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [kind, setKind] = useState(PROVIDER_KINDS[0] ?? "");
+  const [adding, setAdding] = useState(false);
+
+  const [editingProvider, setEditingProvider] = useState<Provider | null>(null);
+  const [modelTarget, setModelTarget] = useState<{
+    provider: Provider;
+    model: Model | null;
+  } | null>(null);
+  const [aliasTarget, setAliasTarget] = useState<{ alias: Alias | null } | null>(null);
+  const [removal, setRemoval] = useState<Removal | null>(null);
 
   useEffect(() => {
     setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
   }, []);
 
+  const refresh = useCallback(async () => {
+    const [providerPage, modelPage, aliasPage] = await Promise.all([
+      api<Page<Provider>>("/api/v1/model-providers"),
+      api<Page<Model>>("/api/v1/models"),
+      api<Page<Alias> & { standard?: StandardAlias[] }>("/api/v1/model-aliases"),
+    ]);
+    setProviders(providerPage.items ?? []);
+    setModels(modelPage.items ?? []);
+    setAliases(aliasPage.items ?? []);
+    setStandard(aliasPage.standard ?? []);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
-    setError("");
+    setLoadError("");
     try {
-      const [providerPage, modelPage, aliasPage] = await Promise.all([
-        api<{ items: Row[] }>("/api/v1/model-providers"),
-        api<{ items: Row[] }>("/api/v1/models"),
-        api<{ items: Row[] }>("/api/v1/model-aliases"),
-      ]);
-      setProviders(providerPage.items ?? []);
-      setModels(modelPage.items ?? []);
-      setAliases(aliasPage.items ?? []);
+      const session = await api<Session>("/api/v1/auth/session");
+      setCanManage((session.permissions ?? []).includes("models:manage"));
+      await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("error"));
+      setLoadError(caught instanceof Error ? caught.message : t("error"));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [refresh, t]);
 
   useEffect(() => {
     void load();
@@ -75,270 +109,341 @@ export function ModelsAdmin() {
     window.localStorage.setItem(MODE_KEY, next ? "advanced" : "simple");
   }
 
-  function chooseKind(next: string) {
-    setKind(next);
-    if (next === "openai_compatible" && baseUrl.includes("127.0.0.1")) {
-      setBaseUrl("https://api.deepinfra.com/v1/openai");
-    }
-    if (next === "openai_compatible" && upstream === "fake-chat") {
-      setUpstream("Qwen/Qwen3-32B");
-    }
-    if (next === "fake") {
-      setBaseUrl("http://127.0.0.1:8099/v1");
-      setUpstream("fake-chat");
-      setApiKey("");
-    }
-  }
-
-  async function registerProvider() {
+  /** Run a change made straight from the page, show why it failed, and reload. */
+  async function act(change: () => Promise<unknown>) {
     setError("");
-    const secret = apiKey;
-    setApiKey("");
     try {
-      const created = await api<Row>("/api/v1/model-providers", {
-        method: "POST",
-        body: JSON.stringify({
-          name,
-          kind,
-          baseUrl,
-          ...(secret ? { apiKey: secret } : {}),
-        }),
-      });
-      const model = await api<Row>("/api/v1/models", {
-        method: "POST",
-        body: JSON.stringify({
-          providerId: created.id,
-          name: `${name} chat`,
-          upstreamModel: upstream,
-          kind: "chat",
-          priceInputMicrosPerMtok: toMicros(priceIn),
-          priceOutputMicrosPerMtok: toMicros(priceOut),
-        }),
-      });
-      const reasoning = aliases.find((row) => row.alias === "reasoning" && row.platform !== true);
-      if (reasoning && kind !== "fake") {
-        await api(`/api/v1/model-aliases/${String(reasoning.id)}`, {
-          method: "PATCH",
-          body: JSON.stringify({ primaryModelId: model.id }),
-        });
-      } else if (!reasoning) {
-        await api("/api/v1/model-aliases", {
-          method: "POST",
-          body: JSON.stringify({
-            alias: "reasoning",
-            kind: "chat",
-            primaryModelId: model.id,
-          }),
-        });
-      }
-      const tested = await api<{ output: string; latencyMs: number }>(
-        `/api/v1/model-providers/${String(created.id)}:test`,
-        { method: "POST", body: "{}" },
-      );
-      setSample(`${tested.output} (${tested.latencyMs} ms)`);
-      await load();
+      await change();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     }
+    await refresh().catch(() => undefined);
   }
+
+  /** Run a change made in a dialog. A failure stays in the dialog. */
+  async function save(change: () => Promise<unknown>) {
+    try {
+      await change();
+    } finally {
+      await refresh().catch(() => undefined);
+    }
+  }
+
+  async function runTest(key: string, path: string) {
+    setTests((current) => ({ ...current, [key]: "running" }));
+    try {
+      const result = await post<TestResult>(path);
+      setTests((current) => ({ ...current, [key]: result }));
+    } catch (caught) {
+      const output = caught instanceof Error ? caught.message : t("error");
+      setTests((current) => ({ ...current, [key]: { ok: false, output, latencyMs: 0 } }));
+    }
+  }
+
+  async function addProvider(event: FormEvent) {
+    event.preventDefault();
+    const secret = apiKey;
+    setAdding(true);
+    setError("");
+    try {
+      const created = await post<Provider>("/api/v1/model-providers", {
+        name: name.trim(),
+        kind,
+        baseUrl: baseUrl.trim(),
+        ...(secret ? { apiKey: secret } : {}),
+      });
+      setName("");
+      setBaseUrl("");
+      setApiKey("");
+      await refresh();
+      // The next step is a model, so the person is taken straight to it.
+      setModelTarget({ provider: created, model: null });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function saveProvider(provider: Provider, change: ProviderChange) {
+    await patch(`/api/v1/model-providers/${provider.id}`, {
+      name: change.name.trim(),
+      baseUrl: change.baseUrl.trim(),
+      ...(change.apiKey ? { apiKey: change.apiKey } : {}),
+    });
+  }
+
+  async function saveModel(
+    target: { provider: Provider; model: Model | null },
+    change: ModelChange,
+  ) {
+    // What the model can do is kept, except for reading images, which the person sets here.
+    const kept = (target.model?.capabilities ?? []).filter((item) => item !== "vision");
+    const body = {
+      name: change.name,
+      upstreamModel: change.upstreamModel,
+      priceInputMicrosPerMtok: change.priceIn,
+      priceOutputMicrosPerMtok: change.priceOut,
+      embeddingDimensions: change.embeddingDimensions,
+      ...(target.model || change.vision
+        ? { capabilities: change.vision ? [...kept, "vision"] : kept }
+        : {}),
+    };
+    if (target.model) {
+      await patch(`/api/v1/models/${target.model.id}`, body);
+      return;
+    }
+    const created = await post<Model>("/api/v1/models", {
+      ...body,
+      providerId: target.provider.id,
+      kind: change.kind,
+    });
+    for (const alias of change.useFor) {
+      const item = standard.find((entry) => entry.alias === alias);
+      if (item) {
+        await point(item, created.id);
+      }
+    }
+  }
+
+  /** Point a name the product uses at a model: change the tenant's alias, or make it. */
+  async function point(item: StandardAlias, modelId: string) {
+    if (item.aliasId && !item.platform) {
+      await patch(`/api/v1/model-aliases/${item.aliasId}`, { primaryModelId: modelId });
+      return;
+    }
+    await post("/api/v1/model-aliases", {
+      alias: item.alias,
+      kind: item.kind,
+      primaryModelId: modelId,
+    });
+  }
+
+  async function saveAlias(target: { alias: Alias | null }, change: AliasChange) {
+    const params =
+      change.temperature === null
+        ? undefined
+        : { ...(target.alias?.defaultParams ?? {}), temperature: change.temperature };
+    if (target.alias) {
+      await patch(`/api/v1/model-aliases/${target.alias.id}`, {
+        primaryModelId: change.modelId,
+        ...(params ? { defaultParams: params } : {}),
+      });
+      return;
+    }
+    await post("/api/v1/model-aliases", {
+      alias: change.alias,
+      kind: change.kind,
+      primaryModelId: change.modelId,
+      ...(params ? { defaultParams: params } : {}),
+    });
+  }
+
+  const standardNames = new Set(standard.map((item) => item.alias));
+  const otherAliases = aliases.filter((alias) => !standardNames.has(alias.alias));
+  const byId = (id: string) => aliases.find((alias) => alias.id === id) ?? null;
 
   return (
     <AppShell>
       <PageHeader
-        title={t("title")}
-        body={t("body")}
         actions={<SettingsMode advanced={advanced} onChange={chooseMode} />}
+        body={t("body")}
+        title={t("title")}
       />
 
-      <ManagementLayout
-        title={t("providers")}
-        formTitle={t("register")}
-        form={
-          <form
-            className="grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void registerProvider();
-            }}
-          >
-            <label className="text-sm" htmlFor="provider-name">
-              {t("name")}
-              <Input
-                id="provider-name"
-                onChange={(event) => setName(event.target.value)}
-                value={name}
-              />
-            </label>
-            {advanced ? (
-              <>
-                <fieldset className="grid gap-2">
-                  <legend className="text-sm">{t("kind")}</legend>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      aria-pressed={kind === "fake"}
-                      onClick={() => chooseKind("fake")}
-                      type="button"
-                      variant={kind === "fake" ? "default" : "outline"}
-                    >
-                      {t("fakeKind")}
-                    </Button>
-                    <Button
-                      aria-pressed={kind === "openai_compatible"}
-                      onClick={() => chooseKind("openai_compatible")}
-                      type="button"
-                      variant={kind === "openai_compatible" ? "default" : "outline"}
-                    >
-                      {t("openaiKind")}
-                    </Button>
-                  </div>
-                </fieldset>
-                <label className="text-sm" htmlFor="provider-url">
-                  {t("url")}
-                  <Input
-                    id="provider-url"
-                    onChange={(event) => setBaseUrl(event.target.value)}
-                    value={baseUrl}
-                  />
-                </label>
-                <label className="text-sm" htmlFor="provider-model">
-                  {t("upstream")}
-                  <Input
-                    id="provider-model"
-                    onChange={(event) => setUpstream(event.target.value)}
-                    value={upstream}
-                  />
-                </label>
-                {kind === "openai_compatible" ? (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <label className="text-sm" htmlFor="provider-price-in">
-                      {t("priceInput")}
-                      <Input
-                        id="provider-price-in"
-                        inputMode="decimal"
-                        min="0"
-                        onChange={(event) => setPriceIn(event.target.value)}
-                        step="0.000001"
-                        type="number"
-                        value={priceIn}
-                      />
-                    </label>
-                    <label className="text-sm" htmlFor="provider-price-out">
-                      {t("priceOutput")}
-                      <Input
-                        id="provider-price-out"
-                        inputMode="decimal"
-                        min="0"
-                        onChange={(event) => setPriceOut(event.target.value)}
-                        step="0.000001"
-                        type="number"
-                        value={priceOut}
-                      />
-                    </label>
-                    <p className="text-sm text-[var(--muted-foreground)] sm:col-span-2">
-                      {t("priceHint")}
-                    </p>
-                  </div>
-                ) : null}
-                {kind === "openai_compatible" ? (
-                  <div className="grid gap-1">
-                    <label className="text-sm" htmlFor="provider-key">
-                      {t("apiKey")}
-                      <Input
-                        aria-describedby="provider-key-hint"
-                        autoComplete="off"
-                        id="provider-key"
-                        onChange={(event) => setApiKey(event.target.value)}
-                        type="password"
-                        value={apiKey}
-                      />
-                    </label>
-                    <p className="text-sm text-[var(--muted-foreground)]" id="provider-key-hint">
-                      {t("apiKeyHint")}
-                    </p>
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-            <Button className="justify-self-start" type="submit">
-              {t("test")}
-            </Button>
-            {sample ? (
-              <p>
-                {t("sample")}: {sample}
-              </p>
-            ) : null}
-          </form>
-        }
-      >
-        {loading ? (
-          <div aria-busy="true" className="space-y-2">
-            <p className="sr-only">{t("loading")}</p>
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </div>
-        ) : null}
-        {error ? (
-          <p className="mt-4" role="alert">
-            {error}{" "}
-            <Button variant="outline" onClick={() => void load()}>
+      {loading ? (
+        <div aria-busy="true" className="space-y-3">
+          <p className="sr-only">{t("loading")}</p>
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      ) : null}
+
+      {!loading && loadError ? (
+        <Problem
+          action={
+            <Button onClick={() => void load()} type="button" variant="outline">
               {t("retry")}
             </Button>
-          </p>
-        ) : null}
-        {!loading && !error && providers.length === 0 ? <EmptyState title={t("empty")} /> : null}
-        {!loading && !error && providers.length > 0 ? (
-          <>
-            <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)] md:hidden">
-              {providers.map((row) => (
-                <li className="px-4 py-3 text-sm" key={String(row.id)}>
-                  <p className="font-medium">{String(row.name)}</p>
-                  <p className="mt-1 break-all text-[var(--muted-foreground)]">
-                    {String(row.baseUrl)}
-                  </p>
-                  <p className="mt-1 text-[var(--muted-foreground)]">
-                    {String(row.kind ?? "")} · {row.platform ? t("platform") : t("tenant")} ·{" "}
-                    {row.hasApiKey ? t("keyStored") : t("noKey")}
-                  </p>
-                </li>
-              ))}
-            </ul>
-            <TableScroll
-              className="hidden rounded-xl border border-[var(--border)] bg-[var(--card)] md:block"
-              label={t("providers")}
-            >
-              <table className="w-full text-left text-sm">
-                <caption className="sr-only">{t("providers")}</caption>
-                <thead className="text-[var(--muted-foreground)]">
-                  <tr>
-                    <th className="p-3 font-medium">{t("name")}</th>
-                    <th className="p-3 font-medium">{t("kind")}</th>
-                    <th className="p-3 font-medium">{t("url")}</th>
-                    <th className="p-3 font-medium">{t("scope")}</th>
-                    <th className="p-3 font-medium">{t("apiKey")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {providers.map((row) => (
-                    <tr className="border-t border-[var(--border)]" key={String(row.id)}>
-                      <td className="p-3">{String(row.name)}</td>
-                      <td className="p-3">{String(row.kind ?? "")}</td>
-                      <td className="max-w-xs truncate p-3">{String(row.baseUrl)}</td>
-                      <td className="p-3">{row.platform ? t("platform") : t("tenant")}</td>
-                      <td className="p-3">{row.hasApiKey ? t("keyStored") : t("noKey")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableScroll>
-          </>
-        ) : null}
+          }
+        >
+          {loadError}
+        </Problem>
+      ) : null}
 
-        {!loading && !error ? (
-          <p className="mt-4 text-sm text-[var(--muted-foreground)]">
-            {t("counts", { models: models.length, aliases: aliases.length })}
-          </p>
-        ) : null}
-      </ManagementLayout>
+      {!loading && !loadError ? (
+        <ManagementLayout
+          form={
+            canManage ? (
+              <form className="grid gap-4" onSubmit={(event) => void addProvider(event)}>
+                <Field id="provider-name" label={t("name")}>
+                  <Input
+                    id="provider-name"
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                    value={name}
+                  />
+                </Field>
+                <Field hint={t("urlHint")} id="provider-url" label={t("url")}>
+                  <Input
+                    aria-describedby="provider-url-hint"
+                    id="provider-url"
+                    inputMode="url"
+                    onChange={(event) => setBaseUrl(event.target.value)}
+                    required
+                    value={baseUrl}
+                  />
+                </Field>
+                <Field hint={t("apiKeyHint")} id="provider-key" label={t("apiKey")}>
+                  <Input
+                    aria-describedby="provider-key-hint"
+                    autoComplete="off"
+                    id="provider-key"
+                    onChange={(event) => setApiKey(event.target.value)}
+                    type="password"
+                    value={apiKey}
+                  />
+                </Field>
+                {advanced ? (
+                  <Field hint={t("providerKindHint")} id="provider-kind" label={t("kind")}>
+                    <Select id="provider-kind" onChange={setKind} value={kind}>
+                      {PROVIDER_KINDS.map((item) => (
+                        <option key={item} value={item}>
+                          {t(`providerKinds.${item}`)}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : null}
+                <Button className="justify-self-start" disabled={adding} type="submit">
+                  {t("addProvider")}
+                </Button>
+              </form>
+            ) : (
+              <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">
+                {t("readOnly")}
+              </p>
+            )
+          }
+          formTitle={t("addProviderTitle")}
+        >
+          {error ? (
+            <div className="mb-6">
+              <Problem
+                action={
+                  <Button onClick={() => setError("")} type="button" variant="outline">
+                    {t("dismiss")}
+                  </Button>
+                }
+              >
+                {error}
+              </Problem>
+            </div>
+          ) : null}
+          <UsesSection
+            advanced={advanced}
+            canManage={canManage}
+            models={models}
+            onClear={(item) =>
+              setRemoval({
+                title: t("clearTitle", { name: t(`uses.${item.alias}.title`) }),
+                body: t("clearBody"),
+                run: () => remove(`/api/v1/model-aliases/${item.aliasId}`).then(() => undefined),
+              })
+            }
+            onOptions={(aliasId) => setAliasTarget({ alias: byId(aliasId) })}
+            onPoint={(item, modelId) => void act(() => point(item, modelId))}
+            onTest={(aliasId) =>
+              void runTest(`alias:${aliasId}`, `/api/v1/model-aliases/${aliasId}:test`)
+            }
+            standard={standard}
+            tests={tests}
+          />
+          <ProvidersSection
+            advanced={advanced}
+            canManage={canManage}
+            models={models}
+            onAddModel={(provider) => setModelTarget({ provider, model: null })}
+            onEditModel={(provider, model) => setModelTarget({ provider, model })}
+            onEditProvider={setEditingProvider}
+            onRemoveModel={(model) =>
+              setRemoval({
+                title: t("removeTitle", { name: model.name }),
+                body: t("removeModelBody"),
+                run: () => remove(`/api/v1/models/${model.id}`).then(() => undefined),
+              })
+            }
+            onRemoveProvider={(provider) =>
+              setRemoval({
+                title: t("removeTitle", { name: provider.name }),
+                body: t("removeProviderBody"),
+                run: () => remove(`/api/v1/model-providers/${provider.id}`).then(() => undefined),
+              })
+            }
+            onTestModel={(model) =>
+              void runTest(`model:${model.id}`, `/api/v1/models/${model.id}:test`)
+            }
+            onTestProvider={(provider) =>
+              void runTest(`provider:${provider.id}`, `/api/v1/model-providers/${provider.id}:test`)
+            }
+            providers={providers}
+            tests={tests}
+          />
+          {advanced ? (
+            <AliasesSection
+              aliases={otherAliases}
+              canManage={canManage}
+              models={models}
+              onAdd={() => setAliasTarget({ alias: null })}
+              onEdit={(alias) => setAliasTarget({ alias })}
+              onRemove={(alias) =>
+                setRemoval({
+                  title: t("removeTitle", { name: alias.alias }),
+                  body: t("removeAliasBody"),
+                  run: () => remove(`/api/v1/model-aliases/${alias.id}`).then(() => undefined),
+                })
+              }
+              onTest={(alias) =>
+                void runTest(`alias:${alias.id}`, `/api/v1/model-aliases/${alias.id}:test`)
+              }
+              tests={tests}
+            />
+          ) : null}
+        </ManagementLayout>
+      ) : null}
+
+      <ProviderDialog
+        onClose={() => setEditingProvider(null)}
+        onSave={(change) =>
+          save(() => (editingProvider ? saveProvider(editingProvider, change) : Promise.resolve()))
+        }
+        provider={editingProvider}
+      />
+      <ModelDialog
+        advanced={advanced}
+        onClose={() => setModelTarget(null)}
+        onSave={(change) =>
+          save(() => (modelTarget ? saveModel(modelTarget, change) : Promise.resolve()))
+        }
+        standard={standard}
+        target={modelTarget}
+      />
+      <AliasDialog
+        models={models}
+        onClose={() => setAliasTarget(null)}
+        onSave={(change) =>
+          save(() => (aliasTarget ? saveAlias(aliasTarget, change) : Promise.resolve()))
+        }
+        target={aliasTarget}
+      />
+      <ConfirmDialog
+        body={removal?.body ?? ""}
+        confirmLabel={t("remove")}
+        onClose={() => setRemoval(null)}
+        onConfirm={() => save(() => (removal ? removal.run() : Promise.resolve()))}
+        open={removal !== null}
+        title={removal?.title ?? ""}
+      />
     </AppShell>
   );
 }

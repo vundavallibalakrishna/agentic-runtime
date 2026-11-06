@@ -170,6 +170,7 @@ Spec: [04-model-gateway.md](../03-specs/04-model-gateway.md)
 | POST | [`/api/v1/models`](../03-specs/04-model-gateway.md#post-apiv1models) | `models:read` | 4. Registry API (served by `api`) |
 | PATCH | [`/api/v1/models/{model_id}`](../03-specs/04-model-gateway.md#patch-apiv1modelsmodel_id) | `models:read` | 4. Registry API (served by `api`) |
 | DELETE | [`/api/v1/models/{model_id}`](../03-specs/04-model-gateway.md#delete-apiv1modelsmodel_id) | `models:read` | 4. Registry API (served by `api`) |
+| POST | [`/api/v1/models/{model_id}:test`](../03-specs/04-model-gateway.md#post-apiv1modelsmodel_idtest) | `models:manage` | 4. Registry API (served by `api`) |
 | GET | [`/api/v1/model-aliases`](../03-specs/04-model-gateway.md#get-apiv1model-aliases) | `models:read` | 4. Registry API (served by `api`) |
 | POST | [`/api/v1/model-aliases`](../03-specs/04-model-gateway.md#post-apiv1model-aliases) | `models:read` | 4. Registry API (served by `api`) |
 | PATCH | [`/api/v1/model-aliases/{alias_id}`](../03-specs/04-model-gateway.md#patch-apiv1model-aliasesalias_id) | `models:read` | 4. Registry API (served by `api`) |
