@@ -6,7 +6,6 @@ import httpx
 from authlib.jose import JsonWebKey, JsonWebToken
 from authlib.jose.errors import JoseError
 
-from ar_api.auth.dev_users import DEV_TENANT_ID, DevUser, catalogue
 from ar_common.logging import get_logger
 
 logger = get_logger(__name__)
@@ -64,44 +63,6 @@ def choose_organization(
     if len(aliases) == 1:
         return aliases[0]
     return ""
-
-
-def profile_for(email: str, organization: str) -> DevUser:
-    """A person in the demo tenant of a store that has no database behind it.
-
-    Only the memory-mode sign-in calls this. A process attached to a database resolves
-    the tenant and the person from its rows (``auth/identity.py``).
-    """
-    domain = email.split("@", 1)[1] if "@" in email else ""
-    if organization != "dev" and not (organization == "" and domain == "dev.local"):
-        raise LoginError("tenant_not_found")
-    known = catalogue().get(email.lower())
-    if known is not None:
-        return known
-    from ar_domain.chat.service import demo_id  # noqa: PLC0415
-    from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS  # noqa: PLC0415
-
-    return DevUser(
-        email=email.lower(),
-        display_name=email.split("@", 1)[0],
-        user_id=demo_id(email.lower()),
-        roles=("member",),
-        permissions=frozenset(SYSTEM_ROLE_PERMISSIONS["member"]),
-    )
-
-
-def login_result(user: DevUser, *, access_token: str, refresh_token: str) -> dict[str, object]:
-    """Session fields the callback stores. Tokens stay out of logs."""
-    return {
-        "tenant_id": str(DEV_TENANT_ID),
-        "user_id": str(user.user_id),
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "email": user.email,
-        "display_name": user.display_name,
-        "roles": list(user.roles),
-        "permissions": sorted(user.permissions),
-    }
 
 
 def _token_error(response: httpx.Response) -> str:

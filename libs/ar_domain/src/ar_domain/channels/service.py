@@ -116,7 +116,7 @@ def _identity(
     email = str(message.get("external_user_email") or "").lower()
     if not email:
         return None
-    user_id = _user_for_email(store, email, integration.get("tenant_id"))
+    user_id = _user_for_email(store, email)
     if user_id is None:
         return None
     identity_id = uuid.uuid4()
@@ -134,18 +134,13 @@ def _identity(
     return row
 
 
-def _user_for_email(store: Any, email: str, tenant_id: object) -> uuid.UUID | None:
+def _user_for_email(store: Any, email: str) -> uuid.UUID | None:
+    """The person with this address among the tenant's people the store holds."""
     emails = getattr(store, "user_emails", {})
     if isinstance(emails, dict):
         for user_id, value in emails.items():
             if str(value).lower() == email and isinstance(user_id, uuid.UUID):
                 return user_id
-    if email.endswith("@dev.local"):
-        from ar_domain.chat.service import demo_id  # noqa: PLC0415
-
-        key = email.split("@", 1)[0]
-        if key in {"admin", "builder", "member", "approver"} and tenant_id == demo_id("tenant"):
-            return demo_id(key)
     return None
 
 

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import httpx
 import psycopg
+from sign_in import sign_in
 
 BASE = os.environ.get("AR_PROOF_API", "http://127.0.0.1:18131")
 DSN = os.environ.get("M31_DSN", "postgresql://ar_owner:ar_owner@127.0.0.1:5432/m31_fresh")
@@ -21,9 +22,7 @@ OUT = Path("/tmp/m31-proof/soak.json")  # noqa: S108
 
 def _session() -> tuple[httpx.Client, str]:
     client = httpx.Client(base_url=BASE, timeout=120.0, follow_redirects=False)
-    login = client.post("/api/v1/auth/dev-login", params={"email": "admin@dev.local"})
-    if login.status_code not in {200, 302, 303}:
-        raise SystemExit(f"login {login.status_code}")
+    client.cookies.update(sign_in(BASE, "admin@dev.local"))
     client.headers["x-csrf-token"] = client.cookies.get("ar_csrf") or ""
     stamp = str(int(time.time()))
     agent = client.post(

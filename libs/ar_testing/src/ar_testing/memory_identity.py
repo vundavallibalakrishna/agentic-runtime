@@ -1,8 +1,7 @@
-"""Seeded identity while the API is on the memory cache.
+"""The demo tenant's identity for a store that has no database.
 
-Playwright and a laptop without Postgres still need users, profile and tenant
-settings. The four dev users and an enterprise plan stand in until ``bind_store``
-attaches a database (OQ-31).
+Unit tests and the browser-test harness plug this in as the application's identity
+provider. The product reads identity from its database and nowhere else.
 """
 
 from __future__ import annotations
@@ -11,10 +10,12 @@ from typing import TYPE_CHECKING, cast
 
 from ar_common.time import utcnow
 from ar_domain.chat.service import demo_id
-from ar_domain.identity.models import Plan, Tenant, User
+from ar_domain.identity.models import Plan, Role, RoleAssignment, Tenant, User
+from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS
 from ar_domain.identity.seed import DEV_USERS, plan_limits
 from ar_domain.identity.service import IdentityService, IdentityStore
 from ar_domain.identity.tenant_settings import dev_tenant_settings
+from ar_testing.demo_people import catalogue
 
 if TYPE_CHECKING:
     import uuid
@@ -90,6 +91,35 @@ class MemoryIdentityStore:
             ]
         return rows
 
+    async def grants_for(self, user_id: uuid.UUID) -> list[tuple[RoleAssignment, Role]]:
+        """Tenant-scope role grants of a demo person, shaped like database rows."""
+        person = next((row for row in catalogue().values() if row.user_id == user_id), None)
+        if person is None:
+            return []
+        return [
+            (
+                RoleAssignment(
+                    tenant_id=self.tenant.id,
+                    principal_type="user",
+                    principal_id=user_id,
+                    scope_type="tenant",
+                ),
+                Role(key=key, name=key, permissions=sorted(SYSTEM_ROLE_PERMISSIONS[key])),
+            )
+            for key in person.roles
+        ]
+
+    async def user_group_ids(self, user_id: uuid.UUID) -> list[uuid.UUID]:
+        del user_id
+        return []
+
+    async def user_team_ids(self, user_id: uuid.UUID) -> list[uuid.UUID]:
+        del user_id
+        return []
+
+    async def audit_login(self, user: User) -> None:
+        del user
+
     async def audit(
         self,
         action: object,
@@ -111,11 +141,3 @@ def memory_identity(chat: object, ctx: TenantContext) -> IdentityService:
         chat._memory_identity = store  # type: ignore[attr-defined]
     store.ctx = ctx
     return IdentityService(cast("IdentityStore", store))
-
-
-def use_memory_identity(chat: object) -> bool:
-    """True after a bind attempt left the process on the memory cache."""
-    return (
-        bool(getattr(chat, "_bind_attempted", False))
-        and getattr(chat, "durable_engine", None) is None
-    )

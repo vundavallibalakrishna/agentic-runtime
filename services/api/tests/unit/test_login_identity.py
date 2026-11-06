@@ -1,162 +1,97 @@
-"""A persisted identity, never a synthetic demo ID, owns a durable login."""
+"""A sign-in becomes a session only for an active person of the tenant being served.
 
-import uuid
-from contextlib import asynccontextmanager
+Tasks: M38b-T03, M38b-T05b. The application has one sign-in path. These tests plug the
+demo tenant's identity into it, the way ``ar_testing.demo`` does for every API test.
+"""
+
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
 from starlette.requests import Request
 
-from ar_api.auth.complete import LoginError, login_result
-from ar_api.auth.dev_users import catalogue
+from ar_api.auth.complete import LoginError
 from ar_api.auth.identity import resolve_login_identity
-from ar_domain.chat.service import ChatService
+from ar_domain.db.context import Principal, TenantContext
+from ar_domain.demo_ids import demo_id
 from ar_domain.durable.bind import TenantBinding
 from ar_testing.demo import demo_store
+from ar_testing.demo_people import DEV_TENANT_ID, catalogue
+from ar_testing.memory_identity import MemoryIdentityStore, memory_identity
 
 
-@pytest.mark.parametrize(
-    "outcome",
-    ["active", "unbound", "missing_tenant", "tenant_suspended", "missing_user", "user_suspended"],
-)
-async def test_login_resolves_persisted_identity_and_denies_inactive_accounts(
-    outcome: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def _served(slug: str = "dev") -> tuple[Request, object, MemoryIdentityStore]:
+    """A request to an application that serves the demo tenant under this slug."""
     store = demo_store()
-    tenant_id, user_id = uuid.uuid4(), uuid.uuid4()
-    store.durable_engine = object()
-    if outcome != "unbound":
-        store.tenant_binding = TenantBinding(
-            tenant_id, "acme", "Acme", "self_hosted", {"admin@dev.local": user_id}
-        )
-    tenant = SimpleNamespace(id=tenant_id, status="active")
-    user = SimpleNamespace(
-        id=user_id, email="admin@dev.local", display_name="Persisted name", status="active"
+    store.tenant_binding = TenantBinding(
+        DEV_TENANT_ID,
+        slug,
+        "Dev",
+        "enterprise",
+        {email: person.user_id for email, person in catalogue().items()},
     )
-    if outcome == "tenant_suspended":
-        tenant.status = "suspended"
-    if outcome == "user_suspended":
-        user.status = "deprovisioned"
-    repo = SimpleNamespace(
-        get_tenant=AsyncMock(return_value=None if outcome == "missing_tenant" else tenant),
-        get_user_by_email=AsyncMock(return_value=None if outcome == "missing_user" else user),
+    ctx = TenantContext.from_principal(
+        Principal(kind="system", id="test", tenant_id=DEV_TENANT_ID), "login-test"
     )
-    effective = AsyncMock(return_value=(frozenset({"chat:use"}), frozenset({"member"})))
-    audit = AsyncMock()
-    contexts = []
-
-    @asynccontextmanager
-    async def transaction(ctx, *, engine):
-        contexts.append(ctx)
-        assert engine is store.durable_engine
-        yield object()
-
-    monkeypatch.setattr("ar_api.auth.identity.tenant_session", transaction)
-    monkeypatch.setattr("ar_api.auth.identity.IdentityRepository", lambda session, ctx: repo)
-    monkeypatch.setattr(
-        "ar_api.auth.identity.IdentityService",
-        lambda repo: SimpleNamespace(effective_for=effective),
+    identity = memory_identity(store, ctx).store
+    state = SimpleNamespace(
+        chat=store, identity_provider=lambda ctx: memory_identity(store, ctx).store
     )
-    monkeypatch.setattr("ar_api.auth.identity.record", audit)
     request = Request(
-        {
-            "type": "http",
-            "app": SimpleNamespace(state=SimpleNamespace(chat=store)),
-            "state": {"request_id": "login-test"},
-        }
+        {"type": "http", "app": SimpleNamespace(state=state), "state": {"request_id": "login-test"}}
     )
-    result = login_result(catalogue()["admin@dev.local"], access_token="at", refresh_token="rt")  # noqa: S106
-    if outcome == "active":
-        resolved = await resolve_login_identity(request, result)
-        assert resolved["user_id"] == str(user_id)
-        assert resolved["tenant_id"] == str(tenant_id)
-        assert resolved["display_name"] == "Persisted name"
-        assert resolved["permissions"] == ["chat:use"]
-        assert resolved["roles"] == ["member"]
-        assert resolved["access_token"] == "at"  # noqa: S105
-        assert resolved["refresh_token"] == "rt"  # noqa: S105
-        assert contexts[0].tenant_id == tenant_id
-        audit.assert_awaited_once()
-        assert audit.call_args.kwargs["actor_id"] == str(user_id)
-        assert audit.call_args.kwargs["tenant_id"] == tenant_id
-        effective.assert_awaited_once_with(user_id)
-    else:
-        expected = outcome if outcome.endswith("suspended") else "tenant_not_found"
-        with pytest.raises(LoginError, match=expected):
-            await resolve_login_identity(request, result)
-        audit.assert_not_awaited()
-        effective.assert_not_awaited()
+    return request, store, identity  # type: ignore[return-value]
 
 
-def _request(store: ChatService) -> Request:
-    return Request(
-        {
-            "type": "http",
-            "app": SimpleNamespace(state=SimpleNamespace(chat=store)),
-            "state": {"request_id": "login-test"},
-        }
-    )
+@pytest.mark.parametrize("organization", ["dev", "DEV", ""])
+async def test_a_person_of_the_tenant_signs_in_with_their_rows(organization: str) -> None:
+    request, store, _identity = _served()
+    claim = {"email": "Approver@dev.local", "organization": organization, "access_token": "at"}
+    resolved = await resolve_login_identity(request, claim)
+    assert resolved["tenant_id"] == str(DEV_TENANT_ID)
+    assert resolved["user_id"] == str(demo_id("approver"))
+    assert resolved["email"] == "approver@dev.local"
+    assert resolved["display_name"] == "Dev Approver"
+    assert resolved["roles"] == ["approver"]
+    assert "approvals:decide" in resolved["permissions"]
+    assert "tenant:manage" not in resolved["permissions"]
+    assert resolved["access_token"] == "at"  # noqa: S105
+    # Policy and approvals read the person's roles and name from the store.
+    assert store.user_roles[demo_id("approver")] == {"approver"}  # type: ignore[attr-defined]
+    assert store.display_names[demo_id("approver")] == "Dev Approver"  # type: ignore[attr-defined]
 
 
 @pytest.mark.parametrize(
-    ("organization", "admitted"),
-    [("acme", True), ("ACME", True), ("", True), ("dev", False), ("other", False)],
+    ("claim", "served"),
+    [
+        ({"email": "approver@dev.local", "organization": "acme"}, "dev"),
+        ({"email": "approver@dev.local", "organization": "dev"}, "acme"),
+        ({"email": "stranger@dev.local", "organization": "dev"}, "dev"),
+        ({"email": "ada@acme.example", "organization": ""}, "dev"),
+        ({"organization": "dev"}, "dev"),
+    ],
 )
-async def test_the_token_organization_must_be_the_tenant_this_process_serves(
-    organization: str, admitted: bool, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Task: M38b-T03. Nothing about the tenant or the person comes from code."""
-    store = ChatService()
-    tenant_id, user_id = uuid.uuid4(), uuid.uuid4()
-    store.durable_engine = object()
-    store.tenant_binding = TenantBinding(tenant_id, "acme", "Acme", "self_hosted", {})
-    user = SimpleNamespace(
-        id=user_id, email="Ada@Acme.Example", display_name="Ada Lovelace", status="active"
-    )
-    repo = SimpleNamespace(
-        get_tenant=AsyncMock(return_value=SimpleNamespace(id=tenant_id, status="active")),
-        get_user_by_email=AsyncMock(return_value=user),
-    )
-    effective = AsyncMock(return_value=(frozenset({"chat:use"}), frozenset({"tenant_admin"})))
-
-    @asynccontextmanager
-    async def transaction(ctx, *, engine):
-        del ctx, engine
-        yield object()
-
-    monkeypatch.setattr("ar_api.auth.identity.tenant_session", transaction)
-    monkeypatch.setattr("ar_api.auth.identity.IdentityRepository", lambda session, ctx: repo)
-    monkeypatch.setattr(
-        "ar_api.auth.identity.IdentityService",
-        lambda repo: SimpleNamespace(effective_for=effective),
-    )
-    monkeypatch.setattr("ar_api.auth.identity.record", AsyncMock())
-    claim = {"email": "ada@acme.example", "organization": organization, "access_token": "at"}
-    if not admitted:
-        with pytest.raises(LoginError, match="tenant_not_found"):
-            await resolve_login_identity(_request(store), claim)
-        repo.get_user_by_email.assert_not_awaited()
-        assert store.user_roles == {}
-        return
-    resolved = await resolve_login_identity(_request(store), claim)
-    assert resolved["tenant_id"] == str(tenant_id)
-    assert resolved["user_id"] == str(user_id)
-    assert resolved["roles"] == ["tenant_admin"]
-    repo.get_user_by_email.assert_awaited_once_with("ada@acme.example")
-    # Policy and approvals read the person's roles and name from the store.
-    assert store.user_roles[user_id] == {"tenant_admin"}
-    assert store.display_names[user_id] == "Ada Lovelace"
-    assert store.user_emails[user_id] == "ada@acme.example"
-
-
-async def test_a_store_without_a_database_admits_only_the_demo_tenant() -> None:
-    store = demo_store()
-    known = await resolve_login_identity(
-        _request(store), {"email": "approver@dev.local", "organization": "dev"}
-    )
-    assert known["roles"] == ["approver"]
+async def test_anyone_else_is_refused(claim: dict[str, object], served: str) -> None:
+    request, store, _identity = _served(served)
     with pytest.raises(LoginError, match="tenant_not_found"):
-        await resolve_login_identity(
-            _request(store), {"email": "ada@acme.example", "organization": "acme"}
-        )
+        await resolve_login_identity(request, claim)
+    assert store.user_roles.keys() <= {person.user_id for person in catalogue().values()}  # type: ignore[attr-defined]
+
+
+async def test_a_suspended_tenant_or_person_cannot_sign_in() -> None:
+    claim = {"email": "member@dev.local", "organization": "dev"}
+    request, _store, identity = _served()
+    identity.users[demo_id("member")].status = "suspended"
+    with pytest.raises(LoginError, match="user_suspended"):
+        await resolve_login_identity(request, claim)
+    request, _store, identity = _served()
+    identity.tenant.status = "suspended"
+    with pytest.raises(LoginError, match="tenant_suspended"):
+        await resolve_login_identity(request, claim)
+
+
+async def test_an_application_that_serves_no_tenant_signs_nobody_in() -> None:
+    """A process that has not attached to a tenant has no door at all."""
+    request, store, _identity = _served()
+    store.tenant_binding = None  # type: ignore[attr-defined]
+    with pytest.raises(LoginError, match="tenant_not_found"):
+        await resolve_login_identity(request, {"email": "admin@dev.local", "organization": "dev"})

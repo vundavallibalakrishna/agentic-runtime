@@ -47,7 +47,7 @@ make dev         # Postgres, Valkey, Temporal, Keycloak, API, workers, and the w
 open http://localhost:3000
 ```
 
-Sign in as `admin@dev.local`. On a laptop the password for Keycloak is `dev-password`, and the sign-in page also lists the seeded roles for dev login. Chat is the first screen. `make seed` inserts the dev tenant, four users, a local `fake-llm` provider, and the built-in assistants. It does not insert sample conversations.
+Choose **Continue with SSO** and sign in as `admin@dev.local`. On a laptop the Keycloak password is `dev-password`. That is the only way in: the product has no shortcut sign-in. Chat is the first screen. `make seed` inserts the dev tenant, four users, a local `fake-llm` provider, and the built-in assistants. It does not insert sample conversations.
 
 Connect the model you actually want to use:
 

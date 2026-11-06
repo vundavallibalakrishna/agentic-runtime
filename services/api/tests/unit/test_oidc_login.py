@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 
-from ar_api.auth.complete import LoginError, choose_organization, organization_aliases, profile_for
+from ar_api.auth.complete import LoginError, choose_organization, organization_aliases
 from ar_domain.secrets.crypto import parse_keyring
 from ar_testing.demo import demo_application
 
@@ -73,12 +73,6 @@ def test_organization_claim_shapes() -> None:
     with pytest.raises(LoginError) as caught:
         choose_organization(["other"], hint="dev")
     assert caught.value.code == "tenant_not_found"
-    # The demo tenant of a store without a database accepts only its own people.
-    assert profile_for("a@dev.local", "").roles == ("member",)
-    for email, organization in (("a@dev.local", "other"), ("ada@acme.example", "")):
-        with pytest.raises(LoginError) as caught:
-            profile_for(email, organization)
-        assert caught.value.code == "tenant_not_found"
 
 
 def test_callback_signs_in_a_seeded_user() -> None:
@@ -144,31 +138,59 @@ def test_callback_asks_for_a_tenant_when_several_match() -> None:
     assert callback.headers["location"] == "/select-tenant"
 
 
-def test_dev_login_accepts_each_seeded_user() -> None:
-    client = TestClient(demo_application())
+def _callback_as(app: object, email: str, organization: str = "dev") -> TestClient:
+    """Finish a sign-in whose token named this address and organization."""
+
+    async def complete(code: str, saved: dict[str, object]) -> dict[str, object]:
+        del code, saved
+        return {"email": email, "organization": organization, "access_token": "at"}
+
+    app.state.complete_login = complete  # type: ignore[attr-defined]
+    app.state.login_states["s"] = {"return_to": "/chat"}  # type: ignore[attr-defined]
+    client = TestClient(app, follow_redirects=False)  # type: ignore[arg-type]
+    client.landed = client.get("/api/v1/auth/callback?code=c&state=s")  # type: ignore[attr-defined]
+    return client
+
+
+def test_each_person_of_the_tenant_signs_in_with_their_own_permissions() -> None:
     for email, permission in (
         ("admin@dev.local", "tenant:manage"),
         ("builder@dev.local", "agents:create"),
         ("member@dev.local", "chat:use"),
         ("approver@dev.local", "approvals:decide"),
     ):
-        client.cookies.clear()
-        login = client.post(
-            "/api/v1/auth/dev-login",
-            json={"email": email},
-            follow_redirects=False,
+        client = _callback_as(demo_application(), email)
+        assert client.landed.headers["location"] == "/chat"  # type: ignore[attr-defined]
+        session = client.get("/api/v1/auth/session").json()
+        assert session["user"]["email"] == email
+        assert permission in session["permissions"]
+        assert session["tenant"]["slug"] == "dev"
+
+
+@pytest.mark.parametrize(
+    ("email", "organization"),
+    [("stranger@dev.local", "dev"), ("admin@dev.local", "other"), ("ada@acme.example", "")],
+)
+def test_someone_who_is_not_a_person_of_the_tenant_served_is_refused(
+    email: str, organization: str
+) -> None:
+    client = _callback_as(demo_application(), email, organization)
+    assert client.landed.headers["location"] == "/login?error=tenant_not_found"  # type: ignore[attr-defined]
+    assert client.get("/api/v1/auth/session").status_code == 401
+
+
+def test_the_product_has_no_side_door_for_signing_in() -> None:
+    """Task: M38b-T05b. The identity provider is the only way in."""
+    client = TestClient(demo_application(), follow_redirects=False)
+    for method in ("post", "get"):
+        answer = getattr(client, method)(
+            "/api/v1/auth/dev-login", params={"email": "admin@dev.local"}
         )
-        assert login.status_code == 303
-        session = client.get("/api/v1/auth/session")
-        assert session.json()["user"]["email"] == email
-        assert permission in session.json()["permissions"]
-    client.cookies.clear()
-    unknown = client.post(
-        "/api/v1/auth/dev-login",
-        json={"email": "stranger@dev.local"},
-        follow_redirects=False,
-    )
-    assert unknown.headers["location"] == "/login?error=unknown_user"
+        assert answer.status_code in {401, 404, 405}
+        assert "set-cookie" not in answer.headers
+    assert client.get("/api/v1/auth/session").status_code == 401
+    paths = demo_application().openapi()["paths"]
+    assert not [path for path in paths if "dev-login" in path]
 
 
 def test_realm_allows_local_http_and_names_users() -> None:

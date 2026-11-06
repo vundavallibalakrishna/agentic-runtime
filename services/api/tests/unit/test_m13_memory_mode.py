@@ -13,6 +13,7 @@ from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.db.context import Principal
 from ar_domain.durable.bind import SchemaNotReadyError
 from ar_testing.demo import demo_store
+from ar_testing.memory_identity import memory_identity
 
 
 def _scope(store: ChatService, path: str) -> dict[str, object]:
@@ -37,7 +38,13 @@ def _request(store: ChatService) -> Request:
         tenant_id=demo_id("tenant"),
         email="admin@dev.local",
     )
-    app = SimpleNamespace(state=SimpleNamespace(chat=store))
+    app = SimpleNamespace(
+        state=SimpleNamespace(
+            chat=store,
+            identity_override=None,
+            identity_provider=lambda ctx: memory_identity(store, ctx).store,
+        )
+    )
     return Request(
         {
             "type": "http",
@@ -110,9 +117,8 @@ async def test_a_missing_schema_and_an_unavailable_database_both_retry(
     assert store.conversations == {}
 
 
-async def test_memory_identity_lists_users_and_enables_widget() -> None:
+async def test_the_test_identity_lists_people_and_enables_widget() -> None:
     store = demo_store()
-    store._bind_attempted = True
     request = _request(store)
     async for identity in get_identity(request):
         users = await identity.store.list_users(status="active", query="admin")

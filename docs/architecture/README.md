@@ -19,7 +19,7 @@ Local ports and the `make dev` path are in [local development](../07-ops/local-d
 
 ## How a request moves
 
-1. A person signs in (Keycloak, or dev login when `AR_ENV` is not `prod`) and lands on Chat.
+1. A person signs in through the identity provider (Keycloak) and lands on Chat. There is no other way in.
 2. The tenant registers an OpenAI-compatible provider. The API key is sealed in `encrypted_secrets`. Later reads return `hasApiKey`, not the key.
 3. An agent definition names instructions, a model alias, and tools. Publishing freezes that version.
 4. A message starts a run. The model may call tools. Tool results enter the prompt only through the untrusted-content wrapper. A write that the policy marks W2 waits for an approver who is allowed to decide it. The owner of the agent cannot approve that call.

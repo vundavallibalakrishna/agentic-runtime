@@ -9,13 +9,12 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from ar_api.auth.complete import LoginError, login_result
-from ar_api.auth.dev_users import catalogue
+from ar_api.auth.complete import LoginError
 from ar_api.auth.identity import resolve_login_identity
 from ar_api.auth.oidc import authorize_url, new_pkce, safe_return_to
 from ar_api.auth.session import new_session, remember_profile
 from ar_api.deps import expose
-from ar_common.errors import ForbiddenError, NotFoundError, UnauthenticatedError
+from ar_common.errors import ForbiddenError, UnauthenticatedError
 from ar_common.settings import EnvName
 from ar_common.time import utcnow
 
@@ -59,55 +58,6 @@ async def login(
         idp=idp,
     )
     return RedirectResponse(target, status_code=302)
-
-
-async def _dev_email(request: Request) -> str:
-    content_type = request.headers.get("content-type", "")
-    if "application/json" in content_type:
-        body = await request.json()
-        email = body.get("email") if isinstance(body, dict) else None
-        if isinstance(email, str) and email.strip():
-            return email.strip().lower()
-    if "form" in content_type:
-        form = await request.form()
-        raw = form.get("email")
-        if isinstance(raw, str) and raw.strip():
-            return raw.strip().lower()
-    query = request.query_params.get("email", "").strip().lower()
-    return query or "admin@dev.local"
-
-
-@router.post("/api/v1/auth/dev-login")
-@expose(public=True, permission=None)
-async def dev_login(request: Request) -> RedirectResponse:
-    """Sign in as one of the four seeded users. Disabled when ``AR_ENV=prod``."""
-    settings = request.app.state.settings
-    if settings.env is EnvName.PROD:
-        raise NotFoundError()
-    user = catalogue().get(await _dev_email(request))
-    if user is None:
-        return RedirectResponse("/login?error=unknown_user", status_code=303)
-    try:
-        result = await resolve_login_identity(
-            request, login_result(user, access_token="", refresh_token="")
-        )
-    except LoginError as exc:
-        return RedirectResponse(f"/login?error={exc.code}", status_code=303)
-    session_id, data = new_session(
-        uuid.UUID(str(result["tenant_id"])), uuid.UUID(str(result["user_id"]))
-    )
-    remember_profile(
-        data,
-        email=str(result["email"]),
-        display_name=str(result["display_name"]),
-        roles=_string_list(result["roles"]),
-        permissions=_string_list(result["permissions"]),
-    )
-    await request.app.state.sessions.put(session_id, data, int(settings.session_ttl_s))
-    response = RedirectResponse("/chat", status_code=303)
-    response.set_cookie("ar_session", session_id, httponly=True, samesite="lax", secure=False)
-    response.set_cookie("ar_csrf", data.csrf_token, httponly=False, samesite="lax", secure=False)
-    return response
 
 
 @router.get("/api/v1/auth/callback")
@@ -178,21 +128,16 @@ async def _tenant_summary(request: Request, principal: Principal) -> dict[str, s
     """Slug, name and plan of the caller's tenant, as its row says."""
     if principal.tenant_id is None:
         return {"slug": None, "name": None, "plan": None}
-    from ar_api.auth.memory_identity import memory_identity  # noqa: PLC0415
+    from ar_api.deps import identity_store  # noqa: PLC0415
     from ar_domain.db.context import TenantContext  # noqa: PLC0415
-    from ar_domain.db.session import tenant_session  # noqa: PLC0415
-    from ar_domain.identity.repository import IdentityRepository  # noqa: PLC0415
 
-    ctx = TenantContext.from_principal(principal, str(request.state.request_id))
     override = getattr(request.app.state, "identity_override", None)
-    chat = request.app.state.chat
-    engine = getattr(chat, "durable_engine", None)
     if override is not None:
         return await _summary(override.store)
-    if engine is None:
-        return await _summary(memory_identity(chat, ctx).store)
-    async with tenant_session(ctx, engine=engine) as session:
-        return await _summary(IdentityRepository(session, ctx))
+    ctx = TenantContext.from_principal(principal, str(request.state.request_id))
+    engine = getattr(request.app.state.chat, "durable_engine", None)
+    async with identity_store(request, ctx, engine=engine) as identity:
+        return await _summary(identity)
 
 
 async def _summary(identity: IdentityStore) -> dict[str, str | None]:

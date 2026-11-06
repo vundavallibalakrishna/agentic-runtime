@@ -3,7 +3,6 @@
 import base64
 import hashlib
 import hmac
-import uuid
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -152,22 +151,6 @@ def sign_widget_token(*, secret: str, audience: str, email: str, name: str, exp:
     signing = f"{header}.{body}".encode()
     signature = _b64encode(hmac.new(secret.encode(), signing, hashlib.sha256).digest())
     return f"{header}.{body}.{signature}"
-
-
-def widget_user(store: Any, tenant_id: uuid.UUID, email: str) -> uuid.UUID | None:
-    """Memory-mode dev identities are confined to their seeded tenant."""
-    from ar_domain.chat.service import demo_id  # noqa: PLC0415
-
-    binding = getattr(store, "tenant_binding", None)
-    if binding is not None and binding.tenant_id == tenant_id:
-        found = binding.users.get(email.lower())
-        return found if isinstance(found, uuid.UUID) else None
-    if tenant_id != demo_id("tenant"):
-        return None
-    key, _, domain = email.lower().partition("@")
-    if domain == "dev.local" and key in {"admin", "builder", "member", "approver"}:
-        return demo_id(key)
-    return None
 
 
 def _b64(value: str) -> bytes:

@@ -134,7 +134,7 @@ Then open the web app, choose **Continue with SSO**, and sign in.
 | 6 Nov 2026 | M38b-T04a | F6 is fixed. On a fifth empty stack the seed alone left `assistant` and `builder`, both owned by `ada@acme.example`, 14 tool servers, no provider and no conversation; a second run of the seed changed nothing. After sign-in, a registered provider, a chat turn and a builder draft, the tenant held those two agents and the draft. | `agents` table before and after |
 | 6 Nov 2026 | M38b-T04b | No process falls back to a demo tenant. An API or worker without its database, or without a tenant in it, waits and tries again in every environment. The browser tests start the API through a harness that puts the demo tenant in. | `test_m13_memory_mode.py`, `test_m38b_e2e_harness.py`; `m2-chat.spec.ts` passed through the harness |
 | 6 Nov 2026 | M38b-T04c | A product store starts with no tenant: the API, the workers, `mcp-gateway` and `sandbox-manager` build none. Unit tests and the browser-test harness put the demo tenant in through `ar_testing.demo`, and a test fails if product code calls the demo seeding. | `test_m38b_empty_store.py` |
+| 6 Nov 2026 | M38b-T05b | F4 is fixed: the sign-in page has one button and the product has one way in. Found and fixed with it: the Users screen showed four made-up people when its request failed (F24), the guest page sent the fixed tenant `dev` (F25), and the Users page header said "the four accounts created by the dev seed". | `run6-sign-in/01-sign-in-page.png`; on the live stack `dev-login` answered 401 and `scripts/sign_in.py` signed `ada@acme.example` in with the session returning tenant Acme; `test_oidc_login.py` |
 
-Still open: the sign-in page still lists the demo users (F4), the
-Models screen still lists `fake-llm` (F10), and the code that builds the demo tenant still sits in the product packages,
-although only test setup and the eval tooling call it (M38b-T04d and T04f).
+Still open: the Models screen still lists `fake-llm` (F10), and the code that builds the demo tenant still
+sits in the product packages, although only test setup and the eval tooling call it (M38b-T04d and T04f).

@@ -89,7 +89,6 @@ class GrantBody(ApiModel):
 
 class GuestLinkBody(ApiModel):
     email: str
-    tenant_slug: str
 
 
 class GuestSessionBody(ApiModel):
@@ -317,7 +316,7 @@ async def delete_grant(
 @router.post("/api/v1/auth/guest/request-link")
 @expose(public=True, permission=None)
 async def request_link(body: GuestLinkBody, request: Request) -> Response:
-    GuestBook(chat(request)).request_link(body.email, body.tenant_slug)
+    GuestBook(chat(request)).request_link(body.email)
     return Response(status_code=202)
 
 

@@ -195,15 +195,15 @@ def test_guest_login_edges() -> None:
     guests.revoke_grant(actor, guest_id, uuid.UUID(str(grant["id"])))
     with pytest.raises(ArError):
         guests.revoke_grant(actor, guest_id, uuid.uuid4())
-    guests.request_link("guest@example.com", "dev")
-    guests.request_link("missing@example.com", "dev")
+    guests.request_link("guest@example.com")
+    guests.request_link("missing@example.com")
     row = store.records["guests"][guest_id]
     row["expires_at"] = utcnow() - timedelta(seconds=1)
-    guests.request_link("guest@example.com", "dev")
+    guests.request_link("guest@example.com")
     row["expires_at"] = utcnow() + timedelta(days=1)
     for _ in range(5):
         guests._challenge(row)
-    guests.request_link("guest@example.com", "dev")
+    guests.request_link("guest@example.com")
     token = guests._challenge(row)
     challenge = guests._challenge_for(token)
     assert challenge is not None
@@ -221,7 +221,7 @@ def test_guest_login_edges() -> None:
     with pytest.raises(ArError):
         guests.session(again, "000000")
     guests.revoke(actor, guest_id)
-    guests.request_link("guest@example.com", "dev")
+    guests.request_link("guest@example.com")
     assert guests.principal_for(str(opened["session_id"])) is None
     guest_actor = Actor(
         tenant_id=actor.tenant_id,

@@ -10,5 +10,5 @@ Chart `1.0.0`. Tag `v1.0.0` runs `.github/workflows/release.yml`, which packages
 | Security verification from M14 | No accepted risks in that milestone |
 | Real Slack workspace | Operator step. Not run in this environment (OQ-48) |
 | Real Teams workspace | Operator step. Not run in this environment (OQ-48) |
-| Real corporate IdP | Operator step. Dev login and the bundled Keycloak realm are what CI covers |
+| Real corporate IdP | Operator step. The bundled Keycloak realm is what CI covers |
 | Live CloudNativePG PITR into a second namespace | Operator step. The chart sets `archive_timeout=300` and the fixture drill checks the chain |

@@ -298,4 +298,5 @@ M38b-T03a | done | 8e62d47 | the workers follow the API's loopback rule
 M38b-T04a | done | 767debf | the seed writes the assistant and the builder, owned by the admin; no request creates an agent; no Helpdesk for a real tenant
 M38b-T04b | done | a110ea4 | no process falls back to a demo tenant; the browser tests start the API through a harness that owns it
 M38b-T04c | done | 0a82979 | a product store starts with no tenant; tests build the demo tenant with ar_testing.demo; a test guards against product code building it
-M38b-T05a | done | - | the browser tests sign in through a path that exists only in their harness; sha recorded with M38b-T05b
+M38b-T05a | done | 64cea82 | the browser tests sign in through a path that exists only in their harness
+M38b-T05b | done | - | one sign-in: dev-login, the fixed users and the memory identity are out of the product; scripts sign in through Keycloak; sha recorded with M38b-T05c

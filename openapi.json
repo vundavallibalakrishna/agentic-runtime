@@ -207,23 +207,6 @@
         }
       }
     },
-    "/api/v1/auth/dev-login": {
-      "post": {
-        "summary": "Dev Login",
-        "description": "Sign in as one of the four seeded users. Disabled when ``AR_ENV=prod``.",
-        "operationId": "dev_login_api_v1_auth_dev_login_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/auth/callback": {
       "get": {
         "summary": "Callback",
@@ -23463,15 +23446,11 @@
           "email": {
             "type": "string",
             "title": "Email"
-          },
-          "tenantSlug": {
-            "type": "string",
-            "title": "Tenantslug"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["email", "tenantSlug"],
+        "required": ["email"],
         "title": "GuestLinkBody"
       },
       "GuestSessionBody": {
