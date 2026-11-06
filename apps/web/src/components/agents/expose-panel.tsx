@@ -40,12 +40,12 @@ export function ExposePanel({
   const [exposure, setExposure] = useState<Exposure | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [label, setLabel] = useState("Production");
+  const [label, setLabel] = useState("");
   const [rate, setRate] = useState("60");
   const [quota, setQuota] = useState("10000");
   const [secret, setSecret] = useState("");
   const [copied, setCopied] = useState("");
-  const [message, setMessage] = useState("What is 2 + 2?");
+  const [message, setMessage] = useState("");
   const [raw, setRaw] = useState("");
   const [busy, setBusy] = useState(false);
 

@@ -24,7 +24,7 @@ export function M22Panels({ tools, onChanged }: { tools: Row[]; onChanged: () =>
   const [busy, setBusy] = useState(false);
   const [specUrl, setSpecUrl] = useState("");
   const [specText, setSpecText] = useState("");
-  const [specSlug, setSpecSlug] = useState("imported");
+  const [specSlug, setSpecSlug] = useState("");
   const [specBase, setSpecBase] = useState("");
   const [specConnection, setSpecConnection] = useState("");
   const [operations, setOperations] = useState<Row[]>([]);
@@ -235,7 +235,11 @@ export function M22Panels({ tools, onChanged }: { tools: Row[]; onChanged: () =>
             >
               {t("importPreview")}
             </Button>
-            <Button disabled={busy} onClick={() => void importSpec()} type="button">
+            <Button
+              disabled={busy || !specSlug.trim() || !specUrl.trim()}
+              onClick={() => void importSpec()}
+              type="button"
+            >
               {t("importSave")}
             </Button>
           </div>

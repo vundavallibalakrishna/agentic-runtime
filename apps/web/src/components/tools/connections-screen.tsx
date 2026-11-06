@@ -24,7 +24,7 @@ export function ConnectionsScreen() {
   const [loading, setLoading] = useState(true);
   const [link, setLink] = useState("");
   const [service, setService] = useState<Row[]>([]);
-  const [serviceName, setServiceName] = useState("github");
+  const [serviceName, setServiceName] = useState("");
   const [serviceKind, setServiceKind] = useState("bearer");
   const [serviceSecret, setServiceSecret] = useState("");
   const [serviceHeader, setServiceHeader] = useState("Authorization");
@@ -104,7 +104,7 @@ export function ConnectionsScreen() {
   }
 
   async function createService() {
-    if (busy) return;
+    if (busy || !serviceName.trim()) return;
     setBusy(true);
     setError("");
     setNotice("");

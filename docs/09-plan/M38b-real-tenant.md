@@ -395,6 +395,23 @@ restarts.
 
 **Tests:** `test_m38b_file_store.py` (integration, with the object store).
 
+## M38b-T14 A form starts empty
+
+**Depends on:** none. **Areas:** `apps/web/src/components/`. **Findings:** F53, F64.
+
+**Do:** no form in the product starts with a value the person did not type: a name, an address, a tool, a
+message. A button that saves is disabled until what it needs is filled in.
+
+**Done when:** the Policies, Tools, Import, Connections and Expose forms open with their text fields empty,
+and the browser tests fill what they submit.
+
+**Tests:** `tools-screen.test.tsx`; the existing browser tests for each screen.
+
+**Done (7 Nov 2026).** The Policies form opened with `petstore.create_pet` and "Ask before creating a
+pet."; the Tools form with `echo` and `memory://echo`; the import form with `imported`; the connection
+form with `github`; the Expose panel with `Production` and "What is 2 + 2?". Choices among fixed kinds
+(an effect, a transport, a period) keep a first value.
+
 ## M38b-T11 The fresh run is kept as a check
 
 **Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,
