@@ -8,9 +8,13 @@ import { signInAs } from "./support/sign-in";
 // through that name, so no other conversation is touched.
 test("a failed run is shown as one, with its reason and a way to try again", async ({ page }) => {
   await signInAs(page, "admin@dev.local");
+  const cookies = await page.context().cookies();
+  const token = cookies.find((cookie) => cookie.name === "ar_csrf")?.value ?? "";
+  const headers = { "x-csrf-token": token };
   const stamp = Date.now();
   const alias = `dead-${stamp}`;
   const provider = await page.request.post("/api/v1/model-providers", {
+    headers,
     data: {
       name: `Dead ${stamp}`,
       kind: "openai_compatible",
@@ -21,11 +25,13 @@ test("a failed run is shown as one, with its reason and a way to try again", asy
   expect(provider.ok(), await provider.text()).toBeTruthy();
   const providerId = (await provider.json()).id as string;
   const model = await page.request.post("/api/v1/models", {
+    headers,
     data: { providerId, upstreamModel: "dead/model", name: `Dead ${stamp}`, kind: "chat" },
   });
   expect(model.ok(), await model.text()).toBeTruthy();
   const modelId = (await model.json()).id as string;
   const named = await page.request.post("/api/v1/model-aliases", {
+    headers,
     data: { alias, kind: "chat", primaryModelId: modelId },
   });
   expect(named.ok(), await named.text()).toBeTruthy();
@@ -60,8 +66,8 @@ test("a failed run is shown as one, with its reason and a way to try again", asy
       timeout: 60_000,
     });
   } finally {
-    await page.request.delete(`/api/v1/model-aliases/${aliasId}`);
-    await page.request.delete(`/api/v1/models/${modelId}`);
-    await page.request.delete(`/api/v1/model-providers/${providerId}`);
+    await page.request.delete(`/api/v1/model-aliases/${aliasId}`, { headers });
+    await page.request.delete(`/api/v1/models/${modelId}`, { headers });
+    await page.request.delete(`/api/v1/model-providers/${providerId}`, { headers });
   }
 });
