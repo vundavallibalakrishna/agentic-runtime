@@ -5,29 +5,90 @@ its people, agents, fixtures and example conversations. The demo tenant is test 
 it is put in from here. A product process never creates it, and one that cannot reach its
 database is not ready.
 
+The browser tests also sign in here. ``/api/v1/test/sign-in`` exists only in this
+harness: it starts a session for one of the demo tenant's people and sends the browser to
+the workspace. The product has no such door.
+
     uv run python services/api/tests/support/e2e_server.py
 """
 
 import os
 
-from ar_testing.demo import demo_application
-
 # Say "no database" before the application reads its settings.
 os.environ["AR_DURABLE_STATE"] = "memory"
 
 import uvicorn
+from starlette.requests import Request
+from starlette.responses import JSONResponse, RedirectResponse, Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-from ar_api.main import LISTEN_PORT
+from ar_api.auth.dev_users import DEV_TENANT_ID, catalogue
+from ar_api.auth.session import new_session, remember_profile
+from ar_api.main import LISTEN_PORT, create_application
 from ar_common.host_ports import listen_port
 
+SIGN_IN_PATH = "/api/v1/test/sign-in"
 
-def main() -> None:
-    """Build the application over the demo tenant and listen on ``AR_PORT``."""
-    app = demo_application()
+
+class DemoSignIn:
+    """Answer the test sign-in path and pass every other request to the product."""
+
+    def __init__(self, app: ASGIApp, product: object) -> None:
+        self.app = app
+        self.product = product
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["path"] == SIGN_IN_PATH:
+            response = await self._sign_in(Request(scope, receive))
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+    async def _sign_in(self, request: Request) -> Response:
+        email = (request.query_params.get("email") or await _posted_email(request)).strip().lower()
+        user = catalogue().get(email)
+        if user is None:
+            return JSONResponse({"error": "not a person of the demo tenant"}, status_code=404)
+        state = self.product.state  # type: ignore[attr-defined]
+        session_id, data = new_session(DEV_TENANT_ID, user.user_id)
+        remember_profile(
+            data,
+            email=user.email,
+            display_name=user.display_name,
+            roles=list(user.roles),
+            permissions=sorted(user.permissions),
+        )
+        await state.sessions.put(session_id, data, int(state.settings.session_ttl_s))
+        response = RedirectResponse("/chat", status_code=303)
+        response.set_cookie("ar_session", session_id, httponly=True, samesite="lax", secure=False)
+        response.set_cookie(
+            "ar_csrf", data.csrf_token, httponly=False, samesite="lax", secure=False
+        )
+        return response
+
+
+async def _posted_email(request: Request) -> str:
+    if request.method != "POST":
+        return ""
+    if "application/json" in request.headers.get("content-type", ""):
+        body = await request.json()
+        return str(body.get("email") or "") if isinstance(body, dict) else ""
+    form = await request.form()
+    return str(form.get("email") or "")
+
+
+def build() -> ASGIApp:
+    """The product application over the demo tenant, behind the test sign-in."""
+    app = create_application()
     store = app.state.chat
     store.seed_demo_tenant()
     store.seed_showcase()
-    uvicorn.run(app, host="127.0.0.1", port=listen_port("AR_PORT", LISTEN_PORT))
+    return DemoSignIn(app, app)
+
+
+def main() -> None:
+    """Listen on ``AR_PORT``."""
+    uvicorn.run(build(), host="127.0.0.1", port=listen_port("AR_PORT", LISTEN_PORT))
 
 
 if __name__ == "__main__":

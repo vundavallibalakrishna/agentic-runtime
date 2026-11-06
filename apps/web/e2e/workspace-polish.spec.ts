@@ -1,11 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
+import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/workspace-polish";
 
 async function signIn(page: Page, role = "admin") {
   await page.goto("/login");
-  await page.getByRole("button", { name: `Sign in as ${role}@dev.local` }).click();
+  await signInAs(page, `${role}@dev.local`);
   await expect(page.getByRole("heading", { name: "What can we work on?" })).toBeVisible();
 }
 

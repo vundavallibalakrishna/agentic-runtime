@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 
 import { expect, type Page, test } from "@playwright/test";
+import { signInAs } from "./support/sign-in";
 
 const root = "../../docs/testing/m20";
 const enabled = process.env.AR_M20_CERT === "1";
@@ -33,7 +34,7 @@ const routes = [
 
 async function signIn(page: Page) {
   await page.goto("/login");
-  await page.getByRole("button", { name: "Sign in as admin@dev.local", exact: true }).click();
+  await signInAs(page, "admin@dev.local");
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible({ timeout: 20_000 });
 }
 

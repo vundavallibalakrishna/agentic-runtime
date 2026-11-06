@@ -1,10 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { signInAs } from "./support/sign-in";
 
 test("home opens chat after sign-in", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Sign in", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Sign in as admin@dev.local", exact: true }).click();
+  await signInAs(page, "admin@dev.local");
   await page.goto("/");
   await expect(page).toHaveURL(/\/chat$/);
   await expect(page.getByRole("heading", { name: "What can we work on?" })).toBeVisible();

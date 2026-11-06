@@ -152,18 +152,22 @@ a tenant's default agents. What is left, one pull request for each:
 
 ## M38b-T05 Sign-in shows only what is real
 
-**Depends on:** T03. **Areas:** `apps/web/src/app/(auth)/login/`, `apps/web/src/components/app-shell`,
-`services/api/src/ar_api/auth/routes.py`. **Findings:** F3, F4.
+**Depends on:** T04c. **Areas:** `apps/web/src/app/(auth)/login/`, `apps/web/src/components/app-shell`,
+`apps/web/e2e/`, `services/api/src/ar_api/auth/`, `services/api/tests/support/e2e_server.py`, `scripts/`.
+**Findings:** F3, F4. One pull request for each part:
 
-**Do:**
+- **T05a** (done) The browser tests sign in through `/api/v1/test/sign-in`, a path that exists only in the
+  browser-test harness. The 36 specs stop using the product's sign-in buttons and `dev-login`.
+- **T05b** The sign-in page has no list of users and no password hint. The `dev-login` route, the fixed
+  user catalogue and the memory identity leave the API (this is M38b-T04d for the API). The smoke scripts
+  sign in through the identity provider, as a person does.
+- **T05c** When the session check fails for any reason other than "not signed in", the visitor sees an
+  error page with a retry, never the workspace.
 
-- The sign-in page has no list of users and no password hint. The `dev-login` route is removed.
-- When the session check fails for any reason other than "not signed in", the visitor sees an error page
-  with a retry, never the workspace.
+**Done when:** the product has one way to sign in, and an unauthenticated visitor sees only the sign-in page
+or an error page, whatever the API returns.
 
-**Done when:** an unauthenticated visitor sees only the sign-in page or an error page, whatever the API returns.
-
-**Tests:** Playwright `m38b-sign-in.spec.ts` (axe-clean); `test_m38b_sign_in.py`.
+**Tests:** `test_m38b_e2e_harness.py`; the browser specs; Playwright `m38b-sign-in.spec.ts` (axe-clean).
 
 ## M38b-T06 Migrating does not seed
 

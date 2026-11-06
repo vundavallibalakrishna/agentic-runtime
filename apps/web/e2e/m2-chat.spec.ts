@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "e2e/screenshots";
 
@@ -14,7 +15,7 @@ test("sign in, chat, stop, empty and error states", async ({ page }) => {
     await expect(page.getByRole("button", { name: `Sign in as ${email}` })).toBeVisible();
   }
   await page.screenshot({ path: `${shots}/01-login.png`, fullPage: true });
-  await page.getByRole("button", { name: "Sign in as admin@dev.local" }).click();
+  await signInAs(page, "admin@dev.local");
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
   await expect(page.getByText("admin@dev.local")).toBeVisible();
   await expect(page.getByText("Weekly status for the platform")).toBeVisible();
