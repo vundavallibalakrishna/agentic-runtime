@@ -61,7 +61,7 @@ Guardrail decisions are recorded in `run_steps.detail.guardrails` (category, act
 
 ## 5. Memory poisoning
 
-- `MemoryExtractionWorkflow` reads **only** the user's turns and the final assistant text — never tool results, retrieved chunks or other users' channel messages ([spec 11 §2 rule 2, §4](../03-specs/11-memory.md#4-extraction-memoryextractionworkflow)).
+- Memory extraction reads **only** the user's turn and the final assistant text — never tool results, retrieved chunks or other users' channel messages. The assistant text is wrapped as untrusted content, because it may repeat tool or document text, and text the user typed cannot open or close a block of the extraction prompt ([spec 11 §2 rule 2, §4](../03-specs/11-memory.md#4-extraction)).
 - Facts saved with `memory.save` while untrusted tool output is in context since the last user message are stored with `trust_level='low'`, `source_kind='tool_output'`, are labelled as low-trust on recall, and can never have category `instruction` (spec 11 §2 rule 3).
 - `agent` and `team` scope facts written by the model always land as `pending_review` for `memory:manage_agent` holders / team leads (rule 4).
 - Recalled memory is placed in `<memory trust="user_data">` with fact ids, and `memory.recalled` events let the user see what influenced an answer.

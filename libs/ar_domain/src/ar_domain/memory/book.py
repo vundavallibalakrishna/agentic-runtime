@@ -13,7 +13,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor, can_edit
 from ar_domain.audit.memory import remember
-from ar_domain.memory.extract import extraction_input, heuristic_ops, parse_ops
+from ar_domain.memory.extract import extraction_input, parse_ops
 from ar_domain.memory.format import memory_block
 from ar_domain.memory.logic import (
     CONTENT_LIMIT,
@@ -435,7 +435,8 @@ class MemoryBook:
             return []
         seen.add(run_id)
         visible = extraction_input(user_text, assistant_text).lower()
-        ops = parse_ops(model_output) or heuristic_ops(user_text)
+        # What to remember is the model's answer. No phrase in the turn decides it.
+        ops = parse_ops(model_output)
         ops = [op for op in ops if not _copied_from_tool(op, tool_text, visible)]
         actor = Actor(
             tenant_id=_as_uuid(run.get("tenant_id")),
@@ -443,6 +444,21 @@ class MemoryBook:
             permissions=frozenset(),
         )
         return self.apply_ops(actor, run, ops)
+
+    def extraction_wanted(self, run: dict[str, object]) -> bool:
+        """True when this run's turn should be read for memories, and has not been yet."""
+        return self._extraction_on(run) and run.get("id") not in self.store.memory_extracted
+
+    def kept_for(self, run: dict[str, object], text: str, *, limit: int) -> list[dict[str, object]]:
+        """The person's own memories closest to ``text``: what an update or a delete may name."""
+        actor = Actor(
+            tenant_id=_as_uuid(run.get("tenant_id")),
+            user_id=_as_uuid(run.get("user_id")),
+            permissions=frozenset(),
+        )
+        own = [row for row in self._owned(actor) if row.get("status") == "active"]
+        chosen = _rank(text, own, self._vectors(actor), limit=limit)
+        return [{"id": str(row["id"]), "content": str(row.get("content") or "")} for row in chosen]
 
     def apply_ops(
         self, actor: Actor, run: dict[str, object], ops: list[dict[str, object]]

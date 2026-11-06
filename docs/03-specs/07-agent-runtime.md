@@ -168,7 +168,7 @@ Active when `tool_search.mode = on`, or `auto` and the agent has > 30 tools. Ini
 2. Title: if the conversation title is empty → `fast_alias` (purpose `title`, ≤ 60 chars, language of the conversation).
 3. `conversations.active_run_id = NULL`, `last_message_at`.
 4. `usage_events(metric='runs', quantity=1)` (+ sandbox seconds reported by tool results).
-5. Outbox: `run.completed|run.failed|run.cancelled|run.budget_exceeded` (subscribers: `MemoryExtractionWorkflow` start when memory extraction is enabled and trigger ≠ `eval`; `RoutineRunWorkflow` delivery; channel reply; webhooks; API `callback_url`).
+5. Outbox: `run.completed|run.failed|run.cancelled|run.budget_exceeded` (subscribers: `RoutineRunWorkflow` delivery; channel reply; webhooks; API `callback_url`). Memory extraction is not a subscriber: after `run.completed` the process that ran the turn asks a model what to remember ([spec 11 §4](11-memory.md#4-extraction)).
 6. Emit terminal event; expire stream keys.
 
 Error classification for `runs.error.code`: `model_unavailable`, `context_length_exceeded`, `tool_error_limit` (more than 8 consecutive failed tool calls), `agent_disabled`, `user_deactivated`, `quota_exceeded`, `delegation_expired`, `internal_error`.

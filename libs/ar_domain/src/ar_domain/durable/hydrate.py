@@ -172,6 +172,8 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
             return
         _merge(store, "runs", run_id, dict(run))
         tenant_id = run["tenant_id"]
+        # A setting an administrator changed since this process started applies to this turn.
+        await _settings(session, store, tenant_id)
         await _people(session, store, tenant_id)
         await _conversations(session, store, tenant_id)
         await _agents(session, store, tenant_id)
@@ -351,12 +353,46 @@ async def reload_document(store: object, document_id: uuid.UUID) -> None:
 
 
 async def _facts(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    """Make the store's memory of one tenant equal its database rows.
+
+    Another process may have saved a fact or deleted one. A memory the person deleted
+    must leave every process, or a worker that still holds it keeps recalling it. Rows
+    this process changed and has not saved yet are kept as they are.
+    """
+    held: set[object] = set()
     for row in await _rows(
         session, "SELECT * FROM memory_facts WHERE tenant_id = :tenant_id", tenant_id
     ):
         if row.get("embedding") is not None:
             row["embedding"] = vector_values(row["embedding"])
+        held.add(row["id"])
         _merge(store, "memory_facts", row["id"], row)
+    bucket = getattr(store, "memory_facts", None)
+    if not isinstance(bucket, TrackedDict):
+        return
+    gone = [
+        key
+        for key, value in bucket.items()
+        if key not in held
+        and key not in bucket.dirty
+        and isinstance(value, dict)
+        and value.get("tenant_id") == tenant_id
+    ]
+    for key in gone:
+        bucket.evict(key)
+
+
+async def reload_memory(store: object) -> None:
+    """Refresh the memory of the tenant this process serves. A down database changes nothing."""
+    engine = getattr(store, "durable_engine", None)
+    tenant_id = getattr(getattr(store, "tenant_binding", None), "tenant_id", None)
+    if not isinstance(engine, AsyncEngine) or not isinstance(tenant_id, uuid.UUID):
+        return
+    try:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            await _facts(session, store, tenant_id)
+    except Exception:  # noqa: BLE001 — the screen still shows what this process holds
+        return
 
 
 async def _tools(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:

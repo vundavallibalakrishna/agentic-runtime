@@ -72,9 +72,11 @@ async def test_chat_calls_the_registered_upstream_model(monkeypatch: pytest.Monk
         async def post(
             self, url: str, json: dict[str, object], headers: dict[str, str]
         ) -> _Response:
-            seen["url"] = url
-            seen["json"] = json
-            seen["headers"] = headers
+            # The first call is the turn. A second one asks what to remember from it.
+            if "url" not in seen:
+                seen["url"] = url
+                seen["json"] = json
+                seen["headers"] = headers
             return _Response()
 
     monkeypatch.setattr(httpx, "AsyncClient", _Client)

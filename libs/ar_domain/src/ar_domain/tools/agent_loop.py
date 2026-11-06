@@ -220,9 +220,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         tokens, prompt_seen = _charge_budget(tokens, prompt_seen, step_in, step_out)
         tokens_in_total += step_in
         tokens_out_total += step_out
-        step_cost, model_id = _price_step(store, run, alias, step_in, step_out)
+        step_cost, model_id = price_step(store, run, alias, step_in, step_out)
         cost += step_cost
-        _note_model_usage(
+        note_model_usage(
             store, run, alias, model_id, step=steps, tokens_in=step_in, tokens_out=step_out
         )
         calls = turn.get("tool_calls")
@@ -376,7 +376,7 @@ def _charge_budget(tokens: int, prompt_seen: int, step_in: int, step_out: int) -
     return tokens + growth + step_out, step_in
 
 
-def _price_step(
+def price_step(
     store: Any, run: dict[str, object], alias: str, tokens_in: int, tokens_out: int
 ) -> tuple[int, str | None]:
     """Cost of one model call from the resolved model's prices (spec 17 §2)."""
@@ -391,17 +391,20 @@ def _price_step(
     return int(cost), model_id
 
 
-def _note_model_usage(
+def note_model_usage(
     store: Any,
     run: dict[str, object],
     alias: str,
     model_id: str | None,
     *,
-    step: int,
+    step: int | str,
     tokens_in: int,
     tokens_out: int,
 ) -> None:
-    """One input and one output usage event per model call, priced separately."""
+    """One input and one output usage event per model call, priced separately.
+
+    ``step`` is the loop step, or a name for a call outside the loop (``memory``).
+    """
     from ar_domain.usage.logic import UsageRecord  # noqa: PLC0415
     from ar_domain.usage.service import note  # noqa: PLC0415
 
@@ -412,8 +415,8 @@ def _note_model_usage(
     now = utcnow()
     user = str(run["user_id"]) if run.get("user_id") else None
     agent = str(run["agent_id"]) if run.get("agent_id") else None
-    in_cost, _ = _price_step(store, run, alias, tokens_in, 0)
-    out_cost, _ = _price_step(store, run, alias, 0, tokens_out)
+    in_cost, _ = price_step(store, run, alias, tokens_in, 0)
+    out_cost, _ = price_step(store, run, alias, 0, tokens_out)
     for metric, quantity, cost, suffix in (
         ("model_input_tokens", tokens_in, in_cost, "in"),
         ("model_output_tokens", tokens_out, out_cost, "out"),

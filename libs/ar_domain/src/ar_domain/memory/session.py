@@ -80,13 +80,6 @@ def prepare_prompt(
     return bundle.prompt_hash
 
 
-def remember_turn(
-    store: Any, run: dict[str, object], user_text: str, answer: str
-) -> list[dict[str, object]]:
-    """Extract after a completed top-level turn. Tool text is not an argument."""
-    return MemoryBook(store).extract_turn(run, user_text, answer)
-
-
 def _history(store: Any, conversation_id: object, skip: object) -> list[dict[str, str]]:
     rows: list[dict[str, object]] = []
     messages = getattr(store, "messages", {})

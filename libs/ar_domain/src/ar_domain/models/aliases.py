@@ -3,8 +3,7 @@
 An agent, knowledge and memory name a model by alias, never by model id. These are the
 alias names the product calls today and the kind of model each needs. A tenant sets each
 one on the Models screen; none is set for it. A tenant may add aliases of its own beside
-them. An agent definition also names ``fast``; nothing is sent to it yet, so it is not
-listed here until something is.
+them.
 """
 
 from __future__ import annotations
@@ -31,6 +30,9 @@ class StandardAlias:
 STANDARD_ALIASES: tuple[StandardAlias, ...] = (
     # Every agent answers with it.
     StandardAlias("reasoning", "chat", required=True),
+    # Short work after a turn: deciding what to remember. Without it the agent's own
+    # alias does that work.
+    StandardAlias("fast", "chat", required=False),
     # The image tool reads pictures with it. Its model is marked as able to read images.
     StandardAlias("vision", "chat", required=False, capability="vision"),
     # Knowledge and memory refuse to store anything without it.
@@ -77,6 +79,22 @@ def standard_aliases(store: Any, tenant_id: uuid.UUID) -> list[dict[str, object]
             }
         )
     return found
+
+
+def resolves(store: Any, tenant_id: object, alias: str, kind: str = "chat") -> bool:
+    """True when ``alias`` points at a model of ``kind`` the tenant can call now."""
+    if not isinstance(tenant_id, uuid.UUID):
+        return False
+    row = _resolve(store, tenant_id, alias)
+    if row is None:
+        return False
+    model = store.models.get(_as_uuid(row.get("primary_model_id")))
+    if not isinstance(model, dict) or str(model.get("kind") or "chat") != kind:
+        return False
+    if str(model.get("status") or "active") != "active":
+        return False
+    provider = store.providers.get(_as_uuid(model.get("provider_id")))
+    return isinstance(provider, dict) and str(provider.get("status") or "active") == "active"
 
 
 def _resolve(store: Any, tenant_id: uuid.UUID, alias: str) -> dict[str, object] | None:

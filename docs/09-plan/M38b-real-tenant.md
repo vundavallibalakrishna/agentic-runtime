@@ -280,18 +280,28 @@ failed run is never an empty bubble.
 
 ## M38b-T12 What is remembered from a turn is decided by the tenant's model
 
-**Depends on:** T07b. **Areas:** `memory/extract.py`, `memory/session.py`,
-`services/system/src/ar_system/workflows/memory_extraction.py`. **Spec:** [memory](../03-specs/11-memory.md).
-**Finding:** F31.
+**Depends on:** T07b. **Areas:** `memory/extraction.py`, `memory/extract.py`, `memory/book.py`,
+`durable/hydrate.py`, `durable/codec.py`, `chat/service.py`, `apps/web/src/components/memory/`,
+`apps/web/src/lib/stream/`. **Spec:** [memory](../03-specs/11-memory.md). **Findings:** F31, F36, F39, F41,
+F42, F43. Decision: OQ-105.
 
 **Do:** after a turn, the tenant's model is asked what to remember and its answer is applied. The two
 keyword patterns ("remember that …", "I prefer …") that decide it today are removed. With no model the turn
-remembers nothing and says so in the trace. This is the first work sent to the `fast` alias that every agent
-definition names; when it is, `fast` joins the aliases the Models screen lists (F36, OQ-104).
+remembers nothing and says so in the log. This is the first work sent to the `fast` alias that every agent
+definition names, so `fast` joins the aliases the Models screen lists (OQ-104).
+
+**Done (6 Nov 2026).** Also needed, and done with it: the never-started extraction workflow is removed; a
+fact saved in a worker is written to the database (the JSON encoder rejected the driver's id type, so no
+memory from a live chat was ever saved); every process makes its memory and its tenant settings equal the
+database before a turn, so the Memory screen shows what a worker saved and a deleted memory is forgotten
+everywhere; a provider without a key is called at its own address; the chat screen reads a finished run
+again for the "Memory updated" notice; and an administrator sets, on the Memory screen, whether the
+organisation remembers from conversations and what it adds to the model's guidance.
 
 **Done when:** "My daughter's name is Mira" is remembered without the word "remember", on a real model.
 
-**Tests:** `test_m38b_memory_extraction.py`.
+**Tests:** `test_m38b_memory_extraction.py` (unit and integration); `organisation-settings.test.tsx`;
+`late.test.ts`; `scripts/memory_extraction_eval.py` against a real model.
 
 ## M38b-T11 The fresh run is kept as a check
 

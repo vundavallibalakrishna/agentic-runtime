@@ -7,11 +7,12 @@ import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
+import { OrganisationMemorySettings } from "@/components/memory/organisation-settings";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
+import { api, type Session } from "@/lib/api";
 
 type Fact = {
   id: string;
@@ -39,6 +40,7 @@ export function MemoryScreen() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [advanced, setAdvanced] = useState(false);
+  const [canManageTenant, setCanManageTenant] = useState(false);
   const [content, setContent] = useState("");
   const [editing, setEditing] = useState("");
   const [draft, setDraft] = useState("");
@@ -49,6 +51,10 @@ export function MemoryScreen() {
 
   useEffect(() => {
     setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
+    // The organisation's settings are shown to someone who may change them.
+    void api<Session>("/api/v1/auth/session")
+      .then((session) => setCanManageTenant((session.permissions ?? []).includes("tenant:manage")))
+      .catch(() => setCanManageTenant(false));
   }, []);
 
   const load = useCallback(async () => {
@@ -364,6 +370,7 @@ export function MemoryScreen() {
               )}
             </section>
           ))}
+          {advanced && canManageTenant ? <OrganisationMemorySettings /> : null}
         </ManagementLayout>
       </fieldset>
     </AppShell>

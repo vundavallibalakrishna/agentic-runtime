@@ -132,7 +132,7 @@ Each Python project under `libs/`, `services/`, `connectors/` uses a `src/` layo
 | Task queue | Worker | Workflows |
 |---|---|---|
 | `ar-runtime` | `runtime-worker` | `AgentRunWorkflow` (chat turns, API runs, subagents as child workflows) |
-| `ar-system` | `system-worker` | `RoutineRunWorkflow`, `MemoryExtractionWorkflow`, `RetentionSweepWorkflow`, `ErasureWorkflow`, `TenantProvisioningWorkflow`, `TenantDeletionWorkflow`, `UsageRollupWorkflow`, `OutboxRelayWorkflow`, `WebhookDeliveryWorkflow`, `SandboxReaperWorkflow`, `NotificationFanoutWorkflow`, `AuditExportWorkflow`, `ToolDriftCheckWorkflow`, `RoutinePollWorkflow` |
+| `ar-system` | `system-worker` | `RoutineRunWorkflow`, `RetentionSweepWorkflow`, `ErasureWorkflow`, `TenantProvisioningWorkflow`, `TenantDeletionWorkflow`, `UsageRollupWorkflow`, `OutboxRelayWorkflow`, `WebhookDeliveryWorkflow`, `SandboxReaperWorkflow`, `NotificationFanoutWorkflow`, `AuditExportWorkflow`, `ToolDriftCheckWorkflow`, `RoutinePollWorkflow` |
 | `ar-eval` | `system-worker` | `EvalRunWorkflow` |
 | `ar-ingest` | `ingest-worker` | `SourceSyncWorkflow`, `IngestDocumentWorkflow`, `AclSyncWorkflow`, `ReindexCollectionWorkflow`, `DeleteDocumentWorkflow`, `FileProcessWorkflow`, `MigrateRetrievalStoreWorkflow`, `RetrievalStoreAuditWorkflow` (qdrant adapter only) |
 

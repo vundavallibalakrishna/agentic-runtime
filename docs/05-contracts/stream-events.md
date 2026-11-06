@@ -42,6 +42,7 @@ data: {"id":"0192f0c4-...:17","seq":17,"type":"tool_call.completed",...}
 - The server sends `: ping` comments every 15 s.
 - Resume: client reconnects with `Last-Event-ID: {runId}:{seq}` header or `?after_seq=17`. Server replays events with `seq > 17`: first from Valkey stream (retained 24 h, `MAXLEN ~ 20000`), falling back to `run_events` when Valkey has expired (deltas are then unavailable; the `message.completed` events carry full text so the UI converges).
 - The stream ends (server closes) after a terminal event (`run.completed`, `run.failed`, `run.cancelled`, `run.budget_exceeded`) has been sent. If the run is already terminal on connect, the server replays and closes.
+- `memory.saved` may be added to a run after `run.completed`: what to remember is decided once the answer is complete ([spec 11 §4](../03-specs/11-memory.md#4-extraction)). A client that shows it connects again with `Last-Event-ID` a few seconds after the stream closed; the server replays what was added and closes.
 - Conversation-level stream `GET /api/v1/conversations/{conversation_id}/events` multiplexes all runs of a conversation (used by the chat page so that a run started from another tab/channel appears live); envelope identical, `Last-Event-ID` is `conv:{conversation_id}:{stream_id}` using the Valkey stream id of `ar:conv:{conversation_id}:events`.
 
 ## 3. Event types

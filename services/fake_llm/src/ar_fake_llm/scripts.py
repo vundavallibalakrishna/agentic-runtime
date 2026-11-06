@@ -77,11 +77,31 @@ def matches(script: Script, turn: ChatTurn) -> bool:
     return name_ok and body_ok
 
 
-def render_text(template: str, turn: ChatTurn) -> str:
-    """Substitute ``{{last_user}}`` and ``{{last_tool_result}}``."""
-    return template.replace("{{last_user}}", turn.last_user).replace(
+_GROUP = re.compile(r"\{\{group:(\d+)\}\}")
+
+
+def render_text(template: str, turn: ChatTurn, rule: ScriptMatch | None = None) -> str:
+    """Substitute ``{{last_user}}``, ``{{last_tool_result}}`` and ``{{group:N}}``.
+
+    ``{{group:N}}`` is the Nth group the script's ``regex`` captured in the user text,
+    escaped so it can sit inside a JSON string. A script that answers in JSON uses it to
+    quote part of what was asked.
+    """
+    text = template.replace("{{last_user}}", turn.last_user).replace(
         "{{last_tool_result}}", turn.last_tool_result or ""
     )
+    found = re.search(rule.regex, turn.last_user) if rule is not None and rule.regex else None
+    if found is None:
+        return text
+
+    def group(match: re.Match[str]) -> str:
+        index = int(match.group(1))
+        if index > (found.re.groups or 0):
+            return ""
+        value = " ".join((found.group(index) or "").split())
+        return orjson.dumps(value).decode()[1:-1]
+
+    return _GROUP.sub(group, text)
 
 
 def default_response(turn: ChatTurn) -> ScriptResponse:
@@ -114,7 +134,9 @@ def select(scripts: list[Script], turn: ChatTurn) -> ScriptResponse:
         if matches(script, turn):
             respond = script.respond
             if respond.text is not None:
-                return respond.model_copy(update={"text": render_text(respond.text, turn)})
+                return respond.model_copy(
+                    update={"text": render_text(respond.text, turn, script.match)}
+                )
             return respond
     return default_response(turn)
 

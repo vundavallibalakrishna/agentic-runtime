@@ -1,13 +1,9 @@
 """Turn text into memory operations. Spec: docs/03-specs/11-memory.md §4."""
 
-import re
-
 import orjson
 
 from ar_domain.memory.logic import CONTENT_LIMIT, category_of
 
-_REMEMBER = re.compile(r"(?i)(?:please\s+)?remember that\s+(.+?)(?:\.|$)")
-_PREFER = re.compile(r"(?i)\bi prefer\s+(.+?)(?:\.|$)")
 _OPS = frozenset({"add", "update", "delete", "noop"})
 _SCOPES = frozenset({"user", "agent_user"})
 
@@ -37,43 +33,6 @@ def parse_ops(raw: str) -> list[dict[str, object]]:
             if cleaned is not None:
                 ops.append(cleaned)
     return ops
-
-
-def heuristic_ops(user_text: str) -> list[dict[str, object]]:
-    """Explicit phrases when the model does not return JSON."""
-    found: list[dict[str, object]] = []
-    seen: set[str] = set()
-    for match in _REMEMBER.finditer(user_text):
-        _add_phrase(found, seen, match.group(1), explicit=True)
-    for match in _PREFER.finditer(user_text):
-        phrase = match.group(1).strip()
-        if any(phrase.lower() in str(item.get("content", "")).lower() for item in found):
-            continue
-        _add_phrase(found, seen, f"Prefers {phrase}", explicit=True)
-    return found[:5]
-
-
-def _add_phrase(
-    found: list[dict[str, object]], seen: set[str], raw: str, *, explicit: bool
-) -> None:
-    content = " ".join(raw.split())[:CONTENT_LIMIT]
-    if not content:
-        return
-    key = content.lower()
-    if key in seen:
-        return
-    seen.add(key)
-    category = "preference" if "prefer" in content.lower() else "fact"
-    found.append(
-        {
-            "op": "add",
-            "content": content,
-            "category": category,
-            "scope": "user",
-            "confidence": 0.95 if explicit else 0.8,
-            "explicit": explicit,
-        }
-    )
 
 
 def _clean_op(item: dict[str, object]) -> dict[str, object] | None:
