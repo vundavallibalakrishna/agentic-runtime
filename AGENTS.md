@@ -15,6 +15,19 @@ Full text: [docs/00-overview/principles.md](docs/00-overview/principles.md). The
 5. **Defaults.** A tenant works after secrets and identity. Every other setting has a default. Settings UI has Simple and Advanced modes.
 6. **North star.** A corporate assistant with its own computer, in the customer's environment, able to automate any work ([vision](docs/00-overview/vision.md)).
 
+## Strict rules
+
+The owner set these on 6 November 2026 after a run on an empty database showed how much of the product still leaned on built-in data ([report](docs/testing/fresh-tenant-2026-11-06/report.md), [OQ-96](docs/open-questions.md)). They are strict: a change that breaks one is not merged, and none of them is traded for speed. Where existing code breaks one, [M38b](docs/09-plan/M38b-real-tenant.md) and [M38a](docs/09-plan/M38a-one-model-path.md) remove it; new code never adds to it.
+
+1. **No mocking.** The running product contains no mock, stub or stand-in for a model, a service, a tool or a person. A unit test may use the stand-in from `ar_testing`, registered from the test's own setup; nothing in `ar_domain`, a service, a connector or the web app knows it exists.
+2. **No fake services.** The product, every end-to-end check and every visual check run against real services: the database, the identity provider, the object store, the workflow engine and a real model endpoint. When one is missing the product says so in words the user can act on. It does not fall back to something that pretends to work.
+3. **No static data.** Nothing a customer sees, and nothing the product decides on, is written into code or the UI: no built-in tenant, user, agent, provider, model name, vendor address, example row or prepared answer. Data comes from the database, from a setting the customer controls, or from a real service. A seed creates one tenant and its admin and nothing else (`scripts/seed_tenant.py`).
+4. **Real data end to end.** A feature is working when it works from an empty database, through sign-in and the screens, with a real model. That run is the proof; a passing unit test is not.
+5. **Fix the architecture, not the symptom.** A defect is fixed where it is caused, for every caller. No special case for one tenant, one path, one string or one test. If the right fix is larger than the task, record it in [open-questions](docs/open-questions.md) and plan it; do not land the patch.
+6. **No shortcuts and no bypasses.** No environment switch that changes what the product does, no side door for signing in, no skip flag, no result reported before it is saved.
+7. **No industry-specific rules, code or configuration.** Nothing in core, in a default or in a setting assumes an industry. Such a capability is a pack or a connector the customer installs (principle 3).
+8. **Fully customisable.** Every model, prompt, limit, policy, role, tool grant and label a customer may need to change is a setting with a default, changed in the product without a code change.
+
 ## What is in the repository
 
 | Path | What |
@@ -51,7 +64,7 @@ So:
 
 ## How work is picked and tracked
 
-1. The owner's request comes first. Without one, take the next open task in [M38](docs/09-plan/M38-tool-framework.md), [M38a](docs/09-plan/M38a-one-model-path.md) and the milestones after them ([tool review](docs/testing/tools-review-2026-11-05/tools-review.md)), then the open items in the November review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
+1. The owner's request comes first. Without one, take the next open task in [M38b](docs/09-plan/M38b-real-tenant.md), then [M38a](docs/09-plan/M38a-one-model-path.md), [M38](docs/09-plan/M38-tool-framework.md) and the milestones after them ([tool review](docs/testing/tools-review-2026-11-05/tools-review.md)), then the open items in the November review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
 2. Earlier milestone files record how the platform was built. Use them as history and do not re-implement a task marked `done` in [progress.md](docs/09-plan/progress.md).
 3. New work gets a task in a milestone file, written in the [plan's task format](docs/09-plan/README.md#task-format), with a row in the plan's milestone table if the milestone is new. Never renumber a task; split one as `M{n}-T{nn}a`.
 4. Mark the task `in_progress` in `progress.md`, then `done` with the commit sha. One task per pull request unless the task says otherwise.
@@ -68,7 +81,7 @@ make test-e2e    # Playwright against a running stack
 make gen         # regenerate OpenAPI, schemas, clients and CLAUDE.md; CI fails on any diff
 ```
 
-Dev login is `admin@dev.local`, password `dev-password`. Details: [local-dev](docs/07-ops/local-dev.md).
+`make dev` still seeds the `dev` tenant and signs in as `admin@dev.local`, password `dev-password`, until M38b removes the built-in tenant. A clean tenant comes from `scripts/seed_tenant.py`. Details: [local-dev](docs/07-ops/local-dev.md).
 
 Things that catch people out:
 
@@ -116,6 +129,6 @@ A change is done when **all** of the following hold:
 
 ## When you are blocked
 
-- A dependency (service, model endpoint) is unavailable locally → use `fake-llm`, testcontainers or the test MCP servers from `ar_testing`.
+- A dependency (service, model endpoint) is unavailable locally → start the real one (`make up`, a real model endpoint). A unit or integration test may use testcontainers and the stand-ins in `ar_testing`. A run of the product never does (strict rules 1 and 2).
 - A version pin does not resolve → choose the nearest stable release, update [stack.md](docs/stack.md), and note it in OQ-15.
 - Two documents disagree → the more specific spec wins over overview/plan text; fix the other document in the same PR and log it in open-questions.

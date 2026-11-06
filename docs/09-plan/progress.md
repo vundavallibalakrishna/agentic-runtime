@@ -289,4 +289,5 @@ M38a-T00 | done | 213e943 | removal plan, review section D, the AGENTS.md rule, 
 M38a-T01 | done | dbb5a3f | scripted model reached as an ordinary provider; ar_testing.stand_in
 M38a-T02a | done | 28a33f0 | a provider or alias test reports a dead endpoint as failed
 M38a-T02f | done | 4f572f4 | a tool-less agent's turn goes to the tenant's provider
-M38a-T02b | done | - | an eval case runs the agent; tool mocks in the pipeline; runs are queued and scored in the background; sha recorded with M38a-T02c
+M38a-T02b | done | dbf8826 | an eval case runs the agent; tool mocks in the pipeline; runs are queued and scored in the background
+M38b-T00 | done | - | fresh tenant run on an empty database, the strict rules in AGENTS.md, the M38b plan, OQ-96 to OQ-98; sha recorded with M38b-T01

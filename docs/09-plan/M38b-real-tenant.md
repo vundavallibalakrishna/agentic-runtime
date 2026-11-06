@@ -1,0 +1,205 @@
+# M38b — A real tenant from an empty database
+
+Goal: a customer's own tenant works from an empty database. A seed creates one tenant and its admin, the
+admin signs in, configures every model in the product, and the basic AI flows work with a real model. The
+product holds no built-in tenant, user, agent, provider or model name
+([strict rules](../../AGENTS.md#strict-rules), [OQ-96](../open-questions.md)).
+
+Source: [the fresh tenant run of 6 November 2026](../testing/fresh-tenant-2026-11-06/report.md). Finding
+numbers (F1 to F22) are from that report. This milestone comes before the remaining M38a and M38 tasks,
+because nothing else can be shown working until a real tenant starts. One pull request for each task. Paths
+are under `libs/ar_domain/src/ar_domain/` unless they start with another top-level folder.
+
+Each task is proved the same way: the run in the report is repeated on an empty database with a tenant that
+is not called `dev`, and the flow the task names works in the browser with a real model.
+
+## M38b-T00 The run, the rules and this plan
+
+**Do:** the report and its screenshots, the strict rules in `AGENTS.md`, this file, the plan README row, and
+OQ-96 to OQ-98.
+
+## M38b-T01 A finished turn is always saved
+
+**Depends on:** none. **Areas:** `db/registry.py`, `durable/bind.py`,
+`services/runtime/src/ar_runtime/activities/execute_chat_turn.py`. **Findings:** F8, F9.
+
+**Do:**
+
+- One registry lists every module that maps a table. Each process loads it when its store attaches to the
+  database, so a foreign key resolves in the API and in every worker alike.
+- A retry of the turn activity that finds the turn already finished saves it before it reports it as done.
+
+**Done when:** with Temporal and Postgres present, a turn answered by a real provider is stored and shown.
+
+**Tests:** `test_table_registry.py` (the registry equals the table modules in the source tree, and every
+foreign key resolves); `services/runtime/tests/unit/test_turn_activity.py` (a save that fails once is
+repeated by the retry).
+
+## M38b-T02 The seed creates a tenant and its admin, and nothing else
+
+**Depends on:** T01. **Areas:** `bootstrap.py`, `identity/seed.py`, `identity/keycloak_admin.py`,
+`scripts/seed_tenant.py`, `docs/07-ops/local-dev.md`. **Spec:** [deployment modes](../00-overview/deployment-modes.md).
+**Findings:** F7, F22.
+
+**Do:**
+
+- `python -m ar_domain.bootstrap` creates the plans, the system roles, one tenant on plan `self_hosted` and
+  its tenant admin. It no longer runs the dev seed, and it stops when no admin address is given.
+- `scripts/seed_tenant.py` does the same and creates the tenant's organization and the admin's account in
+  the identity provider. The password is read from standard input.
+- The identity-provider client reads a new id from the `Location` header and reports a refused call.
+
+**Done when:** on an empty database the script leaves one tenant, one user with the admin role, and no
+provider, agent or example row. Running it twice changes nothing.
+
+**Tests:** `test_seed_memory.py`; `tests/integration/test_migrations.py` (bootstrap on a real database);
+`test_keycloak_admin.py`.
+
+## M38b-T03 The tenant comes from the database
+
+**Depends on:** T02. **Areas:** `durable/bind.py`, `services/api/src/ar_api/auth/`,
+`services/api/src/ar_api/middleware/durable.py`, worker store builders. **Spec:**
+[identity and tenancy](../03-specs/02-identity-tenancy.md), [tenancy isolation](../02-architecture/tenancy-isolation.md).
+**Findings:** F1, F5.
+
+**Do:**
+
+- A process attaches to the tenant named by the deployment (`AR_BOOTSTRAP_TENANT_SLUG` in single-tenant
+  mode), read from the `tenants` table. No slug, tenant id or user id is written in code.
+- Sign-in maps the organization in the token to a tenant row and the address to a user row. A person who is
+  not in that tenant is refused. The fixed user catalogue leaves the sign-in path.
+- The session returns the tenant's own slug, name and plan.
+- Multi-tenant mode still needs the repository layer (the November review's largest gap). This task records
+  what remains in open-questions and does not pretend to close it.
+
+**Done when:** a tenant called `acme` with an admin at any address signs in, and the header reads "Acme".
+
+**Tests:** `test_m38b_tenant_binding.py`; `services/api/tests/unit/test_m38b_sign_in.py` (a second tenant's
+person is refused; the cross-tenant case returns 404).
+
+## M38b-T04 Nothing is built in memory
+
+**Depends on:** T03. **Areas:** `chat/service.py` (`seed_demo`, `seed_showcase`), `tools/seed_tools.py`,
+`agents/`, `libs/ar_testing`. **Findings:** F2, F6, F10. Overlaps M38a-T05 and M38a-T07, which this task
+absorbs for the tenant, the users, the agents and the provider.
+
+**Do:**
+
+- A store starts empty. The built-in tool catalogue is product data and is created for the tenant by the
+  seed and by provisioning, with the tenant's own ids.
+- A new tenant gets the `assistant` and `builder` agents from provisioning, owned by its admin. `helpdesk`,
+  `revenue-analyst`, the showcase conversations and the `fake-llm` provider are not created.
+- Tests that need a populated store build one with a helper in `ar_testing`.
+
+**Done when:** after the seed and the first sign-in, the tenant holds two agents, no provider and no
+conversation, and no request fails for want of a built-in user.
+
+**Tests:** `test_m38b_empty_store.py`; the browser specs move to the `ar_testing` helper in this pull request.
+
+## M38b-T05 Sign-in shows only what is real
+
+**Depends on:** T03. **Areas:** `apps/web/src/app/(auth)/login/`, `apps/web/src/components/app-shell`,
+`services/api/src/ar_api/auth/routes.py`. **Findings:** F3, F4.
+
+**Do:**
+
+- The sign-in page has no list of users and no password hint. The `dev-login` route is removed.
+- When the session check fails for any reason other than "not signed in", the visitor sees an error page
+  with a retry, never the workspace.
+
+**Done when:** an unauthenticated visitor sees only the sign-in page or an error page, whatever the API returns.
+
+**Tests:** Playwright `m38b-sign-in.spec.ts` (axe-clean); `test_m38b_sign_in.py`.
+
+## M38b-T06 Migrating does not seed
+
+**Depends on:** T04. **Areas:** `migrations/run.py`, `seed/`, `Makefile`, `deploy/helm/`. **Finding:** F7.
+
+**Do:** `python -m ar_domain.migrations.run` only migrates. `make seed` calls the tenant seed with the values
+in `.env`. The dev seed package is deleted once T04 has moved its last caller.
+
+**Done when:** a Helm install on an empty database holds the tenant named in its values and nothing else.
+
+**Tests:** `tests/integration/test_migrations.py`; `scripts/check_helm.py`.
+
+## M38b-T07 Every model is configured in the product
+
+**Depends on:** T04. **Areas:** `apps/web/src/components/models/`, `models/`, `knowledge/live_embed.py`,
+`memory/`. **Spec:** [model gateway](../03-specs/04-model-gateway.md). **Findings:** F15, F16, F18.
+
+**Do:**
+
+- The Models screen lists providers, models and aliases, and each can be added, edited, tested and removed.
+  A model has a kind (chat, embedding, rerank, vision, image) and its limits. No vendor address or model
+  name is filled in by the form.
+- Knowledge and memory embed with the model the tenant's `embed` alias points at. With none configured they
+  refuse, with a message that names the Models screen. The built-in model id and the "first provider" guess
+  are removed.
+- The chat model picker lists chat aliases only, once each.
+
+**Done when:** an admin configures a chat model and an embedding model on an empty tenant using only the
+screen, and a collection states the model that indexed it.
+
+**Tests:** `test_m38b_embedding_setting.py`; `models-admin.test.tsx`; Playwright `m38b-models.spec.ts`.
+
+## M38b-T08 An attached file reaches the agent
+
+**Depends on:** T01. **Areas:** `chat/service.py`, `workspace/`, `tools/documents.py`, `tools/general.py`.
+**Findings:** F13, F14.
+
+**Do:**
+
+- A file attached to a message is placed in the run's workspace, and the prompt names its path and id.
+- The file tools and the code tool read and write the same folder, so a path one returns works in the other.
+
+**Done when:** "Summarise the attached PDF" and "total the attached CSV by region" return answers taken from
+the files.
+
+**Tests:** `test_m38b_attachments.py`; `test_m38b_one_workspace.py`.
+
+## M38b-T09 Redaction does not change the facts
+
+**Depends on:** none. **Areas:** `pii/analyzer.py`, `security/guardrails.py`, tenant settings, Settings
+screen. **Spec:** [guardrails and privacy](../06-security/). **Finding:** F12. Decision: OQ-97.
+
+**Do:**
+
+- Tool results that the agent's own code produced are masked only by recognisers that are precise without
+  context (a checksum or a fixed format). Number-shaped patterns need supporting context.
+- Overlapping matches are merged into one placeholder.
+- The entity list is a tenant setting with the safe default, shown in Settings.
+
+**Done when:** a nine-digit result reaches the model unchanged, and an email address in a fetched page is
+still masked.
+
+**Tests:** `test_m38b_redaction.py`.
+
+## M38b-T10 A refused or failed tool call is quick and visible
+
+**Depends on:** M38-T09 for the event loop. **Areas:** `tools/general.py`, `apps/web/src/components/chat/`,
+tenant settings. **Finding:** F11.
+
+**Do:**
+
+- A host that is not allowed is refused before any network call, with a message that says where to allow it.
+- The tenant has an allowed-hosts setting in the product; an agent may narrow it.
+- A run that fails shows its error in the chat, with a retry.
+
+**Done when:** a refused fetch answers in under a second, the model tells the user what to change, and a
+failed run is never an empty bubble.
+
+**Tests:** `test_m38b_egress.py`; Playwright `m38b-failed-run.spec.ts`.
+
+## M38b-T11 The fresh run is kept as a check
+
+**Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,
+`docs/testing/m38b-checklist.md`.
+
+**Do:** the run in the report becomes a script that builds an empty stack, seeds a tenant with a name of the
+caller's choosing, drives the browser through sign-in, model setup and the flows in the report, and writes
+screenshots and a pass or fail for each. It needs a real model key and runs before a release. It also covers
+the flows the first run left out: memory, approvals, a knowledge question in chat, and a second user.
+
+**Done when:** the script passes on `main` with a tenant that is not called `dev`.
+
+**Tests:** the script itself; its result is recorded in `docs/testing/m38b-checklist.md`.
