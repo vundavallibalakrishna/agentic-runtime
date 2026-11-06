@@ -792,9 +792,11 @@ def _general_tools() -> list[dict[str, object]]:
         _tool(
             "code",
             "Run Python",
-            "Run Python in this run's sandbox. Only the standard library is installed. "
-            "Network is off unless enabled. Returns stdout, stderr, the exit code "
-            "and files written under /workspace.",
+            "Run Python. It starts in the conversation's working folder, so a relative path "
+            "such as inputs/data.csv is the file the file tools name. Only the standard "
+            "library is installed. Network is off unless enabled. The value of the last "
+            "expression is shown, as in a notebook. Returns stdout, stderr, the exit code "
+            "and the files it wrote.",
             {
                 "type": "object",
                 "properties": {
@@ -808,8 +810,10 @@ def _general_tools() -> list[dict[str, object]]:
         _tool(
             "shell",
             "Run a shell command",
-            "Run a shell command in this run's sandbox. Network is off unless enabled. "
-            "Returns stdout, stderr, the exit code and files written under /workspace.",
+            "Run a shell command. It starts in the conversation's working folder, so a "
+            "relative path such as inputs/data.csv is the file the file tools name. Network "
+            "is off unless enabled. Returns stdout, stderr, the exit code and the files it "
+            "wrote.",
             {
                 "type": "object",
                 "properties": {
@@ -823,7 +827,8 @@ def _general_tools() -> list[dict[str, object]]:
         _tool(
             "read_file",
             "Read a workspace file",
-            "Read a file from this run's workspace.",
+            "Read a file from the working folder. The path is relative to it, "
+            "for example inputs/data.csv.",
             {
                 "type": "object",
                 "properties": {
@@ -838,7 +843,8 @@ def _general_tools() -> list[dict[str, object]]:
         _tool(
             "write_file",
             "Write a workspace file",
-            "Write a text file in this run's workspace. The file can be downloaded from the chat.",
+            "Write a text file in the working folder, at a path relative to it. "
+            "The file can be downloaded from the chat.",
             {
                 "type": "object",
                 "properties": {
@@ -853,7 +859,8 @@ def _general_tools() -> list[dict[str, object]]:
         _tool(
             "list_files",
             "List workspace files",
-            "List files in this run's workspace, including uploaded attachments.",
+            "List the files in the working folder. Files attached in this conversation "
+            "are under inputs/.",
             {"type": "object", "properties": {"path": {"type": "string"}}},
             "R0",
         ),

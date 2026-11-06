@@ -51,7 +51,7 @@ from ar_domain.models.logic import (
     resolve_alias,
     valid_alias,
 )
-from ar_domain.runs.logic import assemble_context, budget_exceeded
+from ar_domain.runs.logic import budget_exceeded
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
 if TYPE_CHECKING:
@@ -1933,7 +1933,6 @@ class ChatService:
         conversation: dict[str, object],
         agent: dict[str, object],
         text: str,
-        names: list[str],
     ) -> None:
         """Resolve the version, store the prompt hash, and mark the run running."""
         if agent.get("disabled"):
@@ -1943,14 +1942,8 @@ class ChatService:
             version_key = agent.get("draft_version_id")
         version = self.versions[uuid.UUID(str(version_key))]
         definition = version["definition"] if isinstance(version["definition"], dict) else {}
-        instructions = str(definition.get("instructions", ""))
-        assemble_context(
-            instructions=instructions,
-            history=[{"role": "user", "content": text}],
-            attachment_names=names,
-        )
         run["agent_version_id"] = version.get("id")
-        self._store_prompt(run, conversation, definition, text, names)
+        self._store_prompt(run, conversation, definition, text)
         run["status"] = "running"
         run["started_at"] = utcnow()
 
@@ -1960,12 +1953,11 @@ class ChatService:
         conversation: dict[str, object],
         definition: dict[str, object],
         text: str,
-        names: list[str],
     ) -> None:
         """Record ``detail.prompt_hash``. The prompt text stays out of the step."""
         from ar_domain.memory.session import prepare_prompt  # noqa: PLC0415
 
-        digest = prepare_prompt(self, run, conversation, definition, text, names=names)
+        digest = prepare_prompt(self, run, conversation, definition, text)
         steps = run.get("steps")
         if not isinstance(steps, list):
             steps = []
@@ -2042,7 +2034,7 @@ class ChatService:
             self._fail_quota(run, conversation, self.messages[assistant_id], exc)
             return
         await self.refresh_models()
-        self._prepare_run(run, conversation, agent, text, names)
+        self._prepare_run(run, conversation, agent, text)
         assistant_id = uuid.UUID(str(run["assistant_message_id"]))
         assistant = self.messages[assistant_id]
         if run.get("context_error") == "context_length_exceeded":

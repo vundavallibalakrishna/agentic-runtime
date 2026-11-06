@@ -580,22 +580,21 @@ def _ensure_for_call(store: Any, arguments: dict[str, object]) -> dict[str, obje
         row["_run_id"] = run_id
     if arguments.get("_tool_call_id"):
         row["_tool_call_id"] = arguments.get("_tool_call_id")
-    _copy_inputs(store, row, arguments.get("_attachment_ids"))
+    _copy_inputs(store, row, arguments.get("_conversation_id"))
     return {"sandbox": row, "is_error": False}
 
 
-def _copy_inputs(store: Any, sandbox: dict[str, object], raw: object) -> None:
-    if not isinstance(raw, list):
-        return
+def _copy_inputs(store: Any, sandbox: dict[str, object], conversation_id: object) -> None:
+    """Put every file attached in the conversation at the path the prompt names."""
+    from ar_domain.durability.store import read_blob  # noqa: PLC0415
+    from ar_domain.files.attachments import conversation_attachments  # noqa: PLC0415
+
     root = workspace_root(uuid.UUID(str(sandbox["id"])))
-    for item in raw:
-        file_id = _uuid(item)
-        blob = store.blobs.get(file_id) if file_id else None
-        meta = store.files.get(file_id) if file_id else None
-        if file_id is None or blob is None or not isinstance(meta, dict):
+    for item in conversation_attachments(store, conversation_id):
+        blob = read_blob(store, item.file_id)
+        if blob is None:
             continue
-        name = sanitise_name(str(meta.get("name") or "upload"))
-        target = confine(root, f"/workspace/inputs/{name}")
+        target = confine(root, item.path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(bytes(blob))
 

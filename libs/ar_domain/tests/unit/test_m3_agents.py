@@ -150,12 +150,16 @@ def test_reference_kinds_filters_and_edges() -> None:
         {
             "definition": helpdesk_definition(),
             "user_text": "See the file",
-            "files": ["notes.txt"],
+            "files": "[file: notes.txt (text/plain, 5 B) id=f1 path=inputs/notes.txt]",
             "documents": [{"text": "policy", "title": "P", "collection": "c", "source": "s"}],
             "history": [{"role": "nope"}, "not-a-message"],
         }
     )
-    assert "untrusted_content" in bundle.messages[-1]["content"]
+    asked = bundle.messages[-1]["content"]
+    # The person's words stay their own; only the file lines are wrapped as data.
+    assert asked.startswith("See the file\n\n")
+    assert "untrusted_content" in asked
+    assert asked.index("path=inputs/notes.txt") > asked.index("<untrusted_content")
     assert "retrieved_documents" in bundle.messages[0]["content"]
     shared = life.create(
         actor, slug="shared-desk", name="Shared", template="support", visibility="tenant"

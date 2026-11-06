@@ -260,7 +260,6 @@ def test_turn_cites_a_passage_and_stays_inside_the_budget() -> None:
         store.conversations[conversation_id],
         store.versions[version]["definition"],
         "Where is the recovery code?",
-        names=[],
     )
     assert run["compaction"]["strategy"] == "summary"
     assert run["compaction"]["keep_messages"] == 4

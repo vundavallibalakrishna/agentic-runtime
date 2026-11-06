@@ -763,15 +763,11 @@ def test_registry_refresh_and_pipeline_helpers() -> None:
     )
     assert promoted["risk_class"] == "W2"
     run_id = uuid.uuid4()
-    message_id = uuid.uuid4()
-    store.runs[run_id] = {
-        "conversation_id": uuid.uuid4(),
-        "agent_id": uuid.uuid4(),
-        "input_message_id": message_id,
-    }
-    store.messages[message_id] = {"attachment_ids": [str(uuid.uuid4())]}
+    conversation_id = uuid.uuid4()
+    store.runs[run_id] = {"conversation_id": conversation_id, "agent_id": uuid.uuid4()}
     context = pipe._sandbox_context({"run_id": run_id})
-    assert context["_attachment_ids"]
+    # A tool finds the conversation's attached files itself, from the conversation.
+    assert context["_conversation_id"] == conversation_id
     emitted: list[object] = []
     store._emit = lambda *_args, **_kwargs: emitted.append(_args)
     pipe._emit_streams(

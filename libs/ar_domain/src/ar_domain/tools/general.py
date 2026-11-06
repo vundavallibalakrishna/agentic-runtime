@@ -6,6 +6,7 @@ untrusted data. Secrets are resolved by name and never copied into the result.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import os
 import re
@@ -13,6 +14,7 @@ import sys
 import tempfile
 import time
 import uuid
+from dataclasses import replace
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,14 +23,14 @@ from urllib.parse import urlencode, urljoin, urlparse
 import httpx
 
 from ar_common.ids import new_id
-from ar_common.isolate import isolation_mode, run_isolated
+from ar_common.isolate import IsolatedRun, isolation_mode, run_isolated
 from ar_common.sandboxkit import (
     DEFAULT_DENY_CIDRS,
     PathEscapeError,
     confine,
     host_denied,
+    relative_path,
     sanitise_name,
-    virtual_path,
 )
 from ar_common.time import utcnow
 from ar_domain.files.logic import object_key
@@ -91,7 +93,7 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         return _egress_block(store, arguments, source)
     root = _prepare(store, arguments)
     path = root / "workspace" / "_agent.py"
-    path.write_text(source, encoding="utf-8")
+    path.write_text(showing_last_value(source), encoding="utf-8")
     before = _stamp(root)
     result = run_isolated(
         root,
@@ -101,7 +103,7 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         max_file_bytes=_as_limit(limits["max_file_bytes"]),
     )
     files = _publish_new(store, arguments, root, before)
-    return _command_result("code", "python", result, files)
+    return _command_result("code", "python", _told(root, result, source), files)
 
 
 def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -128,7 +130,7 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         max_file_bytes=_as_limit(limits["max_file_bytes"]),
     )
     files = _publish_new(store, arguments, root, before)
-    return _command_result("shell", command, result, files)
+    return _command_result("shell", command, _told(root, result, command), files)
 
 
 def _read(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -139,14 +141,14 @@ def _read(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     except PathEscapeError as exc:
         return _error("validation_failed", str(exc))
     if not target.is_file():
-        return _error("not_found", "file was not found in this run's workspace")
+        return _error("not_found", no_such_file(root, str(arguments.get("path") or "")))
     if target.stat().st_size > limits["max_file_bytes"]:
         return _error("file_too_large", "The file is over the size limit. Read a smaller range.")
     offset = as_int(arguments.get("offset"), 0)
     cap = _as_limit(limits["max_output_bytes"])
     window = min(as_int(arguments.get("limit"), cap), cap)
     text = target.read_bytes()[offset : offset + window].decode("utf-8", errors="replace")
-    shown = virtual_path(root, target)
+    shown = relative_path(root, target)
     return _ok(
         text or "(empty file)",
         {
@@ -177,7 +179,7 @@ def _write(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         target.write_bytes(existing + raw)
     else:
         target.write_bytes(raw)
-    shown = virtual_path(root, target)
+    shown = relative_path(root, target)
     saved = _store_file(store, arguments, name=target.name, data=target.read_bytes())
     return _ok(
         f"Wrote {shown}",
@@ -187,18 +189,17 @@ def _write(store: Any, arguments: dict[str, object]) -> dict[str, object]:
 
 def _list(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     root = _prepare(store, arguments)
-    raw = str(arguments.get("path") or "/workspace")
     try:
-        target = confine(root, raw)
+        target = confine(root, str(arguments.get("path") or ""))
     except PathEscapeError as exc:
         return _error("validation_failed", str(exc))
     if not target.exists():
-        return _error("not_found", "That folder is not in this run's workspace.")
+        return _error("not_found", no_such_file(root, str(arguments.get("path") or "")))
     if target.is_file():
-        rows = [virtual_path(root, target)]
+        rows = [relative_path(root, target)]
     else:
         rows = [
-            virtual_path(root, path)
+            relative_path(root, path)
             for path in sorted(target.rglob("*"))
             if path.is_file() and not path.name.startswith("_")
         ]
@@ -311,6 +312,62 @@ def _http(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     return _ok(text, presentation)
 
 
+def showing_last_value(source: str) -> str:
+    """The script, with the value of its last expression printed as a notebook shows it.
+
+    A script that ends in ``totals`` or ``df.describe()`` means "show me this". Run as a
+    plain script it prints nothing, and the caller is left with no result to read. Only
+    the last statement is changed, so line numbers in a traceback stay the script's own.
+    A script that does not parse is left alone: Python reports the error.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError, ValueError:
+        return source
+    last = tree.body[-1] if tree.body else None
+    if not isinstance(last, ast.Expr):
+        return source
+    shown = ast.get_source_segment(source, last.value)
+    if shown is None:
+        return source
+    lines = source.splitlines(keepends=True)
+    opening = lines[last.lineno - 1].encode()[: last.col_offset].decode()
+    before = "".join(lines[: last.lineno - 1]) + opening
+    if before and not before.endswith("\n"):
+        before = f"{before.rstrip()}\n"
+    return (
+        f"{before}_ = ({shown})\n"
+        "if _ is not None:\n"
+        "    print(_ if isinstance(_, str) else repr(_))\n"
+    )
+
+
+_NO_WORKSPACE = (
+    "This computer has no /workspace folder. The command started in the working folder: "
+    "use a path relative to it, such as inputs/data.csv or result.csv."
+)
+
+
+def _told(root: Path, result: IsolatedRun, script: str) -> IsolatedRun:
+    """The run's output as the model should read it.
+
+    Without a private root the command runs in the run's folder on the host, where
+    ``/workspace`` does not exist. The host's name for that folder is taken out of the
+    output, so a path the model reads there is one the tools take, and a command that
+    failed after naming ``/workspace`` is told what to use.
+    """
+    if result.mode == "namespace":
+        return result
+    stdout, stderr = result.stdout, result.stderr
+    folder = root / "workspace"
+    for base in sorted({str(folder.resolve()), str(folder)}, key=len, reverse=True):
+        stdout = stdout.replace(f"{base}/", "").replace(base, ".")
+        stderr = stderr.replace(f"{base}/", "").replace(base, ".")
+    if result.exit_code != 0 and "/workspace" in script:
+        stderr = f"{stderr.rstrip()}\n{_NO_WORKSPACE}".lstrip()
+    return replace(result, stdout=stdout, stderr=stderr)
+
+
 def _command_result(
     kind: str, command: str, result: object, files: list[dict[str, str]]
 ) -> dict[str, object]:
@@ -330,6 +387,8 @@ def _command_result(
     if files:
         names = ", ".join(row["name"] for row in files)
         lines.append(f"Files: {names}")
+    if code == 0 and not stdout and not stderr and not files:
+        lines.append("The command printed nothing and wrote no file.")
     failed = code not in {0}
     text = "\n".join(lines)
     body = {
@@ -350,6 +409,28 @@ def _command_result(
     return _ok(text, body)
 
 
+_NAMED = 20
+
+
+def no_such_file(root: Path, asked: str) -> str:
+    """Say a path is not in the working folder, and what the folder does hold.
+
+    A wrong path is the commonest mistake with files. Naming what is there lets the
+    caller pick the right one in its next step.
+    """
+    folder = root / "workspace"
+    names = sorted(
+        relative_path(root, path)
+        for path in folder.rglob("*")
+        if path.is_file() and not path.name.startswith("_")
+    )
+    if not names:
+        return f"Nothing is at {asked}. The working folder is empty."
+    shown = ", ".join(names[:_NAMED])
+    more = f" and {len(names) - _NAMED} more" if len(names) > _NAMED else ""
+    return f"Nothing is at {asked}. The working folder holds: {shown}{more}."
+
+
 def _guest_path(root: Path, name: str) -> str:
     """Script path inside the namespace, or the host path when isolation is a subprocess."""
     if isolation_mode() == "namespace":
@@ -367,7 +448,7 @@ def _prepare(store: Any, arguments: dict[str, object]) -> Path:
     from ar_domain.durability.store import restore_workspace, snapshot_workspace  # noqa: PLC0415
 
     restore_workspace(store, arguments)
-    _copy_attachments(store, root, arguments.get("_attachment_ids"))
+    _copy_attachments(store, root, arguments.get("_conversation_id"))
     tenant_id = arguments.get("_tenant_id")
     snapshot_workspace(store, run_id if isinstance(run_id, uuid.UUID) else None, tenant_id)
     if isinstance(run_id, uuid.UUID):
@@ -377,19 +458,16 @@ def _prepare(store: Any, arguments: dict[str, object]) -> Path:
     return root
 
 
-def _copy_attachments(store: Any, root: Path, raw: object) -> None:
-    if not isinstance(raw, list):
-        return
+def _copy_attachments(store: Any, root: Path, conversation_id: object) -> None:
+    """Put every file attached in the conversation at the path the prompt names."""
     from ar_domain.durability.store import read_blob  # noqa: PLC0415
+    from ar_domain.files.attachments import conversation_attachments  # noqa: PLC0415
 
-    for item in raw:
-        file_id = _uuid(item)
-        blob = read_blob(store, file_id) if file_id else None
-        meta = store.files.get(file_id) if file_id else None
-        if file_id is None or blob is None or not isinstance(meta, dict):
+    for item in conversation_attachments(store, conversation_id):
+        blob = read_blob(store, item.file_id)
+        if blob is None:
             continue
-        name = sanitise_name(str(meta.get("name") or "upload"))
-        target = confine(root, f"/workspace/inputs/{name}")
+        target = confine(root, item.path)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(bytes(blob))
 
@@ -752,7 +830,7 @@ def _spill_body(
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
     return {
-        "path": virtual_path(root, target),
+        "path": relative_path(root, target),
         "file": _store_file(store, arguments, name=name, data=data),
     }
 

@@ -449,9 +449,6 @@ class ToolPipeline:
         context["_conversation_id"] = run.get("conversation_id")
         if context.get("_agent_id") is None:
             context["_agent_id"] = run.get("agent_id")
-        message = self.store.messages.get(run.get("input_message_id"))
-        if isinstance(message, dict) and isinstance(message.get("attachment_ids"), list):
-            context["_attachment_ids"] = message.get("attachment_ids")
         return context
 
     def _emit_streams(self, request: dict[str, object], outcome: dict[str, object]) -> None:

@@ -344,7 +344,6 @@ def test_review_tools_forget_and_table_import(monkeypatch: pytest.MonkeyPatch) -
         {"id": conversation_id},
         {"context_window": 200, "context": {"compaction_threshold": 0.5}},
         "status please",
-        names=[],
     )
     assert isinstance(digest, str)
 

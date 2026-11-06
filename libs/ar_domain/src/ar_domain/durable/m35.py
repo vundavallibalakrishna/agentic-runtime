@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 
 from ar_domain.durability.store import materialise_file
 from ar_domain.durable.codec import as_dt, as_int, as_text, as_uuid
@@ -23,6 +23,49 @@ async def save_durability(session: AsyncSession, pending: dict[str, list[dict[st
     await _workspace(session, pending.get("workspace_files", []))
     await _jobs(session, pending.get("job_progress", []))
     await _push(session, pending.get("a2a_push_configs", []))
+
+
+async def load_conversation_files(
+    session: AsyncSession,
+    store: object,
+    tenant_id: uuid.UUID,
+    conversation_id: object,
+    attached: list[uuid.UUID],
+) -> None:
+    """Bring in the conversation's files this process has not seen yet.
+
+    A file is uploaded through the API and attached to a message, and a tool writes a
+    file in the worker. Whichever process serves the next request learns of both here,
+    so a turn can read what was attached and a download finds what a turn wrote.
+    """
+    from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
+
+    held = getattr(store, "files", None)
+    if not isinstance(held, dict):
+        return
+    made = await session.execute(
+        text(
+            "SELECT id FROM file_blobs "
+            "WHERE tenant_id = :tenant_id AND conversation_id = :conversation_id"
+        ),
+        {"tenant_id": tenant_id, "conversation_id": conversation_id},
+    )
+    wanted = [*attached, *(row[0] for row in made)]
+    missing = [file_id for file_id in dict.fromkeys(wanted) if file_id not in held]
+    if not missing:
+        return
+    found = await session.execute(
+        text("SELECT * FROM file_blobs WHERE tenant_id = :tenant_id AND id IN :ids").bindparams(
+            bindparam("ids", expanding=True)
+        ),
+        {"tenant_id": tenant_id, "ids": missing},
+    )
+    for mapping in found.mappings():
+        row = dict(mapping)
+        if isinstance(row.get("body"), memoryview):
+            row["body"] = row["body"].tobytes()
+        _merge(store, "file_blobs", row["id"], row)
+        materialise_file(store, row)
 
 
 async def load_durability(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:

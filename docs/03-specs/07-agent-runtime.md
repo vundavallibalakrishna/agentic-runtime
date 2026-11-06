@@ -117,8 +117,8 @@ All activities are idempotent on (`run_id`, `step_seq` / `tool_call_id`): they u
 | 7 | Plan | system | `conversations.plan` rendered as checklist | if non-empty |
 | 8 | Conversation summary | system | `conversations.rolling_summary` | if non-empty |
 | 9 | Auto-retrieved knowledge | system | hits wrapped `<retrieved_documents trust="untrusted" nonce="…">` with `<document index="n" …>` children (citation indices) | if enabled |
-| 10 | History | user/assistant/tool | active-branch messages with `scope='conversation'` after `summary_through_message_id`, max `history_max_messages`; for child runs: the brief + `scope='run'` messages of this run | tool results already wrapped |
-| 11 | Current user input | user | input message (files rendered as `[file: name (mime, size) id=…]`; images passed as image parts if the model has `vision`, else described as file references) | |
+| 10 | History | user/assistant/tool | active-branch messages with `scope='conversation'` after `summary_through_message_id`, max `history_max_messages`; for child runs: the brief + `scope='run'` messages of this run | tool results already wrapped; a user message keeps the lines of the files attached to it, so a later turn still knows them |
+| 11 | Current user input | user | input message, followed by its attached files, one line each: `[file: name (mime, size) id=… path=inputs/name]`. The person's words are sent as written; the file lines are wrapped as untrusted data, after a sentence that says the files are in the working folder and that a tool takes the id or the path. Images are listed the same way and read through `image.ask`; sending them as image parts to a model marked `vision` is not built | |
 
 Tools: `catalog:resolve` result (cached per run in the activity's Valkey cache `ar:run:{run_id}:tools`, refreshed after `tools.search`), plus control tools: `agents__delegate` (if subagents allowed or self-clone), `plan__update` (always), `tools__search` (when tool search active).
 

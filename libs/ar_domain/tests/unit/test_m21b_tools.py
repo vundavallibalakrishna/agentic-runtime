@@ -93,15 +93,25 @@ def test_workspace_round_trip_and_path_escape() -> None:
 
 def test_uploaded_attachment_appears_in_the_workspace() -> None:
     store = demo_store()
+    tenant = demo_id("tenant")
     file_id = uuid.uuid4()
-    store.files[file_id] = {"name": "data.csv", "deleted_at": None}
+    conversation_id = uuid.uuid4()
+    message_id = uuid.uuid4()
+    store.files[file_id] = {"name": "data.csv", "tenant_id": tenant, "deleted_at": None}
     store.blobs[file_id] = b"month,revenue\nJan,1\n"
+    store.messages[message_id] = {
+        "id": message_id,
+        "tenant_id": tenant,
+        "conversation_id": conversation_id,
+        "role": "user",
+        "content": [{"type": "file", "file_id": str(file_id)}],
+    }
     listed = dispatch_general(
         store,
         "list_files",
-        {"_run_id": uuid.uuid4(), "_attachment_ids": [file_id], "path": "/workspace/inputs"},
+        {"_run_id": uuid.uuid4(), "_conversation_id": conversation_id, "path": "inputs"},
     )
-    assert "data.csv" in str(listed["text"])
+    assert str(listed["text"]) == "inputs/data.csv"
 
 
 def test_fetch_strips_markup_and_marks_the_page_as_data() -> None:

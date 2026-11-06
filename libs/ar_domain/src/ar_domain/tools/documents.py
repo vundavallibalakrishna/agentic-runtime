@@ -299,7 +299,7 @@ def _source_bytes(store: Any, arguments: dict[str, object]) -> tuple[bytes, str,
         )
     path = str(arguments.get("path") or "").strip()
     if path:
-        from ar_domain.tools.general import _prepare  # noqa: PLC0415
+        from ar_domain.tools.general import _prepare, no_such_file  # noqa: PLC0415
 
         root = _prepare(store, arguments)
         try:
@@ -307,7 +307,7 @@ def _source_bytes(store: Any, arguments: dict[str, object]) -> tuple[bytes, str,
         except PathEscapeError as exc:
             raise ArError(ErrorCode.VALIDATION_FAILED, str(exc)) from exc
         if not target.is_file():
-            raise ArError(ErrorCode.NOT_FOUND, "That file is not in this run's workspace.")
+            raise ArError(ErrorCode.NOT_FOUND, no_such_file(root, path))
         return target.read_bytes(), target.name, "", "workspace", path
     raise ArError(ErrorCode.VALIDATION_FAILED, "Pass a fileId, a workspace path, or a url.")
 

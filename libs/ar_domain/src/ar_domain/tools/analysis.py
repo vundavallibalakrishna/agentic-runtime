@@ -232,12 +232,18 @@ def _load_requested(
 ) -> list[tuple[str, list[str], list[list[object]]]]:
     root = _root(store, arguments)
     requested = _requested_paths(arguments)
-    paths = [_open_path(root, item) for item in requested] if requested else _workspace_files(root)
     loaded: list[tuple[str, list[str], list[list[object]]]] = []
-    for path in paths:
-        if path is None:
-            raise SqlRejected("file was not found in this run's workspace")
-        loaded.extend(_read_book(path))
+    if not requested:
+        for path in _workspace_files(root):
+            loaded.extend(_read_book(path))
+        return _unique_tables(loaded)
+    from ar_domain.tools.general import no_such_file  # noqa: PLC0415
+
+    for item in requested:
+        found = _open_path(root, item)
+        if found is None:
+            raise SqlRejected(no_such_file(root, item))
+        loaded.extend(_read_book(found))
     return _unique_tables(loaded)
 
 
