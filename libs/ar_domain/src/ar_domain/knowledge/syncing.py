@@ -8,10 +8,11 @@ from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.knowledge.access import as_uuid
 from ar_domain.knowledge.fetchers import fetch_bytes, list_acl_changes, list_changes, map_item_acl
-from ar_domain.knowledge.pipeline import ingest_document
+from ar_domain.knowledge.pipeline import embedding_error, ingest_document
 from ar_domain.knowledge.store import memory_index
 from ar_domain.knowledge.store_types import DeleteFilter
 from ar_domain.knowledge.syncutil import run_sync
+from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
 
 if TYPE_CHECKING:
     import uuid
@@ -171,7 +172,13 @@ def reindex(store: Any, collection: dict[str, object], *, actor_id: object) -> d
         document["status"] = "pending"
         document["version_hash"] = ""
         collection["index_version"] = pending
-        ingest_document(store, as_uuid(document["id"]), raw)
+        try:
+            ingest_document(store, as_uuid(document["id"]), raw)
+        except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
+            # The version in use keeps answering; the job says why the new one stopped.
+            collection["index_version"] = previous
+            finish_job(job, status="failed", error=embedding_error(exc))
+            raise
         collection["index_version"] = previous
         _stats(job)["updated"] = int(_stats(job)["updated"]) + 1  # type: ignore[call-overload]
     collection["index_version"] = pending
@@ -280,7 +287,10 @@ def _upsert_item(
     if unmapped:
         current = int(_stats(job).get("unmapped_principals") or 0)  # type: ignore[call-overload]
         _stats(job)["unmapped_principals"] = current + unmapped
-    status = ingest_document(store, as_uuid(document["id"]), raw)
+    try:
+        status = ingest_document(store, as_uuid(document["id"]), raw)
+    except EmbeddingUnconfiguredError, EmbeddingFailedError:
+        status = "failed"
     if status == "failed":
         _fail(job, external_id, str(document.get("error") or "failed"))
         return

@@ -222,6 +222,7 @@
     "playground": "Try a question",
     "noHits": "Nothing in this collection matches.",
     "answerable": "The library can answer this.",
+    "closest": "These are the closest passages. No rerank model is set, so they are not scored against the question.",
     "sourceKind": "Source kind",
     "connect": "Connect source",
     "sync": "Sync now",

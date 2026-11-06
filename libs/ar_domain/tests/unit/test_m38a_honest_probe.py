@@ -85,5 +85,45 @@ async def test_a_provider_test_passes_when_the_model_answers_pong(stand_in: Stan
         platform=False,
         api_key="key",
     )
-    tested = await store.test_provider(demo_id("tenant"), uuid.UUID(str(provider["id"])))
-    assert tested == {**tested, "ok": True, "output": "pong"}
+    provider_id = uuid.UUID(str(provider["id"]))
+    # With no model yet, the provider is asked which models it serves. No name is made up.
+    listed = await store.test_provider(demo_id("tenant"), provider_id)
+    assert listed["ok"] is True
+    assert str(listed["output"]).startswith("The provider answered and lists ")
+    assert listed["model_id"] == ""
+    store.create_model(
+        demo_id("tenant"), provider_id, "probe-model", "probe-model", "chat", platform=False
+    )
+    tested = await store.test_provider(demo_id("tenant"), provider_id)
+    assert tested == {**tested, "ok": True, "output": "pong", "model_id": "probe-model"}
+
+
+@pytest.mark.asyncio
+async def test_an_embedding_model_is_tested_with_an_embedding(stand_in: StandIn) -> None:
+    store = demo_store(allow_loopback=True)
+    tenant = demo_id("tenant")
+    provider = store.create_provider(
+        tenant, "vectors", "openai_compatible", stand_in.base_url(SCRIPT_SET), platform=False
+    )
+    provider_id = uuid.UUID(str(provider["id"]))
+    model = store.create_model(
+        tenant, provider_id, "probe-embed", "probe-embed", "embedding", platform=False
+    )
+    alias = store.create_alias(
+        tenant, "probe-embed", "embedding", uuid.UUID(str(model["id"])), platform=False
+    )
+    tested = await store.test_alias(tenant, uuid.UUID(str(alias["id"])), [])
+    assert tested == {**tested, "ok": True, "output": "Returned a vector of 1024 numbers."}
+    assert tested["model_id"] == "probe-embed"
+    # A provider that only serves embeddings is tested the same way.
+    assert (await store.test_provider(tenant, provider_id))["ok"] is True
+    dead = store.create_provider(tenant, "gone", "openai_compatible", UNREACHABLE, platform=False)
+    lost = store.create_model(
+        tenant, uuid.UUID(str(dead["id"])), "lost-embed", "lost-embed", "embedding", platform=False
+    )
+    lost_alias = store.create_alias(
+        tenant, "lost-embed", "embedding", uuid.UUID(str(lost["id"])), platform=False
+    )
+    failed = await store.test_alias(tenant, uuid.UUID(str(lost_alias["id"])), [])
+    assert failed["ok"] is False
+    assert "did not answer" in str(failed["output"])

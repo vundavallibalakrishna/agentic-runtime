@@ -155,7 +155,7 @@ def test_collection_routes_cover_sources_documents_and_jobs() -> None:
     reindex = admin.post(
         f"/api/v1/knowledge/collections/{collection_id}:reindex",
         json={
-            "embeddingAlias": "fake-embed",
+            "embeddingAlias": "embed",
             "targetBackend": "pgvector",
             "textSearchConfig": "english",
         },

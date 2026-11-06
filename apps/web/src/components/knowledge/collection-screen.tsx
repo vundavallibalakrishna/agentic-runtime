@@ -29,9 +29,11 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
   const [jobs, setJobs] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [query, setQuery] = useState("When does the visitor desk open?");
+  const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Row[]>([]);
   const [answerable, setAnswerable] = useState<boolean | null>(null);
+  // False when no rerank model scored the passages: they are the closest ones, unjudged.
+  const [scored, setScored] = useState(true);
   const [file, setFile] = useState<File | null>(null);
   const [libraryId, setLibraryId] = useState("");
   const [libraryDocs, setLibraryDocs] = useState<Row[]>([]);
@@ -76,12 +78,16 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
     setAnswerable(null);
     setError("");
     try {
-      const result = await api<{ hits: Row[]; answerable: boolean }>("/api/v1/knowledge/search", {
-        method: "POST",
-        body: JSON.stringify({ query, collectionIds: [collectionId], debug: true }),
-      });
+      const result = await api<{ hits: Row[]; answerable: boolean; scored?: boolean }>(
+        "/api/v1/knowledge/search",
+        {
+          method: "POST",
+          body: JSON.stringify({ query, collectionIds: [collectionId], debug: true }),
+        },
+      );
       setHits(result.hits ?? []);
       setAnswerable(result.answerable);
+      setScored(result.scored !== false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("error"));
     } finally {
@@ -353,7 +359,9 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
                 >
                   {t("ask")}
                 </Button>
-                {answerable === true ? <p role="status">{t("answerable")}</p> : null}
+                {answerable === true ? (
+                  <p role="status">{scored ? t("answerable") : t("closest")}</p>
+                ) : null}
                 {answerable === false ? <p>{t("noHits")}</p> : null}
                 <ul className="grid gap-3">
                   {hits.map((hit) => (
@@ -370,7 +378,9 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
                               anchor: String(hit.anchor || ""),
                             })
                           : null}{" "}
-                        {Number(hit.rerankScore ?? hit.score).toFixed(2)}
+                        {hit.rerankScore === undefined || hit.rerankScore === null
+                          ? null
+                          : Number(hit.rerankScore).toFixed(2)}
                       </p>
                     </li>
                   ))}

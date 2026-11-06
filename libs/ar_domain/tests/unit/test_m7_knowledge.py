@@ -6,12 +6,10 @@ import uuid
 import zipfile
 from xml.sax.saxutils import escape
 
-import httpx
 import pytest
-import respx
 
 from ar_common.errors import ArError, ConflictError, NotFoundError, ValidationFailedError
-from ar_common.vectors import lexical_score, unit_vector
+from ar_common.vectors import lexical_score
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
@@ -26,7 +24,6 @@ from ar_domain.knowledge.answer import compose
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.chunker import chunk_markdown
 from ar_domain.knowledge.citations import allocate, content_parts, known_indexes
-from ar_domain.knowledge.embedder import embed_texts, rerank
 from ar_domain.knowledge.fetchers import check, fetch_bytes, list_changes
 from ar_domain.knowledge.grounding import (
     apply_grounding,
@@ -148,10 +145,12 @@ def test_sql_builder_always_filters_and_rrf_breaks_ties() -> None:
     assert fused[0].chunk_id == left
     assert fused[0].score == pytest.approx(fused[1].score)
     assert answerable([{"rerank_score": 0.1}], min_score=0.2) is False
-    kept, _elapsed, warning = apply_rerank(
+    assert answerable([{"score": 0.9}], min_score=0.2) is False
+    assert answerable([{"rerank_score": 0.3}], min_score=0.2) is True
+    kept, _elapsed, warning, scored = apply_rerank(
         "desk", [{"snippet": "desk opens", "chunk_id": "a"}], top_k=1
     )
-    assert kept and warning is None
+    assert kept and warning is None and scored is False
     assert supported_dims() == SUPPORTED_DIMS
     assert get_retrieval_store("pgvector").backend == "pgvector"
     with pytest.raises(StoreError):
@@ -326,20 +325,7 @@ def test_collection_acl_search_and_delete_at_source() -> None:
     assert max_bytes() >= 1
 
 
-def test_embedder_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AR_MODEL_GATEWAY_URL", "http://gateway.test")
-    vector = unit_vector("desk", 8)
-    with respx.mock:
-        respx.post("http://gateway.test/v1/embeddings").mock(
-            return_value=httpx.Response(200, json={"data": [{"index": 0, "embedding": vector}]})
-        )
-        respx.post("http://gateway.test/v1/rerank").mock(
-            return_value=httpx.Response(
-                200, json={"results": [{"index": 0, "relevance_score": 0.9}]}
-            )
-        )
-        assert embed_texts(["desk"], model="fake-embed", dimensions=8) == [vector]
-        assert rerank("desk", ["desk opens"]) == [0.9]
+def test_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> None:
     page = list_changes(
         {"kind": "database", "config": {"rows": [{"id": "1", "title": "Row", "text": "hello"}]}},
         mode="full",

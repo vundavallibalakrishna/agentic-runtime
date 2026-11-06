@@ -493,14 +493,15 @@ async def _collections(session: AsyncSession, rows: list[dict[str, Any]]) -> Non
     sql = """
         INSERT INTO knowledge_collections (
             id, tenant_id, slug, name, description, owner_team_id, visibility, acl_mode,
-            sensitivity, classification, embedding_alias, embedding_model, index_version,
-            store_backend, store_collection, text_search_config, chunking, stats, created_by,
-            created_at, updated_at
+            sensitivity, classification, embedding_alias, embedding_model, embedding_model_id,
+            index_version, store_backend, store_collection, text_search_config, chunking, stats,
+            created_by, created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :slug, :name, :description, :owner_team_id, :visibility, :acl_mode,
-            :sensitivity, :classification, :embedding_alias, :embedding_model, :index_version,
-            :store_backend, :store_collection, :text_search_config, CAST(:chunking AS jsonb),
-            CAST(:stats AS jsonb), :created_by, :created_at, :updated_at
+            :sensitivity, :classification, :embedding_alias, :embedding_model,
+            (SELECT id FROM models WHERE id = :embedding_model_id),
+            :index_version, :store_backend, :store_collection, :text_search_config,
+            CAST(:chunking AS jsonb), CAST(:stats AS jsonb), :created_by, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
@@ -508,6 +509,10 @@ async def _collections(session: AsyncSession, rows: list[dict[str, Any]]) -> Non
             visibility = EXCLUDED.visibility,
             embedding_alias = EXCLUDED.embedding_alias,
             embedding_model = EXCLUDED.embedding_model,
+            embedding_model_id = EXCLUDED.embedding_model_id,
+            index_version = EXCLUDED.index_version,
+            store_collection = EXCLUDED.store_collection,
+            text_search_config = EXCLUDED.text_search_config,
             chunking = EXCLUDED.chunking,
             stats = EXCLUDED.stats,
             updated_at = EXCLUDED.updated_at
@@ -534,6 +539,7 @@ async def _collections(session: AsyncSession, rows: list[dict[str, Any]]) -> Non
                 "classification": as_text(row.get("classification"), "internal"),
                 "embedding_alias": as_text(row.get("embedding_alias"), "embed"),
                 "embedding_model": as_text(row.get("embedding_model")) or None,
+                "embedding_model_id": as_uuid(row.get("embedding_model_id")),
                 "index_version": as_int(row.get("index_version"), 1),
                 "store_backend": as_text(row.get("store_backend"), "pgvector"),
                 "store_collection": as_text(
@@ -703,15 +709,20 @@ async def _facts(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     sql = """
         INSERT INTO memory_facts (
             id, tenant_id, scope, user_id, agent_id, team_id, content, category,
-            embedding, source_kind, source_ref, trust_level, confidence, status,
-            recall_count, created_by, created_at, updated_at
+            embedding, embedding_model_id, source_kind, source_ref, trust_level, confidence,
+            status, recall_count, created_by, created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :scope, :user_id, :agent_id, :team_id, :content, :category,
-            CAST(:embedding AS vector), :source_kind, CAST(:source_ref AS jsonb),
+            CAST(:embedding AS vector),
+            (SELECT id FROM models WHERE id = :embedding_model_id),
+            :source_kind, CAST(:source_ref AS jsonb),
             :trust_level, :confidence, :status, :recall_count, :created_by, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             content = EXCLUDED.content,
+            category = EXCLUDED.category,
+            embedding = EXCLUDED.embedding,
+            embedding_model_id = EXCLUDED.embedding_model_id,
             status = EXCLUDED.status,
             recall_count = EXCLUDED.recall_count,
             updated_at = EXCLUDED.updated_at
@@ -737,6 +748,7 @@ async def _facts(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "content": as_text(row.get("content"))[:1000],
                 "category": as_text(row.get("category"), "fact"),
                 "embedding": as_vector(row.get("embedding")),
+                "embedding_model_id": as_uuid(row.get("embedding_model_id")),
                 "source_kind": as_text(row.get("source_kind"), "explicit"),
                 "source_ref": as_json(row.get("source_ref"), {}),
                 "trust_level": as_text(row.get("trust_level"), "high"),

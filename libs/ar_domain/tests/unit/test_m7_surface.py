@@ -1,4 +1,4 @@
-"""Parsers, fetchers, connectors and the model gateway embedding path."""
+"""Parsers, fetchers, connectors and the model gateway."""
 
 import asyncio
 import io
@@ -47,6 +47,7 @@ from ar_model_gateway.main import create_application
 from ar_runtime import citations as runtime_citations
 from ar_runtime import grounding as runtime_grounding
 from ar_testing.demo import demo_store
+from ar_testing.sleeping import in_this_thread
 
 pytestmark = pytest.mark.unit
 
@@ -225,14 +226,9 @@ def test_citations_plan_limits_and_gateway() -> None:
     assert timing["store_ms"] >= 0
     assert created["slug"] == "box"
     gateway = TestClient(create_application())
-    embedded = gateway.post(
-        "/v1/embeddings", json={"input": "desk", "model": "fake-embed", "dimensions": 8}
-    )
-    assert embedded.status_code == 200
-    assert len(embedded.json()["data"][0]["embedding"]) == 8
-    ranked = gateway.post("/v1/rerank", json={"query": "desk", "documents": ["desk opens"]})
-    assert ranked.status_code == 200
-    assert ranked.json()["results"][0]["relevance_score"] > 0
+    # Embeddings and reranking go from the caller to the tenant's provider, not through here.
+    assert gateway.post("/v1/embeddings", json={"input": "desk"}).status_code == 404
+    assert gateway.post("/v1/rerank", json={"query": "desk", "documents": []}).status_code == 404
     completed = gateway.post(
         "/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "desk"}]},
@@ -256,6 +252,6 @@ def test_runtime_reexports_and_system_worker_when_temporal_is_down(
         raise asyncio.CancelledError
 
     monkeypatch.setattr("ar_system.worker.Client.connect", _down)
-    monkeypatch.setattr("ar_system.worker.asyncio.sleep", _stop)
+    monkeypatch.setattr("ar_system.worker.asyncio.sleep", in_this_thread(_stop))
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(run_worker())

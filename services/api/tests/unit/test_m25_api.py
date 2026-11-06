@@ -8,6 +8,7 @@ from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_testing.demo import demo_application
+from ar_testing.stand_in import EMBEDDING_MODEL
 
 
 def _client() -> tuple[TestClient, dict[str, uuid.UUID]]:
@@ -27,7 +28,6 @@ def _client() -> tuple[TestClient, dict[str, uuid.UUID]]:
         )
 
     app.state.resolve_principal = resolve
-    app.state.chat.embed_client = lambda texts: [[0.0] * 1024 for _ in texts]
     return TestClient(app), holder
 
 
@@ -51,7 +51,8 @@ def test_member_search_and_skill_import() -> None:
     )
     assert created.status_code == 200
     collection_id = created.json()["id"]
-    assert created.json()["embeddingModel"] == "fake-embed"
+    assert created.json()["embeddingModel"] == EMBEDDING_MODEL
+    assert created.json()["dims"] == 1024
     added = client.post(
         f"/api/v1/knowledge/collections/{collection_id}/members",
         json={"kind": "library", "libraryDocumentId": library_id},

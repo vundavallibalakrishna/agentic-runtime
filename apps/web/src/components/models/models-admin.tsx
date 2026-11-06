@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableScroll } from "@/components/ui/table";
 import { api } from "@/lib/api";
 
 type Row = Record<string, unknown>;
@@ -301,7 +302,10 @@ export function ModelsAdmin() {
                 </li>
               ))}
             </ul>
-            <div className="hidden overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)] md:block">
+            <TableScroll
+              className="hidden rounded-xl border border-[var(--border)] bg-[var(--card)] md:block"
+              label={t("providers")}
+            >
               <table className="w-full text-left text-sm">
                 <caption className="sr-only">{t("providers")}</caption>
                 <thead className="text-[var(--muted-foreground)]">
@@ -325,7 +329,7 @@ export function ModelsAdmin() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           </>
         ) : null}
 

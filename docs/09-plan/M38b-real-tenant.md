@@ -204,18 +204,27 @@ F29. One pull request for each part:
   in: an alias a published agent names, a model an alias points at, and a provider that still has models
   are refused with a message that says what to do. The store refuses loopback addresses unless the process
   that builds it allows them.
-- **T07b** Knowledge and memory embed with the model the tenant's `embed` alias points at. With none
-  configured they refuse, with a message that names the Models screen. The built-in model id and the "first
-  provider" guess are removed.
+- **T07b** (done) Knowledge and memory embed with the model the tenant's `embed` alias points at. With none
+  configured they refuse, with a message that names the Models screen. The built-in model id, the "first
+  provider" guess and the vectors computed in the product's own process are removed: tests reach a
+  stand-in embedding model over HTTP, registered like any model. A collection and a memory fact record the
+  model that wrote their vectors. A model has an optional vector length. Without a rerank model, passages
+  are returned unscored; nothing stands in for one (OQ-103). The test action works for an embedding or a
+  rerank model, and a conversation can only be pointed at a chat alias.
 - **T07c** The Models screen lists providers, models and aliases, and each can be added, edited, tested
   and removed. A model has a kind (chat, embedding, rerank). The standard aliases are listed with whether
   each is set. No vendor address or model name is filled in by the form, and the "Local fake" kind is gone.
+  The rerank route becomes a setting of the model, in place of the one vendor-shaped address the call still
+  tries, and an alias no longer gets a built-in `temperature`.
+- **T07d** Memory embeds its facts again by itself after the embedding model changes (today it is
+  `scripts/reembed_memory.py`, OQ-102). A knowledge search with no rerank model shows how close each
+  passage is, which needs the similarity from each retrieval backend.
 
 **Done when:** an admin configures a chat model and an embedding model on an empty tenant using only the
 screen, and a collection states the model that indexed it.
 
-**Tests:** `test_m38b_model_registry.py` (unit and integration); `test_m38b_embedding_setting.py`;
-`models-admin.test.tsx`; Playwright `m38b-models.spec.ts`.
+**Tests:** `test_m38b_model_registry.py` (unit and integration); `test_m38b_embeddings.py` (unit and
+integration); `models-admin.test.tsx`; Playwright `m38b-models.spec.ts`.
 
 ## M38b-T08 An attached file reaches the agent
 
@@ -266,6 +275,20 @@ tenant settings. **Finding:** F11.
 failed run is never an empty bubble.
 
 **Tests:** `test_m38b_egress.py`; Playwright `m38b-failed-run.spec.ts`.
+
+## M38b-T12 What is remembered from a turn is decided by the tenant's model
+
+**Depends on:** T07b. **Areas:** `memory/extract.py`, `memory/session.py`,
+`services/system/src/ar_system/workflows/memory_extraction.py`. **Spec:** [memory](../03-specs/11-memory.md).
+**Finding:** F31.
+
+**Do:** after a turn, the tenant's model is asked what to remember and its answer is applied. The two
+keyword patterns ("remember that …", "I prefer …") that decide it today are removed. With no model the turn
+remembers nothing and says so in the trace.
+
+**Done when:** "My daughter's name is Mira" is remembered without the word "remember", on a real model.
+
+**Tests:** `test_m38b_memory_extraction.py`.
 
 ## M38b-T11 The fresh run is kept as a check
 

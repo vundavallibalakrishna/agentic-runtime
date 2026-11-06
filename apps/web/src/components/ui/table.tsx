@@ -25,3 +25,24 @@ export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCel
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
   return <td className={cn("px-2 py-1", className)} {...props} />;
 }
+
+/**
+ * The frame around a table that may be wider than its space. It scrolls sideways, and a
+ * region that scrolls must be reachable by keyboard and have a name, or a keyboard user
+ * cannot see the columns that are off screen.
+ */
+export function TableScroll({
+  label,
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { label: string }) {
+  return (
+    <section
+      aria-label={label}
+      className={cn("overflow-x-auto", className)}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
+      tabIndex={0}
+      {...props}
+    />
+  );
+}

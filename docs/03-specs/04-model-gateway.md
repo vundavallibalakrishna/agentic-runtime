@@ -29,6 +29,16 @@ Deployable `model-gateway` (`services/model_gateway`, package `ar_model_gateway`
 
 `/v1/rerank`: TEI-compatible body; for `kind='openai_compatible'` providers that expose `/rerank` (vLLM pooling) the same body is forwarded. Metric `rerank_requests`.
 
+**How embeddings and reranking are called today (M38b-T07b).** Knowledge and memory call the tenant's provider themselves, through `ar_domain.models.embedding`; the gateway serves neither route (routing through the gateway is decision D4, [OQ-93](../open-questions.md)). The rules:
+
+- The `embed` alias names the embedding model and the `rerank` alias the rerank model. A tenant's own alias wins over one that belongs to no tenant. The alias, its model and the model's provider must all be active, and the model must be of the alias's kind.
+- Nothing is built in. With no `embed` alias the caller gets `409 invalid_state` with a message that names the Models screen ([OQ-98](../open-questions.md)). No model id is assumed, no provider is picked for the tenant, and no vector is computed in the product's own process.
+- The request is `POST {provider.base_url}/embeddings` with `{model, input}` in batches of 32. `dimensions` is sent only when the model's `embedding_dimensions` is set or the caller asks for a length; otherwise the model's own length is taken. A reply with the wrong number of vectors, or a vector of a length the caller cannot store, is an error and never a stored vector.
+- A model has an optional `embedding_dimensions` (`POST` and `PATCH /api/v1/models`; `null` clears it). It is accepted only for `kind='embedding'`.
+- Reranking is optional. With no `rerank` alias nothing is scored ([spec 10 §6.4](10-knowledge.md)).
+- `:test` on an alias of kind `embedding` or `rerank` asks the model for one vector or one set of scores and reports what came back. `:test` on a provider uses one of its chat models, else one of its other models, and with no model asks the provider for its model list; no model name is made up.
+- A conversation's model alias must be a chat alias. The chat and agent pickers list chat aliases only.
+
 ## 3. Circuit breaker and health
 
 - Per model, in-process + shared state in Valkey `ar:cb:{model_id}`: closed → open after 5 consecutive failures or ≥ 50 % failures over ≥ 20 requests in 30 s; open for 30 s; half-open allows 1 probe request.

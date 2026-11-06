@@ -53,11 +53,6 @@ def dimensions() -> int:
     return value if value > 0 else 1024
 
 
-def lexical_blend() -> bool:
-    """Fake embeddings are not semantic. Blend lexical overlap until a gateway is set."""
-    return not os.environ.get("AR_MODEL_GATEWAY_URL", "").strip()
-
-
 def score(cosine: float, *, age_days: float, recall_count: int) -> float:
     """``0.75 * cosine + 0.15 * exp(-age/90) + 0.10 * min(1, recalls/10)``."""
     freshness = math.exp(-max(age_days, 0.0) / 90)
@@ -72,13 +67,13 @@ def cosine(left: list[float], right: list[float]) -> float:
     return sum(a * b for a, b in zip(left, right, strict=True))
 
 
-def similarity(query: str, content: str, query_vec: list[float], stored: object) -> float:
-    """Cosine, or the larger of cosine and lexical overlap when embeddings are fake."""
-    vector = stored if isinstance(stored, list) else []
-    dense = cosine(query_vec, [float(item) for item in vector])
-    if not lexical_blend():
-        return dense
-    return max(dense, lexical_score(query, content))
+def similarity(query: str, content: str, query_vec: list[float], stored: list[float]) -> float:
+    """The larger of closeness in meaning and the share of the query's words in the fact.
+
+    The caller passes vectors only when one model wrote both, so a fact embedded by an
+    earlier model, or a tenant with no embedding model, is matched by words alone.
+    """
+    return max(cosine(query_vec, stored), lexical_score(query, content))
 
 
 def blocked_reason(content: str, *, explicit: bool) -> str | None:

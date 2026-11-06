@@ -1,11 +1,14 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+import { TableScroll } from "@/components/ui/table";
 import { type UserRow, UsersPanel } from "@/components/users-panel";
 import { api } from "@/lib/api";
 
 export function UsersDirectory() {
+  const t = useTranslations("admin");
   const [status, setStatus] = useState<"loading" | "empty" | "error" | "ready">("loading");
   const [users, setUsers] = useState<UserRow[]>([]);
 
@@ -41,8 +44,11 @@ export function UsersDirectory() {
   }, []);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--card)]">
+    <TableScroll
+      className="rounded-xl border border-[var(--border)] bg-[var(--card)]"
+      label={t("usersTitle")}
+    >
       <UsersPanel status={status} users={users} />
-    </div>
+    </TableScroll>
   );
 }

@@ -19,10 +19,11 @@ from ar_domain.documents.chunk import RETRIEVAL_BUDGET
 from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.chunker import ChunkDraft, chunk_markdown, token_count
-from ar_domain.knowledge.live_embed import collection_embedding, embed_for_collection
+from ar_domain.knowledge.embedding import embed_for_collection
 from ar_domain.knowledge.pipeline import _stats
 from ar_domain.knowledge.store import active_index
 from ar_domain.knowledge.store_types import DeleteFilter, IndexedChunk
+from ar_domain.models.embedding import refresh_registry
 
 if TYPE_CHECKING:
     from typing import Any
@@ -38,9 +39,7 @@ async def add_member(
     store: Any, actor: Actor, collection_id: uuid.UUID, body: dict[str, object]
 ) -> dict[str, object]:
     """Index one document into the collection. Unchanged text is not re-embedded."""
-    from ar_domain.knowledge.live_embed import load_provider_keys  # noqa: PLC0415
-
-    await load_provider_keys(store)
+    await refresh_registry(store)
     book = KnowledgeBook(store)
     collection = book._managed(actor, collection_id)
     kind = str(body.get("kind") or "").strip().lower()
@@ -168,7 +167,7 @@ async def retrieve(
     if collection_ids:
         row = store.knowledge_collections.get(collection_ids[0])
         if isinstance(row, dict):
-            model, _dims = collection_embedding(row)
+            model = str(row.get("embedding_model") or "")
     trace = {
         "query": query[:500],
         "collection_ids": [str(item) for item in collection_ids],

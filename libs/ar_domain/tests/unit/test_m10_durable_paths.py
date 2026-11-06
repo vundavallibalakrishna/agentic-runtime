@@ -50,6 +50,7 @@ from ar_domain.knowledge.pipeline import (
 )
 from ar_domain.knowledge.store import active_index
 from ar_testing.demo import demo_store
+from ar_testing.sleeping import in_this_thread
 
 
 class _Engine:
@@ -585,7 +586,7 @@ async def test_a_worker_waits_for_its_database_and_its_tenant(
         pauses.append(seconds)
 
     monkeypatch.setattr(bind_mod, "bind_store", _bind)
-    monkeypatch.setattr(bind_mod.asyncio, "sleep", _pause)
+    monkeypatch.setattr(bind_mod.asyncio, "sleep", in_this_thread(_pause))
     service = ChatService()
     assert await attach_store(service, "url", retry_s=0.5) == found
     assert pauses == [0.5, 0.5, 0.5]
@@ -646,7 +647,7 @@ async def test_ingest_uses_the_worker_when_temporal_is_up(monkeypatch: pytest.Mo
             close()
         raise TimeoutError
 
-    monkeypatch.setattr(asyncio, "wait_for", _timeout)
+    monkeypatch.setattr(asyncio, "wait_for", in_this_thread(_timeout, asyncio.wait_for))
     assert await ingest_or_enqueue(service, missing, b"late") == "missing"
     await _delete_stored_chunks(service, _DOC)
 
@@ -739,7 +740,7 @@ async def test_workers_poll_and_retry(monkeypatch: pytest.MonkeyPatch) -> None:
         await run_ingest()
 
     monkeypatch.setattr("ar_runtime.worker.Client.connect", _down)
-    monkeypatch.setattr("ar_runtime.worker.asyncio.sleep", _stop)
+    monkeypatch.setattr("ar_runtime.worker.asyncio.sleep", in_this_thread(_stop))
     with pytest.raises(asyncio.CancelledError):
         await run_runtime()
 

@@ -10,18 +10,14 @@ from ar_domain.knowledge.access import (
     principals,
     readable_classes,
 )
-from ar_domain.knowledge.embedder import embed_texts
+from ar_domain.knowledge.embedding import collection_dims, embed_for_collection
 from ar_domain.knowledge.fetchers import check_access
-from ar_domain.knowledge.live_embed import (
-    collection_embedding,
-    embed_for_collection,
-    is_fake_embedding,
-)
 from ar_domain.knowledge.metrics import SEARCH_HITS, SEARCH_SECONDS, UNANSWERABLE
 from ar_domain.knowledge.retrieval import answerable, apply_rerank
 from ar_domain.knowledge.store import StoreUnavailable, active_index
 from ar_domain.knowledge.store_types import HybridQuery, SearchTarget
 from ar_domain.knowledge.syncutil import run_sync
+from ar_domain.models.embedding import refresh_registry, rerank_model
 
 if TYPE_CHECKING:
     import uuid
@@ -62,49 +58,48 @@ async def search_async(
     min_score: float = 0.2,
 ) -> dict[str, object]:
     """Hybrid search filtered by the caller's principals. Managers are not exempt."""
-    from ar_domain.knowledge.live_embed import load_provider_keys  # noqa: PLC0415
-
-    await load_provider_keys(store)
+    await refresh_registry(store)
     started = time.perf_counter()
     targets, collections = _targets(store, actor, collection_ids)
     if not targets:
         return {"hits": [], "answerable": False}
-    model, dims = collection_embedding(collections[0])
-    if is_fake_embedding(model):
-        dense = embed_texts([query], model="fake-embed", dimensions=dims)[0]
-    else:
-        dense = embed_for_collection(store, collections[0], [query])[0]
-    hybrid = HybridQuery(
-        tenant_id=actor.tenant_id,
-        text=query,
-        dense=dense,
-        targets=targets,
-        principals=principals(store, actor),
-        allowed_classifications=readable_classes(store, actor),
-        fused_k=max(top_k, 20),
-    )
     index = active_index(store)
-    try:
-        with SEARCH_SECONDS.labels(stage="store").time():
-            fused = await index.search(hybrid)
-    except StoreUnavailable as exc:
-        raise StoreUnavailable("retrieval_unavailable") from exc
+    fused: list[Any] = []
+    # A question is embedded once for each model that indexed a searched collection.
+    for group in _by_model(targets, collections):
+        hybrid = HybridQuery(
+            tenant_id=actor.tenant_id,
+            text=query,
+            dense=embed_for_collection(store, group[0][1], [query])[0],
+            targets=[target for target, _row in group],
+            principals=principals(store, actor),
+            allowed_classifications=readable_classes(store, actor),
+            fused_k=max(top_k, 20),
+        )
+        try:
+            with SEARCH_SECONDS.labels(stage="store").time():
+                fused.extend(await index.search(hybrid))
+        except StoreUnavailable as exc:
+            raise StoreUnavailable("retrieval_unavailable") from exc
     hits = [_hit(store, row) for row in fused]
-    reranked, rerank_ms, warning = apply_rerank(
-        query,
-        hits,
-        top_k=top_k,
-        min_score=min_score,
-        store=store,
-        tenant_id=actor.tenant_id,
-        model=model,
+    reranker = rerank_model(store, actor.tenant_id)
+    reranked, rerank_ms, warning, scored = apply_rerank(
+        query, hits, top_k=top_k, min_score=min_score, target=reranker
     )
     verified = _late(store, actor, reranked, collections)
-    ok = answerable(verified, min_score=min_score)
+    # Scored passages answer the question when one clears the bar. Unscored ones are the
+    # closest the search found, and whoever reads them decides.
+    ok = answerable(verified, min_score=min_score) if scored else bool(verified)
     if not ok:
         UNANSWERABLE.inc()
     SEARCH_HITS.observe(len(verified))
-    body: dict[str, object] = {"hits": verified, "answerable": ok, "rerank_model": model}
+    body: dict[str, object] = {
+        "hits": verified,
+        "answerable": ok,
+        "embedding_model": str(collections[0].get("embedding_model") or ""),
+        "rerank_model": reranker.name if reranker is not None else "",
+        "scored": scored,
+    }
     if warning:
         body["warning"] = warning
     if debug:
@@ -142,6 +137,21 @@ def _targets(
     return targets, collections
 
 
+def _by_model(
+    targets: list[SearchTarget], collections: list[dict[str, object]]
+) -> list[list[tuple[SearchTarget, dict[str, object]]]]:
+    """Searched collections grouped by the model and vector length that indexed them."""
+    groups: dict[tuple[str, str, int | None], list[tuple[SearchTarget, dict[str, object]]]] = {}
+    for target, row in zip(targets, collections, strict=True):
+        key = (
+            str(row.get("embedding_model_id") or ""),
+            str(row.get("embedding_model") or ""),
+            collection_dims(row),
+        )
+        groups.setdefault(key, []).append((target, row))
+    return list(groups.values())
+
+
 def _hit(store: Any, row: Any) -> dict[str, object]:
     chunk = store.document_chunks.get(row.chunk_id, {})
     document = store.knowledge_documents.get(row.document_id, {})
@@ -166,7 +176,6 @@ def _hit(store: Any, row: Any) -> dict[str, object]:
         "heading": path,
         "library_document_id": library_id,
         "score": row.score,
-        "rerank_score": row.score,
         "page_from": chunk.get("page_from") if isinstance(chunk, dict) else None,
         "page_to": chunk.get("page_to") if isinstance(chunk, dict) else None,
         "heading_path": heading if isinstance(heading, list) else [],

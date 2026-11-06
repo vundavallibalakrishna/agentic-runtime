@@ -186,9 +186,11 @@ class RetrievalStore(Protocol):
 2. Principals of the acting user (§2; group count capped per [spec 02](02-identity-tenancy.md)) and allowed classifications from clearance.
 3. Embed the query once per distinct embedding model of the targets (targets are also grouped by dims).
 4. `RetrievalStore.search` per (backend, dims) group; merge groups by RRF score.
-5. Rerank via `model-gateway` `/v1/rerank` (`rerank` alias) on the top `AR_KNOWLEDGE_RERANK_CANDIDATES` (text = title + heading path + chunk text loaded from `document_chunks`) → `rerank_score` (normalised 0..1 with sigmoid when the engine returns logits); keep ≥ `min_score`, take `top_k`. Rerank unavailable → fall back to RRF order with a `warning`.
+5. Rerank with the tenant's `rerank` alias on the top `AR_KNOWLEDGE_RERANK_CANDIDATES` (text = title + heading path + chunk text loaded from `document_chunks`) → `rerank_score` (normalised 0..1 with sigmoid when the engine returns logits); keep ≥ `min_score`, take `top_k`. With no `rerank` alias, or when the rerank model fails (`warning: rerank_unavailable`), the hits are not scored: the top `top_k` are returned in RRF order with no `rerank_score`, and the response carries `scored: false`. Nothing in the product stands in for a rerank model ([OQ-103](../open-questions.md)).
 6. **Late verification** (`sensitivity='high'`): for the final hits, call connector `check_access` per document (cached `ar:acl:{doc}:{user}` 5 min); deny → drop. Timeout 2 s → drop (fail closed).
-7. Answerability: `answerable = any hit ≥ min_score`. If false, the tool returns `"No sufficiently relevant documents were found."` and no citations.
+7. Answerability: for scored hits `answerable = any hit ≥ min_score`. For unscored hits `answerable` is true when any passage was found, and the model that reads the passages judges them. If false, the tool returns `"No sufficiently relevant documents were found."` and no citations.
+
+**The embedding model of a collection (M38b-T07b).** Creating a collection resolves `embedding_alias` (default `embed`) to the tenant's embedding model and asks it for one vector, so a collection is never created against a model that does not answer. The collection records `embedding_alias`, `embedding_model` (the provider's model id), `embedding_model_id` and `dims` (the length the model returned; `dims` in the body asks the model for that length). With no embedding model the request is refused with `409 invalid_state` and a message that names the Models screen ([OQ-98](../open-questions.md)). Documents and questions are embedded by the recorded model even after the alias moves to another model; if that model is no longer registered, ingestion and search refuse and say to register it or re-index. `:reindex` with `embedding_alias` moves the collection to the model that alias names now, into a physical collection of that model's length when it differs. A model that indexed a collection cannot be deleted. A document that cannot be embedded is `failed` with `error` `embedding_unconfigured: …` or `embedding_failed: …`. The search response names `embedding_model` and `rerank_model`.
 
 ## 7. pgvector adapter (default)
 
@@ -310,7 +312,7 @@ CI: the `pgvector` parametrisation runs in `python-integration` on every PR; the
 | `AR_INGEST_ACTIVITY_CONCURRENCY` | `32` | Per worker |
 | `AR_FASTEMBED_CACHE_DIR` | `/var/cache/fastembed` | BM25 model cache for the qdrant adapter (pre-baked in image for air-gapped) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates sent to rerank |
-| `AR_EMBEDDING_TIMEOUT_S` | `60` | HTTP timeout for one embedding or rerank request |
+| `AR_EMBEDDING_TIMEOUT_S` | unset | HTTP timeout for one embedding or rerank request. Unset takes the provider's own timeout, and `60` when that is not set |
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | Web crawler egress |
 
 Readiness: `api`, `ingest-worker`, `runtime-worker` and `mcp-gateway` report not ready when `AR_VECTOR_BACKEND=qdrant` without `AR_QDRANT_URL`, or when any collection uses a backend whose adapter is not configured.

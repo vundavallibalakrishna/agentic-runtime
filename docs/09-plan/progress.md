@@ -302,4 +302,5 @@ M38b-T05a | done | 64cea82 | the browser tests sign in through a path that exist
 M38b-T05b | done | 9a9498f | one sign-in: dev-login, the fixed users and the memory identity are out of the product; scripts sign in through Keycloak
 M38b-T05c | done | 395d9f6 | a failed session check replaces the page with an error and a retry; the server-side gate is M38b-T05d, after M38-T09
 M38b-T04e | done | 38b404c | a product store starts with no model provider, model or alias; fake-llm is part of the demo tenant
-M38b-T07a | done | - | provider, model and alias changes are saved and reach every process; one tenant-scoped loader; a key can be replaced; loopback is refused by default; sha recorded with M38b-T07b
+M38b-T07a | done | 85a2966 | provider, model and alias changes are saved and reach every process; one tenant-scoped loader; a key can be replaced; loopback is refused by default
+M38b-T07b | done | - | knowledge and memory embed with the model the embed alias names and refuse without one; no built-in model, provider guess or in-process vector; unscored search without a rerank model; sha recorded with the next M38b task

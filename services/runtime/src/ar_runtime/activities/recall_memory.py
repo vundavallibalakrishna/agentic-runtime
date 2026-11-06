@@ -7,6 +7,7 @@ from temporalio import activity
 
 from ar_domain.agents.access import Actor
 from ar_domain.memory.book import MemoryBook
+from ar_domain.models.embedding import refresh_registry
 from ar_domain.prompts.assembler import build_prompt
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ async def recall_memory(payload: dict[str, object]) -> dict[str, object]:
         cast("dict[str, object]", raw_definition) if isinstance(raw_definition, dict) else {}
     )
     actor = Actor(tenant, user, frozenset({"chat:use"}))
+    await refresh_registry(store)
     block, facts = MemoryBook(store).prompt_block(
         actor,
         query=str(payload.get("query") or ""),

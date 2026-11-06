@@ -26,7 +26,8 @@ class CollectionBody(ApiModel):
     embedding_alias: str = "embed"
     text_search_config: str = "simple"
     chunking: dict[str, object] | None = None
-    dims: int = 1024
+    # A vector length to ask the embedding model for. Unset takes the model's own.
+    dims: int | None = None
 
 
 class CollectionPatch(ApiModel):

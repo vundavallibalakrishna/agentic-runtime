@@ -83,7 +83,11 @@ Team members (read), team leads (write).
 | `AR_MEMORY_RECALL_MIN_SIM` | `0.25` |
 | `AR_MEMORY_DEDUPE_SIM` | `0.92` |
 
-The embedding model change procedure: new `embed` alias target → `scripts/reembed_memory.py --tenant <id>` re-embeds facts and tool versions in batches; `embedding_model_id` records which model produced each vector and recall ignores mismatching rows until re-embedded.
+A fact is embedded by the model the tenant's `embed` alias points at ([spec 04](04-model-gateway.md)), and `embedding_model_id` records which model produced each vector. With no embedding model a fact is not saved: the request answers `409 invalid_state` with a message that names the Models screen, the `memory.save` tool returns that message, and extraction after a turn records the op as `no_embedding` without failing the turn ([OQ-98](../open-questions.md)). The model must return vectors of `AR_PGVECTOR_DIMENSIONS` numbers; another length is refused with the fix (set the model's embedding dimensions, or choose another model).
+
+Similarity is the larger of the cosine of the two vectors and the share of the query's words the fact contains. Two vectors are compared only when one model wrote both, so a fact embedded by an earlier model, and every fact while no model is set, is matched by words alone.
+
+The embedding model change procedure: new `embed` alias target → `uv run python scripts/reembed_memory.py --tenant <slug>` embeds again every fact the current model did not write and saves it ([OQ-102](../open-questions.md)).
 
 ## 7. Metrics
 

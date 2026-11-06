@@ -49,6 +49,7 @@ test("company library answers only from documents the reader can open", async ({
   await expect(page.getByText("Payroll calendar")).toBeVisible();
   await expect(page.getByText("hidden from you")).toBeVisible();
   await page.getByRole("tab", { name: "Search", exact: true }).click();
+  await page.locator("#knowledge-query").fill("When does the visitor desk open?");
   await page.getByRole("button", { name: "Ask the library" }).click();
   await expect(page.getByText("The library can answer this.")).toBeVisible();
   await expect(page.getByText("Visitor guide").first()).toBeVisible();

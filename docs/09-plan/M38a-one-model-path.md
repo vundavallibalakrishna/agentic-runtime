@@ -98,10 +98,12 @@ The approval pause keeps one implementation.
 
 **Do:**
 
-- A collection, a memory fact and tool search embed with the model the tenant registered.
-- With no embedding model, knowledge search and memory recall are lexical and say so, and creating a
-  collection that needs vectors answers `embedding_unconfigured`. Tool search ranks lexically.
-- Hash vectors move to `ar_testing`.
+Knowledge and memory were done by M38b-T07b: they embed with the model the tenant registered, refuse
+without one (OQ-98), and the stand-in vectors come from the test model server over HTTP. What is left:
+
+- Tool search embeds the catalogue with the model the tenant registered. With no embedding model it ranks
+  by words and says so.
+- `tools/logic.py` `hash_embedding` is deleted.
 
 **Done when:** no product path computes a hash vector.
 

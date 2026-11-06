@@ -13,7 +13,7 @@ from ar_domain.evals.gym.tasks import Task, load_tasks
 from ar_domain.evals.gym.world import GymWorld, build_world
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 
     from ar_domain.chat.service import ChatService
 
@@ -23,13 +23,18 @@ async def run_suite_async(
     live: bool = False,
     environ: Mapping[str, str] | None = None,
     tasks: list[Task] | None = None,
+    prepare: Callable[[ChatService], None] | None = None,
 ) -> Report:
-    """Score every golden task. ``live`` uses the cert key. Otherwise the scripted model runs."""
+    """Score every golden task. ``live`` uses the cert key. Otherwise the scripted model runs.
+
+    ``prepare`` registers an embedding model in the world's store before its fixtures
+    are made.
+    """
     mode = "live" if live else "dry-run"
     live_plan: tuple[str, str, str] | None = None
     if live:
         live_plan = live_settings(environ)
-    world = build_world()
+    world = build_world(prepare)
     if live_plan is not None:
         key, url, model = live_plan
         install_live(world.store, world.tenant_id, key=key, base_url=url, model=model)
@@ -48,9 +53,10 @@ def run_suite(
     live: bool = False,
     environ: Mapping[str, str] | None = None,
     tasks: list[Task] | None = None,
+    prepare: Callable[[ChatService], None] | None = None,
 ) -> Report:
     """Synchronous wrapper used by the CLI and the unit test."""
-    return asyncio.run(run_suite_async(live=live, environ=environ, tasks=tasks))
+    return asyncio.run(run_suite_async(live=live, environ=environ, tasks=tasks, prepare=prepare))
 
 
 async def _run_task(world: GymWorld, task: Task) -> TaskScore:

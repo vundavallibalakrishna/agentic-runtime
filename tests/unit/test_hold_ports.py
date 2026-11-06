@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from ar_common.host_ports import port_in_use
+from ar_testing.sleeping import in_this_thread
 
 ROOT = Path(__file__).resolve().parents[2]
 _SPEC = importlib.util.spec_from_file_location("hold_ports", ROOT / "scripts" / "hold_ports.py")
@@ -54,7 +55,7 @@ def test_main_keeps_the_port_for_the_process_lifetime(monkeypatch: pytest.Monkey
         raise KeyboardInterrupt
 
     monkeypatch.setattr(hold_ports, "hold", only_ephemeral)
-    monkeypatch.setattr(hold_ports.time, "sleep", stop)
+    monkeypatch.setattr(hold_ports.time, "sleep", in_this_thread(stop, hold_ports.time.sleep))
     hold_ports._HELD.clear()
     try:
         with pytest.raises(KeyboardInterrupt):

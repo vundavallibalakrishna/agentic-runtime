@@ -34,7 +34,9 @@ def test_the_stand_in_is_a_provider_like_any_other(stand_in: StandIn) -> None:
     assert model == MODEL
     assert real is True, "the product must not treat the stand-in as a fake"
     assert headers == {}, "no special header reaches the endpoint"
-    provider = next(row for row in store.providers.values() if row["name"].startswith("stand-in"))
+    provider = next(
+        row for row in store.providers.values() if row["name"] == f"stand-in-{SCRIPT_SET}"
+    )
     assert provider["kind"] == "openai_compatible"
     assert str(provider["base_url"]).endswith(f"/s/{SCRIPT_SET}/v1")
 

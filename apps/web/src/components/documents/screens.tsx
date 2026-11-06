@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TableScroll } from "@/components/ui/table";
 import { api } from "@/lib/api";
 
 type Row = Record<string, unknown>;
@@ -515,7 +516,7 @@ export function CheckScreen({ checkId }: { checkId: string }) {
       {error ? <p className="text-sm text-[var(--destructive)]">{error}</p> : null}
       {!loading && rows.length === 0 && !error ? <EmptyState title={t("missing")} /> : null}
       {rows.length > 0 ? (
-        <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+        <TableScroll className="rounded-xl border border-[var(--border)]" label={t("checkTitle")}>
           <table className="w-full text-left text-sm">
             <thead className="bg-[var(--muted)]">
               <tr>
@@ -565,7 +566,7 @@ export function CheckScreen({ checkId }: { checkId: string }) {
               })}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       ) : null}
     </AppShell>
   );
