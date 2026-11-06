@@ -103,3 +103,25 @@ def test_database_uuid_subclass_can_stream_without_losing_camel_case() -> None:
     assert public_json_bytes({"run_id": value}) == b'{"runId":"' + str(value).encode() + b'"}'
     with pytest.raises(TypeError):
         public_json_bytes({"unsupported": object()})
+
+
+async def test_a_finished_turn_that_was_not_saved_is_saved_on_retry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A save that fails after the answer must not leave the run working forever."""
+    store, run_id = queued()
+    monkeypatch.setattr("ar_runtime.activities.execute_chat_turn.current_store", lambda: store)
+
+    async def answer(run: uuid.UUID, text: str, names: list[str]) -> None:
+        del text, names
+        store.runs[run]["status"] = "completed"
+
+    monkeypatch.setattr(store, "generate", answer)
+    saves = AsyncMock(side_effect=[RuntimeError("the database went away"), None])
+    monkeypatch.setattr("ar_domain.durable.flush.flush_store", saves)
+    with pytest.raises(RuntimeError):
+        await execute_chat_turn({"run_id": str(run_id)})
+    assert store.runs[run_id]["status"] == "completed"
+    retried = await execute_chat_turn({"run_id": str(run_id)})
+    assert retried["status"] == "completed"
+    assert saves.await_count == 2
