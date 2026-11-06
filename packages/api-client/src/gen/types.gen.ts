@@ -124,6 +124,10 @@ export type AliasPatch = {
      * Primarymodelid
      */
     primaryModelId: string;
+    /**
+     * Fallbackmodelids
+     */
+    fallbackModelIds?: Array<string> | null;
 };
 
 /**
@@ -2035,6 +2039,34 @@ export type ModelBody = {
 };
 
 /**
+ * ModelPatch
+ */
+export type ModelPatch = {
+    /**
+     * Name
+     */
+    name?: string | null;
+    /**
+     * Upstreammodel
+     */
+    upstreamModel?: string | null;
+    /**
+     * Priceinputmicrospermtok
+     */
+    priceInputMicrosPerMtok?: number | null;
+    /**
+     * Priceoutputmicrospermtok
+     */
+    priceOutputMicrosPerMtok?: number | null;
+    /**
+     * Requestoptions
+     */
+    requestOptions?: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
  * NotesBody
  */
 export type NotesBody = {
@@ -2228,6 +2260,14 @@ export type ProviderPatch = {
      * Name
      */
     name?: string | null;
+    /**
+     * Baseurl
+     */
+    baseUrl?: string | null;
+    /**
+     * Apikey
+     */
+    apiKey?: string | null;
 };
 
 /**
@@ -8290,6 +8330,40 @@ export type DeleteModelApiV1ModelsModelIdDeleteResponses = {
 
 export type DeleteModelApiV1ModelsModelIdDeleteResponse = DeleteModelApiV1ModelsModelIdDeleteResponses[keyof DeleteModelApiV1ModelsModelIdDeleteResponses];
 
+export type PatchModelApiV1ModelsModelIdPatchData = {
+    body: ModelPatch;
+    path: {
+        /**
+         * Model Id
+         */
+        model_id: string;
+    };
+    query?: never;
+    url: '/api/v1/models/{model_id}';
+};
+
+export type PatchModelApiV1ModelsModelIdPatchErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchModelApiV1ModelsModelIdPatchError = PatchModelApiV1ModelsModelIdPatchErrors[keyof PatchModelApiV1ModelsModelIdPatchErrors];
+
+export type PatchModelApiV1ModelsModelIdPatchResponses = {
+    /**
+     * Response Patch Model Api V1 Models  Model Id  Patch
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PatchModelApiV1ModelsModelIdPatchResponse = PatchModelApiV1ModelsModelIdPatchResponses[keyof PatchModelApiV1ModelsModelIdPatchResponses];
+
 export type ListAliasesApiV1ModelAliasesGetData = {
     body?: never;
     path?: never;
@@ -8338,6 +8412,40 @@ export type CreateAliasApiV1ModelAliasesPostResponses = {
 };
 
 export type CreateAliasApiV1ModelAliasesPostResponse = CreateAliasApiV1ModelAliasesPostResponses[keyof CreateAliasApiV1ModelAliasesPostResponses];
+
+export type DeleteAliasApiV1ModelAliasesAliasIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Alias Id
+         */
+        alias_id: string;
+    };
+    query?: never;
+    url: '/api/v1/model-aliases/{alias_id}';
+};
+
+export type DeleteAliasApiV1ModelAliasesAliasIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAliasApiV1ModelAliasesAliasIdDeleteError = DeleteAliasApiV1ModelAliasesAliasIdDeleteErrors[keyof DeleteAliasApiV1ModelAliasesAliasIdDeleteErrors];
+
+export type DeleteAliasApiV1ModelAliasesAliasIdDeleteResponses = {
+    /**
+     * Response Delete Alias Api V1 Model Aliases  Alias Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeleteAliasApiV1ModelAliasesAliasIdDeleteResponse = DeleteAliasApiV1ModelAliasesAliasIdDeleteResponses[keyof DeleteAliasApiV1ModelAliasesAliasIdDeleteResponses];
 
 export type UpdateAliasApiV1ModelAliasesAliasIdPatchData = {
     body: AliasPatch;

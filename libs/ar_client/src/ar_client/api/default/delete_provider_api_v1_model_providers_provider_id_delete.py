@@ -79,6 +79,8 @@ def sync_detailed(
 ]:
     """Delete Provider
 
+     Remove a provider that has no models left, and its stored key.
+
     Args:
         provider_id (UUID):
 
@@ -112,6 +114,8 @@ def sync(
 ):
     """Delete Provider
 
+     Remove a provider that has no models left, and its stored key.
+
     Args:
         provider_id (UUID):
 
@@ -138,6 +142,8 @@ async def asyncio_detailed(
     | HTTPValidationError
 ]:
     """Delete Provider
+
+     Remove a provider that has no models left, and its stored key.
 
     Args:
         provider_id (UUID):
@@ -169,6 +175,8 @@ async def asyncio(
     | None
 ):
     """Delete Provider
+
+     Remove a provider that has no models left, and its stored key.
 
     Args:
         provider_id (UUID):

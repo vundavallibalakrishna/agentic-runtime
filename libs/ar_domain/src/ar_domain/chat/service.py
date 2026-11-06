@@ -114,7 +114,8 @@ def _preview(mime_type: str, data: bytes) -> dict[str, object]:
 class ChatService:
     """Tenant-scoped product behaviour. Postgres backs this cache when bound."""
 
-    allow_loopback: bool = True
+    # Denied unless the process that builds the store says otherwise (dev and CI do).
+    allow_loopback: bool = False
     scanner: str = "none"
     fake_llm_url: str = "http://127.0.0.1:8099/v1"
     deny_cidrs: tuple[str, ...] = DEFAULT_DENY_CIDRS
@@ -724,18 +725,42 @@ class ChatService:
         return self._public(row)
 
     def update_provider(
-        self, tenant_id: uuid.UUID, provider_id: uuid.UUID, *, platform: bool, name: str | None
+        self,
+        tenant_id: uuid.UUID,
+        provider_id: uuid.UUID,
+        *,
+        platform: bool,
+        name: str | None = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
     ) -> dict[str, object]:
+        """Rename a provider, point it at another address, or replace its key."""
         row = self._writable(self.providers, provider_id, tenant_id, platform=platform)
+        if base_url:
+            if provider_url_denied(base_url, self.deny_cidrs, allow_loopback=self.allow_loopback):
+                raise ArError(ErrorCode.BAD_REQUEST, "provider URL is not allowed")
+            row["base_url"] = base_url
         if name:
             row["name"] = name
+        if api_key:
+            row["api_key"] = api_key
+            row["has_api_key"] = True
         row["updated_at"] = utcnow()
         return self._public(row)
 
     def delete_provider(
         self, tenant_id: uuid.UUID, provider_id: uuid.UUID, *, platform: bool
     ) -> None:
+        """Remove a provider that no model uses any more."""
         self._writable(self.providers, provider_id, tenant_id, platform=platform)
+        used = sorted(
+            str(row.get("name"))
+            for row in self.models.values()
+            if row.get("provider_id") == provider_id
+        )
+        if used:
+            names = ", ".join(used)
+            raise ConflictError(f"This provider still has models: {names}. Remove them first.")
         del self.providers[provider_id]
 
     async def test_provider(
@@ -771,7 +796,7 @@ class ChatService:
         price_output_micros_per_mtok: int = 0,
         request_options: dict[str, object] | None = None,
     ) -> dict[str, object]:
-        self._require(self.providers, provider_id, tenant_id or demo_id("tenant"))
+        self._registry_row(self.providers, provider_id, tenant_id)
         model_id = new_id()
         row = self._model(model_id, None if platform else tenant_id, provider_id, name, kind)
         row["upstream_model"] = upstream_model
@@ -821,9 +846,97 @@ class ChatService:
         model_id = model.get("id")
         return cost, str(model_id) if model_id is not None else None
 
+    def update_model(
+        self,
+        tenant_id: uuid.UUID,
+        model_id: uuid.UUID,
+        *,
+        platform: bool,
+        name: str | None = None,
+        upstream_model: str | None = None,
+        price_input_micros_per_mtok: int | None = None,
+        price_output_micros_per_mtok: int | None = None,
+        request_options: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        """Change what a registered model is called, which upstream model it is, or its prices."""
+        row = self._writable(self.models, model_id, tenant_id, platform=platform)
+        if name:
+            row["name"] = name
+        if upstream_model:
+            row["upstream_model"] = upstream_model
+        if price_input_micros_per_mtok is not None:
+            row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
+        if price_output_micros_per_mtok is not None:
+            row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
+        if request_options is not None:
+            from ar_domain.models.options import copy_request_options  # noqa: PLC0415
+
+            row["request_options"] = copy_request_options(request_options)
+        row["updated_at"] = utcnow()
+        return self._public(row)
+
     def delete_model(self, tenant_id: uuid.UUID, model_id: uuid.UUID, *, platform: bool) -> None:
+        """Remove a model that no alias points at any more."""
         self._writable(self.models, model_id, tenant_id, platform=platform)
+        used: list[str] = []
+        for row in self.aliases.values():
+            fallbacks = row.get("fallback_model_ids")
+            in_fallbacks = isinstance(fallbacks, list) and model_id in fallbacks
+            if row.get("primary_model_id") == model_id or in_fallbacks:
+                used.append(str(row.get("alias")))
+        if used:
+            names = ", ".join(sorted(used))
+            raise ConflictError(
+                f"These aliases still use this model: {names}. Point them elsewhere first."
+            )
         del self.models[model_id]
+
+    def delete_alias(self, tenant_id: uuid.UUID, alias_id: uuid.UUID, *, platform: bool) -> None:
+        """Remove an alias that no published agent names any more."""
+        row = self._writable(self.aliases, alias_id, tenant_id, platform=platform)
+        name = str(row.get("alias") or "")
+        covered = any(
+            other.get("tenant_id") is None and other.get("alias") == name
+            for other in self.aliases.values()
+        )
+        users = [] if covered else self._agents_naming_alias(tenant_id, name)
+        if users:
+            agents = ", ".join(users)
+            raise ConflictError(
+                f"These published agents use this alias: {agents}. "
+                "Point the alias at another model, or change the agents first."
+            )
+        del self.aliases[alias_id]
+
+    def _agents_naming_alias(self, tenant_id: uuid.UUID, name: str) -> list[str]:
+        """Names of the tenant's published agents whose definition names this alias."""
+        found: list[str] = []
+        for agent in self.agents.values():
+            if agent.get("tenant_id") != tenant_id:
+                continue
+            published = agent.get("published_version_id")
+            version = self.versions.get(published) if isinstance(published, uuid.UUID) else None
+            definition = version.get("definition") if isinstance(version, dict) else None
+            model = definition.get("model") if isinstance(definition, dict) else None
+            if isinstance(model, dict) and name in {
+                model.get("alias"),
+                model.get("fast_alias"),
+                model.get("vision_alias"),
+            }:
+                found.append(str(agent.get("name") or agent.get("slug")))
+        return sorted(found)
+
+    def _same_kind(self, alias_kind: str, model_id: uuid.UUID) -> None:
+        """An alias points only at models of its own kind."""
+        model = self.models.get(model_id)
+        kind = str(model.get("kind") or "") if isinstance(model, dict) else ""
+        if kind and kind != alias_kind:
+            label = str(model.get("name")) if isinstance(model, dict) else str(model_id)
+            raise ArError(
+                ErrorCode.VALIDATION_FAILED,
+                f"This alias is of kind {alias_kind}, and {label} is of kind {kind}. "
+                f"Choose a model of kind {alias_kind}.",
+            )
 
     def list_aliases(self, tenant_id: uuid.UUID) -> list[dict[str, object]]:
         return self._owned(self.aliases, tenant_id)
@@ -843,7 +956,10 @@ class ChatService:
         for existing in self.aliases.values():
             if existing.get("tenant_id") == tenant_id and existing.get("alias") == alias:
                 raise ConflictError("a model alias with that name already exists")
-        self._require(self.models, model_id, tenant_id or demo_id("tenant"))
+        self._registry_row(self.models, model_id, tenant_id)
+        for target in (model_id, *(fallback_model_ids or [])):
+            self._registry_row(self.models, target, tenant_id)
+            self._same_kind(kind, target)
         alias_id = new_id()
         row = self._alias(alias_id, None if platform else tenant_id, alias, kind, model_id)
         row["fallback_model_ids"] = list(fallback_model_ids or [])
@@ -857,24 +973,46 @@ class ChatService:
         model_id: uuid.UUID,
         *,
         platform: bool,
+        actor_user_id: uuid.UUID | None = None,
+        fallback_model_ids: list[uuid.UUID] | None = None,
     ) -> dict[str, object]:
         """Point an alias at a new model and re-run gated suites for agents that use it."""
         row = self._writable(self.aliases, alias_id, tenant_id, platform=platform)
-        self._require(self.models, model_id, tenant_id)
+        for target in (model_id, *(fallback_model_ids or [])):
+            self._require(self.models, target, tenant_id)
+            self._same_kind(str(row.get("kind") or "chat"), target)
         row["primary_model_id"] = model_id
+        if fallback_model_ids is not None:
+            row["fallback_model_ids"] = list(fallback_model_ids)
         row["updated_at"] = utcnow()
-        from ar_domain.agents.access import Actor  # noqa: PLC0415
-        from ar_domain.evals.reports import rerun_gated_suites  # noqa: PLC0415
-        from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
-
         owner = tenant_id if row.get("tenant_id") is None else row.get("tenant_id")
-        if isinstance(owner, uuid.UUID):
+        if isinstance(owner, uuid.UUID) and actor_user_id is not None:
+            from ar_domain.agents.access import Actor  # noqa: PLC0415
+            from ar_domain.evals.reports import rerun_gated_suites  # noqa: PLC0415
+            from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+
+            # The suites run as the person who changed the alias.
             rerun_gated_suites(
                 self,
-                Actor(tenant_id=owner, user_id=demo_id("admin"), permissions=PERMISSION_KEYS),
+                Actor(tenant_id=owner, user_id=actor_user_id, permissions=PERMISSION_KEYS),
                 str(row.get("alias") or ""),
             )
         return self._public(row)
+
+    def _registry_row(
+        self,
+        rows: dict[uuid.UUID, dict[str, object]],
+        item_id: uuid.UUID,
+        tenant_id: uuid.UUID | None,
+    ) -> dict[str, object]:
+        """A row the caller may build on: its own, or one that belongs to no tenant."""
+        row = rows.get(item_id)
+        if row is None:
+            raise NotFoundError()
+        owner = row.get("tenant_id")
+        if owner is not None and owner != tenant_id:
+            raise NotFoundError()
+        return row
 
     def resolve(self, tenant_id: uuid.UUID, name: str) -> AliasRef | None:
         refs = [
@@ -1468,15 +1606,20 @@ class ChatService:
         return base + "/chat/completions"
 
     async def refresh_models(self) -> None:
-        """Pull providers saved by another process. A down database keeps the cache."""
+        """Make the model registry equal the database for the tenant this process serves.
+
+        Another process may have added, changed or deleted a provider, a model or an alias.
+        A down database keeps what the store holds.
+        """
         engine = self.durable_engine
-        if engine is None:
+        tenant_id = getattr(self.tenant_binding, "tenant_id", None)
+        if engine is None or not isinstance(tenant_id, uuid.UUID):
             return
-        from ar_domain.models.registry import load_into  # noqa: PLC0415
+        from ar_domain.models.registry import load_registry  # noqa: PLC0415
 
         try:
-            await load_into(engine, self)
-        except Exception:  # noqa: BLE001 — chat still runs on the cache
+            await load_registry(engine, self, tenant_id)
+        except Exception:  # noqa: BLE001 — chat still runs on what the store holds
             return
 
     def _completion_call(

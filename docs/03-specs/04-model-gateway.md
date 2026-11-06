@@ -45,8 +45,9 @@ Lists tenant + platform providers. Item `ModelProvider {id, scope: "tenant"|"pla
 Body `{name, kind, base_url, api_key?, headers?, timeout_s?, max_concurrency?}`. `base_url` validation: must be `http(s)`; in SaaS mode hostnames must not resolve to cluster-internal ranges unless the tenant has `isolation_tier != 'shared'` (SSRF guard, `AR_MODEL_PROVIDER_DENY_CIDRS`).
 
 #### PATCH /api/v1/model-providers/{provider_id}
+Body `{name?, base_url?, api_key?}`. A new `api_key` replaces the stored key: the old ciphertext and its reference are deleted in the same transaction. Audit `model_provider.updated`.
 #### DELETE /api/v1/model-providers/{provider_id}
-409 if models referenced by aliases.
+409 while the provider still has models. Deletes the stored key with the row. Audit `model_provider.deleted`.
 
 #### POST /api/v1/model-providers/{provider_id}:test
 Probes `GET /models` and returns `{ok, latency_ms, models: [id], error?}`.
@@ -58,6 +59,7 @@ Filters `kind`, `provider_id`, `status`. Item `Model {id, scope, provider_id, na
 #### PATCH /api/v1/models/{model_id}
 Setting `status='disabled'` is a **kill switch**: takes effect within 1 s via cache invalidation; aliases fall back to fallbacks. Audit `model.disabled`.
 #### DELETE /api/v1/models/{model_id}
+409 while an alias points at the model, as primary or as a fallback. Audit `model.deleted`.
 
 #### GET /api/v1/model-aliases
 Effective aliases for the tenant (tenant overrides marked). Item `ModelAlias {id, scope, alias, kind, primary_model_id, fallback_model_ids, traffic_split, default_params, status}`.
@@ -66,6 +68,7 @@ Effective aliases for the tenant (tenant overrides marked). Item `ModelAlias {id
 Body `{alias, kind, primary_model_id, fallback_model_ids?, traffic_split?, default_params?}`; validation: models of the same `kind`, visible, active; split weights 0..100 and sum ≤ 100 (remainder → primary). Emits `model_alias.updated`.
 
 #### PATCH /api/v1/model-aliases/{alias_id}
+Body `{primary_model_id, fallback_model_ids?}`. The models must be of the alias's kind.
 #### DELETE /api/v1/model-aliases/{alias_id}
 409 if referenced by published agent versions (via `agent_version_bindings` kind `model_alias`) and no platform alias of the same name exists.
 
@@ -73,6 +76,8 @@ Body `{alias, kind, primary_model_id, fallback_model_ids?, traffic_split?, defau
 Permission `models:manage`. Body `{messages: [{role, content}], max_tokens? (≤ 512)}` → `{output, model_id, latency_ms, ttft_ms, usage}` via the gateway (`X-AR-Purpose: test`).
 
 The test sends the messages to the alias's provider with that provider's key and returns what the model said, with `ok: true`. An endpoint that does not answer, answers with an error status, or returns no text is `ok: false` with `output` saying so. No answer is written in its place. The provider test follows the same rule and passes when the model replies with the word it was asked for.
+
+**Every change is saved, and every process follows it.** A create, a change and a delete each write the database row and an audit row in one transaction. Before each turn a process makes its registry equal the database rows of the tenant it serves (that tenant's rows and rows with `tenant_id NULL`, never another tenant's), so a provider deleted through the API stops being used by the workers too. A product process starts with no provider, model or alias.
 
 Platform equivalents (role `platform_admin`; same bodies; rows with `tenant_id NULL`):
 

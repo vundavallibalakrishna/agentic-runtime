@@ -34,6 +34,16 @@ class ProviderBody(ApiModel):
 
 class ProviderPatch(ApiModel):
     name: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
+
+
+class ModelPatch(ApiModel):
+    name: str | None = None
+    upstream_model: str | None = None
+    price_input_micros_per_mtok: int | None = Field(default=None, ge=0)
+    price_output_micros_per_mtok: int | None = Field(default=None, ge=0)
+    request_options: dict[str, object] | None = None
 
 
 class ModelBody(ApiModel):
@@ -55,6 +65,7 @@ class AliasBody(ApiModel):
 
 class AliasPatch(ApiModel):
     primary_model_id: uuid.UUID
+    fallback_model_ids: list[uuid.UUID] | None = None
 
 
 class AliasTestBody(ApiModel):
@@ -155,16 +166,19 @@ async def _persist_provider(
     api_key: str | None,
     principal: Principal,
 ) -> None:
+    """Write a provider row. The store keeps the row this request built or changed."""
     from ar_domain.models.registry import save_provider  # noqa: PLC0415
 
     provider_id = uuid.UUID(str(created["id"]))
+    row = service.providers[provider_id]
     await save_provider(
         service.durable_engine,
-        service.providers[provider_id],
+        row,
         api_key=api_key,
         actor_id=principal.id,
         actor_type=principal.kind,
     )
+    service.providers[provider_id] = row
 
 
 async def _persist_model(
@@ -173,12 +187,14 @@ async def _persist_model(
     from ar_domain.models.registry import save_model  # noqa: PLC0415
 
     model_id = uuid.UUID(str(created["id"]))
+    row = service.models[model_id]
     await save_model(
         service.durable_engine,
-        service.models[model_id],
+        row,
         actor_id=principal.id,
         actor_type=principal.kind,
     )
+    service.models[model_id] = row
 
 
 async def _persist_alias(
@@ -187,12 +203,24 @@ async def _persist_alias(
     from ar_domain.models.registry import save_alias  # noqa: PLC0415
 
     alias_id = uuid.UUID(str(created["id"]))
+    row = service.aliases[alias_id]
     await save_alias(
         service.durable_engine,
-        service.aliases[alias_id],
+        row,
         actor_id=principal.id,
         actor_type=principal.kind,
     )
+    service.aliases[alias_id] = row
+
+
+def _actor_user(principal: Principal) -> uuid.UUID | None:
+    """The person behind a request, when it is a person."""
+    if principal.kind != "user":
+        return None
+    try:
+        return uuid.UUID(str(principal.id))
+    except ValueError:
+        return None
 
 
 @router.get("/api/v1/model-providers", dependencies=[Depends(require_permission("models:read"))])
@@ -227,13 +255,19 @@ async def create_provider(body: ProviderBody, request: Request) -> dict[str, obj
 async def patch_provider(
     provider_id: uuid.UUID, body: ProviderPatch, request: Request
 ) -> dict[str, object]:
+    """Rename a provider, change its address, or replace its key. The change is saved."""
     principal = _principal(request)
-    return _chat(request).update_provider(
+    service = _chat(request)
+    updated = service.update_provider(
         _tenant(principal),
         provider_id,
         platform=False,
         name=body.name,
+        base_url=body.base_url,
+        api_key=body.api_key,
     )
+    await _persist_provider(service, updated, body.api_key, principal)
+    return service._public(service.providers[provider_id])
 
 
 @router.delete(
@@ -242,8 +276,15 @@ async def patch_provider(
 )
 @expose(public=False, permission="models:manage")
 async def delete_provider(provider_id: uuid.UUID, request: Request) -> dict[str, bool]:
+    """Remove a provider that has no models left, and its stored key."""
+    from ar_domain.models.registry import delete_provider as delete_saved  # noqa: PLC0415
+
     principal = _principal(request)
-    _chat(request).delete_provider(_tenant(principal), provider_id, platform=False)
+    service = _chat(request)
+    service.delete_provider(_tenant(principal), provider_id, platform=False)
+    await delete_saved(
+        service.durable_engine, provider_id, actor_id=principal.id, actor_type=principal.kind
+    )
     return {"deleted": True}
 
 
@@ -284,13 +325,42 @@ async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
     return created
 
 
+@router.patch(
+    "/api/v1/models/{model_id}", dependencies=[Depends(require_permission("models:manage"))]
+)
+@expose(public=False, permission="models:manage")
+async def patch_model(model_id: uuid.UUID, body: ModelPatch, request: Request) -> dict[str, object]:
+    """Change a model's name, its upstream model, its prices or its request options."""
+    principal = _principal(request)
+    service = _chat(request)
+    updated = service.update_model(
+        _tenant(principal),
+        model_id,
+        platform=False,
+        name=body.name,
+        upstream_model=body.upstream_model,
+        price_input_micros_per_mtok=body.price_input_micros_per_mtok,
+        price_output_micros_per_mtok=body.price_output_micros_per_mtok,
+        request_options=body.request_options,
+    )
+    await _persist_model(service, updated, principal)
+    return updated
+
+
 @router.delete(
     "/api/v1/models/{model_id}", dependencies=[Depends(require_permission("models:manage"))]
 )
 @expose(public=False, permission="models:manage")
 async def delete_model(model_id: uuid.UUID, request: Request) -> dict[str, bool]:
+    """Remove a model that no alias points at."""
+    from ar_domain.models.registry import delete_model as delete_saved  # noqa: PLC0415
+
     principal = _principal(request)
-    _chat(request).delete_model(_tenant(principal), model_id, platform=False)
+    service = _chat(request)
+    service.delete_model(_tenant(principal), model_id, platform=False)
+    await delete_saved(
+        service.durable_engine, model_id, actor_id=principal.id, actor_type=principal.kind
+    )
     return {"deleted": True}
 
 
@@ -333,10 +403,33 @@ async def update_alias(
     principal = _principal(request)
     service = _chat(request)
     updated = service.update_alias(
-        _tenant(principal), alias_id, body.primary_model_id, platform=False
+        _tenant(principal),
+        alias_id,
+        body.primary_model_id,
+        platform=False,
+        actor_user_id=_actor_user(principal),
+        fallback_model_ids=body.fallback_model_ids,
     )
     await _persist_alias(service, updated, principal)
     return updated
+
+
+@router.delete(
+    "/api/v1/model-aliases/{alias_id}",
+    dependencies=[Depends(require_permission("models:manage"))],
+)
+@expose(public=False, permission="models:manage")
+async def delete_alias(alias_id: uuid.UUID, request: Request) -> dict[str, bool]:
+    """Remove an alias."""
+    from ar_domain.models.registry import delete_alias as delete_saved  # noqa: PLC0415
+
+    principal = _principal(request)
+    service = _chat(request)
+    service.delete_alias(_tenant(principal), alias_id, platform=False)
+    await delete_saved(
+        service.durable_engine, alias_id, actor_id=principal.id, actor_type=principal.kind
+    )
+    return {"deleted": True}
 
 
 @router.post(

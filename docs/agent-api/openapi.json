@@ -727,6 +727,21 @@
             "type": "string",
             "format": "uuid",
             "title": "Primarymodelid"
+          },
+          "fallbackModelIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallbackmodelids"
           }
         },
         "additionalProperties": false,
@@ -4019,6 +4034,71 @@
         ],
         "title": "ModelBody"
       },
+      "ModelPatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "upstreamModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstreammodel"
+          },
+          "priceInputMicrosPerMtok": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priceinputmicrospermtok"
+          },
+          "priceOutputMicrosPerMtok": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priceoutputmicrospermtok"
+          },
+          "requestOptions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requestoptions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ModelPatch"
+      },
       "NotesBody": {
         "properties": {
           "notes": {
@@ -4319,6 +4399,28 @@
               }
             ],
             "title": "Name"
+          },
+          "baseUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseurl"
+          },
+          "apiKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apikey"
           }
         },
         "additionalProperties": false,
