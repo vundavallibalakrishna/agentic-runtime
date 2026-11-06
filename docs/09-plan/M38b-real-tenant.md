@@ -285,7 +285,28 @@ screen. **Spec:** [guardrails and privacy](../06-security/). **Finding:** F12. D
 **Done when:** a nine-digit result reaches the model unchanged, and an email address in a fetched page is
 still masked.
 
-**Tests:** `test_m38b_redaction.py`.
+**Tests:** `test_m38b_redaction.py`; `test_m38b_masking_api.py`; `masking-settings.test.tsx`; Playwright
+`m38b-masking.spec.ts`.
+
+**Done (7 Nov 2026).** The engine's scores were being ignored, so every weak guess was applied. A kind is
+now masked when the tenant lists it and the match scores at least the tenant's bar; a weak pattern needs a
+word nearby that names it; overlapping matches become one token. Names, places, dates and groups are off by
+default. Also needed, and done with it: the engine was an optional extra that no image and no CI job
+installed, so as shipped almost nothing was masked; Presidio and a small language model are now
+dependencies and nothing is downloaded at run time (OQ-108). The kinds and the bar are on the Policies
+screen and served by `GET /api/v1/tenant/masking`.
+
+## M38b-T09a A masked value is shown as masked
+
+**Depends on:** T09. **Areas:** `apps/web/src/components/chat/`. **Finding:** F12.
+
+**Do:** the chat draws a masking token such as `[EMAIL_ADDRESS]` as a labelled mark, before the text is
+read as Markdown. Today a line that starts with a token and a colon is read as a link definition and is not
+drawn at all, so the person does not see part of the answer.
+
+**Done when:** an answer with the line `- [EMAIL_ADDRESS]: primary contact` shows that line.
+
+**Tests:** `message-masking.test.tsx`.
 
 ## M38b-T10 A refused or failed tool call is quick and visible
 

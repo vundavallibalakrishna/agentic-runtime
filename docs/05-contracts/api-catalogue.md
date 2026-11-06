@@ -38,6 +38,7 @@ Spec: [02-identity-tenancy.md](../03-specs/02-identity-tenancy.md)
 |---|---|---|---|
 | GET | [`/api/v1/tenant`](../03-specs/02-identity-tenancy.md#get-apiv1tenant) | `tenant:read` | 3. Public API |
 | PATCH | [`/api/v1/tenant`](../03-specs/02-identity-tenancy.md#patch-apiv1tenant) | `tenant:manage` | 3. Public API |
+| GET | [`/api/v1/tenant/masking`](../03-specs/02-identity-tenancy.md#get-apiv1tenantmasking) | `tenant:read` | 3. Public API |
 | GET | [`/api/v1/tenant/domains`](../03-specs/02-identity-tenancy.md#get-apiv1tenantdomains) | `tenant:manage` | 3. Public API |
 | POST | [`/api/v1/tenant/domains`](../03-specs/02-identity-tenancy.md#post-apiv1tenantdomains) | `tenant:manage` | 3. Public API |
 | POST | [`/api/v1/tenant/domains/{domain_id}:verify`](../03-specs/02-identity-tenancy.md#post-apiv1tenantdomainsdomain_idverify) | `tenant:manage` | 3. Public API |

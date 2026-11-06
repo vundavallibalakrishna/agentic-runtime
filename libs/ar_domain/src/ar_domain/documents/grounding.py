@@ -13,7 +13,7 @@ import orjson
 
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.documents.chunk import RETRIEVAL_BUDGET, retrieve, score
-from ar_domain.pii.analyzer import redact
+from ar_domain.pii.analyzer import Masking, redact
 
 Ask = Callable[[str, str], str | None]
 _QUOTE = 240
@@ -230,7 +230,7 @@ def prepare_analysis_text(text: str, *, aggressive: bool) -> str:
     if not text:
         return text
     if aggressive:
-        return redact(text, enabled=True, profile="outbound")
+        return redact(text, enabled=True, profile="outbound", masking=Masking.thorough())
     return redact(text, enabled=True, profile="analysis")
 
 
@@ -238,7 +238,7 @@ def redaction_preview(text: str) -> dict[str, object]:
     """Return redacted text only. The original is not part of the result."""
     masked = _EMAIL.sub("[EMAIL]", text)
     masked = _PHONE.sub("[PHONE]", masked)
-    masked = redact(masked, enabled=True, profile="outbound")
+    masked = redact(masked, enabled=True, profile="outbound", masking=Masking.thorough())
     counts: dict[str, int] = {}
     for token in re.findall(r"\[([A-Z_]+)\]", masked):
         counts[token] = counts.get(token, 0) + 1

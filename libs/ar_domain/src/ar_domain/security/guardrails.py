@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Any
 
+    from ar_domain.pii.analyzer import Masking
+
 _CATEGORIES = (
     "self_harm",
     "violence",
@@ -76,13 +78,16 @@ def apply_result_safety(
     ``features.documentAnalysisRedaction`` or the agent sets ``safety.piiMasking``.
     Other tool results still follow ``features.piiRedaction`` (default on).
     """
-    from ar_domain.pii.analyzer import redact  # noqa: PLC0415
+    from ar_domain.pii.analyzer import Masking, redact  # noqa: PLC0415
 
-    skip = redaction_skip_entities(store, tenant_id)
+    masking = masking_for(store, tenant_id)
     if analysis and not analysis_redaction_enabled(store, tenant_id, agent_version_id):
-        cleaned = redact(text, enabled=True, profile="analysis", skip_entities=skip)
-    elif analysis or pii_redaction_enabled(store, tenant_id):
-        cleaned = redact(text, enabled=True, profile="outbound", skip_entities=skip)
+        cleaned = redact(text, enabled=True, profile="analysis", masking=masking)
+    elif analysis:
+        # The tenant or the agent asked for document analysis to be masked in full.
+        cleaned = redact(text, enabled=True, profile="outbound", masking=Masking.thorough())
+    elif pii_redaction_enabled(store, tenant_id):
+        cleaned = redact(text, enabled=True, profile="outbound", masking=masking)
     else:
         cleaned = text
     raw_flag = injection_flag(cleaned) if open_world else {"suspected": False, "failed_open": False}
@@ -110,12 +115,12 @@ def pii_redaction_enabled(store: Any, tenant_id: uuid.UUID | None) -> bool:
     return _flag(_settings_for(store, tenant_id), "pii_redaction", default=True)
 
 
-def redaction_skip_entities(store: Any, tenant_id: uuid.UUID | None) -> tuple[str, ...]:
-    """Entity types the tenant listed under ``privacy.redaction_skip_entities``."""
+def masking_for(store: Any, tenant_id: uuid.UUID | None) -> Masking:
+    """What this tenant masks in a tool result (``privacy`` in its settings, OQ-97)."""
     from ar_domain.identity.tenant_settings import section  # noqa: PLC0415
+    from ar_domain.pii.settings import masking_from  # noqa: PLC0415
 
-    raw = section(_settings_for(store, tenant_id), "privacy").get("redaction_skip_entities")
-    return tuple(str(item) for item in raw) if isinstance(raw, list) else ()
+    return masking_from(section(_settings_for(store, tenant_id), "privacy"))
 
 
 def _settings_for(store: Any, tenant_id: uuid.UUID | None) -> dict[str, object]:

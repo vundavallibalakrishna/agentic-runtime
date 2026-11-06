@@ -8,6 +8,21 @@ from ar_contracts.api_model import ApiModel
 router = APIRouter()
 
 
+class MaskingKind(ApiModel):
+    name: str
+    source: str
+    masked: bool
+    default: bool
+
+
+class MaskingView(ApiModel):
+    enabled: bool
+    uses_default: bool
+    min_score: float
+    default_min_score: float
+    kinds: list[MaskingKind]
+
+
 class TenantPatch(ApiModel):
     name: str | None = None
     settings: dict[str, object] | None = None
@@ -36,6 +51,19 @@ async def get_tenant(identity: IdentityDep) -> dict[str, object]:
         "settings": tenant.settings,
         "created_at": tenant.created_at.isoformat(),
     }
+
+
+@router.get("/api/v1/tenant/masking", dependencies=[Depends(require_permission("tenant:read"))])
+@expose(public=False, permission="tenant:read")
+async def get_masking(identity: IdentityDep) -> MaskingView:
+    """Every kind of personal data the product recognises, and what this tenant masks."""
+    from ar_common.errors import NotFoundError  # noqa: PLC0415
+    from ar_domain.pii.settings import masking_view  # noqa: PLC0415
+
+    tenant = await identity.store.get_tenant()
+    if tenant is None:
+        raise NotFoundError("tenant not found")
+    return MaskingView.model_validate(masking_view(tenant.settings))
 
 
 @router.patch("/api/v1/tenant", dependencies=[Depends(require_permission("tenant:manage"))])

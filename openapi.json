@@ -467,6 +467,25 @@
         }
       }
     },
+    "/api/v1/tenant/masking": {
+      "get": {
+        "summary": "Get Masking",
+        "description": "Every kind of personal data the product recognises, and what this tenant masks.",
+        "operationId": "get_masking_api_v1_tenant_masking_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaskingView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/me": {
       "get": {
         "summary": "Get Me",
@@ -24227,6 +24246,61 @@
         "type": "object",
         "required": ["token"],
         "title": "LinkBody"
+      },
+      "MaskingKind": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "masked": {
+            "type": "boolean",
+            "title": "Masked"
+          },
+          "default": {
+            "type": "boolean",
+            "title": "Default"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "source", "masked", "default"],
+        "title": "MaskingKind"
+      },
+      "MaskingView": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "usesDefault": {
+            "type": "boolean",
+            "title": "Usesdefault"
+          },
+          "minScore": {
+            "type": "number",
+            "title": "Minscore"
+          },
+          "defaultMinScore": {
+            "type": "number",
+            "title": "Defaultminscore"
+          },
+          "kinds": {
+            "items": {
+              "$ref": "#/components/schemas/MaskingKind"
+            },
+            "type": "array",
+            "title": "Kinds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["enabled", "usesDefault", "minScore", "defaultMinScore", "kinds"],
+        "title": "MaskingView"
       },
       "Me": {
         "properties": {

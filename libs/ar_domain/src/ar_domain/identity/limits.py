@@ -26,11 +26,27 @@ def validate_tenant_settings(settings: TenantSettings, limits: PlanLimits) -> Te
     for domain in settings.egress_allowlist:
         if _DOMAIN.fullmatch(domain) is None:
             raise ValidationFailedError(f"egress domain is invalid: {domain}")
+    _check_masking(settings)
     plan_features = limits.features.model_dump(by_alias=False)
     for name, enabled in settings.features.model_dump(by_alias=False).items():
         if enabled and name in plan_features and not plan_features[name]:
             raise PlanLimitReachedError(f"feature {name} is not on this plan")
     return settings
+
+
+def _check_masking(settings: TenantSettings) -> None:
+    """A kind of personal data the product cannot recognise is refused, by name."""
+    listed = settings.privacy.redaction_entities
+    if listed is None:
+        return
+    from ar_domain.pii.analyzer import maskable_entities  # noqa: PLC0415
+
+    known = set(maskable_entities())
+    unknown = sorted({name for name in listed if name.lower() not in known})
+    if unknown:
+        raise ValidationFailedError(
+            f"These kinds of personal data are not recognised: {', '.join(unknown)}."
+        )
 
 
 def merge_settings(current: TenantSettings, patch: dict[str, object]) -> TenantSettings:

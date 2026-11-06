@@ -4,7 +4,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from ar_domain.identity.tenant_settings import section, settings_for
-from ar_domain.pii.analyzer import _presidio, redact
+from ar_domain.pii.analyzer import Masking, _presidio, maskable_entities, redact
 from ar_domain.pii.recognizers_in import find_indian
 from ar_domain.records.vault import EvidenceBook
 from ar_domain.security.guardrails import apply_result_safety
@@ -26,8 +26,10 @@ def _store() -> tuple[ChatService, uuid.UUID, uuid.UUID]:
 
 
 def _entities(text: str) -> list[str]:
-    """Every entity type either recogniser reports for ``text``, upper-cased."""
-    return sorted({str(span["entity"]).upper() for span in (*find_indian(text), *_presidio(text))})
+    """Every kind either recogniser reports for ``text``."""
+    everything = frozenset(maskable_entities())
+    found = (*find_indian(text), *_presidio(text, everything))
+    return sorted({str(span["entity"]).lower() for span in found})
 
 
 def test_settings_for_never_returns_another_tenants_row() -> None:
@@ -57,7 +59,7 @@ def test_tenant_can_skip_entity_types() -> None:
     assert "9876543210" not in redact(PHONE)
     found = _entities(PHONE)
     assert found, "the fixture must trip at least one recogniser"
-    assert redact(PHONE, skip_entities=tuple(found)) == PHONE
+    assert redact(PHONE, masking=Masking().without(frozenset(found))) == PHONE
     store, _, tenant_b = _store()
     store.tenant_settings[tenant_b]["privacy"] = {"redaction_skip_entities": found}
     kept, _ = apply_result_safety(store, PHONE, open_world=False, tenant_id=tenant_b)

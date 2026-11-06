@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
+import { MaskingSettings } from "@/components/privacy/masking-settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -228,6 +229,7 @@ export function PoliciesScreen() {
             </li>
           ))}
         </ul>
+        <MaskingSettings advanced={advanced} />
       </ManagementLayout>
     </AppShell>
   );

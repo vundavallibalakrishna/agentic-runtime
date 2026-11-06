@@ -42,11 +42,12 @@ Rules:
 | sqlglot | 30.23.0 | SQL parsing and validation for the read-only SQL connector. |
 | duckdb | 2.0.0 | In-process spreadsheet SQL for `general.query_table` and `general.pivot_table`. The connection is memory-only and external file access is disabled. The published wheel is `cp312-abi3` and runs on Python 3.14. |
 | pymysql | 1.2.3 | MySQL driver for the read-only database tool. |
-| presidio-analyzer / presidio-anonymizer | 2.2.364 | PII detection and redaction (custom recognisers for Aadhaar, PAN, Indian phone numbers). |
+| presidio-analyzer | 2.2.364 | Personal-data detection for masking, with recognisers for Aadhaar, PAN and Indian phone numbers beside its own. A dependency of `ar_domain`, not an extra, so every install has it. `presidio-anonymizer` was never called and is no longer installed. |
+| en-core-web-sm (spaCy model) | 3.8.0 | The language model Presidio reads sentences with. Installed from its release wheel as a dependency, so nothing is downloaded at run time. `AR_PII_LANGUAGE_MODEL` names a larger installed model for deployments that mask names and places. |
 | rfc8785 | 0.1.4 | JSON Canonicalization Scheme (JCS) used to hash tool arguments for approval binding. |
 | pyjwt[crypto] | 2.15.1 | Verify OIDC tokens (JWKS) and sign internal service JWTs (EdDSA). |
 | authlib | 1.9.1 | OIDC authorization-code + PKCE client for the BFF login flow and OAuth flows for credential grants. |
-| cryptography | 48.0.1 | AES-256-GCM envelope encryption for the `db_encrypted` secrets backend; Ed25519 keys. 50.0.2 is the newest release, but presidio-anonymizer 2.2.364 requires `cryptography>=48,<49`, so 48.0.1 is the newest version that resolves with the PII stack. |
+| cryptography | 48.0.1 | AES-256-GCM envelope encryption for the `db_encrypted` secrets backend; Ed25519 keys. 50.0.2 is the newest release. The pin was held at 48 by presidio-anonymizer, which is no longer installed (M38b-T09), so the upgrade is open (OQ-108). |
 | hvac | 2.4.0 | Vault/OpenBao client (KV v2, Transit, Kubernetes auth). |
 | boto3 / aiobotocore | 1.43.106 / 3.9.2 | S3-compatible object storage (presigned URLs via boto3, async I/O via aiobotocore). boto3 1.43.115 requires botocore ≥ 1.43.115, which the current aiobotocore 3.9.2 rejects (`botocore>=1.43.101,<1.43.107`); 1.43.106 is the newest boto3 that resolves. |
 | kubernetes-asyncio | 36.1.0 | Sandbox manager Kubernetes driver (pods, PVCs, network policies). |

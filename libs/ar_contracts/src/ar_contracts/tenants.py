@@ -98,6 +98,11 @@ class GrievanceContact(_Model):
 class PrivacySettings(_Model):
     notice_text_md: str = ""
     notice_version: str = "0"
+    # Kinds of personal data masked in tool results, and how sure a match must be (0 to 1).
+    # None is the product default (``ar_domain.pii.analyzer``), so a tenant that never
+    # chose follows it as it improves.
+    redaction_entities: list[str] | None = None
+    redaction_min_score: float | None = Field(default=None, ge=0.0, le=1.0)
     redaction_skip_entities: list[str] = Field(default_factory=list)
     grievance_contact: GrievanceContact = Field(default_factory=GrievanceContact)
 
