@@ -140,8 +140,10 @@ a tenant's default agents. What is left, one pull request for each:
   seeding. The eval gym and `make eval` are eval tooling that still build it themselves.
 - **T04d** The fixed user catalogue, the memory identity and the test sign-in leave the API (with T05), and
   the eval gym and `make eval` stop building the demo tenant inside product packages.
-- **T04e** The scripted provider, its models and the platform aliases are not built in memory (with
-  M38a-T07).
+- **T04e** (done) A product store starts with no model provider, model or alias. The scripted provider and
+  the aliases that pointed at it were built in every process, so a new tenant's Models screen listed
+  `fake-llm` in production. They are part of the demo tenant now. `make dev` still gets `fake-llm` from the
+  dev seed's database rows (T06).
 - **T04f** The code that builds the demo tenant (`seed_demo_tenant`, `seed_showcase`, the fixtures in
   `tools/seed_tools.py` and the `showcase.py` modules) moves out of `ar_domain` into `ar_testing`. After
   T04c nothing in the product calls it, so this is a move with no change in behaviour.
