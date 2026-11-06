@@ -422,6 +422,24 @@ pet."; the Tools form with `echo` and `memory://echo`; the import form with `imp
 form with `github`; the Expose panel with `Production` and "What is 2 + 2?". Choices among fixed kinds
 (an effect, a transport, a period) keep a first value.
 
+## M38b-T15 A conversation with no computer is not an error
+
+**Depends on:** none. **Areas:** `sandboxes/service.py`, `apps/web/src/components/computer/`. **Finding:** F63.
+
+**Do:** `GET /api/v1/conversations/{conversation_id}/sandbox` answers `{sandbox: Sandbox|null}` with `200`
+when the conversation has no live computer, as [spec 12](../03-specs/12-sandbox-manager.md) already states;
+a `404` is kept only for a conversation the caller cannot see. The workspace panel reads `.sandbox`. Today
+the endpoint raises `404` whenever a conversation has no sandbox, which the browser logs as a failed
+request on every chat.
+
+**Done when:** opening a conversation makes no failed request in the browser console, and the panel still
+shows a computer once one exists.
+
+**Tests:** `test_m6_surface.py` (no sandbox returns a null sandbox, a live one is returned under `sandbox`).
+
+**Done (7 Nov 2026).** The endpoint returns `{sandbox: None}` with `200` for a conversation with no
+computer; proved on the live `acme` tenant: opening a chat logs no `404` for `.../sandbox`.
+
 ## M38b-T11 The fresh run is kept as a check
 
 **Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,

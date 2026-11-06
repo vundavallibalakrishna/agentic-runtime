@@ -311,8 +311,12 @@ def test_manager_routes_and_docker_probe() -> None:
         "tenant_id": demo_id("tenant"),
         "user_id": demo_id("admin"),
     }
+    # A conversation with no computer answers with a null sandbox, not a 404 (F63).
+    empty = SandboxBook(store).conversation_sandbox(_actor(), conversation_id)
+    assert empty == {"sandbox": None}
     row = next(iter(store.sandboxes.values()))
     row["conversation_id"] = conversation_id
     row["status"] = "ready"
     found = SandboxBook(store).conversation_sandbox(_actor(), conversation_id)
-    assert found["status"] == "ready"
+    assert isinstance(found["sandbox"], dict)
+    assert found["sandbox"]["status"] == "ready"
