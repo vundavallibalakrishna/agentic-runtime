@@ -42,6 +42,8 @@ async def test_a_worker_with_a_database_holds_no_demo_tenant(
 
     store = built[0]
     assert store.fake_models_allowed is (env is EnvName.DEV)
+    # A tool call runs in this process. It may reach a loopback address only in dev and CI.
+    assert store.allow_loopback is (env is EnvName.DEV)
     assert store.agents == {}
     assert store.user_roles == {}
     slugs = {str(row["slug"]) for row in store.tool_servers.values()}

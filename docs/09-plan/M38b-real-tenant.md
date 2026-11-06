@@ -88,6 +88,20 @@ from rows, a connection started in one process and finished in the next);
 `services/api/tests/unit/test_login_identity.py` (an organization that is not the tenant served is refused);
 `test_routine_persistence.py`; `services/runtime/tests/unit/test_m38_worker_store.py`.
 
+## M38b-T03a One loopback rule for every process
+
+**Depends on:** T03. **Areas:** `libs/ar_common/src/ar_common/settings.py`, the API, `mcp-gateway` and the
+three worker store builders. **Finding:** F23.
+
+**Do:** the runtime, system and ingest workers built their store with `allow_loopback=True` in every
+environment, while the API allowed loopback only in dev and CI. Tool calls run in the runtime worker, so in
+production a tool could be pointed at a loopback address the API would have refused. Every process now asks
+`loopback_allowed(env)`.
+
+**Done when:** a worker built for production refuses loopback addresses.
+
+**Tests:** `services/runtime/tests/unit/test_m38_worker_store.py`.
+
 ## M38b-T04 Nothing is built in memory
 
 **Depends on:** T03. **Areas:** `chat/service.py` (`seed_platform`, `seed_demo_tenant`, `seed_showcase`),
@@ -194,16 +208,15 @@ still masked.
 ## M38b-T10 A refused or failed tool call is quick and visible
 
 **Depends on:** M38-T09 for the event loop. **Areas:** `tools/general.py`, `apps/web/src/components/chat/`,
-tenant settings, worker store builders. **Findings:** F11, F23.
+tenant settings. **Finding:** F11.
 
 **Do:**
 
 - A host that is not allowed is refused before any network call, with a message that says where to allow it.
 - The tenant has an allowed-hosts setting in the product; an agent may narrow it.
 - A run that fails shows its error in the chat, with a retry.
-- The three workers build their store with `allow_loopback=True` in every environment, so a tool call in
-  production may reach loopback addresses that the API refuses (F23, read in code while doing T03). They
-  follow the environment, as the API does.
+- Whether a loopback address may be reached becomes a setting the install controls, not a rule tied to the
+  environment name (T03a made the rule the same in every process; this makes it configurable).
 
 **Done when:** a refused fetch answers in under a second, the model tells the user what to change, and a
 failed run is never an empty bubble.

@@ -215,6 +215,15 @@ def fake_models_allowed(env: EnvName) -> bool:
     return env in {EnvName.DEV, EnvName.CI}
 
 
+def loopback_allowed(env: EnvName) -> bool:
+    """A tool or a provider may reach a loopback address only in dev and CI.
+
+    Every process that builds a store asks here, so the API and the workers that run the
+    tool calls apply one rule.
+    """
+    return env in {EnvName.DEV, EnvName.CI}
+
+
 class DeploymentMode(StrEnum):
     SAAS = "saas"
     SINGLE_TENANT = "single_tenant"
