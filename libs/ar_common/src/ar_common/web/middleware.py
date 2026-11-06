@@ -1,5 +1,6 @@
 """Request-id, body-size and access-log middleware."""
 
+import re
 import time
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -61,18 +62,27 @@ class RequestIdMiddleware:
 
 
 class BodyLimitMiddleware:
-    """Reject JSON bodies larger than ``AR_MAX_JSON_BODY_BYTES``."""
+    """Reject bodies larger than ``AR_MAX_JSON_BODY_BYTES``, or than a route's own limit.
+
+    ``path_limits`` maps a path to its limit; a path may hold ``{name}`` segments, as a
+    route does, so a route that takes a file for any agent can carry the upload cap.
+    """
 
     def __init__(
         self, app: ASGIApp, max_bytes: int, path_limits: dict[str, int] | None = None
     ) -> None:
         self.app = app
         self.max_bytes = max_bytes
-        self.path_limits = path_limits or {}
+        self.path_limits: list[tuple[re.Pattern[str], int]] = [
+            (_route_pattern(path), limit) for path, limit in (path_limits or {}).items()
+        ]
 
     def _max_for(self, scope: Scope) -> int:
         path = str(scope.get("path") or "")
-        return self.path_limits.get(path, self.max_bytes)
+        for pattern, limit in self.path_limits:
+            if pattern.fullmatch(path):
+                return limit
+        return self.max_bytes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -102,6 +112,13 @@ class BodyLimitMiddleware:
             return await limited(await receive())
 
         await self.app(scope, receive_limited, send)
+
+
+def _route_pattern(path: str) -> re.Pattern[str]:
+    """A route path as a pattern: ``{name}`` stands for one segment."""
+    parts = re.split(r"(\{[^/{}]+\})", path)
+    built = "".join("[^/]+" if part.startswith("{") else re.escape(part) for part in parts)
+    return re.compile(built)
 
 
 class SecurityHeadersMiddleware:

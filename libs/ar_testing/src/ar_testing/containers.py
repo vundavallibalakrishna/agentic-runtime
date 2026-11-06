@@ -1,5 +1,6 @@
 """Session-scoped Postgres and Valkey containers."""
 
+import os
 from typing import TYPE_CHECKING
 
 import pytest
@@ -12,6 +13,7 @@ if TYPE_CHECKING:
 
 PG_IMAGE = "pgvector/pgvector:0.8.7-pg18-trixie"
 VALKEY_IMAGE = "valkey/valkey:9.1.2"
+SEAWEEDFS_IMAGE = "chrislusf/seaweedfs:4.48"
 
 
 def to_libpq_url(url: str) -> str:
@@ -47,4 +49,39 @@ def valkey_url() -> Iterator[str]:
     try:
         yield f"redis://{host}:{port}/0"
     finally:
+        container.stop()
+
+
+@pytest.fixture(scope="session")
+def s3_endpoint() -> Iterator[str]:
+    """Yield the S3 endpoint of a disposable SeaweedFS, the object store the stack bundles.
+
+    The process's ``AR_S3_*`` settings point at it for the session, so a product store
+    built in the test keeps file bytes there, as it does on a real stack.
+    """
+    container = (
+        DockerContainer(SEAWEEDFS_IMAGE)
+        .with_command("server -s3 -s3.port=8333 -dir=/data")
+        .with_exposed_ports(8333)
+    )
+    container.start()
+    wait_for_logs(container, "Start Seaweed S3 API Server", timeout=90)
+    host = container.get_container_host_ip()
+    port = container.get_exposed_port(8333)
+    endpoint = f"http://{host}:{port}"
+    names = ("AR_S3_ENDPOINT", "AR_S3_PUBLIC_ENDPOINT", "AR_S3_HOST_PORT", "AR_S3_BUCKET")
+    previous = {name: os.environ.get(name) for name in names}
+    os.environ["AR_S3_ENDPOINT"] = endpoint
+    os.environ["AR_S3_PUBLIC_ENDPOINT"] = endpoint
+    # A checked-out ``.env`` may name a host port; the settings follow that variable.
+    os.environ["AR_S3_HOST_PORT"] = str(port)
+    os.environ["AR_S3_BUCKET"] = f"ar-files-{port}"
+    try:
+        yield endpoint
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
         container.stop()

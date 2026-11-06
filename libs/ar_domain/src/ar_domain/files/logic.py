@@ -9,6 +9,10 @@ from ar_contracts.tenants import READABLE_UPLOAD_MIME_TYPES
 # The most the product keeps for one file today, whatever a tenant sets: file bytes live
 # in the database until M38b-T13 moves them to the object store.
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+# What a route that takes a file accepts as a request body: the cap plus the multipart
+# envelope. The tenant's own cap (``upload_rules``) is applied to the file by ``upload``.
+# The web app's proxy buffers the same amount (``proxyClientMaxBodySize`` in next.config).
+UPLOAD_BODY_LIMIT = MAX_UPLOAD_BYTES + 64 * 1024
 EICAR = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
 

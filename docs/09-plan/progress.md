@@ -316,4 +316,5 @@ M38b-T10 | done | 23985e4 | every failure ends a run one way, the reply is marke
 M38b-T08a | done | adeba98 | a sent message shows its files; several files per message; the composer offers the types the tenant allows; the upload rules are the tenant's settings
 M38b-T14 | done | 816d46b | no form starts with a value the person did not type; save buttons wait for what they need
 M38b-T09a | done | c7ecc89 | a masking token is drawn as inline code, so a line that starts with one is shown
-M38b-T07d | done | - | memory embeds its facts again by itself after the `embed` alias moves; an unscored knowledge search shows how close each passage is; the rerank route and bar are settings of the model; sha recorded with the next task
+M38b-T07d | done | 339ef7a | memory embeds its facts again by itself after the `embed` alias moves; an unscored knowledge search shows how close each passage is; the rerank route and bar are settings of the model
+M38b-T13 | done | - | every accepted upload is kept: bytes in the object store under the row's key, the row in `files`, fetched by whichever process needs them; `file_blobs` migrated at hydrate; upload body limits raised (F67); sha recorded with the next task

@@ -55,7 +55,7 @@
 | 0029 | `orchestration` | Nullable `runs.checkpoint` and `runs.workspace_ref`. `human_questions` with RLS, grants, and the updated-at trigger. | M28 |
 | 0030 | `agent_exposure` | `agent_api_keys`, `agent_api_idempotency`, `agent_api_grants`, `a2a_tasks`. RLS, grants, and updated-at triggers. | M29 |
 | 0032 | `model_request_options` | Nullable `models.request_options` for provider-specific chat parameters merged into every call. The column has a default, so older code keeps working. | M32 |
-| 0033 | `durability` | `file_blobs`, `workspace_files`, `job_progress`, `a2a_push_configs`. RLS, grants and updated-at triggers. Caps are applied in the flush, not as table checks. | M35 |
+| 0033 | `durability` | `file_blobs`, `workspace_files`, `job_progress`, `a2a_push_configs`. RLS, grants and updated-at triggers. `file_blobs` stopped being written with M38b-T13 (bytes are in the object store, rows in `files`); a later revision drops it (OQ-112). Caps are applied in the flush, not as table checks. | M35 |
 | 0034 | `clear_tool_hash_vectors` | Sets `tool_versions.embedding` to NULL. The values were computed from a hash of the description. Nothing reads or writes the column now; a later revision drops it and its index (OQ-106). Forward-only. | M38a |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.

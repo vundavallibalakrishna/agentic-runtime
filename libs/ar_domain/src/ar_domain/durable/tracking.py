@@ -164,7 +164,7 @@ BUCKETS = (
     "eval_cases",
     "eval_runs",
     "eval_results",
-    "file_blobs",
+    "files",
     "workspace_files",
     "job_progress",
     "a2a_push_configs",
