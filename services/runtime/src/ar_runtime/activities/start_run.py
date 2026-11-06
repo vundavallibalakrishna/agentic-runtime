@@ -41,8 +41,9 @@ async def start_run(payload: dict[str, Any]) -> dict[str, str]:
 
 
 def _fail(store: Any, run_id: uuid.UUID, detail: str) -> None:
+    from ar_domain.runs.failure import fail_run  # noqa: PLC0415
+
     runs = getattr(store, "runs", None)
     run = runs.get(run_id) if isinstance(runs, dict) else None
     if isinstance(run, dict):
-        run["status"] = "failed"
-        run["error"] = {"code": "quota_exceeded", "message": detail}
+        fail_run(store, run, code="quota_exceeded", message=detail)

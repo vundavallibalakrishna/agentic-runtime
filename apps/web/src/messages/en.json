@@ -94,6 +94,8 @@
     "send": "Send",
     "stop": "Stop",
     "regenerate": "Regenerate",
+    "failedTitle": "This reply could not be made.",
+    "tryAgain": "Try again",
     "attach": "Attach file",
     "attached": "Attached",
     "loading": "Loading chat",

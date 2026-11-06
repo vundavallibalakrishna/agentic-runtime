@@ -143,7 +143,7 @@ stateDiagram-v2
   waiting_approval --> failed: approval timeout policy=fail
 ```
 
-Terminal: `completed`, `failed`, `cancelled`, `budget_exceeded`. On terminal: `conversations.active_run_id = NULL`, `runs.ended_at`, outbox `run.completed|run.failed|run.cancelled` (public topics).
+Terminal: `completed`, `failed`, `cancelled`, `budget_exceeded`. On terminal: `conversations.active_run_id = NULL`, `runs.ended_at`, outbox `run.completed|run.failed|run.cancelled` (public topics). Every failure ends through `ar_domain.runs.failure.fail_run`: `runs.error = {code, message}`, and the reply the run was making gets `messages.status = 'failed'`, keeping whatever it had said (a reply with no text gets the message). `GET /api/v1/conversations/{id}` returns a failed reply with `error` from its run, so the chat draws it as a failure with the reason and a **Try again**, never as an answer; a failed reply is not part of the history a later turn is given.
 
 ## 5. Events and audit
 

@@ -20,6 +20,7 @@ import { create } from "zustand";
 
 import { AppShell } from "@/components/app-shell";
 import { CitationList, citationsOf } from "@/components/chat/citations";
+import { FailedReply } from "@/components/chat/failed-reply";
 import { MarkdownView } from "@/components/chat/markdown-view";
 import { MemoryIndicator } from "@/components/chat/memory-indicator";
 import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
@@ -359,9 +360,6 @@ export function ChatScreen() {
           };
           if (payload.type === "plan.updated") {
             setPlan(planTitles(payload.data?.items));
-          }
-          if (payload.type === "run.failed") {
-            setBanner(payload.data?.error?.message || t("runFailed"));
           }
           state = reduceStream(state, payload);
           setStream(state);
@@ -795,6 +793,10 @@ export function ChatScreen() {
                   message.role === "assistant" &&
                   stream.status === "streaming";
                 const body = streamingHere ? stream.text || textOf(message) : textOf(message);
+                const failedHere = message.role === "assistant" && message.status === "failed";
+                const reason = failedHere
+                  ? String((message.error as { message?: string } | undefined)?.message ?? "")
+                  : "";
                 const id = String(message.id ?? row.index);
                 const mine = message.role === "user";
                 return (
@@ -814,7 +816,18 @@ export function ChatScreen() {
                         }
                       >
                         <p className="sr-only">{String(message.role)}</p>
-                        <MarkdownView text={body} />
+                        {failedHere ? (
+                          <FailedReply
+                            busy={stream.status === "streaming"}
+                            onRetry={
+                              id.startsWith("local-") ? undefined : () => void regenerate(id)
+                            }
+                            reason={reason}
+                            said={body === reason ? "" : body}
+                          />
+                        ) : (
+                          <MarkdownView text={body} />
+                        )}
                         {streamingHere && stream.tools.length > 0 ? (
                           <div>
                             <p className="text-xs font-medium text-[var(--muted-foreground)]">
@@ -891,7 +904,10 @@ export function ChatScreen() {
                       >
                         {copiedId === id ? t("copied") : t("copy")}
                       </Button>
-                      {message.role === "assistant" && id && !id.startsWith("local-") ? (
+                      {message.role === "assistant" &&
+                      !failedHere &&
+                      id &&
+                      !id.startsWith("local-") ? (
                         <Button
                           className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
                           onClick={() => void regenerate(id)}

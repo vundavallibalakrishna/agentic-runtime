@@ -135,14 +135,23 @@ async def test_cancelling_the_task_reaches_the_code() -> None:
 
 
 async def test_two_pieces_of_code_wait_at_the_same_time() -> None:
+    spans: dict[str, tuple[float, float]] = {}
+
+    def wait(name: str) -> None:
+        began = time.monotonic()
+        time.sleep(0.2)
+        spans[name] = (began, time.monotonic())
+
     def handler(name: str) -> str:
-        blocking(time.sleep, 0.2)
+        blocking(wait, name)
         return name
 
-    started = time.monotonic()
     got = await asyncio.gather(run_sync(handler, "a"), run_sync(handler, "b"))
     assert got == ["a", "b"]
-    assert time.monotonic() - started < 0.35
+    # Each wait began before the other ended: they ran at the same time, however
+    # slowly the machine ran them.
+    assert spans["a"][0] < spans["b"][1]
+    assert spans["b"][0] < spans["a"][1]
 
 
 def test_outside_run_sync_the_call_runs_in_place() -> None:

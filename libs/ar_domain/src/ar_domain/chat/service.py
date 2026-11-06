@@ -51,6 +51,7 @@ from ar_domain.models.logic import (
     resolve_alias,
     valid_alias,
 )
+from ar_domain.runs.failure import fail_run, reply_error
 from ar_domain.runs.logic import budget_exceeded
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
@@ -715,6 +716,8 @@ class ChatService:
                 out[key] = value
         if "base_url" in row:
             out["has_api_key"] = bool(row.get("api_key") or row.get("has_api_key"))
+        if row.get("role") == "assistant" and row.get("status") == "failed":
+            out["error"] = reply_error(self, row)
         return out
 
     def _require(
@@ -2404,14 +2407,14 @@ class ChatService:
         conversation: dict[str, object],
         assistant: dict[str, object],
     ) -> None:
-        message = "This conversation is too long. Start a new one."
-        assistant["status"] = "completed"
-        assistant["text"] = message
-        run["status"] = "failed"
-        run["ended_at"] = utcnow()
-        run["error"] = {"code": "context_length_exceeded", "message": message}
-        conversation["active_run_id"] = None
-        self._emit(run, "run.failed", {"error": run["error"]})
+        del conversation
+        fail_run(
+            self,
+            run,
+            code="context_length_exceeded",
+            message="This conversation is too long. Start a new one.",
+            assistant=assistant,
+        )
 
     def _fail_quota(
         self,
@@ -2420,14 +2423,8 @@ class ChatService:
         assistant: dict[str, object],
         exc: object,
     ) -> None:
-        message = str(exc)
-        assistant["status"] = "completed"
-        assistant["text"] = message
-        run["status"] = "failed"
-        run["ended_at"] = utcnow()
-        run["error"] = {"code": "quota_exceeded", "message": message}
-        conversation["active_run_id"] = None
-        self._emit(run, "run.failed", {"error": run["error"]})
+        del conversation
+        fail_run(self, run, code="quota_exceeded", message=str(exc), assistant=assistant)
 
     def _emit(self, run: dict[str, object], event_type: str, data: dict[str, object]) -> None:
         run_id = uuid.UUID(str(run["id"]))
