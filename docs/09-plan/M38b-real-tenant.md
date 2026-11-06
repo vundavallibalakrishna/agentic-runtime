@@ -313,7 +313,11 @@ drawn at all, so the person does not see part of the answer.
 
 **Done when:** an answer with the line `- [EMAIL_ADDRESS]: primary contact` shows that line.
 
-**Tests:** `message-masking.test.tsx`.
+**Tests:** `masked.test.ts`; `markdown-view.test.tsx`.
+
+**Done (7 Nov 2026).** Before the text reaches the Markdown parser, each token becomes inline code
+(`apps/web/src/lib/masked.ts`), which Markdown never reads as a link definition and which shows the token
+as the mark it is. A token that is Markdown link syntax, or already in code, is left alone.
 
 ## M38b-T10a Which hosts a tool may reach is the organisation's choice
 

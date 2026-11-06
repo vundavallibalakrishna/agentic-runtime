@@ -9,6 +9,7 @@ import remarkGfm from "remark-gfm";
 
 import { highlightCode, type Token } from "@/lib/highlight";
 import { filterMarkdown, linkRel } from "@/lib/markdown-exfil";
+import { markMasked } from "@/lib/masked";
 
 import "katex/dist/katex.min.css";
 
@@ -38,7 +39,7 @@ export function MarkdownView({ text }: { text: string }) {
         }}
         remarkPlugins={[remarkGfm]}
       >
-        {filterMarkdown(text)}
+        {filterMarkdown(markMasked(text))}
       </ReactMarkdown>
     </div>
   );
