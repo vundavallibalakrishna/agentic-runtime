@@ -29,11 +29,10 @@ class BuilderService:
         return row
 
     def _builder_agent(self, actor: Actor) -> dict[str, object]:
-        AgentLifecycle(self.store).ensure_builtins(actor.tenant_id, actor.user_id)
         for agent in self.store.agents.values():
             if agent.get("tenant_id") == actor.tenant_id and agent.get("slug") == "builder":
                 return cast("dict[str, object]", agent)
-        raise NotFoundError()
+        raise NotFoundError("This tenant has no builder agent. Run the tenant seed again.")
 
     async def start(self, actor: Actor, instruction: str) -> dict[str, object]:
         drafted = await draft_from_description(self.store, actor, instruction)

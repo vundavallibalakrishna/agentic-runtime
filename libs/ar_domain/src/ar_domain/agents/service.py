@@ -204,17 +204,12 @@ class AgentLifecycle:
         return names
 
     def ensure_builtins(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        """Published assistant, Helpdesk and the built-in builder."""
+        """The two agents every tenant has: the assistant and the builder.
+
+        The tenant seed calls this once, with the tenant's admin as the owner. No request
+        creates them.
+        """
         self.store.ensure_assistant(tenant_id, user_id)
-        self._ensure(
-            "helpdesk",
-            "Helpdesk",
-            "Answers common requests.",
-            helpdesk_definition(),
-            tenant_id=tenant_id,
-            user_id=user_id,
-            builtin=False,
-        )
         self._ensure(
             "builder",
             "Builder",
@@ -223,6 +218,18 @@ class AgentLifecycle:
             tenant_id=tenant_id,
             user_id=user_id,
             builtin=True,
+        )
+
+    def ensure_example(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """The Helpdesk example agent of the demo tenant. A real tenant does not get it."""
+        self._ensure(
+            "helpdesk",
+            "Helpdesk",
+            "Answers common requests.",
+            helpdesk_definition(),
+            tenant_id=tenant_id,
+            user_id=user_id,
+            builtin=False,
         )
 
     def _ensure(
@@ -461,7 +468,7 @@ class AgentLifecycle:
                 "favourite": agent["id"]
                 in self.store.favourites.get((actor.tenant_id, actor.user_id), set()),
                 "etag": etag_for(agent),
-                "builtin": bool(agent.get("builtin")),
+                "builtin": bool(agent.get("builtin")) or agent.get("slug") in _BUILTIN,
             }
         )
         return cast("dict[str, object]", body)
@@ -503,7 +510,6 @@ class AgentLifecycle:
         visibility: str | None = None,
         owner: str | None = None,
     ) -> list[dict[str, object]]:
-        self.ensure_builtins(actor.tenant_id, actor.user_id)
         found: list[dict[str, object]] = []
         for agent in self.store.agents.values():
             if not can_see(agent, actor):

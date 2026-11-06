@@ -48,8 +48,8 @@ def test_downgrade_and_upgrade(migrated: str) -> None:
     assert len(heads) == 1
 
 
-async def test_bootstrap_creates_only_the_tenant_and_its_admin(migrated: str) -> None:
-    """A new install gets a tenant and an admin: no model, no agent, no example rows."""
+async def test_bootstrap_creates_the_tenant_its_admin_and_two_agents(migrated: str) -> None:
+    """A new install gets a tenant, an admin and the two default agents: no model, no example."""
     from ar_common.settings import BaseServiceSettings, set_settings
     from ar_domain.bootstrap import bootstrap
     from ar_domain.db.engine import dispose_engines, get_engine
@@ -63,8 +63,16 @@ async def test_bootstrap_creates_only_the_tenant_and_its_admin(migrated: str) ->
         )
         assert slug == "acme"
     counts: dict[str, object] = {}
-    async with get_engine(migrated).connect() as connection:
-        for table in ("tenants", "users", "role_assignments", "model_providers", "agents"):
+    engine = get_engine(migrated)
+    async with engine.connect() as connection:
+        for table in (
+            "tenants",
+            "users",
+            "role_assignments",
+            "model_providers",
+            "conversations",
+            "agents",
+        ):
             counts[table] = await connection.scalar(text(f"SELECT count(*) FROM {table}"))  # noqa: S608 - fixed names
         person = (
             await connection.execute(
@@ -77,12 +85,25 @@ async def test_bootstrap_creates_only_the_tenant_and_its_admin(migrated: str) ->
                 )
             )
         ).one()
+        agents = (
+            await connection.execute(
+                text(
+                    "SELECT a.slug, a.status, u.email, v.state FROM agents a "
+                    "JOIN users u ON u.id = a.owner_user_id "
+                    "JOIN agent_versions v ON v.id = a.published_version_id ORDER BY a.slug"
+                )
+            )
+        ).all()
+        tools = await connection.scalar(
+            text("SELECT count(*) FROM tools WHERE tenant_id IS NOT NULL")
+        )
     assert counts == {
         "tenants": 1,
         "users": 1,
         "role_assignments": 1,
         "model_providers": 0,
-        "agents": 0,
+        "conversations": 0,
+        "agents": 2,
     }
     assert tuple(person) == (
         "acme",
@@ -92,7 +113,12 @@ async def test_bootstrap_creates_only_the_tenant_and_its_admin(migrated: str) ->
         "active",
         "tenant_admin",
     )
-    engine = get_engine(migrated)
+    # The assistant and the builder, published, owned by the tenant's own admin.
+    assert [tuple(row) for row in agents] == [
+        ("assistant", "published", "ada@acme.example", "published"),
+        ("builder", "published", "ada@acme.example", "published"),
+    ]
+    assert tools == 0, "the tool catalogue belongs to no tenant; no fixture tool is written"
     async with engine.begin() as connection:
         await connection.execute(text("DELETE FROM tenants WHERE slug = 'acme'"))
     # The cached engine belongs to this test's event loop; the next test opens its own.

@@ -321,6 +321,7 @@ class ChatService:
         # code reads as "unset" (tool review, self-review), see test_m22_api.
         self.tenant_settings.setdefault(demo_id("tenant"), {"features": {"assurance": True}})
         self.ensure_assistant(demo_id("tenant"), demo_id("admin"))
+        AgentLifecycle(self).ensure_example(demo_id("tenant"), demo_id("admin"))
         AgentLifecycle(self).ensure_builtins(demo_id("tenant"), demo_id("admin"))
         from ar_domain.tools.registry import ToolRegistry  # noqa: PLC0415
 
@@ -991,7 +992,6 @@ class ChatService:
         }
 
     def list_agents(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> list[dict[str, object]]:
-        self.ensure_assistant(tenant_id, user_id)
         found: list[dict[str, object]] = []
         for agent in self.agents.values():
             view = self._view(agent)
@@ -1168,10 +1168,10 @@ class ChatService:
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, agent_id: uuid.UUID | None
     ) -> dict[str, object]:
         if agent_id is None:
-            self.ensure_assistant(tenant_id, user_id)
             for candidate in self.agents.values():
                 if candidate["tenant_id"] == tenant_id and candidate["slug"] == "assistant":
                     return candidate
+            raise NotFoundError("This tenant has no assistant. Run the tenant seed again.")
         agent: dict[str, object] | None = (
             self.agents.get(agent_id) if agent_id is not None else None
         )
