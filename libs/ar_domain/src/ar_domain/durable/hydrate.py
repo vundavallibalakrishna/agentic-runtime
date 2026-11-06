@@ -191,13 +191,31 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
                 {"id": run["conversation_id"], "tenant_id": tenant_id},
             )
         ).mappings()
+        attached: list[uuid.UUID] = []
         for message in messages:
             body = dict(message)
             body["text"] = _text_of(body.get("content"))
             _merge(store, "messages", body["id"], body)
+            attached.extend(_file_ids(body.get("content")))
             if body.get("run_id") == run_id and body.get("role") == "assistant":
                 _merge(store, "runs", run_id, {"assistant_message_id": body["id"]})
+        from ar_domain.durable.m35 import load_conversation_files  # noqa: PLC0415
+
+        await load_conversation_files(session, store, tenant_id, run["conversation_id"], attached)
         await _events_for(session, store, run_id, run.get("conversation_id"), run.get("tenant_id"))
+
+
+def _file_ids(content: object) -> list[uuid.UUID]:
+    """The ids of the files a message's content attaches."""
+    ids: list[uuid.UUID] = []
+    for part in content if isinstance(content, list) else []:
+        if not isinstance(part, dict) or part.get("type") != "file":
+            continue
+        try:
+            ids.append(uuid.UUID(str(part.get("file_id"))))
+        except ValueError:
+            continue
+    return ids
 
 
 async def _usage_events(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:

@@ -69,6 +69,14 @@ Owner (or admins for tenant cleanup). Soft delete (`deleted_at`, `status='delete
 - Artifact names are sanitised (`[^\w.\- ]` → `_`, ≤ 120 chars) and de-duplicated within a conversation (`report (2).pdf`).
 - Viewer support in the web app: images, PDF, CSV/XLSX (table preview from first 1,000 rows), Markdown, code/text (syntax highlighted), HTML (rendered **only** as source text), charts (PNG/SVG as image with SVG served as attachment).
 
+### 6.1 Attached files and the working folder
+
+`ar_domain/files/attachments.py` is the one place that says which files a conversation has and where each sits. A file attached to a message belongs to the conversation: every later turn has it. Each file's path is `inputs/<sanitised name>`; a second file with the same name gets `inputs/<stem>-<first 8 of its id><suffix>`, and a file attached twice is listed once. A deleted file, or one that is not the tenant's, is not listed. The prompt shows the same lines ([spec 07 §4](07-agent-runtime.md)), the run's folder and a sandbox hold the file at that path, and a process that did not receive the upload loads the conversation's files from the database before it runs the turn (`durable/m35.py` `load_conversation_files`), as does the process that serves a download for a file a tool wrote.
+
+A conversation has one working folder as far as the person can tell. Each run keeps its own copy, and the first tool call of a run starts from the copy of the latest earlier run in the conversation. The copy that is saved holds files up to 2 MiB each and 8 MiB in all; a larger file a tool wrote is not in the next turn (OQ-107).
+
+Tools name a file by its path relative to the working folder, such as `inputs/orders.csv`. That is where code and shell commands start, so the path one tool returns works in another on any host. `/workspace/...` is taken too by the file tools. On a host where code does not run inside a private root there is no `/workspace` folder: a command that fails after naming it is told to use a relative path, and the host's own name for the run's folder is taken out of the command's output. A path that is not there is answered with the names of the files that are.
+
 ## 7. Retention
 
 `retention_until` = `created_at + tenant.settings.retention.files_days` for uploads/artifacts (NULL for `knowledge_*`, `skill_asset`, `avatar`, managed by their owners); `tool_result` 30 days; `export` 7 days; `sandbox_snapshot` = template `retention_days`; legal hold on the conversation suspends deletion. `RetentionSweepWorkflow` ([spec 17](17-audit-usage-metering.md)) deletes objects and rows.

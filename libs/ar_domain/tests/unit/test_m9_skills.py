@@ -229,7 +229,6 @@ def test_loaded_skill_is_trusted_in_the_next_prompt() -> None:
         store.conversations[conversation_id],
         store.versions[writer["published_version_id"]]["definition"],
         "Write a brief",
-        names=[],
     )
     system = str(run["prompt_messages"][0]["content"])
     assert "sentence case" in system

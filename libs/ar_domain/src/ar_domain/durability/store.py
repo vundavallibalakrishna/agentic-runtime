@@ -154,7 +154,12 @@ def snapshot_workspace(store: Any, run_id: uuid.UUID | None, tenant_id: object) 
 
 
 def restore_workspace(store: Any, arguments: dict[str, object]) -> int:
-    """Write durable workspace bytes back, including an interrupted earlier run."""
+    """Write the run's saved files back, starting from the conversation's last turn.
+
+    A conversation has one working folder as far as the person can tell: what an earlier
+    turn wrote is there in the next. Each run keeps its own copy, so the first tool call
+    of a run copies the files of the latest earlier run in the conversation.
+    """
     run_id = arguments.get("_run_id")
     tenant_id = arguments.get("_tenant_id")
     if not isinstance(run_id, uuid.UUID):
@@ -169,7 +174,7 @@ def restore_workspace(store: Any, arguments: dict[str, object]) -> int:
         return 0
     copied = _copy_run(store, prior, run_id, tenant_id)
     wrote = _write_rows(workspace, _rows_for(store, run_id))
-    if wrote:
+    if wrote and _interrupted(store, prior):
         from ar_domain.jobs.progress import note_job  # noqa: PLC0415
 
         note_job(
@@ -289,6 +294,7 @@ def _write_rows(workspace: Path, rows: list[dict[str, object]]) -> int:
 
 
 def _prior_run(store: Any, conversation_id: object, current: uuid.UUID) -> uuid.UUID | None:
+    """The latest other run of the conversation that saved files."""
     runs = getattr(store, "runs", None)
     if not isinstance(runs, dict) or not isinstance(conversation_id, uuid.UUID):
         return None
@@ -299,17 +305,22 @@ def _prior_run(store: Any, conversation_id: object, current: uuid.UUID) -> uuid.
         if run.get("conversation_id") != conversation_id:
             continue
         run_id = run.get("id")
-        if not isinstance(run_id, uuid.UUID) or not _rows_for(store, run_id):
-            continue
-        error = run.get("error")
-        code = error.get("code") if isinstance(error, dict) else ""
-        if str(run.get("status")) in {"failed", "cancelled"} or code == "interrupted":
+        if isinstance(run_id, uuid.UUID) and _rows_for(store, run_id):
             found.append(run)
     if not found:
         return None
-    found.sort(key=lambda item: str(item.get("ended_at") or item.get("created_at") or ""))
+    found.sort(key=lambda item: (str(item.get("created_at") or ""), str(item.get("id"))))
     chosen = found[-1].get("id")
     return chosen if isinstance(chosen, uuid.UUID) else None
+
+
+def _interrupted(store: Any, run_id: uuid.UUID) -> bool:
+    run = store.runs.get(run_id)
+    if not isinstance(run, dict):
+        return False
+    error = run.get("error")
+    code = error.get("code") if isinstance(error, dict) else ""
+    return str(run.get("status")) in {"failed", "cancelled"} or code == "interrupted"
 
 
 def _copy_run(store: Any, source: uuid.UUID, target: uuid.UUID, tenant_id: uuid.UUID) -> int:

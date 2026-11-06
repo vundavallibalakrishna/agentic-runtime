@@ -74,10 +74,11 @@ def transition(status: str, event: str) -> str:
 def confine(root: Path, raw: str) -> Path:
     """Resolve ``raw`` under ``/workspace`` or ``/tmp`` inside ``root``.
 
-    Symlinks that escape the chosen root are rejected. ``root`` is the sandbox
-    directory that contains ``workspace`` and ``tmp``.
+    A relative path is inside the working folder (``working_path``). Symlinks that
+    escape the chosen root are rejected. ``root`` is the sandbox directory that contains
+    ``workspace`` and ``tmp``.
     """
-    text = raw or "/workspace"
+    text = working_path(raw)
     if text.startswith(_TMP):
         base = (root / "tmp").resolve()
         relative = text.removeprefix(_TMP).lstrip("/")
@@ -103,6 +104,29 @@ def confine(root: Path, raw: str) -> Path:
     if current.exists() and not resolved.is_relative_to(base):
         raise PathEscapeError("path is outside the computer")
     return current
+
+
+def working_path(raw: str) -> str:
+    """The path a tool was given, as a path under ``/workspace`` or ``/tmp``.
+
+    A relative path is inside the working folder, which is where code and shell commands
+    start. So ``inputs/a.csv`` names the same file to a file tool and to a script, on any
+    host. ``/workspace/inputs/a.csv`` is taken too.
+    """
+    text = (raw or "").strip()
+    if text.startswith("/"):
+        return text
+    while text.startswith("./"):
+        text = text[2:]
+    return "/workspace" if text in {"", "."} else f"/workspace/{text}"
+
+
+def relative_path(root: Path, path: Path) -> str:
+    """Show a host path the way ``working_path`` takes it: relative to the working folder."""
+    shown = virtual_path(root, path)
+    if shown == "/workspace":
+        return "."
+    return shown.removeprefix("/workspace/")
 
 
 def virtual_path(root: Path, path: Path) -> str:

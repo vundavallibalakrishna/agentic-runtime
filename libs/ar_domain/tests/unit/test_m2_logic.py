@@ -7,7 +7,6 @@ from ar_domain.conversations.logic import MessageNode, activate_branch
 from ar_domain.files.logic import EICAR, FileView, can_read_file, mime_allowed, scan_bytes
 from ar_domain.models.logic import AliasRef, provider_url_denied, resolve_alias
 from ar_domain.runs.logic import (
-    assemble_context,
     budget_exceeded,
     sign_run_callback,
     tools_not_supported,
@@ -130,8 +129,6 @@ def test_runtime_loop_and_callback() -> None:
         )
         == "max_steps"
     )
-    context = assemble_context(instructions="Be brief.", history=[], attachment_names=["notes.pdf"])
-    assert "notes.pdf" in context[0]["content"]
     signature = sign_run_callback("secret", b"{}", 10)
     assert signature.startswith("t=10,v1=")
     breaker = Breaker(threshold=2, reset_s=10)

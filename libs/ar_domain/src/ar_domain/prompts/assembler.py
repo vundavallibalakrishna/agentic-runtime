@@ -41,10 +41,8 @@ def build_prompt(run: dict[str, object]) -> PromptBundle:
     history = _history(run.get("history"))
     current = str(run.get("user_text") or "")
     files = run.get("files")
-    if isinstance(files, list) and files:
-        current = wrap_untrusted(
-            source="file:attached", content=current + "\n" + ", ".join(map(str, files))
-        )
+    if isinstance(files, str) and files:
+        current = with_attachments(current, files)
     reserved = estimate_tokens(system) + estimate_tokens(current)
     budget_value = run.get("token_budget")
     budget = budget_value if isinstance(budget_value, int) else 8000
@@ -59,6 +57,23 @@ def build_prompt(run: dict[str, object]) -> PromptBundle:
         estimated_tokens=sum(estimate_tokens(item["content"]) for item in messages),
         prompt_hash=digest,
     )
+
+
+def with_attachments(text: str, lines: str) -> str:
+    """A message followed by the files attached to it.
+
+    The person's own words stay as they wrote them. The file lines carry names the
+    person did not type into the chat, so they are wrapped as data. ``lines`` comes from
+    ``ar_domain.files.attachments.attachment_lines``.
+    """
+    if not lines:
+        return text
+    note = (
+        "Files attached to this message. Each is in the working folder at its path. "
+        "Give a tool the id or the path."
+    )
+    block = f"{note}\n{wrap_untrusted(source='file:attached', content=lines)}"
+    return f"{text}\n\n{block}" if text else block
 
 
 def _session(session: dict[str, object]) -> str:

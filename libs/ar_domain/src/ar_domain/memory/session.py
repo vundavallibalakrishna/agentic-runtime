@@ -7,9 +7,10 @@ if TYPE_CHECKING:
     from typing import Any
 
 from ar_domain.agents.access import Actor
+from ar_domain.files.attachments import Attachment, attachment_lines, conversation_attachments
 from ar_domain.memory.book import MemoryBook
 from ar_domain.memory.compaction import compact_context, needs_compaction
-from ar_domain.prompts.assembler import build_prompt
+from ar_domain.prompts.assembler import build_prompt, with_attachments
 
 
 def prepare_prompt(
@@ -18,11 +19,16 @@ def prepare_prompt(
     conversation: dict[str, object],
     definition: dict[str, object],
     text: str,
-    *,
-    names: list[str],
 ) -> str:
-    """Recall memory, compact when needed, and return the prompt hash."""
-    history = _history(store, conversation.get("id"), run.get("input_message_id"))
+    """Recall memory, compact when needed, and return the prompt hash.
+
+    Each message is shown with the files attached to it, so a later turn still knows a
+    file an earlier message brought.
+    """
+    attached: dict[object, list[Attachment]] = {}
+    for item in conversation_attachments(store, conversation.get("id")):
+        attached.setdefault(item.message_id, []).append(item)
+    history = _history(store, conversation.get("id"), run.get("input_message_id"), attached)
     window = _window(definition)
     threshold = _threshold(definition)
     keep = _keep(definition)
@@ -67,7 +73,7 @@ def prepare_prompt(
         {
             "definition": definition,
             "user_text": text,
-            "files": names,
+            "files": attachment_lines(attached.get(run.get("input_message_id"), [])),
             "history": prompt_history,
             "memory": block,
             "summary": str(conversation.get("rolling_summary") or ""),
@@ -80,7 +86,12 @@ def prepare_prompt(
     return bundle.prompt_hash
 
 
-def _history(store: Any, conversation_id: object, skip: object) -> list[dict[str, str]]:
+def _history(
+    store: Any,
+    conversation_id: object,
+    skip: object,
+    attached: dict[object, list[Attachment]],
+) -> list[dict[str, str]]:
     rows: list[dict[str, object]] = []
     messages = getattr(store, "messages", {})
     if not isinstance(messages, dict):
@@ -100,7 +111,10 @@ def _history(store: Any, conversation_id: object, skip: object) -> list[dict[str
         {
             "id": str(message.get("id") or ""),
             "role": str(message.get("role") or "user"),
-            "content": str(message.get("text") or ""),
+            "content": with_attachments(
+                str(message.get("text") or ""),
+                attachment_lines(attached.get(message.get("id"), [])),
+            ),
         }
         for message in rows
     ]

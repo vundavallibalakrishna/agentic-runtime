@@ -16,3 +16,8 @@ Breakout checks in `libs/ar_common/tests/unit/test_isolate.py` and `libs/ar_doma
 - A shell command that names a URL is rejected while network is off.
 - An HTTP secret is replaced with `[redacted]` in the tool result and is not stored on the call.
 - Fetched HTML is reduced to text. Script bodies are dropped. The text is labelled untrusted data and wrapped before it re-enters the prompt.
+
+## Paths and output (M38b-T08)
+
+File tools and commands share the run's folder and one way to name a file: a path relative to the working folder, which is the directory a command starts in ([spec 13 §6.1](../03-specs/13-files-artifacts.md)). `general.code` shows the value of a script's last expression, as a notebook does, by rewriting only that last statement before the script runs; a script that does not parse is run unchanged so Python reports the error. A command that prints nothing and writes no file says so.
+
