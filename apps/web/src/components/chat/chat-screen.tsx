@@ -135,9 +135,15 @@ export function ChatScreen() {
       setConversations(listed.items ?? []);
       setAgents(agentPage.items ?? []);
       setAliases(
-        (aliasPage.items ?? [])
-          .map((row) => String(row.alias ?? ""))
-          .filter((alias) => alias.length > 0),
+        Array.from(
+          new Set(
+            (aliasPage.items ?? [])
+              // Only a chat model can answer a conversation; embedding and rerank aliases cannot.
+              .filter((row) => String(row.kind ?? "chat") === "chat")
+              .map((row) => String(row.alias ?? ""))
+              .filter((alias) => alias.length > 0),
+          ),
+        ),
       );
       const requested = new URLSearchParams(window.location.search).get("agent");
       if (requested) {

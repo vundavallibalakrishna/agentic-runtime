@@ -8,17 +8,9 @@ import uuid
 import pytest
 
 from ar_common.errors import NotFoundError, ValidationFailedError
-from ar_common.vectors import unit_vector
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
 from ar_domain.knowledge.book import KnowledgeBook
-from ar_domain.knowledge.live_embed import (
-    DEFAULT_EMBEDDING_MODEL,
-    EmbeddingUnconfiguredError,
-    collection_embedding,
-    embed_live,
-    is_fake_embedding,
-)
 from ar_domain.knowledge.members import add_member, refresh_document, retrieve
 from ar_domain.memory.session import prepare_prompt
 from ar_domain.skills.match import match_skill
@@ -54,46 +46,8 @@ def _actor() -> Actor:
     )
 
 
-def _vectors(texts: list[str]) -> list[list[float]]:
-    return [unit_vector(text, 1024) for text in texts]
-
-
-def test_fake_alias_is_not_a_live_embedding() -> None:
-    assert is_fake_embedding("fake-embed")
-    assert is_fake_embedding("embed")
-    store = demo_store()
-    with pytest.raises(EmbeddingUnconfiguredError):
-        embed_live(store, demo_id("tenant"), ["north dock"], model="fake-embed", dimensions=1024)
-    with pytest.raises(EmbeddingUnconfiguredError):
-        embed_live(store, demo_id("tenant"), ["north dock"], model="BAAI/bge-m3", dimensions=1024)
-
-
-def test_a_real_provider_selects_the_default_model() -> None:
-    store = demo_store()
-    provider_id = uuid.uuid4()
-    store.providers[provider_id] = {
-        "id": provider_id,
-        "tenant_id": demo_id("tenant"),
-        "kind": "openai_compatible",
-        "base_url": "https://embeddings.example/v1",
-        "api_key": "test-key",
-    }
-    store.embed_client = _vectors
-    actor = _actor()
-    created = KnowledgeBook(store).create_collection(
-        actor, {"name": "Docks", "slug": "docks", "description": "Dock codes"}
-    )
-    row = store.knowledge_collections[uuid.UUID(created["id"])]
-    assert row["embedding_model"] == DEFAULT_EMBEDDING_MODEL
-    assert row["embedding_model"] != "fake-embed"
-    assert collection_embedding({"chunking": row["chunking"], "embedding_alias": "embed"})[0] == (
-        DEFAULT_EMBEDDING_MODEL
-    )
-
-
 def test_library_url_and_connection_round_trip() -> None:
     store = demo_store()
-    store.embed_client = _vectors
     actor = _actor()
     library_id = uuid.uuid4()
     store.library_documents[library_id] = {
@@ -240,7 +194,6 @@ def test_skill_import_matches_and_exports() -> None:
 
 def test_turn_cites_a_passage_and_stays_inside_the_budget() -> None:
     store = demo_store()
-    store.embed_client = _vectors
     actor = _actor()
     created = KnowledgeBook(store).create_collection(
         actor, {"name": "Policy", "slug": "policy", "description": "Rules"}

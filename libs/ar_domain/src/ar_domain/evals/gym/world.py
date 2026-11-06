@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -14,6 +15,9 @@ from ar_domain.documents.library import DocumentLibrary
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.tools.seed_tools import seed
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _NOTE = "workspace token FILE-19\n"
 _POLICY = "Staff store passwords in a vault under token VAULT-42.\n"
@@ -35,11 +39,17 @@ class GymWorld:
     files: dict[str, uuid.UUID]
 
 
-def build_world() -> GymWorld:
-    """Seed built-in tools and the fixtures the golden tasks read."""
+def build_world(prepare: Callable[[ChatService], None] | None = None) -> GymWorld:
+    """Seed built-in tools and the fixtures the golden tasks read.
+
+    ``prepare`` registers the models the world needs before its fixtures are made. The
+    handbook is a knowledge collection, so it needs an embedding model.
+    """
     store = ChatService()
     # The gym is an eval world of its own: it works on the demo tenant and its fixtures.
     store.seed_demo_tenant()
+    if prepare is not None:
+        prepare(store)
     seed(store)
     tenant = demo_id("tenant")
     user = demo_id("admin")

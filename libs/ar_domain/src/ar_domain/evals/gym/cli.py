@@ -5,14 +5,27 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from ar_domain.evals.gym.live import LIVE_FLAG, LIVE_KEY, LiveConfigError, live_requested
 from ar_domain.evals.gym.runner import run_suite
 from ar_domain.evals.gym.score import render_scorecard
+from ar_domain.models.embedding import EmbeddingUnconfiguredError
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ar_domain.chat.service import ChatService
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Run the gym. Exit 2 when live mode is on and the cert key is missing."""
+def main(
+    argv: list[str] | None = None, *, prepare: Callable[[ChatService], None] | None = None
+) -> int:
+    """Run the gym. Exit 2 when live mode is on and the cert key is missing.
+
+    ``prepare`` registers an embedding model in the gym's store. Without one the
+    handbook cannot be indexed and the run stops with the reason.
+    """
     parser = argparse.ArgumentParser(prog="ar_domain.evals.gym")
     parser.add_argument(
         "--live",
@@ -31,8 +44,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"refusing live run without {LIVE_FLAG}=1\n")
         return 2
     try:
-        report = run_suite(live=live)
-    except LiveConfigError as exc:
+        report = run_suite(live=live, prepare=prepare)
+    except (LiveConfigError, EmbeddingUnconfiguredError) as exc:
         sys.stderr.write(f"{exc}\n")
         return 2
     path = args.write if isinstance(args.write, Path) else _default_path(live=live)

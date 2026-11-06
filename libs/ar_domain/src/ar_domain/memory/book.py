@@ -13,7 +13,6 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor, can_edit
 from ar_domain.audit.memory import remember
-from ar_domain.knowledge.embedder import embed_texts
 from ar_domain.memory.extract import extraction_input, heuristic_ops, parse_ops
 from ar_domain.memory.format import memory_block
 from ar_domain.memory.logic import (
@@ -27,7 +26,6 @@ from ar_domain.memory.logic import (
     blocked_reason,
     category_of,
     dedupe_similarity,
-    dimensions,
     estimate_fact_tokens,
     min_similarity,
     normalise,
@@ -41,6 +39,8 @@ from ar_domain.memory.metrics import (
     RECALL_SECONDS,
     RECALLED_FACTS,
 )
+from ar_domain.memory.vectors import MemoryVectors
+from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
 
 _TRIGGERS = frozenset({"chat", "channel", "api"})
 _STANDING = frozenset({"preference", "instruction"})
@@ -51,6 +51,7 @@ class MemoryBook:
 
     def __init__(self, store: Any) -> None:
         self.store = store
+        self._embedders: dict[uuid.UUID, MemoryVectors] = {}
 
     def list_user(
         self,
@@ -68,7 +69,7 @@ class MemoryBook:
             if _status_ok(row, status) and _scope_ok(row, scope) and _agent_ok(row, agent_id)
         ]
         rows = [row for row in rows if _category_ok(row, category)]
-        rows = _search(rows, query)
+        rows = _search(rows, query, self._vectors(actor))
         return [public_fact(self.store, row) for row in rows]
 
     def create_user(self, actor: Actor, body: dict[str, object]) -> dict[str, object]:
@@ -300,7 +301,7 @@ class MemoryBook:
             for row in self._recall_pool(actor, agent_id)
             if row.get("status") == "active" and row.get("scope") in scopes
         ]
-        chosen = _rank(query, candidates, limit=limit)
+        chosen = _rank(query, candidates, self._vectors(actor), limit=limit)
         now = utcnow()
         for row in chosen:
             row["recall_count"] = _count(row.get("recall_count")) + 1
@@ -449,7 +450,12 @@ class MemoryBook:
         saved: list[dict[str, object]] = []
         ids: list[str] = []
         for op in ops[:5]:
-            result = self._one_op(actor, run, op)
+            try:
+                result = self._one_op(actor, run, op)
+            except EmbeddingUnconfiguredError, EmbeddingFailedError:
+                # Nothing is remembered from a turn until the tenant's embedding model
+                # answers. The turn itself is not failed for it.
+                result = "no_embedding"
             name = str(op.get("op") or "noop")
             EXTRACTION_OPS.labels(op=name, result=result).inc()
             if result == "applied":
@@ -557,7 +563,8 @@ class MemoryBook:
         self, actor: Actor, content: str, scope: str, agent_id: uuid.UUID | None
     ) -> dict[str, object] | None:
         key = normalise(content)
-        vector = _embed(content)
+        vectors = self._vectors(actor)
+        vector = vectors.for_write(content)
         best: dict[str, object] | None = None
         best_sim = 0.0
         for row in self._owned(actor):
@@ -567,7 +574,7 @@ class MemoryBook:
                 continue
             if normalise(str(row.get("content") or "")) == key:
                 return row
-            sim = similarity(content, str(row.get("content") or ""), vector, row.get("embedding"))
+            sim = similarity(content, str(row.get("content") or ""), vector, vectors.of(row))
             if sim >= dedupe_similarity() and sim > best_sim:
                 best = row
                 best_sim = sim
@@ -575,6 +582,7 @@ class MemoryBook:
 
     def _insert(self, actor: Actor, **fields: object) -> dict[str, object]:
         content = str(fields["content"])
+        vectors = self._vectors(actor)
         now = utcnow()
         row: dict[str, object] = {
             "id": new_id(),
@@ -582,8 +590,8 @@ class MemoryBook:
             "created_by": actor.user_id,
             "created_at": now,
             "updated_at": now,
-            "embedding": _embed(content),
-            "embedding_model_id": None,
+            "embedding": vectors.for_write(content),
+            "embedding_model_id": vectors.model_id(),
             "superseded_by_id": None,
             "expires_at": None,
             "last_recalled_at": None,
@@ -625,12 +633,13 @@ class MemoryBook:
             pool.remove(victim)
 
     def _rewrite(self, actor: Actor, row: dict[str, object], body: dict[str, object]) -> None:
-        del actor
         if "content" in body and body.get("content") is not None:
             content = _content(body.get("content"))
             self._guard(content, explicit=True)
+            vectors = self._vectors(actor)
+            row["embedding"] = vectors.for_write(content)
+            row["embedding_model_id"] = vectors.model_id()
             row["content"] = content
-            row["embedding"] = _embed(content)
         if body.get("category"):
             row["category"] = _category(body.get("category"))
         row["updated_at"] = utcnow()
@@ -746,6 +755,12 @@ class MemoryBook:
             detail=detail,
         )
 
+    def _vectors(self, actor: Actor) -> MemoryVectors:
+        found = self._embedders.get(actor.tenant_id)
+        if found is None:
+            found = self._embedders[actor.tenant_id] = MemoryVectors(self.store, actor.tenant_id)
+        return found
+
     def _rows(self) -> dict[uuid.UUID, dict[str, object]]:
         return cast("dict[uuid.UUID, dict[str, object]]", self.store.memory_facts)
 
@@ -805,8 +820,10 @@ def public_fact(store: Any, row: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _rank(query: str, rows: list[dict[str, object]], *, limit: int) -> list[dict[str, object]]:
-    vector = _embed(query) if query else []
+def _rank(
+    query: str, rows: list[dict[str, object]], vectors: MemoryVectors, *, limit: int
+) -> list[dict[str, object]]:
+    vector = vectors.for_read(query)
     now = utcnow()
     ranked: list[tuple[float, dict[str, object]]] = []
     standing: list[dict[str, object]] = []
@@ -814,7 +831,7 @@ def _rank(query: str, rows: list[dict[str, object]], *, limit: int) -> list[dict
     for row in rows:
         created = row.get("created_at")
         when = created if isinstance(created, datetime) else now
-        sim = similarity(query, str(row.get("content") or ""), vector, row.get("embedding"))
+        sim = similarity(query, str(row.get("content") or ""), vector, vectors.of(row))
         if sim < floor:
             if _is_standing(row):
                 standing.append(row)
@@ -923,12 +940,6 @@ def _is_standing(row: dict[str, object]) -> bool:
     )
 
 
-def _embed(text: str) -> list[float]:
-    if not text:
-        return embed_texts([" "], model="fake-embed", dimensions=dimensions())[0]
-    return embed_texts([text], model="fake-embed", dimensions=dimensions())[0]
-
-
 def _content(value: object) -> str:
     text = " ".join(str(value or "").split())
     if not text:
@@ -987,15 +998,17 @@ def _category_ok(row: dict[str, object], category: str | None) -> bool:
     return category is None or row.get("category") == category
 
 
-def _search(rows: list[dict[str, object]], query: str) -> list[dict[str, object]]:
+def _search(
+    rows: list[dict[str, object]], query: str, vectors: MemoryVectors
+) -> list[dict[str, object]]:
     text = query.strip()
     if not text:
         return rows
     if len(text.split()) >= 3:
-        vector = _embed(text)
+        vector = vectors.for_read(text)
         scored = [
             (
-                similarity(text, str(row.get("content") or ""), vector, row.get("embedding")),
+                similarity(text, str(row.get("content") or ""), vector, vectors.of(row)),
                 row,
             )
             for row in rows

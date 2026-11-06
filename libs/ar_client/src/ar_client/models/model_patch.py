@@ -27,6 +27,7 @@ class ModelPatch:
         price_input_micros_per_mtok (int | None | Unset):
         price_output_micros_per_mtok (int | None | Unset):
         request_options (ModelPatchRequestOptionsType0 | None | Unset):
+        embedding_dimensions (int | None | Unset):
     """
 
     name: None | str | Unset = UNSET
@@ -34,6 +35,7 @@ class ModelPatch:
     price_input_micros_per_mtok: int | None | Unset = UNSET
     price_output_micros_per_mtok: int | None | Unset = UNSET
     request_options: ModelPatchRequestOptionsType0 | None | Unset = UNSET
+    embedding_dimensions: int | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.model_patch_request_options_type_0 import ModelPatchRequestOptionsType0  # noqa: PLC0415
@@ -70,6 +72,12 @@ class ModelPatch:
         else:
             request_options = self.request_options
 
+        embedding_dimensions: int | None | Unset
+        if isinstance(self.embedding_dimensions, Unset):
+            embedding_dimensions = UNSET
+        else:
+            embedding_dimensions = self.embedding_dimensions
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update({})
@@ -83,6 +91,8 @@ class ModelPatch:
             field_dict["priceOutputMicrosPerMtok"] = price_output_micros_per_mtok
         if request_options is not UNSET:
             field_dict["requestOptions"] = request_options
+        if embedding_dimensions is not UNSET:
+            field_dict["embeddingDimensions"] = embedding_dimensions
 
         return field_dict
 
@@ -149,12 +159,22 @@ class ModelPatch:
 
         request_options = _parse_request_options(d.pop("requestOptions", UNSET))
 
+        def _parse_embedding_dimensions(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        embedding_dimensions = _parse_embedding_dimensions(d.pop("embeddingDimensions", UNSET))
+
         model_patch = cls(
             name=name,
             upstream_model=upstream_model,
             price_input_micros_per_mtok=price_input_micros_per_mtok,
             price_output_micros_per_mtok=price_output_micros_per_mtok,
             request_options=request_options,
+            embedding_dimensions=embedding_dimensions,
         )
 
         return model_patch

@@ -240,6 +240,7 @@ async def save_model(
                     price_output_micros_per_mtok=_price(row, "price_output_micros_per_mtok"),
                     request_options=request_options_of(row)
                     or default_request_options(str(row.get("upstream_model") or "")),
+                    embedding_dimensions=_whole(row.get("embedding_dimensions")),
                     licence="",
                     status="active",
                 )
@@ -250,6 +251,7 @@ async def save_model(
             existing.kind = str(row.get("kind") or existing.kind)
             existing.price_input_micros_per_mtok = _price(row, "price_input_micros_per_mtok")
             existing.price_output_micros_per_mtok = _price(row, "price_output_micros_per_mtok")
+            existing.embedding_dimensions = _whole(row.get("embedding_dimensions"))
             if row.get("request_options") is not None:
                 existing.request_options = request_options_of(row)
         await record(
@@ -421,6 +423,12 @@ async def read_api_key(engine: AsyncEngine, provider_id: uuid.UUID) -> str:
         return value.decode()
 
 
+def _whole(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
 def model_row_from(model: Any) -> dict[str, object]:
     """The cache row for one ``models`` record. Prices and request options ride along,
     or every refresh before a turn would silently zero the cost of that turn."""
@@ -435,20 +443,20 @@ def model_row_from(model: Any) -> dict[str, object]:
         "price_input_micros_per_mtok": int(model.price_input_micros_per_mtok or 0),
         "price_output_micros_per_mtok": int(model.price_output_micros_per_mtok or 0),
         "request_options": request_options_of(model),
+        "embedding_dimensions": model.embedding_dimensions,
         "status": model.status,
         "platform": model.tenant_id is None,
     }
 
 
-async def load_registry(
-    engine: AsyncEngine, store: Any, tenant_id: uuid.UUID, *, with_keys: bool = False
-) -> None:
+async def load_registry(engine: AsyncEngine, store: Any, tenant_id: uuid.UUID) -> None:
     """Make the store's providers, models and aliases equal the database rows of one tenant.
 
     The rows read are the tenant's own and those that belong to no tenant. Rows the
     database no longer holds leave the store, so a provider that one process deleted stops
-    being used by every other process. A key already read for a provider is kept while
-    the provider still points at the same stored key.
+    being used by every other process. Each provider's key is read once, and kept while
+    the provider still points at the same stored key: a turn, an embedding and a rerank
+    all call the provider from whichever process they run in.
     """
     owned = or_(ModelProvider.tenant_id == tenant_id, ModelProvider.tenant_id.is_(None))
     async with AsyncSession(engine, expire_on_commit=False) as session:
@@ -509,8 +517,6 @@ async def load_registry(
             for alias in aliases
         },
     )
-    if not with_keys:
-        return
     for provider_id, row in store.providers.items():
         if row.get("api_key") or row.get("api_key_ref_id") is None:
             continue

@@ -58,7 +58,10 @@ def drive_extraction(payload: dict[str, object], store: Any | None = None) -> di
 async def extract_memory(payload: dict[str, Any]) -> dict[str, Any]:
     """Extract and persist facts outside Temporal's deterministic workflow sandbox."""
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+    from ar_domain.models.embedding import refresh_registry  # noqa: PLC0415
 
+    if _STORE is not None:
+        await refresh_registry(_STORE)
     result = drive_extraction(payload, _STORE)
     if _STORE is not None:
         await flush_store(_STORE)

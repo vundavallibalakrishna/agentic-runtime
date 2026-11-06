@@ -34,7 +34,7 @@ class CollectionBody:
         embedding_alias (str | Unset):  Default: 'embed'.
         text_search_config (str | Unset):  Default: 'simple'.
         chunking (CollectionBodyChunkingType0 | None | Unset):
-        dims (int | Unset):  Default: 1024.
+        dims (int | None | Unset):
     """
 
     slug: str | Unset = ""
@@ -48,7 +48,7 @@ class CollectionBody:
     embedding_alias: str | Unset = "embed"
     text_search_config: str | Unset = "simple"
     chunking: CollectionBodyChunkingType0 | None | Unset = UNSET
-    dims: int | Unset = 1024
+    dims: int | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.collection_body_chunking_type_0 import CollectionBodyChunkingType0  # noqa: PLC0415
@@ -87,7 +87,11 @@ class CollectionBody:
         else:
             chunking = self.chunking
 
-        dims = self.dims
+        dims: int | None | Unset
+        if isinstance(self.dims, Unset):
+            dims = UNSET
+        else:
+            dims = self.dims
 
         field_dict: dict[str, Any] = {}
 
@@ -176,7 +180,14 @@ class CollectionBody:
 
         chunking = _parse_chunking(d.pop("chunking", UNSET))
 
-        dims = d.pop("dims", UNSET)
+        def _parse_dims(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        dims = _parse_dims(d.pop("dims", UNSET))
 
         collection_body = cls(
             slug=slug,

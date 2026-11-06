@@ -526,6 +526,7 @@ async def test_generate_streams_memory_and_fail_closed(monkeypatch: pytest.Monke
         return uuid.UUID(str(posted["run"]["id"]))
 
     with respx.mock:
+        respx.route(host="127.0.0.1").pass_through()  # the embedding stand-in
         respx.post("http://llm.test/v1/chat/completions").mock(
             return_value=httpx.Response(
                 200, json={"choices": [{"message": {"content": "Tea noted."}}]}
@@ -667,11 +668,13 @@ async def test_local_fallback_keeps_a_bullet_preference() -> None:
         return uuid.UUID(str(posted["run"]["id"]))
 
     with respx.mock:
+        respx.route(host="127.0.0.1").pass_through()  # the embedding stand-in
         respx.post("http://llm.test/v1/chat/completions").mock(return_value=httpx.Response(500))
         failed = post("Draft a short status update")
         await store.generate(failed, "Draft a short status update", [])
     assert "I kept this in bullet points" in str(store.runs[failed]["result_summary"])
     with respx.mock:
+        respx.route(host="127.0.0.1").pass_through()  # the embedding stand-in
         respx.post("http://llm.test/v1/chat/completions").mock(
             return_value=httpx.Response(200, json={"choices": []})
         )

@@ -44,6 +44,9 @@ class ModelPatch(ApiModel):
     price_input_micros_per_mtok: int | None = Field(default=None, ge=0)
     price_output_micros_per_mtok: int | None = Field(default=None, ge=0)
     request_options: dict[str, object] | None = None
+    # The vector length an embedding model is asked for. Null puts it back to the
+    # model's own length.
+    embedding_dimensions: int | None = Field(default=None, gt=0)
 
 
 class ModelBody(ApiModel):
@@ -54,6 +57,7 @@ class ModelBody(ApiModel):
     price_input_micros_per_mtok: int = Field(default=0, ge=0)
     price_output_micros_per_mtok: int = Field(default=0, ge=0)
     request_options: dict[str, object] | None = None
+    embedding_dimensions: int | None = Field(default=None, gt=0)
 
 
 class AliasBody(ApiModel):
@@ -320,6 +324,7 @@ async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
         price_input_micros_per_mtok=body.price_input_micros_per_mtok,
         price_output_micros_per_mtok=body.price_output_micros_per_mtok,
         request_options=body.request_options,
+        embedding_dimensions=body.embedding_dimensions,
     )
     await _persist_model(service, created, principal)
     return created
@@ -342,6 +347,10 @@ async def patch_model(model_id: uuid.UUID, body: ModelPatch, request: Request) -
         price_input_micros_per_mtok=body.price_input_micros_per_mtok,
         price_output_micros_per_mtok=body.price_output_micros_per_mtok,
         request_options=body.request_options,
+        embedding_dimensions=body.embedding_dimensions,
+        clear_embedding_dimensions=(
+            "embedding_dimensions" in body.model_fields_set and body.embedding_dimensions is None
+        ),
     )
     await _persist_model(service, updated, principal)
     return updated

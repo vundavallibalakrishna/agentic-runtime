@@ -82,7 +82,8 @@ class EmbeddingRequest(BaseModel):
 
     model: str
     input: str | list[str]
-    dimensions: int = 32
+    # The length of this server's vectors when the caller does not ask for one.
+    dimensions: int = 1024
 
 
 class RerankRequest(BaseModel):

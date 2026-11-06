@@ -44,6 +44,8 @@ The script set can also come from the URL path: `http://host:port/s/<set>/v1` an
 
 `ar_testing.stand_in` is the way a test uses it. The session fixture `stand_in` starts the server on a free loopback port. `stand_in.script(set, scripts)` loads a script set and `stand_in.connect(store, tenant_id, script_set=...)` registers a provider, a model and the `reasoning` and `fast` aliases through the store's own calls. The turn then runs the real agent loop and tools. A test does not replace the model call in product code and does not rely on an answer written without a model ([M38a](../09-plan/M38a-one-model-path.md), [OQ-94](../open-questions.md)).
 
+Embeddings follow the same rule. Product code has no vector of its own: knowledge and memory call the model the `embed` alias names. `ar_testing.demo.demo_store()` and `serve_demo_tenant()` register the stand-in's embedding and rerank models (`StandIn.connect_embeddings`) on one server shared by the process (`ar_testing.stand_in.shared()`), and a test against a real database saves them with `save_embeddings`, as the Models screen would. The stand-in's vectors are stable for a text and carry no meaning, so a test that needs a passage found relies on shared words or on the stand-in rerank model. A test that mocks HTTP with `respx` lets loopback through (`respx.route(host="127.0.0.1").pass_through()`), and a test that replaces `asyncio.sleep` wraps the replacement in `ar_testing.sleeping.in_this_thread`, because the stand-in serves from another thread of the same process ([M38b-T07b](../09-plan/M38b-real-tenant.md)).
+
 Script format (also used in YAML scenario files `services/fake_llm/scenarios/*.yaml`, loaded at startup, each file = one script set named after the file):
 
 ```yaml

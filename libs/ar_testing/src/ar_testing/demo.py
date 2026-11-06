@@ -23,7 +23,21 @@ def demo_store(**options: Any) -> Any:
     options.setdefault("allow_loopback", True)
     store = ChatService(**options)
     store.seed_demo_tenant()
+    connect_embeddings(store)
     return store
+
+
+def connect_embeddings(store: Any) -> None:
+    """Give a store an embedding and a rerank model: the stand-in, reached over HTTP.
+
+    A product store has neither until an administrator registers one, and knowledge and
+    memory refuse to work without an embedding model.
+    """
+    from ar_testing.stand_in import shared  # noqa: PLC0415
+
+    # The stand-in listens on loopback, which a product store refuses by default.
+    store.allow_loopback = True
+    shared().connect_embeddings(store)
 
 
 def serve_demo_tenant(app: Any) -> Any:
@@ -37,6 +51,7 @@ def serve_demo_tenant(app: Any) -> Any:
 
     store = app.state.chat
     store.seed_demo_tenant()
+    connect_embeddings(store)
     store.seed_showcase()
     store.tenant_binding = TenantBinding(
         tenant_id=DEV_TENANT_ID,

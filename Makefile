@@ -130,7 +130,7 @@ eval:
 	uv run python -m ar_system.evals.cli run evals/golden evals/redteam
 
 eval-gym:
-	uv run python -m ar_domain.evals.gym
+	uv run python scripts/m33c_eval_gym.py
 
 live-pack:
 	uv run python -m ar_domain.connectors.live_pack

@@ -12,6 +12,7 @@ import pytest
 from ar_common.settings import EnvName
 from ar_domain.durable.bind import TenantBinding
 from ar_runtime import worker
+from ar_testing.sleeping import in_this_thread
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
@@ -69,7 +70,7 @@ async def test_a_worker_without_a_database_waits_and_gets_no_demo_tenant(
         del seconds
 
     monkeypatch.setattr("ar_domain.durable.bind.bind_store", bind)
-    monkeypatch.setattr("ar_domain.durable.bind.asyncio.sleep", no_pause)
+    monkeypatch.setattr("ar_domain.durable.bind.asyncio.sleep", in_this_thread(no_pause))
 
     await worker._prepare_store()
 

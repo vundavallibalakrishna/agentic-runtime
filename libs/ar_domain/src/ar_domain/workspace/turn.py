@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.agents.access import Actor
 from ar_domain.identity.permissions import PERMISSION_KEYS
-from ar_domain.knowledge.live_embed import EmbeddingUnconfiguredError
+from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
 from ar_domain.skills.match import match_skill
 
 if TYPE_CHECKING:
@@ -121,7 +121,7 @@ async def _retrieve(
     actor = Actor(tenant, user, PERMISSION_KEYS)
     try:
         return await retrieve(store, actor, ids, user_text)
-    except EmbeddingUnconfiguredError as exc:
+    except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         return {
             "hits": [],
             "trace": {

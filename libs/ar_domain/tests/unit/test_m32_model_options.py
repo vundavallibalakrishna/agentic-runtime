@@ -127,6 +127,7 @@ def test_catalogue_refresh_keeps_prices_and_options() -> None:
         price_input_micros_per_mtok=100_000,
         price_output_micros_per_mtok=300_000,
         request_options={"chat_template_kwargs": {"enable_thinking": False}},
+        embedding_dimensions=None,
         status="active",
     )
     row = model_row_from(record)

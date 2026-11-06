@@ -7,8 +7,9 @@ from typing import Any  # noqa: TC003
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
-from ar_domain.knowledge.pipeline import ingest_document_async
+from ar_domain.knowledge.pipeline import embedding_error, ingest_document_async, needs_admin
 from ar_domain.knowledge.syncing import acl_sync, delete_document, reindex, sync_source
+from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
 
 _STORE: Any = None
 _NON_RETRYABLE = frozenset({"unsupported_format", "too_large", "access_denied"})
@@ -36,9 +37,17 @@ async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
     await reload_document(store, document_id)
     raw = bytes(store.knowledge_blobs.get(document_id, b""))
-    status = await ingest_document_async(store, document_id, raw)
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
+    try:
+        status = await ingest_document_async(store, document_id, raw)
+    except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
+        # The document row carries the reason. Trying again helps only when the model
+        # is set and did not answer; a missing model waits for an administrator.
+        await flush_store(store)
+        raise ApplicationError(
+            exc.code.value, type=exc.code.value, non_retryable=needs_admin(embedding_error(exc))
+        ) from exc
     await flush_store(store)
     document = store.knowledge_documents.get(document_id, {})
     error = str(document.get("error") or "")

@@ -1523,9 +1523,15 @@
             "title": "Chunking"
           },
           "dims": {
-            "type": "integer",
-            "title": "Dims",
-            "default": 1024
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dims"
           }
         },
         "additionalProperties": false,
@@ -4023,6 +4029,18 @@
               }
             ],
             "title": "Requestoptions"
+          },
+          "embeddingDimensions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embeddingdimensions"
           }
         },
         "additionalProperties": false,
@@ -4093,6 +4111,18 @@
               }
             ],
             "title": "Requestoptions"
+          },
+          "embeddingDimensions": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embeddingdimensions"
           }
         },
         "additionalProperties": false,

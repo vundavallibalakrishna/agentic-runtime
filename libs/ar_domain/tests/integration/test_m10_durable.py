@@ -16,6 +16,7 @@ from ar_domain.durable.flush import flush_store
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.seed import apply
 from ar_domain.knowledge.book import KnowledgeBook
+from ar_testing.stand_in import shared
 
 pytestmark = pytest.mark.integration
 
@@ -68,6 +69,8 @@ async def test_bind_flushes_chat_knowledge_memory_and_skills(database_url: str) 
     _seed_agents(store, binding)
     admin_id = binding.users["admin@dev.local"]
     actor = Actor(binding.tenant_id, admin_id, PERMISSION_KEYS, roles=frozenset({"tenant_admin"}))
+    # A collection needs an embedding model, registered and saved as an administrator does.
+    model_id = await shared().save_embeddings(store, binding.tenant_id)
     created = KnowledgeBook(store).create_collection(
         actor, {"slug": "handbook", "name": "Handbook"}
     )
@@ -102,7 +105,11 @@ async def test_bind_flushes_chat_knowledge_memory_and_skills(database_url: str) 
             {"tenant": binding.tenant_id},
         )
         collections = await connection.scalar(
-            text("SELECT count(*) FROM knowledge_collections WHERE slug = 'handbook'"),
+            text(
+                "SELECT count(*) FROM knowledge_collections "
+                "WHERE slug = 'handbook' AND embedding_model_id = :model"
+            ),
+            {"model": model_id},
         )
         facts = await connection.scalar(
             text("SELECT count(*) FROM memory_facts WHERE id = :id"),

@@ -595,7 +595,7 @@ export type CollectionBody = {
     /**
      * Dims
      */
-    dims?: number;
+    dims?: number | null;
 };
 
 /**
@@ -2036,6 +2036,10 @@ export type ModelBody = {
     requestOptions?: {
         [key: string]: unknown;
     } | null;
+    /**
+     * Embeddingdimensions
+     */
+    embeddingDimensions?: number | null;
 };
 
 /**
@@ -2064,6 +2068,10 @@ export type ModelPatch = {
     requestOptions?: {
         [key: string]: unknown;
     } | null;
+    /**
+     * Embeddingdimensions
+     */
+    embeddingDimensions?: number | null;
 };
 
 /**

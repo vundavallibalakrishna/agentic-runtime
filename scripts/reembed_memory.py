@@ -1,29 +1,42 @@
-"""Re-embed memory facts after the embed alias changes. Spec: docs/03-specs/11-memory.md §6."""
+"""Re-embed a tenant's memory facts after its embedding model changes.
+
+Facts written by an earlier model are matched by words until this runs.
+Spec: docs/03-specs/11-memory.md §6.
+
+    uv run python scripts/reembed_memory.py --tenant acme
+"""
 
 import argparse
-import os
+import asyncio
 
-from ar_domain.knowledge.embedder import embed_texts
-from ar_domain.memory.logic import dimensions
+from ar_domain.chat.service import ChatService
+from ar_domain.db.engine import app_database_url
+from ar_domain.durable.bind import bind_store
+from ar_domain.durable.flush import flush_store
+from ar_domain.memory.vectors import reembed
 
 
-def reembed(contents: list[str], *, model: str) -> list[list[float]]:
-    """Return one vector per fact. The caller writes ``embedding_model_id``."""
-    if not contents:
-        return []
-    return embed_texts(contents, model=model, dimensions=dimensions())
+async def run(tenant_slug: str) -> int:
+    """Load the tenant from the database, embed its stale facts and save them."""
+    store = ChatService(fake_models_allowed=False)
+    binding = await bind_store(store, app_database_url(), tenant_slug=tenant_slug)
+    if binding is None:
+        raise SystemExit("The database did not answer.")
+    try:
+        count = reembed(store, binding.tenant_id)
+        await flush_store(store)
+    finally:
+        if store.durable_engine is not None:
+            await store.durable_engine.dispose()
+    return count
 
 
 def main() -> None:
-    """``--tenant`` selects the tenant. Without a database the dev store is process-local."""
     parser = argparse.ArgumentParser(description="Re-embed memory facts for one tenant")
-    parser.add_argument("--tenant", required=True)
-    parser.add_argument("--model", default="embed")
+    parser.add_argument("--tenant", required=True, help="the tenant's slug")
     args = parser.parse_args()
-    if not os.environ.get("AR_DATABASE_URL", "").strip():
-        print(f"tenant {args.tenant}: process store, nothing to re-embed")
-        return
-    print(f"tenant {args.tenant}: database re-embed uses model {args.model}")
+    count = asyncio.run(run(args.tenant))
+    print(f"tenant {args.tenant}: {count} facts embedded again")
 
 
 if __name__ == "__main__":

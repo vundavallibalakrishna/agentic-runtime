@@ -18,7 +18,7 @@ make eval-gym
 Set both the flag and the existing cert key. The key is not printed and is not written into the scorecard.
 
 ```bash
-AR_EVAL_GYM_LIVE=1 AR_CERT_LLM_API_KEY=... uv run python -m ar_domain.evals.gym
+AR_EVAL_GYM_LIVE=1 AR_CERT_LLM_API_KEY=... uv run python scripts/m33c_eval_gym.py
 ```
 
 Optional overrides:

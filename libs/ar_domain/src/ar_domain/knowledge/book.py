@@ -15,11 +15,12 @@ from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.knowledge.access import can_manage, can_read_document, can_see
 from ar_domain.knowledge.acl import collection_acl
+from ar_domain.knowledge.embedding import choose_model, collection_dims
 from ar_domain.knowledge.fetchers import check
 from ar_domain.knowledge.pipeline import ingest_or_enqueue
 from ar_domain.knowledge.searching import search as run_search
 from ar_domain.knowledge.store import memory_index
-from ar_domain.knowledge.store_types import SUPPORTED_DIMS, PhysicalCollectionSpec
+from ar_domain.knowledge.store_types import SUPPORTED_DIMS, DeleteFilter, PhysicalCollectionSpec
 from ar_domain.knowledge.syncing import (
     acl_sync,
     delete_document,
@@ -29,6 +30,7 @@ from ar_domain.knowledge.syncing import (
     sync_source,
 )
 from ar_domain.knowledge.syncutil import run_sync
+from ar_domain.models.embedding import EMBED_ALIAS
 
 if TYPE_CHECKING:
     from ar_domain.agents.access import Actor
@@ -96,24 +98,13 @@ class KnowledgeBook:
         classification = str(body.get("classification") or "internal")
         if classification not in _CLASS:
             raise ValidationFailedError("classification is invalid")
-        dims = int(body.get("dims") or 1024)  # type: ignore[call-overload]
-        if dims not in SUPPORTED_DIMS:
-            raise ArError(ErrorCode.VALIDATION_FAILED, "unsupported_embedding_dims")
         chunking = _chunking(body.get("chunking"))
-        from ar_domain.knowledge.live_embed import (  # noqa: PLC0415
-            FAKE_EMBEDDINGS,
-            resolve_embedding,
-        )
-
-        alias = str(body.get("embedding_alias") or "")
-        resolved = None
-        if "embedding_alias" not in body or alias not in FAKE_EMBEDDINGS:
-            resolved = resolve_embedding(self.store, actor.tenant_id)
-        if resolved is not None and alias not in FAKE_EMBEDDINGS:
-            if "dims" not in body:
-                dims = resolved.dims
-            chunking["embedding_model"] = resolved.model
-            chunking["dims"] = dims
+        # The model is chosen, and asked for a vector, before anything is created.
+        model = _embedding_fields(self.store, actor.tenant_id, body)
+        dims = int(model["dims"])  # type: ignore[call-overload]
+        if dims not in SUPPORTED_DIMS:
+            raise _too_wide(dims)
+        chunking.update(_sizes(model))
         collection_id = new_id()
         backend = os.environ.get("AR_VECTOR_BACKEND", "pgvector").strip() or "pgvector"
         if backend not in {"pgvector", "qdrant"}:
@@ -123,7 +114,7 @@ class KnowledgeBook:
                 PhysicalCollectionSpec(
                     tenant_id=actor.tenant_id,
                     collection_id=collection_id,
-                    model_key=str(body.get("embedding_alias") or "embed"),
+                    model_key=str(model["embedding_alias"]),
                     dims=dims,
                 )
             )
@@ -140,8 +131,9 @@ class KnowledgeBook:
             "acl_mode": str(body.get("acl_mode") or "source"),
             "sensitivity": str(body.get("sensitivity") or "normal"),
             "classification": classification,
-            "embedding_alias": str(chunking.get("embedding_model") or alias or "embed"),
-            "embedding_model": str(chunking.get("embedding_model") or "fake-embed"),
+            "embedding_alias": model["embedding_alias"],
+            "embedding_model": model["embedding_model"],
+            "embedding_model_id": model["embedding_model_id"],
             "dims": dims,
             "index_version": 1,
             "store_backend": backend,
@@ -219,28 +211,61 @@ class KnowledgeBook:
         self, actor: Actor, collection_id: uuid.UUID, body: dict[str, object]
     ) -> dict[str, object]:
         row = self._managed(actor, collection_id)
+        previous_store = str(row.get("store_collection") or "")
         if body.get("embedding_alias"):
-            alias = str(body["embedding_alias"])
-            row["embedding_alias"] = alias
-            from ar_domain.knowledge.live_embed import FAKE_EMBEDDINGS  # noqa: PLC0415
-
-            raw_chunking = row.get("chunking")
-            chunking = dict(raw_chunking) if isinstance(raw_chunking, dict) else {}
-            if alias in FAKE_EMBEDDINGS:
-                row["embedding_model"] = "fake-embed"
-                chunking.pop("embedding_model", None)
-            else:
-                row["embedding_model"] = alias
-                chunking["embedding_model"] = alias
-            row["chunking"] = chunking
+            self._change_model(actor, row, str(body["embedding_alias"]))
         if isinstance(body.get("chunking"), dict):
-            row["chunking"] = _chunking(body["chunking"])
+            row["chunking"] = {**_chunking(body["chunking"]), **_sizes(row.get("chunking"))}
         if body.get("text_search_config") in {"simple", "english"}:
             row["text_search_config"] = body["text_search_config"]
         if body.get("target_backend") in {"pgvector", "qdrant"}:
             row["pending_backend"] = body["target_backend"]
         job = reindex(self.store, row, actor_id=actor.user_id)
+        self._drop_old_vectors(row, previous_store)
         return {"job_id": str(job["id"])}
+
+    def _change_model(self, actor: Actor, row: dict[str, object], alias: str) -> None:
+        """Point a collection at the model ``alias`` names now, before it is re-indexed."""
+        model = choose_model(self.store, actor.tenant_id, alias)
+        dims = int(model["dims"])  # type: ignore[call-overload]
+        if dims not in SUPPORTED_DIMS:
+            raise _too_wide(dims)
+        if dims != collection_dims(row):
+            # Vectors of another length live in another physical collection.
+            row["store_collection"] = run_sync(
+                memory_index(self.store).ensure_collection(
+                    PhysicalCollectionSpec(
+                        tenant_id=actor.tenant_id,
+                        collection_id=uuid.UUID(str(row["id"])),
+                        model_key=alias,
+                        dims=dims,
+                    )
+                )
+            )
+        row.update(model)
+        raw = row.get("chunking")
+        chunking = dict(raw) if isinstance(raw, dict) else {}
+        chunking.pop("request_dims", None)
+        chunking.pop("embedding_model", None)
+        row["chunking"] = {**chunking, **_sizes(model)}
+
+    def _drop_old_vectors(self, row: dict[str, object], previous_store: str) -> None:
+        """After a re-index into another physical collection, empty the one it left."""
+        if not previous_store or previous_store == str(row.get("store_collection") or ""):
+            return
+        index = memory_index(self.store)
+        for document in self.store.knowledge_documents.values():
+            if document.get("collection_id") != row["id"]:
+                continue
+            run_sync(
+                index.delete(
+                    previous_store,
+                    DeleteFilter(
+                        tenant_id=uuid.UUID(str(document["tenant_id"])),
+                        document_id=uuid.UUID(str(document["id"])),
+                    ),
+                )
+            )
 
     def list_sources(self, actor: Actor, collection_id: uuid.UUID) -> list[dict[str, object]]:
         self._visible(actor, collection_id)
@@ -718,7 +743,8 @@ class KnowledgeBook:
             "sensitivity": row.get("sensitivity"),
             "classification": row.get("classification"),
             "embedding_alias": row.get("embedding_alias"),
-            "embedding_model": row.get("embedding_model") or "fake-embed",
+            "embedding_model": row.get("embedding_model"),
+            "dims": collection_dims(row),
             "index_version": row.get("index_version"),
             "store_backend": row.get("store_backend"),
             "owner_team": None
@@ -793,6 +819,33 @@ class KnowledgeBook:
     def _require_manage(self, actor: Actor) -> None:
         if "knowledge:manage" not in actor.permissions:
             raise ArError(ErrorCode.FORBIDDEN, "knowledge:manage is required")
+
+
+def _embedding_fields(
+    store: Any, tenant_id: uuid.UUID, body: dict[str, object]
+) -> dict[str, object]:
+    raw = body.get("dims")
+    asked = raw if isinstance(raw, int) and not isinstance(raw, bool) else None
+    if asked is not None and asked not in SUPPORTED_DIMS:
+        raise _too_wide(asked)
+    alias = str(body.get("embedding_alias") or EMBED_ALIAS)
+    return choose_model(store, tenant_id, alias, dimensions=asked)
+
+
+def _sizes(source: object) -> dict[str, object]:
+    """The vector length a collection keeps in ``chunking``, the column that holds it."""
+    if not isinstance(source, dict):
+        return {}
+    return {key: source[key] for key in ("dims", "request_dims") if source.get(key) is not None}
+
+
+def _too_wide(dims: int) -> ArError:
+    sizes = ", ".join(str(item) for item in sorted(SUPPORTED_DIMS))
+    return ArError(
+        ErrorCode.VALIDATION_FAILED,
+        f"unsupported_embedding_dims: the embedding model returns vectors of {dims} numbers "
+        f"and a collection holds vectors of {sizes}",
+    )
 
 
 def _chunking(value: object) -> dict[str, object]:

@@ -4,7 +4,6 @@ import os
 import time
 from typing import TYPE_CHECKING
 
-from ar_domain.knowledge.embedder import embed_texts, rerank
 from ar_domain.knowledge.store import rrf_fuse
 from ar_domain.knowledge.store_types import HybridQuery, ScoredChunk, SearchTarget
 
@@ -12,6 +11,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ar_domain.knowledge.store import RetrievalStore
+    from ar_domain.models.embedding import ModelTarget
 
 MIN_SCORE = 0.2
 
@@ -62,26 +62,28 @@ def apply_rerank(
     *,
     top_k: int,
     min_score: float = MIN_SCORE,
-    store: object | None = None,
-    tenant_id: object | None = None,
-    model: str = "fake-rerank",
-) -> tuple[list[dict[str, object]], float, str | None]:
-    """Rerank the top candidates. A gateway failure keeps RRF order and warns."""
+    target: ModelTarget | None = None,
+) -> tuple[list[dict[str, object]], float, str | None, bool]:
+    """Score the top candidates against the question with the tenant's rerank model.
+
+    Returns the hits to keep, the time taken, a warning, and whether the hits were scored.
+    A rerank model gives each passage a score from 0 to 1, and passages under
+    ``min_score`` are dropped. Without one, or when it fails, nothing here can say how
+    well a passage answers the question: the closest passages are returned in the order
+    the search found them, and the model that reads them judges them.
+    """
     limit = int(os.environ.get("AR_KNOWLEDGE_RERANK_CANDIDATES", "50"))
     window = hits[:limit]
+    if target is None:
+        return window[:top_k], 0.0, None, False
+    from ar_domain.models.embedding import rerank  # noqa: PLC0415
+
     started = time.perf_counter()
     documents = [str(hit.get("rerank_text") or hit.get("snippet") or "") for hit in window]
-    warning: str | None = None
     try:
-        from ar_domain.knowledge.live_embed import is_fake_embedding, rerank_live  # noqa: PLC0415
-
-        if store is not None and not is_fake_embedding(model):
-            scores = rerank_live(store, tenant_id, query, documents, model=model)
-        else:
-            scores = rerank(query, documents)
-    except Exception:  # noqa: BLE001 - rerank is optional; RRF order still answers
-        warning = "rerank_unavailable"
-        scores = [float(hit.get("score") or 0.0) for hit in window]  # type: ignore[arg-type]
+        scores = rerank(target, query, documents)
+    except Exception:  # noqa: BLE001 - rerank is optional; the search order still answers
+        return window[:top_k], (time.perf_counter() - started) * 1000, "rerank_unavailable", False
     elapsed = (time.perf_counter() - started) * 1000
     ranked: list[dict[str, object]] = []
     for hit, score in zip(window, scores, strict=False):
@@ -90,9 +92,7 @@ def apply_rerank(
         ranked.append(copied)
     ranked.sort(key=lambda item: (-float(item["rerank_score"]), str(item.get("chunk_id"))))  # type: ignore[arg-type]
     kept = [hit for hit in ranked if float(hit["rerank_score"]) >= min_score][:top_k]  # type: ignore[arg-type]
-    if warning and not kept:
-        kept = ranked[:top_k]
-    return kept, elapsed, warning
+    return kept, elapsed, None, True
 
 
 def _number(value: object) -> float:
@@ -102,11 +102,5 @@ def _number(value: object) -> float:
 
 
 def answerable(hits: list[dict[str, object]], *, min_score: float = MIN_SCORE) -> bool:
-    return any(_number(hit.get("rerank_score") or hit.get("score")) >= min_score for hit in hits)
-
-
-def embed_query(text: str, *, model: str = "fake-embed", dimensions: int = 1024) -> list[float]:
-    vectors = embed_texts([text], model=model, dimensions=dimensions)
-    if not vectors:
-        return embed_texts([text], model="fake-embed", dimensions=dimensions)[0]
-    return vectors[0]
+    """True when a rerank model scored at least one passage at or above ``min_score``."""
+    return any(_number(hit.get("rerank_score")) >= min_score for hit in hits)

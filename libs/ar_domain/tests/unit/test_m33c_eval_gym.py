@@ -12,7 +12,7 @@ from ar_domain.evals.gym.policy import choose
 from ar_domain.evals.gym.runner import run_suite
 from ar_domain.evals.gym.score import ObservedCall, Report, render_scorecard, score_observation
 from ar_domain.evals.gym.tasks import ArgRule, Expectation, Task, load_tasks, tasks_path
-from ar_testing.demo import demo_store
+from ar_testing.demo import connect_embeddings, demo_store
 
 _REQUIRED = (
     "general.code",
@@ -159,7 +159,7 @@ def test_live_install_keeps_the_key_on_the_provider_row() -> None:
 
 
 def test_dry_run_gym_passes_and_matches_the_committed_scorecard() -> None:
-    report = run_suite(live=False)
+    report = run_suite(live=False, prepare=connect_embeddings)
     assert report.mode == "dry-run"
     assert report.percent == 100
     assert report.passed_count == report.total

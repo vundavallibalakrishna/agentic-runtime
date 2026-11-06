@@ -237,4 +237,4 @@ async def load_model_catalog(session: AsyncSession, store: object, tenant_id: uu
         return
     from ar_domain.models.registry import load_registry  # noqa: PLC0415
 
-    await load_registry(engine, store, tenant_id, with_keys=True)
+    await load_registry(engine, store, tenant_id)

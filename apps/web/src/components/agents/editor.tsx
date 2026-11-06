@@ -127,9 +127,19 @@ export function AgentEditor() {
         ),
       )
       .catch(() => setCatalogue([]));
-    void api<{ items?: { alias?: string }[] }>("/api/v1/model-aliases")
+    void api<{ items?: { alias?: string; kind?: string }[] }>("/api/v1/model-aliases")
       .then((page) =>
-        setAliases((page.items ?? []).map((row) => String(row.alias ?? "")).filter(Boolean)),
+        setAliases(
+          Array.from(
+            new Set(
+              (page.items ?? [])
+                // An agent answers with a chat model; embedding and rerank aliases are not offered.
+                .filter((row) => (row.kind ?? "chat") === "chat")
+                .map((row) => String(row.alias ?? ""))
+                .filter(Boolean),
+            ),
+          ),
+        ),
       )
       .catch(() => setAliases([]));
   }, []);

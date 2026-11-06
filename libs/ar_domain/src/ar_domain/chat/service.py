@@ -99,6 +99,19 @@ def _parent_text(row: dict[str, object]) -> str | None:
     return str(parent)
 
 
+def _vector_length(kind: str, value: int | None) -> int | None:
+    """The vector length an embedding model is asked for. Unset means its own length."""
+    if value is None:
+        return None
+    if kind != "embedding":
+        raise ArError(
+            ErrorCode.VALIDATION_FAILED, "Only a model of kind embedding has embedding dimensions."
+        )
+    if isinstance(value, bool) or value <= 0:
+        raise ArError(ErrorCode.VALIDATION_FAILED, "Embedding dimensions must be above zero.")
+    return int(value)
+
+
 def _preview(mime_type: str, data: bytes) -> dict[str, object]:
     if mime_type in {"text/csv", "application/csv"}:
         return {"kind": "csv", "rows": csv_rows(data)}
@@ -278,32 +291,22 @@ class ChatService:
         self.seed_demo_tenant()
 
     def _seed_scripted_provider(self) -> None:
-        """The demo's provider: a scripted model server, and the aliases that point at it."""
+        """The demo's chat provider: a scripted model server and the chat aliases.
+
+        An embedding model is not part of it. A test registers one the way a person
+        does, as a model of kind embedding on a provider that answers.
+        """
         if demo_id("provider") in self.providers:
             return
         provider_id = demo_id("provider")
         chat_model = demo_id("model-chat")
-        embed_model = demo_id("model-embed")
-        rerank_model = demo_id("model-rerank")
         self.providers[provider_id] = self._provider(
             provider_id, None, "fake-llm", "fake", self.fake_llm_url
         )
         self.models[chat_model] = self._model(chat_model, None, provider_id, "fake-chat", "chat")
-        self.models[embed_model] = self._model(
-            embed_model, None, provider_id, "fake-embed", "embedding"
-        )
-        self.models[rerank_model] = self._model(
-            rerank_model, None, provider_id, "fake-rerank", "rerank"
-        )
-        for alias, model_id, kind in (
-            ("reasoning", chat_model, "chat"),
-            ("fast", chat_model, "chat"),
-            ("vision", chat_model, "chat"),
-            ("embed", embed_model, "embedding"),
-            ("rerank", rerank_model, "rerank"),
-        ):
+        for alias in ("reasoning", "fast", "vision"):
             alias_id = demo_id(f"alias-{alias}")
-            self.aliases[alias_id] = self._alias(alias_id, None, alias, kind, model_id)
+            self.aliases[alias_id] = self._alias(alias_id, None, alias, "chat", chat_model)
 
     def seed_demo_tenant(self) -> None:
         """A demo tenant with fixed ids, for a store that has no database behind it.
@@ -768,7 +771,89 @@ class ChatService:
     ) -> dict[str, object]:
         row = self._require(self.providers, provider_id, tenant_id)
         key = await self._provider_key(row)
-        return await self._probe_live(str(row["base_url"]), self._sample_upstream(provider_id), key)
+        models = [item for item in self.models.values() if item.get("provider_id") == provider_id]
+        chat = next((item for item in models if item.get("kind") == "chat"), None)
+        if chat is None and models:
+            # A provider that only serves embeddings or reranking is tested with one of those.
+            return await self._probe_vectors(tenant_id, models[0])
+        if chat is None:
+            return await self._probe_listing(str(row["base_url"]), key)
+        return await self._probe_live(str(row["base_url"]), str(chat.get("upstream_model")), key)
+
+    async def _probe_listing(self, base_url: str, api_key: str) -> dict[str, object]:
+        """Test a provider that has no model yet: ask it which models it serves.
+
+        No model name is made up to call it with. A provider that answers and accepts the
+        key passes; registering a model and testing that is the next step.
+        """
+        started = time.perf_counter()
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        ok = False
+        output = "provider test failed"
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(base_url.rstrip("/") + "/models", headers=headers)
+            if response.status_code < 300:
+                body = response.json()
+                listed = body.get("data") if isinstance(body, dict) else None
+                count = len(listed) if isinstance(listed, list) else 0
+                ok = True
+                output = f"The provider answered and lists {count} models. Add one to use it."
+            else:
+                output = f"provider test failed ({response.status_code})"
+        except httpx.HTTPError, ValueError:
+            output = "provider test failed"
+        latency = int((time.perf_counter() - started) * 1000)
+        return {
+            "ok": ok,
+            "output": output,
+            "model_id": "",
+            "latency_ms": latency,
+            "ttft_ms": latency,
+            "usage": {"tokens_in": 0, "tokens_out": 0},
+        }
+
+    async def _probe_vectors(
+        self, tenant_id: uuid.UUID, model: dict[str, object]
+    ) -> dict[str, object]:
+        """Ask an embedding or rerank model for one answer and report what it did."""
+        from ar_domain.models.embedding import (  # noqa: PLC0415
+            embed,
+            registered_model,
+            rerank,
+        )
+
+        provider = self.providers.get(uuid.UUID(str(model["provider_id"])))
+        if isinstance(provider, dict) and not provider.get("api_key"):
+            key = await self._provider_key(provider)
+            if key:
+                provider["api_key"] = key
+        target = registered_model(self, tenant_id, model.get("id"))
+        name = str(model.get("upstream_model") or "")
+        started = time.perf_counter()
+        ok = False
+        if target is None:
+            output = "This model or its provider is disabled."
+        else:
+            try:
+                if model.get("kind") == "rerank":
+                    scores = await asyncio.to_thread(rerank, target, "test", ["test", "other"])
+                    output = f"Returned {len(scores)} scores."
+                else:
+                    vectors = await asyncio.to_thread(embed, target, ["test"])
+                    output = f"Returned a vector of {len(vectors[0])} numbers."
+                ok = True
+            except ArError as exc:
+                output = exc.detail
+        latency = int((time.perf_counter() - started) * 1000)
+        return {
+            "ok": ok,
+            "output": output,
+            "model_id": name,
+            "latency_ms": latency,
+            "ttft_ms": latency,
+            "usage": {"tokens_in": 1, "tokens_out": 0},
+        }
 
     async def _provider_key(self, provider: dict[str, object]) -> str:
         """The provider's API key, read from the database when this process has not loaded it."""
@@ -795,11 +880,13 @@ class ChatService:
         price_input_micros_per_mtok: int = 0,
         price_output_micros_per_mtok: int = 0,
         request_options: dict[str, object] | None = None,
+        embedding_dimensions: int | None = None,
     ) -> dict[str, object]:
         self._registry_row(self.providers, provider_id, tenant_id)
         model_id = new_id()
         row = self._model(model_id, None if platform else tenant_id, provider_id, name, kind)
         row["upstream_model"] = upstream_model
+        row["embedding_dimensions"] = _vector_length(kind, embedding_dimensions)
         row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
         row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
         from ar_domain.models.options import (  # noqa: PLC0415
@@ -857,9 +944,18 @@ class ChatService:
         price_input_micros_per_mtok: int | None = None,
         price_output_micros_per_mtok: int | None = None,
         request_options: dict[str, object] | None = None,
+        embedding_dimensions: int | None = None,
+        clear_embedding_dimensions: bool = False,
     ) -> dict[str, object]:
-        """Change what a registered model is called, which upstream model it is, or its prices."""
+        """Change what a registered model is called, which upstream model it is, its prices,
+        or the vector length an embedding model is asked for."""
         row = self._writable(self.models, model_id, tenant_id, platform=platform)
+        if clear_embedding_dimensions:
+            row["embedding_dimensions"] = None
+        elif embedding_dimensions is not None:
+            row["embedding_dimensions"] = _vector_length(
+                str(row.get("kind") or ""), embedding_dimensions
+            )
         if name:
             row["name"] = name
         if upstream_model:
@@ -888,6 +984,17 @@ class ChatService:
             names = ", ".join(sorted(used))
             raise ConflictError(
                 f"These aliases still use this model: {names}. Point them elsewhere first."
+            )
+        indexed = sorted(
+            str(row.get("name") or row.get("slug"))
+            for row in getattr(self, "knowledge_collections", {}).values()
+            if row.get("tenant_id") == tenant_id and row.get("embedding_model_id") == model_id
+        )
+        if indexed:
+            names = ", ".join(indexed)
+            raise ConflictError(
+                f"These knowledge collections were indexed with this model: {names}. "
+                "Re-index them with another embedding model first."
             )
         del self.models[model_id]
 
@@ -1036,6 +1143,8 @@ class ChatService:
         model = self.models.get(uuid.UUID(str(row["primary_model_id"])))
         if model is None:
             raise NotFoundError("model not found")
+        if model.get("kind") in {"embedding", "rerank"}:
+            return await self._probe_vectors(tenant_id, model)
         provider = self.providers[uuid.UUID(str(model["provider_id"]))]
         return await self._probe_live(
             str(provider["base_url"]),
@@ -1061,12 +1170,6 @@ class ChatService:
         if owner is not None and owner != tenant_id:
             raise NotFoundError()
         return row
-
-    def _sample_upstream(self, provider_id: uuid.UUID) -> str:
-        for row in self.models.values():
-            if row.get("provider_id") == provider_id and row.get("kind") == "chat":
-                return str(row.get("upstream_model") or "chat")
-        return "chat"
 
     async def _probe_live(
         self,
@@ -1291,7 +1394,7 @@ class ChatService:
             "pinned": False,
             "is_preview": False,
             "agent_version_id": agent.get("published_version_id"),
-            "model_alias": _clean_alias(model_alias),
+            "model_alias": self._chat_alias(tenant_id, model_alias),
             "active_run_id": None,
             "plan": [],
             "created_at": now,
@@ -1366,6 +1469,24 @@ class ChatService:
             raise NotFoundError()
         return row
 
+    def _chat_alias(self, tenant_id: uuid.UUID, value: str | None) -> str | None:
+        """The alias a conversation asks for. An embedding or rerank alias cannot answer one."""
+        alias = _clean_alias(value)
+        if alias is None:
+            return None
+        kinds = {
+            str(row.get("kind") or "chat")
+            for row in self.aliases.values()
+            if row.get("alias") == alias and row.get("tenant_id") in {None, tenant_id}
+        }
+        if kinds and "chat" not in kinds:
+            raise ArError(
+                ErrorCode.VALIDATION_FAILED,
+                f"The alias {alias} is for {' and '.join(sorted(kinds))} models. "
+                "A conversation needs a chat alias.",
+            )
+        return alias
+
     def _shared(self, conversation_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         return any(key[0] == conversation_id and key[2] == user_id for key in self.shares)
 
@@ -1386,7 +1507,7 @@ class ChatService:
         if pinned is not None:
             row["pinned"] = pinned
         if model_alias_set:
-            row["model_alias"] = _clean_alias(model_alias)
+            row["model_alias"] = self._chat_alias(tenant_id, model_alias)
         row["updated_at"] = utcnow()
         return self._public(row)
 

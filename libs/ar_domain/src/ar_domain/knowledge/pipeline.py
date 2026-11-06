@@ -12,9 +12,15 @@ from typing import TYPE_CHECKING
 
 from ar_common.time import utcnow
 from ar_domain.knowledge.chunker import chunk_markdown
+from ar_domain.knowledge.embedding import embed_for_collection
 from ar_domain.knowledge.metrics import INGEST_DOCUMENTS, INGEST_STAGE
 from ar_domain.knowledge.parse import ParseError, parse_bytes
 from ar_domain.knowledge.store_types import IndexedChunk
+from ar_domain.models.embedding import (
+    EmbeddingFailedError,
+    EmbeddingUnconfiguredError,
+    refresh_registry,
+)
 
 if TYPE_CHECKING:
     from typing import Any
@@ -77,10 +83,16 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
         "\n".join(part for part in (prefix, " / ".join(draft.heading_path), draft.text) if part)
         for draft in drafts
     ]
-    with INGEST_STAGE.labels(stage="embed").time():
-        from ar_domain.knowledge.live_embed import embed_for_collection  # noqa: PLC0415
-
-        vectors = embed_for_collection(store, collection, texts)
+    await refresh_registry(store)
+    try:
+        with INGEST_STAGE.labels(stage="embed").time():
+            vectors = embed_for_collection(store, collection, texts)
+    except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
+        # The document says why it is not searchable, and the caller is told the same.
+        document["status"] = "failed"
+        document["error"] = embedding_error(exc)
+        INGEST_DOCUMENTS.labels(kind="upload", result="failed").inc()
+        raise
     index = _index(store)
     version = int(collection.get("index_version") or 1)
     await _replace_chunks(store, document, drafts, vectors, prefix, version, index)
@@ -125,11 +137,40 @@ async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> s
         await asyncio.wait_for(handle.result(), timeout=20)
     except TimeoutError:
         return await ingest_document_async(store, document_id, raw)
+    except Exception:  # the worker wrote the reason on the document
+        await reload_document(store, document_id)
+        raise_embedding_error(store.knowledge_documents.get(document_id))
+        raise
     await reload_document(store, document_id)
     document = store.knowledge_documents.get(document_id)
     if isinstance(document, dict):
         return str(document.get("status") or "indexed")
     return "missing"
+
+
+_UNCONFIGURED = "embedding_unconfigured"
+_FAILED = "embedding_failed"
+
+
+def embedding_error(exc: EmbeddingUnconfiguredError | EmbeddingFailedError) -> str:
+    """What a document records when its text could not be embedded."""
+    code = _UNCONFIGURED if isinstance(exc, EmbeddingUnconfiguredError) else _FAILED
+    return f"{code}: {exc.detail}"
+
+
+def needs_admin(error: str) -> bool:
+    """True when trying again cannot help until someone changes the Models screen."""
+    return error.startswith(f"{_UNCONFIGURED}: ")
+
+
+def raise_embedding_error(document: object) -> None:
+    """Raise the embedding error a worker recorded on a document, if it recorded one."""
+    error = str(document.get("error") or "") if isinstance(document, dict) else ""
+    code, _, detail = error.partition(": ")
+    if code == _UNCONFIGURED:
+        raise EmbeddingUnconfiguredError(detail)
+    if code == _FAILED:
+        raise EmbeddingFailedError(detail)
 
 
 def _index(store: Any) -> Any:
