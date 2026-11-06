@@ -1295,5 +1295,58 @@
     "rejected": "Rejected",
     "missing": "The document does not contain a passage that supports this.",
     "back": "Back to documents"
+  },
+  "masking": {
+    "title": "Personal data in tool results",
+    "body": "Before a tool's result reaches the model, the kinds of personal data you choose are replaced with a label such as [EMAIL_ADDRESS]. Ordinary numbers, dates, names and places are left as they are unless you add them.",
+    "loading": "Loading masking settings",
+    "error": "The masking settings could not be loaded.",
+    "retry": "Try again",
+    "enabled": "Mask personal data in tool results.",
+    "enabledHint": "When this is off, tool results reach the model as they are.",
+    "summaryDefault": "{count, plural, one {# kind is} other {# kinds are}} masked: the product default. Switch to Advanced to choose them.",
+    "summaryChosen": "{count, plural, one {# kind is} other {# kinds are}} masked: your organisation's own list. Switch to Advanced to change it.",
+    "source": {
+      "format": "Recognised by its format",
+      "language": "Guessed from the sentence"
+    },
+    "sourceHint": {
+      "format": "Found by a pattern, a checksum, or a word nearby that names it, such as “passport”.",
+      "language": "Found by a language model reading the sentence. These are common in ordinary text and are wrong more often, so a result can lose facts it needs."
+    },
+    "score": "How sure a match must be",
+    "scoreHint": "From 0 to 1. The default is {value}: a number is masked only when its format is exact or a word nearby says what it is. A lower value masks more and changes more ordinary numbers.",
+    "save": "Save",
+    "saved": "Saved. It applies to the next tool result.",
+    "useDefault": "Use the product default",
+    "defaultRestored": "The product default is back.",
+    "readOnly": "Changing this needs the permission to manage the organisation.",
+    "kinds": {
+      "aadhaar": "Aadhaar number",
+      "credit_card": "Payment card number",
+      "crypto": "Crypto wallet address",
+      "date_time": "Date or time",
+      "email_address": "Email address",
+      "iban_code": "IBAN",
+      "ifsc": "IFSC bank code",
+      "ip_address": "IP address",
+      "location": "Place",
+      "mac_address": "MAC address",
+      "medical_license": "Medical licence number",
+      "mobile": "Indian mobile number",
+      "nrp": "Nationality, religion or political group",
+      "organization": "Organisation name",
+      "pan": "PAN",
+      "person": "Person's name",
+      "phone_number": "Phone number",
+      "uk_nhs": "UK NHS number",
+      "upi": "UPI id",
+      "url": "Web address",
+      "us_bank_number": "US bank account number",
+      "us_driver_license": "US driving licence number",
+      "us_itin": "US taxpayer number (ITIN)",
+      "us_passport": "US passport number",
+      "us_ssn": "US social security number"
+    }
   }
 }

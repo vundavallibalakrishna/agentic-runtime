@@ -39,20 +39,56 @@ def verhoeff_ok(number: str) -> bool:
     return checksum == 0
 
 
+# A bare ten-digit number or a ``name@word`` token is not personal data by itself: an
+# order number and ``git@github`` look the same. They count when the words around them
+# say what they are, as the other recognisers do (OQ-97).
+_SURE = 1.0
+_FIXED_FORMAT = 0.85
+_WEAK = 0.4
+_WITH_CONTEXT = 0.75
+_CONTEXT_CHARS = 48
+_CONTEXT = {
+    "aadhaar": ("aadhaar", "aadhar", "uidai", "uid"),
+    "mobile": ("mobile", "phone", "cell", "whatsapp", "contact", "call", "tel"),
+    "upi": ("upi", "vpa", "pay"),
+}
+
+
 def find_indian(text: str) -> list[dict[str, object]]:
-    """Return spans for the Indian recognisers. Invalid Aadhaar checksums are ignored."""
+    """Return spans for the Indian recognisers, each with how sure the match is.
+
+    An Aadhaar number must pass its checksum, and one in ten twelve-digit numbers does,
+    so it is a sure match only when it is written in groups of four or a word nearby
+    names it. PAN and IFSC have a fixed format. A mobile number and a UPI id are weak
+    matches unless a word nearby says what they are.
+    """
     found: list[dict[str, object]] = []
     for match in _AADHAAR.finditer(text):
         digits = re.sub(r"\D", "", match.group())
         if len(digits) == 12 and not digits.startswith(("0", "1")) and verhoeff_ok(digits):
-            found.append(_hit("aadhaar", match.start(), match.end(), match.group()))
-    for pattern, name in ((_PAN, "pan"), (_MOBILE, "mobile"), (_UPI, "upi"), (_IFSC, "ifsc")):
-        found.extend(
-            _hit(name, match.start(), match.end(), match.group())
-            for match in pattern.finditer(text)
-        )
+            grouped = " " in match.group()
+            sure = grouped or _named(text, match, "aadhaar")
+            found.append(_hit("aadhaar", match, _SURE if sure else _WEAK))
+    for pattern, name in ((_PAN, "pan"), (_IFSC, "ifsc")):
+        found.extend(_hit(name, match, _FIXED_FORMAT) for match in pattern.finditer(text))
+    for pattern, name in ((_MOBILE, "mobile"), (_UPI, "upi")):
+        for match in pattern.finditer(text):
+            sure = _named(text, match, name)
+            found.append(_hit(name, match, _WITH_CONTEXT if sure else _WEAK))
     return found
 
 
-def _hit(kind: str, start: int, end: int, value: str) -> dict[str, object]:
-    return {"entity": kind, "start": start, "end": end, "text": value}
+def _named(text: str, match: re.Match[str], kind: str) -> bool:
+    """True when a word just before the match says what kind of value it is."""
+    near = text[max(0, match.start() - _CONTEXT_CHARS) : match.start()].lower()
+    return any(word in near for word in _CONTEXT[kind])
+
+
+def _hit(kind: str, match: re.Match[str], score: float) -> dict[str, object]:
+    return {
+        "entity": kind,
+        "start": match.start(),
+        "end": match.end(),
+        "text": match.group(),
+        "score": score,
+    }

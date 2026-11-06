@@ -184,6 +184,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_OTEL_GRPC_HOST_PORT",
         "AR_OTEL_HTTP_HOST_PORT",
         "AR_PG_HOST_PORT",
+        "AR_PII_LANGUAGE_MODEL",
         "AR_PORT",
         "AR_PROMETHEUS_HOST_PORT",
         "AR_QDRANT_GRPC_HOST_PORT",

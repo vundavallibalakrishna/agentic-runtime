@@ -1847,6 +1847,54 @@ export type LinkBody = {
 };
 
 /**
+ * MaskingKind
+ */
+export type MaskingKind = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Source
+     */
+    source: string;
+    /**
+     * Masked
+     */
+    masked: boolean;
+    /**
+     * Default
+     */
+    default: boolean;
+};
+
+/**
+ * MaskingView
+ */
+export type MaskingView = {
+    /**
+     * Enabled
+     */
+    enabled: boolean;
+    /**
+     * Usesdefault
+     */
+    usesDefault: boolean;
+    /**
+     * Minscore
+     */
+    minScore: number;
+    /**
+     * Defaultminscore
+     */
+    defaultMinScore: number;
+    /**
+     * Kinds
+     */
+    kinds: Array<MaskingKind>;
+};
+
+/**
  * Me
  *
  * Authenticated caller. Role and permission values stay catalogue tokens.
@@ -4155,6 +4203,22 @@ export type PatchTenantApiV1TenantPatchResponses = {
 };
 
 export type PatchTenantApiV1TenantPatchResponse = PatchTenantApiV1TenantPatchResponses[keyof PatchTenantApiV1TenantPatchResponses];
+
+export type GetMaskingApiV1TenantMaskingGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/tenant/masking';
+};
+
+export type GetMaskingApiV1TenantMaskingGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: MaskingView;
+};
+
+export type GetMaskingApiV1TenantMaskingGetResponse = GetMaskingApiV1TenantMaskingGetResponses[keyof GetMaskingApiV1TenantMaskingGetResponses];
 
 export type GetMeApiV1MeGetData = {
     body?: never;

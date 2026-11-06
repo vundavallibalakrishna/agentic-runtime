@@ -15,7 +15,7 @@ from ar_domain.documents.grounding import check, prepare_analysis_text
 from ar_domain.documents.library import DocumentLibrary
 from ar_domain.identity.limits import merge_settings
 from ar_domain.identity.permissions import PERMISSION_KEYS
-from ar_domain.pii.analyzer import redact
+from ar_domain.pii.analyzer import Masking, redact
 from ar_domain.security.guardrails import apply_result_safety
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.pipeline import ToolPipeline
@@ -32,18 +32,21 @@ QUOTE = "Every employee completes a second login challenge before opening the pr
 EVIDENCE = "Records stay in Ireland for 90 days under control P6.3. Mail ada@example.com."
 
 
-def _fake_presidio(text: str) -> list[dict[str, object]]:
+def _fake_presidio(text: str, entities: frozenset[str]) -> list[dict[str, object]]:
+    """What the recogniser reports for the fixture, each match with how sure it is."""
     found: list[dict[str, object]] = []
-    for kind, token in (
-        ("date_time", "90 days"),
-        ("location", "Ireland"),
-        ("us_driver_license", "P6"),
-        ("email_address", "ada@example.com"),
-        ("location", "Cayman"),
+    for kind, token, score in (
+        ("date_time", "90 days", 0.85),
+        ("location", "Ireland", 0.85),
+        ("us_driver_license", "P6", 0.65),
+        ("email_address", "ada@example.com", 1.0),
+        ("location", "Cayman", 0.85),
     ):
         start = text.find(token)
-        if start >= 0:
-            found.append({"entity": kind, "start": start, "end": start + len(token)})
+        if start >= 0 and kind in entities:
+            found.append(
+                {"entity": kind, "start": start, "end": start + len(token), "score": score}
+            )
     return found
 
 
@@ -85,7 +88,12 @@ def test_analysis_profile_keeps_dates_places_and_control_ids(
     assert "Ireland" in kept
     assert "P6.3" in kept
     assert "ada@example.com" not in kept
-    outbound = redact(EVIDENCE, profile="outbound")
+    # A tool result masks what the tenant lists. By default that is not a date or a place.
+    default = redact(EVIDENCE, profile="outbound")
+    assert "Records stay in Ireland for 90 days" in default
+    assert "ada@example.com" not in default
+    # A tenant that lists every kind gets every kind.
+    outbound = redact(EVIDENCE, profile="outbound", masking=Masking.thorough())
     assert "[DATE_TIME]" in outbound
     assert "[LOCATION]" in outbound
     assert "P6.3" not in outbound
@@ -244,7 +252,10 @@ def test_tool_result_keeps_evidence_unless_the_setting_is_on(
         analysis=False,
         tenant_id=tenant,
     )
-    assert "[DATE_TIME]" in chat
+    # Outside document analysis the tenant's list applies: an address is masked, a
+    # retention period is not.
+    assert "90 days" in chat
+    assert "ada@example.com" not in chat
 
 
 def test_root_redaction_flag_is_accepted_and_unknown_keys_are_422() -> None:
@@ -293,15 +304,17 @@ def test_workspace_uuid_path_is_not_masked(monkeypatch: pytest.MonkeyPatch) -> N
     guest = "/workspace/outputs/01a1ab39-7c4e-4b2a-8f11-abcdef012345.txt"
     sample = f"FileNotFoundError: {path} and {guest} ada@example.com"
 
-    def spans(text: str) -> list[dict[str, object]]:
+    def spans(text: str, entities: frozenset[str]) -> list[dict[str, object]]:
         found: list[dict[str, object]] = []
         for token, kind in (
             ("7c4e-4b2a-8f11", "us_driver_license"),
             ("ada@example.com", "email_address"),
         ):
             start = text.find(token)
-            if start >= 0:
-                found.append({"entity": kind, "start": start, "end": start + len(token)})
+            if start >= 0 and kind in entities:
+                found.append(
+                    {"entity": kind, "start": start, "end": start + len(token), "score": 1.0}
+                )
         return found
 
     monkeypatch.setattr("ar_domain.pii.analyzer._presidio", spans)
