@@ -94,6 +94,11 @@ class ConversationPatch(ApiModel):
     model_alias: str | None = None
 
 
+class UploadLimits(ApiModel):
+    mime_types: list[str]
+    max_bytes: int
+
+
 class MessageBody(ApiModel):
     text: str
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
@@ -794,6 +799,14 @@ async def export_conversation(
         conversation_id,
         fmt,
     )
+
+
+@router.get("/api/v1/files:limits", dependencies=[Depends(require_permission("chat:use"))])
+@expose(public=False, permission="chat:use")
+async def upload_limits(request: Request) -> UploadLimits:
+    """The types a person may attach and the largest file, as the organisation has them."""
+    principal = _principal(request)
+    return UploadLimits.model_validate(_chat(request).upload_limits(_tenant(principal)))
 
 
 @router.post("/api/v1/files:upload", dependencies=[Depends(require_permission("chat:use"))])

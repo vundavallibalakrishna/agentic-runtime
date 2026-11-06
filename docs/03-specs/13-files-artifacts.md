@@ -40,8 +40,11 @@ Endpoints served by `api`; processing (scan, MIME sniffing, previews) by `ingest
 #### POST /api/v1/files/{file_id}:complete
 Owner. Verifies the object exists (`HEAD`), size matches, checksum matches (if provided); starts `FileProcessWorkflow`; returns `File` with `status='pending_upload'` → becomes `ready` (or `quarantined`) asynchronously; the client polls `GET /api/v1/files/{file_id}` or listens to the notifications stream. For files ≤ 5 MiB processing is awaited inline up to 10 s so chat attachments are usually `ready` in the response.
 
+#### GET /api/v1/files:limits
+`chat:use`. `{mimeTypes, maxBytes}`: the types the signed-in person may attach and the largest file, from the tenant's `security.allowed_upload_mime_types` and `security.max_upload_mb`, the latter within the product's 25 MiB cap (M38b-T13 removes the cap). The chat composer reads this and offers only those types.
+
 #### POST /api/v1/files:upload
-Multipart form (`file`, `purpose`, `conversation_id?`), ≤ 25 MiB; equivalent to create + upload + complete. Used by the web app for small files and by API clients.
+Multipart form (`upload`, `mime_type?`), within the limits above; equivalent to create + upload + complete. A file the browser sends with no type, or as `application/octet-stream`, is typed by its name. A refused type or size is said in words that name the setting. Used by the web app and by API clients. A message may carry several files; each `file` part on the message records the file's id, name, type and size.
 
 #### GET /api/v1/files
 Caller's files. Query `kind` (`upload|artifact|export`), `conversation_id`, `q` (name ILIKE), `mime_prefix`. Item `File {id, name, mime_type, size_bytes, kind, status, scan_status, conversation_id, run_id, preview: {page_count?, width?, height?, text_excerpt?, thumbnail_url?}, created_at}`.

@@ -7234,6 +7234,25 @@
         }
       }
     },
+    "/api/v1/files:limits": {
+      "get": {
+        "summary": "Upload Limits",
+        "description": "The types a person may attach and the largest file, as the organisation has them.",
+        "operationId": "upload_limits_api_v1_files_limits_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadLimits"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/files:upload": {
       "post": {
         "summary": "Upload File",
@@ -27376,6 +27395,25 @@
         "type": "object",
         "required": ["manifest"],
         "title": "UpgradeBody"
+      },
+      "UploadLimits": {
+        "properties": {
+          "mimeTypes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Mimetypes"
+          },
+          "maxBytes": {
+            "type": "integer",
+            "title": "Maxbytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["mimeTypes", "maxBytes"],
+        "title": "UploadLimits"
       },
       "UserPatch": {
         "properties": {

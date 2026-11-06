@@ -268,7 +268,14 @@ with `leave-policy.pdf` attached it is five points from the policy with its own 
 
 **Done when:** after sending two files with a message, both are shown on the message and after a reload.
 
-**Tests:** `chat-attachments.test.tsx`; Playwright `m38b-attachments.spec.ts`.
+**Tests:** `attachment-list.test.tsx`; `test_m38b_upload_rules.py`; `test_m38b_upload_limits_api.py`;
+Playwright `m38b-attachments.spec.ts`.
+
+**Done (7 Nov 2026).** Also needed, and done with it: the tenant settings for the allowed types and the
+largest upload existed and were never read; the upload path used a list and a size written into the code,
+and the composer a shorter list of its own, so a Markdown, Excel or Word file could not be attached in chat
+although the tools read them. The composer now offers what the tenant allows (`GET /api/v1/files:limits`),
+the product's default is every type it can read, and a file the browser gives no type is typed by its name.
 
 ## M38b-T09 Redaction does not change the facts
 

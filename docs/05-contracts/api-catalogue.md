@@ -448,6 +448,7 @@ Spec: [13-files-artifacts.md](../03-specs/13-files-artifacts.md)
 |---|---|---|---|
 | POST | [`/api/v1/files`](../03-specs/13-files-artifacts.md#post-apiv1files) | `chat:use` | 4. Public API |
 | POST | [`/api/v1/files/{file_id}:complete`](../03-specs/13-files-artifacts.md#post-apiv1filesfile_idcomplete) | object-level (see spec) | 4. Public API |
+| GET | [`/api/v1/files:limits`](../03-specs/13-files-artifacts.md#get-apiv1fileslimits) | `chat:use` | 4. Public API |
 | POST | [`/api/v1/files:upload`](../03-specs/13-files-artifacts.md#post-apiv1filesupload) | object-level (see spec) | 4. Public API |
 | GET | [`/api/v1/files`](../03-specs/13-files-artifacts.md#get-apiv1files) | object-level (see spec) | 4. Public API |
 | GET | [`/api/v1/files/{file_id}`](../03-specs/13-files-artifacts.md#get-apiv1filesfile_id) | object-level (see spec) | 4. Public API |

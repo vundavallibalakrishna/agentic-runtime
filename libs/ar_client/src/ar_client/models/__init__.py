@@ -1563,6 +1563,7 @@ from .upload_file_api_v1_files_upload_post_response_upload_file_api_v1_files_upl
 from .upload_library_document_api_v1_library_documents_post_response_upload_library_document_api_v1_library_documents_post import (
     UploadLibraryDocumentApiV1LibraryDocumentsPostResponseUploadLibraryDocumentApiV1LibraryDocumentsPost,
 )
+from .upload_limits import UploadLimits
 from .usage_summary_api_v1_usage_summary_get_response_usage_summary_api_v1_usage_summary_get import (
     UsageSummaryApiV1UsageSummaryGetResponseUsageSummaryApiV1UsageSummaryGet,
 )
@@ -2288,6 +2289,7 @@ __all__ = (
     "UploadExternalFileV1AgentsSlugFilesPostResponseUploadExternalFileV1AgentsSlugFilesPost",
     "UploadFileApiV1FilesUploadPostResponseUploadFileApiV1FilesUploadPost",
     "UploadLibraryDocumentApiV1LibraryDocumentsPostResponseUploadLibraryDocumentApiV1LibraryDocumentsPost",
+    "UploadLimits",
     "UsageSummaryApiV1UsageSummaryGetResponseUsageSummaryApiV1UsageSummaryGet",
     "UserPatch",
     "UserPatchAttributesType0",
