@@ -22,14 +22,21 @@ async def test_the_loop_goes_on_while_synchronous_code_waits() -> None:
             ticks.append(time.monotonic())
             await asyncio.sleep(0.02)
 
+    window: dict[str, float] = {}
+
     def handler() -> str:
+        window["start"] = time.monotonic()
         blocking(time.sleep, 0.3)
+        window["end"] = time.monotonic()
         return "done"
 
     beat = asyncio.create_task(heartbeat())
     assert await run_sync(handler) == "done"
     beat.cancel()
-    assert len(ticks) >= 8, "the loop was held while the handler waited"
+    # A held loop lets no tick happen between the start and the end of the wait. How
+    # many happen depends on the machine, so the count is not what is checked.
+    during = [tick for tick in ticks if window["start"] < tick < window["end"]]
+    assert len(during) >= 2, "the loop was held while the handler waited"
 
 
 async def test_only_the_wait_leaves_the_loop_thread() -> None:
