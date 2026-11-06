@@ -8,10 +8,27 @@ import httpx
 class IdpError(Exception):
     """The identity provider refused an admin call. Carries the status, never the request."""
 
-    def __init__(self, action: str, status: int) -> None:
-        super().__init__(f"identity provider refused {action} with status {status}")
+    def __init__(self, action: str, status: int, reason: str = "") -> None:
+        said = f' and said "{reason}"' if reason else ""
+        super().__init__(f"identity provider refused {action} with status {status}{said}")
         self.action = action
         self.status = status
+        self.reason = reason
+
+
+def _reason(response: httpx.Response) -> str:
+    """The provider's own words for a refusal, when it gave any. Never the request."""
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    if not isinstance(body, dict):
+        return ""
+    for key in ("error_description", "errorMessage", "error"):
+        value = body.get(key)
+        if isinstance(value, str) and value:
+            return value[:200]
+    return ""
 
 
 async def admin_token(
@@ -33,7 +50,7 @@ async def admin_token(
         if client is None:
             await http.aclose()
     if response.status_code != 200:
-        raise IdpError("the admin sign-in", response.status_code)
+        raise IdpError("the admin sign-in", response.status_code, _reason(response))
     return str(response.json()["access_token"])
 
 
@@ -138,7 +155,7 @@ class KeycloakAdmin:
             if self._client is None:
                 await client.aclose()
         if response.status_code >= 400 and response.status_code not in accept:
-            raise IdpError(action, response.status_code)
+            raise IdpError(action, response.status_code, _reason(response))
         return response
 
     async def set_user_enabled(self, user_id: str, *, enabled: bool) -> None:

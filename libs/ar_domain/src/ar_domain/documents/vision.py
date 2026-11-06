@@ -28,13 +28,11 @@ _SYSTEM = (
 )
 
 _SETUP = (
-    "Vision is not configured. Point the vision alias at a vision-capable chat "
-    "model (for example Qwen/Qwen2.5-VL-32B-Instruct on an OpenAI-compatible "
-    "endpoint such as DeepInfra) and seal the provider key the same way as the "
-    "chat model. The key is not written to logs or tool results."
+    "No model that can read images is set. An administrator sets one on the Models "
+    "screen: add a chat model, mark it as able to read images, and point the vision "
+    "alias at it."
 )
 
-_NAME_HINTS = ("-vl", "vision", "llava", "pixtral", "gpt-4o", "gpt-4.1", "gemini")
 _MAX_IMAGE_BYTES = 8 * 1024 * 1024
 
 
@@ -47,12 +45,9 @@ class VisionError(Exception):
         super().__init__(message)
 
 
-def vision_capable(model_name: str, capabilities: list[str]) -> bool:
-    """True when the alias target is registered for images or its name says so."""
-    if "vision" in capabilities:
-        return True
-    folded = model_name.lower()
-    return any(hint in folded for hint in _NAME_HINTS)
+def vision_capable(capabilities: list[str]) -> bool:
+    """True when the tenant registered the alias's model as able to read images."""
+    return "vision" in capabilities
 
 
 def media_type_for(data: bytes, stated: str = "") -> str:
@@ -98,11 +93,12 @@ def ask_image(
         )
     chosen = alias.strip() or "vision"
     model_name, headers, timeout_s, real, capabilities = _target(store, tenant_id, chosen)
-    if not real or not vision_capable(model_name, capabilities):
+    if not real or not vision_capable(capabilities):
         detail = _SETUP
         if real and model_name:
             detail = (
-                f"The alias {chosen} points at {model_name}, which is not a vision model. " + _SETUP
+                f"The alias {chosen} points at {model_name}, which is not marked as able to "
+                "read images. Mark it on the Models screen if it can, or choose another model."
             )
         raise VisionError("vision_unavailable", detail)
     secret = _bearer(headers)

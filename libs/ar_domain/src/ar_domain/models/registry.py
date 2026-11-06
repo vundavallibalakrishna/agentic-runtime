@@ -235,7 +235,7 @@ async def save_model(
                     name=str(row.get("name") or ""),
                     upstream_model=str(row.get("upstream_model") or row.get("name") or ""),
                     kind=str(row.get("kind") or "chat"),
-                    capabilities=["streaming", "tools"],
+                    capabilities=_capabilities(row),
                     price_input_micros_per_mtok=_price(row, "price_input_micros_per_mtok"),
                     price_output_micros_per_mtok=_price(row, "price_output_micros_per_mtok"),
                     request_options=request_options_of(row)
@@ -252,6 +252,7 @@ async def save_model(
             existing.price_input_micros_per_mtok = _price(row, "price_input_micros_per_mtok")
             existing.price_output_micros_per_mtok = _price(row, "price_output_micros_per_mtok")
             existing.embedding_dimensions = _whole(row.get("embedding_dimensions"))
+            existing.capabilities = _capabilities(row)
             if row.get("request_options") is not None:
                 existing.request_options = request_options_of(row)
         await record(
@@ -345,13 +346,14 @@ async def save_alias(
                         primary_model_id=primary,
                         fallback_model_ids=fallbacks,
                         traffic_split={},
-                        default_params={"temperature": 0.2},
+                        default_params=_params(row),
                         status="active",
                     )
                 )
             else:
                 existing.primary_model_id = primary
                 existing.fallback_model_ids = fallbacks
+                existing.default_params = _params(row)
             await record(
                 session,
                 tenant_id=owner,
@@ -421,6 +423,16 @@ async def read_api_key(engine: AsyncEngine, provider_id: uuid.UUID) -> str:
             secret_id = uuid.UUID(str(secret_id))
         value = await store.get(str(ref["path"]), aad=_secret_aad(provider.tenant_id, secret_id))
         return value.decode()
+
+
+def _capabilities(row: dict[str, object]) -> list[str]:
+    raw = row.get("capabilities")
+    return [str(item) for item in raw] if isinstance(raw, list) else []
+
+
+def _params(row: dict[str, object]) -> dict[str, object]:
+    raw = row.get("default_params")
+    return dict(raw) if isinstance(raw, dict) else {}
 
 
 def _whole(value: object) -> int | None:

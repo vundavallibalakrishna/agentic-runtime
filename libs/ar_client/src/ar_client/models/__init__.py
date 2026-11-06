@@ -30,7 +30,9 @@ from .agent_create_definition_type_0 import AgentCreateDefinitionType0
 from .agent_memory_body import AgentMemoryBody
 from .agent_patch import AgentPatch
 from .alias_body import AliasBody
+from .alias_body_default_params_type_0 import AliasBodyDefaultParamsType0
 from .alias_patch import AliasPatch
+from .alias_patch_default_params_type_0 import AliasPatchDefaultParamsType0
 from .alias_test_body import AliasTestBody
 from .alias_test_body_messages_item import AliasTestBodyMessagesItem
 from .answer_body import AnswerBody
@@ -1496,6 +1498,9 @@ from .test_install_api_v1_connector_installs_install_id_test_post_response_test_
 from .test_integration_api_v1_channel_integrations_integration_id_test_post_response_test_integration_api_v1_channel_integrations_integration_id_test_post import (
     TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponseTestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPost,
 )
+from .test_model_api_v1_models_model_id_test_post_response_test_model_api_v1_models_model_id_test_post import (
+    TestModelApiV1ModelsModelIdTestPostResponseTestModelApiV1ModelsModelIdTestPost,
+)
 from .test_provider_api_v1_model_providers_provider_id_test_post_response_test_provider_api_v1_model_providers_provider_id_test_post import (
     TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost,
 )
@@ -1622,7 +1627,9 @@ __all__ = (
     "AgentMemoryBody",
     "AgentPatch",
     "AliasBody",
+    "AliasBodyDefaultParamsType0",
     "AliasPatch",
+    "AliasPatchDefaultParamsType0",
     "AliasTestBody",
     "AliasTestBodyMessagesItem",
     "AnswerBody",
@@ -2250,6 +2257,7 @@ __all__ = (
     "TestConnectionApiV1DataConnectionsConnectionIdTestPostResponseTestConnectionApiV1DataConnectionsConnectionIdTestPost",
     "TestInstallApiV1ConnectorInstallsInstallIdTestPostResponseTestInstallApiV1ConnectorInstallsInstallIdTestPost",
     "TestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPostResponseTestIntegrationApiV1ChannelIntegrationsIntegrationIdTestPost",
+    "TestModelApiV1ModelsModelIdTestPostResponseTestModelApiV1ModelsModelIdTestPost",
     "TestProviderApiV1ModelProvidersProviderIdTestPostResponseTestProviderApiV1ModelProvidersProviderIdTestPost",
     "TestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPostResponseTestServiceConnectionApiV1ServiceConnectionsConnectionIdTestPost",
     "TestSourceApiV1KnowledgeSourcesSourceIdTestPostResponseTestSourceApiV1KnowledgeSourcesSourceIdTestPost",

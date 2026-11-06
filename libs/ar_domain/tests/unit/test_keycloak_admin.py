@@ -92,6 +92,25 @@ async def test_a_refused_call_names_the_step_and_not_the_request() -> None:
         await admin_token(BASE, "admin", "wrong", client=client)
 
 
+@pytest.mark.asyncio
+async def test_a_refusal_repeats_the_providers_own_reason() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(
+            403, json={"error": "invalid_request", "error_description": "HTTPS required"}
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(refuse)) as client:
+        with pytest.raises(IdpError) as raised:
+            await admin_token("http://idp.example", "admin", "not-shown", client=client)
+    assert raised.value.status == 403
+    assert raised.value.reason == "HTTPS required"
+    assert str(raised.value) == (
+        'identity provider refused the admin sign-in with status 403 and said "HTTPS required"'
+    )
+    assert "not-shown" not in str(raised.value)
+
+
 def test_the_issuer_gives_the_base_address_and_the_realm() -> None:
     assert split_issuer("http://localhost:8180/realms/agentic-runtime/") == (
         "http://localhost:8180",

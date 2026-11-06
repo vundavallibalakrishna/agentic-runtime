@@ -72,19 +72,26 @@ test.describe("M20 walkthrough", () => {
 
       await page.goto("/admin/models");
       await expect(page.getByRole("heading", { name: "Models" })).toBeVisible();
-      if ((await page.getByRole("cell", { name: "DeepInfra" }).count()) === 0) {
-        await page.getByRole("button", { name: "Advanced" }).click();
-        await page.getByRole("button", { name: "OpenAI-compatible" }).click();
-        await page.getByLabel("Name").fill("DeepInfra");
-        await page.getByLabel("API key").fill(key);
-        await page.getByRole("button", { name: "Register and test" }).click();
-        await expect(page.getByText(/Sample:/)).toBeVisible({ timeout: 90_000 });
-        const sample = await page.getByText(/Sample:/).innerText();
-        expect(sample.toLowerCase()).not.toContain("provider test failed");
-        expect(sample).not.toContain("fake:");
-        expect(sample).not.toContain(key);
-        await expect(page.getByLabel("API key")).toHaveValue("");
+      // The address and the model id come from the environment: the screen fills in neither.
+      const address = process.env.AR_CERT_LLM_BASE_URL ?? "";
+      const model = process.env.AR_CERT_LLM_MODEL ?? "";
+      expect(address, "set AR_CERT_LLM_BASE_URL").not.toBe("");
+      expect(model, "set AR_CERT_LLM_MODEL").not.toBe("");
+      if ((await page.getByRole("heading", { name: "Certification", exact: true }).count()) === 0) {
+        await page.getByLabel("Name", { exact: true }).fill("Certification");
+        await page.getByLabel("Base URL", { exact: true }).fill(address);
+        await page.getByLabel("API key", { exact: true }).fill(key);
+        await page.getByRole("button", { name: "Add provider" }).click();
+        const dialog = page.getByRole("dialog");
+        await dialog.getByLabel("Model id").fill(model);
+        await dialog.getByRole("button", { name: "Add model" }).click();
+        await expect(dialog).toBeHidden();
+        await expect(page.getByLabel("API key", { exact: true })).toHaveValue("");
       }
+      await page.getByLabel("Model for Answers").selectOption({ label: model });
+      await page.getByRole("button", { name: "Test Answers" }).click();
+      await expect(page.getByText("It answered.").first()).toBeVisible({ timeout: 90_000 });
+      expect(await page.locator("main").innerText()).not.toContain(key);
       await shot(page, "desktop-light-models-registered");
 
       await page.goto("/chat");

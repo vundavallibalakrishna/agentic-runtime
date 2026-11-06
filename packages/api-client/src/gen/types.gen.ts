@@ -114,6 +114,12 @@ export type AliasBody = {
      * Fallbackmodelids
      */
     fallbackModelIds?: Array<string>;
+    /**
+     * Defaultparams
+     */
+    defaultParams?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -128,6 +134,12 @@ export type AliasPatch = {
      * Fallbackmodelids
      */
     fallbackModelIds?: Array<string> | null;
+    /**
+     * Defaultparams
+     */
+    defaultParams?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -2040,6 +2052,10 @@ export type ModelBody = {
      * Embeddingdimensions
      */
     embeddingDimensions?: number | null;
+    /**
+     * Capabilities
+     */
+    capabilities?: Array<string> | null;
 };
 
 /**
@@ -2072,6 +2088,10 @@ export type ModelPatch = {
      * Embeddingdimensions
      */
     embeddingDimensions?: number | null;
+    /**
+     * Capabilities
+     */
+    capabilities?: Array<string> | null;
 };
 
 /**
@@ -8371,6 +8391,40 @@ export type PatchModelApiV1ModelsModelIdPatchResponses = {
 };
 
 export type PatchModelApiV1ModelsModelIdPatchResponse = PatchModelApiV1ModelsModelIdPatchResponses[keyof PatchModelApiV1ModelsModelIdPatchResponses];
+
+export type TestModelApiV1ModelsModelIdTestPostData = {
+    body?: never;
+    path: {
+        /**
+         * Model Id
+         */
+        model_id: string;
+    };
+    query?: never;
+    url: '/api/v1/models/{model_id}:test';
+};
+
+export type TestModelApiV1ModelsModelIdTestPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type TestModelApiV1ModelsModelIdTestPostError = TestModelApiV1ModelsModelIdTestPostErrors[keyof TestModelApiV1ModelsModelIdTestPostErrors];
+
+export type TestModelApiV1ModelsModelIdTestPostResponses = {
+    /**
+     * Response Test Model Api V1 Models  Model Id  Test Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type TestModelApiV1ModelsModelIdTestPostResponse = TestModelApiV1ModelsModelIdTestPostResponses[keyof TestModelApiV1ModelsModelIdTestPostResponses];
 
 export type ListAliasesApiV1ModelAliasesGetData = {
     body?: never;

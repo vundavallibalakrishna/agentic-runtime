@@ -31,6 +31,7 @@ class ModelBody:
         price_output_micros_per_mtok (int | Unset):  Default: 0.
         request_options (ModelBodyRequestOptionsType0 | None | Unset):
         embedding_dimensions (int | None | Unset):
+        capabilities (list[str] | None | Unset):
     """
 
     provider_id: UUID
@@ -41,6 +42,7 @@ class ModelBody:
     price_output_micros_per_mtok: int | Unset = 0
     request_options: ModelBodyRequestOptionsType0 | None | Unset = UNSET
     embedding_dimensions: int | None | Unset = UNSET
+    capabilities: list[str] | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.model_body_request_options_type_0 import ModelBodyRequestOptionsType0  # noqa: PLC0415
@@ -71,6 +73,15 @@ class ModelBody:
         else:
             embedding_dimensions = self.embedding_dimensions
 
+        capabilities: list[str] | None | Unset
+        if isinstance(self.capabilities, Unset):
+            capabilities = UNSET
+        elif isinstance(self.capabilities, list):
+            capabilities = self.capabilities
+
+        else:
+            capabilities = self.capabilities
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -90,6 +101,8 @@ class ModelBody:
             field_dict["requestOptions"] = request_options
         if embedding_dimensions is not UNSET:
             field_dict["embeddingDimensions"] = embedding_dimensions
+        if capabilities is not UNSET:
+            field_dict["capabilities"] = capabilities
 
         return field_dict
 
@@ -136,6 +149,23 @@ class ModelBody:
 
         embedding_dimensions = _parse_embedding_dimensions(d.pop("embeddingDimensions", UNSET))
 
+        def _parse_capabilities(data: object) -> list[str] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError()
+                capabilities_type_0 = cast(list[str], data)
+
+                return capabilities_type_0
+            except TypeError, ValueError, AttributeError, KeyError:
+                pass
+            return cast(list[str] | None | Unset, data)
+
+        capabilities = _parse_capabilities(d.pop("capabilities", UNSET))
+
         model_body = cls(
             provider_id=provider_id,
             name=name,
@@ -145,6 +175,7 @@ class ModelBody:
             price_output_micros_per_mtok=price_output_micros_per_mtok,
             request_options=request_options,
             embedding_dimensions=embedding_dimensions,
+            capabilities=capabilities,
         )
 
         return model_body
