@@ -192,23 +192,30 @@ in `.env`. The dev seed package is deleted once T04 has moved its last caller.
 
 ## M38b-T07 Every model is configured in the product
 
-**Depends on:** T04. **Areas:** `apps/web/src/components/models/`, `models/`, `knowledge/live_embed.py`,
-`memory/`. **Spec:** [model gateway](../03-specs/04-model-gateway.md). **Findings:** F15, F16, F18.
+**Depends on:** T04e. **Areas:** `models/registry.py`, `chat/service.py`,
+`services/api/src/ar_api/routers/m2.py`, `apps/web/src/components/models/`, `knowledge/live_embed.py`,
+`memory/`. **Spec:** [model gateway](../03-specs/04-model-gateway.md). **Findings:** F15, F16, F18, F26 to
+F29. One pull request for each part:
 
-**Do:**
-
-- The Models screen lists providers, models and aliases, and each can be added, edited, tested and removed.
-  A model has a kind (chat, embedding, rerank, vision, image) and its limits. No vendor address or model
-  name is filled in by the form.
-- Knowledge and memory embed with the model the tenant's `embed` alias points at. With none configured they
-  refuse, with a message that names the Models screen. The built-in model id and the "first provider" guess
-  are removed.
-- The chat model picker lists chat aliases only, once each.
+- **T07a** (done) Changes to providers, models and aliases are saved and reach every process. Renaming or
+  deleting a provider and deleting a model changed one process's memory only. One loader makes a process's
+  registry equal its tenant's database rows; it used to read every tenant's rows and never remove one.
+  A provider's key can be replaced. Models can be edited and aliases removed. Removal goes from the outside
+  in: an alias a published agent names, a model an alias points at, and a provider that still has models
+  are refused with a message that says what to do. The store refuses loopback addresses unless the process
+  that builds it allows them.
+- **T07b** Knowledge and memory embed with the model the tenant's `embed` alias points at. With none
+  configured they refuse, with a message that names the Models screen. The built-in model id and the "first
+  provider" guess are removed.
+- **T07c** The Models screen lists providers, models and aliases, and each can be added, edited, tested
+  and removed. A model has a kind (chat, embedding, rerank). The standard aliases are listed with whether
+  each is set. No vendor address or model name is filled in by the form, and the "Local fake" kind is gone.
 
 **Done when:** an admin configures a chat model and an embedding model on an empty tenant using only the
 screen, and a collection states the model that indexed it.
 
-**Tests:** `test_m38b_embedding_setting.py`; `models-admin.test.tsx`; Playwright `m38b-models.spec.ts`.
+**Tests:** `test_m38b_model_registry.py` (unit and integration); `test_m38b_embedding_setting.py`;
+`models-admin.test.tsx`; Playwright `m38b-models.spec.ts`.
 
 ## M38b-T08 An attached file reaches the agent
 

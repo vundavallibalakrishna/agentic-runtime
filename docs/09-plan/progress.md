@@ -301,4 +301,5 @@ M38b-T04c | done | 0a82979 | a product store starts with no tenant; tests build 
 M38b-T05a | done | 64cea82 | the browser tests sign in through a path that exists only in their harness
 M38b-T05b | done | 9a9498f | one sign-in: dev-login, the fixed users and the memory identity are out of the product; scripts sign in through Keycloak
 M38b-T05c | done | 395d9f6 | a failed session check replaces the page with an error and a retry; the server-side gate is M38b-T05d, after M38-T09
-M38b-T04e | done | - | a product store starts with no model provider, model or alias; fake-llm is part of the demo tenant; sha recorded with M38b-T07a
+M38b-T04e | done | 38b404c | a product store starts with no model provider, model or alias; fake-llm is part of the demo tenant
+M38b-T07a | done | - | provider, model and alias changes are saved and reach every process; one tenant-scoped loader; a key can be replaced; loopback is refused by default; sha recorded with M38b-T07b

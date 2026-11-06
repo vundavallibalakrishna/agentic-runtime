@@ -324,6 +324,9 @@ from .delete_agent_api_v1_agents_agent_id_delete_response_delete_agent_api_v1_ag
 from .delete_agent_memory_api_v1_agents_agent_id_memory_fact_id_delete_response_delete_agent_memory_api_v1_agents_agent_id_memory_fact_id_delete import (
     DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponseDeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDelete,
 )
+from .delete_alias_api_v1_model_aliases_alias_id_delete_response_delete_alias_api_v1_model_aliases_alias_id_delete import (
+    DeleteAliasApiV1ModelAliasesAliasIdDeleteResponseDeleteAliasApiV1ModelAliasesAliasIdDelete,
+)
 from .delete_api_key_api_v1_api_keys_api_key_id_delete_response_delete_api_key_api_v1_api_keys_api_key_id_delete import (
     DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteResponseDeleteApiKeyApiV1ApiKeysApiKeyIdDelete,
 )
@@ -1050,6 +1053,8 @@ from .meta_api_v1_meta_get_response_meta_api_v1_meta_get import (
 )
 from .model_body import ModelBody
 from .model_body_request_options_type_0 import ModelBodyRequestOptionsType0
+from .model_patch import ModelPatch
+from .model_patch_request_options_type_0 import ModelPatchRequestOptionsType0
 from .my_identities_api_v1_me_channel_identities_get_response_my_identities_api_v1_me_channel_identities_get import (
     MyIdentitiesApiV1MeChannelIdentitiesGetResponseMyIdentitiesApiV1MeChannelIdentitiesGet,
 )
@@ -1118,6 +1123,9 @@ from .patch_memory_api_v1_memory_fact_id_patch_response_patch_memory_api_v1_memo
 )
 from .patch_memory_settings_api_v1_memory_settings_patch_response_patch_memory_settings_api_v1_memory_settings_patch import (
     PatchMemorySettingsApiV1MemorySettingsPatchResponsePatchMemorySettingsApiV1MemorySettingsPatch,
+)
+from .patch_model_api_v1_models_model_id_patch_response_patch_model_api_v1_models_model_id_patch import (
+    PatchModelApiV1ModelsModelIdPatchResponsePatchModelApiV1ModelsModelIdPatch,
 )
 from .patch_plan_api_v1_platform_plans_plan_id_patch_response_patch_plan_api_v1_platform_plans_plan_id_patch import (
     PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch,
@@ -1748,6 +1756,7 @@ __all__ = (
     "DecideItemApiV1ReviewItemsReviewItemIdDecidePostResponseDecideItemApiV1ReviewItemsReviewItemIdDecidePost",
     "DeleteAgentApiV1AgentsAgentIdDeleteResponseDeleteAgentApiV1AgentsAgentIdDelete",
     "DeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDeleteResponseDeleteAgentMemoryApiV1AgentsAgentIdMemoryFactIdDelete",
+    "DeleteAliasApiV1ModelAliasesAliasIdDeleteResponseDeleteAliasApiV1ModelAliasesAliasIdDelete",
     "DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteResponseDeleteApiKeyApiV1ApiKeysApiKeyIdDelete",
     "DeleteAssignmentApiV1RoleAssignmentsAssignmentIdDeleteResponseDeleteAssignmentApiV1RoleAssignmentsAssignmentIdDelete",
     "DeleteCollectionApiV1KnowledgeCollectionsCollectionIdDeleteResponseDeleteCollectionApiV1KnowledgeCollectionsCollectionIdDelete",
@@ -2036,6 +2045,8 @@ __all__ = (
     "MeTeamsItem",
     "ModelBody",
     "ModelBodyRequestOptionsType0",
+    "ModelPatch",
+    "ModelPatchRequestOptionsType0",
     "MyIdentitiesApiV1MeChannelIdentitiesGetResponseMyIdentitiesApiV1MeChannelIdentitiesGet",
     "MyUsageApiV1MeUsageGetResponseMyUsageApiV1MeUsageGet",
     "NotesBody",
@@ -2063,6 +2074,7 @@ __all__ = (
     "PatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatchResponsePatchIntegrationApiV1ChannelIntegrationsIntegrationIdPatch",
     "PatchMemoryApiV1MemoryFactIdPatchResponsePatchMemoryApiV1MemoryFactIdPatch",
     "PatchMemorySettingsApiV1MemorySettingsPatchResponsePatchMemorySettingsApiV1MemorySettingsPatch",
+    "PatchModelApiV1ModelsModelIdPatchResponsePatchModelApiV1ModelsModelIdPatch",
     "PatchPlanApiV1PlatformPlansPlanIdPatchResponsePatchPlanApiV1PlatformPlansPlanIdPatch",
     "PatchPolicyApiV1PoliciesPolicyIdPatchResponsePatchPolicyApiV1PoliciesPolicyIdPatch",
     "PatchProviderApiV1CredentialProvidersProviderIdPatchResponsePatchProviderApiV1CredentialProvidersProviderIdPatch",

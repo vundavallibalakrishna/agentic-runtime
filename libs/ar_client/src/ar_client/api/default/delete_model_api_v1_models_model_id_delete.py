@@ -79,6 +79,8 @@ def sync_detailed(
 ]:
     """Delete Model
 
+     Remove a model that no alias points at.
+
     Args:
         model_id (UUID):
 
@@ -112,6 +114,8 @@ def sync(
 ):
     """Delete Model
 
+     Remove a model that no alias points at.
+
     Args:
         model_id (UUID):
 
@@ -138,6 +142,8 @@ async def asyncio_detailed(
     | HTTPValidationError
 ]:
     """Delete Model
+
+     Remove a model that no alias points at.
 
     Args:
         model_id (UUID):
@@ -169,6 +175,8 @@ async def asyncio(
     | None
 ):
     """Delete Model
+
+     Remove a model that no alias points at.
 
     Args:
         model_id (UUID):

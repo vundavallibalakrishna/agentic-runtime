@@ -213,8 +213,14 @@ async def test_catalogue_agents_and_chat_ops() -> None:
     service.release_sse(str(user))
     service.delete_file(tenant, user, file_id)
     assert service.files[file_id]["status"] == "deleted"
+    with pytest.raises(ConflictError, match="still use this model"):
+        service.delete_model(tenant, model_id, platform=False)
+    with pytest.raises(ConflictError, match="still has models"):
+        service.delete_provider(tenant, provider_id, platform=False)
+    service.delete_alias(tenant, alias_id, platform=False)
     service.delete_model(tenant, model_id, platform=False)
     service.delete_provider(tenant, provider_id, platform=False)
+    assert provider_id not in service.providers
     service.delete_conversation(tenant, user, conversation_id)
     assert service.conversations[conversation_id]["deleted_at"] is not None
 

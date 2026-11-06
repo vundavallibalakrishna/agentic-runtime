@@ -19,6 +19,8 @@ def demo_store(**options: Any) -> Any:
     """A product store holding the demo tenant. ``options`` go to ``ChatService``."""
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
 
+    # Tests reach stand-ins on loopback addresses. A product store refuses them by default.
+    options.setdefault("allow_loopback", True)
     store = ChatService(**options)
     store.seed_demo_tenant()
     return store

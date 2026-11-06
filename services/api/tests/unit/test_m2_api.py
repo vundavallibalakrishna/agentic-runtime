@@ -271,7 +271,23 @@ def test_catalogue_and_run_surface() -> None:
     service.sse_counts[str(demo_id("admin"))] = 20
     limited = client.get(f"/api/v1/runs/{run_id}/events")
     assert limited.status_code == 429
-    assert client.delete(f"/api/v1/models/{model.json()['id']}").status_code == 200
+    # Things are removed from the outside in: an alias, then its model, then the provider.
+    model_id = model.json()["id"]
+    in_use = client.delete(f"/api/v1/models/{model_id}")
+    assert in_use.status_code == 409
+    assert "still use this model" in in_use.json()["detail"]
+    has_models = client.delete(f"/api/v1/model-providers/{provider_id}")
+    assert has_models.status_code == 409
+    assert "still has models" in has_models.json()["detail"]
+    priced = client.patch(
+        f"/api/v1/models/{model_id}",
+        json={"name": "desk chat", "priceInputMicrosPerMtok": 250_000},
+    )
+    assert priced.status_code == 200, priced.text
+    assert priced.json()["name"] == "desk chat"
+    assert priced.json()["priceInputMicrosPerMtok"] == 250_000
+    assert client.delete(f"/api/v1/model-aliases/{alias.json()['id']}").status_code == 200
+    assert client.delete(f"/api/v1/models/{model_id}").status_code == 200
     assert client.delete(f"/api/v1/model-providers/{provider_id}").status_code == 200
     assert client.delete(f"/api/v1/conversations/{conversation_id}").status_code == 200
     admin = _client(kind="platform_admin")

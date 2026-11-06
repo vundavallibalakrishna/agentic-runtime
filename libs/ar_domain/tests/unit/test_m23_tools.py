@@ -390,7 +390,6 @@ def test_memory_database_tools_and_mocked_drivers(monkeypatch: pytest.MonkeyPatc
 
 
 def test_hydrate_round_trip_and_live_catalogue(monkeypatch: pytest.MonkeyPatch) -> None:
-    from sqlalchemy.ext.asyncio import create_async_engine
 
     from ar_domain.durable.m23 import (
         load_data_connections,
@@ -468,14 +467,11 @@ def test_hydrate_round_trip_and_live_catalogue(monkeypatch: pytest.MonkeyPatch) 
     asyncio.run(load_data_connections(session, store, tenant))  # type: ignore[arg-type]
     assert store.service_connections[service_id]["name"] == "proofapi"
     assert store.secret_values[secret_id].startswith(b"postgresql://")
-    store.durable_engine = create_async_engine("postgresql+asyncpg://unused@127.0.0.1/none")
-
-    async def _read(_engine: object, _provider: uuid.UUID) -> str:
-        return "loaded-key"
-
-    monkeypatch.setattr("ar_domain.models.registry.read_api_key", _read)
+    # The model registry is loaded from a real database in
+    # tests/integration/test_m38b_model_registry.py. Without an engine it leaves the store alone.
+    before = dict(store.providers)
     asyncio.run(load_model_catalog(session, store, tenant))  # type: ignore[arg-type]
-    assert store.providers[provider_id]["api_key"] == "loaded-key"
+    assert store.providers == before
 
     class Cursor:
         def __init__(self) -> None:

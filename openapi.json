@@ -5835,6 +5835,7 @@
     "/api/v1/model-providers/{provider_id}": {
       "patch": {
         "summary": "Patch Provider",
+        "description": "Rename a provider, change its address, or replace its key. The change is saved.",
         "operationId": "patch_provider_api_v1_model_providers__provider_id__patch",
         "parameters": [
           {
@@ -5885,6 +5886,7 @@
       },
       "delete": {
         "summary": "Delete Provider",
+        "description": "Remove a provider that has no models left, and its stored key.",
         "operationId": "delete_provider_api_v1_model_providers__provider_id__delete",
         "parameters": [
           {
@@ -6027,8 +6029,60 @@
       }
     },
     "/api/v1/models/{model_id}": {
+      "patch": {
+        "summary": "Patch Model",
+        "description": "Change a model's name, its upstream model, its prices or its request options.",
+        "operationId": "patch_model_api_v1_models__model_id__patch",
+        "parameters": [
+          {
+            "name": "model_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Model Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Patch Model Api V1 Models  Model Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "summary": "Delete Model",
+        "description": "Remove a model that no alias points at.",
         "operationId": "delete_model_api_v1_models__model_id__delete",
         "parameters": [
           {
@@ -6163,6 +6217,49 @@
                   "type": "object",
                   "additionalProperties": true,
                   "title": "Response Update Alias Api V1 Model Aliases  Alias Id  Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete Alias",
+        "description": "Remove an alias.",
+        "operationId": "delete_alias_api_v1_model_aliases__alias_id__delete",
+        "parameters": [
+          {
+            "name": "alias_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Alias Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Delete Alias Api V1 Model Aliases  Alias Id  Delete"
                 }
               }
             }
@@ -21215,6 +21312,21 @@
             "type": "string",
             "format": "uuid",
             "title": "Primarymodelid"
+          },
+          "fallbackModelIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallbackmodelids"
           }
         },
         "additionalProperties": false,
@@ -24372,6 +24484,71 @@
         "required": ["providerId", "name", "upstreamModel"],
         "title": "ModelBody"
       },
+      "ModelPatch": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "upstreamModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstreammodel"
+          },
+          "priceInputMicrosPerMtok": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priceinputmicrospermtok"
+          },
+          "priceOutputMicrosPerMtok": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priceoutputmicrospermtok"
+          },
+          "requestOptions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requestoptions"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ModelPatch"
+      },
       "NotesBody": {
         "properties": {
           "notes": {
@@ -24659,6 +24836,28 @@
               }
             ],
             "title": "Name"
+          },
+          "baseUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseurl"
+          },
+          "apiKey": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apikey"
           }
         },
         "additionalProperties": false,

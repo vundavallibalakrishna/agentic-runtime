@@ -12,7 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
@@ -100,7 +100,14 @@ async def save_provider(
         ring, active = _keyring()
         secret_id = uuid.uuid4()
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        existing = await session.get(ModelProvider, provider_id)
+        replaced = existing.api_key_ref_id if existing is not None else None
         if api_key and isinstance(tenant_id, uuid.UUID) and secret_id is not None:
+            if existing is not None and replaced is not None:
+                # A provider has one stored key. The old one goes before the new one arrives.
+                existing.api_key_ref_id = None
+                await session.flush()
+                await _drop_secret(session, tenant_id, replaced)
             path = _secret_path(tenant_id, secret_id)
             await session.execute(
                 text(
@@ -130,14 +137,78 @@ async def save_provider(
             tenant_id=tenant_id if isinstance(tenant_id, uuid.UUID) else None,
             actor_type=_actor(actor_type),
             actor_id=actor_id,
-            action=AuditAction.MODEL_PROVIDER_CREATED,
+            action=(
+                AuditAction.MODEL_PROVIDER_CREATED
+                if existing is None
+                else AuditAction.MODEL_PROVIDER_UPDATED
+            ),
             target_type="model_provider",
             target_id=str(provider_id),
-            detail={"name": row.get("name"), "kind": row.get("kind")},
+            detail={
+                "name": row.get("name"),
+                "kind": row.get("kind"),
+                "key_replaced": secret_id is not None and replaced is not None,
+            },
         )
+    if secret_id is not None:
+        row["api_key_ref_id"] = secret_id
     if api_key:
         row["has_api_key"] = True
         row["api_key"] = api_key
+
+
+async def delete_provider(
+    engine: AsyncEngine | None,
+    provider_id: uuid.UUID,
+    *,
+    actor_id: str,
+    actor_type: str = "user",
+) -> None:
+    """Remove a provider and its stored key, and audit ``model_provider.deleted``."""
+    if engine is None:
+        return
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        existing = await session.get(ModelProvider, provider_id)
+        if existing is None:
+            return
+        owner, name, secret_ref = existing.tenant_id, existing.name, existing.api_key_ref_id
+        await session.delete(existing)
+        await session.flush()
+        if secret_ref is not None and owner is not None:
+            await _drop_secret(session, owner, secret_ref)
+        await record(
+            session,
+            tenant_id=owner,
+            actor_type=_actor(actor_type),
+            actor_id=actor_id,
+            action=AuditAction.MODEL_PROVIDER_DELETED,
+            target_type="model_provider",
+            target_id=str(provider_id),
+            detail={"name": name},
+        )
+
+
+async def _drop_secret(session: AsyncSession, tenant_id: uuid.UUID, secret_id: uuid.UUID) -> None:
+    """Delete a stored provider key: the ciphertext, then the reference to it."""
+    ref = (
+        (
+            await session.execute(
+                text("SELECT path FROM secret_refs WHERE id = :id AND tenant_id = :tenant_id"),
+                {"id": secret_id, "tenant_id": tenant_id},
+            )
+        )
+        .mappings()
+        .first()
+    )
+    if ref is None:
+        return
+    ring, active = _keyring()
+    store = DbEncryptedStore(session, tenant_id=tenant_id, keyring=ring, active_key_id=active)
+    await store.delete(str(ref["path"]))
+    await session.execute(
+        text("DELETE FROM secret_refs WHERE id = :id AND tenant_id = :tenant_id"),
+        {"id": secret_id, "tenant_id": tenant_id},
+    )
 
 
 async def save_model(
@@ -147,7 +218,7 @@ async def save_model(
     actor_id: str,
     actor_type: str = "user",
 ) -> None:
-    """Insert a model row and audit ``model.created``."""
+    """Insert or change a model row and audit ``model.created`` or ``model.updated``."""
     if engine is None:
         return
     model_id = uuid.UUID(str(row["id"]))
@@ -176,6 +247,7 @@ async def save_model(
         else:
             existing.upstream_model = str(row.get("upstream_model") or existing.upstream_model)
             existing.name = str(row.get("name") or existing.name)
+            existing.kind = str(row.get("kind") or existing.kind)
             existing.price_input_micros_per_mtok = _price(row, "price_input_micros_per_mtok")
             existing.price_output_micros_per_mtok = _price(row, "price_output_micros_per_mtok")
             if row.get("request_options") is not None:
@@ -185,10 +257,38 @@ async def save_model(
             tenant_id=owner,
             actor_type=_actor(actor_type),
             actor_id=actor_id,
-            action=AuditAction.MODEL_CREATED,
+            action=AuditAction.MODEL_CREATED if existing is None else AuditAction.MODEL_UPDATED,
             target_type="model",
             target_id=str(model_id),
             detail={"name": row.get("name"), "upstream_model": row.get("upstream_model")},
+        )
+
+
+async def delete_model(
+    engine: AsyncEngine | None,
+    model_id: uuid.UUID,
+    *,
+    actor_id: str,
+    actor_type: str = "user",
+) -> None:
+    """Remove a model row and audit ``model.deleted``."""
+    if engine is None:
+        return
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        existing = await session.get(Model, model_id)
+        if existing is None:
+            return
+        owner, name = existing.tenant_id, existing.name
+        await session.delete(existing)
+        await record(
+            session,
+            tenant_id=owner,
+            actor_type=_actor(actor_type),
+            actor_id=actor_id,
+            action=AuditAction.MODEL_DELETED,
+            target_type="model",
+            target_id=str(model_id),
+            detail={"name": name},
         )
 
 
@@ -213,6 +313,10 @@ async def save_alias(
     tenant_id = row.get("tenant_id")
     owner = tenant_id if isinstance(tenant_id, uuid.UUID) else None
     primary = uuid.UUID(str(row["primary_model_id"]))
+    raw_fallbacks = row.get("fallback_model_ids")
+    fallbacks = (
+        [uuid.UUID(str(item)) for item in raw_fallbacks] if isinstance(raw_fallbacks, list) else []
+    )
     name = str(row.get("alias") or "")
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
@@ -237,7 +341,7 @@ async def save_alias(
                         alias=name,
                         kind=str(row.get("kind") or "chat"),
                         primary_model_id=primary,
-                        fallback_model_ids=[],
+                        fallback_model_ids=fallbacks,
                         traffic_split={},
                         default_params={"temperature": 0.2},
                         status="active",
@@ -245,6 +349,7 @@ async def save_alias(
                 )
             else:
                 existing.primary_model_id = primary
+                existing.fallback_model_ids = fallbacks
             await record(
                 session,
                 tenant_id=owner,
@@ -257,6 +362,34 @@ async def save_alias(
             )
     except IntegrityError as exc:
         raise ConflictError("a model alias with that name already exists") from exc
+
+
+async def delete_alias(
+    engine: AsyncEngine | None,
+    alias_id: uuid.UUID,
+    *,
+    actor_id: str,
+    actor_type: str = "user",
+) -> None:
+    """Remove an alias row and audit ``model_alias.deleted``."""
+    if engine is None:
+        return
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        existing = await session.get(ModelAlias, alias_id)
+        if existing is None:
+            return
+        owner, name = existing.tenant_id, existing.alias
+        await session.delete(existing)
+        await record(
+            session,
+            tenant_id=owner,
+            actor_type=_actor(actor_type),
+            actor_id=actor_id,
+            action=AuditAction.MODEL_ALIAS_DELETED,
+            target_type="model_alias",
+            target_id=str(alias_id),
+            detail={"alias": name},
+        )
 
 
 async def read_api_key(engine: AsyncEngine, provider_id: uuid.UUID) -> str:
@@ -307,14 +440,35 @@ def model_row_from(model: Any) -> dict[str, object]:
     }
 
 
-async def load_into(engine: AsyncEngine, store: Any) -> None:
-    """Merge database providers, models and aliases into the process cache."""
+async def load_registry(
+    engine: AsyncEngine, store: Any, tenant_id: uuid.UUID, *, with_keys: bool = False
+) -> None:
+    """Make the store's providers, models and aliases equal the database rows of one tenant.
+
+    The rows read are the tenant's own and those that belong to no tenant. Rows the
+    database no longer holds leave the store, so a provider that one process deleted stops
+    being used by every other process. A key already read for a provider is kept while
+    the provider still points at the same stored key.
+    """
+    owned = or_(ModelProvider.tenant_id == tenant_id, ModelProvider.tenant_id.is_(None))
     async with AsyncSession(engine, expire_on_commit=False) as session:
-        providers = (await session.scalars(select(ModelProvider))).all()
-        models = (await session.scalars(select(Model))).all()
-        aliases = (await session.scalars(select(ModelAlias))).all()
+        providers = (await session.scalars(select(ModelProvider).where(owned))).all()
+        models = (
+            await session.scalars(
+                select(Model).where(or_(Model.tenant_id == tenant_id, Model.tenant_id.is_(None)))
+            )
+        ).all()
+        aliases = (
+            await session.scalars(
+                select(ModelAlias).where(
+                    or_(ModelAlias.tenant_id == tenant_id, ModelAlias.tenant_id.is_(None))
+                )
+            )
+        ).all()
+    known = store.providers
+    fresh: dict[uuid.UUID, dict[str, object]] = {}
     for provider in providers:
-        store.providers[provider.id] = {
+        row: dict[str, object] = {
             "id": provider.id,
             "tenant_id": provider.tenant_id,
             "name": provider.name,
@@ -325,21 +479,56 @@ async def load_into(engine: AsyncEngine, store: Any) -> None:
             "health": provider.health or {},
             "platform": provider.tenant_id is None,
             "has_api_key": provider.api_key_ref_id is not None,
+            "api_key_ref_id": provider.api_key_ref_id,
         }
-    for model in models:
-        store.models[model.id] = model_row_from(model)
-    for alias in aliases:
-        store.aliases[alias.id] = {
-            "id": alias.id,
-            "tenant_id": alias.tenant_id,
-            "alias": alias.alias,
-            "kind": alias.kind,
-            "primary_model_id": alias.primary_model_id,
-            "fallback_model_ids": list(alias.fallback_model_ids or []),
-            "default_params": dict(alias.default_params or {}),
-            "status": alias.status,
-            "platform": alias.tenant_id is None,
-        }
+        before = known.get(provider.id)
+        if (
+            isinstance(before, dict)
+            and before.get("api_key")
+            and before.get("api_key_ref_id") in {provider.api_key_ref_id, None}
+            and provider.api_key_ref_id is not None
+        ):
+            row["api_key"] = before["api_key"]
+        fresh[provider.id] = row
+    _replace(store.providers, fresh)
+    _replace(store.models, {model.id: model_row_from(model) for model in models})
+    _replace(
+        store.aliases,
+        {
+            alias.id: {
+                "id": alias.id,
+                "tenant_id": alias.tenant_id,
+                "alias": alias.alias,
+                "kind": alias.kind,
+                "primary_model_id": alias.primary_model_id,
+                "fallback_model_ids": list(alias.fallback_model_ids or []),
+                "default_params": dict(alias.default_params or {}),
+                "status": alias.status,
+                "platform": alias.tenant_id is None,
+            }
+            for alias in aliases
+        },
+    )
+    if not with_keys:
+        return
+    for provider_id, row in store.providers.items():
+        if row.get("api_key") or row.get("api_key_ref_id") is None:
+            continue
+        try:
+            key = await read_api_key(engine, provider_id)
+        except Exception:  # noqa: BLE001 — a missing key ring leaves the provider locked
+            key = ""
+        if key:
+            row["api_key"] = key
+
+
+def _replace(
+    bucket: dict[uuid.UUID, dict[str, object]], rows: dict[uuid.UUID, dict[str, object]]
+) -> None:
+    """Swap a bucket's contents in place, so references to the bucket stay valid."""
+    for stale in [key for key in bucket if key not in rows]:
+        del bucket[stale]
+    bucket.update(rows)
 
 
 async def lookup_upstream(model_name: str) -> UpstreamTarget | None:

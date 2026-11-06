@@ -89,6 +89,8 @@ def sync_detailed(
 ]:
     """Patch Provider
 
+     Rename a provider, change its address, or replace its key. The change is saved.
+
     Args:
         provider_id (UUID):
         body (ProviderPatch):
@@ -125,6 +127,8 @@ def sync(
 ):
     """Patch Provider
 
+     Rename a provider, change its address, or replace its key. The change is saved.
+
     Args:
         provider_id (UUID):
         body (ProviderPatch):
@@ -154,6 +158,8 @@ async def asyncio_detailed(
     | PatchProviderApiV1ModelProvidersProviderIdPatchResponsePatchProviderApiV1ModelProvidersProviderIdPatch
 ]:
     """Patch Provider
+
+     Rename a provider, change its address, or replace its key. The change is saved.
 
     Args:
         provider_id (UUID):
@@ -188,6 +194,8 @@ async def asyncio(
     | None
 ):
     """Patch Provider
+
+     Rename a provider, change its address, or replace its key. The change is saved.
 
     Args:
         provider_id (UUID):
