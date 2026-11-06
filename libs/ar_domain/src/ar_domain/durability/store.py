@@ -1,18 +1,18 @@
-"""Remember file bytes and workspace files outside the process temp directory.
+"""File bytes and workspace files outside the process temp directory.
 
-Bodies at or under the cap are copied onto the process store so a flush can
-write them. Larger bodies stay on the temp directory only.
+A file's bytes live in the object store (``ar_domain.files.objects``); this module reads
+them through the process cache and keeps workspace files that fit the cap on the store so
+a flush can write them.
 """
 
 from __future__ import annotations
 
-import hashlib
 import os
 import shutil
 import tempfile
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
@@ -21,9 +21,8 @@ from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from typing import Any
 
-_MAX_BLOB = 8 * 1024 * 1024
 _MAX_WORKSPACE_FILE = 2 * 1024 * 1024
 _MAX_WORKSPACE = 8 * 1024 * 1024
 
@@ -34,57 +33,49 @@ def workspace_root(run_id: uuid.UUID) -> Path:
     return base / "ar-run-workspaces" / str(run_id)
 
 
-def remember_blob(store: Any, row: Mapping[str, object], data: bytes) -> None:
-    """Keep a copy of a file that fits the durable cap."""
-    if len(data) > _MAX_BLOB:
-        return
-    file_id = row.get("id")
-    tenant_id = row.get("tenant_id")
-    if not isinstance(file_id, uuid.UUID) or not isinstance(tenant_id, uuid.UUID):
-        return
-    book = _book(store, "file_blobs")
-    book[file_id] = {
-        "id": file_id,
-        "tenant_id": tenant_id,
-        "owner_user_id": row.get("owner_user_id"),
-        "conversation_id": row.get("conversation_id"),
-        "run_id": row.get("run_id"),
-        "name": str(row.get("name") or "file"),
-        "mime_type": str(row.get("mime_type") or "application/octet-stream"),
-        "sha256": str(row.get("sha256") or hashlib.sha256(data).hexdigest()),
-        "size_bytes": len(data),
-        "kind": str(row.get("kind") or "upload"),
-        "body": data,
-        "created_at": row.get("created_at") or utcnow(),
-        "updated_at": utcnow(),
-    }
-
-
 def read_blob(store: Any, file_id: uuid.UUID) -> bytes | None:
-    """Return bytes from the cache, the durable copy, or Postgres."""
+    """A file's bytes: from the process cache, else the object store.
+
+    Files a release before this one kept in ``file_blobs`` are moved to the object store
+    when the tenant is hydrated (``durable.m35._legacy_rows``), so this reads only the
+    cache and the store. The ``file_blobs`` fallback is a last resort for a row seen
+    without its object.
+    """
+    from ar_domain.files.objects import fetch_bytes, keep_bytes  # noqa: PLC0415
+
     blobs = getattr(store, "blobs", None)
     if isinstance(blobs, dict):
         found = blobs.get(file_id)
         if isinstance(found, (bytes, bytearray, memoryview)):
             return bytes(found)
-    row = _row(store, "file_blobs", file_id)
-    cached = _body(row)
-    if cached is not None:
-        if isinstance(blobs, dict):
-            blobs[file_id] = cached
-        return cached
-    loaded = _load_blob(store, file_id)
-    if loaded is None:
+    row = _file_row(store, file_id)
+    if row is None:
         return None
-    if isinstance(blobs, dict):
-        blobs[file_id] = loaded
+    if row.get("deleted_at") is not None or row.get("status") == "deleted":
+        return None
+    data = fetch_bytes(store, row)
+    if data is not None:
+        return data
+    legacy = _load_blob(store, file_id)
+    if legacy is None:
+        return None
+    keep_bytes(store, row, legacy)
+    return legacy
+
+
+def _file_row(store: Any, file_id: uuid.UUID) -> dict[str, object] | None:
+    """The file's row from the store, else from the table."""
+    row = _row(store, "files", file_id)
+    if row is not None:
+        return row
+    rows = _sync_rows(store, "SELECT * FROM files WHERE id = :id", {"id": file_id})
+    if not rows:
+        return None
+    loaded = rows[0]
+    files = getattr(store, "files", None)
+    if isinstance(files, dict):
+        files[file_id] = loaded
     return loaded
-
-
-def forget_blob(store: Any, file_id: uuid.UUID) -> None:
-    book = getattr(store, "file_blobs", None)
-    if isinstance(book, dict) and file_id in book:
-        book.pop(file_id, None)
 
 
 def snapshot_workspace(store: Any, run_id: uuid.UUID | None, tenant_id: object) -> int:
@@ -189,37 +180,6 @@ def restore_workspace(store: Any, arguments: dict[str, object]) -> int:
             detail=f"Restored {wrote} files from the interrupted run.",
         )
     return wrote if wrote else copied
-
-
-def materialise_file(store: Any, row: dict[str, object]) -> None:
-    """Put a loaded blob back on the file cache."""
-    file_id = row.get("id")
-    if not isinstance(file_id, uuid.UUID):
-        return
-    files = getattr(store, "files", None)
-    if isinstance(files, dict) and file_id not in files:
-        files[file_id] = {
-            "id": file_id,
-            "tenant_id": row.get("tenant_id"),
-            "owner_user_id": row.get("owner_user_id"),
-            "conversation_id": row.get("conversation_id"),
-            "run_id": row.get("run_id"),
-            "kind": row.get("kind") or "upload",
-            "name": row.get("name") or "file",
-            "mime_type": row.get("mime_type") or "application/octet-stream",
-            "size_bytes": row.get("size_bytes") or 0,
-            "sha256": row.get("sha256"),
-            "object_key": f"blob/{file_id}",
-            "status": "ready",
-            "scan_status": "skipped",
-            "preview": {},
-            "created_at": row.get("created_at") or utcnow(),
-            "deleted_at": None,
-        }
-    body = _body(row)
-    blobs = getattr(store, "blobs", None)
-    if body is not None and isinstance(blobs, dict):
-        blobs[file_id] = body
 
 
 def _book(store: Any, name: str) -> dict[object, object]:
@@ -347,19 +307,14 @@ def _copy_run(store: Any, source: uuid.UUID, target: uuid.UUID, tenant_id: uuid.
 
 
 def _load_blob(store: Any, file_id: uuid.UUID) -> bytes | None:
-    rows = _sync_rows(store, "SELECT * FROM file_blobs WHERE id = :id", {"id": file_id})
+    """Bytes a release before this one kept in Postgres (``file_blobs``)."""
+    rows = _sync_rows(store, "SELECT body FROM file_blobs WHERE id = :id", {"id": file_id})
     if not rows:
         return None
-    row = rows[0]
-    body = row.get("body")
+    body = rows[0].get("body")
     if not isinstance(body, (bytes, bytearray, memoryview)):
         return None
-    data = bytes(body)
-    row["body"] = data
-    book = _book(store, "file_blobs")
-    book[file_id] = row
-    materialise_file(store, row)
-    return data or None
+    return bytes(body) or None
 
 
 def _sync_rows(store: Any, sql: str, params: dict[str, object]) -> list[dict[str, object]]:

@@ -152,24 +152,14 @@ def _trim_events(store: Any, protected: set[object], limit: int) -> int:
 
 
 def _trim_blobs(store: Any, limit: int) -> int:
+    """Drop cached bytes, oldest first, until the cache fits. The object store has them."""
     blobs = getattr(store, "blobs", None)
-    durable = getattr(store, "file_blobs", None)
-    if not isinstance(blobs, dict) or not isinstance(durable, dict):
+    if not isinstance(blobs, dict):
         return 0
     removed = 0
-    while _blob_bytes(blobs) > limit:
-        dropped = False
-        for key in list(blobs):
-            row = durable.get(key)
-            body = row.get("body") if isinstance(row, dict) else None
-            if not isinstance(body, (bytes, bytearray, memoryview)):
-                continue
-            blobs.pop(key, None)
-            removed += 1
-            dropped = True
-            break
-        if not dropped:
-            break
+    while _blob_bytes(blobs) > limit and blobs:
+        blobs.pop(next(iter(blobs)), None)
+        removed += 1
     return removed
 
 

@@ -21,6 +21,7 @@ from ar_domain.documents.library import DocumentLibrary
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.handlers import dispatch
 from ar_testing.demo import demo_store
+from ar_testing.objects import MemoryObjectStore
 
 _FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "m34a"
 _A = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -66,6 +67,7 @@ def _store() -> Any:
             self.runs: dict[uuid.UUID, dict[str, object]] = {}
             self.scanner = "none"
             self.audit_log: list[dict[str, object]] = []
+            self.objects = MemoryObjectStore()
 
     return Store()
 

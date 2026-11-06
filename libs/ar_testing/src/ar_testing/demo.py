@@ -10,6 +10,7 @@ session for one of those people.
 from typing import TYPE_CHECKING
 
 from ar_testing.demo_people import DEV_TENANT_ID, catalogue
+from ar_testing.objects import MemoryObjectStore
 
 if TYPE_CHECKING:
     from typing import Any
@@ -21,6 +22,8 @@ def demo_store(**options: Any) -> Any:
 
     # Tests reach stand-ins on loopback addresses. A product store refuses them by default.
     options.setdefault("allow_loopback", True)
+    # File bytes go to a store in memory; the product's own is the configured S3 bucket.
+    options.setdefault("objects", MemoryObjectStore())
     store = ChatService(**options)
     store.seed_demo_tenant()
     connect_embeddings(store)
@@ -53,6 +56,8 @@ def serve_demo_tenant(app: Any) -> Any:
     from ar_testing.memory_identity import memory_identity  # noqa: PLC0415
 
     store = app.state.chat
+    # The browser tests run with no object store; file bytes are kept in memory.
+    store.objects = MemoryObjectStore()
     store.seed_demo_tenant()
     connect_embeddings(store)
     store.seed_showcase()

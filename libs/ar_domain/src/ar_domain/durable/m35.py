@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import bindparam, text
 
-from ar_domain.durability.store import materialise_file
-from ar_domain.durable.codec import as_dt, as_int, as_text, as_uuid
+from ar_domain.durable.codec import as_dt, as_int, as_json, as_text, as_uuid
 
 if TYPE_CHECKING:
     import uuid
@@ -19,7 +18,7 @@ _JOB_STATUS = {"running", "completed", "interrupted", "failed"}
 
 
 async def save_durability(session: AsyncSession, pending: dict[str, list[dict[str, Any]]]) -> None:
-    await _blobs(session, pending.get("file_blobs", []))
+    await _files(session, pending.get("files", []))
     await _workspace(session, pending.get("workspace_files", []))
     await _jobs(session, pending.get("job_progress", []))
     await _push(session, pending.get("a2a_push_configs", []))
@@ -32,11 +31,12 @@ async def load_conversation_files(
     conversation_id: object,
     attached: list[uuid.UUID],
 ) -> None:
-    """Bring in the conversation's files this process has not seen yet.
+    """Bring in the rows of the conversation's files this process has not seen yet.
 
     A file is uploaded through the API and attached to a message, and a tool writes a
     file in the worker. Whichever process serves the next request learns of both here,
-    so a turn can read what was attached and a download finds what a turn wrote.
+    so a turn can read what was attached and a download finds what a turn wrote. Only
+    the rows come in; a file's bytes are fetched from the object store when needed.
     """
     from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
 
@@ -45,8 +45,8 @@ async def load_conversation_files(
         return
     made = await session.execute(
         text(
-            "SELECT id FROM file_blobs "
-            "WHERE tenant_id = :tenant_id AND conversation_id = :conversation_id"
+            "SELECT id FROM files WHERE tenant_id = :tenant_id "
+            "AND conversation_id = :conversation_id AND deleted_at IS NULL"
         ),
         {"tenant_id": tenant_id, "conversation_id": conversation_id},
     )
@@ -55,29 +55,97 @@ async def load_conversation_files(
     if not missing:
         return
     found = await session.execute(
-        text("SELECT * FROM file_blobs WHERE tenant_id = :tenant_id AND id IN :ids").bindparams(
+        text("SELECT * FROM files WHERE tenant_id = :tenant_id AND id IN :ids").bindparams(
             bindparam("ids", expanding=True)
         ),
         {"tenant_id": tenant_id, "ids": missing},
     )
     for mapping in found.mappings():
         row = dict(mapping)
-        if isinstance(row.get("body"), memoryview):
-            row["body"] = row["body"].tobytes()
-        _merge(store, "file_blobs", row["id"], row)
-        materialise_file(store, row)
+        _merge(store, "files", row["id"], row)
+    await _legacy_rows(session, store, tenant_id, [item for item in missing if item not in held])
+
+
+async def _legacy_rows(
+    session: AsyncSession, store: object, tenant_id: uuid.UUID, ids: list[uuid.UUID] | None
+) -> None:
+    """Move files a release before this one kept in ``file_blobs`` to the object store.
+
+    Those bytes are in Postgres and the ``files`` table is empty for them. Here, the one
+    place with an async session to read the bytes, each blob is copied to the object store
+    and written to ``files``; after the next flush the ``files`` SELECT finds the row and
+    this does nothing. The blob row stays until a later revision drops the table. This
+    reads a transitional, shrinking set, not every file of the tenant each start
+    ([OQ-112](../../../../docs/open-questions.md)).
+    """
+    from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
+    from ar_domain.files.logic import object_key  # noqa: PLC0415
+    from ar_domain.files.objects import keep_bytes  # noqa: PLC0415
+
+    held = getattr(store, "files", None)
+    if not isinstance(held, dict) or ids == []:
+        return
+    sql = (
+        "SELECT id, tenant_id, owner_user_id, conversation_id, run_id, name, mime_type, "
+        "sha256, size_bytes, kind, body, created_at FROM file_blobs WHERE tenant_id = :tenant_id"
+    )
+    params: dict[str, Any] = {"tenant_id": tenant_id}
+    statement = text(sql)
+    if ids is not None:
+        statement = text(sql + " AND id IN :ids").bindparams(bindparam("ids", expanding=True))
+        params["ids"] = ids
+    found = await session.execute(statement, params)
+    for mapping in found.mappings():
+        blob = dict(mapping)
+        file_id = blob["id"]
+        if file_id in held:
+            continue
+        body = blob.get("body")
+        if isinstance(body, memoryview):
+            body = body.tobytes()
+        if not isinstance(body, bytes):
+            continue
+        made = blob.get("created_at")
+        year = f"{made:%Y}" if made else "0000"
+        month = f"{made:%m}" if made else "00"
+        kind = str(blob.get("kind") or "upload")
+        row = {
+            "id": file_id,
+            "tenant_id": blob.get("tenant_id"),
+            "owner_user_id": blob.get("owner_user_id"),
+            "conversation_id": blob.get("conversation_id"),
+            "run_id": blob.get("run_id"),
+            "kind": kind,
+            "name": blob.get("name") or "file",
+            "mime_type": blob.get("mime_type") or "application/octet-stream",
+            "size_bytes": blob.get("size_bytes") or len(body),
+            "sha256": blob.get("sha256"),
+            "object_key": object_key(str(tenant_id), kind, year, month, str(file_id)),
+            "status": "ready",
+            "scan_status": "skipped",
+            "preview": {},
+            "created_at": made,
+            "deleted_at": None,
+        }
+        keep_bytes(store, row, body)
+        _merge(store, "files", file_id, row)
+        # Hydrate loads without marking rows dirty; this row is new to ``files`` and must
+        # be flushed, so mark it so the next flush writes it.
+        dirty = getattr(held, "dirty", None)
+        if isinstance(dirty, set):
+            dirty.add(file_id)
 
 
 async def load_durability(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
 
     queries = (
-        "SELECT * FROM file_blobs WHERE tenant_id = :tenant_id",
+        "SELECT * FROM files WHERE tenant_id = :tenant_id AND deleted_at IS NULL",
         "SELECT * FROM workspace_files WHERE tenant_id = :tenant_id",
         "SELECT * FROM job_progress WHERE tenant_id = :tenant_id",
         "SELECT * FROM a2a_push_configs WHERE tenant_id = :tenant_id",
     )
-    names = ("file_blobs", "workspace_files", "job_progress", "a2a_push_configs")
+    names = ("files", "workspace_files", "job_progress", "a2a_push_configs")
     for name, sql in zip(names, queries, strict=True):
         result = await session.execute(text(sql), {"tenant_id": tenant_id})
         for mapping in result.mappings():
@@ -85,34 +153,65 @@ async def load_durability(session: AsyncSession, store: object, tenant_id: uuid.
             if "body" in row and isinstance(row["body"], memoryview):
                 row["body"] = row["body"].tobytes()
             _merge(store, name, row["id"], row)
-            if name == "file_blobs":
-                materialise_file(store, row)
+    await _legacy_rows(session, store, tenant_id, None)
 
 
-async def _blobs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+_FILE_KINDS = frozenset(
+    {
+        "upload",
+        "artifact",
+        "tool_result",
+        "sandbox_snapshot",
+        "knowledge_raw",
+        "knowledge_parsed",
+        "skill_asset",
+        "avatar",
+        "export",
+        "openapi_spec",
+        "eval_dataset",
+        "event_payload",
+    }
+)
+_FILE_STATUS = frozenset({"pending_upload", "ready", "quarantined", "deleted"})
+_SCAN_STATUS = frozenset({"pending", "clean", "infected", "skipped", "error"})
+_CLASSIFICATIONS = frozenset({"public", "internal", "confidential", "restricted"})
+
+
+async def _files(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    """A file's row. Its bytes are in the object store under ``object_key``."""
     sql = """
-        INSERT INTO file_blobs (
-            id, tenant_id, owner_user_id, conversation_id, run_id, name, mime_type, sha256,
-            size_bytes, kind, body, created_at, updated_at
+        INSERT INTO files (
+            id, tenant_id, owner_user_id, conversation_id, run_id, kind, name, mime_type,
+            size_bytes, sha256, object_key, classification, status, scan_status, preview,
+            retention_until, created_at, updated_at, deleted_at
         ) VALUES (
-            :id, :tenant_id, :owner_user_id, :conversation_id, :run_id, :name, :mime_type, :sha256,
-            :size_bytes, :kind, :body, :created_at, :updated_at
+            :id, :tenant_id, :owner_user_id, :conversation_id, :run_id, :kind, :name, :mime_type,
+            :size_bytes, :sha256, :object_key, :classification, :status, :scan_status,
+            CAST(:preview AS jsonb), :retention_until, :created_at, :updated_at, :deleted_at
         )
         ON CONFLICT (id) DO UPDATE SET
             name = EXCLUDED.name,
             mime_type = EXCLUDED.mime_type,
-            sha256 = EXCLUDED.sha256,
             size_bytes = EXCLUDED.size_bytes,
-            kind = EXCLUDED.kind,
-            body = EXCLUDED.body,
-            updated_at = EXCLUDED.updated_at
+            sha256 = EXCLUDED.sha256,
+            classification = EXCLUDED.classification,
+            status = EXCLUDED.status,
+            scan_status = EXCLUDED.scan_status,
+            preview = EXCLUDED.preview,
+            retention_until = EXCLUDED.retention_until,
+            updated_at = EXCLUDED.updated_at,
+            deleted_at = EXCLUDED.deleted_at
     """
     for row in rows:
-        body = _bytes(row.get("body"))
         item_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
-        if item_id is None or tenant_id is None or not body or len(body) > 8 * 1024 * 1024:
+        key = as_text(row.get("object_key"))
+        if item_id is None or tenant_id is None or not key:
             continue
+        kind = as_text(row.get("kind"), "upload")
+        status = as_text(row.get("status"), "ready")
+        scan = as_text(row.get("scan_status"), "skipped")
+        classification = as_text(row.get("classification"), "internal")
         await session.execute(
             text(sql),
             {
@@ -121,14 +220,22 @@ async def _blobs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "owner_user_id": as_uuid(row.get("owner_user_id")),
                 "conversation_id": as_uuid(row.get("conversation_id")),
                 "run_id": as_uuid(row.get("run_id")),
+                "kind": kind if kind in _FILE_KINDS else "upload",
                 "name": as_text(row.get("name"), "file")[:240],
                 "mime_type": as_text(row.get("mime_type"), "application/octet-stream")[:200],
-                "sha256": as_text(row.get("sha256"))[:80],
-                "size_bytes": len(body),
-                "kind": as_text(row.get("kind"), "upload")[:40],
-                "body": body,
+                "size_bytes": as_int(row.get("size_bytes")),
+                "sha256": as_text(row.get("sha256"))[:80] or None,
+                "object_key": key,
+                "classification": (
+                    classification if classification in _CLASSIFICATIONS else "internal"
+                ),
+                "status": status if status in _FILE_STATUS else "ready",
+                "scan_status": scan if scan in _SCAN_STATUS else "skipped",
+                "preview": as_json(row.get("preview"), {}),
+                "retention_until": as_dt(row.get("retention_until")),
                 "created_at": as_dt(row.get("created_at")),
-                "updated_at": as_dt(row.get("updated_at")),
+                "updated_at": as_dt(row.get("updated_at")) or as_dt(row.get("created_at")),
+                "deleted_at": as_dt(row.get("deleted_at")),
             },
         )
 

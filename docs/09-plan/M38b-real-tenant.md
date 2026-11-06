@@ -403,6 +403,8 @@ restarts.
 
 **Tests:** `test_m38b_file_store.py` (integration, with the object store).
 
+**Done (7 Nov 2026).** The bytes are one object under the row's key in the S3 store the install names, put before the row exists; the row is in `files` through the write-behind; a worker learns a conversation's rows before the turn and fetches bytes when needed; a process never loads a tenant's files at start. The S3 client talks unsigned to a keyless store (the bundled SeaweedFS) and makes a missing bucket on first use. A file in `file_blobs` (revision 0033) is moved to the object store when its tenant is hydrated and dropped by a later revision (OQ-112). The upload body limit was two bugs found on the live tenant (F67): the API's 1 MiB JSON limit applied to the upload route, and the web proxy buffered to 10 MiB; both now carry the 25 MiB cap. The integration test runs against SeaweedFS in a container (`ar_testing.containers.s3_endpoint`).
+
 ## M38b-T14 A form starts empty
 
 **Depends on:** none. **Areas:** `apps/web/src/components/`. **Findings:** F53, F64.

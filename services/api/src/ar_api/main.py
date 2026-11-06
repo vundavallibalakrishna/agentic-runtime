@@ -83,6 +83,7 @@ from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatService
 from ar_domain.db.context import Principal
+from ar_domain.files.logic import UPLOAD_BODY_LIMIT
 
 LISTEN_PORT = 8000
 
@@ -312,7 +313,12 @@ def create_application() -> FastAPI:
         inner_middleware=inner,
         docs_url=docs,
         camel_json=True,
-        body_limits={"/api/v1/library-documents": 26_214_400},
+        # A route that takes a file accepts the upload cap, not the JSON body limit.
+        body_limits={
+            "/api/v1/files:upload": UPLOAD_BODY_LIMIT,
+            "/api/v1/library-documents": UPLOAD_BODY_LIMIT,
+            "/v1/agents/{slug}/files": UPLOAD_BODY_LIMIT,
+        },
     )
     key = session_key_bytes(
         settings.session_encryption_key.get_secret_value(),

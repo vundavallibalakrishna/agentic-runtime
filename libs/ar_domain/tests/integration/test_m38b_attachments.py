@@ -48,7 +48,9 @@ async def _process(database_url: str) -> ChatService:
     return store
 
 
-async def test_a_worker_reads_a_file_uploaded_after_it_started(database_url: str) -> None:
+async def test_a_worker_reads_a_file_uploaded_after_it_started(
+    database_url: str, s3_endpoint: str
+) -> None:
     engine = create_async_engine(database_url)
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await apply(session)
@@ -120,7 +122,7 @@ async def test_a_worker_reads_a_file_uploaded_after_it_started(database_url: str
     assert made not in api.files
     await reload_run(api, run_id)
     assert api.files[made]["name"] == "totals.txt"
-    assert bytes(api.blobs[made]) == b"north 120, south 80"
+    assert api.file_bytes(tenant, admin, made)[0] == b"north 120, south 80"
 
     for store in (api, worker):
         if store.durable_engine is not None:

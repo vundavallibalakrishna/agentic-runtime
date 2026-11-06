@@ -62,6 +62,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncEngine
 
+    from ar_domain.files.objects import ObjectStore
+
 
 def _iso(value: datetime | None) -> str | None:
     return None if value is None else value.isoformat()
@@ -178,6 +180,9 @@ class ChatService:
     steps: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     events: dict[uuid.UUID, list[dict[str, object]]] = field(default_factory=dict)
     files: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    # Where file bytes live. None means the configured S3 bucket (``files/objects.py``);
+    # a test's setup gives the stand-in from ``ar_testing``.
+    objects: ObjectStore | None = None
     blobs: dict[uuid.UUID, bytes] = field(default_factory=dict)
     feedback: dict[tuple[uuid.UUID, uuid.UUID], dict[str, object]] = field(default_factory=dict)
     shares: dict[tuple[uuid.UUID, str, uuid.UUID], dict[str, object]] = field(default_factory=dict)
@@ -303,7 +308,6 @@ class ChatService:
     eval_gateway: dict[str, int] = field(default_factory=dict)
     eval_platform_tenants: set[uuid.UUID] = field(default_factory=set)
     records: dict[str, dict[object, dict[str, object]]] = field(default_factory=dict)
-    file_blobs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     workspace_files: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     job_progress: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     a2a_push_configs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -711,7 +715,7 @@ class ChatService:
     def _public(self, row: dict[str, object]) -> dict[str, object]:
         out: dict[str, object] = {}
         for key, value in row.items():
-            if key in {"blob", "api_key"}:
+            if key in {"blob", "api_key", "legacy"}:
                 continue
             if isinstance(value, datetime):
                 out[key] = value.isoformat()
@@ -3013,11 +3017,11 @@ class ChatService:
             "preview": preview,
             "created_at": now,
         }
-        self.files[file_id] = row
-        self.blobs[file_id] = data
-        from ar_domain.durability.store import remember_blob  # noqa: PLC0415
+        from ar_domain.files.objects import keep_bytes  # noqa: PLC0415
 
-        remember_blob(self, row, data)
+        # The bytes go to the object store first: a file the store did not take is not a file.
+        keep_bytes(self, row, data)
+        self.files[file_id] = row
         self._evict()
         return self._public(row)
 
@@ -3060,18 +3064,17 @@ class ChatService:
 
         data = read_blob(self, file_id)
         if data is None:
-            data = self.blobs[file_id]
+            raise NotFoundError()
         return data, str(self.files[file_id]["mime_type"])
 
     def delete_file(self, tenant_id: uuid.UUID, user_id: uuid.UUID, file_id: uuid.UUID) -> None:
         row = self.files.get(file_id)
         if row is None or row["tenant_id"] != tenant_id or row["owner_user_id"] != user_id:
             raise NotFoundError()
+        # Soft delete: the row says so, and the retention sweep removes the object later.
         row["status"] = "deleted"
+        row["deleted_at"] = utcnow()
         self.blobs.pop(file_id, None)
-        from ar_domain.durability.store import forget_blob  # noqa: PLC0415
-
-        forget_blob(self, file_id)
 
     def _evict(self) -> None:
         from ar_domain.chat.eviction import evict_chat_cache  # noqa: PLC0415

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 import pytest
 
@@ -13,6 +14,7 @@ from ar_domain.evals.gym.runner import run_suite
 from ar_domain.evals.gym.score import ObservedCall, Report, render_scorecard, score_observation
 from ar_domain.evals.gym.tasks import ArgRule, Expectation, Task, load_tasks, tasks_path
 from ar_testing.demo import connect_embeddings, demo_store
+from ar_testing.objects import MemoryObjectStore
 
 _REQUIRED = (
     "general.code",
@@ -27,6 +29,12 @@ _REQUIRED = (
     "documents.summarise",
     "documents.check",
 )
+
+
+def _prepare(store: Any) -> None:
+    """The gym's world gets the stand-ins a test may use: models and an object store."""
+    connect_embeddings(store)
+    store.objects = MemoryObjectStore()
 
 
 def test_tasks_cover_the_tool_choice_set() -> None:
@@ -159,7 +167,7 @@ def test_live_install_keeps_the_key_on_the_provider_row() -> None:
 
 
 def test_dry_run_gym_passes_and_matches_the_committed_scorecard() -> None:
-    report = run_suite(live=False, prepare=connect_embeddings)
+    report = run_suite(live=False, prepare=_prepare)
     assert report.mode == "dry-run"
     assert report.percent == 100
     assert report.passed_count == report.total

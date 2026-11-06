@@ -929,7 +929,7 @@ def _store_file(
     now = utcnow()
     tenant = arguments.get("_tenant_id")
     label = sanitise_name(name)
-    store.files[file_id] = {
+    row: dict[str, object] = {
         "id": file_id,
         "tenant_id": tenant,
         "owner_user_id": arguments.get("_user_id"),
@@ -947,10 +947,11 @@ def _store_file(
         "created_at": now,
         "deleted_at": None,
     }
-    store.blobs[file_id] = data
-    from ar_domain.durability.store import remember_blob, snapshot_workspace  # noqa: PLC0415
+    from ar_domain.durability.store import snapshot_workspace  # noqa: PLC0415
+    from ar_domain.files.objects import keep_bytes  # noqa: PLC0415
 
-    remember_blob(store, store.files[file_id], data)
+    keep_bytes(store, row, data)
+    store.files[file_id] = row
     run_id = arguments.get("_run_id")
     snapshot_workspace(
         store, run_id if isinstance(run_id, uuid.UUID) else None, arguments.get("_tenant_id")

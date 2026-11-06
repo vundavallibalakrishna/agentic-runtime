@@ -12,6 +12,12 @@ const nextConfig: NextConfig = {
   ...(process.env.AR_NEXT_DIST ? { distDir: process.env.AR_NEXT_DIST } : {}),
   agentRules: false,
   transpilePackages: ["@ar/api-client"],
+  experimental: {
+    // Next buffers every request body once a proxy exists, 10 MB by default, and cut a
+    // larger upload short. This is the API's own limit for a route that takes a file:
+    // the 25 MiB upload cap plus the multipart envelope (ar_domain.files.logic.UPLOAD_BODY_LIMIT).
+    proxyClientMaxBodySize: 26_279_936,
+  },
   async rewrites() {
     return [
       { source: "/api/:path*", destination: `${apiOrigin}/api/:path*` },
