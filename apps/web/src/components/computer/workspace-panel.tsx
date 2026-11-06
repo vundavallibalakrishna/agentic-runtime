@@ -42,9 +42,10 @@ export function WorkspacePanel({
         const listed = await api<{ items: Row[] }>(
           `/api/v1/files?conversationId=${conversationId}`,
         );
-        const sandbox = await api<Row>(`/api/v1/conversations/${conversationId}/sandbox`).catch(
-          () => null,
-        );
+        const answered = await api<{ sandbox: Row | null }>(
+          `/api/v1/conversations/${conversationId}/sandbox`,
+        ).catch(() => null);
+        const sandbox = answered?.sandbox ?? null;
         let entries: Row[] = [];
         if (sandbox && typeof sandbox.id === "string") {
           const page = await api<{ items: Row[] }>(`/api/v1/sandboxes/${sandbox.id}/files`);

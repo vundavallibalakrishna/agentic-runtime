@@ -269,6 +269,12 @@ class SandboxBook:
         return self._sandbox_out(self._visible_sandbox(actor, sandbox_id))
 
     def conversation_sandbox(self, actor: Any, conversation_id: uuid.UUID) -> dict[str, object]:
+        """The conversation's live sandbox, or ``{"sandbox": None}`` when it has none.
+
+        A conversation with no computer yet is a normal state, not an error: the panel
+        asks on every open, and a 404 shows in the browser as a failed request (F63).
+        A 404 is kept only for a conversation the caller cannot see.
+        """
         self._conversation(actor, conversation_id)
         for row in self.store.sandboxes.values():
             if row.get("tenant_id") != actor.tenant_id:
@@ -277,8 +283,8 @@ class SandboxBook:
                 "terminated",
                 "failed",
             }:
-                return self._sandbox_out(row)
-        raise NotFoundError("computer not found")
+                return {"sandbox": self._sandbox_out(row)}
+        return {"sandbox": None}
 
     def terminate(self, actor: Any, sandbox_id: uuid.UUID) -> dict[str, object]:
         row = self._visible_sandbox(actor, sandbox_id)
