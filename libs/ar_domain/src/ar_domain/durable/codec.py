@@ -43,9 +43,22 @@ def as_dt(value: object) -> datetime | None:
 
 
 def as_json(value: object, default: object) -> str:
-    """JSON text for a jsonb bind value."""
+    """JSON text for a jsonb bind value.
+
+    A row reloaded from the database carries the driver's own id type, which is a
+    ``uuid.UUID`` the encoder does not know. Ids, sets and tuples are written the way a
+    reader expects: an id as its text, a set or a tuple as a list.
+    """
     payload = value if isinstance(value, (dict, list)) else default
-    return orjson.dumps(payload).decode()
+    return orjson.dumps(payload, default=_plain).decode()
+
+
+def _plain(value: object) -> object:
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, (set, frozenset, tuple)):
+        return sorted(value, key=str) if isinstance(value, (set, frozenset)) else list(value)
+    raise TypeError(f"{type(value).__name__} cannot be stored as JSON")
 
 
 def as_vector(value: object) -> str | None:

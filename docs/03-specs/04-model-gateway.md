@@ -78,7 +78,9 @@ Permission `models:manage`. No body. Asks the one model for an answer and return
 #### GET /api/v1/model-aliases
 Effective aliases for the tenant (tenant overrides marked). Item `ModelAlias {id, scope, alias, kind, primary_model_id, fallback_model_ids, traffic_split, default_params, status}`.
 
-The response also carries `standard`: the aliases the product itself calls, each as `{alias, kind, required, capability, set, alias_id, platform, model_id, model_name}`. They are `reasoning` and `vision` (chat), `embed` (embedding) and `rerank` (rerank); `reasoning` and `embed` are required, and `vision` needs a model with the capability `vision`. None is set for a tenant: the Models screen lists them with whether each is set, and the tenant points each at a model. A tenant may add aliases of its own beside them. An agent definition also names `fast`; no code sends work to it yet, so it is not listed until something does ([OQ-104](../open-questions.md)).
+The response also carries `standard`: the aliases the product itself calls, each as `{alias, kind, required, capability, set, alias_id, platform, model_id, model_name}`. They are `reasoning`, `fast` and `vision` (chat), `embed` (embedding) and `rerank` (rerank); `reasoning` and `embed` are required, and `vision` needs a model with the capability `vision`. `fast` does the short work after a turn, which today is deciding what to remember; without it the agent's own alias does that work. None is set for a tenant: the Models screen lists them with whether each is set, and the tenant points each at a model. A tenant may add aliases of its own beside them ([OQ-104](../open-questions.md)).
+
+A provider that has no key, such as a model server on the tenant's own network, is called at its own address like any other; chat used to send such a call to the gateway address.
 
 #### POST /api/v1/model-aliases
 Body `{alias, kind, primary_model_id, fallback_model_ids?, traffic_split?, default_params?}`; validation: models of the same `kind`, visible, active; split weights 0..100 and sum ≤ 100 (remainder → primary). Emits `model_alias.updated`.

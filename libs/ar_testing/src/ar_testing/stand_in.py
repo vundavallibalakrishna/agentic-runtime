@@ -20,6 +20,35 @@ if TYPE_CHECKING:
 MODEL = "stand-in-chat"
 EMBEDDING_MODEL = "stand-in-embed"
 RERANK_MODEL = "stand-in-rerank"
+MEMORY_MODEL = "stand-in-memory"
+MEMORY_SET = "memory"
+
+_EXTRACTION = "You decide what an assistant should remember"
+# Only the person's own words are matched: the block ends at the next tag.
+_SAID = r"(?is)<person_said>[^<]*?\b"
+_REST = r"\s+([^.\n<]+)"
+
+
+def _memory(phrase: str, content: str, category: str) -> dict[str, object]:
+    answer = (
+        '[{"op": "add", "content": "' + content + '", "category": "' + category + '", '
+        '"scope": "user", "confidence": 0.95, "explicit": true}]'
+    )
+    return {
+        "match": {"system_contains": _EXTRACTION, "regex": _SAID + phrase + _REST},
+        "respond": {"text": answer},
+    }
+
+
+# What the stand-in answers when it is asked what to remember from a turn. A real model
+# reads the turn; the stand-in recognises two ways of saying it, which is enough for a test
+# to drive the product's extraction end to end. Anything else changes nothing.
+MEMORY_SCRIPTS: list[dict[str, object]] = [
+    _memory("remember that i prefer", "Prefers {{group:1}}", "preference"),
+    _memory("remember that", "{{group:1}}", "fact"),
+    _memory("i prefer", "Prefers {{group:1}}", "preference"),
+    {"match": {"system_contains": _EXTRACTION}, "respond": {"text": "[]"}},
+]
 
 
 class StandIn:
@@ -58,7 +87,6 @@ class StandIn:
             "openai_compatible",
             self.base_url(script_set),
             platform=False,
-            api_key="stand-in",
         )
         model = store.create_model(
             tenant_id,
@@ -118,6 +146,53 @@ class StandIn:
                 store.create_alias(tenant_id, alias, kind, found[alias], platform=platform)
         return found["embed"]
 
+    def connect_extraction(
+        self, store: Any, tenant_id: uuid.UUID | None = None, *, script_set: str = MEMORY_SET
+    ) -> uuid.UUID:
+        """Point the ``fast`` alias at the stand-in, which answers what to remember.
+
+        After a turn the product asks the model behind ``fast`` what to remember. With
+        ``script_set`` left alone the stand-in answers from :data:`MEMORY_SCRIPTS`; a test
+        that wants other answers loads its own set with :meth:`script` and names it here.
+        The store must allow loopback provider URLs. Calling it twice changes nothing.
+        """
+        platform = tenant_id is None
+        if script_set == MEMORY_SET and not self.app.state.scripts.has(MEMORY_SET):
+            self.script(MEMORY_SET, MEMORY_SCRIPTS)
+        name = f"stand-in-{script_set}"
+        provider = _owned(store.providers, tenant_id, "name", name)
+        if provider is None:
+            provider = store.create_provider(
+                tenant_id, name, "openai_compatible", self.base_url(script_set), platform=platform
+            )
+        model = next(
+            (
+                row
+                for row in store.models.values()
+                if row.get("provider_id") == provider["id"]
+                or str(row.get("provider_id")) == str(provider["id"])
+            ),
+            None,
+        )
+        if model is None:
+            model = store.create_model(
+                tenant_id,
+                uuid.UUID(str(provider["id"])),
+                MEMORY_MODEL,
+                MEMORY_MODEL,
+                "chat",
+                platform=platform,
+            )
+        model_id = uuid.UUID(str(model["id"]))
+        alias = _owned(store.aliases, tenant_id, "alias", "fast")
+        if alias is None:
+            store.create_alias(tenant_id, "fast", "chat", model_id, platform=platform)
+        elif alias.get("primary_model_id") != model_id:
+            # The row is changed in place: ``update_alias`` also re-runs gated eval suites,
+            # which is not what registering a test model is about.
+            alias["primary_model_id"] = model_id
+        return model_id
+
     async def save_embeddings(self, store: Any, tenant_id: uuid.UUID) -> uuid.UUID:
         """Register the embedding models for a tenant and save them to the store's database.
 
@@ -125,28 +200,48 @@ class StandIn:
         held in memory alone are gone at its next refresh. This saves them the way the
         Models screen does.
         """
-        from ar_domain.models import registry  # noqa: PLC0415
-
         store.allow_loopback = True
         model_id = self.connect_embeddings(store, tenant_id)
-        who = {"actor_id": str(tenant_id), "actor_type": "system"}
-        engine = store.durable_engine
-        for row in list(store.providers.values()):
-            if row.get("tenant_id") == tenant_id and row.get("name") == "stand-in-embeddings":
-                await registry.save_provider(engine, row, api_key=None, **who)
-        for row in list(store.models.values()):
-            if row.get("tenant_id") == tenant_id and row.get("upstream_model") in {
-                EMBEDDING_MODEL,
-                RERANK_MODEL,
-            }:
-                await registry.save_model(engine, row, **who)
-        for row in list(store.aliases.values()):
-            if row.get("tenant_id") == tenant_id and row.get("alias") in {"embed", "rerank"}:
-                await registry.save_alias(engine, row, **who)
+        await _save(store, tenant_id)
+        return model_id
+
+    async def save_chat(
+        self,
+        store: Any,
+        tenant_id: uuid.UUID,
+        *,
+        script_set: str,
+        aliases: tuple[str, ...] = ("reasoning", "fast"),
+    ) -> uuid.UUID:
+        """Register the stand-in as the tenant's chat model and save it to the database."""
+        store.allow_loopback = True
+        model_id = self.connect(store, tenant_id, script_set=script_set, aliases=aliases)
+        await _save(store, tenant_id)
         return model_id
 
     def close(self) -> None:
         self._server.stop()
+
+
+async def _save(store: Any, tenant_id: uuid.UUID) -> None:
+    """Write the tenant's stand-in providers, their models and the aliases that use them."""
+    from ar_domain.models import registry  # noqa: PLC0415
+
+    who = {"actor_id": str(tenant_id), "actor_type": "system"}
+    engine = store.durable_engine
+    providers = {
+        key: row
+        for key, row in store.providers.items()
+        if row.get("tenant_id") == tenant_id and str(row.get("name")).startswith("stand-in-")
+    }
+    for row in providers.values():
+        await registry.save_provider(engine, row, api_key=None, **who)
+    models = {key: row for key, row in store.models.items() if row.get("provider_id") in providers}
+    for row in models.values():
+        await registry.save_model(engine, row, **who)
+    for row in list(store.aliases.values()):
+        if row.get("tenant_id") == tenant_id and row.get("primary_model_id") in models:
+            await registry.save_alias(engine, row, **who)
 
 
 def _owned(

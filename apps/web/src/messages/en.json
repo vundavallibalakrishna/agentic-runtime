@@ -183,7 +183,15 @@
     "lesson": "Add a shared lesson",
     "addLesson": "Add lesson",
     "approved": "Approved.",
-    "createTitle": "Add a memory"
+    "createTitle": "Add a memory",
+    "orgTitle": "For everyone in the organisation",
+    "orgBody": "After each answer, a model reads what the person said and decides what is worth keeping. These settings apply to every person and every assistant.",
+    "orgExtraction": "Remember from conversations.",
+    "orgExtractionHint": "When this is off, the assistant keeps only what a person asks it to keep or writes on this page.",
+    "orgInstructions": "What to keep and what to leave out",
+    "orgInstructionsHint": "Added to the built-in guidance. For example: Never keep anything about salaries. Up to 2,000 characters.",
+    "orgSave": "Save for everyone",
+    "orgSaved": "Saved. It applies from the next answer."
   },
   "knowledge": {
     "title": "Knowledge",
@@ -277,6 +285,10 @@
       "reasoning": {
         "title": "Answers",
         "body": "Every agent answers with this model."
+      },
+      "fast": {
+        "title": "Background work",
+        "body": "Short work after a turn, such as deciding what to remember. Agents use the answers model when this is not set."
       },
       "vision": {
         "title": "Images",

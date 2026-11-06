@@ -114,6 +114,10 @@ class ScriptStore:
     def clear(self, name: str) -> None:
         self._sets.pop(name, None)
 
+    def has(self, name: str) -> bool:
+        """True when a script set of this name was registered."""
+        return name in self._sets
+
     def get(self, name: str) -> list[Script]:
         return self._sets.get(name, self._sets.get("default", []))
 

@@ -28,16 +28,19 @@ def demo_store(**options: Any) -> Any:
 
 
 def connect_embeddings(store: Any) -> None:
-    """Give a store an embedding and a rerank model: the stand-in, reached over HTTP.
+    """Give a store the models memory and knowledge need: the stand-in, reached over HTTP.
 
-    A product store has neither until an administrator registers one, and knowledge and
-    memory refuse to work without an embedding model.
+    A product store has none until an administrator registers them. Knowledge and memory
+    refuse to store anything without an embedding model, and nothing is remembered from a
+    turn without a chat model to ask.
     """
     from ar_testing.stand_in import shared  # noqa: PLC0415
 
     # The stand-in listens on loopback, which a product store refuses by default.
     store.allow_loopback = True
     shared().connect_embeddings(store)
+    # After a turn the product asks a model what to remember: the stand-in answers that too.
+    shared().connect_extraction(store)
 
 
 def serve_demo_tenant(app: Any) -> Any:

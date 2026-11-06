@@ -27,6 +27,7 @@ import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { LATE_MEMORY_WAITS_MS, lateMemoryEvents } from "@/lib/stream/late";
 import {
   shouldResumeStatus,
   shouldResumeStream,
@@ -111,6 +112,8 @@ export function ChatScreen() {
   const fileRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const runRef = useRef("");
+  // The finished run whose stream is read again for memories saved after the answer.
+  const lateRunRef = useRef("");
   const streamRequest = useRef<AbortController | null>(null);
   const conversationRequest = useRef<AbortController | null>(null);
   const stickRef = useRef(true);
@@ -168,6 +171,7 @@ export function ChatScreen() {
               setActiveId(conversationId);
               setMessages(body.messages ?? []);
               setJobs(body.jobs ?? []);
+              lateRunRef.current = "";
               setStream(emptyStream);
             }
           } catch (error) {
@@ -197,6 +201,7 @@ export function ChatScreen() {
       setActiveId("");
       setMessages([]);
       setJobs([]);
+      lateRunRef.current = "";
       setStream(emptyStream);
       setBanner("");
       setRunId("");
@@ -254,6 +259,7 @@ export function ChatScreen() {
       setMessages([]);
       setJobs([]);
       setPlan([]);
+      lateRunRef.current = "";
       setStream(emptyStream);
       setAttachmentId("");
       setAttachmentName("");
@@ -298,6 +304,7 @@ export function ChatScreen() {
     conversationRequest.current = request;
     runRef.current = "";
     setRunId("");
+    lateRunRef.current = "";
     setStream(emptyStream);
     try {
       const created = await api<Item>("/api/v1/conversations", {
@@ -386,6 +393,27 @@ export function ChatScreen() {
     return state;
   }
 
+  /** Read a finished run's stream again for the memories saved after its answer. */
+  async function readLateMemories(id: string, from: number) {
+    lateRunRef.current = id;
+    let seq = from;
+    for (const wait of LATE_MEMORY_WAITS_MS) {
+      await new Promise((resolve) => setTimeout(resolve, wait));
+      if (lateRunRef.current !== id) return;
+      const response = await fetch(`/api/v1/runs/${id}/events`, {
+        credentials: "include",
+        headers: streamHeaders(seq),
+      }).catch(() => null);
+      if (!response?.ok) continue;
+      const found = lateMemoryEvents(await response.text(), seq);
+      seq = found.seq;
+      if (found.saved.length > 0 && lateRunRef.current === id) {
+        setStream((current) => found.saved.reduce(reduceStream, current));
+        return;
+      }
+    }
+  }
+
   async function undoMemory(factId: string) {
     try {
       await api(`/api/v1/memory/${factId}`, { method: "DELETE" });
@@ -453,6 +481,7 @@ export function ChatScreen() {
       const streamed = await readStream(posted.run.id, request.signal);
       if (request.signal.aborted) return;
       await openConversation(conversationId, streamed);
+      if (streamed.status === "completed") void readLateMemories(posted.run.id, streamed.lastSeq);
       if (request.signal.aborted) return;
       const fresh = await api<{ items: Item[] }>("/api/v1/conversations");
       if (request.signal.aborted) return;
@@ -520,6 +549,7 @@ export function ChatScreen() {
       const streamed = await readStream(posted.run.id, request.signal);
       if (request.signal.aborted) return;
       await openConversation(activeId, streamed);
+      if (streamed.status === "completed") void readLateMemories(posted.run.id, streamed.lastSeq);
     } catch (error) {
       if (request.signal.aborted) return;
       setBanner(error instanceof Error ? error.message : t("error"));

@@ -1758,18 +1758,21 @@ class ChatService:
         return draft if isinstance(draft, uuid.UUID) else None
 
     def _completion_url_for(self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]) -> str:
-        """Call the provider directly when its key is still on the in-memory row."""
+        """The address of the provider the alias points at, with its key when it has one.
+
+        A provider that needs no key, such as a model server on the tenant's own network,
+        is called at its address like any other.
+        """
         found = self._alias_target(tenant_id, alias)
         if found is None:
             return self.completion_url()
         provider, _model = found
-        key = provider.get("api_key")
         base = provider.get("base_url")
-        if not isinstance(key, str) or not key or not isinstance(base, str) or not base:
+        if not isinstance(base, str) or not base or str(provider.get("kind")) == "fake":
             return self.completion_url()
-        if str(provider.get("kind")) == "fake":
-            return self.completion_url()
-        headers["Authorization"] = f"Bearer {key}"
+        key = provider.get("api_key")
+        if isinstance(key, str) and key:
+            headers["Authorization"] = f"Bearer {key}"
         return base.rstrip("/") + "/chat/completions"
 
     def completion_url(self) -> str:
@@ -2007,8 +2010,8 @@ class ChatService:
         self._meter(run, usage)
         self._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
         user_text = str(self.messages[uuid.UUID(str(run["input_message_id"]))].get("text") or "")
-        self._emit_memory(run, user_text, answer)
         self._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": usage})
+        await self._remember(run, user_text, answer)
 
     async def generate(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         """Run one turn. An unexpected failure ends the run; it is never left working."""
@@ -2069,8 +2072,8 @@ class ChatService:
 
         await ground_run(self, run, text)
         if await run_agent_loop(self, run, assistant, text):
-            if str(run.get("status")) not in {"waiting_input", "waiting_approval"}:
-                self._emit_memory(run, text, str(assistant.get("text") or ""))
+            if str(run.get("status")) == "completed":
+                await self._remember(run, text, str(assistant.get("text") or ""))
             return
         if scripted and await maybe_tools(self, run, assistant, text):
             return
@@ -2143,8 +2146,8 @@ class ChatService:
         run["result_summary"] = answer[:8000]
         self._meter(run, usage)
         self._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
-        self._emit_memory(run, text, answer)
         self._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": usage})
+        await self._remember(run, text, answer)
         callback = run.get("callback_url")
         if isinstance(callback, str) and callback:
             self.callbacks.append(
@@ -2379,11 +2382,16 @@ class ChatService:
                 },
             )
 
-    def _emit_memory(self, run: dict[str, object], user_text: str, answer: str) -> None:
-        from ar_domain.memory.session import remember_turn  # noqa: PLC0415
+    async def _remember(self, run: dict[str, object], user_text: str, answer: str) -> None:
+        """After a turn is complete, ask the model what to remember from it.
+
+        The answer is already with the person. Whatever goes wrong here is logged by the
+        extraction itself and never changes the turn.
+        """
+        from ar_domain.memory.extraction import remember_turn  # noqa: PLC0415
 
         try:
-            saved = remember_turn(self, run, user_text, answer)
+            saved = await remember_turn(self, run, user_text, answer)
         except Exception:  # noqa: BLE001 - extraction never fails the turn
             return
         for fact in saved:

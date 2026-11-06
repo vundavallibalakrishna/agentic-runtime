@@ -233,7 +233,9 @@ idempotent. A finished write with the same run, call id and argument hash is ret
 
 **Do:** `complete_turn` returns the provider's status. Only 429, 5xx and transport errors are retried. The
 window comes from the model row. Above the threshold, tool results older than four steps are replaced with a
-stub that names the saved file. On an overflow error the loop shrinks and tries once more.
+stub that names the saved file. On an overflow error the loop shrinks and tries once more. The summary that
+replaces older turns is written by the agent's `fast` model; today it is built by rules in
+`memory/compaction.py` `summarise` (fresh-tenant run, F44).
 
 **Done when:** a turn whose results exceed the window completes.
 

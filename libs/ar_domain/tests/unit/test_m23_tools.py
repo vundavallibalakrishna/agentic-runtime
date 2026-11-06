@@ -214,7 +214,10 @@ def test_structured_output_retries_once() -> None:
         tenant_id: uuid.UUID,
         model_alias: str,
     ) -> dict[str, object]:
-        del messages, tools, tenant_id, model_alias
+        del tools, tenant_id, model_alias
+        if "what an assistant should remember" in str(messages[0].get("content")):
+            # After the turn the product asks what to remember. That is not a retry.
+            return {"text": "[]", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 1}}
         calls["n"] += 1
         if calls["n"] == 1:
             return {

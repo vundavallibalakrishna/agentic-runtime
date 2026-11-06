@@ -24,7 +24,6 @@ async def _prepare_store() -> None:
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
     from ar_domain.durable.bind import attach_store  # noqa: PLC0415
     from ar_system.routines_store import bind_store as bind_routines  # noqa: PLC0415
-    from ar_system.workflows.memory_extraction import bind_store as bind_memory  # noqa: PLC0415
     from ar_system.workflows.sandbox_reaper import bind_store as bind_sandboxes  # noqa: PLC0415
 
     settings = get_settings()
@@ -34,7 +33,6 @@ async def _prepare_store() -> None:
     )
     await attach_store(store, settings.database_url)
     bind_routines(store)
-    bind_memory(store)
     bind_sandboxes(store)
 
 
@@ -47,10 +45,6 @@ async def run_worker() -> None:
         EVAL_QUEUE,
         EvalRunWorkflow,
         execute_eval_activity,
-    )
-    from ar_system.workflows.memory_extraction import (  # noqa: PLC0415
-        MemoryExtractionWorkflow,
-        extract_memory,
     )
     from ar_system.workflows.routine_poll import RoutinePollWorkflow, poll_activity  # noqa: PLC0415
     from ar_system.workflows.routine_run import (  # noqa: PLC0415
@@ -78,14 +72,12 @@ async def run_worker() -> None:
                 task_queue=TASK_QUEUE,
                 workflows=[
                     SandboxReaperWorkflow,
-                    MemoryExtractionWorkflow,
                     RoutineRunWorkflow,
                     RoutinePollWorkflow,
                     RoutineReconcileWorkflow,
                 ],
                 activities=[
                     reap_sandboxes,
-                    extract_memory,
                     accept_activity,
                     prepare_activity,
                     complete_activity,

@@ -15,7 +15,7 @@ Endpoints served by `api`; relay and fan-out on `system-worker` (`OutboxRelayWor
 | `start_run` | `run.start_requested` | if run still `queued` after 5 s → `start_workflow(run-{id})` | workflow id |
 | `webhooks` | all public topics | for each active `outbound_webhooks` of the tenant subscribed to the topic → insert `webhook_deliveries` + start `WebhookDeliveryWorkflow` (`whd-{delivery_id}`) | unique `(webhook_id, outbox_event_id)` |
 | `notifications` | `approval.requested`, `approval.decided`, `routine.paused`, `routine.run_completed`, `tool_server.review_requested`, `tool_server.review_decided`, `quota.warning`, `knowledge.ingestion_completed` (failed only), `conversation.shared`, `file.ready` (quarantined only), `memory.fact_proposed`, `eval.completed`, `erasure.completed`, `run.completed` (only when `runs.notify_on_complete`) | start `NotificationFanoutWorkflow` (`notify-{outbox_event_id}`) | workflow id |
-| `memory_extraction` | `run.completed` | start `MemoryExtractionWorkflow` ([spec 11](11-memory.md)) | `memx-{run_id}` |
+| `memory_extraction` | `run.completed` | not a subscriber: the process that ran the turn extracts after it completes ([spec 11 §4](11-memory.md#4-extraction), OQ-105) | `{run_id}` |
 | `routine_triggers` | `knowledge.document_changed` | match `file_arrival` routines → start `RoutineRunWorkflow` | routine event idempotency key |
 | `opa_bundle` | `policy.activated`, `policy.disabled` | rebuild bundle cache in Valkey `ar:opa:bundle` | revision hash |
 | `cache_invalidation` | `agent.*`, `tool.*`, `tool_server.*`, `model_alias.updated`, `policy.*`, `channel_integration.updated` | `PUBLISH ar:invalidate:{kind}:{id}` | n/a |

@@ -59,9 +59,14 @@ def test_the_aliases_the_product_uses_are_listed_with_whether_each_is_set() -> N
     client = _client()
     listed = client.get("/api/v1/model-aliases").json()
     standard = {row["alias"]: row for row in listed["standard"]}
-    # ``fast`` is named by agent definitions, and nothing is sent to it yet: it is not listed.
-    assert list(standard) == ["reasoning", "vision", "embed", "rerank"]
-    assert [row["kind"] for row in standard.values()] == ["chat", "chat", "embedding", "rerank"]
+    assert list(standard) == ["reasoning", "fast", "vision", "embed", "rerank"]
+    assert [row["kind"] for row in standard.values()] == [
+        "chat",
+        "chat",
+        "chat",
+        "embedding",
+        "rerank",
+    ]
     assert [name for name, row in standard.items() if row["required"]] == ["reasoning", "embed"]
     assert standard["vision"]["capability"] == "vision"
     assert standard["reasoning"]["capability"] is None

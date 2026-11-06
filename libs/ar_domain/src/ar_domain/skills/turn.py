@@ -107,7 +107,6 @@ def _complete(
         }
         run["usage"] = usage
     store._emit(run, "message.completed", {"message_id": str(assistant.get("id")), "text": answer})
-    store._emit_memory(run, user_text, answer)
     store._emit(
         run, "run.completed", {"final_message_id": str(assistant.get("id")), "usage": usage}
     )

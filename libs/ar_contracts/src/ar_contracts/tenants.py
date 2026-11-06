@@ -50,7 +50,10 @@ class BrandingSettings(_Model):
 
 class MemorySettings(_Model):
     enabled: bool = True
+    # After a turn, a model is asked what to remember from it.
     extraction: bool = True
+    # What the tenant adds to the instructions that model is given.
+    extraction_instructions: str = Field(default="", max_length=2000)
 
 
 class ApprovalSettings(_Model):

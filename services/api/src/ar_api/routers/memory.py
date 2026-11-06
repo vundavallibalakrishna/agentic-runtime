@@ -10,7 +10,16 @@ from ar_api.routers.tooling import actor, chat, dump, page
 from ar_contracts.api_model import ApiModel
 from ar_domain.memory.book import MemoryBook
 
-router = APIRouter()
+
+async def _fresh_memory(request: Request) -> None:
+    """Show and change what the database holds: a worker may have saved a memory from a
+    turn since this process last looked."""
+    from ar_domain.durable.hydrate import reload_memory  # noqa: PLC0415
+
+    await reload_memory(chat(request))
+
+
+router = APIRouter(dependencies=[Depends(_fresh_memory)])
 
 
 class MemoryBody(ApiModel):

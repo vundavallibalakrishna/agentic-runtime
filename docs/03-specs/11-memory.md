@@ -28,12 +28,20 @@ Endpoints served by `api`; recall runs in `runtime-worker` (activity `recall_mem
 4. Update `last_recalled_at`, `recall_count` (async). Emit `memory.recalled`.
 Latency budget: p95 ≤ 80 ms excluding embedding.
 
-## 4. Extraction (`MemoryExtractionWorkflow`)
+## 4. Extraction
 
-- Started by the outbox subscriber on `run.completed` when the run is top-level, trigger ∈ {chat, channel, api}, and memory extraction is enabled (tenant `settings.memory.extraction` and agent `memory.user_writes='auto'`). Workflow id `memx-{run_id}`, queue `ar-system`.
-- Activity `extract_memory_candidates` (fast alias, purpose `memory_extraction`, prompt `ar_system/prompts/memory_extraction.md`): input = the turn's user message(s) + final assistant text + top 10 similar existing facts (ids + content). Output (JSON schema enforced) `[{op: "add"|"update"|"delete"|"noop", content, category, scope: "user"|"agent_user", target_fact_id?, confidence: 0..1, explicit: bool}]` (≤ 5 ops).
-- Activity `apply_memory_ops`: drop ops with `confidence < 0.7` (unless `explicit`), apply rule 5, de-duplicate (`cosine ≥ 0.92` to an existing fact → convert `add` to `update`), `update` = insert new fact + mark old `superseded` with `superseded_by_id`; `delete` only for facts of the same user. Emit `memory.saved` events into the (completed) run's stream for the UI toast "Memory updated" and audit `memory.extracted` (fact ids only).
-- Retries 3×; failure is logged, never surfaces to the user.
+After a top-level turn completes, the process that ran it asks a chat model what to remember from it and applies the answer (`ar_domain/memory/extraction.py`). Nothing decides what to remember by matching words in the turn ([OQ-105](../open-questions.md)).
+
+- **When.** The run is top-level, its trigger is one of {chat, channel, api}, the tenant's `settings.memory.extraction` and the person's own switch are on, and the agent's `memory.user_writes` is `auto`. It runs after `run.completed` has been emitted, so it adds nothing to the time the answer takes, and whatever goes wrong in it never changes the turn.
+- **Which model.** The agent's `model.fast_alias` (default `fast`) when the tenant has pointed it at a chat model, else the alias the agent answers with. With neither, nothing is remembered and the log has `memory_extraction_skipped reason=no_model`.
+- **What the model is given.** The instructions in `ar_domain/prompts/text/memory_extraction.md`, then what the tenant's administrator added on the Memory screen (`settings.memory.extraction_instructions`, up to 2,000 characters). Then the person's words, the assistant's answer wrapped as untrusted content, and the person's ten kept memories closest to the exchange, each with its id. Text the person typed cannot open or close a block of that prompt. Tool results and retrieved passages are never included.
+- **What it returns.** A JSON list of at most five `{op: "add"|"update"|"delete", content, category, scope: "user"|"agent_user", target_fact_id?, confidence: 0..1, explicit: bool}`. Anything else changes nothing. A provider that does not answer changes nothing (`reason=no_answer`).
+- **How it is applied.** Operations under `confidence 0.7` are dropped unless `explicit`; rule 5 applies; an `add` close to an existing fact (`similarity ≥ 0.92`) becomes an `update`; `update` inserts a new fact and marks the old one `superseded` with `superseded_by_id`; `delete` only reaches the person's own facts. Text that appears in tool output and not in the exchange is dropped. Audit `memory.extracted`.
+- **Events.** `memory.saved` is added to the completed run's stream. That stream has closed by then, so a client reads it again with `Last-Event-ID` ([stream events §3](../05-contracts/stream-events.md)); the chat screen does, and shows "Memory updated" with **Undo**.
+- **Cost.** The call is counted and priced with the run, under the usage keys `mg:{run_id}:memory:in` and `mg:{run_id}:memory:out`.
+- **Checking the prompt.** `scripts/memory_extraction_eval.py` sends the prompt for nineteen exchanges to a real model and prints what it kept. Run it after changing the prompt or before pointing `fast` at a smaller model.
+
+**One memory across processes.** Before a turn, and before each memory endpoint, a process makes its copy of the tenant's facts equal the database rows: a fact a worker saved appears on the Memory screen, and a fact the person deleted leaves every process, so no worker goes on recalling it. Rows a process changed and has not saved yet are kept.
 
 ## 5. Public API
 
