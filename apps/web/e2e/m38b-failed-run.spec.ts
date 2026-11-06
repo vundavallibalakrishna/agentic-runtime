@@ -11,19 +11,24 @@ test("a failed run is shown as one, with its reason and a way to try again", asy
   const stamp = Date.now();
   const alias = `dead-${stamp}`;
   const provider = await page.request.post("/api/v1/model-providers", {
-    data: { name: `Dead ${stamp}`, kind: "openai_compatible", baseUrl: "https://dead.invalid/v1" },
+    data: {
+      name: `Dead ${stamp}`,
+      kind: "openai_compatible",
+      baseUrl: "https://dead.invalid/v1",
+      apiKey: "not-a-real-key",
+    },
   });
-  expect(provider.ok()).toBeTruthy();
+  expect(provider.ok(), await provider.text()).toBeTruthy();
   const providerId = (await provider.json()).id as string;
   const model = await page.request.post("/api/v1/models", {
     data: { providerId, upstreamModel: "dead/model", name: `Dead ${stamp}`, kind: "chat" },
   });
-  expect(model.ok()).toBeTruthy();
+  expect(model.ok(), await model.text()).toBeTruthy();
   const modelId = (await model.json()).id as string;
   const named = await page.request.post("/api/v1/model-aliases", {
     data: { alias, kind: "chat", primaryModelId: modelId },
   });
-  expect(named.ok()).toBeTruthy();
+  expect(named.ok(), await named.text()).toBeTruthy();
   const aliasId = (await named.json()).id as string;
 
   try {
