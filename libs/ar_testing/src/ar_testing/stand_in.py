@@ -76,10 +76,12 @@ class StandIn:
         *,
         script_set: str = "default",
         aliases: tuple[str, ...] = ("reasoning", "fast"),
+        capabilities: list[str] | None = None,
     ) -> uuid.UUID:
         """Register the stand-in as the tenant's model and return the model id.
 
         The store must allow loopback provider URLs, as a development store does.
+        ``capabilities`` marks the model, e.g. ``["vision"]`` to let it read images.
         """
         provider = store.create_provider(
             tenant_id,
@@ -95,6 +97,7 @@ class StandIn:
             MODEL,
             "chat",
             platform=False,
+            capabilities=capabilities,
         )
         model_id = uuid.UUID(str(model["id"]))
         for alias in aliases:
