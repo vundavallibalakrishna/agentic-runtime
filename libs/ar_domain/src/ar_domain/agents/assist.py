@@ -1,15 +1,13 @@
 """Draft an agent definition from a sentence. Spec: docs/03-specs/05-agent-registry.md §3."""
 
 import re
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import orjson
 from pydantic import ValidationError
 
-from ar_common.errors import ArError, ErrorCode
+from ar_common.errors import ArError, ErrorCode, FieldError
 from ar_contracts.definitions import AgentDefinition
-from ar_domain.agents.defaults import apply_definition_defaults
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.agents.validation import reference_issues, schema_errors, split_issues
 
@@ -32,37 +30,6 @@ def title_from(text: str) -> str:
     words = [word for word in re.split(r"\s+", text.strip()) if word][:8]
     title = " ".join(words).strip(" .")
     return (title[:80] or "New agent").capitalize() if title else "New agent"
-
-
-def scripted_definition(description: str) -> dict[str, object]:
-    """Deterministic proposal used when the model does not return JSON."""
-    raw = apply_definition_defaults(
-        {
-            "persona": {
-                "display_name": title_from(description)[:80],
-                "greeting": "Tell me which report or gap you want reviewed.",
-            },
-            "instructions": description.strip()[:32_000] or "Help the user.",
-            "starter_prompts": [
-                "Review the latest report and list the gaps",
-                "What evidence is still missing?",
-            ],
-            "model": {"alias": "reasoning", "fast_alias": "fast"},
-            "tools": [{"server": "files", "version": "*", "include": ["*"]}],
-        }
-    )
-    lowered = description.lower()
-    if "skill" in lowered or "brand guideline" in lowered:
-        raw["skills"] = ["brand-guidelines"]
-    if "subagent" in lowered or "delegate" in lowered:
-        raw["subagents"] = {
-            "allowed": ["researcher"],
-            "allow_self_clone": False,
-            "max_depth": 2,
-            "max_parallel": 2,
-        }
-    model = AgentDefinition.model_validate(raw)
-    return model.model_dump(by_alias=True, mode="json")
 
 
 def proposal_bundle(description: str, definition: dict[str, object]) -> dict[str, object]:
@@ -122,14 +89,6 @@ def _validate(
     )
 
 
-@dataclass(frozen=True, slots=True)
-class Draft:
-    """One proposal text and whether a real model produced it."""
-
-    text: str
-    real: bool
-
-
 _BUILDER_SYSTEM = (
     "You turn a plain-language request into an agent definition for Agentic Runtime.\n"
     "Return one JSON object and nothing else, with these keys:\n"
@@ -145,27 +104,17 @@ _BUILDER_SYSTEM = (
 
 
 async def draft_from_description(store: Any, actor: Actor, description: str) -> dict[str, object]:
-    """Return a definition that validates.
+    """Return a definition the reasoning model wrote.
 
-    The reasoning model drafts first and repairs once from the validation errors.
-    The deterministic proposal is the last resort, and the only path when no real
-    model is connected. Raises 502 when nothing validates.
+    The model drafts, and repairs once from the validation errors. There is no scripted
+    fallback: if the model is not connected, or nothing it returns validates, this raises
+    with the errors (502), because the product never fabricates an agent (M38a-T02d).
     """
     if len(description) > 4000:
         raise ArError(ErrorCode.VALIDATION_FAILED, "description is too long")
-    texts = list(store.builder_scripts)
-    store.builder_scripts.clear()
-    from_model = False
-    if not texts:
-        drafted = await _complete(store, actor, description)
-        from_model = drafted.real
-        texts.append(drafted.text)
-    scripted = orjson.dumps(scripted_definition(description)).decode()
+    text = await _complete(store, actor, description)
     last_errors: list[dict[str, object]] = []
-    attempt = 0
-    while texts and attempt < 3:
-        text = texts.pop(0)
-        attempt += 1
+    for attempt in range(2):
         parsed = _loads(text)
         if parsed is None:
             last_errors = [{"msg": "model output was not JSON", "type": "validation_failed"}]
@@ -177,22 +126,27 @@ async def draft_from_description(store: Any, actor: Actor, description: str) -> 
             if definition is not None and not errors:
                 return {
                     "definition": definition,
-                    "rationale": (
-                        "Drafted a persona, instructions and a tool slot from your description."
-                        if text == scripted
-                        else "Drafted with the reasoning model from your description."
-                    ),
+                    "rationale": "Drafted with the reasoning model from your description.",
                     "warnings": warnings,
                 }
             last_errors = errors or last_errors
-        if texts or store.builder_strict:
-            continue
-        if from_model and attempt == 1:
-            repaired = await _complete(store, actor, description, errors=last_errors, previous=text)
-            texts.append(repaired.text)
-        elif text != scripted:
-            texts.append(scripted)
-    raise ArError(ErrorCode.UPSTREAM_ERROR, "the model did not return a valid agent", errors=[])
+        if attempt == 0:
+            text = await _complete(store, actor, description, errors=last_errors, previous=text)
+    raise ArError(
+        ErrorCode.UPSTREAM_ERROR,
+        "the model did not return a valid agent",
+        errors=[_field_error(item) for item in last_errors],
+    )
+
+
+def _field_error(item: dict[str, object]) -> FieldError:
+    raw_loc = item.get("loc")
+    loc = [str(part) for part in raw_loc] if isinstance(raw_loc, list) else []
+    return FieldError(
+        loc=loc,
+        msg=str(item.get("msg") or ""),
+        type=str(item.get("type") or "validation_failed"),
+    )
 
 
 async def _complete(
@@ -202,33 +156,30 @@ async def _complete(
     *,
     errors: list[dict[str, object]] | None = None,
     previous: str = "",
-) -> Draft:
-    responder = getattr(store, "builder_responder", None)
-    if responder is not None:
-        return Draft(str(responder(description)), real=False)
-    if store.builder_strict:
-        return Draft("", real=False)
+) -> str:
+    """One reasoning-model draft. Raises when no model is connected to write it."""
     completion = getattr(store, "_completion_call", None)
+    model_unavailable = ArError(
+        ErrorCode.UPSTREAM_ERROR,
+        "Connect a model to the reasoning alias in Models to draft an agent from a description.",
+    )
     if completion is None:
-        return Draft(orjson.dumps(scripted_definition(description)).decode(), real=False)
+        raise model_unavailable
     ensure_key = getattr(store, "_ensure_provider_key", None)
     if ensure_key is not None:
         await ensure_key(actor.tenant_id, "reasoning")
     model, headers, timeout_s, real = completion(actor.tenant_id, "reasoning")
     if not real:
-        return Draft(orjson.dumps(scripted_definition(description)).decode(), real=False)
-    return Draft(
-        await _ask_model(
-            store,
-            actor,
-            description,
-            model=model,
-            headers=headers,
-            timeout_s=timeout_s,
-            errors=errors,
-            previous=previous,
-        ),
-        real=True,
+        raise model_unavailable
+    return await _ask_model(
+        store,
+        actor,
+        description,
+        model=model,
+        headers=headers,
+        timeout_s=timeout_s,
+        errors=errors,
+        previous=previous,
     )
 
 

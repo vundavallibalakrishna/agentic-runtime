@@ -203,8 +203,6 @@ class ChatService:
     catalogue: dict[tuple[str, str, str], dict[str, object]] = field(default_factory=dict)
     favourites: dict[tuple[uuid.UUID, uuid.UUID], set[uuid.UUID]] = field(default_factory=dict)
     builder_sessions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
-    builder_scripts: list[str] = field(default_factory=list)
-    builder_strict: bool = False
     fake_models_allowed: bool = True
     demo_tenant_seeded: bool = False
     last_remote_usage: dict[str, int] | None = None

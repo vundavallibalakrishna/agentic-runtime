@@ -15,9 +15,28 @@ matching script wins.
 
 from __future__ import annotations
 
+import json
+
 from ar_domain.sandboxes.runtime import chart_command
 
 DEMO_CHAT_SET = "demo-chat"
+
+# The builder's system prompt carries this phrase; a turn that has it is an agent draft.
+_BUILDER_SYSTEM = "agent definition for Agentic Runtime"
+
+
+def _agent_definition(instructions: str) -> str:
+    """A valid agent definition the builder's model returns, as JSON text."""
+    return json.dumps(
+        {
+            "persona": {"display_name": "Vendor reviewer", "greeting": "Send me the report."},
+            "instructions": instructions,
+            "starter_prompts": ["Review this report", "What is missing?"],
+            "model": {"alias": "reasoning"},
+            "tools": [{"server": "files", "version": "*", "include": ["*"]}],
+        }
+    )
+
 
 # A tool name as the agent loop sends it to the model: the qualified name with "." -> "__".
 _TICKET = "tickets__create_ticket"
@@ -91,5 +110,26 @@ DEMO_CHAT: list[dict[str, object]] = [
     {
         "match": {"contains": "rollout plan"},
         "respond": {"text": "We start with the pilot team, then the rest of the workspace."},
+    },
+    # The builder drafts an agent definition with the model (M38a-T02d). A request that
+    # revises the draft to ask for the report name is answered with that in its instructions;
+    # anything else about the vendor report gets the general draft. A request that matches
+    # neither falls through to the echo, which is not JSON — so the builder reports it.
+    {
+        "match": {"system_contains": _BUILDER_SYSTEM, "contains": "report name"},
+        "respond": {
+            "text": _agent_definition(
+                "First ask for the report name, then review the vendor SOC 2 report "
+                "and flag the gaps with evidence."
+            )
+        },
+    },
+    {
+        "match": {"system_contains": _BUILDER_SYSTEM, "contains": "SOC 2"},
+        "respond": {
+            "text": _agent_definition(
+                "Review the vendor SOC 2 report and flag the gaps with evidence."
+            )
+        },
     },
 ]

@@ -251,8 +251,8 @@ def test_preview_chat_and_guard_rails() -> None:
     assert high.status_code == 200
     refused = limited.post(f"/api/v1/agents/{high.json()['id']}:publish", json={"changeNote": "no"})
     assert refused.status_code == 403
-    client.app.state.chat.builder_strict = True
-    client.app.state.chat.builder_scripts = ["not-json", "still-not"]
+    # The stand-in has no builder scenario for this description, so its model answer is not
+    # JSON and the builder reports the failure instead of fabricating an agent (M38a-T02d).
     failed = client.post(
         "/api/v1/agents:draft-from-description",
         json={"description": "Summarise a weekly status note"},
