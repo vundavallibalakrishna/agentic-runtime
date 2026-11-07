@@ -1855,10 +1855,10 @@ class ChatService:
         )
         from ar_domain.skills.turn import maybe_compose  # noqa: PLC0415
         from ar_domain.tools.agent_loop import model_alias_for, read_budget, run_agent_loop  # noqa: PLC0415
-        from ar_domain.tools.chat_loop import maybe_tools  # noqa: PLC0415
 
-        # Scripted compositions and keyword-triggered tool calls exist for the offline
-        # demo and the unit suite. They never run where fake models are not allowed.
+        # A scripted composition exists for the offline demo and the unit suite; it never
+        # runs where fake models are not allowed. The keyword tool turn is gone (M38a-T04):
+        # the model decides every tool call through the agent loop.
         scripted = self.fake_models_allowed
         if scripted and await maybe_compose(self, run, assistant, text):
             return
@@ -1868,8 +1868,6 @@ class ChatService:
         if await run_agent_loop(self, run, assistant, text):
             if str(run.get("status")) == "completed":
                 await self._remember(run, text, str(assistant.get("text") or ""))
-            return
-        if scripted and await maybe_tools(self, run, assistant, text):
             return
         from ar_domain.knowledge.answer import compose  # noqa: PLC0415
 

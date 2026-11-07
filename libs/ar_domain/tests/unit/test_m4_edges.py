@@ -11,7 +11,6 @@ from ar_common.errors import ArError, ConflictError, NotFoundError, ValidationFa
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
-from ar_domain.tools.chat_loop import maybe_tools
 from ar_domain.tools.credentials import CredentialBook
 from ar_domain.tools.data_connections import DataConnections
 from ar_domain.tools.drift import check_drift
@@ -600,26 +599,3 @@ async def test_credentials_http_and_data_connections() -> None:
     connections.delete(actor, connection_id)
     with pytest.raises(NotFoundError):
         connections.get(actor, connection_id)
-
-
-@pytest.mark.asyncio
-async def test_chat_loop_skips_and_runs_a_named_tool() -> None:
-    store = _store()
-    run = {
-        "id": uuid.uuid4(),
-        "tenant_id": demo_id("tenant"),
-        "user_id": demo_id("admin"),
-        "conversation_id": uuid.uuid4(),
-    }
-    store.events[run["id"]] = []
-    assistant = {"id": uuid.uuid4()}
-    assert await maybe_tools(store, run, assistant, "hello") is False
-    desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
-    run["agent_version_id"] = desk["published_version_id"]
-    assert await maybe_tools(store, run, assistant, "hello there") is False
-    done = await maybe_tools(store, run, assistant, "/tool files.list {}")
-    assert done is True
-    assert (
-        "files.list" in str(store.runs.get(run["id"], {}).get("result_summary", ""))
-        or store.tool_calls
-    )

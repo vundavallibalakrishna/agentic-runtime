@@ -18,7 +18,7 @@ from ar_domain.tools.openapi_import import operations_from
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.registry import ToolRegistry
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
-from ar_testing.demo import demo_store
+from ar_testing.demo import connect_chat, demo_store
 
 PET = {
     "openapi": "3.1.0",
@@ -167,9 +167,13 @@ def test_oauth_cache_is_ciphertext_and_refresh_rotates() -> None:
 
 @pytest.mark.asyncio
 async def test_desk_creates_a_ticket_and_counts_orders() -> None:
+    # The desk agent decides its tool calls through the agent loop against the stand-in
+    # (M38a-T04: no keyword tool turn). The tool result shows on the tool call, and the
+    # model writes the final answer.
     store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
+    connect_chat(store, tenant)
     desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
     conversation = store.create_conversation(tenant, user, uuid.UUID(str(desk["id"])))
     conversation_id = uuid.UUID(str(conversation["id"]))
@@ -182,16 +186,18 @@ async def test_desk_creates_a_ticket_and_counts_orders() -> None:
     )
     run_id = uuid.UUID(str(posted["run"]["id"]))
     await store.generate(run_id, "File a ticket: the printer on floor 3 is jammed", [])
-    assert "TCK-1001" in str(store.runs[run_id]["result_summary"])
+    calls = [row for row in store.tool_calls.values() if row.get("run_id") == run_id]
+    assert calls and calls[0]["qualified_name"] == "tickets.create_ticket"
+    assert "TCK-1001" in str(calls[0].get("result_preview") or "")
     assert any(row.get("action") == "tool.called" for row in store.audit_log)
     counted = store.post_message(
         tenant, user, conversation_id, "How many orders are in the warehouse?", schedule=False
     )
     count_id = uuid.UUID(str(counted["run"]["id"]))
     await store.generate(count_id, "How many orders are in the warehouse?", [])
-    assert store.runs[count_id]["result_summary"] == "3"
-    calls = [row for row in store.tool_calls.values() if row.get("run_id") == run_id]
-    assert calls and calls[0]["qualified_name"] == "tickets.create_ticket"
+    count_calls = [row for row in store.tool_calls.values() if row.get("run_id") == count_id]
+    assert count_calls and count_calls[0]["qualified_name"] == "warehouse.run_query"
+    assert "3" in str(count_calls[0].get("result_preview") or "")
 
 
 def test_invalid_arguments_do_not_call_the_server() -> None:
