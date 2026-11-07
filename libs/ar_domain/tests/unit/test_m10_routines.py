@@ -58,11 +58,12 @@ def _create(book: RoutineBook, **extra: object) -> dict[str, object]:
     return book.create(_actor(), body)
 
 
-def test_preview_handles_ist_and_a_dst_zone() -> None:
-    ist = preview_schedule("0 9 * * 1", "Asia/Kolkata")
-    assert ist["valid"] is True
-    assert ist["description"] == "Every Monday 09:00 IST"
-    nxt = ist["next"]
+def test_preview_handles_a_half_hour_offset_and_a_dst_zone() -> None:
+    # No zone is named in code: the label is the offset, so a half-hour zone reads UTC+5:30.
+    half = preview_schedule("0 9 * * 1", "Asia/Kolkata")
+    assert half["valid"] is True
+    assert half["description"] == "Every Monday 09:00 UTC+5:30"
+    nxt = half["next"]
     assert isinstance(nxt, list) and len(nxt) == 5
     york = preview_schedule("0 9 * * 1", "America/New_York")
     assert york["valid"] is True

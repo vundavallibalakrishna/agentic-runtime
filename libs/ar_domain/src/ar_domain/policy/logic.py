@@ -7,7 +7,7 @@ OPA does not answer.
 
 import re
 from typing import TYPE_CHECKING
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 _R0_BUILTINS = ("knowledge.", "memory.search", "files.list", "files.read", "plan.update")
 _EFFECTS = {"allow": "allow", "deny": "deny", "require_approval": "require_approval"}
 _WEEKDAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-_ZONES = ("UTC", "Asia/Kolkata", "America/New_York", "Europe/London")
 _OPS = frozenset(
     {
         "eq",
@@ -51,15 +50,32 @@ def normalize_effect(value: object) -> str:
     return "deny"
 
 
-def enrich_time(now: datetime) -> dict[str, object]:
-    """Local weekday and minute-of-day for the zones rules name."""
+def tenant_zone(settings: Mapping[str, object]) -> str:
+    """The tenant's configured timezone from its settings, or UTC."""
+    name = settings.get("default_timezone") or settings.get("timezone")
+    return str(name) if isinstance(name, str) and name else "UTC"
+
+
+def enrich_time(now: datetime, tenant_timezone: str = "UTC") -> dict[str, object]:
+    """Weekday and minute-of-day a time rule reads, in UTC and the tenant's own zone.
+
+    No geography is built in: besides ``UTC``, only the tenant's configured timezone is
+    offered, under its own name and as ``local`` (the one a rule should use). An unknown
+    name is treated as UTC.
+    """
     zones: dict[str, object] = {}
-    for name in _ZONES:
-        local = now.astimezone(ZoneInfo(name))
-        zones[name] = {
-            "weekday": _WEEKDAYS[local.weekday()],
-            "minutes": local.hour * 60 + local.minute,
-        }
+
+    def window(name: str) -> dict[str, object]:
+        try:
+            local = now.astimezone(ZoneInfo(name))
+        except ZoneInfoNotFoundError, ValueError:
+            local = now.astimezone(ZoneInfo("UTC"))
+        return {"weekday": _WEEKDAYS[local.weekday()], "minutes": local.hour * 60 + local.minute}
+
+    zones["UTC"] = window("UTC")
+    tenant = tenant_timezone or "UTC"
+    zones[tenant] = window(tenant)
+    zones["local"] = zones[tenant]
     return {"now": now.isoformat(), "zones": zones}
 
 

@@ -509,7 +509,7 @@ class UsageBook:
         name = settings.get("timezone")
         if isinstance(name, str) and name:
             return name
-        return "Asia/Kolkata"
+        return "UTC"
 
     def _currency(self, tenant_id: object) -> str:
         settings = _settings(self.store, tenant_id)

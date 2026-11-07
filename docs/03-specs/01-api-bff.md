@@ -46,7 +46,7 @@ Auth: session. Deletes the session, revokes the Keycloak refresh token (RP-initi
 #### GET /api/v1/auth/session
 Auth: session or bearer. Response `SessionInfo`:
 ```json
-{"user": {"id":"...","email":"...","displayName":"...","locale":"en-IN","timezone":"Asia/Kolkata"},
+{"user": {"id":"...","email":"...","displayName":"...","locale":"en","timezone":"UTC"},
  "tenant": {"id":"...","slug":"talentfino","name":"TalentFino","plan":"enterprise","deploymentMode":"saas"},
  "permissions": ["chat:use","agents:read", "..."], "roles": ["member","builder"],
  "memberships": [{"tenantId":"...","slug":"...","name":"..."}],

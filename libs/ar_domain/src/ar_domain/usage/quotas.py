@@ -27,11 +27,11 @@ _LABELS = {
 
 
 def zone(name: str) -> ZoneInfo:
-    """Tenant timezone. An unknown name falls back to Asia/Kolkata."""
+    """Tenant timezone. An unknown name falls back to UTC."""
     try:
         return ZoneInfo(name)
     except ZoneInfoNotFoundError:
-        return ZoneInfo("Asia/Kolkata")
+        return ZoneInfo("UTC")
 
 
 def period_key(moment: datetime, timezone_name: str, period: str) -> str:

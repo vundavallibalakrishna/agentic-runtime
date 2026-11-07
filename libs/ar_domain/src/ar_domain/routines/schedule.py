@@ -71,11 +71,13 @@ def _zone(timezone: str) -> ZoneInfo | None:
 
 
 def _tz_label(timezone: str) -> str:
-    if timezone == "Asia/Kolkata":
-        return "IST"
     try:
         offset = datetime.now(ZoneInfo(timezone)).utcoffset() or timedelta(0)
     except ZoneInfoNotFoundError, ValueError:
         return timezone
-    hours = int(offset.total_seconds() // 3600)
-    return f"UTC{hours:+d}" if hours else "UTC"
+    total = int(offset.total_seconds() // 60)
+    hours, minutes = divmod(abs(total), 60)
+    if total == 0:
+        return "UTC"
+    sign = "+" if total > 0 else "-"
+    return f"UTC{sign}{hours}" if minutes == 0 else f"UTC{sign}{hours}:{minutes:02d}"

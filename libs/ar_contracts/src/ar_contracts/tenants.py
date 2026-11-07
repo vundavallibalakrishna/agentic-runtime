@@ -125,8 +125,8 @@ class SearchSettings(_Model):
 
 
 class TenantSettings(_Model):
-    default_timezone: str = "Asia/Kolkata"
-    default_locale: str = "en-IN"
+    default_timezone: str = "UTC"
+    default_locale: str = "en"
     retention: RetentionSettings = Field(default_factory=RetentionSettings)
     egress_allowlist: list[str] = Field(default_factory=list)
     features: FeatureFlags = Field(default_factory=FeatureFlags)
@@ -184,8 +184,8 @@ class NotificationPrefs(_Model):
 
 
 class UserSettings(_Model):
-    locale: str = "en-IN"
-    timezone: str = "Asia/Kolkata"
+    locale: str = "en"
+    timezone: str = "UTC"
     memory_enabled: bool = True
     notifications: NotificationPrefs = Field(default_factory=NotificationPrefs)
     theme: Literal["system", "light", "dark"] = "system"

@@ -11,7 +11,7 @@ from ar_common.offload import blocking
 from ar_common.time import utcnow
 from ar_domain.approvals.logic import _standing_ok
 from ar_domain.audit.memory import remember
-from ar_domain.policy.logic import enrich_time, evaluate, fallback
+from ar_domain.policy.logic import enrich_time, evaluate, fallback, tenant_zone
 from ar_domain.policy.metrics import DECISIONS, EVAL_SECONDS, FALLBACK
 from ar_domain.policy.service import _overrides, _settings, active_rules
 
@@ -257,6 +257,6 @@ def _input(
             "attributes": {},
         },
         "args": arguments,
-        "time": enrich_time(utcnow()),
+        "time": enrich_time(utcnow(), tenant_zone(settings)),
         "settings": settings,
     }

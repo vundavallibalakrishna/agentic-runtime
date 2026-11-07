@@ -10,7 +10,7 @@ from ar_common.errors import ConflictError, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
-from ar_domain.policy.logic import enrich_time, evaluate, normalize_effect
+from ar_domain.policy.logic import enrich_time, evaluate, normalize_effect, tenant_zone
 from ar_domain.rows import as_dict, as_int, as_list
 
 if TYPE_CHECKING:
@@ -455,7 +455,7 @@ def build_input(store: Any, actor: Actor, body: dict[str, object]) -> dict[str, 
         },
         "user": _user_input(store, user_id, actor),
         "args": body.get("args") if isinstance(body.get("args"), dict) else {},
-        "time": enrich_time(utcnow()),
+        "time": enrich_time(utcnow(), tenant_zone(_settings(store, actor.tenant_id))),
         "settings": _settings(store, actor.tenant_id),
     }
 
@@ -514,7 +514,7 @@ def _test_input(store: Any, actor: Actor, sample: dict[str, object]) -> dict[str
             "attributes": as_dict(user.get("attributes")),
         },
         "args": sample.get("args") if isinstance(sample.get("args"), dict) else {},
-        "time": enrich_time(utcnow()),
+        "time": enrich_time(utcnow(), tenant_zone(_settings(store, actor.tenant_id))),
         "settings": _settings(store, actor.tenant_id),
     }
 

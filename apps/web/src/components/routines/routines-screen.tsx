@@ -36,7 +36,7 @@ export function RoutinesScreen() {
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [cron, setCron] = useState("0 9 * * 1");
-  const [timezone, setTimezone] = useState("Asia/Kolkata");
+  const [timezone, setTimezone] = useState("UTC");
   const [agentId, setAgentId] = useState("");
   const [preApproved, setPreApproved] = useState(true);
   const [preview, setPreview] = useState<Preview | null>(null);
