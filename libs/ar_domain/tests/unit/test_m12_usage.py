@@ -36,7 +36,7 @@ def test_period_keys_follow_the_tenant_zone() -> None:
     assert (
         period_key(datetime(2026, 1, 31, 18, 30, tzinfo=UTC), "Asia/Kolkata", "month") == "2026-02"
     )
-    assert zone("Not/AZone").key == "Asia/Kolkata"
+    assert zone("Not/AZone").key == "UTC"
 
 
 def test_counters_converge_with_daily_and_warn_once() -> None:

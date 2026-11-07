@@ -440,6 +440,28 @@ shows a computer once one exists.
 **Done (7 Nov 2026).** The endpoint returns `{sandbox: None}` with `200` for a conversation with no
 computer; proved on the live `acme` tenant: opening a chat logs no `404` for `.../sandbox`.
 
+## M38b-T16 No region or industry in a default
+
+**Depends on:** none. **Areas:** `ar_contracts/tenants.py`, `usage/quotas.py`, `usage/service.py`,
+`routines/schedule.py`, `policy/logic.py`, `apps/web/src/components/routines/`, `apps/web/src/app/(app)/grc/`.
+**Finding:** F55.
+
+**Do:** no default a new tenant, user or form receives names a place or an industry (strict rules 3 and 7).
+The tenant and user default timezone become `UTC` and the default locale `en`; the usage and quota
+fallbacks for an unknown zone become `UTC`; the schedule label drops its hardcoded `IST` and reads the
+offset (so a half-hour zone is `UTC+5:30`); the policy time helper offers only `UTC` and the tenant's own
+configured timezone (as `local`), not a built-in list of cities. The retired pack's `/grc` "page not found"
+stub is removed; an unknown path uses the app's own not-found.
+
+**Done when:** a new tenant's default timezone is `UTC` and locale `en`, and `/grc` is the app's ordinary
+not-found with no special route.
+
+**Tests:** `test_m10_routines.py`, `test_m12_usage.py` (updated for the new fallback and label).
+
+**Done (7 Nov 2026).** Defaults and fallbacks are `UTC`/`en`; the policy helper offers `UTC` and the
+tenant's `local` zone; the `/grc` route is deleted. Proved on the live tenant: `/grc` returns the app's
+not-found, and a new tenant's settings read `UTC`/`en`.
+
 ## M38b-T11 The fresh run is kept as a check
 
 **Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,

@@ -285,7 +285,7 @@ spec:
     Summarise last week's P1/P2 incidents, compute MTTR, post to #sre-digest.
   trigger:
     type: schedule              # schedule | webhook | channel_event | email | file_arrival | db_change | manual
-    schedule: { cron: "0 9 * * MON", timezone: Asia/Kolkata, jitterS: 120, catchupWindowS: 3600 }
+    schedule: { cron: "0 9 * * MON", timezone: UTC, jitterS: 120, catchupWindowS: 3600 }
   eventFilter: null            # JMESPath on the event envelope
   delivery:
     - { type: slack, integration: corp-slack, channel: "#sre-digest", preApproved: true }
@@ -333,7 +333,7 @@ spec:
         dataClassifications: []
         args:
           - { path: "$.to[*]", op: not_domain_in, value: ["example.com"] }
-        timeWindow: null                # { days: [MON..FRI], from: "09:00", to: "18:00", timezone: Asia/Kolkata }
+        timeWindow: null                # { days: [MON..FRI], from: "09:00", to: "18:00", timezone: UTC }
       approval:
         approvers: { mode: group, groups: [finance-managers] }   # requester | agent_owner | group | users
         requiredApprovals: 1

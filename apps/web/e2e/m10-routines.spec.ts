@@ -42,13 +42,13 @@ test("routines schedule, run now, and stay accessible", async ({ page }) => {
     page.getByRole("heading", { name: "Routines", exact: true, level: 1 }),
   ).toBeVisible();
   await expect(page.getByText("Weekly digest", { exact: true })).toBeVisible();
-  await expect(page.getByText("Every Monday 09:00 IST")).toBeVisible();
+  await expect(page.getByText("Every Monday 09:00 UTC+5:30")).toBeVisible();
   await capture(page, "list");
 
   await page.getByLabel("Name").fill("Launch reminder");
   await page.getByLabel("Instructions").fill("Remind the team that the launch notes are due.");
   await page.getByRole("button", { name: "Preview schedule" }).click();
-  await expect(page.getByText("Every Monday 09:00 IST").nth(1)).toBeVisible();
+  await expect(page.getByText("Every Monday 09:00 UTC", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Create a routine" }).click();
   await expect(page.getByRole("heading", { name: "Launch reminder" })).toBeVisible();
   await page.getByRole("button", { name: "Run now" }).click();

@@ -57,7 +57,7 @@ def test_routines_round_trip_and_hide_other_tenants() -> None:
     listed = admin.get("/api/v1/routines")
     assert listed.status_code == 200
     weekly = next(row for row in listed.json()["items"] if row["name"] == "Weekly digest")
-    assert weekly["triggerSummary"] == "Every Monday 09:00 IST"
+    assert weekly["triggerSummary"] == "Every Monday 09:00 UTC+5:30"
     detail = admin.get(f"/api/v1/routines/{weekly['id']}")
     assert detail.status_code == 200
     assert "webhookSecret" not in detail.json()
