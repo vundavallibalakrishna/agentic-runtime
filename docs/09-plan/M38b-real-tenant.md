@@ -190,6 +190,12 @@ in `.env`. The dev seed package is deleted once T04 has moved its last caller.
 
 **Tests:** `tests/integration/test_migrations.py`; `scripts/check_helm.py`.
 
+**Done (7 Nov 2026).** `python -m ar_domain.migrations.run` only migrates; the dev seed it used to run
+after migrating is gone (F7 remnant). Nothing in the standard flow called it to seed: `make migrate` and
+the Helm `ar-migrate` job run `alembic upgrade head` directly, and `make seed` and the Helm bootstrap job
+seed separately, so a Helm install already holds only the tenant named in its values. Deleting the dev
+seed package rides with M38b-T04, which moves its last callers.
+
 ## M38b-T07 Every model is configured in the product
 
 **Depends on:** T04e. **Areas:** `models/registry.py`, `chat/service.py`,
