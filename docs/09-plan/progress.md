@@ -329,4 +329,5 @@ M38b-T06 | done | 991031e | `python -m ar_domain.migrations.run` only migrates; 
 M38b-T04d | done | ca79384 | the eval gym stops building the demo tenant in the product package: `build_world`/`run_suite`/`cli.main` take a seeded store, built by `scripts/m33c_eval_gym.py` via `ar_testing`
 M38b-T04d | done | 6bd71fb | the eval suite command stops building the demo tenant too: `ar_system.evals.cli.main` takes a seeded store, built by `scripts/run_suites.py` via `ar_testing` (`make eval`); the guard now finds no demo-tenant building in any product package
 M38b-T04f | done | 606bbea | the showcase half moved to ar_testing (`showcase_build`, `showcase.*`)
-M38b-T04f | done | - | `seed_demo_tenant`/`seed_demo`/`_seed_scripted_provider` move to `ar_testing.demo_tenant`; no demo-tenant building remains in any product package; sha recorded with the next task
+M38b-T04f | done | 8dd7bfc | `seed_demo_tenant`/`seed_demo`/`_seed_scripted_provider` move to `ar_testing.demo_tenant`; no demo-tenant building remains in any product package
+M38b-T05d | done | - | the web middleware gates every workspace page server-side: no `ar_session` cookie redirects to sign-in, a present one is validated against the API; nothing of the workspace reaches a browser that is not signed in; sha recorded with the next task
