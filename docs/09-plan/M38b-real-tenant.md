@@ -462,6 +462,24 @@ not-found with no special route.
 tenant's `local` zone; the `/grc` route is deleted. Proved on the live tenant: `/grc` returns the app's
 not-found, and a new tenant's settings read `UTC`/`en`.
 
+## M38b-T17 A failed screen looks finished
+
+**Depends on:** none. **Areas:** `apps/web/src/components/common/management-layout.tsx`,
+`apps/web/src/components/knowledge/`, `apps/web/src/components/memory/`. **Finding:** F30.
+
+**Do:** an error on a management screen is a finished state, not a line of plain text with a bare link. A
+shared `ErrorState` (a bordered card with a warning icon, the message, and a **Try again** button) replaces
+the unstyled `<p>` on the Knowledge and Memory screens. It uses the design-system tokens, so light and dark
+are both finished.
+
+**Done when:** a failed load on the Knowledge or Memory screen shows the card with a working **Try again**,
+and the component is available for other screens to adopt.
+
+**Tests:** the existing web tests; the Knowledge error is proved live by forcing the list to fail.
+
+**Done (7 Nov 2026).** `ErrorState` replaces the bare error on both screens; proved on the live `acme`
+tenant by failing the knowledge list (`run21-error-state/01-knowledge-error-state.png`).
+
 ## M38b-T11 The fresh run is kept as a check
 
 **Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,
