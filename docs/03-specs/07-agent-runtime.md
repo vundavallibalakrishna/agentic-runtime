@@ -115,7 +115,7 @@ All activities are idempotent on (`run_id`, `step_seq` / `tool_call_id`): they u
 | 3 | Capabilities index | system | skills index (name + description of each bound skill), knowledge collections (name + description), subagents (slug + description), sandbox availability | Static per version |
 | 4 | Loaded skills | system | `skills.load` results during this conversation (full instructions) | Appended in load order |
 | 5 | Session context | system | current date/time in user timezone, user display name, locale, channel, tenant name | Changes per run (kept after static blocks) |
-| 6 | Memory | system | recalled facts wrapped `<memory trust="user_data">…</memory>` | ≤ 1,500 tokens |
+| 6 | Memory | system | a framing line (the person told you these things; use them, do not disclaim having them) then recalled facts wrapped `<memory trust="user_data">…</memory>` | ≤ 1,500 tokens |
 | 7 | Plan | system | `conversations.plan` rendered as checklist | if non-empty |
 | 8 | Conversation summary | system | `conversations.rolling_summary` | if non-empty |
 | 9 | Auto-retrieved knowledge | system | hits wrapped `<retrieved_documents trust="untrusted" nonce="…">` with `<document index="n" …>` children (citation indices) | if enabled |

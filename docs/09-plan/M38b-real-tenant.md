@@ -521,6 +521,23 @@ renders is the longer-term form ([OQ-113](../open-questions.md)).
 **Done (7 Nov 2026).** The acknowledgement list is broadened; proved on the live `acme` tenant by a fetch
 the egress rules refuse.
 
+## M38b-T20 A recalled memory is handed over as known
+
+**Depends on:** none. **Areas:** `memory/format.py`. **Finding:** F34.
+
+**Do:** the recalled-memory section begins with a product-authored line that tells the model the facts are
+things the person has shared and may be used directly, and that it should not say it has no record or no
+access to the person's information. The facts stay wrapped as `user_data`. Before this, the block was bare
+XML and the model sometimes disclaimed having the fact before using it.
+
+**Done when:** asked about a recalled fact, the agent uses it without claiming it has no access to the
+person's records.
+
+**Tests:** `test_m38b_memory_framing.py`.
+
+**Done (7 Nov 2026).** The block carries the framing line; proved on the live `acme` tenant with the
+recalled peanut-allergy fact.
+
 ## M38b-T11 The fresh run is kept as a check
 
 **Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,
