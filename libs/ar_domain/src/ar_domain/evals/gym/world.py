@@ -39,15 +39,17 @@ class GymWorld:
     files: dict[str, uuid.UUID]
 
 
-def build_world(prepare: Callable[[ChatService], None] | None = None) -> GymWorld:
-    """Seed built-in tools and the fixtures the golden tasks read.
+def build_world(
+    store: ChatService, prepare: Callable[[ChatService], None] | None = None
+) -> GymWorld:
+    """Add the built-in tools and the fixtures the golden tasks read to ``store``.
 
-    ``prepare`` registers the models the world needs before its fixtures are made. The
-    handbook is a knowledge collection, so it needs an embedding model.
+    ``store`` is a tenant the caller has already seeded; the gym does not build a tenant,
+    so the demo tenant it works on is built by the tooling that runs it, not here (the
+    product packages hold no demo-tenant building, M38b-T04d). ``prepare`` registers the
+    models the world needs before its fixtures are made: the handbook is a knowledge
+    collection, so it needs an embedding model.
     """
-    store = ChatService()
-    # The gym is an eval world of its own: it works on the demo tenant and its fixtures.
-    store.seed_demo_tenant()
     if prepare is not None:
         prepare(store)
     seed(store)

@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 async def run_suite_async(
     *,
+    make_store: Callable[[], ChatService] | None = None,
     live: bool = False,
     environ: Mapping[str, str] | None = None,
     tasks: list[Task] | None = None,
@@ -27,14 +28,17 @@ async def run_suite_async(
 ) -> Report:
     """Score every golden task. ``live`` uses the cert key. Otherwise the scripted model runs.
 
-    ``prepare`` registers an embedding model in the world's store before its fixtures
-    are made.
+    ``make_store`` returns the seeded tenant the world is built on; the gym does not build
+    a tenant, so the tooling that runs it provides one (M38b-T04d). ``prepare`` registers
+    an embedding model in the world's store before its fixtures are made.
     """
     mode = "live" if live else "dry-run"
     live_plan: tuple[str, str, str] | None = None
     if live:
         live_plan = live_settings(environ)
-    world = build_world(prepare)
+    if make_store is None:
+        raise ValueError("run_suite needs make_store: a seeded tenant to build the world on")
+    world = build_world(make_store(), prepare)
     if live_plan is not None:
         key, url, model = live_plan
         install_live(world.store, world.tenant_id, key=key, base_url=url, model=model)
@@ -50,13 +54,18 @@ async def run_suite_async(
 
 def run_suite(
     *,
+    make_store: Callable[[], ChatService] | None = None,
     live: bool = False,
     environ: Mapping[str, str] | None = None,
     tasks: list[Task] | None = None,
     prepare: Callable[[ChatService], None] | None = None,
 ) -> Report:
     """Synchronous wrapper used by the CLI and the unit test."""
-    return asyncio.run(run_suite_async(live=live, environ=environ, tasks=tasks, prepare=prepare))
+    return asyncio.run(
+        run_suite_async(
+            make_store=make_store, live=live, environ=environ, tasks=tasks, prepare=prepare
+        )
+    )
 
 
 async def _run_task(world: GymWorld, task: Task) -> TaskScore:

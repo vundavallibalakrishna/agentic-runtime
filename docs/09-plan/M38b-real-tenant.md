@@ -139,7 +139,12 @@ a tenant's default agents. What is left, one pull request for each:
   `ar_testing.demo` (`demo_store`, `demo_application`), and a test fails if product code calls the demo
   seeding. The eval gym and `make eval` are eval tooling that still build it themselves.
 - **T04d** The fixed user catalogue, the memory identity and the test sign-in leave the API (with T05), and
-  the eval gym and `make eval` stop building the demo tenant inside product packages.
+  the eval gym and `make eval` stop building the demo tenant inside product packages. **The eval gym part is
+  done (7 Nov 2026):** `build_world`/`run_suite`/`cli.main` take a seeded store, and the demo tenant is built
+  by the tooling that runs the gym (`scripts/m33c_eval_gym.py` via `ar_testing.demo.demo_store`), not in the
+  gym package; `python -m ar_domain.evals.gym` guides to the script. The fixed users and memory identity
+  already left the API with T05b. What remains: the `ar_system.evals.cli` suite command, and the test
+  sign-in with T05.
 - **T04e** (done) A product store starts with no model provider, model or alias. The scripted provider and
   the aliases that pointed at it were built in every process, so a new tenant's Models screen listed
   `fake-llm` in production. They are part of the demo tenant now. `make dev` still gets `fake-llm` from the
