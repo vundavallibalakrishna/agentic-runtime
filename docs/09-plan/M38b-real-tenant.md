@@ -179,11 +179,14 @@ a tenant's default agents. What is left, one pull request for each:
 - **T05c** (done) A visitor who is not signed in goes to the sign-in page. When the session check fails
   for any other reason, the page is replaced by an error with **Try again** and **Sign in again**; it used
   to stay up with "Internal Server Error" inside it.
-- **T05d** The web server checks the session before it sends a workspace page, so nothing of the workspace
-  reaches a browser that is not signed in. Depends on M38-T09: a first version of T05c waited for the
-  session check before drawing the page, and the browser suite then failed whenever the API was busy with a
-  tool call, because the API still runs tool calls on its event loop. A gate in front of every page needs an
-  API that always answers quickly.
+- **T05d** (done 7 Nov 2026) The web middleware (`apps/web/src/proxy.ts`) gates every workspace page: a
+  request with no `ar_session` cookie is redirected to the sign-in page server-side, and a request with one
+  is checked against `/api/v1/auth/session` (a clean `401` when the session is invalid, so a stale cookie is
+  caught too), redirected if not signed in. Nothing of the workspace reaches a browser that is not signed
+  in. The API, the static files, the sign-in page, the public guest page and the health check are not gated.
+  A brief API outage fails open (the page loads and the client check and error page of T05c take over), so
+  the UI does not lock out. This was blocked on M38-T09 (now merged): tool calls no longer hold the API's
+  event loop, so the session endpoint answers quickly under load.
 
 **Done when:** the product has one way to sign in, and an unauthenticated visitor sees only the sign-in page
 or an error page, whatever the API returns.
