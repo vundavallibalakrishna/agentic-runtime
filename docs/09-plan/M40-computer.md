@@ -36,5 +36,30 @@ sign-in through a connection.
 
 ## M40-T06 The model sees images
 
-**Do:** an image result (a screenshot, a rendered page, a chart) is sent to a model that has the vision
-capability. A model without it gets the description from the vision alias.
+Done before the container tasks because it needs no new infrastructure: it is domain code on the existing
+agent loop, so a tenant that connects a vision model sees it work today, and the browser and sandbox of
+T01–T05 feed it richer images later.
+
+**Do:**
+
+- The agent loop collects the images a tool batch produced — a result's `artifacts` and its chart
+  `presentation` — into `build_image_message` after every tool call in the batch is answered (OpenAI
+  requires that order). `tools/images.py` holds `collect_images` and `build_image_message`.
+- When the agent's reasoning model has the `vision` capability, the images go to the model as `image_url`
+  parts on a `user` message, so the model sees them. The same OpenAI-compatible endpoint and data-URI
+  encoding that `documents.vision` already uses carry them.
+- When the reasoning model cannot read images but the agent's vision alias can, that alias describes each
+  image (through `ask_image`) and the description is appended instead.
+- When no vision-capable model is connected, nothing is injected and the turn's messages are unchanged, so
+  no existing behaviour moves until a tenant connects a vision model ([OQ-115](../open-questions.md)).
+- At most four images per batch, each under 8 MiB, reach the model. The injected note and the description
+  prompt both say the images are untrusted content (never-skip rule 5).
+
+**Done when:** a turn whose tool drew a chart or took a screenshot shows that image to a vision-capable
+reasoning model, a text-only model gets the description, and a tenant with no vision model runs exactly as
+before.
+
+**Tests:** `test_m40_model_sees_images.py` — `collect_images` reads artifacts and the chart presentation,
+skips non-images and other tenants and caps the count; `build_image_message` shows a vision model the
+picture, gets a description from the vision alias for a text-only model, and is silent with no vision model;
+the loop injects a tool's image into the next model call and the run completes.

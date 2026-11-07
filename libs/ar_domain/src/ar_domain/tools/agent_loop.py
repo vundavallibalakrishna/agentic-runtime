@@ -17,6 +17,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import budget_exceeded
+from ar_domain.tools.images import build_image_message, collect_images
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
 
@@ -240,6 +241,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             _plan(store, run, calls)
             planned = True
         messages.append({"role": "assistant", "content": None, "tool_calls": _wire_calls(calls)})
+        batch_images: list[dict[str, object]] = []
         for call in calls:
             if not isinstance(call, dict):
                 continue
@@ -308,6 +310,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     "content": str(outcome["wrapped"]),
                 }
             )
+            produced = outcome.get("images")
+            if isinstance(produced, list):
+                batch_images.extend(produced)
             if consecutive_errors >= 8:
                 _stop_error(
                     store,
@@ -316,6 +321,21 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     "The tool kept failing, so this run stopped.",
                 )
                 return True
+        if batch_images:
+            # Every tool call in the batch is answered above; only now may a user
+            # message carry the pictures the batch produced to a model that can see
+            # them (M40-T06). The vision-alias description path does a model call, so
+            # it runs off the loop thread under the remaining time budget.
+            shown = await run_sync(
+                build_image_message,
+                store,
+                run,
+                batch_images,
+                alias=alias,
+                limit_s=_time_left(limits, started),
+            )
+            if isinstance(shown, dict):
+                messages.append(shown)
 
 
 def _provider_error(turn: dict[str, object]) -> bool:
@@ -661,6 +681,7 @@ def _act(  # noqa: PLR0917
         "failed": failed,
         "preview": preview,
         "wrapped": wrap_tool_result(tool=qualified, call_id=model_call_id, content=text or "empty"),
+        "images": collect_images(store, structured, run.get("tenant_id")),
     }
 
 
