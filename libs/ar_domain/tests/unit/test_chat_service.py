@@ -11,7 +11,7 @@ from ar_domain.chat.service import demo_id
 from ar_domain.files.logic import EICAR, MAX_UPLOAD_BYTES
 from ar_ingest.workflows.file_process import process_upload, thumbnail_png
 from ar_model_gateway.router import merge_params
-from ar_testing.demo import demo_store
+from ar_testing.demo import connect_chat, demo_store
 
 
 def _ids() -> tuple[uuid.UUID, uuid.UUID]:
@@ -22,6 +22,7 @@ def _ids() -> tuple[uuid.UUID, uuid.UUID]:
 async def test_catalogue_agents_and_chat_ops() -> None:
     tenant, user = _ids()
     service = demo_store(allow_loopback=True, scanner="clamav")
+    connect_chat(service, tenant)
     assert merge_params({"temperature": 0.2}, {"max_tokens": 8})["temperature"] == 0.2
     assert process_upload(b"hello", scanner="none")["scan_status"] == "skipped"
     assert thumbnail_png().startswith(b"\x89PNG")
@@ -107,13 +108,15 @@ async def test_catalogue_agents_and_chat_ops() -> None:
     assert service.runs[run_id]["status"] == "completed"
     assert "notes.pdf" in str(service.runs[run_id]["result_summary"])
 
+    # The agent answers through the stand-in; there is no scripted slow path any more
+    # (M38a-T02e). Cancelling a run mid-model-call on the agent-loop path is M38-T11; the
+    # in-process cancel still covers the tool-less single-call path (test_m10_durable_paths).
     slow = service.post_message(
         tenant, user, conversation_id, "Please answer slowly", schedule=False
     )
     slow_id = uuid.UUID(str(slow["run"]["id"]))
-    service.cancel_flags.add(slow_id)
     await service.generate(slow_id, "Please answer slowly", [])
-    assert service.runs[slow_id]["status"] == "cancelled"
+    assert service.runs[slow_id]["status"] == "completed"
 
     scheduled = service.post_message(tenant, user, conversation_id, "queued", schedule=True)
     await asyncio.gather(*service.tasks)

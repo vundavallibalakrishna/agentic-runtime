@@ -11,13 +11,14 @@ from ar_domain.evals.book import EvalBook
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_system.routines_store import bind_store
 from ar_system.workflows.eval_run import EVAL_QUEUE, EvalRunWorkflow, execute_eval_activity
-from ar_testing.demo import demo_store
+from ar_testing.demo import connect_chat, demo_store
 
 pytestmark = pytest.mark.asyncio
 
 
 async def test_workflow_scores_a_suite(temporal_env) -> None:  # type: ignore[no-untyped-def]
     store = demo_store()
+    connect_chat(store, demo_id("tenant"))
     bind_store(store)
     actor = Actor(
         tenant_id=demo_id("tenant"),

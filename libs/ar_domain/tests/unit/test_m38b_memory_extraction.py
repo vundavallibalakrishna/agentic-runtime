@@ -14,7 +14,7 @@ import pytest
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.memory.book import MemoryBook
 from ar_domain.memory.extraction import extraction_alias, extraction_messages, remember_turn
-from ar_testing.demo import demo_store
+from ar_testing.demo import connect_chat, demo_store
 from ar_testing.stand_in import shared
 
 TENANT = demo_id("tenant")
@@ -40,6 +40,7 @@ def _answers(script_set: str, contains: str, answer: str) -> None:
 
 def _store(script_set: str) -> ChatService:
     store = demo_store()
+    connect_chat(store, demo_id("tenant"))
     shared().connect_extraction(store, script_set=script_set)
     return store
 
@@ -107,6 +108,7 @@ async def test_an_answer_that_is_not_a_list_changes_nothing() -> None:
 @pytest.mark.asyncio
 async def test_a_memory_already_kept_is_corrected_by_its_id() -> None:
     store = demo_store()
+    connect_chat(store, demo_id("tenant"))
     old = MemoryBook(store).create_user(
         _actor(), {"content": "Works from the Pune office", "category": "fact"}
     )
