@@ -65,7 +65,7 @@ Each finding was seen in the run unless it says "read in code".
 | F4 | C | In production mode the sign-in page lists four `@dev.local` users and prints their password. The buttons return 404. | `run1-acme/01-sign-in-page-production-mode.png`; `apps/web/src/app/(auth)/login/page.tsx` |
 | F5 | C | The header and the session say the tenant is "Dev" on plan "enterprise". The tenant row says "Acme" on `self_hosted`. | `run3/01-signed-in.png`; `auth/routes.py` `session` |
 | F6 | B | A new tenant receives agents it did not create: `helpdesk` and `revenue-analyst` beside `assistant` and `builder`. All four were written to the database on the first sign-in. | `agents` table after sign-in; `run3/12-agent-editor.png` lists them |
-| F7 | B | The production bootstrap job (`python -m ar_domain.bootstrap`) ran the dev seed first: the `dev` tenant, four users, the `fake-llm` provider, three agents and a policy. **Fixed here** (M38b-T02). `python -m ar_domain.migrations.run` still runs the dev seed after migrating (read in code). | `bootstrap.py` before this change; `migrations/run.py` |
+| F7 | B | The production bootstrap job (`python -m ar_domain.bootstrap`) ran the dev seed first: the `dev` tenant, four users, the `fake-llm` provider, three agents and a policy. **Fixed here** (M38b-T02), and the remnant in M38b-T06: `python -m ar_domain.migrations.run` now only migrates. Seeding is a separate step (`scripts/seed_tenant.py` for a real tenant, `scripts/seed.py` for the dev tenant); Helm already migrates (`alembic upgrade`) and bootstraps only the tenant named in its values. | `bootstrap.py` before this change; `migrations/run.py` |
 
 ### Models
 

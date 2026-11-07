@@ -324,4 +324,5 @@ M38b-T17 | done | 11ed0c6 | a failed Knowledge or Memory screen shows a finished
 M38b-T18 | done | d7901fe | no behaviour follows `AR_ENV`'s name: wildcard egress, unisolated sandboxes and the upload scanner are each a setting with a safe default (F60)
 M38b-T19 | done | 5d0d1ca | a tool failure the answer already explains gets no extra "not recovered" notice; the acknowledgement words are broadened (F59)
 M38b-T20 | done | e7a1086 | a recalled memory is framed as known about the person, so the model uses it instead of disclaiming access (F34)
-M38b-T11 | done | - | the fresh-tenant run is a repeatable pre-release gate (`scripts/fresh_run/`): a seeded tenant through sign-in, model setup, chat, knowledge search and memory recall, pass/fail and a screenshot per step; proved on the live acme tenant; sha recorded with the next task
+M38b-T11 | done | fdd77ef | the fresh-tenant run is a repeatable pre-release gate (`scripts/fresh_run/`): a seeded tenant through sign-in, model setup, chat, knowledge search and memory recall, pass/fail and a screenshot per step; proved on the live acme tenant
+M38b-T06 | done | - | `python -m ar_domain.migrations.run` only migrates; the dev seed it ran after migrating is gone (F7 remnant); Helm and make already seed separately; sha recorded with the next task
