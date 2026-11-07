@@ -503,6 +503,24 @@ config.
 `AR_EGRESS_ALLOW_WILDCARD=true`, `AR_SANDBOX_ALLOW_UNISOLATED=true`, `AR_FILES_SCANNER=none`. No code reads
 `AR_ENV` for these.
 
+## M38b-T19 A failure the answer already explains gets no extra notice
+
+**Depends on:** none. **Areas:** `tools/agent_loop.py`. **Finding:** F59.
+
+**Do:** when a tool call fails but the run still answers, the line "A tool call failed and was not
+recovered." is added only when the answer does not already tell the person a tool did not do its job. The
+words that count as acknowledging a failure are broadened beyond `fail`/`error`/`could not` to the common
+refusal phrasings (`blocked`, `refused`, `denied`, `not permitted`, `unavailable`, …), because a refused
+fetch on the live tenant was reported as "blocked" and still got the notice. A structured marker the UI
+renders is the longer-term form ([OQ-113](../open-questions.md)).
+
+**Done when:** an answer that already explains a tool was blocked does not also carry the notice.
+
+**Tests:** `test_m21_loop.py` (a blocked-fetch answer gets no extra notice).
+
+**Done (7 Nov 2026).** The acknowledgement list is broadened; proved on the live `acme` tenant by a fetch
+the egress rules refuse.
+
 ## M38b-T11 The fresh run is kept as a check
 
 **Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,

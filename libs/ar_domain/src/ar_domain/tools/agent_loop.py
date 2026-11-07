@@ -664,12 +664,44 @@ def _act(  # noqa: PLR0917
     }
 
 
+# Words that show the answer already tells the person a tool did not do its job, so the
+# notice is not added on top. A refusal is phrased many ways ("blocked", "not permitted"),
+# so the list is broad; a structured marker the UI renders is the longer-term approach
+# (OQ-113).
+_ACKNOWLEDGES_FAILURE = (
+    "fail",
+    "error",
+    "could not",
+    "couldn't",
+    "cannot",
+    "can't",
+    "unable",
+    "was not able",
+    "wasn't able",
+    "not able",
+    "retry",
+    "try again",
+    "blocked",
+    "refused",
+    "denied",
+    "rejected",
+    "prevented",
+    "not permitted",
+    "not allowed",
+    "no access",
+    "unavailable",
+    "not available",
+    "did not work",
+    "didn't work",
+    "no result",
+    "nothing was returned",
+)
+
+
 def _checked(
     store: Any, run: dict[str, object], answer: str, *, failed_open: bool, tool_calls: int
 ) -> str:
-    hidden = failed_open and not any(
-        word in answer.lower() for word in ("fail", "error", "could not", "unable", "retry")
-    )
+    hidden = failed_open and not any(word in answer.lower() for word in _ACKNOWLEDGES_FAILURE)
     if hidden:
         answer = f"{answer}\n\nA tool call failed and was not recovered."
     _audit(
