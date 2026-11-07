@@ -153,10 +153,11 @@ a tenant's default agents. What is left, one pull request for each:
   dev seed's database rows (T06).
 - **T04f** The code that builds the demo tenant (`seed_demo_tenant`, `seed_showcase`, the fixtures in
   `tools/seed_tools.py` and the `showcase.py` modules) moves out of `ar_domain` into `ar_testing`. After
-  T04c nothing in the product calls it, so this is a move with no change in behaviour. **The showcase half is
-  done (7 Nov 2026):** `seed_showcase` and its eight helpers are `ar_testing.showcase_build`, and the six
-  `showcase.py` modules are `ar_testing.showcase.*`; callers use `seed_showcase(store)`. `seed_demo_tenant`
-  and its scripted-provider seeding are the remaining part.
+  T04c nothing in the product calls it, so this is a move with no change in behaviour. **Done (7 Nov 2026):** `seed_showcase` + its eight helpers are `ar_testing.showcase_build`, the six
+  `showcase.py` modules are `ar_testing.showcase.*`, and `seed_demo_tenant` / `seed_demo` /
+  `_seed_scripted_provider` are `ar_testing.demo_tenant`; callers use the free functions. `ChatService` keeps
+  only the generic builders it shares with a real tenant (`ensure_assistant`, `ensure_builtins`, `_provider`)
+  and the `demo_tenant_seeded` flag. No demo-tenant building remains in any product package.
 
 **Done when:** no product code names a demo tenant or person, and the unit suite and the browser tests pass.
 

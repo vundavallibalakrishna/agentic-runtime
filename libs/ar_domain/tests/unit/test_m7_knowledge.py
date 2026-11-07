@@ -58,6 +58,7 @@ from ar_ingest.cli import main as ingest_main
 from ar_runtime.activities.auto_retrieve_knowledge import auto_retrieve_knowledge
 from ar_runtime.activities.auto_retrieve_knowledge import bind_store as bind_runtime
 from ar_testing.demo import demo_store
+from ar_testing.demo_tenant import seed_demo
 from ar_testing.showcase_build import seed_showcase
 
 pytestmark = pytest.mark.unit
@@ -400,7 +401,7 @@ def test_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_librarian_answers_only_from_readable_documents() -> None:
     store = demo_store()
-    store.seed_demo()
+    seed_demo(store)
     seed_showcase(store)
     from ar_domain.knowledge.answer import compose as compose_answer
 

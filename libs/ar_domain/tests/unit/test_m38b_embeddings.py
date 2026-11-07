@@ -36,6 +36,7 @@ from ar_domain.models.embedding import (
     rerank_model,
 )
 from ar_testing.demo import demo_store
+from ar_testing.demo_tenant import seed_demo_tenant
 from ar_testing.stand_in import EMBEDDING_MODEL
 
 TENANT = demo_id("tenant")
@@ -50,7 +51,7 @@ def _actor() -> Actor:
 def _bare_store() -> ChatService:
     """The demo tenant with a chat model and no embedding model, like a new tenant."""
     store = ChatService(allow_loopback=True)
-    store.seed_demo_tenant()
+    seed_demo_tenant(store)
     return store
 
 

@@ -25,12 +25,13 @@ from ar_domain.channels.tokens import issue_link_token, link_ttl_s, read_link_to
 from ar_domain.channels.widget_auth import sign_widget_token, verify_widget_token
 from ar_domain.chat.service import ChatService, demo_id
 from ar_testing.demo import demo_store
+from ar_testing.demo_tenant import seed_demo
 from ar_testing.showcase_build import seed_showcase
 
 
 def _store() -> ChatService:
     store = demo_store()
-    store.seed_demo()
+    seed_demo(store)
     seed_showcase(store)
     return store
 

@@ -25,6 +25,7 @@ from ar_domain.tools.search import (
     word_overlap,
 )
 from ar_testing.demo import demo_store
+from ar_testing.demo_tenant import seed_demo_tenant
 
 TENANT = demo_id("tenant")
 BASE = "https://embed.example/v1"
@@ -40,7 +41,7 @@ TOOLS = [
 def _bare() -> ChatService:
     """A tenant with a chat model and no embedding model."""
     store = ChatService(allow_loopback=True)
-    store.seed_demo_tenant()
+    seed_demo_tenant(store)
     return store
 
 
