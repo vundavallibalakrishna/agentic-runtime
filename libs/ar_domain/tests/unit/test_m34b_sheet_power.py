@@ -14,7 +14,6 @@ from ar_domain.demo_ids import demo_id
 from ar_domain.documents.create import parse, render
 from ar_domain.documents.extract import extract_bytes
 from ar_domain.skills.book import SkillBook
-from ar_domain.skills.showcase import seed_composition
 from ar_domain.spreadsheet.grid import grids_from_xlsx
 from ar_domain.spreadsheet.skill import INSTRUCTIONS, SLUG
 from ar_domain.tools.charts import render_chart
@@ -22,6 +21,7 @@ from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.general import _prepare, dispatch_general
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 from ar_testing.demo import demo_store
+from ar_testing.showcase.skills import seed_composition
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService

@@ -14,6 +14,7 @@ from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_testing.demo import demo_application
+from ar_testing.showcase_build import seed_showcase
 
 
 def _principal(
@@ -44,7 +45,7 @@ def _app(holder: dict[str, Principal | None]) -> TestClient:
 
     app.state.resolve_principal = resolve
     app.state.await_runs = True
-    app.state.chat.seed_showcase()
+    seed_showcase(app.state.chat)
     return TestClient(app)
 
 

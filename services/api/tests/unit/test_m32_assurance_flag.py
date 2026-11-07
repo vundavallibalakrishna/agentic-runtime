@@ -11,6 +11,7 @@ from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import ASSURANCE_PERMISSIONS, PERMISSION_KEYS
 from ar_domain.identity.tenant_settings import feature_enabled, permissions_for_features
 from ar_testing.demo import demo_application, start_session
+from ar_testing.showcase_build import seed_showcase
 
 
 def _principal(tenant: uuid.UUID) -> Principal:
@@ -79,7 +80,7 @@ def test_a_settings_patch_keeps_the_dev_tenants_assurance_flag() -> None:
     patch from the Tools screen does not switch the assurance desk off (the web-e2e
     failure on PR 49)."""
     app = demo_application()
-    app.state.chat.seed_showcase()
+    seed_showcase(app.state.chat)
     client = TestClient(app, base_url="http://localhost:3000")
     client.cookies.update(asyncio.run(start_session(app, "admin@dev.local")))
     before = client.get("/api/v1/auth/session").json()

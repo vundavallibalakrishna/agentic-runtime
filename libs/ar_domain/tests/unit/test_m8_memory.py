@@ -17,6 +17,7 @@ from ar_domain.memory.session import prepare_prompt
 from ar_domain.memory.tables import MemoryFact
 from ar_runtime.activities.recall_memory import bind_store, recall_memory
 from ar_testing.demo import demo_store
+from ar_testing.showcase_build import seed_showcase
 
 # What a model returns when the person says "Remember that I prefer tea."
 _TEA = (
@@ -53,7 +54,7 @@ def test_pii_guard(text: str, explicit: bool, reason: str | None) -> None:
 
 def test_visibility_dedupe_and_instruction_review() -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     tenant = demo_id("tenant")
     admin = Actor(tenant, demo_id("admin"), frozenset({"memory:manage_agent", "chat:use"}))
     member = Actor(tenant, demo_id("member"), frozenset({"chat:use"}))
@@ -164,7 +165,7 @@ def test_poisoned_tool_text_never_becomes_an_active_fact() -> None:
 @pytest.mark.asyncio
 async def test_recall_survives_a_new_conversation_until_deleted() -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     tenant = demo_id("tenant")
     user = demo_id("admin")
     agent_id = _assistant(store, tenant)
@@ -200,7 +201,7 @@ async def test_recall_survives_a_new_conversation_until_deleted() -> None:
 @pytest.mark.asyncio
 async def test_recall_activity_puts_facts_in_the_prompt_snapshot() -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     tenant = demo_id("tenant")
     user = demo_id("admin")
     bind_store(store)
@@ -275,7 +276,7 @@ def test_review_tools_forget_and_table_import(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("AR_PGVECTOR_DIMENSIONS", "0")
     assert dimensions() == 1024
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     tenant = demo_id("tenant")
     admin = Actor(tenant, demo_id("admin"), frozenset({"memory:manage_agent", "chat:use"}))
     member = Actor(tenant, demo_id("member"), frozenset({"chat:use"}))
@@ -350,7 +351,7 @@ def test_review_tools_forget_and_table_import(monkeypatch: pytest.MonkeyPatch) -
 
 def test_memory_edges_for_tools_search_and_ops() -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     tenant = demo_id("tenant")
     admin = Actor(tenant, demo_id("admin"), frozenset({"memory:manage_agent", "chat:use"}))
     outsider = Actor(tenant, uuid.uuid4(), frozenset({"chat:use"}))
@@ -522,7 +523,7 @@ def test_memory_edges_for_tools_search_and_ops() -> None:
 
 async def test_generate_streams_memory_and_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     store.fake_llm_url = "http://llm.test/v1"
     tenant = demo_id("tenant")
     user = demo_id("admin")
@@ -590,7 +591,7 @@ async def test_generate_streams_memory_and_fail_closed(monkeypatch: pytest.Monke
 
 def test_tool_output_lowers_trust_and_duplicates_chain(monkeypatch: pytest.MonkeyPatch) -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     tenant = demo_id("tenant")
     admin = Actor(tenant, demo_id("admin"), frozenset({"memory:manage_agent", "chat:use"}))
     book = MemoryBook(store)
@@ -665,7 +666,7 @@ def test_tool_output_lowers_trust_and_duplicates_chain(monkeypatch: pytest.Monke
 
 async def test_local_fallback_keeps_a_bullet_preference() -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     store.fake_llm_url = "http://llm.test/v1"
     tenant = demo_id("tenant")
     user = demo_id("admin")

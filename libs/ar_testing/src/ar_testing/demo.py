@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from ar_testing.demo_people import DEV_TENANT_ID, catalogue
 from ar_testing.objects import MemoryObjectStore
+from ar_testing.showcase_build import seed_showcase
 
 if TYPE_CHECKING:
     from typing import Any
@@ -60,7 +61,7 @@ def serve_demo_tenant(app: Any) -> Any:
     store.objects = MemoryObjectStore()
     store.seed_demo_tenant()
     connect_embeddings(store)
-    store.seed_showcase()
+    seed_showcase(store)
     store.tenant_binding = TenantBinding(
         tenant_id=DEV_TENANT_ID,
         slug="dev",

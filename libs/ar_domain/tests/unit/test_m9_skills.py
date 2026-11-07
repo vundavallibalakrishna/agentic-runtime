@@ -33,8 +33,8 @@ from ar_domain.skills.logic import (
     skill_hash,
     split_skill_ref,
 )
-from ar_domain.skills.showcase import seed_composition
 from ar_testing.demo import demo_store
+from ar_testing.showcase.skills import seed_composition
 
 _ACTOR_PERMS = PERMISSION_KEYS
 

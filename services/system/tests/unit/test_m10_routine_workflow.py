@@ -23,6 +23,7 @@ from ar_system.workflows.routine_run import (
     reconcile_activity,
 )
 from ar_testing.demo import demo_store
+from ar_testing.showcase_build import seed_showcase
 
 pytestmark = pytest.mark.asyncio
 
@@ -30,7 +31,7 @@ pytestmark = pytest.mark.asyncio
 def _ready() -> tuple[ChatService, str]:
     store = demo_store()
     store.seed_demo()
-    store.seed_showcase()
+    seed_showcase(store)
     book = RoutineBook(store)
     agent = store.ensure_assistant(demo_id("tenant"), demo_id("admin"))
     created = book.create(
