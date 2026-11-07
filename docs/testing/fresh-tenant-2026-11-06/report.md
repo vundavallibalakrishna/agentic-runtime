@@ -207,6 +207,7 @@ container.
 | 7 Nov 2026 | M38b-T18 | F60 is fixed: wildcard egress, unisolated sandboxes and virus scanning are each a setting with a safe default, not a consequence of `AR_ENV`. |
 | 7 Nov 2026 | M38b-T19 | F59 is fixed: a tool failure the answer already explains (e.g. a blocked fetch) gets no extra "not recovered" notice. |
 | 7 Nov 2026 | M38b-T20 | F34 is fixed: a recalled memory is handed to the model as known about the person, so it is used rather than disclaimed. |
+| 7 Nov 2026 | M38b-T11 | The fresh run is a repeatable pre-release gate (`scripts/fresh_run/`): sign-in, model setup, chat, knowledge search and memory recall pass on the live `acme` tenant; `run24-fresh-run-gate/`. |
 
 Still open: the code that builds the demo tenant still sits in the product packages, although only test
 setup and the eval tooling call it (M38b-T04d and T04f).

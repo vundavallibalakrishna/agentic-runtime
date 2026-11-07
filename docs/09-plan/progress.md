@@ -323,4 +323,5 @@ M38b-T16 | done | 7e2d797 | no region or industry in a default: tenant/user time
 M38b-T17 | done | 11ed0c6 | a failed Knowledge or Memory screen shows a finished `ErrorState` card with a working Try again, not plain text with a bare link (F30)
 M38b-T18 | done | d7901fe | no behaviour follows `AR_ENV`'s name: wildcard egress, unisolated sandboxes and the upload scanner are each a setting with a safe default (F60)
 M38b-T19 | done | 5d0d1ca | a tool failure the answer already explains gets no extra "not recovered" notice; the acknowledgement words are broadened (F59)
-M38b-T20 | done | - | a recalled memory is framed as known about the person, so the model uses it instead of disclaiming access (F34); sha recorded with the next task
+M38b-T20 | done | e7a1086 | a recalled memory is framed as known about the person, so the model uses it instead of disclaiming access (F34)
+M38b-T11 | done | - | the fresh-tenant run is a repeatable pre-release gate (`scripts/fresh_run/`): a seeded tenant through sign-in, model setup, chat, knowledge search and memory recall, pass/fail and a screenshot per step; proved on the live acme tenant; sha recorded with the next task

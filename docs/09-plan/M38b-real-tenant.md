@@ -551,3 +551,13 @@ the flows the first run left out: memory, approvals, a knowledge question in cha
 **Done when:** the script passes on `main` with a tenant that is not called `dev`.
 
 **Tests:** the script itself; its result is recorded in `docs/testing/m38b-checklist.md`.
+
+**Done (7 Nov 2026).** `scripts/fresh_run/fresh_run.mjs` drives a seeded tenant through
+sign-in, model setup, a chat answer, a knowledge search, a knowledge question in chat,
+memory recall and a second user, writing a pass/fail and a screenshot per step and exiting
+non-zero on any failure; `seed_and_run.sh` wires the seed and the gate into one command.
+Everything is configuration and no secret is in the repo. Run on the live `acme` tenant
+(slug not `dev`) against real DeepInfra models: sign-in, chat, knowledge search and memory
+recall pass; knowledge-in-chat skips on the known tool-choice gap (F66/M39), and the
+already-configured and no-second-user steps skip (`run24-fresh-run-gate/`). The checklist
+is `docs/testing/m38b-checklist.md`.
