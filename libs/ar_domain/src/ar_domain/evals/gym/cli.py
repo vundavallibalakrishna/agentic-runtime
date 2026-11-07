@@ -19,12 +19,16 @@ if TYPE_CHECKING:
 
 
 def main(
-    argv: list[str] | None = None, *, prepare: Callable[[ChatService], None] | None = None
+    argv: list[str] | None = None,
+    *,
+    make_store: Callable[[], ChatService] | None = None,
+    prepare: Callable[[ChatService], None] | None = None,
 ) -> int:
     """Run the gym. Exit 2 when live mode is on and the cert key is missing.
 
-    ``prepare`` registers an embedding model in the gym's store. Without one the
-    handbook cannot be indexed and the run stops with the reason.
+    ``make_store`` returns the seeded tenant the gym runs on; the tooling that invokes the
+    gym provides it (M38b-T04d). ``prepare`` registers an embedding model in that store.
+    Without an embedding model the handbook cannot be indexed and the run stops.
     """
     parser = argparse.ArgumentParser(prog="ar_domain.evals.gym")
     parser.add_argument(
@@ -44,7 +48,7 @@ def main(
         sys.stderr.write(f"refusing live run without {LIVE_FLAG}=1\n")
         return 2
     try:
-        report = run_suite(live=live, prepare=prepare)
+        report = run_suite(make_store=make_store, live=live, prepare=prepare)
     except (LiveConfigError, EmbeddingUnconfiguredError) as exc:
         sys.stderr.write(f"{exc}\n")
         return 2

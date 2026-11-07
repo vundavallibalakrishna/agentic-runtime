@@ -325,4 +325,5 @@ M38b-T18 | done | d7901fe | no behaviour follows `AR_ENV`'s name: wildcard egres
 M38b-T19 | done | 5d0d1ca | a tool failure the answer already explains gets no extra "not recovered" notice; the acknowledgement words are broadened (F59)
 M38b-T20 | done | e7a1086 | a recalled memory is framed as known about the person, so the model uses it instead of disclaiming access (F34)
 M38b-T11 | done | fdd77ef | the fresh-tenant run is a repeatable pre-release gate (`scripts/fresh_run/`): a seeded tenant through sign-in, model setup, chat, knowledge search and memory recall, pass/fail and a screenshot per step; proved on the live acme tenant
-M38b-T06 | done | - | `python -m ar_domain.migrations.run` only migrates; the dev seed it ran after migrating is gone (F7 remnant); Helm and make already seed separately; sha recorded with the next task
+M38b-T06 | done | 991031e | `python -m ar_domain.migrations.run` only migrates; the dev seed it ran after migrating is gone (F7 remnant); Helm and make already seed separately
+M38b-T04d | in_progress | - | the eval gym stops building the demo tenant in the product package: `build_world`/`run_suite`/`cli.main` take a seeded store, built by `scripts/m33c_eval_gym.py` via `ar_testing`; the `ar_system.evals.cli` suite command is the remaining part

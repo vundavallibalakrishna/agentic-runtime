@@ -12,10 +12,10 @@ from ar_testing.demo import demo_store
 
 ROOT = Path(__file__).resolve().parents[4]
 
-# The eval gym and the eval command are eval tooling that work on the demo tenant on
-# purpose. They move out of the product with M38b-T04d and M42.
+# The eval suite command is eval tooling that works on the demo tenant on purpose; it
+# moves out of the product with the rest of M38b-T04d. The gym no longer builds a tenant:
+# the tooling that runs it (scripts/m33c_eval_gym.py) does.
 _EVAL_TOOLING = {
-    "libs/ar_domain/src/ar_domain/evals/gym/world.py",
     "services/system/src/ar_system/evals/cli.py",
 }
 

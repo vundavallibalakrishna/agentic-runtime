@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from ar_domain.chat.service import ChatService
 from ar_domain.evals.gym.cli import main
 from ar_domain.evals.gym.live import LIVE_KEY, LiveConfigError, install_live, live_requested
 from ar_domain.evals.gym.policy import choose
@@ -15,6 +16,14 @@ from ar_domain.evals.gym.score import ObservedCall, Report, render_scorecard, sc
 from ar_domain.evals.gym.tasks import ArgRule, Expectation, Task, load_tasks, tasks_path
 from ar_testing.demo import connect_embeddings, demo_store
 from ar_testing.objects import MemoryObjectStore
+
+
+def _make_store() -> ChatService:
+    """The seeded tenant the gym runs on, built by test tooling (M38b-T04d)."""
+    store = ChatService()
+    store.seed_demo_tenant()
+    return store
+
 
 _REQUIRED = (
     "general.code",
@@ -167,7 +176,7 @@ def test_live_install_keeps_the_key_on_the_provider_row() -> None:
 
 
 def test_dry_run_gym_passes_and_matches_the_committed_scorecard() -> None:
-    report = run_suite(live=False, prepare=_prepare)
+    report = run_suite(make_store=_make_store, live=False, prepare=_prepare)
     assert report.mode == "dry-run"
     assert report.percent == 100
     assert report.passed_count == report.total
