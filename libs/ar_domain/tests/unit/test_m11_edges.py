@@ -25,12 +25,13 @@ from ar_domain.channels.tokens import issue_link_token, link_ttl_s, read_link_to
 from ar_domain.channels.widget_auth import sign_widget_token, verify_widget_token
 from ar_domain.chat.service import ChatService, demo_id
 from ar_testing.demo import demo_store
+from ar_testing.showcase_build import seed_showcase
 
 
 def _store() -> ChatService:
     store = demo_store()
     store.seed_demo()
-    store.seed_showcase()
+    seed_showcase(store)
     return store
 
 
@@ -118,7 +119,7 @@ def test_posts_credentials_and_closed_agent() -> None:
     )
     assert store.domain_events
     assert named["name"] == "Events Slack"
-    from ar_domain.channels.showcase import _open_assistant
+    from ar_testing.showcase.channels import _open_assistant
 
     class _Copy:
         def model_copy(self, *, update: dict[str, object]) -> dict[str, object]:

@@ -153,7 +153,10 @@ a tenant's default agents. What is left, one pull request for each:
   dev seed's database rows (T06).
 - **T04f** The code that builds the demo tenant (`seed_demo_tenant`, `seed_showcase`, the fixtures in
   `tools/seed_tools.py` and the `showcase.py` modules) moves out of `ar_domain` into `ar_testing`. After
-  T04c nothing in the product calls it, so this is a move with no change in behaviour.
+  T04c nothing in the product calls it, so this is a move with no change in behaviour. **The showcase half is
+  done (7 Nov 2026):** `seed_showcase` and its eight helpers are `ar_testing.showcase_build`, and the six
+  `showcase.py` modules are `ar_testing.showcase.*`; callers use `seed_showcase(store)`. `seed_demo_tenant`
+  and its scripted-provider seeding are the remaining part.
 
 **Done when:** no product code names a demo tenant or person, and the unit suite and the browser tests pass.
 

@@ -21,6 +21,7 @@ from ar_domain.usage.quotas import MemoryCounters, period_key, zone
 from ar_domain.usage.reports import usage_csv
 from ar_domain.usage.service import UsageBook, note
 from ar_testing.demo import demo_store
+from ar_testing.showcase_build import seed_showcase
 
 _CEILINGS = frozenset({"max_sandbox_cpu_millis", "max_sandbox_memory_mb"})
 
@@ -167,7 +168,7 @@ def test_ten_thousand_token_quota_blocks_with_a_clear_message() -> None:
 
 def test_csv_matches_the_daily_rows() -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     actor = _actor()
     book = UsageBook(store)
     body = book.export_csv(actor, {})
@@ -245,7 +246,7 @@ def test_every_plan_limit_key_and_self_hosted_defaults() -> None:
 
 def test_two_hundredth_agent_is_the_plan_cap() -> None:
     store = demo_store()
-    store.seed_showcase()
+    seed_showcase(store)
     tenant = demo_id("tenant")
     settings = dict(store.tenant_settings.get(tenant) or {})
     settings["plan_limits"] = {"max_agents": 200}

@@ -18,12 +18,13 @@ from ar_domain.durable.flush import _channel_identities, _channel_integrations, 
 from ar_domain.durable.hydrate import _channel_posts as hydrate_posts
 from ar_domain.routines.engine import deliver
 from ar_testing.demo import demo_store
+from ar_testing.showcase_build import seed_showcase
 
 
 def _store() -> ChatService:
     store = demo_store()
     store.seed_demo()
-    store.seed_showcase()
+    seed_showcase(store)
     return store
 
 

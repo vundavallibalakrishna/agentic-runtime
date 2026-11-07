@@ -19,6 +19,7 @@ from ar_domain.routines.engine import (
 from ar_domain.routines.schedule import preview_schedule
 from ar_domain.routines.signature import header_for, idempotency_key, verify
 from ar_testing.demo import demo_store
+from ar_testing.showcase_build import seed_showcase
 
 
 def _actor() -> Actor:
@@ -40,7 +41,7 @@ def _actor() -> Actor:
 def _store() -> ChatService:
     service = demo_store()
     service.seed_demo()
-    service.seed_showcase()
+    seed_showcase(service)
     return service
 
 
