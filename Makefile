@@ -127,7 +127,7 @@ gen:
 	pnpm exec biome format --write openapi.json
 
 eval:
-	uv run python -m ar_system.evals.cli run evals/golden evals/redteam
+	uv run python scripts/run_suites.py run evals/golden evals/redteam
 
 eval-gym:
 	uv run python scripts/m33c_eval_gym.py

@@ -12,12 +12,9 @@ from ar_testing.demo import demo_store
 
 ROOT = Path(__file__).resolve().parents[4]
 
-# The eval suite command is eval tooling that works on the demo tenant on purpose; it
-# moves out of the product with the rest of M38b-T04d. The gym no longer builds a tenant:
-# the tooling that runs it (scripts/m33c_eval_gym.py) does.
-_EVAL_TOOLING = {
-    "services/system/src/ar_system/evals/cli.py",
-}
+# No product code builds the demo tenant: the eval gym and the eval suite command both
+# take a seeded store from their tooling (scripts/m33c_eval_gym.py, scripts/run_suites.py).
+_EVAL_TOOLING: set[str] = set()
 
 
 def test_a_new_store_holds_no_tenant() -> None:
