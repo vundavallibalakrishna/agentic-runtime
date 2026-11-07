@@ -1,5 +1,7 @@
-import { Inbox } from "lucide-react";
+import { Inbox, TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
+
+import { Button } from "@/components/ui/button";
 
 export function ManagementLayout({
   children,
@@ -22,6 +24,31 @@ export function ManagementLayout({
         <h2 className="mb-5 text-base font-semibold">{formTitle}</h2>
         {form}
       </aside>
+    </div>
+  );
+}
+
+export function ErrorState({
+  message,
+  retryLabel,
+  onRetry,
+}: {
+  message: string;
+  retryLabel: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="mb-6 flex min-h-48 flex-col items-center justify-center rounded-xl border border-[var(--destructive)]/40 bg-[var(--destructive)]/5 px-6 py-10 text-center"
+    >
+      <div className="mb-4 rounded-xl bg-[var(--destructive)]/10 p-3 text-[var(--destructive)]">
+        <TriangleAlert size={20} aria-hidden="true" />
+      </div>
+      <p className="max-w-sm text-sm leading-relaxed text-[var(--foreground)]">{message}</p>
+      <Button className="mt-4" variant="outline" onClick={onRetry} type="button">
+        {retryLabel}
+      </Button>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus } from "@/components/common/detail-state";
-import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
+import { EmptyState, ErrorState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { OrganisationMemorySettings } from "@/components/memory/organisation-settings";
 import { PageHeader } from "@/components/page-header";
@@ -196,12 +196,7 @@ export function MemoryScreen() {
         />
 
         {error ? (
-          <p role="alert">
-            {error}{" "}
-            <button className="underline" onClick={() => void load()} type="button">
-              {t("retry")}
-            </button>
-          </p>
+          <ErrorState message={error} retryLabel={t("retry")} onRetry={() => void load()} />
         ) : null}
         {notice ? <p role="status">{notice}</p> : null}
 
