@@ -1,6 +1,9 @@
 """Skills, delegation and prompt blocks. Spec: docs/03-specs/14-skills.md §7."""
 
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -35,6 +38,9 @@ from ar_domain.skills.logic import (
 )
 from ar_testing.demo import demo_store
 from ar_testing.showcase.skills import seed_composition
+
+if TYPE_CHECKING:
+    from ar_testing.stand_in import StandIn
 
 _ACTOR_PERMS = PERMISSION_KEYS
 
@@ -158,18 +164,36 @@ def test_archive_conflict_lists_the_writer() -> None:
     assert any(item["slug"] == "writer" for item in used["agents"])
 
 
-def test_research_lead_merges_two_children_and_cancel_stops_them() -> None:
-    store = demo_store()
-    seed_composition(store, demo_id("tenant"), demo_id("admin"))
+@pytest.mark.asyncio
+async def test_research_lead_merges_two_children_and_cancel_stops_them(
+    stand_in: StandIn,
+) -> None:
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    store = demo_store(allow_loopback=True)
+    seed_composition(store, tenant, user)
+    stand_in.script(
+        "m9-delegate",
+        [
+            {
+                "match": {"contains": "launch"},
+                "respond": {"text": "Launch notes: the release is on track."},
+            },
+            {
+                "match": {"contains": "rollout"},
+                "respond": {"text": "Rollout plan: start with the pilot team."},
+            },
+        ],
+    )
+    stand_in.connect(store, tenant, script_set="m9-delegate")
     lead = next(row for row in store.agents.values() if row["slug"] == "research-lead")
     parent_id = uuid.uuid4()
     parent = {
         "id": parent_id,
-        "tenant_id": demo_id("tenant"),
+        "tenant_id": tenant,
         "conversation_id": uuid.uuid4(),
         "agent_id": lead["id"],
         "agent_version_id": lead["published_version_id"],
-        "user_id": demo_id("admin"),
+        "user_id": user,
         "depth": 0,
         "root_run_id": parent_id,
         "status": "running",
@@ -177,7 +201,7 @@ def test_research_lead_merges_two_children_and_cancel_stops_them() -> None:
     }
     store.runs[parent_id] = parent
     store.events[parent_id] = []
-    result = delegate(
+    result = await delegate(
         store,
         parent,
         [
@@ -186,12 +210,14 @@ def test_research_lead_merges_two_children_and_cancel_stops_them() -> None:
         ],
     )
     assert result["is_error"] is False
+    # The children's text is the model's, not a canned string (M38a-T02c).
     assert "Launch notes" in str(result["final_text"])
     assert "Rollout plan" in str(result["final_text"])
     assert "untrusted_content" in str(result["wrapped"])
     children = [row for row in store.runs.values() if row.get("parent_run_id") == parent_id]
     assert len(children) == 2
     assert all(row["trigger"] == "subagent" for row in children)
+    assert all(row["status"] == "completed" for row in children)
     for child in children:
         child["status"] = "running"
     cancel_children(store, parent_id)
@@ -252,15 +278,21 @@ def test_child_memory_save_is_denied_and_subagent_policy_matches() -> None:
     assert rule_matches(rule, denied) is False
 
 
-def test_skill_edits_republish_and_runtime_wrappers() -> None:
+@pytest.mark.asyncio
+async def test_skill_edits_republish_and_runtime_wrappers(stand_in: StandIn) -> None:
     import ar_domain.skills.tables  # noqa: F401
     from ar_mcp_gateway.builtins.skills import forward
     from ar_runtime.context.sections import capabilities_block
     from ar_runtime.control.delegate import delegate as runtime_delegate
     from ar_runtime.control.delegate import plan as runtime_plan
 
-    store = demo_store()
+    store = demo_store(allow_loopback=True)
     seed_composition(store, demo_id("tenant"), demo_id("admin"))
+    stand_in.script(
+        "m9-runtime",
+        [{"match": {"contains": "launch"}, "respond": {"text": "Launch notes from the model."}}],
+    )
+    stand_in.connect(store, demo_id("tenant"), script_set="m9-runtime")
     actor = _actor(store)
     book = SkillBook(store)
     brand = book.published_by_slug(demo_id("tenant"), "brand-guidelines")
@@ -338,10 +370,11 @@ def test_skill_edits_republish_and_runtime_wrappers() -> None:
     }
     store.runs[parent_id] = parent
     store.events[parent_id] = []
-    merged = runtime_delegate(
+    merged = await runtime_delegate(
         store, parent, [{"agent": "researcher", "task": "Research the launch notes."}]
     )
     assert merged["is_error"] is False
+    assert "Launch notes from the model" in str(merged["final_text"])
     forwarded = forward(store, "skills.other", {})
     assert forwarded["is_error"] is True
 

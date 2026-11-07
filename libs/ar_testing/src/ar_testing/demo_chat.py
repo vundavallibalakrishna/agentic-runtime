@@ -76,4 +76,20 @@ DEMO_CHAT: list[dict[str, object]] = [
         "match": {"system_contains": "bullet points"},
         "respond": {"text": "- I kept this in bullet points because you asked me to."},
     },
+    # The librarian answers from the knowledge base with a citation (M38a-T02c: the grounded
+    # answer is written by the model, which cites the passage it used).
+    {
+        "match": {"contains": "visitor desk"},
+        "respond": {"text": "The visitor desk opens at 08:30 [1]."},
+    },
+    # The research lead delegates two researchers; each child runs the agent loop and answers
+    # from the stand-in (M38a-T02c: a delegated child is no longer a canned string).
+    {
+        "match": {"contains": "launch notes"},
+        "respond": {"text": "The release is on track and the checklist is complete."},
+    },
+    {
+        "match": {"contains": "rollout plan"},
+        "respond": {"text": "We start with the pilot team, then the rest of the workspace."},
+    },
 ]

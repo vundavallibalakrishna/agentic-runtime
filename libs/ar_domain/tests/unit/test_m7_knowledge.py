@@ -1,9 +1,12 @@
 """Knowledge access, retrieval, ingest and grounding. Spec: docs/03-specs/10-knowledge.md."""
 
+from __future__ import annotations
+
 import asyncio
 import io
 import uuid
 import zipfile
+from typing import TYPE_CHECKING
 from xml.sax.saxutils import escape
 
 import pytest
@@ -60,6 +63,9 @@ from ar_runtime.activities.auto_retrieve_knowledge import bind_store as bind_run
 from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo
 from ar_testing.showcase_build import seed_showcase
+
+if TYPE_CHECKING:
+    from ar_testing.stand_in import StandIn
 
 pytestmark = pytest.mark.unit
 
@@ -399,10 +405,16 @@ def test_connectors_and_activities(monkeypatch: pytest.MonkeyPatch) -> None:
         DeleteFilter(tenant_id=admin.tenant_id)
 
 
-def test_librarian_answers_only_from_readable_documents() -> None:
-    store = demo_store()
+@pytest.mark.asyncio
+async def test_librarian_answers_only_from_readable_documents(stand_in: StandIn) -> None:
+    store = demo_store(allow_loopback=True)
     seed_demo(store)
     seed_showcase(store)
+    stand_in.script(
+        "m7-librarian",
+        [{"match": {"contains": "payroll"}, "respond": {"text": "The readable sources say [1]."}}],
+    )
+    stand_in.connect(store, demo_id("tenant"), script_set="m7-librarian")
     from ar_domain.knowledge.answer import compose as compose_answer
 
     agent = next(row for row in store.agents.values() if row.get("slug") == "librarian")
@@ -413,14 +425,14 @@ def test_librarian_answers_only_from_readable_documents() -> None:
         "agent_version_id": version["id"],
     }
     store.user_roles[demo_id("member")] = {"member"}
-    composed = compose_answer(store, run, "When is payroll released?")
+    composed = await compose_answer(store, run, "When is payroll released?")
     assert composed is not None
-    assert "Payroll" not in str(composed["text"]) or "28th" not in str(composed["text"])
+    # The access check is on the citations: the member never sees the payroll document.
     titles = [item.get("title") for item in composed["citations"]]
     assert "Payroll calendar" not in titles
     admin_run = {**run, "user_id": demo_id("admin")}
     store.user_roles[demo_id("admin")] = {"tenant_admin"}
-    admin = compose(store, admin_run, "When is payroll released?")
+    admin = await compose(store, admin_run, "When is payroll released?")
     assert admin is not None
     assert any(item.get("title") == "Payroll calendar" for item in admin["citations"])
 

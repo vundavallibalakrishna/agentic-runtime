@@ -1791,7 +1791,17 @@ class ChatService:
         run["status"] = "completed"
         run["result_summary"] = answer[:8000]
         conversation["active_run_id"] = None
-        usage = {"tokens_in": 1, "tokens_out": max(1, len(answer.split()))}
+        provider_usage = self.last_remote_usage
+        self.last_remote_usage = None
+        usage = (
+            {
+                "tokens_in": int(provider_usage["tokens_in"]),
+                "tokens_out": int(provider_usage["tokens_out"]),
+            }
+            if provider_usage
+            and (provider_usage.get("tokens_in") or provider_usage.get("tokens_out"))
+            else {"tokens_in": 1, "tokens_out": max(1, len(answer.split()))}
+        )
         run["usage"] = usage
         self._meter(run, usage)
         self._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
@@ -1865,7 +1875,7 @@ class ChatService:
             return
         from ar_domain.knowledge.answer import compose  # noqa: PLC0415
 
-        grounded = compose(self, run, text)
+        grounded = await compose(self, run, text)
         if grounded is not None:
             await self._finish_grounded(run, assistant, conversation, grounded)
             return

@@ -14,8 +14,8 @@ def plan(payload: dict[str, object]) -> dict[str, object]:
     return plan_child(payload)
 
 
-def delegate(
+async def delegate(
     store: Any, parent: dict[str, object], briefs: list[dict[str, object]]
 ) -> dict[str, object]:
     """Run delegations in process and roll usage up to the parent."""
-    return run_delegate(store, parent, briefs)
+    return await run_delegate(store, parent, briefs)

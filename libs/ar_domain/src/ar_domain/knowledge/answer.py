@@ -3,6 +3,7 @@
 import uuid
 from typing import TYPE_CHECKING
 
+from ar_common.wrapping import wrap_untrusted
 from ar_domain.agents.access import Actor
 from ar_domain.identity.permissions import PERMISSION_KEYS, SYSTEM_ROLE_PERMISSIONS
 from ar_domain.knowledge.book import KnowledgeBook
@@ -12,9 +13,24 @@ from ar_domain.knowledge.grounding import apply_grounding
 if TYPE_CHECKING:
     from typing import Any
 
+_NO_DOCUMENTS = "No sufficiently relevant documents were found."
+_NO_MODEL = (
+    "This agent retrieves knowledge automatically but has no model connected to write the "
+    "answer. Open Models and point the agent's alias at a provider."
+)
+_GROUNDED_INSTRUCTION = (
+    "Answer the question using only the numbered sources below. Cite every claim with its "
+    "source number in square brackets, like [1]. If the sources do not answer the question, "
+    "say so plainly and do not invent facts or citations."
+)
 
-def compose(store: Any, run: dict[str, object], question: str) -> dict[str, object] | None:
-    """Return an answer when the published agent retrieves automatically."""
+
+async def compose(store: Any, run: dict[str, object], question: str) -> dict[str, object] | None:
+    """Write a grounded answer with the tenant's model when the agent auto-retrieves.
+
+    The retrieved passages are placed in the prompt as untrusted content; the model writes
+    the prose and the citations. No model-free text is ever returned as the answer (M38a-T02c).
+    """
     definition = _definition(store, run)
     knowledge = definition.get("knowledge") if isinstance(definition, dict) else None
     if not isinstance(knowledge, dict) or knowledge.get("auto_retrieve") is not True:
@@ -26,12 +42,8 @@ def compose(store: Any, run: dict[str, object], question: str) -> dict[str, obje
         for row in store.knowledge_collections.values()
         if row.get("tenant_id") == actor.tenant_id and str(row.get("slug")) in slugs
     ]
-    if not ids:
-        text = "No sufficiently relevant documents were found."
-        return _pack(text, [], definition, question)
-    if not _policy_allows(store, run, question, ids):
-        text = "No sufficiently relevant documents were found."
-        return _pack(text, [], definition, question)
+    if not ids or not _policy_allows(store, run, question, ids):
+        return _pack(_NO_DOCUMENTS, [], definition, question)
     top_k = int(knowledge.get("top_k") or 8)
     raw_bar = knowledge.get("min_score")
     min_score = float(raw_bar) if isinstance(raw_bar, int | float) else None
@@ -46,14 +58,48 @@ def compose(store: Any, run: dict[str, object], question: str) -> dict[str, obje
     )
     hits = found.get("hits") if isinstance(found.get("hits"), list) else []
     if not found.get("answerable"):
-        return _pack("No sufficiently relevant documents were found.", [], definition, question)
+        return _pack(_NO_DOCUMENTS, [], definition, question)
     citations = allocate([hit for hit in hits if isinstance(hit, dict)])  # type: ignore[attr-defined]
-    sentences = [
-        f"{str(item.get('snippet') or '').strip()} [{item['index']}]"
+    passages = [
+        f"[{item['index']}] {str(item.get('snippet') or '').strip()}"
         for item in citations
         if str(item.get("snippet") or "").strip()
     ]
-    return _pack(" ".join(sentences), citations, definition, question)
+    if not passages:
+        return _pack(_NO_DOCUMENTS, [], definition, question)
+    answer = await _model_answer(store, run, question, passages)
+    if answer is None:
+        return _pack(_NO_MODEL, [], definition, question)
+    return _pack(answer, citations, definition, question)
+
+
+async def _model_answer(
+    store: Any, run: dict[str, object], question: str, passages: list[str]
+) -> str | None:
+    """Write the grounded answer with the alias the agent runs on, or ``None`` with no model."""
+    from ar_domain.tools.agent_loop import model_alias_for  # noqa: PLC0415
+
+    owner = uuid.UUID(str(run["tenant_id"]))
+    alias = model_alias_for(store, run)
+    _model, _headers, _timeout_s, real = store._completion_call(owner, alias)
+    if not real:
+        return None
+    await store._ensure_provider_key(owner, alias)
+    model, headers, timeout_s, real = store._completion_call(owner, alias)
+    url = store._completion_url_for(owner, alias, headers)
+    sources = wrap_untrusted(source="knowledge", content="\n".join(passages))
+    system = f"{_GROUNDED_INSTRUCTION}\n\n{sources}"
+    answer: str | None = await store._remote_completion(
+        question,
+        system,
+        model=model,
+        headers=headers,
+        timeout_s=timeout_s,
+        real=real,
+        options=store.request_options(owner, alias),
+        url=url,
+    )
+    return answer
 
 
 def _pack(
