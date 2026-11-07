@@ -101,6 +101,11 @@ The approval pause keeps one implementation.
 
 **Tests:** `test_m38a_turn_path.py`.
 
+Split into two pull requests: T04 deletes `maybe_tools` (the keyword tool turn and the `/tool`/`ask me`
+triggers), which is already bypassed when a real model is connected, so it only removes a scripted path; the
+approval pause (`chat_loop._pause`) stays because the agent loop calls it. T04a deletes `maybe_compose` and
+moves the research-lead and writer onto the agent loop's orchestration and skill tools, driven by the stand-in.
+
 ## M38a-T05 Fixtures live in the test library
 
 **Do:**
