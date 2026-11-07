@@ -4,6 +4,7 @@ from fastapi.testclient import TestClient
 
 from ar_domain.chat.service import demo_id
 from ar_mcp_gateway.main import create_application
+from ar_testing.demo_tenant import seed_demo_tenant
 
 
 def test_execute_lists_and_calls_a_seeded_tool() -> None:
@@ -11,7 +12,7 @@ def test_execute_lists_and_calls_a_seeded_tool() -> None:
     client = TestClient(app)
     store = app.state.chat
     # The gateway holds no tenant of its own. This test puts the demo tenant in.
-    store.seed_demo_tenant()
+    seed_demo_tenant(store)
     desk = next(row for row in store.agents.values() if row.get("slug") == "desk")
     version = next(
         row for row in store.tool_versions.values() if row.get("qualified_name") == "files.list"

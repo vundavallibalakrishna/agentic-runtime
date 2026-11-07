@@ -14,6 +14,7 @@ from ar_system.workflows.notification_fanout import (
     resolve_activity,
 )
 from ar_testing.demo import demo_store
+from ar_testing.demo_tenant import seed_demo
 from ar_testing.showcase_build import seed_showcase
 
 pytestmark = pytest.mark.asyncio
@@ -21,7 +22,7 @@ pytestmark = pytest.mark.asyncio
 
 async def test_fanout_posts_to_slack(temporal_env: object) -> None:
     store = demo_store()
-    store.seed_demo()
+    seed_demo(store)
     seed_showcase(store)
     bind_store(store)
     client = temporal_env.client  # type: ignore[attr-defined]

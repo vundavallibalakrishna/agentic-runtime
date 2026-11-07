@@ -328,4 +328,5 @@ M38b-T11 | done | fdd77ef | the fresh-tenant run is a repeatable pre-release gat
 M38b-T06 | done | 991031e | `python -m ar_domain.migrations.run` only migrates; the dev seed it ran after migrating is gone (F7 remnant); Helm and make already seed separately
 M38b-T04d | done | ca79384 | the eval gym stops building the demo tenant in the product package: `build_world`/`run_suite`/`cli.main` take a seeded store, built by `scripts/m33c_eval_gym.py` via `ar_testing`
 M38b-T04d | done | 6bd71fb | the eval suite command stops building the demo tenant too: `ar_system.evals.cli.main` takes a seeded store, built by `scripts/run_suites.py` via `ar_testing` (`make eval`); the guard now finds no demo-tenant building in any product package
-M38b-T04f | in_progress | - | the showcase half moves to ar_testing: `seed_showcase` + 8 helpers are `ar_testing.showcase_build`, the 6 `showcase.py` modules are `ar_testing.showcase.*`; `seed_demo_tenant` is the remaining part
+M38b-T04f | done | 606bbea | the showcase half moved to ar_testing (`showcase_build`, `showcase.*`)
+M38b-T04f | done | - | `seed_demo_tenant`/`seed_demo`/`_seed_scripted_provider` move to `ar_testing.demo_tenant`; no demo-tenant building remains in any product package; sha recorded with the next task

@@ -15,13 +15,14 @@ from ar_domain.evals.gym.runner import run_suite
 from ar_domain.evals.gym.score import ObservedCall, Report, render_scorecard, score_observation
 from ar_domain.evals.gym.tasks import ArgRule, Expectation, Task, load_tasks, tasks_path
 from ar_testing.demo import connect_embeddings, demo_store
+from ar_testing.demo_tenant import seed_demo_tenant
 from ar_testing.objects import MemoryObjectStore
 
 
 def _make_store() -> ChatService:
     """The seeded tenant the gym runs on, built by test tooling (M38b-T04d)."""
     store = ChatService()
-    store.seed_demo_tenant()
+    seed_demo_tenant(store)
     return store
 
 
