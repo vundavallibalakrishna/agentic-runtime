@@ -48,6 +48,27 @@ def connect_embeddings(store: Any) -> None:
     shared().connect_extraction(store)
 
 
+def connect_chat(store: Any, tenant_id: Any) -> None:
+    """Point the tenant's ``reasoning`` alias at the stand-in for the browser tests.
+
+    The browser tests run the product's own agent loop against a real model call: the
+    stand-in answers from the ``demo-chat`` script set, with the tool flows and answers the
+    specs expect. Unmatched turns fall through to the stand-in's default (an echo and the
+    ``/tool`` command), so a spec that reads a plain answer still runs a real model call.
+    The ``fast`` alias stays on the memory script set (``connect_extraction``).
+    """
+    from ar_testing.demo_chat import DEMO_CHAT, DEMO_CHAT_SET  # noqa: PLC0415
+    from ar_testing.stand_in import shared  # noqa: PLC0415
+
+    store.allow_loopback = True
+    server = shared()
+    server.script(DEMO_CHAT_SET, DEMO_CHAT)
+    # The demo tenant registers the stand-in as its own chat model and points `reasoning` at
+    # it, the way a real tenant brings its own model. `fast` stays on the memory set the
+    # extraction step uses.
+    server.connect(store, tenant_id, script_set=DEMO_CHAT_SET, aliases=("reasoning",))
+
+
 def serve_demo_tenant(app: Any) -> Any:
     """Make an API application serve the demo tenant from memory.
 
@@ -62,6 +83,7 @@ def serve_demo_tenant(app: Any) -> Any:
     store.objects = MemoryObjectStore()
     seed_demo_tenant(store)
     connect_embeddings(store)
+    connect_chat(store, DEV_TENANT_ID)
     seed_showcase(store)
     store.tenant_binding = TenantBinding(
         tenant_id=DEV_TENANT_ID,

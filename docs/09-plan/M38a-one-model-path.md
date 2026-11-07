@@ -70,6 +70,27 @@ a scenario for each answer a spec expects. Product code still has its fallback u
 
 **Tests:** the changed tests are the evidence. This is the largest task.
 
+Split into three pull requests, because connecting the stand-in as the demo tenant's chat provider flips
+every browser turn at once (the agent loop drives the turn instead of the in-process `maybe_tools`/`maybe_compose`
+and the `fake:` fallback), so the Playwright specs move together:
+
+- **T03** — the browser-test harness. `serve_demo_tenant` points the demo tenant's `reasoning` alias at the
+  process-shared stand-in (`ar_testing.stand_in.shared`, which already serves `embed`/`rerank` and the memory
+  `fast` alias). A central `demo-chat` script set in `ar_testing` holds a scenario for each answer and tool
+  flow the browser specs expect (file-a-ticket, create/delete a pet with the approval pause, the revenue
+  chart, the status draft, the builder test message, the slow answer). Unmatched turns fall through to the
+  stand-in's own default (`fake:` echo and `/tool <name> <json>`), so a spec that still reads an echo passes
+  unchanged against a real model call. Browser specs that asserted the in-process answer move here.
+  `m7-knowledge` and `m9-skills` stay on their model-free/scripted paths (they still pass) and move to the
+  stand-in in T02c, which rebases on this. The big-bang exposed one agent-loop gap fixed here: a sandbox
+  `exec` that writes an image now attaches a `chart` presentation to its result, so the picture it drew shows
+  inline on the turn instead of only in the computer panel (which, on the streaming agent-loop path, refetches
+  before the file exists). Both the in-process turn and the agent loop copy that presentation, so one change
+  in `sandboxes/runtime.py` covers both.
+- **T03a** — `make dev` registers the stand-in (or a configured dev model) for chat through
+  `AR_DEV_MODEL_BASE_URL`/`AR_DEV_MODEL_API_KEY`, already in the env catalogue and unread.
+- **T03b** — the unit tests that run a turn with no stub use the stand-in instead of the in-process `fake:`.
+
 ## M38a-T04 No keyword turns
 
 **Do:** delete `skills/turn.py` `maybe_compose` and `tools/chat_loop.py` `maybe_tools`, with the `ask me`

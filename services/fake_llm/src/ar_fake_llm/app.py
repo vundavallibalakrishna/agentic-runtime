@@ -264,6 +264,10 @@ def create_application() -> FastAPI:
                 _stream(body.model, response),
                 media_type="text/event-stream",
             )
+        # A non-streaming call honours the script's delay too, so a test can hold a turn
+        # open (to show a Stop control) against the single round the agent loop makes.
+        if response.delay_ms:
+            await asyncio.sleep(response.delay_ms / 1000)
         return JSONResponse(_completion(body.model, response, stream=False))
 
     return app
