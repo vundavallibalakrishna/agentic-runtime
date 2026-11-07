@@ -4,7 +4,12 @@ import uvicorn
 from fastapi import FastAPI
 
 from ar_common.host_ports import listen_port
-from ar_common.settings import BaseServiceSettings, fake_models_allowed, loopback_allowed
+from ar_common.settings import (
+    BaseServiceSettings,
+    fake_models_allowed,
+    loopback_allowed,
+    unisolated_sandbox_allowed,
+)
 from ar_common.web import create_app
 from ar_domain.chat.service import ChatService
 from ar_sandbox_manager.drivers.base import assert_driver_allowed, selected_driver
@@ -18,10 +23,11 @@ class Settings(BaseServiceSettings):
 
 
 def create_application() -> FastAPI:
-    """Build the ASGI app. Docker is refused when the environment is production."""
+    """Build the ASGI app. An unisolated driver is refused unless the install allows it."""
     settings = Settings()
-    driver = selected_driver(settings.env.value)
-    assert_driver_allowed(settings.env.value, driver)
+    allow_unisolated = unisolated_sandbox_allowed(settings)
+    driver = selected_driver(allow_unisolated=allow_unisolated)
+    assert_driver_allowed(driver, allow_unisolated=allow_unisolated)
     app = create_app("sandbox-manager", settings)
     app.include_router(sandbox_router)
     app.state.chat = ChatService(

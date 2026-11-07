@@ -97,7 +97,7 @@ Tools name a file by its path relative to the working folder, such as `inputs/or
 | `AR_S3_SSE` | `AES256` | `none` to disable |
 | `AR_S3_PRESIGN_TTL_S` | `300` | |
 | `AR_FILES_PROXY_DOWNLOADS` | `false` | |
-| `AR_FILES_SCANNER` | `clamav` (prod) / `none` (dev) | |
+| `AR_FILES_SCANNER` | `clamav` | `clamav` or `none`; a setting of the install, not a consequence of `AR_ENV`. |
 | `AR_CLAMAV_ADDRESS` | `clamav:3310` | |
 
 ## 9. Metrics

@@ -45,12 +45,19 @@ def test_warm_pool_and_prod_docker() -> None:
     assert claim("default=4,browser=2", "browser", available) == "browser"
     assert available["browser"] == 1
     assert claim("default=4,browser=0", "missing", available) is None
+    # An unisolated driver is refused unless the install allows it; the name of the
+    # environment is not the switch (F60).
     with pytest.raises(RuntimeError):
-        assert_driver_allowed("prod", "docker")
-    assert selected_driver("dev") in {"docker", "kubernetes"}
+        assert_driver_allowed("docker", allow_unisolated=False)
+    with pytest.raises(RuntimeError):
+        assert_driver_allowed("", allow_unisolated=False)
+    assert_driver_allowed("docker", allow_unisolated=True)
+    assert_driver_allowed("kubernetes", allow_unisolated=False)
+    assert selected_driver(allow_unisolated=False) == "kubernetes"
+    assert selected_driver(allow_unisolated=True) == "docker"
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setenv("AR_SANDBOX_DRIVER", "kubernetes")
-    assert selected_driver("dev") == "kubernetes"
+    assert selected_driver(allow_unisolated=True) == "kubernetes"
     monkeypatch.undo()
 
 

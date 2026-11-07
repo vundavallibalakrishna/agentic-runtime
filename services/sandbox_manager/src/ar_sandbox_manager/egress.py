@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any
 
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, allowed_hosts, host_denied
-from ar_common.settings import loopback_allowed
+from ar_common.settings import loopback_allowed, wildcard_egress_allowed
 
 
 def check(store: Any, sandbox_id: str, host: str, token: str) -> int:
@@ -36,7 +35,7 @@ def check(store: Any, sandbox_id: str, host: str, token: str) -> int:
         [],
         mirrors=[],
         allow_packages=False,
-        env=os.environ.get("AR_ENV", "dev"),
+        allow_wildcard=wildcard_egress_allowed(),
     )
     if host not in hosts and "*" not in hosts:
         return 403

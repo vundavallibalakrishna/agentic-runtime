@@ -37,6 +37,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DELTA_COALESCE_MS",
         "AR_DEPLOYMENT_MODE",
         "AR_EGRESS_ALLOW_LOOPBACK",
+        "AR_EGRESS_ALLOW_WILDCARD",
         "AR_EGRESS_DENY_CIDRS",
         "AR_EGRESS_PROXY_URL",
         "AR_EMBEDDING_TIMEOUT_S",
@@ -118,6 +119,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_SAAS_SELF_SIGNUP",
         "AR_SEARCH_API_KEY",
         "AR_SEARCH_PROVIDER",
+        "AR_SANDBOX_ALLOW_UNISOLATED",
         "AR_SANDBOX_ALLOWED_REGISTRIES",
         "AR_SANDBOX_DEFAULT_RUNTIME_CLASS",
         "AR_SANDBOX_DOCKER_RUNTIME",
@@ -239,6 +241,15 @@ class BaseServiceSettings(BaseSettings):
     # Whether a tool, a connector or a model provider may reach this machine's own
     # addresses (127.0.0.0/8, localhost). An install decides; the default is no.
     egress_allow_loopback: bool = False
+    # Whether ``*`` (reach any host) is honoured in a sandbox egress allowlist. An install
+    # decides; the default is no, so an allowlist must name its hosts.
+    egress_allow_wildcard: bool = False
+    # Whether a sandbox may run without kernel isolation (the docker driver, or an empty
+    # one that runs on the host). An install decides; the default is no.
+    sandbox_allow_unisolated: bool = False
+    # The scanner the product runs over every upload: ``clamav`` or ``none``. An install
+    # decides; the default scans. ``none`` is set where no scanner is deployed.
+    files_scanner: str = "clamav"
     # Empty means the only tenant in the database (a single-tenant install has one).
     bootstrap_tenant_slug: str = ""
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
@@ -319,6 +330,34 @@ def loopback_allowed(settings: BaseServiceSettings | None = None) -> bool:
     consequence of the environment's name.
     """
     return (settings or get_settings()).egress_allow_loopback
+
+
+def wildcard_egress_allowed(settings: BaseServiceSettings | None = None) -> bool:
+    """Whether ``*`` is honoured in a sandbox egress allowlist: ``AR_EGRESS_ALLOW_WILDCARD``.
+
+    It is a setting of the install, not a consequence of the environment's name: a run
+    that has not turned it on drops ``*`` from the allowlist, so an allowlist names hosts.
+    """
+    return (settings or get_settings()).egress_allow_wildcard
+
+
+def unisolated_sandbox_allowed(settings: BaseServiceSettings | None = None) -> bool:
+    """Whether a sandbox may run without kernel isolation: ``AR_SANDBOX_ALLOW_UNISOLATED``.
+
+    It is a setting of the install, not a consequence of the environment's name: a run
+    that has not turned it on refuses the docker driver and the host driver.
+    """
+    return (settings or get_settings()).sandbox_allow_unisolated
+
+
+def files_scanner_name(settings: BaseServiceSettings | None = None) -> str:
+    """The scanner for every upload: ``AR_FILES_SCANNER`` (``clamav`` or ``none``).
+
+    It is a setting of the install, not a consequence of the environment's name. The
+    default scans; a run with no scanner deployed sets ``none``.
+    """
+    name = (settings or get_settings()).files_scanner.strip().lower()
+    return name if name in {"clamav", "none"} else "clamav"
 
 
 def get_settings() -> BaseServiceSettings:

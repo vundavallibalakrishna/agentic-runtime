@@ -49,6 +49,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DELTA_COALESCE_MS` | `50` | Token delta coalescing window for stream events | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_DEPLOYMENT_MODE` | `single_tenant` | `saas` or `single_tenant` | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_EGRESS_ALLOW_LOOPBACK` | `false` | Whether a tool, a connector, a sandbox or a model provider may reach this machine's own addresses (`127.0.0.0/8`, `localhost`). Every process and every check reads this one setting; it does not follow from `AR_ENV`. The local stack (`.env.example`, `compose.yaml`) and the test run set it to `true`, because their model and tool servers are local | [tenancy and isolation](../02-architecture/tenancy-isolation.md) |
+| `AR_EGRESS_ALLOW_WILDCARD` | `false` | Whether `*` (reach any host) is honoured in a sandbox egress allowlist. Off in production, so an allowlist names its hosts. A setting of the install, not a consequence of `AR_ENV`. | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_ALLOW_UNISOLATED` | `false` | Whether a sandbox may run without kernel isolation (the `docker` driver, or an empty one that runs on the host). Off in production. A setting of the install, not a consequence of `AR_ENV`. | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_EGRESS_DENY_CIDRS` | metadata + RFC1918 + cluster | CIDRs always denied for sandbox/tool egress | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_EGRESS_PROXY_URL` | `http://squid:3128` | For `web.fetch` and remote MCP outside the cluster | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 10](../03-specs/10-knowledge.md) |
 | `AR_EMBEDDING_TIMEOUT_S` | unset | HTTP timeout for one embedding or rerank request. Unset takes the provider's own timeout, and `60` when that is not set | [spec 10](../03-specs/10-knowledge.md) |
@@ -58,7 +60,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_EVAL_CONCURRENCY` | `4` | Parallel cases per eval run | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_FASTEMBED_CACHE_DIR` | `/var/cache/fastembed` | BM25 model cache for the optional qdrant adapter (pre-baked in image for air-gapped) | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_FILES_PROXY_DOWNLOADS` | `false` | Stream downloads through `api` instead of presigned URLs | [spec 13](../03-specs/13-files-artifacts.md) |
-| `AR_FILES_SCANNER` | `clamav` (prod) / `none` (dev) | `clamav` or `none` | [spec 13](../03-specs/13-files-artifacts.md) |
+| `AR_FILES_SCANNER` | `clamav` | `clamav` or `none`; the scanner run over every upload. A setting of the install, not a consequence of `AR_ENV`. | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_GUARDRAIL_INPUT_ALIAS` | `fast` | Model alias for the input safety classifier (empty disables) | [prompt-injection §4](../06-security/prompt-injection.md) |
 | `AR_GUARDRAIL_OUTPUT_ALIAS` | `fast` | Model alias for the output safety classifier (empty disables) | [prompt-injection §4](../06-security/prompt-injection.md) |
 | `AR_INGEST_ACTIVITY_CONCURRENCY` | `32` | Per worker | [spec 10](../03-specs/10-knowledge.md) |

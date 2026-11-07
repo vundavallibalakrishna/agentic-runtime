@@ -6,6 +6,9 @@ import os
 # Reaching them is a setting of the install (``AR_EGRESS_ALLOW_LOOPBACK``), off by default,
 # so the test run turns it on here, before any settings are read.
 os.environ.setdefault("AR_EGRESS_ALLOW_LOOPBACK", "true")
+os.environ.setdefault("AR_EGRESS_ALLOW_WILDCARD", "true")
+os.environ.setdefault("AR_SANDBOX_ALLOW_UNISOLATED", "true")
+os.environ.setdefault("AR_FILES_SCANNER", "none")
 
 pytest_plugins = [
     "ar_testing.containers",

@@ -320,4 +320,5 @@ M38b-T07d | done | 339ef7a | memory embeds its facts again by itself after the `
 M38b-T13 | done | 7fb121e | every accepted upload is kept: bytes in the object store under the row's key, the row in `files`, fetched by whichever process needs them; `file_blobs` migrated at hydrate; upload body limits raised (F67)
 M38b-T15 | done | b26bf0d | a conversation with no computer answers `{sandbox: null}` with 200, not a 404 the browser logs on every chat (F63)
 M38b-T16 | done | 7e2d797 | no region or industry in a default: tenant/user timezone UTC and locale en, usage and quota fallbacks UTC, the schedule label reads the offset, the policy time helper offers UTC and the tenant's own zone, the `/grc` stub is removed (F55)
-M38b-T17 | done | - | a failed Knowledge or Memory screen shows a finished `ErrorState` card with a working Try again, not plain text with a bare link (F30); sha recorded with the next task
+M38b-T17 | done | 11ed0c6 | a failed Knowledge or Memory screen shows a finished `ErrorState` card with a working Try again, not plain text with a bare link (F30)
+M38b-T18 | done | - | no behaviour follows `AR_ENV`'s name: wildcard egress, unisolated sandboxes and the upload scanner are each a setting with a safe default (F60); sha recorded with the next task
