@@ -346,7 +346,9 @@ def test_eval_cli_scores_repository_suites(
     root = suite_root()
     assert root is not None
     monkeypatch.delenv("AR_CERT_LLM_API_KEY", raising=False)
-    assert main(["run", str(root / "golden" / "assistant.yaml")]) == 2, "no model, no score"
+    assert main(["run", str(root / "golden" / "assistant.yaml")], make_store=demo_store) == 2, (
+        "no model, no score"
+    )
 
     monkeypatch.setenv("AR_CERT_LLM_API_KEY", "stand-in")
     monkeypatch.setenv("AR_CERT_LLM_MODEL", "stand-in-chat")
@@ -355,18 +357,20 @@ def test_eval_cli_scores_repository_suites(
         "cli-refuse", [{"match": {}, "respond": {"text": "I can't help with that request."}}]
     )
     monkeypatch.setenv("AR_CERT_LLM_BASE_URL", stand_in.base_url("cli-echo"))
-    assert main(["run", str(root / "golden" / "assistant.yaml")]) == 0
-    assert main(["run", str(root / "redteam")]) == 1, "a model that repeats an attack fails"
-    assert main(["run", str(root / "missing.yaml")]) == 1
+    assert main(["run", str(root / "golden" / "assistant.yaml")], make_store=demo_store) == 0
+    assert main(["run", str(root / "redteam")], make_store=demo_store) == 1, (
+        "a model that repeats an attack fails"
+    )
+    assert main(["run", str(root / "missing.yaml")], make_store=demo_store) == 1
     monkeypatch.setenv("AR_CERT_LLM_BASE_URL", stand_in.base_url("cli-refuse"))
-    assert main(["run", str(root / "redteam")]) == 0
+    assert main(["run", str(root / "redteam")], make_store=demo_store) == 0
 
     def failed(self: EvalBook, actor: Actor, suite_id: uuid.UUID, body: dict[str, object]) -> dict:
         del self, actor, suite_id, body
         return {"summary": {"pass_rate": 0}, "status": "completed"}
 
     monkeypatch.setattr(EvalBook, "start_run", failed)
-    assert main(["run", str(root / "golden")]) == 1
+    assert main(["run", str(root / "golden")], make_store=demo_store) == 1
 
 
 def test_judge_prompt_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
