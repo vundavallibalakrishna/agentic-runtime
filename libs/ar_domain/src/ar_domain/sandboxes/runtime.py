@@ -382,17 +382,21 @@ def _exec(
     new_files = _new_outputs(root, before)
     exported = _auto_export(store, sandbox, root, new_files)
     text = stdout or stderr or "done"
+    structured: dict[str, object] = {
+        "exit_code": code,
+        "stdout": stdout,
+        "stderr": stderr,
+        "truncated": truncated,
+        "duration_ms": 0,
+        "new_files": new_files,
+        "artifacts": [item["file_id"] for item in exported],
+    }
+    presentation = _image_presentation(exported)
+    if presentation is not None:
+        structured["presentation"] = presentation
     return {
         "text": text,
-        "structured": {
-            "exit_code": code,
-            "stdout": stdout,
-            "stderr": stderr,
-            "truncated": truncated,
-            "duration_ms": 0,
-            "new_files": new_files,
-            "artifacts": exported,
-        },
+        "structured": structured,
         "is_error": code not in {0, None},
         "streams": [{"stream": "stdout", "text": stdout}, {"stream": "stderr", "text": stderr}],
     }
@@ -795,8 +799,10 @@ def _emit_artifact(
             )
 
 
-def _auto_export(store: Any, sandbox: dict[str, object], root: Path, paths: list[str]) -> list[str]:
-    exported: list[str] = []
+def _auto_export(
+    store: Any, sandbox: dict[str, object], root: Path, paths: list[str]
+) -> list[dict[str, str]]:
+    exported: list[dict[str, str]] = []
     for path in paths[:20]:
         target = confine(root, path)
         if not target.is_file() or target.stat().st_size > 100 * 1024 * 1024:
@@ -807,8 +813,29 @@ def _auto_export(store: Any, sandbox: dict[str, object], root: Path, paths: list
             store, sandbox, name=name, mime=_mime(name), data=data, kind="artifact"
         )
         _emit_artifact(store, sandbox, file_id=file_id, name=name, mime=_mime(name), size=len(data))
-        exported.append(str(file_id))
+        exported.append({"file_id": str(file_id), "name": name, "mime": _mime(name)})
     return exported
+
+
+_IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+
+
+def _image_presentation(exported: list[dict[str, str]]) -> dict[str, object] | None:
+    """Surface image outputs inline, so the turn shows the picture it just drew.
+
+    Every loop copies ``structured["presentation"]`` onto the tool-call preview, so
+    building it here is the one place both the in-process turn and the agent loop pick it
+    up. The UI renders a ``chart`` presentation's PNG files inline; the name is its title.
+    """
+    images = [item for item in exported if item["name"].lower().endswith(_IMAGE_SUFFIXES)]
+    if not images:
+        return None
+    return {
+        "kind": "chart",
+        "title": images[0]["name"],
+        "files": [{"file_id": item["file_id"], "name": item["name"]} for item in images],
+        "truncated": False,
+    }
 
 
 def _output_stamp(root: Path) -> dict[str, int]:

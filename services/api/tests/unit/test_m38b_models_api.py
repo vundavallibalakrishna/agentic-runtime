@@ -70,8 +70,11 @@ def test_the_aliases_the_product_uses_are_listed_with_whether_each_is_set() -> N
     assert [name for name, row in standard.items() if row["required"]] == ["reasoning", "embed"]
     assert standard["vision"]["capability"] == "vision"
     assert standard["reasoning"]["capability"] is None
-    # The demo tenant has every one set, by aliases that belong to no tenant.
-    assert all(row["set"] and row["platform"] and row["modelName"] for row in standard.values())
+    # Every alias the product uses is set and names a model. The demo tenant registers its
+    # own chat model and points reasoning at it, so that one belongs to the tenant; the rest
+    # belong to no tenant.
+    assert all(row["set"] and row["modelName"] for row in standard.values())
+    assert [name for name, row in standard.items() if not row["platform"]] == ["reasoning"]
     # The tenant points one at a model of its own: its alias wins, and the list says so.
     provider_id = _provider(client, "own")
     model_id = _model(client, provider_id, "own-embed", "embedding")
