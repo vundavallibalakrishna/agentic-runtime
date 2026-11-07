@@ -24,7 +24,7 @@ async def auto_retrieve_knowledge(payload: dict[str, object]) -> dict[str, objec
     store = _STORE
     if store is None or not isinstance(payload.get("run"), dict):
         return {"text": str(payload.get("question") or ""), "citations": []}
-    composed = compose(store, payload["run"], str(payload.get("question") or ""))  # type: ignore[arg-type]
+    composed = await compose(store, payload["run"], str(payload.get("question") or ""))  # type: ignore[arg-type]
     if composed is None:
         return {"text": str(payload.get("question") or ""), "citations": []}
     return composed

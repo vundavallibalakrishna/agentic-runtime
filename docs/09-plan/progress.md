@@ -290,7 +290,8 @@ M38a-T01 | done | dbb5a3f | scripted model reached as an ordinary provider; ar_t
 M38a-T02a | done | 28a33f0 | a provider or alias test reports a dead endpoint as failed
 M38a-T02f | done | 4f572f4 | a tool-less agent's turn goes to the tenant's provider
 M38a-T02b | done | dbf8826 | an eval case runs the agent; tool mocks in the pipeline; runs are queued and scored in the background
-M38a-T03 | in_progress | - | the browser-test harness runs chat on the stand-in (reasoning alias) with a demo-chat script set covering each spec's answers and tool flows; a sandbox exec with an image output surfaces it inline (both loops), so the agent loop shows the chart it drew
+M38a-T03 | done | a7a85ee | the browser-test harness runs chat on the stand-in (reasoning alias) with a demo-chat script set covering each spec's answers and tool flows; a sandbox exec with an image output surfaces it inline (both loops), so the agent loop shows the chart it drew
+M38a-T02c | in_progress | - | a delegated child runs the agent loop; the auto-retrieve knowledge answer is written by the tenant's model, not joined from snippets; the m7/m9 specs move onto the stand-in
 M38b-T00 | done | b367b5b | fresh tenant run on an empty database, the strict rules in AGENTS.md, the M38b plan, OQ-96 to OQ-98
 M38b-T01 | done | 645a631 | every process registers the whole schema; a retry saves a finished turn
 M38b-T02 | done | 928a4c7 | bootstrap creates only a tenant and its admin; scripts/seed_tenant.py also creates the sign-in account

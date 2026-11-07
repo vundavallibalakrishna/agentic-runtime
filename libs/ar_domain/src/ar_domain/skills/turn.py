@@ -28,14 +28,16 @@ async def maybe_compose(
         return False
     slug = str(agent.get("slug") or "")
     if slug == "research-lead" and _RESEARCH.search(text):
-        return _research(store, run, assistant, text)
+        return await _research(store, run, assistant, text)
     if slug == "writer" and _BRAND.search(text):
         return await _brand(store, run, assistant, text)
     return False
 
 
-def _research(store: Any, run: dict[str, object], assistant: dict[str, object], text: str) -> bool:
-    result = delegate(
+async def _research(
+    store: Any, run: dict[str, object], assistant: dict[str, object], text: str
+) -> bool:
+    result = await delegate(
         store,
         run,
         [

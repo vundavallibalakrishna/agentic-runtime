@@ -63,12 +63,12 @@ def plan_child(payload: dict[str, object]) -> dict[str, object]:
     return {"error": "", "child_run_id": child_id, "child_payload": child_payload}
 
 
-def delegate(
+async def delegate(
     store: Any,
     parent: dict[str, object],
     briefs: list[dict[str, object]],
 ) -> dict[str, object]:
-    """Create child runs, finish them, and roll usage up to the parent."""
+    """Create child runs, run each through the agent loop, and roll usage up to the parent."""
     definition = _definition(store, parent)
     subagents = definition.get("subagents") if isinstance(definition, dict) else {}
     spec = subagents if isinstance(subagents, dict) else {}
@@ -146,27 +146,23 @@ def delegate(
                 "children": children,
                 "is_error": True,
             }
-        answer = str(brief.get("result") or _scripted_result(str(brief.get("task") or "")))
-        child_usage = {"tokens_in": 1, "tokens_out": max(1, len(answer.split()))}
-        _finish_child(store, child, "completed", answer, child_usage)
+        answer, child_usage, status = await _run_child(store, child, str(brief.get("task") or ""))
         usage["tokens_in"] += child_usage["tokens_in"]
         usage["tokens_out"] += child_usage["tokens_out"]
         texts.append(answer)
-        children.append(
-            {"id": str(child["id"]), "status": "completed", "agent": brief.get("agent")}
-        )
+        children.append({"id": str(child["id"]), "status": status, "agent": brief.get("agent")})
         _emit(
             store,
             parent,
             "subagent.completed",
             {
                 "child_run_id": str(child["id"]),
-                "status": "completed",
+                "status": status,
                 "result_summary": answer[:2048],
                 "usage": child_usage,
             },
         )
-        SUBAGENTS.labels(status="completed").inc()
+        SUBAGENTS.labels(status=status).inc()
     merged = "\n\n".join(texts)[:8000]
     wrapped = wrap_untrusted(
         source=f"subagent:{briefs[0].get('agent') if briefs else 'agent'}", content=merged
@@ -274,13 +270,54 @@ def _finish_child(
     )
 
 
-def _scripted_result(task: str) -> str:
-    lowered = task.lower()
-    if "rollout" in lowered:
-        return "Rollout plan: start with the pilot team, then the rest of the workspace."
-    if "launch" in lowered:
-        return "Launch notes: the release is on track and the checklist is complete."
-    return f"Findings: {task[:500]}"
+_NO_MODEL = "This agent has no model connected, so the delegated task could not be run."
+
+
+async def _run_child(
+    store: Any, child: dict[str, object], task: str
+) -> tuple[str, dict[str, int], str]:
+    """Run one child through the real agent loop. Return its text, usage and status."""
+    from ar_domain.tools.agent_loop import model_alias_for, run_agent_loop  # noqa: PLC0415
+
+    tenant = uuid.UUID(str(child["tenant_id"]))
+    _model, _headers, _timeout, real = store._completion_call(tenant, model_alias_for(store, child))
+    if not real:
+        _finish_child(store, child, "failed", _NO_MODEL)
+        return _NO_MODEL, {"tokens_in": 0, "tokens_out": 0}, "failed"
+    assistant = _assistant_message(store, child)
+    child["orchestration_child"] = True
+    ran = await run_agent_loop(store, child, assistant, task)
+    if not ran:
+        _finish_child(store, child, "failed", _NO_MODEL)
+        return _NO_MODEL, {"tokens_in": 0, "tokens_out": 0}, "failed"
+    answer = str(child.get("result_summary") or assistant.get("text") or "")
+    raw_usage = child.get("usage")
+    usage = raw_usage if isinstance(raw_usage, dict) else {}
+    child_usage = {
+        "tokens_in": _count(usage.get("tokens_in")),
+        "tokens_out": _count(usage.get("tokens_out")),
+    }
+    return answer, child_usage, str(child.get("status") or "completed")
+
+
+def _assistant_message(store: Any, child: dict[str, object]) -> dict[str, object]:
+    """An assistant message row for the child's turn, as the agent loop expects."""
+    assistant_id = new_id()
+    row: dict[str, object] = {
+        "id": assistant_id,
+        "tenant_id": child.get("tenant_id"),
+        "conversation_id": child.get("conversation_id"),
+        "run_id": child.get("id"),
+        "parent_message_id": child.get("input_message_id"),
+        "role": "assistant",
+        "content": [{"type": "text", "text": ""}],
+        "text": "",
+        "status": "streaming",
+        "is_active_branch": False,
+        "created_at": utcnow(),
+    }
+    store.messages[assistant_id] = row
+    return row
 
 
 def _remember_step(
