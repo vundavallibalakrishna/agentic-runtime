@@ -38,7 +38,7 @@ from ar_common.sandboxkit import (
     truncate_output,
     virtual_path,
 )
-from ar_common.settings import loopback_allowed
+from ar_common.settings import loopback_allowed, wildcard_egress_allowed
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.files.logic import object_key
@@ -622,7 +622,7 @@ def _host_ok(
         tenant,
         mirrors=mirrors,
         allow_packages=bool(template.get("allow_packages")),
-        env=os.environ.get("AR_ENV", "dev"),
+        allow_wildcard=wildcard_egress_allowed(),
     )
     if host not in hosts and "*" not in hosts:
         return False

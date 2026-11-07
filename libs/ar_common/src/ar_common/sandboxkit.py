@@ -194,15 +194,15 @@ def allowed_hosts(
     *,
     mirrors: list[str],
     allow_packages: bool,
-    env: str,
+    allow_wildcard: bool,
 ) -> list[str]:
-    """Compute the egress allowlist. ``*`` is dropped in production."""
+    """Compute the egress allowlist. ``*`` is honoured only when the install allows it."""
     merged: list[str] = []
     for host in [*template, *extra]:
         name = host.strip().lower()
         if not name or name in merged:
             continue
-        if name == "*" and env == "prod":
+        if name == "*" and not allow_wildcard:
             continue
         merged.append(name)
     if tenant:
@@ -211,7 +211,7 @@ def allowed_hosts(
     if allow_packages:
         for host in mirrors:
             name = host.strip().lower()
-            if name and name not in merged and not (name == "*" and env == "prod"):
+            if name and name not in merged and not (name == "*" and not allow_wildcard):
                 merged.append(name)
     return merged
 

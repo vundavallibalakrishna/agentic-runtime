@@ -480,6 +480,29 @@ and the component is available for other screens to adopt.
 **Done (7 Nov 2026).** `ErrorState` replaces the bare error on both screens; proved on the live `acme`
 tenant by failing the knowledge list (`run21-error-state/01-knowledge-error-state.png`).
 
+## M38b-T18 No behaviour follows the environment's name
+
+**Depends on:** none. **Areas:** `ar_common/settings.py`, `ar_common/sandboxkit.py`, `api/main.py`,
+`sandbox_manager/drivers/base.py`, `sandbox_manager/egress.py`, `sandboxes/runtime.py`, and the dev/test
+config. **Finding:** F60.
+
+**Do:** three behaviours keyed on `AR_ENV` become settings of the install, each with the safe production
+value as its default (strict rule 6). `AR_EGRESS_ALLOW_WILDCARD` (default off) decides whether `*` is
+honoured in a sandbox egress allowlist; `AR_SANDBOX_ALLOW_UNISOLATED` (default off) decides whether the
+docker or host driver may run; `AR_FILES_SCANNER` (default `clamav`) is the upload scanner. The helpers sit
+beside `loopback_allowed`. The dev stack and the test run set the relaxed values in their own config, so
+effective behaviour is unchanged, but nothing reads the environment's name to decide.
+
+**Done when:** no code chooses egress, sandbox isolation or virus scanning from `AR_ENV`; each is a setting
+with a safe default; the suites pass with the dev/test config setting the relaxed values.
+
+**Tests:** `test_m6_driver.py` (driver refused unless allowed); the egress and upload tests under the dev
+config.
+
+**Done (7 Nov 2026).** The three settings exist with safe defaults; the dev stack and test harnesses set
+`AR_EGRESS_ALLOW_WILDCARD=true`, `AR_SANDBOX_ALLOW_UNISOLATED=true`, `AR_FILES_SCANNER=none`. No code reads
+`AR_ENV` for these.
+
 ## M38b-T11 The fresh run is kept as a check
 
 **Depends on:** T03 to T10. **Areas:** `scripts/fresh_run/`, `docs/08-quality/testing-strategy.md`,

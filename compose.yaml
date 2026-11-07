@@ -5,6 +5,9 @@ x-app-env: &app-env
   AR_ENV: dev
   # The local stack's model and tool servers are on this machine's own addresses.
   AR_EGRESS_ALLOW_LOOPBACK: "true"
+  AR_EGRESS_ALLOW_WILDCARD: "true"
+  AR_SANDBOX_ALLOW_UNISOLATED: "true"
+  AR_FILES_SCANNER: "none"
   AR_DEPLOYMENT_MODE: single_tenant
   AR_DATABASE_URL: postgresql+asyncpg://ar_app:ar_app@postgres:5432/agentic_runtime
   AR_VALKEY_URL: redis://valkey:6379/0
