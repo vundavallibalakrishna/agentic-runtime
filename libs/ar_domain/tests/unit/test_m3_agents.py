@@ -27,7 +27,7 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.prompts.assembler import build_prompt
 from ar_domain.prompts.blocks import BLOCK_ORDER
 from ar_runtime.context import build_prompt as runtime_build_prompt
-from ar_testing.demo import demo_store
+from ar_testing.demo import connect_chat, demo_store
 
 
 def _actor(**extra: object) -> Actor:
@@ -284,6 +284,8 @@ def test_preview_is_hidden_from_the_inbox() -> None:
 @pytest.mark.asyncio
 async def test_builder_apply_does_not_publish() -> None:
     store, _life_unused, actor = _life()
+    # The builder drafts with the tenant's model; connect the stand-in so there is one.
+    connect_chat(store, demo_id("tenant"))
     sentence = "create an agent that reviews vendor SOC 2 reports and flags gaps"
     session = await BuilderService(store).start(actor, sentence)
     read = BuilderService(store).read(actor, uuid.UUID(session["session_id"]))
@@ -300,10 +302,10 @@ async def test_builder_apply_does_not_publish() -> None:
 
 
 @pytest.mark.asyncio
-async def test_invalid_model_output_is_upstream_error() -> None:
+async def test_a_draft_without_a_real_model_is_upstream_error() -> None:
+    # The demo store's reasoning alias is the fake one; the builder has no model to draft
+    # with and reports it rather than fabricating an agent (M38a-T02d).
     store, _unused, actor = _life()
-    store.builder_strict = True
-    store.builder_scripts = ["not json", "still not json"]
     with pytest.raises(ArError) as caught:
         await draft_from_description(store, actor, "make an agent")
     assert caught.value.code is ErrorCode.UPSTREAM_ERROR

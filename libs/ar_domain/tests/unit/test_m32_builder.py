@@ -6,7 +6,7 @@ import httpx
 import orjson
 import pytest
 
-from ar_common.errors import ArError
+from ar_common.errors import ArError, ErrorCode
 from ar_domain.agents.access import Actor
 from ar_domain.agents.assist import draft_from_description
 from ar_domain.chat.service import ChatService, demo_id
@@ -96,29 +96,33 @@ async def test_invalid_model_draft_is_repaired_once_with_the_errors(
 
 
 @pytest.mark.asyncio
-async def test_scripted_proposal_is_the_last_resort(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_invalid_output_after_the_repair_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    # No scripted fallback (M38a-T02d): when the model never returns valid JSON, the builder
+    # reports the error instead of fabricating an agent.
     store = _real_store()
     seen = _responses(monkeypatch, ["not json", "still not json"])
-    drafted = await draft_from_description(store, _actor(), "Summarise weekly status notes")
-    assert len(seen) == 2
-    assert drafted["rationale"].startswith("Drafted a persona")
-    assert drafted["definition"]["persona"]["displayName"] == "Summarise weekly status notes"
+    with pytest.raises(ArError) as caught:
+        await draft_from_description(store, _actor(), "Summarise weekly status notes")
+    assert caught.value.code is ErrorCode.UPSTREAM_ERROR
+    assert len(seen) == 2  # it drafted once and repaired once, then gave up
 
 
 @pytest.mark.asyncio
-async def test_fake_model_never_calls_a_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_no_real_model_cannot_draft(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The demo store's reasoning alias is the fake one, so no real model is connected.
     store = demo_store()
     seen = _responses(monkeypatch, [])
-    drafted = await draft_from_description(store, _actor(), "Answer HR questions")
-    assert seen == []
-    assert drafted["rationale"].startswith("Drafted a persona")
+    with pytest.raises(ArError) as caught:
+        await draft_from_description(store, _actor(), "Answer HR questions")
+    assert caught.value.code is ErrorCode.UPSTREAM_ERROR
+    assert seen == []  # it never calls a provider
 
 
 @pytest.mark.asyncio
-async def test_strict_mode_still_fails_without_valid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_non_json_draft_recovers_on_repair(monkeypatch: pytest.MonkeyPatch) -> None:
     store = _real_store()
-    store.builder_strict = True
-    _responses(monkeypatch, ["nope"])
-    with pytest.raises(ArError):
-        await draft_from_description(store, _actor(), "Anything")
+    seen = _responses(monkeypatch, ["not json at all", orjson.dumps(GOOD).decode()])
+    drafted = await draft_from_description(store, _actor(), "Review vendor reports for gaps")
+    assert drafted["definition"]["persona"]["displayName"] == "Vendor reviewer"
+    assert len(seen) == 2
     assert uuid.UUID(str(demo_id("tenant")))
