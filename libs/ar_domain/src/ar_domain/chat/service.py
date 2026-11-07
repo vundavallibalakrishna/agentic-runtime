@@ -1877,11 +1877,9 @@ class ChatService:
         if grounded is not None:
             await self._finish_grounded(run, assistant, conversation, grounded)
             return
-        slow = "slow" in text.lower()
         tokens = await self._tokens(
             text,
             names,
-            slow=slow,
             system=self._system_prompt(run),
             tenant_id=uuid.UUID(str(run["tenant_id"])),
             alias=model_alias_for(self, run),
@@ -1899,7 +1897,7 @@ class ChatService:
             built.append(token)
             assistant["text"] = "".join(built)
             self._emit(run, "message.delta", {"message_id": str(assistant_id), "text": token})
-            await asyncio.sleep(0.8 if slow else 0.01)
+            await asyncio.sleep(0.01)
         answer = "".join(built)
         version_key = run.get("agent_version_id")
         version = self.versions.get(version_key) if isinstance(version_key, uuid.UUID) else None
@@ -1953,20 +1951,26 @@ class ChatService:
         text: str,
         names: list[str],
         *,
-        slow: bool,
         system: str = "",
         tenant_id: uuid.UUID | None = None,
         alias: str = "reasoning",
     ) -> list[str]:
-        if slow:
-            sentence = "This answer is intentionally slow so you can press stop. "
-            return [sentence] * 12
+        """The single model call a tool-less agent makes. A missing model is an error.
+
+        There is no scripted or ``fake:`` answer (M38a-T02e): when the alias is not connected
+        to a real provider the run fails, the way the agent loop already fails it.
+        """
         prefix = f"Attached {', '.join(names)}. " if names else ""
         owner = tenant_id or demo_id("tenant")
         model, headers, timeout_s, real = self._completion_call(owner, alias)
-        if real:
-            await self._ensure_provider_key(owner, alias)
-            model, headers, timeout_s, real = self._completion_call(owner, alias)
+        if not real:
+            raise ArError(
+                ErrorCode.UPSTREAM_ERROR,
+                f"The model alias '{alias}' is not connected to a registered model. "
+                "Open Models and point the alias at a provider.",
+            )
+        await self._ensure_provider_key(owner, alias)
+        model, headers, timeout_s, real = self._completion_call(owner, alias)
         # The same endpoint and key the agent loop uses for this alias.
         url = self._completion_url_for(owner, alias, headers)
         remote = await self._remote_completion(
@@ -1979,12 +1983,7 @@ class ChatService:
             options=self.request_options(owner, alias),
             url=url,
         )
-        if remote:
-            return [prefix + remote]
-        body = f"fake: {text}"
-        if "bullet points" in system.lower():
-            body = "- I kept this in bullet points because you asked me to."
-        return [prefix + body]
+        return [prefix + (remote or "The model returned an empty answer.")]
 
     async def _remote_completion(
         self,

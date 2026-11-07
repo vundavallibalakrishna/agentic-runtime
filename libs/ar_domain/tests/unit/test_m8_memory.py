@@ -2,9 +2,7 @@
 
 import uuid
 
-import httpx
 import pytest
-import respx
 
 from ar_common.errors import ForbiddenError, NotFoundError, ValidationFailedError
 from ar_common.time import utcnow
@@ -16,7 +14,7 @@ from ar_domain.memory.logic import blocked_reason, dimensions, score
 from ar_domain.memory.session import prepare_prompt
 from ar_domain.memory.tables import MemoryFact
 from ar_runtime.activities.recall_memory import bind_store, recall_memory
-from ar_testing.demo import demo_store
+from ar_testing.demo import connect_chat, demo_store
 from ar_testing.showcase_build import seed_showcase
 
 # What a model returns when the person says "Remember that I prefer tea."
@@ -166,6 +164,7 @@ def test_poisoned_tool_text_never_becomes_an_active_fact() -> None:
 async def test_recall_survives_a_new_conversation_until_deleted() -> None:
     store = demo_store()
     seed_showcase(store)
+    connect_chat(store, demo_id("tenant"))
     tenant = demo_id("tenant")
     user = demo_id("admin")
     agent_id = _assistant(store, tenant)
@@ -524,7 +523,7 @@ def test_memory_edges_for_tools_search_and_ops() -> None:
 async def test_generate_streams_memory_and_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
     store = demo_store()
     seed_showcase(store)
-    store.fake_llm_url = "http://llm.test/v1"
+    connect_chat(store, demo_id("tenant"))
     tenant = demo_id("tenant")
     user = demo_id("admin")
     agent_id = _assistant(store, tenant)
@@ -535,20 +534,13 @@ async def test_generate_streams_memory_and_fail_closed(monkeypatch: pytest.Monke
         posted = store.post_message(tenant, user, conversation_id, text, schedule=False)
         return uuid.UUID(str(posted["run"]["id"]))
 
-    with respx.mock:
-        respx.route(host="127.0.0.1").pass_through()  # the embedding stand-in
-        respx.post("http://llm.test/v1/chat/completions").mock(
-            return_value=httpx.Response(
-                200, json={"choices": [{"message": {"content": "Tea noted."}}]}
-            )
-        )
-        remembered = post("Remember that I prefer tea.")
-        await store.generate(remembered, "Remember that I prefer tea.", [])
+    remembered = post("Remember that I prefer tea.")
+    await store.generate(remembered, "Remember that I prefer tea.", [])
     types = [str(event["type"]) for event in store.events[remembered]]
     assert "memory.saved" in types
     assert "memory.recalled" in types
     assert store.runs[remembered]["status"] == "completed"
-    assert "Tea noted." in str(store.runs[remembered]["result_summary"])
+    assert str(store.runs[remembered]["result_summary"])  # the stand-in answered
 
     blocked = post("This turn does not fit.")
     store.runs[blocked]["context_error"] = "context_length_exceeded"
@@ -557,10 +549,16 @@ async def test_generate_streams_memory_and_fail_closed(monkeypatch: pytest.Monke
     assert isinstance(error, dict)
     assert error["code"] == "context_length_exceeded"
 
-    monkeypatch.setattr("ar_domain.chat.service.budget_exceeded", lambda **_kwargs: "max_tokens")
+    # The agent loop reads the budget through its own binding; force it over for one turn
+    # and restore it so the later turns run normally.
+    from ar_domain.tools import agent_loop
+
+    original_budget = agent_loop.budget_exceeded
+    monkeypatch.setattr(agent_loop, "budget_exceeded", lambda **_kwargs: "max_tokens")
     limited = post("Stop at the budget.")
     await store.generate(limited, "Stop at the budget.", [])
     assert store.runs[limited]["status"] == "budget_exceeded"
+    monkeypatch.setattr(agent_loop, "budget_exceeded", original_budget)
 
     version = store.versions[store.agents[agent_id]["published_version_id"]]
     assert isinstance(version, dict)
@@ -664,10 +662,12 @@ def test_tool_output_lowers_trust_and_duplicates_chain(monkeypatch: pytest.Monke
     assert any("desk" in str(row["content"]).lower() for row in listed)
 
 
-async def test_local_fallback_keeps_a_bullet_preference() -> None:
+async def test_a_recalled_bullet_preference_shapes_the_answer() -> None:
+    # The recalled preference is in the prompt, so the tenant's model answers in bullet
+    # points (M38a-T02e: there is no in-process bullet fallback on a failed model call).
     store = demo_store()
     seed_showcase(store)
-    store.fake_llm_url = "http://llm.test/v1"
+    connect_chat(store, demo_id("tenant"))
     tenant = demo_id("tenant")
     user = demo_id("admin")
     agent_id = _assistant(store, tenant)
@@ -677,25 +677,12 @@ async def test_local_fallback_keeps_a_bullet_preference() -> None:
     )
     conversation = store.create_conversation(tenant, user, agent_id)
     conversation_id = uuid.UUID(str(conversation["id"]))
-
-    def post(text: str) -> uuid.UUID:
-        posted = store.post_message(tenant, user, conversation_id, text, schedule=False)
-        return uuid.UUID(str(posted["run"]["id"]))
-
-    with respx.mock:
-        respx.route(host="127.0.0.1").pass_through()  # the embedding stand-in
-        respx.post("http://llm.test/v1/chat/completions").mock(return_value=httpx.Response(500))
-        failed = post("Draft a short status update")
-        await store.generate(failed, "Draft a short status update", [])
-    assert "I kept this in bullet points" in str(store.runs[failed]["result_summary"])
-    with respx.mock:
-        respx.route(host="127.0.0.1").pass_through()  # the embedding stand-in
-        respx.post("http://llm.test/v1/chat/completions").mock(
-            return_value=httpx.Response(200, json={"choices": []})
-        )
-        empty = post("Draft another status update")
-        await store.generate(empty, "Draft another status update", [])
-    assert "I kept this in bullet points" in str(store.runs[empty]["result_summary"])
+    posted = store.post_message(
+        tenant, user, conversation_id, "Draft a short status update", schedule=False
+    )
+    run_id = uuid.UUID(str(posted["run"]["id"]))
+    await store.generate(run_id, "Draft a short status update", [])
+    assert "I kept this in bullet points" in str(store.runs[run_id]["result_summary"])
 
 
 def _assistant(store: ChatService, tenant: uuid.UUID) -> uuid.UUID:

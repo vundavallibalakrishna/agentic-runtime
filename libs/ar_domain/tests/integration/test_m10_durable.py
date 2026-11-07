@@ -135,13 +135,16 @@ async def test_worker_loads_new_conversation_and_restart_preserves_agent_edits(
     from ar_runtime.activities.execute_chat_turn import execute_chat_turn
     from ar_runtime.activities.expire_approval import bind_store as bind_runtime
 
-    api = ChatService()
+    api = ChatService(allow_loopback=True)
     binding = await bind_store(api, database_url, tenant_slug="dev")
     assert binding is not None
+    # The tenant registers a chat model, saved to the database, so the worker that loads
+    # the registry can answer the turn (M38a-T02e: there is no fake answer any more).
+    await shared().save_chat(api, binding.tenant_id, script_set="m10-chat", aliases=("reasoning",))
     agent = next(row for row in api.agents.values() if row["slug"] == "assistant")
     agent["description"] = "An administrator changed this description"
     await flush_store(api)
-    worker = ChatService()
+    worker = ChatService(allow_loopback=True)
     await bind_store(worker, database_url, tenant_slug="dev")
     assert worker.agents[agent["id"]]["description"] == agent["description"]
     conversation = api.create_conversation(
@@ -364,8 +367,6 @@ async def test_routine_runs_across_api_system_and_runtime_process_stores(
     database_url: str, temporal_env, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A newly created routine persists, executes, reloads and cannot run twice on retry."""
-    from unittest.mock import AsyncMock
-
     from temporalio.worker import Worker
 
     from ar_domain.durable.hydrate import reload_routines, reload_run
@@ -383,13 +384,21 @@ async def test_routine_runs_across_api_system_and_runtime_process_stores(
     )
 
     api, system, runtime = (
-        ChatService(),
-        ChatService(),
-        ChatService(),
+        ChatService(allow_loopback=True),
+        ChatService(allow_loopback=True),
+        ChatService(allow_loopback=True),
     )
-    for store in (api, system, runtime):
-        await bind_store(store, database_url, tenant_slug="dev")
+    await bind_store(api, database_url, tenant_slug="dev")
     binding = api.tenant_binding
+    # Register a chat model and save it, so the system and runtime stores load it when they
+    # bind and the routine's turn can answer (M38a-T02e: no fake answer any more). The
+    # stand-in is scripted to give the worker reply the assertions expect.
+    shared().script("m10-routine", [{"match": {}, "respond": {"text": "Actual worker reply"}}])
+    await shared().save_chat(
+        api, binding.tenant_id, script_set="m10-routine", aliases=("reasoning",)
+    )
+    for store in (system, runtime):
+        await bind_store(store, database_url, tenant_slug="dev")
     actor = Actor(binding.tenant_id, binding.users["admin@dev.local"], PERMISSION_KEYS)
     assistant = next(row for row in api.agents.values() if row["slug"] == "assistant")
     created = RoutineBook(api).create(
@@ -410,9 +419,6 @@ async def test_routine_runs_across_api_system_and_runtime_process_stores(
     assert api.runs[run_id]["assistant_message_id"] in api.messages
     bind_system(system)
     bind_runtime(runtime)
-    monkeypatch.setattr(
-        ChatService, "_remote_completion", AsyncMock(return_value="Actual worker reply")
-    )
     api.temporal_client = temporal_env.client
     async with (
         Worker(

@@ -780,6 +780,12 @@ def _finish(
     emitted = stored if isinstance(stored, dict) else {"tokens_in": 1, "tokens_out": 1}
     store._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
     store._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": emitted})
+    callback = run.get("callback_url")
+    callbacks = getattr(store, "callbacks", None)
+    if isinstance(callback, str) and callback and isinstance(callbacks, list):
+        callbacks.append(
+            {"url": callback, "run_id": str(run.get("id")), "status": "completed", "text": answer}
+        )
 
 
 def _stop_budget(
