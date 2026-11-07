@@ -312,6 +312,36 @@ def test_unknown_tool_is_reported_and_checked() -> None:
     assert "could not" in text
 
 
+def test_a_refusal_the_answer_already_explains_gets_no_extra_notice() -> None:
+    """The suffix is not piled onto an answer that already says the tool was blocked (F59).
+
+    The live case: a fetch refused by the egress rules, which the model reported as
+    "blocked" — a word the old check did not know, so the notice was wrongly added.
+    """
+    store = _store()
+    _script(
+        store,
+        [
+            {
+                "text": "",
+                "tool_calls": [{"id": "c1", "name": "missing__tool", "arguments": {}}],
+                "usage": {"tokens_in": 1, "tokens_out": 1},
+            },
+            {
+                # Phrased without any of the old words ("fail", "could not", ...).
+                "text": "I was blocked from reaching that host, so there is no result to share.",
+                "tool_calls": [],
+                "usage": {"tokens_in": 1, "tokens_out": 2},
+            },
+        ],
+    )
+    run = _run(store, "Fetch a blocked host")
+    assert run["status"] == "completed"
+    text = str(store.messages[uuid.UUID(str(run["assistant_message_id"]))]["text"])
+    assert "A tool call failed and was not recovered." not in text
+    assert "blocked" in text
+
+
 def test_silent_provider_fails_the_run() -> None:
     store = _store()
 
