@@ -1172,6 +1172,13 @@ def tool_records() -> list[dict[str, object]]:
                     else "string"
                 )
                 properties[name] = {"type": kind, "description": _describe_param(name)}
+            # Every required field must be a declared property, or a model cannot call the
+            # tool and schema validation rejects it. Custom-kind tools name their fields only
+            # in ``required``; define them here so the contract is always complete.
+            for name in tool.required:
+                properties.setdefault(
+                    name, {"type": "string", "description": _describe_param(name)}
+                )
             properties.setdefault(
                 "cursor", {"type": "string", "description": _describe_param("cursor")}
             )
