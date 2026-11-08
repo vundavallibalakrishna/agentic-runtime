@@ -22,6 +22,45 @@ async def save_durability(session: AsyncSession, pending: dict[str, list[dict[st
     await _workspace(session, pending.get("workspace_files", []))
     await _jobs(session, pending.get("job_progress", []))
     await _push(session, pending.get("a2a_push_configs", []))
+    await _tool_vectors(session, pending.get("tool_search_vectors", []))
+
+
+async def _tool_vectors(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO tool_search_vectors (
+            id, tenant_id, model_id, text_hash, vector, created_at, updated_at
+        ) VALUES (
+            :id, :tenant_id, :model_id, :text_hash, CAST(:vector AS jsonb),
+            :created_at, :updated_at
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            vector = EXCLUDED.vector,
+            updated_at = EXCLUDED.updated_at
+    """
+    for row in rows:
+        if row.get("_deleted"):
+            continue
+        item_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        model_id = as_text(row.get("model_id"))
+        text_hash = as_text(row.get("text_hash"))
+        vector = row.get("vector")
+        if None in {item_id, tenant_id} or not model_id or not text_hash:
+            continue
+        if not isinstance(vector, list) or not vector:
+            continue
+        await session.execute(
+            text(sql),
+            {
+                "id": item_id,
+                "tenant_id": tenant_id,
+                "model_id": model_id,
+                "text_hash": text_hash,
+                "vector": as_json(vector, []),
+                "created_at": as_dt(row.get("created_at")),
+                "updated_at": as_dt(row.get("updated_at")),
+            },
+        )
 
 
 async def load_conversation_files(
@@ -144,8 +183,15 @@ async def load_durability(session: AsyncSession, store: object, tenant_id: uuid.
         "SELECT * FROM workspace_files WHERE tenant_id = :tenant_id",
         "SELECT * FROM job_progress WHERE tenant_id = :tenant_id",
         "SELECT * FROM a2a_push_configs WHERE tenant_id = :tenant_id",
+        "SELECT * FROM tool_search_vectors WHERE tenant_id = :tenant_id",
     )
-    names = ("files", "workspace_files", "job_progress", "a2a_push_configs")
+    names = (
+        "files",
+        "workspace_files",
+        "job_progress",
+        "a2a_push_configs",
+        "tool_search_vectors",
+    )
     for name, sql in zip(names, queries, strict=True):
         result = await session.execute(text(sql), {"tenant_id": tenant_id})
         for mapping in result.mappings():

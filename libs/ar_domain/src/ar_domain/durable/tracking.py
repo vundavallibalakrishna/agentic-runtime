@@ -168,6 +168,7 @@ BUCKETS = (
     "workspace_files",
     "job_progress",
     "a2a_push_configs",
+    "tool_search_vectors",
 )
 
 
