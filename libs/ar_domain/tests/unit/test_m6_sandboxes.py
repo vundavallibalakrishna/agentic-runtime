@@ -109,8 +109,10 @@ def test_chart_package_gate_browser_and_resume() -> None:
     user = demo_id("admin")
     agent = next(row for row in store.agents.values() if row.get("slug") == "revenue-analyst")
     version_id = agent["published_version_id"]
+    # The analyst charts with general.shell since M39-T02 (the sandbox tool surface is
+    # retired); the sandbox runtime itself is still exercised below through run_tool.
     tool = next(
-        row for row in store.tool_versions.values() if row.get("qualified_name") == "sandbox.exec"
+        row for row in store.tool_versions.values() if row.get("qualified_name") == "general.shell"
     )
     command = chart_command()
     result = ToolPipeline(store).execute(

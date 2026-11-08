@@ -2370,7 +2370,7 @@ def _analyst(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
             "starter_prompts": ["Analyse the attached CSV and chart revenue by month"],
             "model": {"alias": "reasoning", "fast_alias": "fast", "vision_alias": "vision"},
             "tools": [
-                {"server": "sandbox", "include": ["*"]},
+                {"server": "general", "include": ["*"]},
                 {"server": "files", "include": ["*"]},
                 {"server": "browser", "include": ["*"]},
             ],

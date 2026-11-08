@@ -95,6 +95,13 @@ function filesOf(presentation: Record<string, unknown>): FileRow[] {
   return raw.filter((item): item is FileRow => !!item && typeof item === "object");
 }
 
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
+
+function isImageName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
+}
+
 export function ToolCallCard({ call, label }: { call: Record<string, unknown>; label: string }) {
   const t = useTranslations("chat");
   const name = text(call.qualifiedName ?? call.qualified_name ?? "tool");
@@ -299,37 +306,37 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           })}
         </ul>
       ) : null}
-      {kind === "chart"
-        ? files
-            .filter((file) => text(file.name).endsWith(".png"))
+      {files
+        .filter((file) => isImageName(text(file.name)))
+        .map((file) => {
+          const id = text(file.fileId ?? file.file_id);
+          return id ? (
+            <img
+              alt={text(file.name) || text(presentation.title) || "image"}
+              className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
+              key={id}
+              src={`/api/v1/files/${id}/content`}
+            />
+          ) : null;
+        })}
+      {files.filter((file) => !isImageName(text(file.name))).length > 0 ? (
+        <ul className="mt-2 space-y-1">
+          {files
+            .filter((file) => !isImageName(text(file.name)))
             .map((file) => {
               const id = text(file.fileId ?? file.file_id);
-              return id ? (
-                <img
-                  alt={text(presentation.title) || "chart"}
-                  className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
-                  key={id}
-                  src={`/api/v1/files/${id}/content`}
-                />
-              ) : null;
-            })
-        : null}
-      {files.length > 0 ? (
-        <ul className="mt-2 space-y-1">
-          {files.map((file) => {
-            const id = text(file.fileId ?? file.file_id);
-            return (
-              <li key={id || file.name}>
-                {id ? (
-                  <a className="underline" href={`/api/v1/files/${id}/content`}>
-                    {t("downloadFile", { name: file.name || id })}
-                  </a>
-                ) : (
-                  <span>{file.name}</span>
-                )}
-              </li>
-            );
-          })}
+              return (
+                <li key={id || file.name}>
+                  {id ? (
+                    <a className="underline" href={`/api/v1/files/${id}/content`}>
+                      {t("downloadFile", { name: file.name || id })}
+                    </a>
+                  ) : (
+                    <span>{file.name}</span>
+                  )}
+                </li>
+              );
+            })}
         </ul>
       ) : null}
       {kind !== "code" &&
