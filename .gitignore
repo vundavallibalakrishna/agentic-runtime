@@ -30,6 +30,7 @@ blob-report/
 .env
 .env.local
 docs/testing/eval-gym/live-scorecard.md
+docs/testing/eval-gym/accuracy-scorecard.md
 *.pem
 .idea/
 .vscode/

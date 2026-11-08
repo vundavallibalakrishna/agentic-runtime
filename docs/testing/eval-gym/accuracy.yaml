@@ -1,0 +1,86 @@
+# Accuracy suite for the tool-choice gym (platform verification, Layer 2).
+#
+# Unlike tasks.yaml, these instructions do NOT name the tool or the method — the model
+# must infer it from the goal — and several need a chain of tools or a recovery. They are
+# meant for a live run against a real model (AR_EVAL_GYM_LIVE=1); the scripted dry-run
+# policy cannot solve un-named or multi-step tasks and is not expected to pass them.
+tasks:
+  # --- un-named single-tool choice: the goal is stated, the tool is not ---
+  - id: acc-arithmetic
+    title: Compute a product (unprompted tool)
+    instruction: >
+      What is 17 multiplied by 19? Reply with only the number.
+    expect:
+      tool: general.code
+      answer:
+        contains: ["323"]
+
+  - id: acc-read-page
+    title: Read a web page (unprompted tool)
+    instruction: >
+      There is a token on the page https://example.com/gym. What is the token?
+    expect:
+      tool: general.fetch
+      answer:
+        contains: ["FETCH-77"]
+
+  - id: acc-warehouse
+    title: Answer from a database (unprompted tool)
+    instruction: >
+      Using the Warehouse connection, which skus appear in public.orders? Name one.
+    expect:
+      tool: data.query
+      answer:
+        contains: ["paper"]
+
+  - id: acc-knowledge
+    title: Answer from knowledge (unprompted tool)
+    instruction: >
+      When does the visitor desk open? Cite the token from the source you used.
+    expect:
+      tool: knowledge.search
+      answer:
+        contains: ["ZX-4471"]
+
+  - id: acc-read-upload
+    title: Read an uploaded file (unprompted tool)
+    attachments: [note]
+    instruction: >
+      The uploaded file note.txt contains a token. Tell me the token.
+    expect:
+      tool: general.read_file
+      answer:
+        contains: ["FILE-19"]
+
+  # --- chains: two tools in order ---
+  - id: acc-copy-token
+    title: Read then write (chain)
+    attachments: [note]
+    instruction: >
+      Read the token inside the uploaded note.txt and write it into a new file named
+      copy.txt. Reply with the name of the file you wrote.
+    expect:
+      chain: [general.read_file, general.write_file]
+      answer:
+        contains: ["copy.txt"]
+
+  - id: acc-fetch-save
+    title: Fetch then save (chain)
+    instruction: >
+      Fetch the page https://example.com/gym, then save the token from it into a file
+      called token.txt. Reply with the name of the file you wrote.
+    expect:
+      chain: [general.fetch, general.write_file]
+      answer:
+        contains: ["token.txt"]
+
+  # --- recovery: the first attempt fails and the model must adapt ---
+  - id: acc-recover-missing
+    title: Recover from a missing file (chain with recovery)
+    instruction: >
+      Read the file ghost.txt. If it does not exist, create it containing the word
+      recovered, then read it back and quote what it says.
+    expect:
+      chain: [general.write_file, general.read_file]
+      answer:
+        contains: ["recovered"]
