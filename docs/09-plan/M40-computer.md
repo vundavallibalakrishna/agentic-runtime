@@ -109,8 +109,18 @@ denied navigation, and a real screenshot is captured — verified by a docker-ga
 
 ## M40-T05 Files, tabs and screenshots
 
-**Do:** upload from and download to the workspace, tabs, a real screenshot, save a page as PDF, and a stored
-sign-in through a connection.
+The real screenshot landed in T04c. The rest is split by risk.
+
+**T05a — file flows.** `save_pdf` (Chromium `page.pdf`), `download` (capture a browser download, capped, as an
+artifact) and `upload` (attach a confined workspace file to a file input). The runtime generalises the
+screenshot artifact path (`_remote_capture`) to store the captured bytes, and the three tools join the browser
+surface. Routing is unit-tested; the file flows run against the browser container in the docker-gated canary.
+
+**T05b — tabs.** List, open, switch and close browser tabs; the agent tracks the pages of its one context.
+
+**T05c — stored sign-in through a connection.** A persistent, per-connection browser context so an agent can
+act on a site it is signed in to. Security-sensitive: credentials stay in `SecretStore` and never enter model
+context, tool arguments, logs or the snapshot — a check-in before building, like T04c.
 
 ## M40-T06 The model sees images
 

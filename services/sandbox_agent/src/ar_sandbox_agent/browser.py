@@ -14,7 +14,11 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import os
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from ar_common.sandboxkit import confine
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -32,12 +36,16 @@ BROWSER_TOOLS = frozenset(
         "wait_for",
         "screenshot",
         "submit_form",
+        "save_pdf",
+        "download",
+        "upload",
     }
 )
 
 _DEFAULT_SNAPSHOT_CHARS = 40000
 _SMALL_SNAPSHOT_CHARS = 4000
 _NAV_TIMEOUT_MS = 30000
+_MAX_DOWNLOAD = 25 * 1024 * 1024
 
 # Tag every visible interactive element with a stable ref and return the page outline.
 _SNAPSHOT_JS = """
@@ -221,6 +229,68 @@ async def _screenshot(page: Any, arguments: dict[str, object]) -> dict[str, obje
     }
 
 
+async def _save_pdf(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    landscape = arguments.get("landscape") is True
+    pdf = await page.pdf(print_background=True, landscape=landscape)
+    return {
+        "text": f"saved a {len(pdf)}-byte PDF of the page",
+        "structured": {
+            "file_base64": base64.b64encode(pdf).decode("ascii"),
+            "filename": "page.pdf",
+            "mime_type": "application/pdf",
+            "bytes": len(pdf),
+        },
+        "is_error": False,
+    }
+
+
+async def _download(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    async with page.expect_download(timeout=_NAV_TIMEOUT_MS) as info:
+        await _locator(page, arguments).click(timeout=_NAV_TIMEOUT_MS)
+    download = await info.value
+    path = await download.path()
+    data = await asyncio.to_thread(Path(str(path)).read_bytes) if path else b""
+    if len(data) > _MAX_DOWNLOAD:
+        return {
+            "text": f"the download is over {_MAX_DOWNLOAD // (1024 * 1024)} MiB",
+            "is_error": True,
+            "code": "validation_failed",
+        }
+    name = _safe_name(str(download.suggested_filename or "download"))
+    return {
+        "text": f"downloaded {name} ({len(data)} bytes)",
+        "structured": {
+            "file_base64": base64.b64encode(data).decode("ascii"),
+            "filename": name,
+            "mime_type": "application/octet-stream",
+            "bytes": len(data),
+        },
+        "is_error": False,
+    }
+
+
+async def _upload(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    root = Path(os.environ.get("AR_SANDBOX_ROOT", "/") or "/")
+    target = confine(root, str(arguments.get("path") or ""))
+    if not await asyncio.to_thread(target.is_file):
+        return {
+            "text": "file was not found in the workspace",
+            "is_error": True,
+            "code": "not_found",
+        }
+    await _locator(page, arguments).set_input_files(str(target), timeout=_NAV_TIMEOUT_MS)
+    return {
+        "text": f"attached {target.name} to the page",
+        "structured": {"path": str(arguments.get("path") or ""), "name": target.name},
+        "is_error": False,
+    }
+
+
+def _safe_name(name: str) -> str:
+    cleaned = "".join(ch if ch.isalnum() or ch in "-._" else "_" for ch in name).strip("._")
+    return cleaned or "download"
+
+
 def _locator(page: Any, arguments: dict[str, object]) -> Any:
     ref = str(arguments.get("ref") or "").strip()
     return page.locator(f'[data-ar-ref="{ref}"]')
@@ -255,4 +325,7 @@ _HANDLERS: dict[str, Callable[[Any, dict[str, object]], Awaitable[dict[str, obje
     "wait_for": _wait_for,
     "screenshot": _screenshot,
     "submit_form": _submit_form,
+    "save_pdf": _save_pdf,
+    "download": _download,
+    "upload": _upload,
 }

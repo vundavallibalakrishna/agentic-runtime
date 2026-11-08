@@ -63,5 +63,12 @@ def test_browser_tools_run_in_the_container_through_run_tool() -> None:
         assert store.files[file_id]["mime_type"] == "image/png"
         assert bytes(store.blobs[file_id])[:4] == b"\x89PNG"
         assert shot["structured"]["engine"] == "chromium"
+
+        # The page saves as a real PDF artifact.
+        pdf = run_tool(store, "save_pdf", {**ctx})
+        assert pdf["is_error"] is False
+        pdf_id = uuid.UUID(str(pdf["structured"]["file_id"]))
+        assert store.files[pdf_id]["mime_type"] == "application/pdf"
+        assert bytes(store.blobs[pdf_id])[:5] == b"%PDF-"
     finally:
         terminate_row(store, row, actor=demo_id("admin"))

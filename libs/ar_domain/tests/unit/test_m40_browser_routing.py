@@ -79,3 +79,44 @@ def test_the_real_screenshot_becomes_an_artifact(monkeypatch: pytest.MonkeyPatch
     assert result["structured"]["engine"] == "chromium"
     presentation = result["structured"]["presentation"]
     assert isinstance(presentation, dict) and presentation["kind"] == "chart"
+
+
+def test_save_pdf_becomes_a_pdf_artifact(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    pdf = b"%PDF-1.4 fake"
+    encoded = base64.b64encode(pdf).decode("ascii")
+    monkeypatch.setattr(
+        runtime,
+        "_agent_post",
+        lambda *a, **k: {
+            "structured": {
+                "file_base64": encoded,
+                "filename": "page.pdf",
+                "mime_type": "application/pdf",
+            }
+        },
+    )
+    result = runtime._browser(store, _sandbox(store), "save_pdf", {})
+    assert result["is_error"] is False
+    file_id = uuid.UUID(str(result["structured"]["file_id"]))
+    assert store.files[file_id]["name"] == "page.pdf"
+    assert store.files[file_id]["mime_type"] == "application/pdf"
+    assert store.blobs[file_id] == pdf
+    # A PDF is not an image, so no inline chart presentation.
+    assert "presentation" not in result["structured"]
+
+
+def test_upload_is_proxied_to_the_container(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    seen: dict[str, object] = {}
+
+    def fake(sandbox: dict, tool: str, arguments: dict, **kw: object) -> dict:
+        seen["tool"] = tool
+        return {"text": "attached", "structured": {"name": "a.txt"}, "is_error": False}
+
+    monkeypatch.setattr(runtime, "_agent_post", fake)
+    result = runtime._browser(
+        store, _sandbox(store), "upload", {"ref": "e1", "path": "/workspace/a.txt"}
+    )
+    assert seen["tool"] == "upload"
+    assert result["is_error"] is False

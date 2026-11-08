@@ -163,6 +163,9 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         "scroll",
         "screenshot",
         "submit_form",
+        "save_pdf",
+        "download",
+        "upload",
     }:
         return _browser(store, sandbox, name, arguments)
     return _error("unknown_tool", f"unknown tool {name}")
@@ -604,43 +607,57 @@ def _browser_remote(
         blocked = navigate_decision(store, sandbox, arguments, str(arguments.get("url") or ""))
         if blocked is not None:
             return blocked
-    if name == "screenshot":
-        return _remote_screenshot(store, sandbox, arguments)
+    if name in _CAPTURE_FIELD:
+        return _remote_capture(store, sandbox, name, arguments)
     return _proxy(sandbox, name, arguments)
 
 
-def _remote_screenshot(
-    store: Any, sandbox: dict[str, object], arguments: dict[str, object]
+# The browser tools that return captured bytes (base64) the runtime stores as an artifact.
+_CAPTURE_FIELD = {
+    "screenshot": "image_base64",
+    "save_pdf": "file_base64",
+    "download": "file_base64",
+}
+_CAPTURE_VERB = {"screenshot": "screenshot", "save_pdf": "saved PDF", "download": "downloaded"}
+
+
+def _remote_capture(
+    store: Any, sandbox: dict[str, object], name: str, arguments: dict[str, object]
 ) -> dict[str, object]:
-    """Store the real PNG the container captured as an artifact and show it inline."""
-    body = _agent_post(sandbox, "screenshot", arguments)
+    """Store the bytes the container captured (screenshot, PDF or download) as an artifact."""
+    body = _agent_post(sandbox, name, arguments)
     raw = body.get("structured")
     structured = dict(raw) if isinstance(raw, dict) else {}
-    encoded = str(structured.get("image_base64") or "")
+    encoded = str(structured.get(_CAPTURE_FIELD[name]) or "")
     if not encoded:
-        return _proxy(sandbox, "screenshot", arguments)
+        return _proxy(sandbox, name, arguments)
     try:
-        png = base64.b64decode(encoded, validate=True)
+        data = base64.b64decode(encoded, validate=True)
     except ValueError, binascii.Error:
-        return _error("sandbox_unavailable", "the screenshot was not valid")
-    saved = _store_blob(
-        store, sandbox, name="browser.png", mime="image/png", data=png, kind="artifact"
-    )
-    _emit_artifact(
-        store, sandbox, file_id=saved, name="browser.png", mime="image/png", size=len(png)
-    )
-    presentation = _image_presentation(
-        [{"file_id": str(saved), "name": "browser.png", "mime": "image/png"}]
-    )
+        return _error("sandbox_unavailable", "the capture was not valid")
+    if name == "screenshot":
+        fname, mime = "browser.png", "image/png"
+    else:
+        default = "page.pdf" if name == "save_pdf" else "download"
+        fname = sanitise_name(str(structured.get("filename") or default))
+        mime = str(structured.get("mime_type") or _mime(fname))
+    saved = _store_blob(store, sandbox, name=fname, mime=mime, data=data, kind="artifact")
+    _emit_artifact(store, sandbox, file_id=saved, name=fname, mime=mime, size=len(data))
+    presentation = _image_presentation([{"file_id": str(saved), "name": fname, "mime": mime}])
     result: dict[str, object] = {
         "file_id": str(saved),
-        "bytes": len(png),
+        "name": fname,
+        "bytes": len(data),
         "untrusted": True,
         "engine": "chromium",
     }
     if presentation is not None:
         result["presentation"] = presentation
-    return {"text": f"screenshot {saved}", "structured": result, "is_error": False}
+    return {
+        "text": f"{_CAPTURE_VERB[name]} {fname} ({saved})",
+        "structured": result,
+        "is_error": False,
+    }
 
 
 def _screenshot(
