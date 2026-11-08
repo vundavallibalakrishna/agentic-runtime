@@ -2463,6 +2463,50 @@ def _browser_tools() -> list[dict[str, object]]:
         _tool("scroll", "Scroll", "Scroll the page.", ref, "R0"),
         _tool("screenshot", "Screenshot", "Save a screenshot of the page.", ref, "R0"),
         _tool("submit_form", "Submit a form", "Submit a form on the page.", ref, "W2"),
+        _tool(
+            "save_pdf",
+            "Save the page as PDF",
+            "Save the current page as a PDF artifact you can attach or read.",
+            {
+                "type": "object",
+                "properties": {
+                    "landscape": {
+                        "type": "boolean",
+                        "description": "Render the PDF in landscape; portrait when omitted.",
+                    }
+                },
+            },
+            "R0",
+        ),
+        _tool(
+            "download",
+            "Download a file",
+            "Click an element that downloads a file and save it as an artifact. Untrusted.",
+            ref,
+            "R1",
+            page,
+        ),
+        _tool(
+            "upload",
+            "Upload a file",
+            "Attach a workspace file to a file input on the page.",
+            {
+                "type": "object",
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "description": "The ref of the file input, from a page snapshot.",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "The workspace path of the file to attach, e.g. "
+                        "/workspace/outputs/report.pdf.",
+                    },
+                },
+                "required": ["ref", "path"],
+            },
+            "W1",
+        ),
     ]
 
 

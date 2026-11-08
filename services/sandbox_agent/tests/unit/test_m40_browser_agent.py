@@ -21,6 +21,11 @@ def test_browser_tools_cover_the_m37_surface() -> None:
         assert name in BROWSER_TOOLS
 
 
+def test_browser_tools_include_the_file_flows() -> None:
+    for name in ("save_pdf", "download", "upload", "submit_form"):
+        assert name in BROWSER_TOOLS
+
+
 def test_as_int_rejects_bool_and_bad_values() -> None:
     assert _as_int(True, 7) == 7
     assert _as_int(5, 7) == 5
