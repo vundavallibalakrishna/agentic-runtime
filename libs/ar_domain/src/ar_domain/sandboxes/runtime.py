@@ -581,6 +581,10 @@ def _browser(
     template = _by_id(store, sandbox.get("template_id")) or {}
     if template.get("allow_browser") is not True and name != "snapshot":
         return _error("validation_failed", "this computer does not include a browser")
+    # When a container is running, its real Chromium drives the page; the same egress gate
+    # applies before a navigation. Otherwise the in-process engine answers (M40-T04c).
+    if bool(sandbox.get("endpoint_url")):
+        return _browser_remote(store, sandbox, name, arguments)
     if name == "screenshot":
         from ar_domain.sandboxes.browser import open_context  # noqa: PLC0415
 
@@ -588,6 +592,55 @@ def _browser(
     from ar_domain.sandboxes.browser import apply_browser  # noqa: PLC0415
 
     return apply_browser(store, sandbox, name, arguments)
+
+
+def _browser_remote(
+    store: Any, sandbox: dict[str, object], name: str, arguments: dict[str, object]
+) -> dict[str, object]:
+    """Route a browser tool to the real Chromium in the container, gating navigation."""
+    if name == "navigate":
+        from ar_domain.sandboxes.browser import navigate_decision  # noqa: PLC0415
+
+        blocked = navigate_decision(store, sandbox, arguments, str(arguments.get("url") or ""))
+        if blocked is not None:
+            return blocked
+    if name == "screenshot":
+        return _remote_screenshot(store, sandbox, arguments)
+    return _proxy(sandbox, name, arguments)
+
+
+def _remote_screenshot(
+    store: Any, sandbox: dict[str, object], arguments: dict[str, object]
+) -> dict[str, object]:
+    """Store the real PNG the container captured as an artifact and show it inline."""
+    body = _agent_post(sandbox, "screenshot", arguments)
+    raw = body.get("structured")
+    structured = dict(raw) if isinstance(raw, dict) else {}
+    encoded = str(structured.get("image_base64") or "")
+    if not encoded:
+        return _proxy(sandbox, "screenshot", arguments)
+    try:
+        png = base64.b64decode(encoded, validate=True)
+    except ValueError, binascii.Error:
+        return _error("sandbox_unavailable", "the screenshot was not valid")
+    saved = _store_blob(
+        store, sandbox, name="browser.png", mime="image/png", data=png, kind="artifact"
+    )
+    _emit_artifact(
+        store, sandbox, file_id=saved, name="browser.png", mime="image/png", size=len(png)
+    )
+    presentation = _image_presentation(
+        [{"file_id": str(saved), "name": "browser.png", "mime": "image/png"}]
+    )
+    result: dict[str, object] = {
+        "file_id": str(saved),
+        "bytes": len(png),
+        "untrusted": True,
+        "engine": "chromium",
+    }
+    if presentation is not None:
+        result["presentation"] = presentation
+    return {"text": f"screenshot {saved}", "structured": result, "is_error": False}
 
 
 def _screenshot(
