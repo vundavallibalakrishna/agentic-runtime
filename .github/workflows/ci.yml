@@ -204,6 +204,7 @@ jobs:
       - run: uv run python scripts/check_audit_catalogue.py
       - run: uv run python scripts/check_stack_pins.py
       - run: uv run python scripts/check_public_camel_case.py
+      - run: uv run python scripts/check_tool_descriptions.py
       - run: uv run python scripts/check_docs.py
       - name: no placeholder markers
         run: |
