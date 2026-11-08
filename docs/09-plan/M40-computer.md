@@ -79,9 +79,23 @@ install that runs a command in a pod.
 
 ## M40-T04 A browser that runs pages
 
-**Do:** Chromium through Playwright inside the computer. `navigate`, `snapshot` (an accessibility tree with
-element refs), `click`, `type`, `press`, `select`, `hover`, `scroll`, `wait_for`. Each tool has its own
-schema. Navigation off the allow list and form submission keep their approval rules.
+Chromium through Playwright inside the computer, replacing M37's in-process HTML engine. Built in stages like
+T01.
+
+**T04a — the browser image.** `images/sandbox/Dockerfile` gains `ARG WITH_BROWSER`: when `1` it adds Node 24
+with pnpm (user JavaScript) and Playwright 1.64 with its Chromium (`browser-tools.txt`, installed into the agent
+venv and `PLAYWRIGHT_BROWSERS_PATH`). CI's default image leaves it out so it stays small (OQ-37, OQ-87); the
+browser image is built with `--build-arg WITH_BROWSER=1`. Done when the image builds and Playwright drives a
+real page inside a started container (verified locally).
+
+**T04b — the agent's browser tools.** The sandbox-agent drives Chromium: `navigate`, `snapshot` (an
+accessibility tree with element refs), `click`, `type`, `press`, `select`, `hover`, `scroll`, `wait_for`, and a
+real `screenshot`. Each tool has its own schema.
+
+**T04c — routing and retiring M37.** The runtime routes `browser_*` to the container agent (as it does `exec`),
+the in-process HTML parser (`sandboxes/browser.py`) is retired, and the browser e2e specs move onto the real
+engine. Navigation off the allow list and form submission keep their approval rules; cookies stay isolated per
+sandbox. This is the security-sensitive step — approval, egress and cookie isolation.
 
 ## M40-T05 Files, tabs and screenshots
 
