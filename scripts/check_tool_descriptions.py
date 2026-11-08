@@ -56,6 +56,20 @@ def _schema_gaps(prefix: str, schema: dict[str, Any]) -> list[str]:
     return gaps
 
 
+def _required_gaps(qualified: str, schema: dict[str, Any]) -> list[str]:
+    """Required fields a tool declares but never defines in ``properties``.
+
+    Such a field is uncallable: a model cannot see it, and schema validation rejects the
+    call. Caught by the tool working-state matrix (scripts/tool_matrix.py) and fixed in the
+    connector catalogue; this keeps it from returning.
+    """
+    properties = schema.get("properties")
+    required = schema.get("required")
+    keys = set(properties) if isinstance(properties, dict) else set()
+    names = required if isinstance(required, list) else []
+    return [f"{qualified}.{name}" for name in names if str(name) not in keys]
+
+
 def main() -> None:
     tools = _seed_catalogue()
     servers = {
@@ -81,6 +95,7 @@ def main() -> None:
         schema = tool.get("input_schema")
         if isinstance(schema, dict):
             gaps.extend(_schema_gaps(qualified, schema))
+            gaps.extend(_required_gaps(qualified, schema))
 
     if gaps:
         print(
