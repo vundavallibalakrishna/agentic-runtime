@@ -44,6 +44,34 @@ _IMPLICIT = frozenset(
     }
 )
 
+# M39-T02: the sandbox (Computer) file and command tools are retired. A stored agent that
+# binds them resolves to the general equivalents, which read and write the same workspace;
+# the model never sees a sandbox.* tool. The execution moves into the container in M40-T01.
+_RETIRED_SERVER_ALIAS = {"sandbox": "general"}
+_RETIRED_TOOL_ALIAS = {
+    "exec": "shell",
+    "read_file": "read_file",
+    "write_file": "write_file",
+    "list_files": "list_files",
+    "export_file": "write_file",
+}
+# The general tools a whole-server (`include: ["*"]`) sandbox binding maps to.
+_SANDBOX_GENERAL_NAMES = ("shell", "read_file", "write_file", "list_files")
+
+
+def _aliased_names(slug: str, names: list[object]) -> list[object]:
+    """Map a retired server's tool names to the surviving server's names, in order."""
+    if slug != "sandbox":
+        return names
+    if "*" in names:
+        return list(_SANDBOX_GENERAL_NAMES)
+    mapped: list[object] = []
+    for name in names:
+        target = _RETIRED_TOOL_ALIAS.get(str(name))
+        if target is not None and target not in mapped:
+            mapped.append(target)
+    return mapped
+
 
 class PolicyDecider(Protocol):
     def decide(self, risk_class: str) -> tuple[str, str]:
@@ -618,6 +646,8 @@ class ToolPipeline:
         return stored
 
     def _bound(self, slug: str, names: list[object], user_id: uuid.UUID) -> list[dict[str, object]]:
+        if slug in _RETIRED_SERVER_ALIAS:
+            return self._bound(_RETIRED_SERVER_ALIAS[slug], _aliased_names(slug, names), user_id)
         server = next(
             (
                 row
@@ -676,7 +706,13 @@ class ToolPipeline:
         server_slug = qualified.split(".", 1)[0]
         if not isinstance(tools, list):
             return False
-        return any(isinstance(item, dict) and item.get("server") == server_slug for item in tools)
+        if any(isinstance(item, dict) and item.get("server") == server_slug for item in tools):
+            return True
+        # A stored sandbox binding entitles only the general computer tools it aliases to
+        # (M39-T02), not the general network tools.
+        if server_slug == "general" and str(version.get("name")) in _SANDBOX_GENERAL_NAMES:
+            return any(isinstance(item, dict) and item.get("server") == "sandbox" for item in tools)
+        return False
 
     def _quota(
         self,

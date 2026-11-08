@@ -47,8 +47,29 @@ connectors.
 
 ## M39-T02 One workspace
 
-**Do:** `general.*` and `sandbox.*` read and write the same workspace for a conversation. The duplicate file
-and command tools are retired with an alias for stored agent versions.
+Owner chose the `general.*` surface over `sandbox.*` (2026-11-08). The sandbox (Computer) file and command
+tools are retired from the model's view; a stored agent that still binds them resolves to the general
+equivalents. The execution of `general.code`/`shell` moves into the container in M40-T01; this task is the
+tool-surface and alias change, not that reroute ([OQ-117](../open-questions.md)).
+
+**Do:**
+
+- A binding of the `sandbox` server (or a specific `sandbox.*` tool) resolves to the general computer tools:
+  `exec`→`shell`, `read_file`/`write_file`/`list_files` by the same name, `export_file`→`write_file`; a
+  whole-server bind maps to `general` `shell`/`read_file`/`write_file`/`list_files`. The model is never
+  offered a `sandbox.*` tool. A stored sandbox binding entitles only those general computer tools, not the
+  general network tools (`tools/pipeline.py` `_bound`, `_entitled`).
+- The seeded revenue-analyst binds `general`, and the demo chart flow calls `general.shell`; the showcase
+  Writer and its skill's `required_tools` move to `general`.
+- A tool result's image files render inline in chat for any tool (not only a `chart` presentation), so a
+  `code`/`shell` run that draws an image shows it, keeping the command output (`tool-call-card.tsx`).
+
+**Done when:** no agent is offered a `sandbox.*` tool, a stored sandbox binding still runs on the general
+computer tools, and the demo analyst charts through `general.shell`.
+
+**Tests:** `test_m39_one_workspace.py` — a whole and a specific sandbox binding resolve to the general names,
+a sandbox binding entitles the computer tools but not `general.http`, and the analyst is offered
+`general.shell`; `test_m6_sandboxes.py` charts through `general.shell`.
 
 ## M39-T03 File primitives
 

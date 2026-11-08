@@ -43,7 +43,7 @@ _TICKET = "tickets__create_ticket"
 _ORDERS = "warehouse__run_query"
 _CREATE_PET = "petstore__create_pet"
 _DELETE_PET = "petstore__delete_pet"
-_CHART = "sandbox__exec"
+_CHART = "general__shell"
 
 
 def _answer(trigger: str, tool: str, text: str) -> dict[str, object]:
@@ -88,7 +88,7 @@ DEMO_CHAT: list[dict[str, object]] = [
     _call(
         "chart revenue by month",
         _CHART,
-        {"command": chart_command(), "cwd": "/workspace", "timeout_s": 60},
+        {"command": chart_command(), "timeout_s": 60},
     ),
     # When a recalled memory asks for bullet points, the model answers in bullet points.
     {

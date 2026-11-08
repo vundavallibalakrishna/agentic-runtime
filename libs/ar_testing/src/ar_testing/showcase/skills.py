@@ -74,7 +74,7 @@ def seed_composition(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> No
             "Load the brand-guidelines skill and write a one-page DOCX.",
             "Tell me which brief to write.",
             skills=["brand-guidelines"],
-            tools=[{"server": "sandbox", "version": "*", "include": ["*"]}],
+            tools=[{"server": "general", "version": "*", "include": ["*"]}],
             sandbox={"enabled": True, "template": "default", "scope": "conversation"},
         ),
     )
@@ -117,7 +117,7 @@ def _skill(store: Any, actor: Actor) -> None:
                 "2. Keep the name in sentence case.\n"
                 "3. Write a one-page DOCX at /workspace/outputs/brand-brief.docx.\n"
             ),
-            "required_tools": ["sandbox.exec"],
+            "required_tools": ["general.shell"],
             "assets": [{"path": "letterhead.md", "file_id": file_id}],
         },
     )
