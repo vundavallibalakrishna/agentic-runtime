@@ -115,25 +115,69 @@ def call_remote(  # noqa: PLR0917
     headers: dict[str, str] | None = None,
     timeout: float = 30.0,
     transport: str = "streamable",
+    run_id: object = None,
 ) -> dict[str, object]:
-    """Call one tool. The result is untrusted text for the wrapper."""
-    payload = _rpc(
-        store,
-        url,
-        {
-            "jsonrpc": "2.0",
-            "id": 2,
-            "method": "tools/call",
-            "params": {"name": name, "arguments": arguments},
-        },
-        token,
-        mode,
-        headers=headers,
-        timeout=timeout,
-        transport=transport,
-        initialize=True,
-    )
-    return _result_text(payload)
+    """Call one tool. The result is untrusted text for the wrapper.
+
+    Within a run, calls to the same server reuse one MCP session (M39-T06a), so the
+    server is initialised once; a dropped session is re-initialised once.
+    """
+    body = {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": name, "arguments": arguments},
+    }
+    session = _run_session(store, url, run_id)
+    for attempt in range(2):
+        try:
+            payload = _rpc(
+                store,
+                url,
+                body,
+                token,
+                mode,
+                headers=headers,
+                timeout=timeout,
+                transport=transport,
+                initialize=not (session is not None and bool(session.get("id"))),
+                session=session,
+            )
+            return _result_text(payload)
+        except RemoteError:
+            # A dropped session: forget its id and initialise a fresh one, once.
+            if attempt == 0 and session is not None and session.get("id"):
+                session.clear()
+                continue
+            raise
+    return _result_text({})
+
+
+def _run_session(store: Any, url: str, run_id: object) -> dict[str, str] | None:
+    """The MCP session this run holds for ``url``, or None when no run is named.
+
+    The sessions live in process memory, keyed by server and run; another worker that
+    picks up the run initialises its own. That is the same process-local posture as the
+    rest of a turn's live state (OQ-59).
+    """
+    if run_id is None:
+        return None
+    existing = getattr(store, "mcp_sessions", None)
+    cache: dict[Any, Any]
+    if isinstance(existing, dict):
+        cache = existing
+    else:
+        cache = {}
+        with contextlib.suppress(Exception):
+            store.mcp_sessions = cache
+        if getattr(store, "mcp_sessions", None) is not cache:
+            return None
+    key = (str(url), str(run_id))
+    session = cache.get(key)
+    if not isinstance(session, dict):
+        session = {}
+        cache[key] = session
+    return session
 
 
 def list_stdio(store: Any, command: list[str], *, timeout: int = 20) -> list[dict[str, object]]:

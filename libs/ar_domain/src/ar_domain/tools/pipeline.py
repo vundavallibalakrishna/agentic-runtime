@@ -298,6 +298,7 @@ class ToolPipeline:
                         headers=headers,
                         timeout=timeout,
                         transport=str(config.get("transport") or "streamable"),
+                        run_id=request.get("run_id"),
                     )
                 except RemoteError as exc:
                     outcome = {
