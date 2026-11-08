@@ -131,10 +131,12 @@ Increment 1 (T05c) is trusted claim-time restoration of stored state. **T05d** a
 a `version` and optional `expires_at` on each connection, refusal of an expired one, and a trusted capture
 (`save_session`) that re-seals the current container state back to the connection with an optimistic version
 check — the state is captured over the agent's `/admin/session/export` channel and never seen by the model.
-**Follow-ups:** T05e adds a trusted, non-LLM Authentication Worker that performs scripted login from `SecretStore`
-when restoration fails, with MFA/CAPTCHA escalated to a human and the model never in the loop; the full session
-lifecycle (expiration detection, controlled refresh, concurrency controls) and a durable `browser_connections`
-table with RLS come with them.
+**T05e** adds the trusted, non-LLM Authentication Worker: when a connection has a login script and no stored
+state, the worker unseals its credentials and fills the login form over the agent's trusted `/admin/login`
+channel, sealing the resulting session on success; an MFA or CAPTCHA marker returns `needs_human` and the model
+is never in the credential path. Remaining deferrals: the human-completion handoff for an MFA escalation, OAuth-
+specific connection flows, and a durable `browser_connections` table with RLS (the platform-wide store deferral,
+OQ-59).
 
 ## M40-T06 The model sees images
 

@@ -46,6 +46,8 @@ def _view(row: dict[str, object]) -> dict[str, object]:
         "name": row.get("name"),
         "allowedOrigins": [str(o) for o in _as_list(row.get("allowed_origins"))],
         "status": row.get("status"),
+        "hasState": bool(row.get("has_state")),
+        "hasLogin": bool(row.get("login")),
         "version": row.get("version", 1),
         "expiresAt": row.get("expires_at"),
         "createdAt": row.get("created_at"),
@@ -134,14 +136,18 @@ class BrowserConnectionBook:
         *,
         name: str,
         origins: list[str],
-        storage_state: bytes,
+        storage_state: bytes | None = None,
+        login: dict[str, object] | None = None,
+        credentials: dict[str, str] | None = None,
         expires_at: str | None = None,
     ) -> dict[str, object]:
         clean = str(name or "").strip()
         if not clean:
             raise ValidationFailedError("a connection name is required")
-        if len(storage_state) > _STORAGE_LIMIT:
+        if storage_state is not None and len(storage_state) > _STORAGE_LIMIT:
             raise ValidationFailedError("the session state is too large")
+        if storage_state is None and not (login and credentials):
+            raise ValidationFailedError("a connection needs stored state or a login script")
         for existing in _book(self.store).values():
             same = existing.get("tenant_id") == actor.tenant_id
             if (
@@ -152,13 +158,18 @@ class BrowserConnectionBook:
                 raise ConflictError("a browser connection with that name already exists")
         now = utcnow()
         connection_id = new_id()
+        key = connection_key()
         row: dict[str, object] = {
             "id": connection_id,
             "tenant_id": actor.tenant_id,
             "owner_user_id": actor.user_id,
             "name": clean,
             "allowed_origins": [str(origin) for origin in (origins or [])],
-            "sealed": seal(connection_key(), storage_state),
+            "sealed": seal(key, storage_state) if storage_state is not None else seal(key, b"{}"),
+            "has_state": storage_state is not None,
+            "login": dict(login) if login else None,
+            # Credentials are sealed on their own and only the Auth Worker ever opens them.
+            "cred_sealed": seal(key, orjson.dumps(credentials)) if credentials else None,
             "status": "active",
             "version": 1,
             "expires_at": str(expires_at) if expires_at else None,
@@ -211,6 +222,9 @@ def restore_into_context(  # noqa: PLR0911 - each security guard returns on its 
         row["updated_at"] = utcnow()
         _audit(store, row, "browser_connection.denied", "expired", run)
         return _error("forbidden", f"browser connection {row.get('name')} has expired")
+    # No stored session yet: the trusted worker signs in from the login script (M40-T05e).
+    if not row.get("has_state") and row.get("login"):
+        return _scripted_login(store, sandbox, row, run)
     sealed = row.get("sealed")
     try:
         opened = open_sealed(connection_key(), sealed if isinstance(sealed, bytes) else b"")
@@ -234,6 +248,71 @@ def restore_into_context(  # noqa: PLR0911 - each security guard returns on its 
         "structured": {
             "connection": row.get("name"),
             "handle": handle,
+            "status": "authenticated",
+        },
+        "is_error": False,
+    }
+
+
+def _scripted_login(
+    store: Any, sandbox: dict[str, object], row: dict[str, object], run: object
+) -> dict[str, object]:
+    """The trusted Authentication Worker: scripted login from sealed credentials.
+
+    Non-LLM. It unseals the credentials, fills the login script's fields over the trusted
+    channel, and on success seals the resulting session to the connection. MFA or CAPTCHA
+    is escalated to a human; the model never handles a credential and never sees one.
+    """
+    login = row.get("login")
+    cred_sealed = row.get("cred_sealed")
+    if not isinstance(login, dict) or not isinstance(cred_sealed, bytes):
+        return _error("forbidden", "this connection has no login configured")
+    try:
+        credentials = orjson.loads(open_sealed(connection_key(), cred_sealed))
+    except Exception:  # noqa: BLE001 - never surface why the sealed credentials failed
+        _audit(store, row, "browser_connection.login", "unseal_failed", run)
+        return _error("internal_error", "the stored credentials could not be opened")
+    steps: list[dict[str, object]] = []
+    for step in login.get("steps") or []:
+        if isinstance(step, dict):
+            field = str(step.get("field") or "")
+            steps.append(
+                {"selector": str(step.get("selector") or ""), "value": credentials.get(field, "")}
+            )
+    payload: dict[str, object] = {
+        "url": str(login.get("url") or ""),
+        "steps": steps,
+        "submit_selector": str(login.get("submit_selector") or ""),
+        "success_selector": str(login.get("success_selector") or ""),
+        "mfa_selectors": [str(sel) for sel in (login.get("mfa_selectors") or [])],
+    }
+    body = _admin_post(sandbox, "login", payload)
+    status = str(body.get("status"))
+    if status == "needs_human":
+        _audit(store, row, "browser_connection.login", "needs_human", run)
+        return {
+            "text": f"the {row.get('name')} sign-in needs a person to finish (MFA or CAPTCHA)",
+            "structured": {"connection": row.get("name"), "status": "needs_human"},
+            "is_error": False,
+        }
+    state = body.get("storage_state")
+    if status != "ready" or not isinstance(state, dict):
+        _audit(store, row, "browser_connection.login", str(body.get("reason") or "failed"), run)
+        return _error("forbidden", f"could not sign in with the {row.get('name')} connection")
+    current = row.get("version")
+    row["sealed"] = seal(connection_key(), orjson.dumps(state))
+    row["has_state"] = True
+    row["version"] = (current if isinstance(current, int) else 1) + 1
+    row["last_used_at"] = utcnow()
+    row["updated_at"] = utcnow()
+    sandbox["browser_connection_id"] = row["id"]
+    sandbox["browser_connection_version"] = row["version"]
+    _audit(store, row, "browser_connection.login", "ok", run)
+    return {
+        "text": f"signed in with the {row.get('name')} connection",
+        "structured": {
+            "connection": row.get("name"),
+            "handle": uuid.uuid4().hex,
             "status": "authenticated",
         },
         "is_error": False,
@@ -268,6 +347,7 @@ def save_session(store: Any, sandbox: dict[str, object], actor: Actor) -> dict[s
         return _error("sandbox_unavailable", "the computer had no session to save")
     current = row.get("version")
     row["sealed"] = seal(connection_key(), orjson.dumps(state))
+    row["has_state"] = True
     row["version"] = (current if isinstance(current, int) else 1) + 1
     row["updated_at"] = utcnow()
     sandbox["browser_connection_version"] = row["version"]

@@ -227,3 +227,98 @@ def test_save_without_a_signin_is_refused() -> None:
     result = save_session(store, _sandbox(tenant, user), _actor(tenant, user))
     assert result["is_error"] is True
     assert result["code"] == "validation_failed"
+
+
+_PASSWORD = "P@SS-SECRET-9kq"  # noqa: S105 - a test fixture, not a credential
+_LOGIN = {
+    "url": "https://site.example/login",
+    "steps": [{"selector": "#u", "field": "username"}, {"selector": "#p", "field": "password"}],
+    "submit_selector": "#go",
+    "success_selector": "#dash",
+    "mfa_selectors": ["#otp"],
+}
+
+
+def _login_connection(store: object, actor: Actor) -> None:
+    BrowserConnectionBook(store).create(
+        actor,
+        name="portal",
+        origins=[],
+        login=_LOGIN,
+        credentials={"username": "alice", "password": _PASSWORD},
+    )
+
+
+def test_scripted_login_signs_in_and_seals_the_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    actor = _actor(tenant, user)
+    _login_connection(store, actor)
+    seen: list[dict[str, object]] = []
+
+    def fake(sandbox: dict, path: str, payload: dict) -> dict:
+        seen.append({"path": path, "payload": payload})
+        return {"status": "ready", "storage_state": {"cookies": []}}
+
+    monkeypatch.setattr(browser_auth, "_admin_post", fake)
+    result = restore_into_context(store, _sandbox(tenant, user), actor, "portal")
+    assert result["is_error"] is False
+    assert result["structured"]["status"] == "authenticated"
+    # The password went to the trusted /admin/login channel, never to the model.
+    login_call = next(c for c in seen if c["path"] == "login")
+    assert _PASSWORD in orjson.dumps(login_call["payload"]).decode()
+    assert _PASSWORD not in orjson.dumps(result).decode()
+    # The connection now has sealed state and a bumped version.
+    row = next(iter(store.browser_connections.values()))
+    assert row["has_state"] is True
+    assert row["version"] == 2
+
+
+def test_scripted_login_escalates_mfa_to_a_human(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    actor = _actor(tenant, user)
+    _login_connection(store, actor)
+    monkeypatch.setattr(
+        browser_auth, "_admin_post", lambda *a, **k: {"status": "needs_human", "reason": "mfa"}
+    )
+    result = restore_into_context(store, _sandbox(tenant, user), actor, "portal")
+    assert result["is_error"] is False
+    assert result["structured"]["status"] == "needs_human"
+    row = next(iter(store.browser_connections.values()))
+    assert row["has_state"] is False  # nothing was sealed
+
+
+def test_scripted_login_failure_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    actor = _actor(tenant, user)
+    _login_connection(store, actor)
+    monkeypatch.setattr(
+        browser_auth, "_admin_post", lambda *a, **k: {"status": "failed", "reason": "bad_creds"}
+    )
+    result = restore_into_context(store, _sandbox(tenant, user), actor, "portal")
+    assert result["is_error"] is True
+    assert result["code"] == "forbidden"
+
+
+def test_credentials_are_never_disclosed(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    actor = _actor(tenant, user)
+    view = BrowserConnectionBook(store).create(
+        actor,
+        name="portal",
+        origins=[],
+        login=_LOGIN,
+        credentials={"username": "alice", "password": _PASSWORD},
+    )
+    # Neither the view nor the stored row expose the password in the clear.
+    assert _PASSWORD not in orjson.dumps(view).decode()
+    assert view["hasLogin"] is True
+    row = next(iter(store.browser_connections.values()))
+    assert _PASSWORD.encode() not in bytes(row["cred_sealed"])
+    monkeypatch.setattr(browser_auth, "_admin_post", lambda *a, **k: {"status": "needs_human"})
+    restore_into_context(store, _sandbox(tenant, user), actor, "portal")
+    joined = orjson.dumps([r.get("detail") for r in store.audit_log]).decode()
+    assert _PASSWORD not in joined
