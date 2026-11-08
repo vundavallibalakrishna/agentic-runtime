@@ -70,5 +70,12 @@ def test_browser_tools_run_in_the_container_through_run_tool() -> None:
         pdf_id = uuid.UUID(str(pdf["structured"]["file_id"]))
         assert store.files[pdf_id]["mime_type"] == "application/pdf"
         assert bytes(store.blobs[pdf_id])[:5] == b"%PDF-"
+
+        # Tabs: open a second tab, list both, switch and close it.
+        assert run_tool(store, "new_tab", {**ctx})["is_error"] is False
+        tabs = run_tool(store, "tabs", {**ctx})
+        assert len(tabs["structured"]["tabs"]) >= 2
+        assert run_tool(store, "switch_tab", {**ctx, "index": 0})["is_error"] is False
+        assert run_tool(store, "close_tab", {**ctx, "index": 1})["is_error"] is False
     finally:
         terminate_row(store, row, actor=demo_id("admin"))

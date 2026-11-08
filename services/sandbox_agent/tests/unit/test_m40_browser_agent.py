@@ -26,6 +26,11 @@ def test_browser_tools_include_the_file_flows() -> None:
         assert name in BROWSER_TOOLS
 
 
+def test_browser_tools_include_tabs() -> None:
+    for name in ("tabs", "new_tab", "switch_tab", "close_tab"):
+        assert name in BROWSER_TOOLS
+
+
 def test_as_int_rejects_bool_and_bad_values() -> None:
     assert _as_int(True, 7) == 7
     assert _as_int(5, 7) == 5
