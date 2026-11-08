@@ -15,7 +15,11 @@ import orjson
 from ar_domain.agents.access import Actor
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.sandboxes import browser_auth
-from ar_domain.sandboxes.browser_auth import BrowserConnectionBook, restore_into_context
+from ar_domain.sandboxes.browser_auth import (
+    BrowserConnectionBook,
+    restore_into_context,
+    save_session,
+)
 from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
@@ -153,3 +157,73 @@ def test_the_restore_is_audited_without_the_state(monkeypatch: pytest.MonkeyPatc
     assert rows, "the restore was not audited"
     assert _SECRET not in orjson.dumps(rows[-1].get("detail")).decode()
     assert rows[-1]["detail"]["outcome"] == "ok"
+
+
+def test_an_expired_connection_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    actor = _actor(tenant, user)
+    BrowserConnectionBook(store).create(
+        actor,
+        name="acme",
+        origins=[],
+        storage_state=_STATE,
+        expires_at="2000-01-01T00:00:00+00:00",
+    )
+    seen = _ready_channel(monkeypatch)
+    result = restore_into_context(store, _sandbox(tenant, user), actor, "acme")
+    assert result["is_error"] is True
+    assert result["code"] == "forbidden"
+    assert seen == [], "an expired connection is never unsealed or sent"
+
+
+def _signed_in(monkeypatch: pytest.MonkeyPatch, captured: str) -> tuple:
+    """Restore returns ready; export returns a fresh state. Gives (store, actor, sandbox)."""
+    fresh = orjson.dumps({"cookies": [{"name": "sid", "value": captured}]})
+
+    def fake(sandbox: dict, path: str, payload: dict) -> dict:
+        if path == "session/export":
+            return {"status": "ready", "storage_state": orjson.loads(fresh)}
+        return {"status": "ready", "handle": payload.get("handle")}
+
+    monkeypatch.setattr(browser_auth, "_admin_post", fake)
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    actor = _actor(tenant, user)
+    _make(store, actor)
+    sandbox = _sandbox(tenant, user)
+    restore_into_context(store, sandbox, actor, "acme")
+    return store, actor, sandbox
+
+
+def test_save_session_reseals_the_state_and_bumps_the_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store, actor, sandbox = _signed_in(monkeypatch, "FRESH-CAPTURED-TOKEN")
+    result = save_session(store, sandbox, actor)
+    assert result["is_error"] is False
+    assert result["structured"]["version"] == 2
+    # The captured state never reaches the model result.
+    assert "FRESH-CAPTURED-TOKEN" not in orjson.dumps(result).decode()
+    # It was re-sealed to the connection (the row changed), still never in plaintext.
+    row = next(iter(store.browser_connections.values()))
+    assert row["version"] == 2
+    assert b"FRESH-CAPTURED-TOKEN" not in bytes(row["sealed"])
+
+
+def test_a_stale_save_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    store, actor, sandbox = _signed_in(monkeypatch, "X")
+    # Another run advances the connection's version after this sandbox signed in.
+    row = next(iter(store.browser_connections.values()))
+    row["version"] = 5
+    result = save_session(store, sandbox, actor)
+    assert result["is_error"] is True
+    assert result["code"] == "conflict"
+
+
+def test_save_without_a_signin_is_refused() -> None:
+    store = demo_store()
+    tenant, user = uuid.uuid4(), uuid.uuid4()
+    result = save_session(store, _sandbox(tenant, user), _actor(tenant, user))
+    assert result["is_error"] is True
+    assert result["code"] == "validation_failed"

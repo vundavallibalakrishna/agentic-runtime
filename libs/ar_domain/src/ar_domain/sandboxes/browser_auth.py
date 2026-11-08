@@ -11,6 +11,7 @@ Spec: docs/03-specs/12-sandbox-manager.md §7; docs/06-security/audit.md §3.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import httpx
@@ -45,6 +46,8 @@ def _view(row: dict[str, object]) -> dict[str, object]:
         "name": row.get("name"),
         "allowedOrigins": [str(o) for o in _as_list(row.get("allowed_origins"))],
         "status": row.get("status"),
+        "version": row.get("version", 1),
+        "expiresAt": row.get("expires_at"),
         "createdAt": row.get("created_at"),
         "lastUsedAt": row.get("last_used_at"),
     }
@@ -63,6 +66,20 @@ def _find(store: Any, actor: Actor, reference: str) -> dict[str, object] | None:
 
 def _as_list(value: object) -> list[object]:
     return list(value) if isinstance(value, list) else []
+
+
+def _expired(row: dict[str, object]) -> bool:
+    """True when the connection carries an ISO expiry that is now in the past."""
+    raw = row.get("expires_at")
+    if not raw:
+        return False
+    try:
+        moment = datetime.fromisoformat(str(raw))
+    except ValueError:
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=UTC)
+    return moment <= utcnow()
 
 
 def _error(code: str, message: str) -> dict[str, object]:
@@ -112,7 +129,13 @@ class BrowserConnectionBook:
         self.store = store
 
     def create(
-        self, actor: Actor, *, name: str, origins: list[str], storage_state: bytes
+        self,
+        actor: Actor,
+        *,
+        name: str,
+        origins: list[str],
+        storage_state: bytes,
+        expires_at: str | None = None,
     ) -> dict[str, object]:
         clean = str(name or "").strip()
         if not clean:
@@ -137,6 +160,8 @@ class BrowserConnectionBook:
             "allowed_origins": [str(origin) for origin in (origins or [])],
             "sealed": seal(connection_key(), storage_state),
             "status": "active",
+            "version": 1,
+            "expires_at": str(expires_at) if expires_at else None,
             "created_at": now,
             "updated_at": now,
             "last_used_at": None,
@@ -162,7 +187,7 @@ class BrowserConnectionBook:
         return _view(row)
 
 
-def restore_into_context(
+def restore_into_context(  # noqa: PLR0911 - each security guard returns on its own
     store: Any, sandbox: dict[str, object], actor: Actor, reference: str
 ) -> dict[str, object]:
     """Inject a connection's sealed state into the container context, at claim time.
@@ -181,6 +206,11 @@ def restore_into_context(
     if status != "active":
         _audit(store, row, "browser_connection.denied", status, run)
         return _error("forbidden", f"browser connection {row.get('name')} is {status}")
+    if _expired(row):
+        row["status"] = "expired"
+        row["updated_at"] = utcnow()
+        _audit(store, row, "browser_connection.denied", "expired", run)
+        return _error("forbidden", f"browser connection {row.get('name')} has expired")
     sealed = row.get("sealed")
     try:
         opened = open_sealed(connection_key(), sealed if isinstance(sealed, bytes) else b"")
@@ -194,6 +224,10 @@ def restore_into_context(
         _audit(store, row, "browser_connection.restored", "restore_failed", run)
         return _error("sandbox_unavailable", "the computer could not restore the session")
     row["last_used_at"] = utcnow()
+    # Track which connection and version this sandbox restored, so a later save writes back
+    # to the same connection and a stale write (another run advanced it) is refused.
+    sandbox["browser_connection_id"] = row["id"]
+    sandbox["browser_connection_version"] = row.get("version", 1)
     _audit(store, row, "browser_connection.restored", "ok", run)
     return {
         "text": f"signed in with the {row.get('name')} connection",
@@ -202,5 +236,44 @@ def restore_into_context(
             "handle": handle,
             "status": "authenticated",
         },
+        "is_error": False,
+    }
+
+
+def save_session(store: Any, sandbox: dict[str, object], actor: Actor) -> dict[str, object]:
+    """Capture the container's current session state and re-seal it to its connection.
+
+    Only the connection this sandbox restored can be written, and only if no other run has
+    advanced it since (optimistic version check). The captured state is re-sealed by the
+    trusted runtime and never returned to or seen by the model.
+    """
+    connection_id = sandbox.get("browser_connection_id")
+    if not isinstance(connection_id, uuid.UUID):
+        return _error("validation_failed", "sign in with a connection before saving the session")
+    row = _book(store).get(connection_id)
+    run = sandbox.get("run_id") or sandbox.get("_run_id")
+    if (
+        row is None
+        or row.get("tenant_id") != actor.tenant_id
+        or row.get("owner_user_id") != actor.user_id
+        or row.get("status") != "active"
+    ):
+        return _error("forbidden", "the connection is no longer available to save to")
+    if row.get("version") != sandbox.get("browser_connection_version"):
+        _audit(store, row, "browser_connection.updated", "stale", run)
+        return _error("conflict", "the connection changed since sign-in; sign in again to save")
+    body = _admin_post(sandbox, "session/export", {})
+    state = body.get("storage_state")
+    if body.get("status") != "ready" or not isinstance(state, dict):
+        return _error("sandbox_unavailable", "the computer had no session to save")
+    current = row.get("version")
+    row["sealed"] = seal(connection_key(), orjson.dumps(state))
+    row["version"] = (current if isinstance(current, int) else 1) + 1
+    row["updated_at"] = utcnow()
+    sandbox["browser_connection_version"] = row["version"]
+    _audit(store, row, "browser_connection.updated", "ok", run)
+    return {
+        "text": f"saved the session to the {row.get('name')} connection",
+        "structured": {"connection": row.get("name"), "version": row["version"], "status": "saved"},
         "is_error": False,
     }

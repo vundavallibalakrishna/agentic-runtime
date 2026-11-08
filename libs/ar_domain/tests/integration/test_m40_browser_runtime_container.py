@@ -94,5 +94,11 @@ def test_browser_tools_run_in_the_container_through_run_tool() -> None:
         assert signin["is_error"] is False
         assert signin["structured"]["status"] == "authenticated"
         assert run_tool(store, "snapshot", {**ctx})["is_error"] is False
+
+        # The session saves back to its connection (captured and re-sealed by the runtime).
+        saved = run_tool(store, "save_session", {**ctx})
+        assert saved["is_error"] is False
+        assert saved["structured"]["status"] == "saved"
+        assert saved["structured"]["version"] == 2
     finally:
         terminate_row(store, row, actor=demo_id("admin"))

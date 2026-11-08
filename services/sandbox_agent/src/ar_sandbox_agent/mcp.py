@@ -26,7 +26,12 @@ from ar_common.sandboxkit import (
     virtual_path,
 )
 from ar_contracts.api_model import ApiModel
-from ar_sandbox_agent.browser import BROWSER_TOOLS, restore_session, run_browser
+from ar_sandbox_agent.browser import (
+    BROWSER_TOOLS,
+    export_session,
+    restore_session,
+    run_browser,
+)
 
 router = APIRouter()
 
@@ -106,6 +111,15 @@ async def session(
     """Restore a connection's browser state into the context. Trusted, not a model tool."""
     _auth(authorization)
     return await restore_session(body.storage_state, body.handle)
+
+
+@router.post("/admin/session/export")
+async def session_export(
+    authorization: Annotated[str | None, Header()] = None,
+) -> dict[str, object]:
+    """Return the active context's state so the runtime can re-seal it. Trusted channel."""
+    _auth(authorization)
+    return await export_session()
 
 
 @router.post("/admin/snapshot")

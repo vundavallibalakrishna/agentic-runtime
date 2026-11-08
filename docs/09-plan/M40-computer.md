@@ -127,8 +127,11 @@ state never enters model context, a tool argument, a snapshot, a log, a trace or
 audited (connection, tenant, outcome; never the state). Mandatory security tests cover cross-tenant isolation,
 connection spoofing, revocation, and secret non-disclosure.
 
-Increment 1 (this task) is trusted claim-time restoration of stored state. **Follow-ups:** T05d adds OAuth
-connections; T05e adds a trusted, non-LLM Authentication Worker that performs scripted login from `SecretStore`
+Increment 1 (T05c) is trusted claim-time restoration of stored state. **T05d** adds the session lifecycle:
+a `version` and optional `expires_at` on each connection, refusal of an expired one, and a trusted capture
+(`save_session`) that re-seals the current container state back to the connection with an optimistic version
+check — the state is captured over the agent's `/admin/session/export` channel and never seen by the model.
+**Follow-ups:** T05e adds a trusted, non-LLM Authentication Worker that performs scripted login from `SecretStore`
 when restoration fails, with MFA/CAPTCHA escalated to a human and the model never in the loop; the full session
 lifecycle (expiration detection, controlled refresh, concurrency controls) and a durable `browser_connections`
 table with RLS come with them.
