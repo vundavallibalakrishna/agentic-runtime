@@ -39,6 +39,10 @@ BROWSER_TOOLS = frozenset(
         "save_pdf",
         "download",
         "upload",
+        "tabs",
+        "new_tab",
+        "switch_tab",
+        "close_tab",
     }
 )
 
@@ -77,25 +81,41 @@ _SNAPSHOT_JS = """
 
 
 class _Session:
-    """The one Playwright browser and page for this sandbox, started on first use."""
+    """The one Playwright browser context for this sandbox, with its open tabs.
+
+    Started on first use. One context per process (one per container) keeps a page's
+    cookies off every other sandbox; the tabs are the pages of that context.
+    """
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
         self._pw: Any = None
         self._browser: Any = None
         self._context: Any = None
-        self._page: Any = None
+        self._active: Any = None
 
-    async def page(self) -> Any:
-        if self._page is not None:
-            return self._page
+    async def _ensure(self) -> None:
+        if self._context is not None:
+            return
         from playwright.async_api import async_playwright  # noqa: PLC0415
 
         self._pw = await async_playwright().start()
         self._browser = await self._pw.chromium.launch(args=["--no-sandbox"])
         self._context = await self._browser.new_context()
-        self._page = await self._context.new_page()
-        return self._page
+        self._active = await self._context.new_page()
+
+    async def context(self) -> Any:
+        await self._ensure()
+        return self._context
+
+    async def page(self) -> Any:
+        await self._ensure()
+        if self._active is None or self._active.is_closed():
+            self._active = await self._context.new_page()
+        return self._active
+
+    def set_active(self, page: Any) -> None:
+        self._active = page
 
 
 _SESSION = _Session()
@@ -286,6 +306,62 @@ async def _upload(page: Any, arguments: dict[str, object]) -> dict[str, object]:
     }
 
 
+async def _tabs(_page: Any, _arguments: dict[str, object]) -> dict[str, object]:
+    context = await _SESSION.context()
+    active = await _SESSION.page()
+    pages = list(context.pages)
+    tabs: list[dict[str, object]] = []
+    for index, open_page in enumerate(pages):
+        tabs.append(
+            {
+                "index": index,
+                "url": open_page.url,
+                "title": await open_page.title(),
+                "active": open_page is active,
+            }
+        )
+    lines = [
+        f"{'*' if tab['active'] else ' '} [{tab['index']}] {tab['title']} — {tab['url']}"
+        for tab in tabs
+    ]
+    return {
+        "text": "\n".join(lines) or "no tabs are open",
+        "structured": {"tabs": tabs},
+        "is_error": False,
+    }
+
+
+async def _new_tab(_page: Any, _arguments: dict[str, object]) -> dict[str, object]:
+    context = await _SESSION.context()
+    opened = await context.new_page()
+    _SESSION.set_active(opened)
+    return await _snapshot_result(opened, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _switch_tab(_page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    context = await _SESSION.context()
+    pages = list(context.pages)
+    index = _as_int(arguments.get("index"), -1)
+    if index < 0 or index >= len(pages):
+        return {"text": f"there is no tab {index}", "is_error": True, "code": "not_found"}
+    target = pages[index]
+    _SESSION.set_active(target)
+    await target.bring_to_front()
+    return await _snapshot_result(target, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _close_tab(_page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    context = await _SESSION.context()
+    pages = list(context.pages)
+    index = _as_int(arguments.get("index"), -1)
+    if index < 0 or index >= len(pages):
+        return {"text": f"there is no tab {index}", "is_error": True, "code": "not_found"}
+    await pages[index].close()
+    remaining = list(context.pages)
+    _SESSION.set_active(remaining[-1] if remaining else None)
+    return await _tabs(_page, arguments)
+
+
 def _safe_name(name: str) -> str:
     cleaned = "".join(ch if ch.isalnum() or ch in "-._" else "_" for ch in name).strip("._")
     return cleaned or "download"
@@ -328,4 +404,8 @@ _HANDLERS: dict[str, Callable[[Any, dict[str, object]], Awaitable[dict[str, obje
     "save_pdf": _save_pdf,
     "download": _download,
     "upload": _upload,
+    "tabs": _tabs,
+    "new_tab": _new_tab,
+    "switch_tab": _switch_tab,
+    "close_tab": _close_tab,
 }

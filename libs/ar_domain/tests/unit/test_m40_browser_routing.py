@@ -120,3 +120,17 @@ def test_upload_is_proxied_to_the_container(monkeypatch: pytest.MonkeyPatch) -> 
     )
     assert seen["tool"] == "upload"
     assert result["is_error"] is False
+
+
+def test_a_tab_tool_is_proxied_to_the_container(monkeypatch: pytest.MonkeyPatch) -> None:
+    store = demo_store()
+    seen: dict[str, object] = {}
+
+    def fake(sandbox: dict, tool: str, arguments: dict, **kw: object) -> dict:
+        seen["tool"] = tool
+        return {"text": "tabs", "structured": {"tabs": []}, "is_error": False}
+
+    monkeypatch.setattr(runtime, "_agent_post", fake)
+    result = runtime._browser(store, _sandbox(store), "tabs", {})
+    assert seen["tool"] == "tabs"
+    assert result["is_error"] is False

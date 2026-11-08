@@ -2430,6 +2430,16 @@ def _browser_tools() -> list[dict[str, object]]:
             },
         },
     }
+    tab_index: dict[str, object] = {
+        "type": "object",
+        "properties": {
+            "index": {
+                "type": "integer",
+                "description": "The tab's index, from the tabs tool.",
+            }
+        },
+        "required": ["index"],
+    }
     page: dict[str, object] = {"openWorldHint": True, "readOnlyHint": True}
     return [
         _tool(
@@ -2506,6 +2516,34 @@ def _browser_tools() -> list[dict[str, object]]:
                 "required": ["ref", "path"],
             },
             "W1",
+        ),
+        _tool(
+            "tabs",
+            "List tabs",
+            "List the open browser tabs with their index, title and URL, and which is active.",
+            {"type": "object", "properties": {}},
+            "R0",
+        ),
+        _tool(
+            "new_tab",
+            "Open a tab",
+            "Open a new, blank browser tab and make it the active one.",
+            {"type": "object", "properties": {}},
+            "R0",
+        ),
+        _tool(
+            "switch_tab",
+            "Switch tab",
+            "Make another open tab the active one, by its index from the tabs tool.",
+            tab_index,
+            "R0",
+        ),
+        _tool(
+            "close_tab",
+            "Close a tab",
+            "Close an open tab by its index from the tabs tool.",
+            tab_index,
+            "R0",
         ),
     ]
 

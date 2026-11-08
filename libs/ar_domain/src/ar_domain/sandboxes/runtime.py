@@ -166,6 +166,10 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         "save_pdf",
         "download",
         "upload",
+        "tabs",
+        "new_tab",
+        "switch_tab",
+        "close_tab",
     }:
         return _browser(store, sandbox, name, arguments)
     return _error("unknown_tool", f"unknown tool {name}")
