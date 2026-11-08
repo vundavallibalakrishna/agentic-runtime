@@ -9,8 +9,27 @@ milestone starts.
 
 ## M40-T01 The sandbox manager is on the call path
 
-**Do:** the Docker driver starts a container for a conversation in development and CI. `sandbox-agent`
-runs commands and file operations inside it. The host-subprocess fallback is refused outside dev.
+The spec's design (12 §6) runs code and file I/O inside the container through `sandbox-agent` over HTTP, with
+the workspace in a volume, not a host bind-mount. So this is built in stages: **T01** makes the agent run
+commands and file operations inside a sandbox; **T01b** builds the `ar-sandbox` image that bakes it (OQ-37);
+**T01c** gives the manager an `aiodocker` driver that starts and claims a container; **T01d** routes
+`general.code`/`shell` and the sandbox file tools through the manager, and refuses the host driver outside an
+install that allows it ([OQ-119](../open-questions.md)).
+
+**Do (T01):**
+
+- `sandbox-agent` runs `sandbox.exec` in its `/workspace`: a bash command with a confined `cwd`, a timeout
+  that kills the process group (exit 124), `stdin` and `env`, returning `exit_code`, `stdout`/`stderr`
+  (capped), `truncated`, `duration_ms` and the files the command created or changed.
+- `sandbox.read_file` takes a byte range and an encoding; `sandbox.write_file` takes base64 and append and
+  caps at 10 MiB; `sandbox.list_files` recurses within a cap. Every result carries the cumulative
+  `cpu_seconds_total` the gateway meters deltas from.
+- Paths stay inside the sandbox root; a `cwd` or path that escapes is refused.
+
+**Done when (T01):** the agent runs a command, reports the files it wrote, times out a long one, and reads
+and writes files by range and base64 — all confined to its workspace.
+
+**Tests:** `services/sandbox_agent/tests/unit/test_m40_agent.py`.
 
 ## M40-T02 The computer image
 
