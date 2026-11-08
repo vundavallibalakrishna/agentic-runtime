@@ -1,0 +1,19 @@
+# The Python toolbox a computer carries for user code (spec 12 §7.1). These are not
+# dependencies of the sandbox-agent; they are the libraries a command run in the
+# container can import. Compiled to the pinned sandbox-tools.txt with:
+#   uv pip compile images/sandbox/sandbox-tools.in -o images/sandbox/sandbox-tools.txt
+pandas
+numpy
+polars
+scipy
+matplotlib
+seaborn
+openpyxl
+python-docx
+python-pptx
+reportlab
+pypdf
+pdfplumber
+duckdb
+pillow
+pytesseract

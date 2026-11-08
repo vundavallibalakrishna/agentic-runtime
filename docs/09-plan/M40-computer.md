@@ -53,9 +53,24 @@ and writes files by range and base64 — all confined to its workspace.
 
 ## M40-T02 The computer image
 
-**Do:** the image carries the Python set that spec 12 lists (pandas, numpy, polars, matplotlib, openpyxl,
-python-docx, python-pptx, reportlab), a PDF library, LibreOffice, poppler, tesseract with configurable
-languages, and ffmpeg. CI builds it.
+**Do:**
+
+- Bake the Python toolbox the spec lists into the `ar-sandbox` image so a command that runs `python3` finds
+  it: pandas, numpy, polars, scipy, matplotlib, seaborn, openpyxl, python-docx, python-pptx, reportlab, pypdf,
+  pdfplumber, duckdb, pillow, pytesseract. The set is pinned in `images/sandbox/sandbox-tools.txt`, compiled
+  from `sandbox-tools.in` with `uv pip compile --universal` for Python 3.14, and installed into the agent venv.
+- Add the document, OCR and media stack: LibreOffice headless (writer/calc/impress filters), poppler-utils,
+  tesseract with configurable languages (`SANDBOX_TESSERACT_LANGS`, default `eng`), ffmpeg, and Noto fonts
+  (incl. CJK and Indic scripts).
+- CI's `images` job builds the image (no timeout; `scripts/build_images.sh`). Node, Chromium and Playwright
+  stay for M40-T04.
+
+**Done when:** the image builds in CI and a command run in a started container imports the toolbox
+(`python3 -c "import pandas, matplotlib, docx, pptx, pdfplumber"`), converts a document with LibreOffice and
+runs tesseract. Verified locally by building the full image and importing the toolbox inside it.
+
+**Tests:** the CI `images` build is the gate; `libs/ar_domain/tests/integration/test_m40_container_launch.py`
+covers a command running in a real container.
 
 ## M40-T03 Kubernetes and egress
 
