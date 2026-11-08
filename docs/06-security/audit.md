@@ -36,7 +36,7 @@ Implementation: [spec 17 §1](../03-specs/17-audit-usage-metering.md#1-audit), t
 | Knowledge | `collection.created`, `collection.updated`, `collection.deleted`, `collection.reindexed`, `source.created`, `source.updated`, `source.deleted`, `source.synced`, `document.added`, `document.deleted`, `document.classified`, `collection.store_migrated` |
 | Documents | `library_document.ingested`, `library_document.rejected` (F), `document_rewrite.proposed`, `document_rewrite.accepted`, `document_rewrite.rejected` |
 | Memory | `memory.created`, `memory.updated`, `memory.deleted`, `memory.extracted`, `memory.approved`, `memory.rejected`, `memory.cleared` |
-| Sandboxes | `sandbox_template.created`, `sandbox_template.updated`, `sandbox_template.deleted`, `sandbox.created`, `sandbox.terminated`, `sandbox.egress_denied` (F), `browser_connection.created`, `browser_connection.restored`, `browser_connection.revoked`, `browser_connection.denied` (F) |
+| Sandboxes | `sandbox_template.created`, `sandbox_template.updated`, `sandbox_template.deleted`, `sandbox.created`, `sandbox.terminated`, `sandbox.egress_denied` (F), `browser_connection.created`, `browser_connection.restored`, `browser_connection.updated`, `browser_connection.revoked`, `browser_connection.denied` (F) |
 | Skills | `skill.created`, `skill.updated`, `skill.published`, `skill.archived` |
 | Routines | `routine.created`, `routine.updated`, `routine.deleted`, `routine.paused`, `routine.resumed`, `routine.transferred`, `routine.run_requested`, `routine.webhook_secret_rotated` |
 | Channels | `channel_integration.created`, `channel_integration.updated`, `channel_integration.deleted`, `channel_identity.linked`, `channel_identity.unlinked` |

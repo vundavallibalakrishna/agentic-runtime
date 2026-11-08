@@ -206,6 +206,7 @@ class AuditAction(StrEnum):
     SANDBOX_EGRESS_DENIED = "sandbox.egress_denied"
     BROWSER_CONNECTION_CREATED = "browser_connection.created"
     BROWSER_CONNECTION_RESTORED = "browser_connection.restored"
+    BROWSER_CONNECTION_UPDATED = "browser_connection.updated"
     BROWSER_CONNECTION_REVOKED = "browser_connection.revoked"
     BROWSER_CONNECTION_DENIED = "browser_connection.denied"
     SKILL_CREATED = "skill.created"

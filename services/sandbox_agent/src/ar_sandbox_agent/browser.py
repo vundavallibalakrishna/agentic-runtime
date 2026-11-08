@@ -154,6 +154,24 @@ async def restore_session(storage_state: dict[str, object], handle: str) -> dict
     return {"status": "ready", "handle": handle}
 
 
+async def export_session() -> dict[str, object]:
+    """Return the active context's current browser state. Trusted channel only.
+
+    The runtime re-seals this to the connection; it never passes through a model tool or
+    result. With no started context there is nothing to save.
+    """
+    try:
+        import playwright  # noqa: F401, PLC0415
+    except ImportError:
+        return {"status": "no_browser"}
+    async with _SESSION._lock:
+        context = _SESSION._context
+        if context is None:
+            return {"status": "empty"}
+        state = await context.storage_state()
+    return {"status": "ready", "storage_state": state}
+
+
 async def run_browser(name: str, arguments: dict[str, object]) -> dict[str, object]:
     """Dispatch one browser tool, or report that the browser is not installed."""
     try:

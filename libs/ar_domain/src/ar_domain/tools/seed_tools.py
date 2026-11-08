@@ -2562,6 +2562,14 @@ def _browser_tools() -> list[dict[str, object]]:
             },
             "W1",
         ),
+        _tool(
+            "save_session",
+            "Save the signed-in session",
+            "Save the current signed-in browser session back to its connection, so later "
+            "runs resume it. The platform stores the session; you never see it.",
+            {"type": "object", "properties": {}},
+            "W1",
+        ),
     ]
 
 
