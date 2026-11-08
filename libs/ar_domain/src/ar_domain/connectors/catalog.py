@@ -1060,6 +1060,97 @@ def categories() -> list[str]:
     return found
 
 
+# A description for each parameter a connector tool takes, so the model can fill it
+# from its schema alone (M39-T01a). The names are shared across providers (pagination,
+# ids, search), so one map covers all 92 tools.
+_PARAM_DESCRIPTIONS: dict[str, str] = {
+    # Pagination
+    "cursor": "Opaque pagination cursor from a previous response; omit for the first page.",
+    "after": "Return items after this cursor from a previous response; omit for the first page.",
+    "pageToken": "The page token from a previous response; omit for the first page.",
+    "nextPageToken": "The page token from a previous response; omit for the first page.",
+    "page": "The 1-based page number to return.",
+    "limit": "The maximum number of items to return.",
+    "maxResults": "The maximum number of results to return.",
+    "pageSize": "The maximum number of items per page.",
+    "per_page": "The number of items per page.",
+    "$top": "The maximum number of items to return (Microsoft Graph $top).",
+    "sysparm_limit": "The maximum number of records to return (ServiceNow).",
+    "sysparm_offset": "The number of records to skip before returning results (ServiceNow).",
+    # Search and selection
+    "query": "The search query.",
+    "q": "The search query or filter expression.",
+    "jql": "A Jira Query Language (JQL) expression selecting issues.",
+    "cql": "A Confluence Query Language (CQL) expression selecting content.",
+    "sysparm_query": "A ServiceNow encoded query filtering records.",
+    "fields": "A comma-separated list of fields to return.",
+    "expand": "A comma-separated list of related data to include in the response.",
+    # Scope and identity
+    "project": "The project id or key.",
+    "subscription": "The Azure subscription id.",
+    "api-version": "The API version to use for the request.",
+    "owner": "The repository owner, a user or organisation.",
+    "repo": "The repository name.",
+    "group": "The resource group name.",
+    "group_id": "The group id.",
+    "zone": "The compute zone, for example us-central1-a.",
+    "company_id": "The company id.",
+    "app_id": "The application id.",
+    "team": "The team id or name.",
+    "channel": "The channel id or name.",
+    "calendar": "The calendar id, or 'primary' for the user's main calendar.",
+    "space": "The Confluence space key.",
+    "database_id": "The database id.",
+    "parent": "The id of the parent resource.",
+    "table": "The table name.",
+    "object": "The object or resource type to act on.",
+    # Ids
+    "user_id": "The user id.",
+    "page_id": "The page id.",
+    "file_id": "The file id.",
+    "item_id": "The item id.",
+    "record_id": "The record id.",
+    "ticket_id": "The ticket id.",
+    "contact_id": "The contact id.",
+    "sys_id": "The ServiceNow record sys_id.",
+    "issue": "The issue number or key.",
+    # Content
+    "title": "The title.",
+    "name": "The name.",
+    "summary": "A short summary or title.",
+    "description": "The description text.",
+    "short_description": "A short, one-line description.",
+    "body": "The main body or content of the item.",
+    "content": "The content to write.",
+    "text": "The message or note text.",
+    "comment": "The comment text.",
+    "subject": "The subject line.",
+    "category": "The category.",
+    "state": "The state to set or filter by.",
+    "urgency": "The urgency level.",
+    "type": "The type.",
+    "path": "The resource or file path.",
+    "email": "The email address.",
+    "firstname": "The first name.",
+    "lastname": "The last name.",
+    # Time
+    "start": "The start, an offset or a start time depending on the tool.",
+    "end": "The end, an offset or an end time depending on the tool.",
+    "timeMin": "The earliest time to include, as an RFC 3339 timestamp.",
+    "timeMax": "The latest time to include, as an RFC 3339 timestamp.",
+    "startDateTime": "The start date and time, in ISO 8601.",
+    "endDateTime": "The end date and time, in ISO 8601.",
+    "schedules": "The mailboxes or resources to query for free/busy.",
+    # Misc
+    "alt": "The response format, for example 'media' to download file content.",
+}
+
+
+def _describe_param(name: str) -> str:
+    """A description for a connector parameter, or a plain fallback for a new one."""
+    return _PARAM_DESCRIPTIONS.get(name) or f"The {name.replace('_', ' ')}."
+
+
 def tool_records() -> list[dict[str, object]]:
     """Registry rows for the built-in connectors server."""
     rows: list[dict[str, object]] = []
@@ -1080,8 +1171,10 @@ def tool_records() -> list[dict[str, object]]:
                     }
                     else "string"
                 )
-                properties[name] = {"type": kind}
-            properties.setdefault("cursor", {"type": "string"})
+                properties[name] = {"type": kind, "description": _describe_param(name)}
+            properties.setdefault(
+                "cursor", {"type": "string", "description": _describe_param("cursor")}
+            )
             rows.append(
                 {
                     "name": tool.name,

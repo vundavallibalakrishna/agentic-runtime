@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 # Servers whose parameters are not yet described. Each must have a task that removes it.
-DEFERRED_SERVERS = {"connectors"}  # M39-T01a
+DEFERRED_SERVERS: set[str] = set()  # the connectors were described in M39-T01a
 
 
 def _seed_catalogue() -> list[dict[str, Any]]:
