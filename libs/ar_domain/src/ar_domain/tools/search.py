@@ -16,9 +16,11 @@ from __future__ import annotations
 import hashlib
 import re
 import threading
+import uuid
 from typing import TYPE_CHECKING
 
 from ar_common.logging import get_logger
+from ar_common.time import utcnow
 from ar_domain.models.embedding import (
     EmbeddingFailedError,
     EmbeddingUnconfiguredError,
@@ -94,9 +96,9 @@ def prepare_tools(
     if not missing:
         return True
     if wait:
-        kept.fill(target, missing)
+        kept.fill(target, missing, store=store, tenant_id=tenant_id)
         return True
-    kept.start(target, missing)
+    kept.start(target, missing, store=store, tenant_id=tenant_id)
     return False
 
 
@@ -109,7 +111,7 @@ def _by_meaning(store: Any, tenant_id: object, query: str, texts: list[str]) -> 
     kept = _kept(store)
     missing = kept.missing(target, texts)
     if missing:
-        kept.start(target, missing)
+        kept.start(target, missing, store=store, tenant_id=tenant_id)
         return None
     try:
         asked = embed(target, [query])[0]
@@ -132,15 +134,34 @@ class _Kept:
         self.worker: threading.Thread | None = None
         self._lock = threading.Lock()
 
+    def sync(self, store: Any) -> None:
+        """Take in any vectors the store hydrated from the durable table (M39-T04a)."""
+        book = getattr(store, "tool_search_vectors", None)
+        if not isinstance(book, dict):
+            return
+        for row in book.values():
+            if not isinstance(row, dict):
+                continue
+            model_id = str(row.get("model_id") or "")
+            text_hash = str(row.get("text_hash") or "")
+            vector = row.get("vector")
+            if model_id and text_hash and isinstance(vector, list):
+                self.vectors.setdefault((model_id, text_hash), [float(value) for value in vector])
+
     def missing(self, target: ModelTarget, texts: list[str]) -> list[str]:
         """The texts with no vector from this model, each once, in order."""
         return [text for text in dict.fromkeys(texts) if _key(target, text) not in self.vectors]
 
-    def fill(self, target: ModelTarget, texts: list[str]) -> None:
+    def fill(
+        self, target: ModelTarget, texts: list[str], *, store: Any = None, tenant_id: object = None
+    ) -> None:
         for text, vector in zip(texts, embed(target, texts), strict=True):
             self.vectors[_key(target, text)] = vector
+            _record(store, tenant_id, target, text, vector)
 
-    def start(self, target: ModelTarget, texts: list[str]) -> None:
+    def start(
+        self, target: ModelTarget, texts: list[str], *, store: Any = None, tenant_id: object = None
+    ) -> None:
         """Embed ``texts`` on a thread, unless one is already at work.
 
         Whatever is still missing when it ends is picked up by the next search.
@@ -149,17 +170,41 @@ class _Kept:
             if self.worker is not None and self.worker.is_alive():
                 return
             self.worker = threading.Thread(
-                target=self._work, args=(target, texts), name="tool-vectors", daemon=True
+                target=self._work,
+                args=(target, texts, store, tenant_id),
+                name="tool-vectors",
+                daemon=True,
             )
             self.worker.start()
 
-    def _work(self, target: ModelTarget, texts: list[str]) -> None:
+    def _work(self, target: ModelTarget, texts: list[str], store: Any, tenant_id: object) -> None:
         try:
-            self.fill(target, texts)
+            self.fill(target, texts, store=store, tenant_id=tenant_id)
         except EmbeddingFailedError as exc:
             _log.warning("tool_search_embedding_unavailable", code=exc.code.value)
         except Exception as exc:  # noqa: BLE001 - a thread of its own: nothing above it to tell
             _log.warning("tool_search_embedding_unavailable", error=type(exc).__name__)
+
+
+def _record(
+    store: Any, tenant_id: object, target: ModelTarget, text: str, vector: list[float]
+) -> None:
+    """Keep a computed vector in the durable table, so a later process does not re-embed it."""
+    book = getattr(store, "tool_search_vectors", None)
+    if not isinstance(book, dict) or not isinstance(tenant_id, uuid.UUID) or not vector:
+        return
+    text_hash = hashlib.sha256(text.encode()).hexdigest()
+    row_id = uuid.uuid5(uuid.NAMESPACE_URL, f"toolvec:{tenant_id}:{target.model_id}:{text_hash}")
+    now = utcnow()
+    book[row_id] = {
+        "id": row_id,
+        "tenant_id": tenant_id,
+        "model_id": str(target.model_id),
+        "text_hash": text_hash,
+        "vector": list(vector),
+        "created_at": now,
+        "updated_at": now,
+    }
 
 
 def _kept(store: Any) -> _Kept:
@@ -167,6 +212,7 @@ def _kept(store: Any) -> _Kept:
     if not isinstance(kept, _Kept):
         kept = _Kept()
         store.tool_vectors = kept
+    kept.sync(store)
     return kept
 
 

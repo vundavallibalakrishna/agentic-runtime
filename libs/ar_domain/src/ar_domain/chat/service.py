@@ -309,6 +309,7 @@ class ChatService:
     workspace_files: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     job_progress: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     a2a_push_configs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    tool_search_vectors: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     cache_limits: dict[str, int] = field(default_factory=dict)
     evicted_conversations: set[uuid.UUID] = field(default_factory=set)
 

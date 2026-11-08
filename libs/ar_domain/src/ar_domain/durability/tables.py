@@ -13,7 +13,7 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ar_domain.db.base import Base
@@ -123,5 +123,30 @@ class A2APushConfig(Base):
     config_id: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'default'"))
     url: Mapped[str] = mapped_column(Text, nullable=False)
     token: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    created_at: Mapped[datetime] = created_at_col()
+    updated_at: Mapped[datetime] = updated_at_col()
+
+
+class ToolSearchVector(Base):
+    """One tool-search embedding, kept per tenant, embedding model and tool text."""
+
+    __tablename__ = "tool_search_vectors"
+    __table_args__ = (
+        Index(
+            "uq_tool_search_vectors_text",
+            "tenant_id",
+            "model_id",
+            "text_hash",
+            unique=True,
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    model_id: Mapped[str] = mapped_column(Text, nullable=False)
+    text_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    vector: Mapped[list[float]] = mapped_column(JSONB, nullable=False)
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
