@@ -8,9 +8,42 @@ Depends on: M38. Tasks are split into full task entries when the milestone start
 
 ## M39-T01 Described tools, with a lint
 
-**Do:** every tool has a description on each parameter, enums where the values are closed, item schemas for
-arrays, the required fields, a note on when to use it and when not to, and the shape of its result. A script
-in the `docs` CI job fails when a parameter has no description. Rewrite `prompts/text/tool_use.md`.
+Split from the review's one item because the connector catalogue is 92 tools and 267 undescribed
+parameters, far more than the 66 core built-ins: **T01** describes the core built-ins and ships the lint and
+the prompt; **T01a** describes the connectors and removes the deferred exclusion
+([OQ-116](../open-questions.md)).
+
+**Do:**
+
+- Every core built-in tool (files, records, conversations, control, sandbox, browser, general, data,
+  documents, image, knowledge, memory, skills) has a description on each parameter, an enum where the values
+  are closed, an item schema for every array, and a top-level description that says what the tool does, when
+  to use it and what it returns. Parameters are described at the source in `tools/seed_tools.py`.
+- `scripts/check_tool_descriptions.py` seeds the built-in catalogue (no demo tenant, no fixtures) and fails
+  when a parameter has no description or an array has no item schema, naming `server.tool.parameter`. It runs
+  in the `docs` CI job. The connector server is the one deferred server, pinned in the script so nothing else
+  can be added to it silently.
+- `prompts/text/tool_use.md` is rewritten to tell the model to choose and fill a tool from its description
+  and its parameter descriptions, prefer the most specific tool, pass allowed enum values and every required
+  parameter, and never invent a tool or value a description does not offer.
+
+**Done when:** the lint passes on the core catalogue and fails on a missing description; every core built-in
+parameter is described; the prompt leans on the descriptions.
+
+**Tests:** `test_m39_tool_descriptions.py` — every built-in parameter is described, the lint catches a missing
+description and a missing item schema and checks nested object and array schemas, the connector server is the
+only deferred one, and the lint script exits 0 on the real catalogue.
+
+## M39-T01a Described connectors
+
+**Do:** every connector tool's parameters get a description, an enum where closed, and an item schema for
+arrays, at their source in the connector catalogue. The `connectors` server leaves `DEFERRED_SERVERS` in
+`scripts/check_tool_descriptions.py`, so the lint then covers the whole catalogue.
+
+**Done when:** `DEFERRED_SERVERS` is empty and the lint passes over every built-in and connector tool.
+
+**Tests:** `test_m39_tool_descriptions.py` asserts `DEFERRED_SERVERS` is empty and the lint covers the
+connectors.
 
 ## M39-T02 One workspace
 
