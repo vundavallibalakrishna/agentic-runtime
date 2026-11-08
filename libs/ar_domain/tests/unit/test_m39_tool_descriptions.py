@@ -71,9 +71,21 @@ def test_item_and_object_schemas_are_checked_deeply() -> None:
     assert "demo.tool.rows[].cell" in gaps
 
 
-def test_the_connector_server_is_the_only_deferred_one() -> None:
+def test_no_server_is_deferred_from_description() -> None:
     lint = _lint()
-    assert lint.DEFERRED_SERVERS == {"connectors"}
+    assert lint.DEFERRED_SERVERS == set()
+
+
+def test_connector_parameters_are_described() -> None:
+    from ar_domain.connectors.catalog import tool_records
+
+    gaps: list[str] = []
+    lint = _lint()
+    for tool in tool_records():
+        schema = tool.get("input_schema")
+        if isinstance(schema, dict):
+            gaps.extend(lint._schema_gaps(str(tool.get("name")), schema))
+    assert gaps == [], f"undescribed connector parameters: {gaps[:10]}"
 
 
 @pytest.mark.skipif(not SCRIPT.exists(), reason="lint script missing")
