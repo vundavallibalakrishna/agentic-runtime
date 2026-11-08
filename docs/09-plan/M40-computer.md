@@ -88,9 +88,13 @@ venv and `PLAYWRIGHT_BROWSERS_PATH`). CI's default image leaves it out so it sta
 browser image is built with `--build-arg WITH_BROWSER=1`. Done when the image builds and Playwright drives a
 real page inside a started container (verified locally).
 
-**T04b — the agent's browser tools.** The sandbox-agent drives Chromium: `navigate`, `snapshot` (an
-accessibility tree with element refs), `click`, `type`, `press`, `select`, `hover`, `scroll`, `wait_for`, and a
-real `screenshot`. Each tool has its own schema.
+**T04b — the agent's browser tools.** The sandbox-agent drives Chromium with the async Playwright API:
+`navigate`, `snapshot` (every visible interactive element tagged with a `data-ar-ref`, returned as an outline
+of refs plus page text), `click`, `type`, `press`, `select`, `hover`, `scroll`, `wait_for`, and a real
+`screenshot`. Playwright is a locked optional dep imported lazily, so the default image does without it. One
+context per container keeps cookies isolated. Tests: `services/sandbox_agent/tests/unit/test_m40_browser_agent.py`
+and the docker-gated `services/sandbox_agent/tests/integration/test_m40_browser_container.py` (the agent
+navigates, snapshots, clicks and screenshots a real page).
 
 **T04c — routing and retiring M37.** The runtime routes `browser_*` to the container agent (as it does `exec`),
 the in-process HTML parser (`sandboxes/browser.py`) is retired, and the browser e2e specs move onto the real

@@ -15,6 +15,11 @@ dependencies = [
     "uvicorn[standard]==0.54.0",
 ]
 
+# The browser engine, installed only into the browser image (Dockerfile WITH_BROWSER=1).
+# The agent imports it lazily, so the default image and the unit job do without it.
+[project.optional-dependencies]
+browser = ["playwright==1.64.1"]
+
 [project.scripts]
 ar-sandbox-agent = "ar_sandbox_agent.main:main"
 

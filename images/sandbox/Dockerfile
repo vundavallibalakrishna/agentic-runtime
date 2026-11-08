@@ -52,7 +52,6 @@ RUN uv sync --frozen --no-dev --no-editable --package ar-sandbox-agent \
 ARG WITH_BROWSER=0
 ARG NODE_VERSION=24.22.2
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
-COPY images/sandbox/browser-tools.txt ./browser-tools.txt
 RUN if [ "$WITH_BROWSER" = "1" ]; then \
         set -eux; \
         apt-get update && apt-get install -y --no-install-recommends xz-utils && rm -rf /var/lib/apt/lists/*; \
@@ -65,7 +64,7 @@ RUN if [ "$WITH_BROWSER" = "1" ]; then \
         curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${nodearch}.tar.xz" \
             | tar -xJ -C /usr/local --strip-components=1; \
         corepack enable; \
-        uv pip install --python /app/.venv/bin/python --no-cache -r browser-tools.txt; \
+        uv sync --frozen --no-dev --no-editable --package ar-sandbox-agent --extra browser; \
         mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"; \
         /app/.venv/bin/playwright install --with-deps chromium; \
         chown -R sandbox:sandbox "$PLAYWRIGHT_BROWSERS_PATH"; \

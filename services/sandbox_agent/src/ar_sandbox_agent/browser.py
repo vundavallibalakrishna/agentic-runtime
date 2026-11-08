@@ -1,0 +1,238 @@
+"""Drive a real Chromium page inside the sandbox with Playwright. Task: M40-T04b.
+
+One browser context lives in this agent process, which is one sandbox's container, so a
+page's cookies never reach another sandbox. The tools keep the names and shapes M37's
+in-process browser used (``navigate``, ``snapshot``, ``click``, ``type``, ``press``,
+``select``, ``hover``, ``scroll``, ``wait_for``) and add a real ``screenshot``; the runtime
+keeps the navigation-approval and egress rules (M40-T04c). Playwright is present only in the
+browser image, so it is imported lazily and a plain error is returned when it is absent.
+Spec: docs/03-specs/12-sandbox-manager.md §7.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+BROWSER_TOOLS = frozenset(
+    {
+        "navigate",
+        "snapshot",
+        "click",
+        "type",
+        "press",
+        "select",
+        "hover",
+        "scroll",
+        "wait_for",
+        "screenshot",
+    }
+)
+
+_DEFAULT_SNAPSHOT_CHARS = 40000
+_SMALL_SNAPSHOT_CHARS = 4000
+_NAV_TIMEOUT_MS = 30000
+
+# Tag every visible interactive element with a stable ref and return the page outline.
+_SNAPSHOT_JS = """
+(maxChars) => {
+  const sel = 'a,button,input,select,textarea,summary,[role=button],[role=link],'
+    + '[role=tab],[role=menuitem],[role=checkbox],[role=switch],[onclick],'
+    + '[contenteditable=""],[contenteditable=true]';
+  const nodes = Array.from(document.querySelectorAll(sel));
+  let i = 0; const elements = [];
+  for (const el of nodes) {
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    if (rect.width <= 0 || rect.height <= 0 || style.visibility === 'hidden'
+        || style.display === 'none') continue;
+    const ref = 'e' + (++i);
+    el.setAttribute('data-ar-ref', ref);
+    const value = (typeof el.value === 'string') ? el.value : '';
+    let name = el.getAttribute('aria-label') || value || el.innerText
+      || el.getAttribute('placeholder') || el.getAttribute('title') || '';
+    name = name.trim().replace(/\\s+/g, ' ').slice(0, 120);
+    elements.push({ref: ref, role: el.getAttribute('role') || el.tagName.toLowerCase(),
+                   name: name});
+  }
+  const text = document.body
+    ? document.body.innerText.replace(/[ \\t]+\\n/g, '\\n').slice(0, maxChars) : '';
+  return {title: document.title, url: location.href, text: text, elements: elements};
+}
+"""
+
+
+class _Session:
+    """The one Playwright browser and page for this sandbox, started on first use."""
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._pw: Any = None
+        self._browser: Any = None
+        self._context: Any = None
+        self._page: Any = None
+
+    async def page(self) -> Any:
+        if self._page is not None:
+            return self._page
+        from playwright.async_api import async_playwright  # noqa: PLC0415
+
+        self._pw = await async_playwright().start()
+        self._browser = await self._pw.chromium.launch(args=["--no-sandbox"])
+        self._context = await self._browser.new_context()
+        self._page = await self._context.new_page()
+        return self._page
+
+
+_SESSION = _Session()
+
+
+async def run_browser(name: str, arguments: dict[str, object]) -> dict[str, object]:
+    """Dispatch one browser tool, or report that the browser is not installed."""
+    try:
+        import playwright  # noqa: F401, PLC0415
+    except ImportError:
+        return {
+            "text": "this computer has no browser; use a browser template",
+            "is_error": True,
+            "code": "browser_unavailable",
+        }
+    handler = _HANDLERS.get(name)
+    if handler is None:
+        return {"text": f"unknown tool {name}", "is_error": True, "code": "unknown_tool"}
+    async with _SESSION._lock:
+        try:
+            page = await _SESSION.page()
+            return await handler(page, arguments)
+        except Exception as exc:  # noqa: BLE001 - any page error is reported, never raised
+            return {
+                "text": f"{type(exc).__name__}: {exc}",
+                "is_error": True,
+                "code": "browser_error",
+            }
+
+
+async def _snapshot_result(page: Any, max_chars: int) -> dict[str, object]:
+    data = await page.evaluate(_SNAPSHOT_JS, max_chars)
+    elements = data.get("elements", []) if isinstance(data, dict) else []
+    lines = [str(data.get("title") or ""), str(data.get("url") or "")]
+    lines.extend(f'- [{el["ref"]}] {el["role"]} "{el["name"]}"' for el in elements)
+    lines.append("--- page text ---")
+    lines.append(str(data.get("text") or ""))
+    return {
+        "text": "\n".join(line for line in lines if line is not None),
+        "structured": {
+            "title": data.get("title"),
+            "url": data.get("url"),
+            "elements": elements,
+            "text": data.get("text"),
+        },
+        "is_error": False,
+    }
+
+
+async def _navigate(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    url = str(arguments.get("url") or "").strip()
+    if not url:
+        return {"text": "url is required", "is_error": True, "code": "validation_failed"}
+    await page.goto(url, wait_until="domcontentloaded", timeout=_NAV_TIMEOUT_MS)
+    return await _snapshot_result(page, _snapshot_chars(arguments))
+
+
+async def _snapshot(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    return await _snapshot_result(page, _snapshot_chars(arguments, _DEFAULT_SNAPSHOT_CHARS))
+
+
+async def _click(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    await _locator(page, arguments).click(timeout=_NAV_TIMEOUT_MS)
+    return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _type(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    text = str(arguments.get("text") or "")
+    await _locator(page, arguments).fill(text, timeout=_NAV_TIMEOUT_MS)
+    return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _press(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    key = str(arguments.get("key") or "Enter")
+    await page.keyboard.press(key)
+    return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _select(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    value = str(arguments.get("value") or "")
+    await _locator(page, arguments).select_option(value, timeout=_NAV_TIMEOUT_MS)
+    return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _hover(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    await _locator(page, arguments).hover(timeout=_NAV_TIMEOUT_MS)
+    return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _scroll(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    dy = _as_int(arguments.get("dy"), 600)
+    dx = _as_int(arguments.get("dx"), 0)
+    await page.mouse.wheel(dx, dy)
+    return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
+
+
+async def _wait_for(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    text = str(arguments.get("text") or "").strip()
+    if text:
+        await page.get_by_text(text).first.wait_for(timeout=_NAV_TIMEOUT_MS)
+    else:
+        await page.wait_for_load_state("networkidle", timeout=_NAV_TIMEOUT_MS)
+    return await _snapshot_result(page, _snapshot_chars(arguments))
+
+
+async def _screenshot(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    full = arguments.get("full_page") is True
+    png = await page.screenshot(full_page=full)
+    encoded = base64.b64encode(png).decode("ascii")
+    return {
+        "text": f"captured a {len(png)}-byte screenshot",
+        "structured": {"image_base64": encoded, "mime_type": "image/png", "bytes": len(png)},
+        "is_error": False,
+    }
+
+
+def _locator(page: Any, arguments: dict[str, object]) -> Any:
+    ref = str(arguments.get("ref") or "").strip()
+    return page.locator(f'[data-ar-ref="{ref}"]')
+
+
+def _snapshot_chars(arguments: dict[str, object], default: int = _SMALL_SNAPSHOT_CHARS) -> int:
+    return max(200, min(_as_int(arguments.get("max_chars"), default), _DEFAULT_SNAPSHOT_CHARS))
+
+
+def _as_int(value: object, default: int) -> int:
+    if isinstance(value, bool):
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, (float, str)):
+        try:
+            return int(value)
+        except TypeError, ValueError:
+            return default
+    return default
+
+
+_HANDLERS: dict[str, Callable[[Any, dict[str, object]], Awaitable[dict[str, object]]]] = {
+    "navigate": _navigate,
+    "snapshot": _snapshot,
+    "click": _click,
+    "type": _type,
+    "press": _press,
+    "select": _select,
+    "hover": _hover,
+    "scroll": _scroll,
+    "wait_for": _wait_for,
+    "screenshot": _screenshot,
+}
