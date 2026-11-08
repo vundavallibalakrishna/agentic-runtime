@@ -6,6 +6,8 @@ pass the path, package and egress checks from spec 12.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import os
 import signal
@@ -18,6 +20,8 @@ import uuid
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+
+import httpx
 
 if TYPE_CHECKING:
     from typing import Any
@@ -134,14 +138,21 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     if not isinstance(sandbox, dict):
         return _error("sandbox_unavailable", "the computer is not ready")
     root = workspace_root(uuid.UUID(str(sandbox["id"])))
+    # When the manager has started a container for this sandbox, the agent inside runs
+    # the command and file operations; otherwise they run on the dev host (M40-T01d).
+    remote = bool(sandbox.get("endpoint_url"))
     if name == "exec":
-        return _exec(store, sandbox, root, arguments)
+        return (
+            _exec_remote(store, sandbox, arguments)
+            if remote
+            else _exec(store, sandbox, root, arguments)
+        )
     if name == "read_file":
-        return _read(root, arguments)
+        return _proxy(sandbox, "read_file", arguments) if remote else _read(root, arguments)
     if name == "write_file":
-        return _write(root, arguments)
+        return _proxy(sandbox, "write_file", arguments) if remote else _write(root, arguments)
     if name == "list_files":
-        return _list(root, arguments)
+        return _proxy(sandbox, "list_files", arguments) if remote else _list(root, arguments)
     if name.startswith("browser_") or name in {
         "navigate",
         "snapshot",
@@ -354,6 +365,99 @@ def _resume(store: Any, row: dict[str, object]) -> dict[str, object]:
     row["last_active_at"] = utcnow()
     row["updated_at"] = utcnow()
     return row
+
+
+def _agent_post(
+    sandbox: dict[str, object], tool: str, arguments: dict[str, object], *, timeout: float = 60.0
+) -> dict[str, object]:
+    """Call the sandbox-agent inside the container. The result is the agent's own shape."""
+    endpoint = str(sandbox.get("endpoint_url") or "").rstrip("/")
+    token = str(sandbox.get("agent_token") or sandbox.get("token") or "")
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    payload = {
+        "name": f"sandbox.{tool}",
+        "arguments": {key: value for key, value in arguments.items() if not key.startswith("_")},
+    }
+    try:
+        with httpx.Client(timeout=timeout) as client:
+            response = blocking(client.post, f"{endpoint}/mcp", json=payload, headers=headers)
+        response.raise_for_status()
+        body = response.json()
+    except httpx.HTTPError:
+        return _error("sandbox_unavailable", "the computer did not answer")
+    if not isinstance(body, dict):
+        return _error("sandbox_unavailable", "the computer returned an unexpected result")
+    return body
+
+
+def _proxy(
+    sandbox: dict[str, object], tool: str, arguments: dict[str, object]
+) -> dict[str, object]:
+    """A read/write/list proxied to the agent; its result already has the right shape."""
+    body = _agent_post(sandbox, tool, arguments)
+    return {
+        "text": str(body.get("text") or ""),
+        "structured": body.get("structured") if isinstance(body.get("structured"), dict) else {},
+        "is_error": bool(body.get("is_error")),
+        **({"code": str(body["code"])} if body.get("code") else {}),
+    }
+
+
+def _exec_remote(
+    store: Any, sandbox: dict[str, object], arguments: dict[str, object]
+) -> dict[str, object]:
+    """Run a command in the container and export the files it wrote as artifacts."""
+    timeout = float(max(1, as_int(arguments.get("timeout_s"), 120)) + 10)
+    body = _agent_post(sandbox, "exec", arguments, timeout=timeout)
+    raw_structured = body.get("structured")
+    structured: dict[str, object] = dict(raw_structured) if isinstance(raw_structured, dict) else {}
+    if "exit_code" not in structured:
+        return _error(
+            str(body.get("code") or "sandbox_unavailable"),
+            str(body.get("text") or "the computer did not answer"),
+        )
+    new_files = structured.get("new_files")
+    exported = _export_from_agent(store, sandbox, new_files if isinstance(new_files, list) else [])
+    structured["artifacts"] = [item["file_id"] for item in exported]
+    presentation = _image_presentation(exported)
+    if presentation is not None:
+        structured["presentation"] = presentation
+    return {
+        "text": str(body.get("text") or ""),
+        "structured": structured,
+        "is_error": bool(body.get("is_error")),
+        "streams": [
+            {"stream": "stdout", "text": str(structured.get("stdout") or "")},
+            {"stream": "stderr", "text": str(structured.get("stderr") or "")},
+        ],
+    }
+
+
+def _export_from_agent(
+    store: Any, sandbox: dict[str, object], paths: list[object]
+) -> list[dict[str, str]]:
+    """Read the files a command wrote in the container and store them as artifacts."""
+    exported: list[dict[str, str]] = []
+    for raw in paths[:20]:
+        path = str(raw)
+        read = _agent_post(sandbox, "read_file", {"path": path, "encoding": "base64"})
+        structured = read.get("structured")
+        content = structured.get("content") if isinstance(structured, dict) else None
+        if read.get("is_error") or not isinstance(content, str):
+            continue
+        try:
+            data = base64.b64decode(content)
+        except ValueError, binascii.Error:
+            continue
+        if not data or len(data) > 100 * 1024 * 1024:
+            continue
+        name = sanitise_name(path.rsplit("/", 1)[-1])
+        file_id = _store_blob(
+            store, sandbox, name=name, mime=_mime(name), data=data, kind="artifact"
+        )
+        _emit_artifact(store, sandbox, file_id=file_id, name=name, mime=_mime(name), size=len(data))
+        exported.append({"file_id": str(file_id), "name": name, "mime": _mime(name)})
+    return exported
 
 
 def _exec(
