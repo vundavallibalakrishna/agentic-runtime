@@ -152,5 +152,31 @@ body.
 
 ## M39-T06 MCP client depth
 
-**Do:** one session for each server and run, `tools/list` pagination, and every content block of a result
-(text, image, resource) kept.
+Split: **T06** keeps every content block and follows `tools/list` pages in one session; **T06a** reuses one
+MCP session across a run's tool calls ([OQ-118](../open-questions.md)), which needs the run on the call and a
+session cache.
+
+**Do:**
+
+- `remote_mcp._result_text` keeps every content block of a `tools/call` result — all text blocks joined, an
+  image named by its type, a resource by its text or uri — and keeps the whole `result` in `structured`, so
+  nothing is dropped (A15 kept only the first text block). `_blocks_text` does the join.
+- `list_remote` follows `nextCursor`: it sends `tools/list` pages in one streamable session (initialising
+  once, reusing the `mcp-session-id`) and accumulates the tools. `_next_cursor` and `_tools_page` read a page;
+  `_rpc`/`_post_streamable` take an optional `session` dict to hold the session across the pages.
+
+**Done when:** a tool result with several content blocks reaches the model whole, and a server that pages its
+tool list is fully discovered over one session.
+
+**Tests:** `test_m39_mcp_depth.py` — a result keeps all four of its blocks and reports an error flag; a paged
+`tools/list` is discovered over one session.
+
+## M39-T06a One MCP session per run
+
+**Do:** a `tools/call` reuses the server's session across a run instead of opening and initialising a new one
+each call. The run id reaches `call_remote`, a per-`(server, run)` session id is cached on the store, and an
+expired session re-initialises once. `tools/list` pagination (T06) already shares a session within the call.
+
+**Done when:** several tool calls to one MCP server in a run initialise the session once.
+
+**Tests:** `test_m39_mcp_session.py`.
