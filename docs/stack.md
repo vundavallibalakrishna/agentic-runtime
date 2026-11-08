@@ -190,6 +190,7 @@ Rules:
 | Squid | 7.7 | Sandbox egress proxy with per-sandbox domain allowlists. |
 | Falco | 0.45.1 | Runtime threat detection on the sandbox node pool. |
 | `ar-sandbox` toolbox | pinned in `images/sandbox/sandbox-tools.txt` | The computer's Python set (pandas, numpy, polars, scipy, matplotlib, seaborn, openpyxl, python-docx, python-pptx, reportlab, pypdf, pdfplumber, duckdb, pillow, pytesseract) plus LibreOffice headless, poppler-utils, tesseract (`SANDBOX_TESSERACT_LANGS`), ffmpeg and Noto fonts, baked by `images/sandbox/Dockerfile`. |
+| `ar-sandbox` browser | Node 24.22.2, Playwright 1.64.1 (`images/sandbox/browser-tools.txt`), Chromium | Added only with `--build-arg WITH_BROWSER=1` (the `browser` template): Node with pnpm for user JavaScript, and Playwright-driven Chromium for the browser tools. CI's default image omits it (OQ-37, OQ-87). |
 | Docker Engine + Compose v2 | Engine 28+ / Compose 2.40+ | Local development stack (`compose.yaml`). |
 
 ### CI and supply-chain tools
