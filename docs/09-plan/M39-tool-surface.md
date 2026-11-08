@@ -73,8 +73,26 @@ a sandbox binding entitles the computer tools but not `general.http`, and the an
 
 ## M39-T03 File primitives
 
-**Do:** `edit_file` (replace an exact string), `grep` (search by content), `glob` (search by name), `move`,
-`delete`, and `read_file` by line range. Deletes and overwrites follow the write risk classes.
+**Do:**
+
+- Add `general.edit_file` (replace an exact string; `oldString` must appear once unless `replaceAll` is
+  set), `general.grep` (lines matching a regular expression, as `path:line: text`), `general.glob` (paths
+  matching a glob), `general.move` (rename or relocate), and `general.delete` (remove a file or folder), each
+  confined to the working folder with a described schema. `general.read_file` takes a line range: `offset`
+  is the first line and `limit` the number of lines.
+- The write primitives carry a write risk class (`edit_file`, `move`, `delete` are `W1`, like `write_file`);
+  the read primitives are `R0`.
+- A move or a delete is durable: `snapshot_workspace` now drops the saved row of a file no longer on disk, so
+  the restore of the next tool call does not write a moved-from or deleted file back (the fix is in the
+  durability layer, for every caller, not in the tools).
+- `files.read`'s `offset`/`limit` are documented as bytes, matching its behaviour; the line-range semantics
+  are `general.read_file`'s.
+
+**Done when:** an agent can edit, search, move and delete workspace files, read a file by line range, and a
+move or delete stays done across the turn's later tool calls.
+
+**Tests:** `test_m39_file_primitives.py` — edit (unique, ambiguous, missing, replaceAll), grep, glob, move
+(source gone), delete (gone for later calls), read by line range, and path-escape refusal.
 
 ## M39-T04 Tools load on demand
 
