@@ -216,6 +216,7 @@ class ChatService:
     service_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     connector_installs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     data_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    browser_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     library_documents: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_checks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_comparisons: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)

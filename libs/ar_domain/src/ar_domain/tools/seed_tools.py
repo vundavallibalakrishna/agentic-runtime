@@ -2545,6 +2545,23 @@ def _browser_tools() -> list[dict[str, object]]:
             tab_index,
             "R0",
         ),
+        _tool(
+            "use_connection",
+            "Sign in with a connection",
+            "Sign the browser in using a stored connection by name, so the page opens as "
+            "that account. The credentials stay with the platform; you never see them.",
+            {
+                "type": "object",
+                "properties": {
+                    "connection": {
+                        "type": "string",
+                        "description": "The name of the browser connection to sign in with.",
+                    }
+                },
+                "required": ["connection"],
+            },
+            "W1",
+        ),
     ]
 
 

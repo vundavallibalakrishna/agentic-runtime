@@ -26,7 +26,7 @@ from ar_common.sandboxkit import (
     virtual_path,
 )
 from ar_contracts.api_model import ApiModel
-from ar_sandbox_agent.browser import BROWSER_TOOLS, run_browser
+from ar_sandbox_agent.browser import BROWSER_TOOLS, restore_session, run_browser
 
 router = APIRouter()
 
@@ -92,6 +92,20 @@ async def write_file(
 async def claim(authorization: Annotated[str | None, Header()] = None) -> dict[str, str]:
     _auth(authorization)
     return {"status": "ready", "root": str(_root())}
+
+
+class SessionBody(ApiModel):
+    storage_state: dict[str, object] = Field(default_factory=dict)
+    handle: str = ""
+
+
+@router.post("/admin/session")
+async def session(
+    body: SessionBody, authorization: Annotated[str | None, Header()] = None
+) -> dict[str, object]:
+    """Restore a connection's browser state into the context. Trusted, not a model tool."""
+    _auth(authorization)
+    return await restore_session(body.storage_state, body.handle)
 
 
 @router.post("/admin/snapshot")

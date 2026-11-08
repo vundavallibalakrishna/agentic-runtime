@@ -94,15 +94,33 @@ class _Session:
         self._context: Any = None
         self._active: Any = None
 
-    async def _ensure(self) -> None:
-        if self._context is not None:
+    async def _ensure_browser(self) -> None:
+        if self._browser is not None:
             return
         from playwright.async_api import async_playwright  # noqa: PLC0415
 
         self._pw = await async_playwright().start()
         self._browser = await self._pw.chromium.launch(args=["--no-sandbox"])
-        self._context = await self._browser.new_context()
+
+    async def _ensure(self) -> None:
+        await self._ensure_browser()
+        if self._context is None:
+            self._context = await self._browser.new_context()
+            self._active = await self._context.new_page()
+
+    async def restore(self, storage_state: dict[str, object]) -> None:
+        """Replace the context with a fresh, isolated one carrying the connection's state.
+
+        Closing the old context first drops every earlier cookie and storage entry, so no
+        prior sign-in bleeds into the restored one. The state arrives only on the trusted
+        ``/admin/session`` channel, never from a model-callable tool (M40-T05c).
+        """
+        await self._ensure_browser()
+        old = self._context
+        self._context = await self._browser.new_context(storage_state=storage_state)
         self._active = await self._context.new_page()
+        if old is not None:
+            await old.close()
 
     async def context(self) -> Any:
         await self._ensure()
@@ -119,6 +137,21 @@ class _Session:
 
 
 _SESSION = _Session()
+
+
+async def restore_session(storage_state: dict[str, object], handle: str) -> dict[str, object]:
+    """Load a connection's browser state into a fresh context. Trusted channel only.
+
+    The caller is the sandbox-manager/runtime over ``/admin/session`` with the sandbox
+    token; the state never comes from a model tool call and is never echoed back.
+    """
+    try:
+        import playwright  # noqa: F401, PLC0415
+    except ImportError:
+        return {"status": "no_browser", "handle": handle}
+    async with _SESSION._lock:
+        await _SESSION.restore(storage_state)
+    return {"status": "ready", "handle": handle}
 
 
 async def run_browser(name: str, arguments: dict[str, object]) -> dict[str, object]:

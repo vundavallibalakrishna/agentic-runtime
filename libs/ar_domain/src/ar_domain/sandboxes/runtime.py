@@ -170,6 +170,7 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         "new_tab",
         "switch_tab",
         "close_tab",
+        "use_connection",
     }:
         return _browser(store, sandbox, name, arguments)
     return _error("unknown_tool", f"unknown tool {name}")
@@ -588,6 +589,8 @@ def _browser(
     template = _by_id(store, sandbox.get("template_id")) or {}
     if template.get("allow_browser") is not True and name != "snapshot":
         return _error("validation_failed", "this computer does not include a browser")
+    if name == "use_connection":
+        return _use_connection(store, sandbox, arguments)
     # When a container is running, its real Chromium drives the page; the same egress gate
     # applies before a navigation. Otherwise the in-process engine answers (M40-T04c).
     if bool(sandbox.get("endpoint_url")):
@@ -599,6 +602,22 @@ def _browser(
     from ar_domain.sandboxes.browser import apply_browser  # noqa: PLC0415
 
     return apply_browser(store, sandbox, name, arguments)
+
+
+def _use_connection(
+    store: Any, sandbox: dict[str, object], arguments: dict[str, object]
+) -> dict[str, object]:
+    """Sign the browser in with a stored connection. The runtime holds the state, not the model."""
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+    from ar_domain.sandboxes.browser_auth import restore_into_context  # noqa: PLC0415
+
+    tenant = sandbox.get("tenant_id") or _uuid(arguments.get("_tenant_id"))
+    user = sandbox.get("user_id") or _uuid(arguments.get("_user_id"))
+    if not isinstance(tenant, uuid.UUID) or not isinstance(user, uuid.UUID):
+        return _error("validation_failed", "the computer has no signed-in context")
+    actor = Actor(tenant, user, PERMISSION_KEYS)
+    return restore_into_context(store, sandbox, actor, str(arguments.get("connection") or ""))
 
 
 def _browser_remote(

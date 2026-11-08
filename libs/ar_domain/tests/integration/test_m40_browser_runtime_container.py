@@ -10,10 +10,14 @@ from __future__ import annotations
 import asyncio
 import uuid
 
+import orjson
 import pytest
 
 from ar_common.sandbox_docker import DockerSandboxLauncher, image_present
+from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
+from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_domain.sandboxes.browser_auth import BrowserConnectionBook
 from ar_domain.sandboxes.runtime import ensure_scope, run_tool, terminate_row
 from ar_testing.demo import demo_store
 
@@ -77,5 +81,18 @@ def test_browser_tools_run_in_the_container_through_run_tool() -> None:
         assert len(tabs["structured"]["tabs"]) >= 2
         assert run_tool(store, "switch_tab", {**ctx, "index": 0})["is_error"] is False
         assert run_tool(store, "close_tab", {**ctx, "index": 1})["is_error"] is False
+
+        # Stored sign-in: a connection's state restores into the container context, and the
+        # model's result carries only the opaque handle — never the state (M40-T05c).
+        BrowserConnectionBook(store).create(
+            Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS),
+            name="demo",
+            origins=[],
+            storage_state=orjson.dumps({"cookies": [], "origins": []}),
+        )
+        signin = run_tool(store, "use_connection", {**ctx, "connection": "demo"})
+        assert signin["is_error"] is False
+        assert signin["structured"]["status"] == "authenticated"
+        assert run_tool(store, "snapshot", {**ctx})["is_error"] is False
     finally:
         terminate_row(store, row, actor=demo_id("admin"))
