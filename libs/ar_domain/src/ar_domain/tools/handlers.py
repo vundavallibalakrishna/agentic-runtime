@@ -346,7 +346,7 @@ def _control(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     from ar_domain.tools.search import DEFAULT_TOP_K  # noqa: PLC0415
 
     query = str(arguments.get("query") or "")
-    ranked, how = _search(store, query, _caller(arguments)[0])
+    ranked, how = _search(store, query, _caller(arguments)[0], _granted_names(store, arguments))
     lines = [f"{row['qualified_name']}: {row['description']}" for row in ranked[:DEFAULT_TOP_K]]
     return {
         "text": "\n".join(lines),
@@ -420,11 +420,39 @@ def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
     return row.get("tool_server_version_id") == server.get("current_version_id")
 
 
-def _search(store: Any, query: str, tenant: str) -> tuple[list[dict[str, object]], str]:
-    """The caller's searchable tools, closest to ``query`` first, and how they were ranked."""
+def _granted_names(store: Any, arguments: dict[str, object]) -> set[str] | None:
+    """The qualified names this agent is granted, or None when no agent is named (F45)."""
+    version_id = arguments.get("_agent_version_id")
+    user_id = arguments.get("_user_id")
+    if not isinstance(version_id, uuid.UUID) or not isinstance(user_id, uuid.UUID):
+        return None
+    from ar_domain.tools.pipeline import ToolPipeline  # noqa: PLC0415
+
+    catalog = ToolPipeline(store).resolve_catalog(agent_version_id=version_id, user_id=user_id)
+    tools = catalog.get("tools")
+    if not isinstance(tools, list):
+        return None
+    return {str(row.get("qualified_name")) for row in tools if isinstance(row, dict)}
+
+
+def _search(
+    store: Any, query: str, tenant: str, granted: set[str] | None = None
+) -> tuple[list[dict[str, object]], str]:
+    """The caller's searchable tools, closest to ``query`` first, and how they were ranked.
+
+    When ``granted`` is given, only tools the agent is bound to (plus the always-available
+    file and control tools) are searched, so a search never leaks another agent's tools (F45).
+    """
     from ar_domain.tools.search import rank_tools  # noqa: PLC0415
 
     rows = searchable_tools(store, tenant)
+    if granted is not None:
+        rows = [
+            row
+            for row in rows
+            if str(row.get("qualified_name")) in granted
+            or str(row.get("qualified_name")).split(".", 1)[0] in {"files", "control"}
+        ]
     try:
         tenant_id: object = uuid.UUID(tenant) if tenant else None
     except ValueError:

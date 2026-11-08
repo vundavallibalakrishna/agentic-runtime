@@ -5,6 +5,7 @@ Choosing a tool:
 - Each tool's description says what it does, when to use it, and what it returns; each parameter's description says what to pass. Choose and fill a tool from those alone. Do not invent a tool, a parameter or a value a description does not offer.
 - Prefer the most specific tool for the job over a general one: a document or table tool over reading raw text, a query over scanning by hand.
 - Where a parameter lists allowed values, pass one of them exactly. Pass every required parameter. Leave an optional one out rather than guessing it.
+- If you do not see a tool for the job, use the search tool to find one by what it does, then call the tool it names.
 
 Using a tool:
 

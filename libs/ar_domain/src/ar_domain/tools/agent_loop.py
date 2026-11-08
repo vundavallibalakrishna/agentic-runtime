@@ -127,6 +127,21 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     by_name.update(extra_index)
     openai_tools = [_openai_tool(row) for row in tools]
     openai_tools.extend(extra_tools)
+    # Above the threshold, offer the core tools and the search tool; the full catalogue
+    # stays in by_name so a searched tool resolves, and its schema joins the next call.
+    deferred = bool(catalog.get("tool_search_active"))
+    offered: set[str] = {_spec_name(spec) for spec in openai_tools}
+    if deferred:
+        core = [row for row in tools if str(row.get("qualified_name")) in _CORE_WHEN_SEARCHING]
+        if not any(str(row.get("qualified_name")) == "control.search" for row in core):
+            search_row = _search_tool_row(store)
+            if search_row is not None:
+                core.append(search_row)
+                by_name[str(search_row["model_name"])] = search_row
+                by_name[str(search_row["qualified_name"])] = search_row
+        openai_tools = [_openai_tool(row) for row in core]
+        openai_tools.extend(extra_tools)
+        offered = {_spec_name(spec) for spec in openai_tools}
     from ar_domain.tools.structured import output_schema, validate_output  # noqa: PLC0415
 
     schema = output_schema(definition)
@@ -313,6 +328,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             produced = outcome.get("images")
             if isinstance(produced, list):
                 batch_images.extend(produced)
+            if deferred and str(call.get("name")) in _SEARCH_TOOL_NAMES:
+                _add_found_tools(outcome.get("structured"), by_name, openai_tools, offered)
             if consecutive_errors >= 8:
                 _stop_error(
                     store,
@@ -477,6 +494,64 @@ def _openai_tool(row: dict[str, object]) -> dict[str, object]:
             "parameters": parameters,
         },
     }
+
+
+# Above the tool-count threshold the model is sent these always-available tools and the
+# search tool; it finds the rest with a search, and a found tool's schema is added to the
+# next call (M39-T04).
+_CORE_WHEN_SEARCHING = frozenset(
+    {"files.read", "files.list", "control.plan_update", "control.search"}
+)
+_SEARCH_TOOL_NAMES = frozenset({"control__search", "tools__search"})
+
+
+def _spec_name(spec: dict[str, object]) -> str:
+    """The model-facing name of an OpenAI tool spec."""
+    function = spec.get("function")
+    return str(function.get("name")) if isinstance(function, dict) else ""
+
+
+def _search_tool_row(store: Any) -> dict[str, object] | None:
+    """The catalogue row for ``control.search``, so the search tool can always be offered."""
+    for row in getattr(store, "tool_versions", {}).values():
+        if isinstance(row, dict) and row.get("qualified_name") == "control.search":
+            return {
+                "model_name": "control__search",
+                "qualified_name": "control.search",
+                "description": row.get("description"),
+                "parameters": row.get("input_schema"),
+                "risk_class": row.get("risk_class"),
+                "tool_version_id": str(row.get("id")),
+            }
+    return None
+
+
+def _add_found_tools(
+    structured: object,
+    by_name: dict[str, dict[str, object]],
+    openai_tools: list[dict[str, object]],
+    offered: set[str],
+) -> int:
+    """Add a search result's tool schemas to the model's next call."""
+    if not isinstance(structured, dict):
+        return 0
+    found = structured.get("tools")
+    if not isinstance(found, list):
+        return 0
+    added = 0
+    for item in found:
+        qualified = str(item.get("qualified_name")) if isinstance(item, dict) else ""
+        row = by_name.get(qualified)
+        if not isinstance(row, dict):
+            continue
+        spec = _openai_tool(row)
+        name = _spec_name(spec)
+        if name in offered:
+            continue
+        openai_tools.append(spec)
+        offered.add(name)
+        added += 1
+    return added
 
 
 def _wire_calls(calls: list[object]) -> list[dict[str, object]]:
@@ -682,6 +757,7 @@ def _act(  # noqa: PLR0917
         "preview": preview,
         "wrapped": wrap_tool_result(tool=qualified, call_id=model_call_id, content=text or "empty"),
         "images": collect_images(store, structured, run.get("tenant_id")),
+        "structured": structured,
     }
 
 
