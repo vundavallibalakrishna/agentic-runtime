@@ -96,10 +96,16 @@ context per container keeps cookies isolated. Tests: `services/sandbox_agent/tes
 and the docker-gated `services/sandbox_agent/tests/integration/test_m40_browser_container.py` (the agent
 navigates, snapshots, clicks and screenshots a real page).
 
-**T04c — routing and retiring M37.** The runtime routes `browser_*` to the container agent (as it does `exec`),
-the in-process HTML parser (`sandboxes/browser.py`) is retired, and the browser e2e specs move onto the real
-engine. Navigation off the allow list and form submission keep their approval rules; cookies stay isolated per
-sandbox. This is the security-sensitive step — approval, egress and cookie isolation.
+**T04c — routing the browser to the container.** `sandboxes/runtime.py` `_browser` routes the browser tools to
+the container agent (as it does `exec`) when the sandbox has an endpoint. The navigation egress gate is extracted
+to `browser.navigate_decision` and shared by the in-process and container paths unchanged — a denied or
+approval-pending host returns `egress_denied` and never reaches the container. The real `screenshot` is stored as
+a `browser.png` artifact shown inline (`engine: chromium`), replacing M37's fixture image; `submit_form` is added
+to the agent. One Playwright context per container keeps cookies isolated. **M37's in-process browser is kept as
+the no-container fallback** (the same pattern as the host subprocess for `exec`), not deleted: with no container,
+browser tools still work, poorly, as before. Retiring it entirely and real egress isolation (Squid) land with the
+Kubernetes driver (T03). Done when the browser tools run in the container through `run_tool`, the gate stops a
+denied navigation, and a real screenshot is captured — verified by a docker-gated integration test.
 
 ## M40-T05 Files, tabs and screenshots
 

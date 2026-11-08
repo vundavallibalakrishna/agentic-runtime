@@ -163,13 +163,15 @@ def chromium_canary(url: str) -> dict[str, str]:
     return {"status": "live", "engine": "chromium", "excerpt": text[:500]}
 
 
-def _navigate(
-    store: Any,
-    sandbox: dict[str, object],
-    session: dict[str, object],
-    arguments: dict[str, object],
-    url: str,
-) -> dict[str, object]:
+def navigate_decision(
+    store: Any, sandbox: dict[str, object], arguments: dict[str, object], url: str
+) -> dict[str, object] | None:
+    """The egress gate for one navigation, shared by the in-process and container paths.
+
+    Returns an ``egress_denied`` error to stop the navigation (and records the denial), or
+    ``None`` to let it proceed. Allowlisted hosts proceed; another public host waits for the
+    same approval a write uses; a private or metadata address is denied.
+    """
     kind = _class_for(store, sandbox, arguments, url)
     if kind == "deny" or (kind == "approve" and not arguments.get("_browser_cleared")):
         _reject(store, sandbox, _host(url) or url)
@@ -180,6 +182,19 @@ def _navigate(
                 "browser.navigate waits for approval before opening it.",
             )
         return _error("egress_denied", f"{_host(url) or url} is not on the egress allow list")
+    return None
+
+
+def _navigate(
+    store: Any,
+    sandbox: dict[str, object],
+    session: dict[str, object],
+    arguments: dict[str, object],
+    url: str,
+) -> dict[str, object]:
+    blocked = navigate_decision(store, sandbox, arguments, url)
+    if blocked is not None:
+        return blocked
     return _exchange(store, sandbox, session, arguments, "GET", url, None, cleared=True)
 
 

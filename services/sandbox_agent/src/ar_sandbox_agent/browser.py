@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -30,6 +31,7 @@ BROWSER_TOOLS = frozenset(
         "scroll",
         "wait_for",
         "screenshot",
+        "submit_form",
     }
 )
 
@@ -191,6 +193,23 @@ async def _wait_for(page: Any, arguments: dict[str, object]) -> dict[str, object
     return await _snapshot_result(page, _snapshot_chars(arguments))
 
 
+async def _submit_form(page: Any, arguments: dict[str, object]) -> dict[str, object]:
+    ref = str(arguments.get("ref") or "").strip()
+    if ref:
+        await page.evaluate(
+            '(r) => { const el = document.querySelector(`[data-ar-ref="${r}"]`);'
+            " const f = el && el.closest('form');"
+            " if (f) { f.requestSubmit ? f.requestSubmit() : f.submit(); } }",
+            ref,
+        )
+    else:
+        await page.keyboard.press("Enter")
+    # A JavaScript form may not trigger a navigation; a missed load is not an error.
+    with contextlib.suppress(Exception):
+        await page.wait_for_load_state("domcontentloaded", timeout=_NAV_TIMEOUT_MS)
+    return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
+
+
 async def _screenshot(page: Any, arguments: dict[str, object]) -> dict[str, object]:
     full = arguments.get("full_page") is True
     png = await page.screenshot(full_page=full)
@@ -235,4 +254,5 @@ _HANDLERS: dict[str, Callable[[Any, dict[str, object]], Awaitable[dict[str, obje
     "scroll": _scroll,
     "wait_for": _wait_for,
     "screenshot": _screenshot,
+    "submit_form": _submit_form,
 }
