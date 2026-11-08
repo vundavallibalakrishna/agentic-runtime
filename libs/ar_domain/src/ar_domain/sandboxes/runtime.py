@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import contextlib
 import hashlib
 import os
 import signal
@@ -167,6 +168,48 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     return _error("unknown_tool", f"unknown tool {name}")
 
 
+class SandboxStartError(RuntimeError):
+    """The configured driver could not start a container for a new sandbox."""
+
+
+def _launch(store: Any, row: dict[str, object], token: str) -> None:
+    """Start a container for the row and stamp its endpoint, when a launcher is registered.
+
+    With no launcher (the default install, or a test), ``endpoint_url`` stays ``None`` and
+    the tools run on the dev host. When a launcher is registered the install has opted into
+    isolation, so a failure to start is surfaced, not silently downgraded to the host.
+    """
+    launcher = getattr(store, "sandbox_launcher", None)
+    if launcher is None or row.get("driver") != "docker":
+        return
+    sandbox_id = cast("uuid.UUID", row["id"])
+    name = f"ar-sbx-{sandbox_id.hex[:12]}"
+    try:
+        info = launcher.start(name, token)
+    except Exception as exc:  # any start failure fails the sandbox cleanly
+        row["status"] = "failed"
+        row["error"] = str(exc)
+        row["updated_at"] = utcnow()
+        raise SandboxStartError(str(exc)) from exc
+    row["container_id"] = info.get("container_id")
+    row["endpoint_url"] = str(info.get("endpoint_url") or "") or None
+    row["agent_token"] = token
+    row["driver_ref"] = f"docker:{info.get('container_id')}"
+    row["updated_at"] = utcnow()
+
+
+def _stop_container(store: Any, row: dict[str, object]) -> None:
+    """Remove the sandbox's container when one was started. Absent launcher is a no-op."""
+    container_id = row.get("container_id")
+    launcher = getattr(store, "sandbox_launcher", None)
+    if launcher is None or not container_id:
+        return
+    with contextlib.suppress(Exception):  # a container already gone must not block teardown
+        launcher.stop(str(container_id))
+    row["container_id"] = None
+    row["endpoint_url"] = None
+
+
 def ensure_scope(
     store: Any,
     *,
@@ -231,6 +274,7 @@ def ensure_scope(
         (root / "workspace" / "inputs").mkdir(parents=True, exist_ok=True)
         (root / "workspace" / "outputs").mkdir(parents=True, exist_ok=True)
         (root / "tmp").mkdir(parents=True, exist_ok=True)
+        _launch(store, row, token)
         _meter_session(store, row)
         remember(
             store,
@@ -682,6 +726,8 @@ def _ensure_for_call(store: Any, arguments: dict[str, object]) -> dict[str, obje
         )
     except LookupError:
         return _error("sandbox_unavailable", f"sandbox template {slug} is not available")
+    except SandboxStartError as exc:
+        return _error("sandbox_unavailable", f"the computer could not start: {exc}")
     except RuntimeError as exc:
         return _error("quota_exceeded", str(exc))
     except QuotaExceededError as exc:
@@ -1113,6 +1159,7 @@ def terminate_row(store: Any, row: dict[str, object], *, actor: object) -> None:
 
 
 def _terminate(store: Any, row: dict[str, object], *, actor: object) -> None:
+    _stop_container(store, row)
     row["status"] = "terminated"
     row["terminated_at"] = utcnow()
     row["updated_at"] = utcnow()

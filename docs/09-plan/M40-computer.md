@@ -12,9 +12,29 @@ milestone starts.
 The spec's design (12 §6) runs code and file I/O inside the container through `sandbox-agent` over HTTP, with
 the workspace in a volume, not a host bind-mount. So this is built in stages: **T01** makes the agent run
 commands and file operations inside a sandbox; **T01b** builds the `ar-sandbox` image that bakes it (OQ-37);
-**T01c** gives the manager an `aiodocker` driver that starts and claims a container; **T01d** routes
-`general.code`/`shell` and the sandbox file tools through the manager, and refuses the host driver outside an
-install that allows it ([OQ-119](../open-questions.md)).
+**T01c** gives the manager an `aiodocker` driver that starts and claims a container; **T01d** proxies the
+sandbox tools to the agent inside the container when the row carries an endpoint; **T01e** makes the
+in-process path start that container — `ensure_scope` calls an injected launcher registered on the store, so
+code, shell and files run inside a per-conversation container on a developer's machine ([OQ-119](../open-questions.md)).
+
+**Do (T01e):**
+
+- The aiodocker primitive moves to `ar_common.sandbox_docker` (with a synchronous, loop-safe
+  `DockerSandboxLauncher`) so the api and runtime register it on the chat store without importing the manager;
+  the manager's docker driver re-exports it.
+- `ensure_scope` calls `store.sandbox_launcher` when the row's driver is `docker`, stamping
+  `endpoint_url`/`container_id`/`agent_token`; `_terminate` stops the container. A start failure fails the
+  sandbox (`SandboxStartError`) and is surfaced, not silently downgraded to the host.
+- The api registers the launcher only when `AR_SANDBOX_IMAGE` names the local image and the install allows an
+  unisolated sandbox (`AR_SANDBOX_ALLOW_UNISOLATED`); with no launcher the tools run on the dev host, as before.
+
+**Done when (T01e):** with the image built and the two settings on, a chat's `general.shell`/`exec` and file
+tools run inside a container, proven by a docker-gated integration test that starts a real container through
+`ensure_scope` and runs a command in it. Suspend/resume of a container-backed workspace (via the agent's
+snapshot endpoint) and registering the launcher in the Temporal runtime worker are follow-ups ([OQ-119](../open-questions.md)).
+
+**Tests:** `libs/ar_domain/tests/unit/test_m40_sandbox_launcher.py`,
+`libs/ar_domain/tests/integration/test_m40_container_launch.py`.
 
 **Do (T01):**
 

@@ -9,13 +9,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import uuid
-from typing import Any
 
 import pytest
 
+from ar_common.sandbox_docker import image_present, start_sandbox, stop_sandbox
 from ar_domain.demo_ids import demo_id
 from ar_domain.sandboxes.runtime import _exec_remote, _proxy
-from ar_sandbox_manager.drivers.docker import start_sandbox, stop_sandbox
 from ar_testing.demo import demo_store
 
 pytestmark = pytest.mark.integration
@@ -26,20 +25,6 @@ _PNG = base64.b64encode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
     )
 ).decode()
-
-
-async def _image_present() -> bool:
-    import aiodocker
-
-    docker: Any = aiodocker.Docker()
-    try:
-        await docker.images.inspect(IMAGE)
-    except Exception:  # noqa: BLE001 - a missing image or daemon means skip
-        return False
-    else:
-        return True
-    finally:
-        await docker.close()
 
 
 def _sandbox(info: dict[str, object]) -> dict[str, object]:
@@ -53,7 +38,7 @@ def _sandbox(info: dict[str, object]) -> dict[str, object]:
 
 
 def test_tools_run_in_the_container_and_export_artifacts() -> None:
-    if not asyncio.run(_image_present()):
+    if not asyncio.run(image_present(IMAGE)):
         pytest.skip("docker daemon and the ar-sandbox image are required")
     name = f"ar-sbx-exec-{uuid.uuid4().hex[:8]}"
     info = asyncio.run(start_sandbox(IMAGE, name, token="canary"))  # noqa: S106 - test credential
