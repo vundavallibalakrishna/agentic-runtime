@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from ar_domain.evals.gym.live import LIVE_FLAG, LIVE_KEY, LiveConfigError, live_requested
 from ar_domain.evals.gym.runner import run_suite
 from ar_domain.evals.gym.score import render_scorecard
+from ar_domain.evals.gym.tasks import load_tasks
 from ar_domain.models.embedding import EmbeddingUnconfiguredError
 
 if TYPE_CHECKING:
@@ -42,17 +43,29 @@ def main(
         default=None,
         help="Scorecard path. Defaults to the committed dry-run file, or the live file.",
     )
+    parser.add_argument(
+        "--tasks",
+        type=Path,
+        default=None,
+        help="An alternate suite file. Defaults to the golden tasks.yaml.",
+    )
     args = parser.parse_args(argv)
     live = bool(args.live) or live_requested()
     if live and not live_requested():
         sys.stderr.write(f"refusing live run without {LIVE_FLAG}=1\n")
         return 2
+    suite = load_tasks(args.tasks) if isinstance(args.tasks, Path) else None
     try:
-        report = run_suite(make_store=make_store, live=live, prepare=prepare)
+        report = run_suite(make_store=make_store, live=live, prepare=prepare, tasks=suite)
     except (LiveConfigError, EmbeddingUnconfiguredError) as exc:
         sys.stderr.write(f"{exc}\n")
         return 2
-    path = args.write if isinstance(args.write, Path) else _default_path(live=live)
+    if isinstance(args.write, Path):
+        path = args.write
+    elif isinstance(args.tasks, Path):
+        path = args.tasks.with_name(f"{args.tasks.stem}-scorecard.md")
+    else:
+        path = _default_path(live=live)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_scorecard(report), encoding="utf-8")
     sys.stdout.write(

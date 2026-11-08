@@ -27,6 +27,9 @@ class Expectation:
     must_not_contain: tuple[str, ...]
     grounded: str
     terminal: str
+    # An ordered chain of tools the run must call as a subsequence (empty for one tool).
+    # ``tool`` is the first of the chain, so argument rules still read the primary call.
+    chain: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +67,7 @@ class Task:
             must_not_contain=self.expect.must_not_contain,
             grounded=self.expect.grounded,
             terminal=self.expect.terminal,
+            chain=self.expect.chain,
         )
         return Task(
             id=self.id,
@@ -110,18 +114,23 @@ def _task(item: object) -> Task:
     contains = _strings(answer_map.get("contains"))
     if grounded == "quote" and not contains:
         raise ValueError(f"{item.get('id')} quote grounding needs answer.contains")
+    chain = _strings(expect.get("chain"))
+    tool = str(expect.get("tool") or (chain[0] if chain else ""))
+    if not tool:
+        raise ValueError(f"{item.get('id')} needs expect.tool or expect.chain")
     return Task(
         id=_text(item, "id"),
         title=_text(item, "title"),
         instruction=_text(item, "instruction").strip(),
         attachments=_strings(item.get("attachments")),
         expect=Expectation(
-            tool=_text(expect, "tool"),
+            tool=tool,
             args=_args(expect.get("args")),
             contains=contains,
             must_not_contain=_strings(answer_map.get("must_not_contain")),
             grounded=grounded,
             terminal=str(expect.get("terminal") or "completed"),
+            chain=chain,
         ),
     )
 

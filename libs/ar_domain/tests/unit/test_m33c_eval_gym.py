@@ -64,6 +64,59 @@ def test_scripted_model_picks_python_without_reading_the_scorecard() -> None:
     assert "17" in str(arguments["source"])
 
 
+def _chain_task() -> Task:
+    return Task(
+        id="acc-copy-token",
+        title="Read then write",
+        instruction="Read note.txt and write the token into copy.txt.",
+        attachments=(),
+        expect=Expectation(
+            tool="general.read_file",
+            args=(),
+            contains=("copy.txt",),
+            must_not_contain=(),
+            grounded="quote",
+            terminal="completed",
+            chain=("general.read_file", "general.write_file"),
+        ),
+    )
+
+
+def _chain_calls(names: list[str]) -> list[ObservedCall]:
+    return [
+        ObservedCall(name=name, arguments={}, result_text="FILE-19 copy.txt", status="succeeded")
+        for name in names
+    ]
+
+
+def test_a_chain_passes_when_the_tools_run_in_order() -> None:
+    score = score_observation(
+        _chain_task(),
+        calls=_chain_calls(["general.read_file", "general.write_file"]),
+        answer="wrote copy.txt",
+        status="completed",
+    )
+    assert score.tool_selected is True
+    assert score.expected_tool == "general.read_file → general.write_file"
+
+
+def test_a_chain_fails_when_a_tool_is_missing_or_out_of_order() -> None:
+    missing = score_observation(
+        _chain_task(),
+        calls=_chain_calls(["general.read_file"]),
+        answer="wrote copy.txt",
+        status="completed",
+    )
+    assert missing.tool_selected is False
+    reversed_order = score_observation(
+        _chain_task(),
+        calls=_chain_calls(["general.write_file", "general.read_file"]),
+        answer="wrote copy.txt",
+        status="completed",
+    )
+    assert reversed_order.tool_selected is False
+
+
 def test_zero_tool_calls_fail_even_when_the_number_looks_right() -> None:
     score = score_observation(
         _quote_task(),

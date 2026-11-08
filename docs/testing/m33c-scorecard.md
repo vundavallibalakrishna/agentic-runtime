@@ -27,3 +27,21 @@ call a paid provider. A live Qwen3-32B run is a separate file. See
 | refuse-not-found | pass | pass | pass | pass | not_found |
 
 Aggregate: 12/12 (100%).
+
+## Per-tool selection
+
+How often the model chose the expected tool (or chain), by tool.
+
+| Tool | Selected | Rate |
+|---|---|---|
+| `data.query` | 1/1 | 100% |
+| `documents.check` | 2/2 | 100% |
+| `documents.summarise` | 1/1 | 100% |
+| `general.chart` | 1/1 | 100% |
+| `general.code` | 1/1 | 100% |
+| `general.export_table` | 1/1 | 100% |
+| `general.fetch` | 1/1 | 100% |
+| `general.http` | 1/1 | 100% |
+| `general.read_file` | 1/1 | 100% |
+| `general.shell` | 1/1 | 100% |
+| `knowledge.search` | 1/1 | 100% |

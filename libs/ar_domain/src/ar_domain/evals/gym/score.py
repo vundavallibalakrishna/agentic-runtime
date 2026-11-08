@@ -25,6 +25,7 @@ class TaskScore:
 
     task_id: str
     title: str
+    expected_tool: str
     tool_selected: bool
     args_ok: bool
     answer_grounded: bool
@@ -62,6 +63,26 @@ def canonical_tool(name: str) -> str:
     return name.replace("__", ".")
 
 
+def _chain_matched(observed: list[str], chain: tuple[str, ...]) -> bool:
+    """True when every tool in ``chain`` appears in ``observed`` in that order."""
+    index = 0
+    for name in observed:
+        if index < len(chain) and name == chain[index]:
+            index += 1
+    return index == len(chain)
+
+
+def tool_breakdown(report: Report) -> list[tuple[str, int, int]]:
+    """Per expected tool: (tool, tasks that selected it, total tasks expecting it)."""
+    totals: dict[str, int] = {}
+    hits: dict[str, int] = {}
+    for row in report.scores:
+        tool = row.expected_tool
+        totals[tool] = totals.get(tool, 0) + 1
+        hits[tool] = hits.get(tool, 0) + (1 if row.tool_selected else 0)
+    return [(tool, hits[tool], totals[tool]) for tool in sorted(totals)]
+
+
 def score_observation(
     task: Task,
     *,
@@ -71,13 +92,19 @@ def score_observation(
 ) -> TaskScore:
     """Score tool selection, arguments, and whether the answer follows the tool."""
     matched = [call for call in calls if canonical_tool(call.name) == task.expect.tool]
-    tool_ok = bool(matched)
-    args_ok = tool_ok and all(_arg_ok(rule, matched[0].arguments) for rule in task.expect.args)
+    if task.expect.chain:
+        tool_ok = _chain_matched([canonical_tool(call.name) for call in calls], task.expect.chain)
+    else:
+        tool_ok = bool(matched)
+    args_ok = bool(matched) and all(
+        _arg_ok(rule, matched[0].arguments) for rule in task.expect.args
+    )
     grounded = _grounded(task, calls, answer, status)
     note = _note(task, calls, answer, status, tool_ok=tool_ok, args_ok=args_ok, grounded=grounded)
     return TaskScore(
         task_id=task.id,
         title=task.title,
+        expected_tool=" → ".join(task.expect.chain) if task.expect.chain else task.expect.tool,
         tool_selected=tool_ok,
         args_ok=args_ok,
         answer_grounded=grounded,
@@ -110,8 +137,18 @@ def render_scorecard(report: Report) -> str:
             "",
             f"Aggregate: {report.passed_count}/{report.total} ({report.percent}%).",
             "",
+            "## Per-tool selection",
+            "",
+            "How often the model chose the expected tool (or chain), by tool.",
+            "",
+            "| Tool | Selected | Rate |",
+            "|---|---|---|",
         ]
     )
+    for tool, hit, total in tool_breakdown(report):
+        rate = round(100 * hit / total) if total else 0
+        lines.append(f"| `{tool}` | {hit}/{total} | {rate}% |")
+    lines.append("")
     return "\n".join(lines)
 
 
