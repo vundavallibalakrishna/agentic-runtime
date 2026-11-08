@@ -118,9 +118,20 @@ surface. Routing is unit-tested; the file flows run against the browser containe
 
 **T05b — tabs.** List, open, switch and close browser tabs; the agent tracks the pages of its one context.
 
-**T05c — stored sign-in through a connection.** A persistent, per-connection browser context so an agent can
-act on a site it is signed in to. Security-sensitive: credentials stay in `SecretStore` and never enter model
-context, tool arguments, logs or the snapshot — a check-in before building, like T04c.
+**T05c — stored sign-in through a connection** (owner-approved architecture, 2026-11-08). A browser connection
+holds a site's session state (cookies and storage) sealed with the connection key and scoped to tenant + owner.
+The **trusted runtime**, never the model, unseals it at claim time, checks tenant ownership and status, and
+injects it into a **fresh, isolated container context** over the agent's trusted `/admin/session` channel. The
+model calls `use_connection(connection)` with only the connection's name and receives an **opaque handle** — the
+state never enters model context, a tool argument, a snapshot, a log, a trace or an error. Each restore is
+audited (connection, tenant, outcome; never the state). Mandatory security tests cover cross-tenant isolation,
+connection spoofing, revocation, and secret non-disclosure.
+
+Increment 1 (this task) is trusted claim-time restoration of stored state. **Follow-ups:** T05d adds OAuth
+connections; T05e adds a trusted, non-LLM Authentication Worker that performs scripted login from `SecretStore`
+when restoration fails, with MFA/CAPTCHA escalated to a human and the model never in the loop; the full session
+lifecycle (expiration detection, controlled refresh, concurrency controls) and a durable `browser_connections`
+table with RLS come with them.
 
 ## M40-T06 The model sees images
 
