@@ -52,7 +52,7 @@ Rules:
 | hvac | 2.4.0 | Vault/OpenBao client (KV v2, Transit, Kubernetes auth). |
 | boto3 / aiobotocore | 1.43.106 / 3.9.2 | S3-compatible object storage (presigned URLs via boto3, async I/O via aiobotocore). boto3 1.43.115 requires botocore ≥ 1.43.115, which the current aiobotocore 3.9.2 rejects (`botocore>=1.43.101,<1.43.107`); 1.43.106 is the newest boto3 that resolves. |
 | kubernetes-asyncio | 36.1.0 | Sandbox manager Kubernetes driver (pods, PVCs, network policies). |
-| aiodocker | 0.27.0 | Sandbox manager Docker driver for local development. |
+| aiodocker | 0.27.0 | Docker driver (`ar_common.sandbox_docker`) the manager and the in-process launcher use to start a sandbox container in local development. |
 | slack-bolt | 1.30.0 | Slack app (Socket Mode by default, HTTP events optional). |
 | microsoft-agents-hosting-core / -aiohttp | 1.9.0 | Current Microsoft SDK for Teams bots (successor of Bot Framework SDK). |
 | aioimaplib / aiosmtplib | 2.0.3 / 5.1.3 | Email channel: inbound IMAP polling, outbound SMTP relay. |
@@ -189,6 +189,7 @@ Rules:
 | GreenMail | 2.1 | SMTP + IMAP test server for email-channel integration tests (Mailpit has no IMAP). |
 | Squid | 7.7 | Sandbox egress proxy with per-sandbox domain allowlists. |
 | Falco | 0.45.1 | Runtime threat detection on the sandbox node pool. |
+| `ar-sandbox` toolbox | pinned in `images/sandbox/sandbox-tools.txt` | The computer's Python set (pandas, numpy, polars, scipy, matplotlib, seaborn, openpyxl, python-docx, python-pptx, reportlab, pypdf, pdfplumber, duckdb, pillow, pytesseract) plus LibreOffice headless, poppler-utils, tesseract (`SANDBOX_TESSERACT_LANGS`), ffmpeg and Noto fonts, baked by `images/sandbox/Dockerfile`. |
 | Docker Engine + Compose v2 | Engine 28+ / Compose 2.40+ | Local development stack (`compose.yaml`). |
 
 ### CI and supply-chain tools
