@@ -26,6 +26,7 @@ from ar_common.sandboxkit import (
     virtual_path,
 )
 from ar_contracts.api_model import ApiModel
+from ar_sandbox_agent.browser import BROWSER_TOOLS, run_browser
 
 router = APIRouter()
 
@@ -61,6 +62,9 @@ async def mcp(
     body: ToolCall, authorization: Annotated[str | None, Header()] = None
 ) -> dict[str, object]:
     _auth(authorization)
+    bare = body.name.split(".", 1)[-1]  # accept "browser.navigate" or "navigate"
+    if bare in BROWSER_TOOLS:
+        return _with_usage(await run_browser(bare, body.arguments))
     return _call(body.name, body.arguments)
 
 
