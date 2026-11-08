@@ -41,6 +41,7 @@ _IMPLICIT = frozenset(
         "control.search",
         "plan.update",
         "tools.search",
+        "skills.load",
     }
 )
 

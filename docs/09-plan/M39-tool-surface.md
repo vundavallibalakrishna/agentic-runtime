@@ -134,8 +134,21 @@ only in process memory.
 
 ## M39-T05 The model chooses a skill
 
-**Do:** the system prompt lists the agent's skills by name and description. `skills.load` is bound by
-default. The keyword match before the turn stays as a hint and no longer loads a skill body.
+**Do:**
+
+- The system prompt already lists the agent's skills by name and description (`capabilities_block`). The
+  keyword match before the turn (`skills/match.py`) no longer loads a skill's body: it returns a hint, and
+  `workspace/turn.py` adds a line naming the skill and telling the model to load it with `skills.load`.
+- `skills.load` is bound by default: it joins `_IMPLICIT`, so it is always entitled, and the agent loop
+  offers it whenever the agent has a skill, whether or not the agent binds the skills server (it survives the
+  deferred-loading path through `_CORE_WHEN_SEARCHING`).
+
+**Done when:** an agent with a skill is sent the skill list and `skills.load`, the pre-turn match only hints,
+and the model loads the body itself.
+
+**Tests:** `test_m39_model_chooses_skill.py` — the match hints without loading, `skills.load` is entitled by
+default, and a skilled agent is offered `skills.load`; `test_m25_embed_http.py` asserts the hint, not the
+body.
 
 ## M39-T06 MCP client depth
 

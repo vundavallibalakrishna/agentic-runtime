@@ -125,6 +125,14 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         return False
     by_name = _index(tools)
     by_name.update(extra_index)
+    # The model chooses a skill: when the agent has skills, offer skills.load so it can
+    # load the one the prompt lists, whether or not the agent binds the skills server.
+    if definition.get("skills") and "skills.load" not in by_name:
+        load_row = _catalogue_row(store, "skills.load", "skills__load")
+        if load_row is not None:
+            tools = [*tools, load_row]
+            by_name["skills__load"] = load_row
+            by_name["skills.load"] = load_row
     openai_tools = [_openai_tool(row) for row in tools]
     openai_tools.extend(extra_tools)
     # Above the threshold, offer the core tools and the search tool; the full catalogue
@@ -500,7 +508,7 @@ def _openai_tool(row: dict[str, object]) -> dict[str, object]:
 # search tool; it finds the rest with a search, and a found tool's schema is added to the
 # next call (M39-T04).
 _CORE_WHEN_SEARCHING = frozenset(
-    {"files.read", "files.list", "control.plan_update", "control.search"}
+    {"files.read", "files.list", "control.plan_update", "control.search", "skills.load"}
 )
 _SEARCH_TOOL_NAMES = frozenset({"control__search", "tools__search"})
 
@@ -511,19 +519,24 @@ def _spec_name(spec: dict[str, object]) -> str:
     return str(function.get("name")) if isinstance(function, dict) else ""
 
 
-def _search_tool_row(store: Any) -> dict[str, object] | None:
-    """The catalogue row for ``control.search``, so the search tool can always be offered."""
+def _catalogue_row(store: Any, qualified: str, model_name: str) -> dict[str, object] | None:
+    """A catalogue row for an always-available tool, so it can be offered unbound."""
     for row in getattr(store, "tool_versions", {}).values():
-        if isinstance(row, dict) and row.get("qualified_name") == "control.search":
+        if isinstance(row, dict) and row.get("qualified_name") == qualified:
             return {
-                "model_name": "control__search",
-                "qualified_name": "control.search",
+                "model_name": model_name,
+                "qualified_name": qualified,
                 "description": row.get("description"),
                 "parameters": row.get("input_schema"),
                 "risk_class": row.get("risk_class"),
                 "tool_version_id": str(row.get("id")),
             }
     return None
+
+
+def _search_tool_row(store: Any) -> dict[str, object] | None:
+    """The catalogue row for ``control.search``, so the search tool can always be offered."""
+    return _catalogue_row(store, "control.search", "control__search")
 
 
 def _add_found_tools(

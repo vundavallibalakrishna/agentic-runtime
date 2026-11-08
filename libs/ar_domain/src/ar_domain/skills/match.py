@@ -1,7 +1,8 @@
-"""Load a skill when its description matches the task.
+"""Hint at a skill when its description matches the task.
 
 The match is a visible decision: the run records the skill and the words that
-overlapped. Instructions are trusted author content. Document text is not.
+overlapped. It no longer loads the skill's body — the model reads the hint and the
+skill list and calls ``skills.load`` when it wants the instructions (M39-T05).
 """
 
 from __future__ import annotations
@@ -11,7 +12,6 @@ import uuid
 from typing import TYPE_CHECKING
 
 from ar_domain.skills.book import SkillBook
-from ar_domain.skills.load import load_skill
 from ar_domain.skills.logic import split_skill_ref
 
 if TYPE_CHECKING:
@@ -53,7 +53,7 @@ _STOP = frozenset(
 def match_skill(
     store: Any, run: dict[str, object], definition: dict[str, object], task: str
 ) -> dict[str, object] | None:
-    """Return the loaded skill, or None when nothing attached is relevant."""
+    """Return a hint at the most relevant attached skill, or None. It does not load it."""
     tenant = run.get("tenant_id")
     if not isinstance(tenant, uuid.UUID):
         return None
@@ -75,18 +75,12 @@ def match_skill(
         return None
     _score, terms, skill = best
     slug = str(skill.get("slug") or "")
-    loaded = load_skill(store, run, slug)
-    if loaded.get("is_error"):
-        return None
     reason = "description matched: " + ", ".join(terms[:8])
-    structured = loaded.get("structured")
-    version = structured.get("version") if isinstance(structured, dict) else None
     return {
         "slug": slug,
         "name": str(skill.get("name") or slug),
         "reason": reason,
-        "version": version,
-        "instructions": str(loaded.get("text") or "")[:50_000],
+        "version": skill.get("published_version"),
     }
 
 
