@@ -207,6 +207,7 @@ class AuditAction(StrEnum):
     BROWSER_CONNECTION_CREATED = "browser_connection.created"
     BROWSER_CONNECTION_RESTORED = "browser_connection.restored"
     BROWSER_CONNECTION_UPDATED = "browser_connection.updated"
+    BROWSER_CONNECTION_LOGIN = "browser_connection.login"
     BROWSER_CONNECTION_REVOKED = "browser_connection.revoked"
     BROWSER_CONNECTION_DENIED = "browser_connection.denied"
     SKILL_CREATED = "skill.created"

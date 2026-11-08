@@ -8,6 +8,7 @@ denied navigation is stopped before it. A canary needing the ``ar-sandbox-browse
 from __future__ import annotations
 
 import asyncio
+import base64
 import uuid
 
 import orjson
@@ -100,5 +101,31 @@ def test_browser_tools_run_in_the_container_through_run_tool() -> None:
         assert saved["is_error"] is False
         assert saved["structured"]["status"] == "saved"
         assert saved["structured"]["version"] == 2
+
+        # Scripted login: the trusted worker fills a login form and captures the session,
+        # from sealed credentials the model never handles (M40-T05e).
+        form = base64.b64encode(
+            b"<html><body><input id='u'><input id='p'>"
+            b"<button id='go' onclick=\"var d=document.createElement('div');"
+            b"d.id='dash';document.body.appendChild(d)\">Login</button></body></html>"
+        ).decode()
+        BrowserConnectionBook(store).create(
+            Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS),
+            name="portal",
+            origins=[],
+            login={
+                "url": f"data:text/html;base64,{form}",
+                "steps": [
+                    {"selector": "#u", "field": "username"},
+                    {"selector": "#p", "field": "password"},
+                ],
+                "submit_selector": "#go",
+                "success_selector": "#dash",
+            },
+            credentials={"username": "alice", "password": "pw-secret-xyz"},
+        )
+        loggedin = run_tool(store, "use_connection", {**ctx, "connection": "portal"})
+        assert loggedin["is_error"] is False
+        assert loggedin["structured"]["status"] == "authenticated"
     finally:
         terminate_row(store, row, actor=demo_id("admin"))

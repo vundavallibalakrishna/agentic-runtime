@@ -31,6 +31,7 @@ from ar_sandbox_agent.browser import (
     export_session,
     restore_session,
     run_browser,
+    scripted_login,
 )
 
 router = APIRouter()
@@ -120,6 +121,23 @@ async def session_export(
     """Return the active context's state so the runtime can re-seal it. Trusted channel."""
     _auth(authorization)
     return await export_session()
+
+
+class LoginBody(ApiModel):
+    url: str = ""
+    steps: list[dict[str, object]] = Field(default_factory=list)
+    submit_selector: str = ""
+    success_selector: str = ""
+    mfa_selectors: list[str] = Field(default_factory=list)
+
+
+@router.post("/admin/login")
+async def login(
+    body: LoginBody, authorization: Annotated[str | None, Header()] = None
+) -> dict[str, object]:
+    """Perform a scripted login with credentials supplied over the trusted channel."""
+    _auth(authorization)
+    return await scripted_login(body.model_dump())
 
 
 @router.post("/admin/snapshot")

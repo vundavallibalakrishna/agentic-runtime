@@ -172,6 +172,48 @@ async def export_session() -> dict[str, object]:
     return {"status": "ready", "storage_state": state}
 
 
+async def scripted_login(spec: dict[str, object]) -> dict[str, object]:
+    """Drive a scripted login in a fresh context. Trusted channel only; never the model.
+
+    The field values (including the password) arrive on ``/admin/login`` with the sandbox
+    token and are typed into the page, exactly as a person would. On success the new state
+    is returned for the runtime to seal; an MFA or CAPTCHA marker returns ``needs_human``.
+    """
+    try:
+        import playwright  # noqa: F401, PLC0415
+    except ImportError:
+        return {"status": "no_browser"}
+    url = str(spec.get("url") or "")
+    raw_steps = spec.get("steps")
+    steps: list[Any] = raw_steps if isinstance(raw_steps, list) else []
+    submit = str(spec.get("submit_selector") or "")
+    success = str(spec.get("success_selector") or "")
+    raw_mfa = spec.get("mfa_selectors")
+    mfa: list[Any] = raw_mfa if isinstance(raw_mfa, list) else []
+    async with _SESSION._lock:
+        await _SESSION.restore({"cookies": [], "origins": []})
+        page = await _SESSION.page()
+        try:
+            await page.goto(url, wait_until="domcontentloaded", timeout=_NAV_TIMEOUT_MS)
+            for step in steps:
+                selector = str(step.get("selector") or "") if isinstance(step, dict) else ""
+                value = str(step.get("value") or "") if isinstance(step, dict) else ""
+                await page.locator(selector).fill(value, timeout=_NAV_TIMEOUT_MS)
+            if submit:
+                await page.locator(submit).click(timeout=_NAV_TIMEOUT_MS)
+            with contextlib.suppress(Exception):
+                await page.wait_for_load_state("networkidle", timeout=_NAV_TIMEOUT_MS)
+        except Exception as exc:  # noqa: BLE001 - a login failure is reported, never raised
+            return {"status": "failed", "reason": type(exc).__name__}
+        for selector in mfa:
+            if await page.locator(str(selector)).count() > 0:
+                return {"status": "needs_human", "reason": "mfa"}
+        if success and await page.locator(success).count() == 0:
+            return {"status": "failed", "reason": "no_success_marker"}
+        context = await _SESSION.context()
+        return {"status": "ready", "storage_state": await context.storage_state()}
+
+
 async def run_browser(name: str, arguments: dict[str, object]) -> dict[str, object]:
     """Dispatch one browser tool, or report that the browser is not installed."""
     try:
