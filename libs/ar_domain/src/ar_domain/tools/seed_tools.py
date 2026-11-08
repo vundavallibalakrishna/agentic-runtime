@@ -690,13 +690,13 @@ def _file_tools() -> list[dict[str, object]]:
                     },
                     "offset": {
                         "type": "integer",
-                        "description": "The line to start reading from, 0-based. Omit to start "
+                        "description": "The byte to start reading from, 0-based. Omit to start "
                         "at the beginning.",
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "The maximum number of lines to read. Omit to read to "
-                        "the end.",
+                        "description": "The maximum number of bytes to read. Omit for the "
+                        "default window.",
                     },
                 },
                 "required": ["file_id"],
@@ -1062,6 +1062,125 @@ def _general_tools() -> list[dict[str, object]]:
                 },
             },
             "R0",
+        ),
+        _tool(
+            "edit_file",
+            "Edit a workspace file",
+            "Replace an exact piece of text in a workspace file. oldString must match the file "
+            "exactly and, unless replaceAll is set, appear once. Read the file first and copy "
+            "the text to replace. Returns how many replacements were made.",
+            {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "The file to edit, as a path relative to the working "
+                        "folder.",
+                    },
+                    "oldString": {
+                        "type": "string",
+                        "description": "The exact text to replace, copied from the file.",
+                    },
+                    "newString": {
+                        "type": "string",
+                        "description": "The text to put in its place. Empty deletes the matched "
+                        "text.",
+                    },
+                    "replaceAll": {
+                        "type": "boolean",
+                        "description": "Replace every occurrence instead of requiring oldString "
+                        "to be unique. Defaults to false.",
+                    },
+                },
+                "required": ["path", "oldString", "newString"],
+            },
+            "W1",
+        ),
+        _tool(
+            "grep",
+            "Search file contents",
+            "Search the working folder for lines matching a regular expression. Returns each "
+            "match as path:line: text. Use glob to limit which files are searched.",
+            {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "A Python regular expression to match against each line.",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "A subfolder or file to search, relative to the working "
+                        "folder. Omit to search the whole folder.",
+                    },
+                    "glob": {
+                        "type": "string",
+                        "description": "A relative glob limiting which files are searched, for "
+                        "example **/*.py. Defaults to every file.",
+                    },
+                },
+                "required": ["pattern"],
+            },
+            "R0",
+        ),
+        _tool(
+            "glob",
+            "Find files by name",
+            "List workspace files whose path matches a glob pattern, for example **/*.py. "
+            "Returns the matching paths.",
+            {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "type": "string",
+                        "description": "A relative glob pattern, for example **/*.csv or "
+                        "outputs/*.png.",
+                    }
+                },
+                "required": ["pattern"],
+            },
+            "R0",
+        ),
+        _tool(
+            "move",
+            "Move a workspace file",
+            "Move or rename a file or folder within the working folder. Creates missing parent "
+            "folders and overwrites an existing destination.",
+            {
+                "type": "object",
+                "properties": {
+                    "source": {
+                        "type": "string",
+                        "description": "The file or folder to move, as a path relative to the "
+                        "working folder.",
+                    },
+                    "destination": {
+                        "type": "string",
+                        "description": "Where to move it, as a path relative to the working "
+                        "folder.",
+                    },
+                },
+                "required": ["source", "destination"],
+            },
+            "W1",
+        ),
+        _tool(
+            "delete",
+            "Delete a workspace file",
+            "Delete a file or folder in the working folder. A folder is removed with its "
+            "contents. This cannot be undone.",
+            {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "The file or folder to delete, as a path relative to the "
+                        "working folder.",
+                    }
+                },
+                "required": ["path"],
+            },
+            "W1",
         ),
         _tool(
             "fetch",

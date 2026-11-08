@@ -70,6 +70,11 @@ def dispatch_general(store: Any, name: str, arguments: dict[str, object]) -> dic
         "read_file": _read,
         "write_file": _write,
         "list_files": _list,
+        "edit_file": _edit,
+        "grep": _grep,
+        "glob": _glob,
+        "move": _move,
+        "delete": _delete,
         "fetch": _fetch,
         "search": _search,
         "http": _http,
@@ -148,10 +153,15 @@ def _read(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         return _error("not_found", no_such_file(root, str(arguments.get("path") or "")))
     if target.stat().st_size > limits["max_file_bytes"]:
         return _error("file_too_large", "The file is over the size limit. Read a smaller range.")
-    offset = as_int(arguments.get("offset"), 0)
+    lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+    offset = max(0, as_int(arguments.get("offset"), 0))
+    count = as_int(arguments.get("limit"), 0)
+    chosen = lines[offset:] if count <= 0 else lines[offset : offset + count]
+    text = "\n".join(chosen)
     cap = _as_limit(limits["max_output_bytes"])
-    window = min(as_int(arguments.get("limit"), cap), cap)
-    text = target.read_bytes()[offset : offset + window].decode("utf-8", errors="replace")
+    body = text.encode("utf-8", errors="replace")
+    if len(body) > cap:
+        text = body[:cap].decode("utf-8", errors="replace")
     shown = relative_path(root, target)
     return _ok(
         text or "(empty file)",
@@ -209,6 +219,158 @@ def _list(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         ]
     text = "\n".join(rows) or "No files."
     return _ok(text, {"kind": "file", "files": [{"name": row} for row in rows], "stdout": text})
+
+
+def _snapshot_after(store: Any, arguments: dict[str, object]) -> None:
+    """Persist the workspace after a mutation, the way a write does."""
+    from ar_domain.durability.store import snapshot_workspace  # noqa: PLC0415
+
+    run_id = arguments.get("_run_id")
+    snapshot_workspace(
+        store, run_id if isinstance(run_id, uuid.UUID) else None, arguments.get("_tenant_id")
+    )
+
+
+def _edit(store: Any, arguments: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
+    limits = _limits(store, arguments, "edit_file")
+    old = str(arguments.get("oldString") or arguments.get("old_string") or "")
+    new = str(arguments.get("newString") or arguments.get("new_string") or "")
+    if not old:
+        return _error("validation_failed", "oldString is required.")
+    root = _prepare(store, arguments)
+    try:
+        target = confine(root, str(arguments.get("path") or ""))
+    except PathEscapeError as exc:
+        return _error("validation_failed", str(exc))
+    if not target.is_file():
+        return _error("not_found", no_such_file(root, str(arguments.get("path") or "")))
+    content = target.read_text(encoding="utf-8", errors="replace")
+    occurrences = content.count(old)
+    if occurrences == 0:
+        return _error("not_found", "That exact text is not in the file. Read the file and copy it.")
+    replace_all = arguments.get("replaceAll") is True or arguments.get("replace_all") is True
+    if occurrences > 1 and not replace_all:
+        return _error(
+            "ambiguous_edit",
+            f"That text appears {occurrences} times. Make oldString unique, or set replaceAll.",
+        )
+    updated = content.replace(old, new) if replace_all else content.replace(old, new, 1)
+    raw = updated.encode()
+    if len(raw) > limits["max_file_bytes"]:
+        return _error("file_too_large", "The edit would pass the file size limit.")
+    target.write_bytes(raw)
+    shown = relative_path(root, target)
+    saved = _store_file(store, arguments, name=target.name, data=raw)
+    done = occurrences if replace_all else 1
+    return _ok(
+        f"Edited {shown} ({done} replacement{'s' if done != 1 else ''}).",
+        {"kind": "file", "path": shown, "files": [saved]},
+    )
+
+
+def _grep(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    import re  # noqa: PLC0415
+
+    pattern = str(arguments.get("pattern") or "")
+    if not pattern:
+        return _error("validation_failed", "pattern is required.")
+    try:
+        regex = re.compile(pattern)
+    except re.error as exc:
+        return _error("validation_failed", f"That is not a valid regular expression: {exc}")
+    root = _prepare(store, arguments)
+    try:
+        base = confine(root, str(arguments.get("path") or ""))
+    except PathEscapeError as exc:
+        return _error("validation_failed", str(exc))
+    if not base.exists():
+        return _error("not_found", no_such_file(root, str(arguments.get("path") or "")))
+    glob = str(arguments.get("glob") or "**/*")
+    if glob.startswith("/") or ".." in glob:
+        return _error("validation_failed", "glob must be a relative pattern, for example **/*.py.")
+    hits: list[dict[str, object]] = []
+    for path in sorted(base.glob(glob) if base.is_dir() else [base]):
+        if len(hits) >= 200 or not path.is_file() or path.name.startswith("_"):
+            continue
+        try:
+            for number, line in enumerate(
+                path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1
+            ):
+                if regex.search(line):
+                    hits.append(
+                        {"path": relative_path(root, path), "line": number, "text": line[:300]}
+                    )
+                    if len(hits) >= 200:
+                        break
+        except OSError:
+            continue
+    text = "\n".join(f"{hit['path']}:{hit['line']}: {hit['text']}" for hit in hits) or "No matches."
+    return _ok(text, {"kind": "file", "hits": hits, "stdout": text})
+
+
+def _glob(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    pattern = str(arguments.get("pattern") or "").strip()
+    if not pattern:
+        return _error("validation_failed", "pattern is required, for example **/*.py.")
+    if pattern.startswith("/") or ".." in pattern:
+        return _error("validation_failed", "pattern must be relative, for example **/*.py.")
+    root = _prepare(store, arguments)
+    workspace = root / "workspace"
+    matches = sorted(
+        relative_path(root, path)
+        for path in workspace.glob(pattern)
+        if path.is_file() and not path.name.startswith("_")
+    )
+    shown = matches[:200]
+    text = "\n".join(shown) or "No files match."
+    if len(matches) > len(shown):
+        text += f"\n… and {len(matches) - len(shown)} more"
+    return _ok(text, {"kind": "file", "files": [{"name": name} for name in shown], "stdout": text})
+
+
+def _move(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    import shutil  # noqa: PLC0415
+
+    root = _prepare(store, arguments)
+    try:
+        source = confine(root, str(arguments.get("source") or arguments.get("from") or ""))
+        destination = confine(root, str(arguments.get("destination") or arguments.get("to") or ""))
+    except PathEscapeError as exc:
+        return _error("validation_failed", str(exc))
+    if not source.exists():
+        return _error("not_found", no_such_file(root, str(arguments.get("source") or "")))
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source), str(destination))
+    files: list[dict[str, str]] = []
+    if destination.is_file() and destination.stat().st_size <= _MAX_FILE:
+        files.append(
+            _store_file(store, arguments, name=destination.name, data=destination.read_bytes())
+        )
+    else:
+        _snapshot_after(store, arguments)
+    return _ok(
+        f"Moved {relative_path(root, source)} to {relative_path(root, destination)}.",
+        {"kind": "file", "path": relative_path(root, destination), "files": files},
+    )
+
+
+def _delete(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    import shutil  # noqa: PLC0415
+
+    root = _prepare(store, arguments)
+    try:
+        target = confine(root, str(arguments.get("path") or ""))
+    except PathEscapeError as exc:
+        return _error("validation_failed", str(exc))
+    if not target.exists():
+        return _error("not_found", no_such_file(root, str(arguments.get("path") or "")))
+    shown = relative_path(root, target)
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink()
+    _snapshot_after(store, arguments)
+    return _ok(f"Deleted {shown}.", {"kind": "file", "files": []})
 
 
 def _fetch(store: Any, arguments: dict[str, object]) -> dict[str, object]:

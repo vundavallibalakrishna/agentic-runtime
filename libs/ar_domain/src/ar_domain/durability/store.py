@@ -78,6 +78,18 @@ def _file_row(store: Any, file_id: uuid.UUID) -> dict[str, object] | None:
     return loaded
 
 
+def _prune_removed(book: dict[object, object], existing: dict[str, Any], present: set[str]) -> int:
+    """Drop saved rows whose path is no longer on disk, so a move or delete sticks."""
+    removed = 0
+    for rel, saved in existing.items():
+        if rel in present:
+            continue
+        saved_id = saved.get("id") if isinstance(saved, dict) else None
+        if isinstance(saved_id, uuid.UUID) and book.pop(saved_id, None) is not None:
+            removed += 1
+    return removed
+
+
 def snapshot_workspace(store: Any, run_id: uuid.UUID | None, tenant_id: object) -> int:
     """Copy workspace files that fit the cap onto the store."""
     if not isinstance(run_id, uuid.UUID) or not isinstance(tenant_id, uuid.UUID):
@@ -94,16 +106,21 @@ def snapshot_workspace(store: Any, run_id: uuid.UUID | None, tenant_id: object) 
     }
     changed = 0
     kept: dict[str, bytes] = {}
+    present: set[str] = set()
     for path in sorted(workspace.rglob("*")):
         if not path.is_file() or path.name.startswith("_"):
             continue
         rel = _relative(workspace, path)
         if rel is None:
             continue
+        present.add(rel)
         data = path.read_bytes()
         if not data or len(data) > _MAX_WORKSPACE_FILE:
             continue
         kept[rel] = data
+    # A file removed from disk (a move or a delete) loses its saved row, so the restore
+    # of the next tool call does not write it back.
+    changed += _prune_removed(book, existing, present)
     used = 0
     bounded: dict[str, bytes] = {}
     for rel, data in kept.items():
