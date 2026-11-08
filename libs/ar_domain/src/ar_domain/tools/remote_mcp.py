@@ -63,18 +63,44 @@ def list_remote(
     timeout: float = 30.0,
     transport: str = "streamable",
 ) -> list[dict[str, object]]:
-    """Discover tools. A transport error becomes ``RemoteError``."""
-    payload = _rpc(
-        store,
-        url,
-        {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
-        token,
-        mode,
-        headers=headers,
-        timeout=timeout,
-        transport=transport,
-        initialize=True,
-    )
+    """Discover tools, following ``nextCursor`` pages in one session. Errors become RemoteError."""
+    session: dict[str, str] = {}
+    found: list[dict[str, object]] = []
+    cursor: str | None = None
+    for page in range(100):
+        params: dict[str, object] = {"cursor": cursor} if cursor else {}
+        payload = _rpc(
+            store,
+            url,
+            {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": params},
+            token,
+            mode,
+            headers=headers,
+            timeout=timeout,
+            transport=transport,
+            initialize=(page == 0),
+            session=session,
+        )
+        found.extend(_tools_page(payload))
+        cursor = _next_cursor(payload)
+        if not cursor:
+            break
+    if not found:
+        raise RemoteError("tools/list returned no tools")
+    return found
+
+
+def _next_cursor(payload: dict[str, object]) -> str | None:
+    result = payload.get("result")
+    cursor = result.get("nextCursor") if isinstance(result, dict) else None
+    return str(cursor) if isinstance(cursor, str) and cursor else None
+
+
+def _tools_page(payload: dict[str, object]) -> list[dict[str, object]]:
+    """The tools in one ``tools/list`` page, or an empty list. It does not raise."""
+    result = payload.get("result")
+    if not isinstance(result, dict) or not isinstance(result.get("tools"), list):
+        return []
     return _tools_from(payload)
 
 
@@ -219,25 +245,45 @@ def _result_text(payload: dict[str, object]) -> dict[str, object]:
         code = "schema_changed" if error.get("code") == -32602 else "upstream_error"
         return {"text": message, "structured": {}, "is_error": True, "code": code}
     result = payload.get("result")
-    text = ""
-    if isinstance(result, dict):
-        content = result.get("content")
-        if isinstance(content, list) and content and isinstance(content[0], dict):
-            text = str(content[0].get("text") or "")
-        elif "text" in result:
-            text = str(result.get("text") or "")
-        if result.get("isError") is True:
-            return {
-                "text": text or "upstream error",
-                "structured": {},
-                "is_error": True,
-                "code": "upstream_error",
-            }
-    return {
-        "text": text,
-        "structured": result if isinstance(result, dict) else {},
-        "is_error": False,
+    if not isinstance(result, dict):
+        return {"text": "", "structured": {}, "is_error": False}
+    text = _blocks_text(result)
+    is_error = result.get("isError") is True
+    outcome: dict[str, object] = {
+        "text": text or ("upstream error" if is_error else ""),
+        # The whole result is kept, so every content block (text, image, resource)
+        # survives for the model and the UI, not only the first text block (A15).
+        "structured": result,
+        "is_error": is_error,
     }
+    if is_error:
+        outcome["code"] = "upstream_error"
+    return outcome
+
+
+def _blocks_text(result: dict[str, object]) -> str:
+    """Join every content block into one readable result. Images and resources are named."""
+    content = result.get("content")
+    parts: list[str] = []
+    if isinstance(content, list):
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            kind = block.get("type")
+            if kind == "text":
+                parts.append(str(block.get("text") or ""))
+            elif kind == "image":
+                parts.append(f"[image: {block.get('mimeType') or 'image'}]")
+            elif kind == "resource":
+                resource = block.get("resource")
+                if isinstance(resource, dict):
+                    parts.append(
+                        str(resource.get("text") or "")
+                        or f"[resource: {resource.get('uri') or ''}]"
+                    )
+    if not parts and "text" in result:
+        parts.append(str(result.get("text") or ""))
+    return "\n".join(part for part in parts if part)
 
 
 def _rpc(
@@ -251,6 +297,7 @@ def _rpc(
     timeout: float,
     transport: str,
     initialize: bool,
+    session: dict[str, str] | None = None,
 ) -> dict[str, object]:
     _guard(store, url)
     sent = dict(headers or auth_headers(mode, token))
@@ -259,7 +306,9 @@ def _rpc(
         try:
             if transport == "sse":
                 return _sse(store, url, body, sent, timeout, initialize=initialize)
-            return _post_streamable(store, url, body, sent, timeout, initialize=initialize)
+            return _post_streamable(
+                store, url, body, sent, timeout, initialize=initialize, session=session
+            )
         except RemoteError as exc:
             last = exc
             if attempt == 0 and exc.reason == "the remote server did not answer":
@@ -276,19 +325,22 @@ def _post_streamable(
     timeout: float,
     *,
     initialize: bool,
+    session: dict[str, str] | None = None,
 ) -> dict[str, object]:
     extra = {"accept": "application/json, text/event-stream", "content-type": "application/json"}
     merged = {**headers, **extra}
-    session: dict[str, str] = {}
+    # A caller may pass a session dict to keep one MCP session across several requests,
+    # such as the pages of a tools/list. Without one, each call opens its own.
+    held = session if session is not None else {}
 
     def post(payload: dict[str, object]) -> dict[str, object]:
         sent = dict(merged)
-        if session.get("id"):
-            sent["mcp-session-id"] = session["id"]
+        if held.get("id"):
+            sent["mcp-session-id"] = held["id"]
         loaded, response_headers = _post_once(store, url, payload, sent, timeout)
         token = response_headers.get("mcp-session-id")
         if token:
-            session["id"] = token
+            held["id"] = token
         return loaded
 
     if initialize and body.get("method") != "initialize":
