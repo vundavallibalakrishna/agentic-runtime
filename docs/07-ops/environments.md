@@ -121,8 +121,10 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SAAS_SELF_SIGNUP` | `false` | Enables public `POST /api/v1/signup` (saas only) | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_SANDBOX_ALLOWED_REGISTRIES` | `registry.local/ar` | Registries sandbox template images may come from | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DEFAULT_RUNTIME_CLASS` | `gvisor` | Kubernetes RuntimeClass for sandboxes | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal docker network the in-process launcher attaches a sandbox container to; empty publishes the agent port to loopback (dev) | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_RUNTIME` | `runc` | `runsc` if installed | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DRIVER` | `docker` (dev) / `kubernetes` | `docker` (dev only) or `kubernetes` | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_IMAGE` | empty | Local `ar-sandbox` image the in-process docker launcher starts a container from (e.g. `ar-sandbox:dev`); empty runs the computer tools on the dev host | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_ENSURE_TIMEOUT_S` | `30` | Max time to obtain a ready sandbox | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | Internal URL of `sandbox-manager` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_SANDBOX_MAX_PER_TENANT` | plan `max_concurrent_sandboxes` (default 50) | Hard cap of concurrent sandboxes per tenant | [spec 12](../03-specs/12-sandbox-manager.md) |

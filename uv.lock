@@ -382,6 +382,7 @@ version = "0.1.0"
 source = { editable = "libs/ar_common" }
 dependencies = [
     { name = "aiobotocore" },
+    { name = "aiodocker" },
     { name = "boto3" },
     { name = "cryptography" },
     { name = "fastapi" },
@@ -411,6 +412,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "aiobotocore", specifier = "==3.9.2" },
+    { name = "aiodocker", specifier = "==0.27.0" },
     { name = "boto3", specifier = "==1.43.106" },
     { name = "cryptography", specifier = "==48.0.1" },
     { name = "fastapi", specifier = "==0.151.0" },
@@ -742,22 +744,18 @@ name = "ar-sandbox-manager"
 version = "0.1.0"
 source = { editable = "services/sandbox_manager" }
 dependencies = [
-    { name = "aiodocker" },
     { name = "ar-common" },
     { name = "ar-domain" },
     { name = "fastapi" },
-    { name = "httpx" },
     { name = "kubernetes-asyncio" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "aiodocker", specifier = "==0.27.0" },
     { name = "ar-common", editable = "libs/ar_common" },
     { name = "ar-domain", editable = "libs/ar_domain" },
     { name = "fastapi", specifier = "==0.151.0" },
-    { name = "httpx", specifier = "==0.28.1" },
     { name = "kubernetes-asyncio", specifier = "==36.1.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
 ]

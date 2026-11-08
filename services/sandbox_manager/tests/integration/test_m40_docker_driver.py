@@ -7,34 +7,24 @@ and skips when either is missing (OQ-37).
 from __future__ import annotations
 
 import uuid
-from typing import Any
 
 import httpx
 import pytest
 
-from ar_sandbox_manager.drivers.docker import docker_available, start_sandbox, stop_sandbox
+from ar_sandbox_manager.drivers.docker import (
+    docker_available,
+    image_present,
+    start_sandbox,
+    stop_sandbox,
+)
 
 pytestmark = pytest.mark.integration
 
 IMAGE = "ar-sandbox:dev"
 
 
-async def _image_present() -> bool:
-    import aiodocker
-
-    docker: Any = aiodocker.Docker()
-    try:
-        await docker.images.inspect(IMAGE)
-    except Exception:  # noqa: BLE001 - a missing image or daemon means skip
-        return False
-    else:
-        return True
-    finally:
-        await docker.close()
-
-
 async def test_driver_starts_the_agent_and_runs_a_command() -> None:
-    if not docker_available() or not await _image_present():
+    if not docker_available() or not await image_present(IMAGE):
         pytest.skip("docker daemon and the ar-sandbox image are required")
     name = f"ar-sbx-test-{uuid.uuid4().hex[:8]}"
     info = await start_sandbox(IMAGE, name, token="canary")  # noqa: S106 - a test credential

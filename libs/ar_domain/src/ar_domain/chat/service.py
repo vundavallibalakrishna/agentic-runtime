@@ -289,6 +289,7 @@ class ChatService:
     skills: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     skill_versions: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     model_gateway_url: str = ""
+    sandbox_launcher: object | None = None
     temporal_client: object | None = None
     durable: bool = False
     durable_engine: AsyncEngine | None = None
