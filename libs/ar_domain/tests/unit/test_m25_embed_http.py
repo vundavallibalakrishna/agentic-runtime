@@ -196,7 +196,10 @@ def test_grounding_records_a_skill_and_citation_cards() -> None:
     assert has_grounding(store.versions[version]["definition"])
     asyncio.run(ground_run(store, run, "Write the weekly status note"))
     assert run["loaded_skill"]["slug"] == "weekly-status"
-    assert "STATUS-OK" in str(run["prompt_messages"][0]["content"])
+    # M39-T05: the match hints at the skill; the model loads the body with skills.load.
+    prompt = str(run["prompt_messages"][0]["content"])
+    assert "skills.load" in prompt
+    assert "STATUS-OK" not in prompt
     cards = citation_parts(
         {
             "hits": [

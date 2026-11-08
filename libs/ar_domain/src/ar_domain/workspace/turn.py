@@ -155,8 +155,8 @@ def _append_system(
     extra: list[str] = []
     if skill is not None:
         extra.append(
-            "A skill was loaded because "
-            f"{skill['reason']}. Follow these instructions:\n{skill['instructions']}"
+            f"The '{skill['name']}' skill looks relevant ({skill['reason']}). "
+            "Load it with skills.load to follow its instructions."
         )
     hits = retrieval.get("hits") if isinstance(retrieval, dict) else None
     if isinstance(hits, list) and hits:
