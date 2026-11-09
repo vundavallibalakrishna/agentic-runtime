@@ -33,7 +33,7 @@ _MAX_CATEGORIES = 20
 _MAX_SERIES = 8
 _MIN_LABEL_BAR_W = 12  # a grouped bar narrower than this has no room for a value label
 _MAX_LABELLED_BARS = 16  # beyond this, per-bar labels clutter a grouped chart
-_MULTI_KINDS = frozenset({"grouped", "stacked"})
+_MULTI_KINDS = frozenset({"grouped", "stacked", "multiline"})
 _KINDS = frozenset({"bar", "line", "area", "scatter", "pie"}) | _MULTI_KINDS
 
 Colour = tuple[int, int, int]
@@ -196,6 +196,8 @@ def render_multi(
     _grid(pixels, width, height, scale, chosen)
     if kind == "stacked":
         _stacked_bars(pixels, width, height, scale, categories, series, chosen)
+    elif kind == "multiline":
+        _multi_lines(pixels, width, height, scale, series, chosen)
     else:
         _grouped_bars(pixels, width, height, scale, categories, series, chosen)
     _x_labels(pixels, width, height, area, [(c, 0.0) for c in categories], chosen)
@@ -439,6 +441,31 @@ def _legend(pixels: bytearray, width: int, height: int, series: Series, theme: C
         _fill(pixels, width, x, x + square, y, y + square, colour)
         pixfont.draw_text(pixels, width, height, x + square + 3, y, name.upper(), theme.ink)
         x += item_w
+
+
+def _multi_lines(  # noqa: PLR0917
+    pixels: bytearray, width: int, height: int, scale: Scale, series: Series, theme: ChartTheme
+) -> None:
+    area = scale.area
+    count = len(series[0][1]) if series else 0
+    xs = [
+        area.x0 + (int(area.w * i / (count - 1)) if count > 1 else area.w // 2)
+        for i in range(count)
+    ]
+    # Few enough points to label each value — the surest way to read which line is higher.
+    label = count * len(series) <= _MAX_LABELLED_BARS
+    for si, (_name, values) in enumerate(series):
+        colour = theme.accents[si % len(theme.accents)]
+        points = [(xs[i], scale.y(values[i])) for i in range(len(values))]
+        for start, end in pairwise(points):
+            _segment(pixels, width, start, end, colour)
+        for i, (px, py) in enumerate(points):  # a marker at each vertex, easy to trace
+            _fill(pixels, width, px - 2, px + 3, py - 2, py + 3, colour)
+            if label:
+                text = _fmt(values[i])
+                tx = px - pixfont.text_width(text) // 2
+                ty = py - 11 if py - 11 >= area.y0 else py + 6
+                pixfont.draw_text(pixels, width, height, tx, ty, text, colour)
 
 
 def _line(

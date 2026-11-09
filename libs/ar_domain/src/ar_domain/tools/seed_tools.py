@@ -2042,19 +2042,28 @@ def _chart_tool() -> dict[str, object]:
     return _tool(
         "chart",
         "Draw a chart",
-        "Draw a bar, line, area, scatter, pie, grouped or stacked chart and save a PNG. "
-        "theme is ink, slate, forest, ember or midnight. "
-        "grouped and stacked draw several series per category: give each row a category key "
-        "and one numeric column per series, and name them in seriesKeys. "
+        "Draw a bar, line, area, scatter, pie, grouped, stacked or multiline chart and save "
+        "a PNG. theme is ink, slate, forest, ember or midnight. "
+        "grouped, stacked and multiline draw several series per category: give each row a "
+        "category key and one numeric column per series, and name them in seriesKeys. "
         "slide true also writes a one-slide PPTX with the title and narrative.",
         {
             "type": "object",
             "properties": {
                 "kind": {
                     "type": "string",
-                    "description": "The chart type. grouped and stacked show several series "
-                    "per category.",
-                    "enum": ["bar", "line", "area", "scatter", "pie", "grouped", "stacked"],
+                    "description": "The chart type. grouped, stacked and multiline show "
+                    "several series per category.",
+                    "enum": [
+                        "bar",
+                        "line",
+                        "area",
+                        "scatter",
+                        "pie",
+                        "grouped",
+                        "stacked",
+                        "multiline",
+                    ],
                 },
                 "theme": {
                     "type": "string",

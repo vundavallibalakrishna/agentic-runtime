@@ -164,3 +164,14 @@ def test_dispatch_rejects_grouped_without_series() -> None:
     result = dispatch_chart(store, "chart", {"kind": "grouped", "rows": [{"q": "Q1"}]})
     assert result is not None and result["is_error"] is True
     assert result["code"] == "validation_failed"
+
+
+def test_multiline_draws_one_line_per_series_with_a_legend() -> None:
+    cats = ["Jan", "Feb", "Mar"]
+    series = [("Sales", [10.0, 14.0, 9.0]), ("Costs", [4.0, 6.0, 12.0])]
+    pixels = _decode(render_multi("multiline", cats, series, theme="ink", title="Trend"))
+    assert _band_has(pixels, 38, 50, _INK), "no legend text drawn"
+    assert _band_has(pixels, _HEIGHT - 40, _HEIGHT - 8, _INK), "no category labels"
+    accents = THEMES["ink"].accents
+    assert any(accents[0] in row for row in pixels)
+    assert any(accents[1] in row for row in pixels)

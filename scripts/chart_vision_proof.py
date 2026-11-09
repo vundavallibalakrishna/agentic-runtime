@@ -285,6 +285,73 @@ CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
         "the Q2 bar? Give the number.",
         ["58"],
     ),
+    (
+        "multiline — which line is higher at the end",
+        {
+            "kind": "multiline",
+            "title": "Sales vs Costs",
+            "xKey": "month",
+            "rows": [
+                {"month": "Jan", "Sales": 10, "Costs": 4},
+                {"month": "Feb", "Sales": 14, "Costs": 6},
+                {"month": "Mar", "Sales": 9, "Costs": 12},
+            ],
+        },
+        "This chart has two lines, Sales and Costs (see the legend). At the last month (Mar), "
+        "which line is higher? Answer with the series name.",
+        ["costs"],
+    ),
+    (
+        "grouped — many categories, tallest bar",
+        {
+            "kind": "grouped",
+            "title": "Units by Region",
+            "xKey": "region",
+            "rows": [
+                {"region": "North", "Y2023": 20, "Y2024": 28},
+                {"region": "South", "Y2023": 35, "Y2024": 30},
+                {"region": "East", "Y2023": 18, "Y2024": 90},
+                {"region": "West", "Y2023": 40, "Y2024": 25},
+                {"region": "Central", "Y2023": 22, "Y2024": 33},
+                {"region": "Coast", "Y2023": 15, "Y2024": 27},
+            ],
+        },
+        "This grouped bar chart has six regions and two years. Which region has the single "
+        "tallest bar? Answer with the region name.",
+        ["east"],
+    ),
+    (
+        "stacked — five series, tallest total",
+        {
+            "kind": "stacked",
+            "title": "Spend by Team",
+            "xKey": "quarter",
+            "rows": [
+                {"quarter": "Q1", "Eng": 10, "Sales": 8, "Ops": 6, "Mkt": 4, "HR": 2},
+                {"quarter": "Q2", "Eng": 20, "Sales": 18, "Ops": 15, "Mkt": 12, "HR": 9},
+                {"quarter": "Q3", "Eng": 12, "Sales": 9, "Ops": 7, "Mkt": 5, "HR": 3},
+            ],
+        },
+        "In this stacked chart with five teams, which quarter has the tallest total stack? "
+        "Answer with the quarter label.",
+        ["q2"],
+    ),
+    (
+        "grouped — a negative series",
+        {
+            "kind": "grouped",
+            "title": "Revenue and Adjustments",
+            "xKey": "quarter",
+            "rows": [
+                {"quarter": "Q1", "Revenue": 30, "Adjustment": -12},
+                {"quarter": "Q2", "Revenue": 45, "Adjustment": -8},
+                {"quarter": "Q3", "Revenue": 38, "Adjustment": -15},
+            ],
+        },
+        "One series in this grouped chart has bars that drop below the zero line (negative "
+        "values). Which series is it? Answer with the series name.",
+        ["adjustment"],
+    ),
 ]
 
 
