@@ -48,3 +48,4 @@ apps/web/.next-*/
 
 # Local git worktrees for parallel sessions
 .claude/worktrees/
+docs/testing/grc-flows/evidence-live.json
