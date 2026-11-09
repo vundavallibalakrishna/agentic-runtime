@@ -2,7 +2,7 @@
 
 Every public HTTP endpoint, generated from the `#### METHOD /path` headings of the specs in [03-specs](../03-specs/) (the spec section is normative). Conventions (auth, errors, pagination, idempotency, ETags): [api-conventions](api-conventions.md). Internal service-to-service endpoints: [internal-apis](internal-apis.md). Stream events: [stream-events](stream-events.md).
 
-After implementation, CI job `docs` runs `scripts/check_api_catalogue.py`, which fails if `openapi.json` and this catalogue differ (method + path).
+A `scripts/check_api_catalogue.py` that fails the `docs` CI job when `openapi.json` and this catalogue differ (method + path) is planned but not yet wired; the catalogue can drift from the generated spec until then (OQ-120).
 
 New endpoints are appended at the end.
 

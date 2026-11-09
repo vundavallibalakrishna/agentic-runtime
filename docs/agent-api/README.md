@@ -1,5 +1,8 @@
 # Calling an agent from another product
 
+New to the API? Start with the [getting-started guide](getting-started.md), which also covers
+service-account integration on `/api/v1`.
+
 A published agent has its own keys. Create one on the agent's Expose tab. The secret is shown once. Send it as `Authorization: Bearer ara_...`.
 
 The contract is `GET /v1/openapi.json`. A copy generated from those routes is [openapi.json](openapi.json).
@@ -99,6 +102,30 @@ curl -s https://runtime.example/v1/mcp \
 ```
 
 `tools/call` takes `message`. A write uses `write.tool` and `write.arguments`. If the policy gate holds the write, the tool result text is `Approval required` and `structuredContent.status` is `approval_required`.
+
+## Errors, rate limits and versioning
+
+The `/v1` surface follows the platform [API conventions](../05-contracts/api-conventions.md):
+
+- **Errors** are RFC 9457 Problem Details with a stable `code` (switch on `code`, not the HTTP
+  phrase): `401 unauthenticated` (missing/invalid/expired key), `404 not_found` (another key's
+  run, or an unpublished agent — existence is never revealed), `409 idempotency_key_reused`,
+  `429 rate_limited`, `429 quota_exceeded`. See the
+  [code table](../05-contracts/api-conventions.md#5-errors-rfc-9457-problem-details).
+- **Rate limits & quota** are per key. Every response carries `RateLimit-Limit`,
+  `RateLimit-Remaining` and `RateLimit-Reset`; a `429 rate_limited` carries `Retry-After`. Each
+  key has a requests-per-minute limit (`rateLimitRpm`) and a monthly quota (`monthlyQuota`,
+  `0` = unlimited).
+- **Idempotency**: message send accepts `Idempotency-Key`; the same key and body return the
+  stored reply without starting a second run; a different body is `idempotency_key_reused`.
+- **Versioning**: additive changes happen in `/v1` — ignore unknown response fields. A breaking
+  change ships under a new major path.
+
+## Rotating and revoking a key
+
+Rotate a key from the Expose tab (or `POST /api/v1/agents/{agentId}/api-keys/{keyId}:rotate`):
+the new secret is shown once and the old one stops working immediately. Revoke deletes it;
+later calls are `401`. Keys are stored as a SHA-256 hash and never returned after creation.
 
 ## A2A
 
