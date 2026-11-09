@@ -62,6 +62,7 @@ class AuditAction(StrEnum):
     SERVICE_ACCOUNT_DELETED = "service_account.deleted"
     SERVICE_ACCOUNT_ON_BEHALF_OF_ENABLED = "service_account.on_behalf_of_enabled"
     API_KEY_CREATED = "api_key.created"
+    API_KEY_ROTATED = "api_key.rotated"
     API_KEY_REVOKED = "api_key.revoked"
     API_KEY_DENIED = "api_key.denied"
     AGENT_API_KEY_CREATED = "agent_api_key.created"

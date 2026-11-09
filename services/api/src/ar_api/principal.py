@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime  # noqa: TC003
 
 from ar_domain.db.context import Principal
-from ar_domain.identity.tokens import constant_time_equal, sha256_hex
+from ar_domain.identity.tokens import constant_time_equal, sha256_hex, split_credential
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,7 +22,7 @@ def classify_authorization(header: str | None, cookie: str | None) -> PresentedC
     if header:
         scheme, _, token = header.partition(" ")
         if scheme.lower() == "bearer" and token:
-            if token.startswith("ark_"):
+            if token.startswith(("ark_", "ak_")):
                 return PresentedCredential("api_key", token)
             if token.startswith("scim_"):
                 return PresentedCredential("scim", token)
@@ -52,6 +52,17 @@ def api_key_prefix(token: str) -> str:
 
 def api_key_matches(token: str, secret_hash: str) -> bool:
     return constant_time_equal(sha256_hex(token), secret_hash)
+
+
+def split_api_key_prefix(token: str) -> str | None:
+    """The 12-char prefix of a two-part ``ak_<prefix>.sk_<secret>`` credential, or None."""
+    parsed = split_credential(token)
+    return parsed[0] if parsed else None
+
+
+def split_api_key_matches(secret: str, secret_hash: str) -> bool:
+    """Compare a two-part credential's ``sk_`` secret against the stored hash."""
+    return constant_time_equal(sha256_hex(secret), secret_hash)
 
 
 def principal_from_user(

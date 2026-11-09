@@ -31,17 +31,18 @@ def resolve_access(
     group_ids: set[uuid.UUID],
     team_ids: set[uuid.UUID],
     grants: list[RoleGrant],
+    sa_id: uuid.UUID | None = None,
 ) -> EffectiveAccess:
     """Union direct, group, and team grants.
 
     Team-scoped grants apply only inside that team. Tenant-scoped grants apply
-    everywhere in the tenant.
+    everywhere in the tenant. ``sa_id`` matches service-account assignments.
     """
     permissions: set[str] = set()
     team_permissions: set[tuple[uuid.UUID, str]] = set()
     roles: set[str] = set()
     for grant in grants:
-        matched = _matches(grant, user_id, group_ids, team_ids)
+        matched = _matches(grant, user_id, group_ids, team_ids, sa_id)
         if not matched:
             continue
         roles.add(grant.role_key)
@@ -62,6 +63,7 @@ def _matches(
     user_id: uuid.UUID,
     group_ids: set[uuid.UUID],
     team_ids: set[uuid.UUID],
+    sa_id: uuid.UUID | None = None,
 ) -> bool:
     if grant.principal_type == "user":
         return grant.principal_id == user_id
@@ -69,4 +71,6 @@ def _matches(
         return grant.principal_id in group_ids
     if grant.principal_type == "team":
         return grant.principal_id in team_ids
+    if grant.principal_type == "service_account":
+        return sa_id is not None and grant.principal_id == sa_id
     return False

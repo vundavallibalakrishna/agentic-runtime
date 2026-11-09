@@ -35,6 +35,50 @@ if TYPE_CHECKING:
     from ar_domain.db.context import TenantContext
 
 
+async def resolve_api_key_by_prefix(session: AsyncSession, prefix: str) -> ApiKey | None:
+    """Look up an API key by its prefix, without a tenant context.
+
+    The caller runs this under a BYPASSRLS platform session (the tenant is unknown until
+    the key resolves) and then binds every later query to the key's own tenant.
+    """
+    return await session.scalar(select(ApiKey).where(ApiKey.prefix == prefix))
+
+
+async def resolve_scim_token_by_prefix(session: AsyncSession, prefix: str) -> ScimToken | None:
+    """Look up a SCIM token by its prefix, without a tenant context (see above)."""
+    return await session.scalar(select(ScimToken).where(ScimToken.prefix == prefix))
+
+
+async def resolve_service_account_by_id(
+    session: AsyncSession, service_account_id: uuid.UUID
+) -> ServiceAccount | None:
+    """Look up a service account by id, without a tenant context (see above)."""
+    return await session.scalar(
+        select(ServiceAccount).where(ServiceAccount.id == service_account_id)
+    )
+
+
+async def resolve_tenant_by_id(session: AsyncSession, tenant_id: uuid.UUID) -> Tenant | None:
+    """Look up a tenant by id, without a tenant context (see above)."""
+    return await session.scalar(select(Tenant).where(Tenant.id == tenant_id))
+
+
+async def fetch_service_account_grants(
+    session: AsyncSession, tenant_id: uuid.UUID, service_account_id: uuid.UUID
+) -> list[tuple[RoleAssignment, Role]]:
+    """Role assignments made directly to a service account (no group/team expansion)."""
+    rows = await session.execute(
+        select(RoleAssignment, Role)
+        .join(Role, Role.id == RoleAssignment.role_id)
+        .where(
+            RoleAssignment.tenant_id == tenant_id,
+            RoleAssignment.principal_type == "service_account",
+            RoleAssignment.principal_id == service_account_id,
+        )
+    )
+    return list(rows.all())
+
+
 class IdentityRepository(BaseRepository):
     """Tenant-scoped identity queries. Audit and outbox share the caller's transaction."""
 
@@ -166,6 +210,13 @@ class IdentityRepository(BaseRepository):
                 matched.append((assignment, role))
         return matched
 
+    async def grants_for_service_account(
+        self, service_account_id: uuid.UUID
+    ) -> list[tuple[RoleAssignment, Role]]:
+        return await fetch_service_account_grants(
+            self.session, self.ctx.tenant_id, service_account_id
+        )
+
     async def count_other_admins(self, excluding: uuid.UUID | None) -> int:
         admin = await self.get_role_by_key("tenant_admin")
         if admin is None:
@@ -205,7 +256,7 @@ class IdentityRepository(BaseRepository):
         return list((await self.session.scalars(stmt)).all())
 
     async def get_api_key_by_prefix(self, prefix: str) -> ApiKey | None:
-        return await self.session.scalar(select(ApiKey).where(ApiKey.prefix == prefix))
+        return await resolve_api_key_by_prefix(self.session, prefix)
 
     async def get_api_key(self, api_key_id: uuid.UUID) -> ApiKey | None:
         return await self.session.scalar(
@@ -277,7 +328,7 @@ class IdentityRepository(BaseRepository):
         return list(rows.all())
 
     async def get_scim_token_by_prefix(self, prefix: str) -> ScimToken | None:
-        return await self.session.scalar(select(ScimToken).where(ScimToken.prefix == prefix))
+        return await resolve_scim_token_by_prefix(self.session, prefix)
 
     async def list_support_grants(self) -> list[SupportAccessGrant]:
         rows = await self.session.scalars(

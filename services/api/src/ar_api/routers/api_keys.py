@@ -23,6 +23,7 @@ def _row(item: object, secret: str | None = None) -> dict[str, object]:
         "id": str(item.id),  # type: ignore[attr-defined]
         "name": item.name,  # type: ignore[attr-defined]
         "prefix": item.prefix,  # type: ignore[attr-defined]
+        "keyFormat": getattr(item, "key_format", "legacy"),
         "scopes": list(item.scopes),  # type: ignore[attr-defined]
         "expires_at": None if item.expires_at is None else item.expires_at.isoformat(),  # type: ignore[attr-defined]
     }

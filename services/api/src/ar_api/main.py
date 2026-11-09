@@ -354,7 +354,9 @@ def create_application() -> FastAPI:
     app.state.login_states = {}
     app.state.complete_login = _complete_login
     app.state.resolve_principal = _resolve_principal
-    app.state.credential_loader = _session_loader(app)
+    from ar_api.auth.credentials import credential_loader  # noqa: PLC0415
+
+    app.state.credential_loader = credential_loader(_session_loader(app))
     app.state.chat = ChatService(
         allow_loopback=loopback_allowed(settings),
         scanner=files_scanner_name(settings),

@@ -770,7 +770,8 @@ async def test_identity_service_flows() -> None:
     key, secret = await service.create_api_key(
         name="ci", scopes=["chat:use"], expires_in_days=30, service_account_id=account.id
     )
-    assert secret.startswith("ark_")
+    # New keys default to the two-part ak_<prefix>.sk_<secret> format.
+    assert secret.startswith(f"ak_{key.prefix}.sk_")
     await service.revoke_api_key(key.id)
     _token_row, scim = await service.create_scim_token()
     assert scim.startswith("scim_")
@@ -940,3 +941,31 @@ def test_key_ring_rejects_short_keys() -> None:
     with pytest.raises(ValidationFailedError):
         parse_keyring("[]")
     assert parse_keyring("") == {}
+
+
+@pytest.mark.asyncio
+async def test_split_api_key_create_and_rotate() -> None:
+    ctx = _ctx()
+    store = _MemStore(ctx)
+    service = IdentityService(store)  # type: ignore[arg-type]
+    row, full = await service.create_api_key(
+        name="ci", scopes=["agents:read"], expires_in_days=30, service_account_id=None
+    )
+    assert full.startswith(f"ak_{row.prefix}.sk_")
+    assert row.key_format == "split"
+    # Only the secret's hash is stored; the full credential is not recoverable.
+    assert row.secret_hash == sha256_hex(full.split(".", 1)[1])
+    old_hash = row.secret_hash
+
+    rotated, new_full = await service.rotate_api_key(row.id)
+    assert rotated.id == row.id and rotated.prefix == row.prefix
+    assert new_full != full and rotated.secret_hash != old_hash
+    assert rotated.last_rotated_at is not None
+    assert rotated.secret_hash == sha256_hex(new_full.split(".", 1)[1])
+
+    # Legacy single-token keys still mint and hash the whole token.
+    legacy_row, legacy_full = await service.create_api_key(
+        name="old", scopes=[], expires_in_days=30, service_account_id=None, split=False
+    )
+    assert legacy_full.startswith("ark_") and legacy_row.key_format == "legacy"
+    assert legacy_row.secret_hash == sha256_hex(legacy_full)

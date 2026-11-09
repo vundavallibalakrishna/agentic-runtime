@@ -325,9 +325,12 @@ class ApiKey(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     prefix: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     secret_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    # 'legacy' = full ark_ token is hashed; 'split' = only the sk_ secret is hashed.
+    key_format: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'legacy'"))
     scopes: Mapped[list[str]] = text_array()
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
