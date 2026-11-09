@@ -80,6 +80,9 @@ class IdentityStore(Protocol):
     async def get_role_by_key(self, key: str) -> Role | None: ...
     async def list_assignments(self) -> list[RoleAssignment]: ...
     async def grants_for(self, user_id: uuid.UUID) -> list[tuple[RoleAssignment, Role]]: ...
+    async def grants_for_service_account(
+        self, service_account_id: uuid.UUID
+    ) -> list[tuple[RoleAssignment, Role]]: ...
     async def count_other_admins(self, excluding: uuid.UUID | None) -> int: ...
     async def get_assignment(self, assignment_id: uuid.UUID) -> RoleAssignment | None: ...
     async def list_api_keys(
@@ -139,6 +142,28 @@ class IdentityService:
         groups = set(await self.store.user_group_ids(user_id))
         teams = set(await self.store.user_team_ids(user_id))
         access = resolve_access(user_id, group_ids=groups, team_ids=teams, grants=grants)
+        return access.permissions, access.roles
+
+    async def effective_for_service_account(
+        self, service_account_id: uuid.UUID
+    ) -> tuple[frozenset[str], frozenset[str]]:
+        """Effective permissions and roles for a service account's direct role grants."""
+        pairs = await self.store.grants_for_service_account(service_account_id)
+        grants = [
+            RoleGrant(
+                principal_type=assignment.principal_type,
+                principal_id=assignment.principal_id,
+                role_key=role.key,
+                permissions=tuple(role.permissions),
+                scope_type=assignment.scope_type,
+                scope_id=assignment.scope_id,
+            )
+            for assignment, role in pairs
+        ]
+        access = resolve_access(
+            service_account_id, group_ids=set(), team_ids=set(), grants=grants,
+            sa_id=service_account_id,
+        )
         return access.permissions, access.roles
 
     async def update_tenant(
