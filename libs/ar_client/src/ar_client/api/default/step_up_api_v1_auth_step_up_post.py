@@ -80,6 +80,9 @@ def sync_detailed(
 ) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
     """Step Up
 
+     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
+    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
+
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
 
@@ -109,6 +112,9 @@ def sync(
 ) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
     """Step Up
 
+     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
+    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
+
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
 
@@ -132,6 +138,9 @@ async def asyncio_detailed(
     body: None | StepUpApiV1AuthStepUpPostBodyType0 | Unset = UNSET,
 ) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
     """Step Up
+
+     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
+    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -159,6 +168,9 @@ async def asyncio(
     body: None | StepUpApiV1AuthStepUpPostBodyType0 | Unset = UNSET,
 ) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
     """Step Up
+
+     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
+    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):

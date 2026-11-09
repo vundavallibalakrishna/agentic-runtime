@@ -265,8 +265,13 @@ async def ensure_admin(
     name: str,
     email: str,
     display_name: str | None = None,
+    password: str | None = None,
 ) -> str:
-    """Create a tenant on plan ``self_hosted`` and its tenant-admin user when they are missing."""
+    """Create a tenant on plan ``self_hosted`` and its tenant-admin user when they are missing.
+
+    When ``password`` is given, the admin's sign-in password is (re)set to it: sign-in is
+    in-app, so the password is stored as an argon2id hash on the user row.
+    """
     tenant = await session.scalar(select(Tenant).where(Tenant.slug == slug))
     if tenant is None:
         plan = await session.scalar(select(Plan).where(Plan.key == "self_hosted"))
@@ -294,9 +299,14 @@ async def ensure_admin(
             email=address,
             display_name=display_name or address.split("@", 1)[0],
             status="active",
+            password_hash=hash_password(password) if password else None,
+            password_set_at=utcnow() if password else None,
         )
         session.add(user)
         await session.flush()
+    elif password:
+        user.password_hash = hash_password(password)
+        user.password_set_at = utcnow()
     role = await session.scalar(
         select(Role).where(Role.key == "tenant_admin", Role.tenant_id.is_(None))
     )

@@ -3979,68 +3979,28 @@ export type OpenapiDocumentApiV1OpenapiJsonGetResponses = {
 
 export type OpenapiDocumentApiV1OpenapiJsonGetResponse = OpenapiDocumentApiV1OpenapiJsonGetResponses[keyof OpenapiDocumentApiV1OpenapiJsonGetResponses];
 
-export type LoginApiV1AuthLoginGetData = {
-    body?: never;
+export type PasswordLoginApiV1AuthLoginPostData = {
+    /**
+     * Body
+     */
+    body?: {
+        [key: string]: unknown;
+    } | null;
     path?: never;
-    query?: {
-        /**
-         * Return To
-         */
-        return_to?: string;
-        /**
-         * Tenant
-         */
-        tenant?: string | null;
-        /**
-         * Idp
-         */
-        idp?: string | null;
-    };
+    query?: never;
     url: '/api/v1/auth/login';
 };
 
-export type LoginApiV1AuthLoginGetErrors = {
+export type PasswordLoginApiV1AuthLoginPostErrors = {
     /**
      * Validation Error
      */
     422: HttpValidationError;
 };
 
-export type LoginApiV1AuthLoginGetError = LoginApiV1AuthLoginGetErrors[keyof LoginApiV1AuthLoginGetErrors];
+export type PasswordLoginApiV1AuthLoginPostError = PasswordLoginApiV1AuthLoginPostErrors[keyof PasswordLoginApiV1AuthLoginPostErrors];
 
-export type LoginApiV1AuthLoginGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type CallbackApiV1AuthCallbackGetData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Code
-         */
-        code?: string;
-        /**
-         * State
-         */
-        state?: string;
-    };
-    url: '/api/v1/auth/callback';
-};
-
-export type CallbackApiV1AuthCallbackGetErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type CallbackApiV1AuthCallbackGetError = CallbackApiV1AuthCallbackGetErrors[keyof CallbackApiV1AuthCallbackGetErrors];
-
-export type CallbackApiV1AuthCallbackGetResponses = {
+export type PasswordLoginApiV1AuthLoginPostResponses = {
     /**
      * Successful Response
      */

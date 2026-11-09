@@ -100,10 +100,6 @@ class Settings(BaseServiceSettings):
 
     service_name: str = "api"
     public_url: str = "http://localhost:3000"
-    oidc_issuer: str = "http://localhost:8180/realms/agentic-runtime"
-    oidc_client_id: str = "ar-web"
-    oidc_client_secret: SecretStr = SecretStr("ar-web-dev-secret")
-    oidc_api_audience: str = "ar-api"
     session_encryption_key: SecretStr = SecretStr("")
     session_ttl_s: int = 43_200
     session_max_age_s: int = 604_800
@@ -129,12 +125,6 @@ class Settings(BaseServiceSettings):
     vault_kv_mount: str = "ar"
     vault_auth: str = "token"
     vault_role: str = ""
-
-
-async def _complete_login(code: str, saved: dict[str, object]) -> dict[str, object]:
-    from ar_api.auth.complete import complete_oidc_login  # noqa: PLC0415
-
-    return await complete_oidc_login(Settings(), code, saved)
 
 
 async def _resolve_principal(scope: object) -> object:
@@ -351,8 +341,6 @@ def create_application() -> FastAPI:
     )
     app.state.sessions = MemorySessionStore(key)
     app.state.widget_sessions = MemorySessionStore(key)
-    app.state.login_states = {}
-    app.state.complete_login = _complete_login
     app.state.resolve_principal = _resolve_principal
     from ar_api.auth.credentials import credential_loader  # noqa: PLC0415
 

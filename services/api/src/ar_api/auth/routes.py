@@ -1,21 +1,20 @@
-"""Login, callback, session, logout, switch-tenant and step-up.
+"""Login, session, logout, switch-tenant and step-up.
 
-Spec: docs/03-specs/01-api-bff.md §3.
+Sign-in is handled in-house: a userid and password are checked against the tenant's own
+rows (no external identity provider). Spec: docs/03-specs/01-api-bff.md §3.
 """
 
 import uuid
 from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 
 from ar_api.auth.complete import LoginError
-from ar_api.auth.identity import resolve_login_identity, resolve_password_login
-from ar_api.auth.oidc import authorize_url, new_pkce, safe_return_to
+from ar_api.auth.identity import resolve_password_login
 from ar_api.auth.session import new_session, remember_profile
 from ar_api.deps import expose
 from ar_common.errors import ForbiddenError, UnauthenticatedError
-from ar_common.settings import EnvName
 from ar_common.time import utcnow
 
 if TYPE_CHECKING:
@@ -46,7 +45,7 @@ def _login_attempts(request: Request) -> dict[str, tuple[int, float]]:
 
 
 def _issue_session(request: Request, result: dict[str, object]) -> tuple[str, SessionData]:
-    """Mint a session for a resolved sign-in and record the audit event. Shared issuance block."""
+    """Mint a session for a resolved sign-in and record the audit event."""
     session_id, data = new_session(
         uuid.UUID(str(result["tenant_id"])), uuid.UUID(str(result["user_id"]))
     )
@@ -91,92 +90,13 @@ async def password_login(request: Request, body: dict[str, object] | None = None
         count += 1
         lock = now + _LOGIN_LOCKOUT_S if count >= _LOGIN_MAX_ATTEMPTS else 0.0
         attempts[key] = (count, lock)
-        status = 429 if exc.code == "too_many_attempts" else 401
-        return JSONResponse({"error": exc.code}, status_code=status)
+        return JSONResponse({"error": exc.code}, status_code=401)
     attempts.pop(key, None)
     session_id, data = _issue_session(request, result)
     await request.app.state.sessions.put(
         session_id, data, int(request.app.state.settings.session_ttl_s)
     )
     response = JSONResponse({"ok": True})
-    response.set_cookie("ar_session", session_id, httponly=True, samesite="lax", secure=False)
-    response.set_cookie("ar_csrf", data.csrf_token, httponly=False, samesite="strict", secure=False)
-    return response
-
-
-@router.get("/api/v1/auth/login")
-@expose(public=True, permission=None)
-async def login(
-    request: Request, return_to: str = "/", tenant: str | None = None, idp: str | None = None
-) -> RedirectResponse:
-    """Start the OIDC authorization-code flow."""
-    settings = request.app.state.settings
-    verifier, challenge = new_pkce()
-    state = uuid.uuid4().hex
-    nonce = uuid.uuid4().hex
-    request.app.state.login_states[state] = {
-        "verifier": verifier,
-        "nonce": nonce,
-        "return_to": safe_return_to(return_to),
-        "tenant": tenant,
-    }
-    target = authorize_url(
-        issuer=settings.oidc_issuer,
-        client_id=settings.oidc_client_id,
-        redirect_uri=settings.public_url.rstrip("/") + "/api/v1/auth/callback",
-        state=state,
-        nonce=nonce,
-        challenge=challenge,
-        tenant=tenant,
-        idp=idp,
-    )
-    return RedirectResponse(target, status_code=302)
-
-
-@router.get("/api/v1/auth/callback")
-@expose(public=True, permission=None)
-async def callback(request: Request, code: str = "", state: str = "") -> RedirectResponse:
-    """Finish login. Tests inject ``app.state.complete_login``."""
-    saved = request.app.state.login_states.pop(state, None)
-    if saved is None or not code:
-        return RedirectResponse("/login?error=invalid_state", status_code=302)
-    completer = request.app.state.complete_login
-    try:
-        result = await completer(code, saved)
-        if not result.get("select_tenant"):
-            result = await resolve_login_identity(request, result)
-    except LoginError as exc:
-        return RedirectResponse(f"/login?error={exc.code}", status_code=302)
-    except Exception:  # noqa: BLE001 - login failures become a redirect
-        return RedirectResponse("/login?error=tenant_not_found", status_code=302)
-    if result.get("select_tenant"):
-        return RedirectResponse("/select-tenant", status_code=302)
-    session_id, data = new_session(
-        uuid.UUID(str(result["tenant_id"])), uuid.UUID(str(result["user_id"]))
-    )
-    data.access_token = str(result.get("access_token", ""))
-    data.refresh_token = str(result.get("refresh_token", ""))
-    remember_profile(
-        data,
-        email=str(result.get("email", "")),
-        display_name=str(result.get("display_name", "")),
-        roles=_string_list(result.get("roles")),
-        permissions=_string_list(result.get("permissions")),
-    )
-    audit = getattr(request.app.state, "audit_api", None)
-    events = getattr(audit, "events", None)
-    if isinstance(events, list):
-        events.append(
-            {
-                "action": "auth.login",
-                "user_id": str(result["user_id"]),
-                "tenant_id": str(result["tenant_id"]),
-            }
-        )
-    await request.app.state.sessions.put(
-        session_id, data, int(request.app.state.settings.session_ttl_s)
-    )
-    response = RedirectResponse(saved["return_to"], status_code=302)
     response.set_cookie("ar_session", session_id, httponly=True, samesite="lax", secure=False)
     response.set_cookie("ar_csrf", data.csrf_token, httponly=False, samesite="strict", secure=False)
     return response
@@ -269,39 +189,29 @@ async def switch_tenant(request: Request, body: dict[str, str]) -> dict[str, str
     tenant_id = body.get("tenant_id", "")
     if principal.kind != "platform_admin" and str(principal.tenant_id) != tenant_id:
         raise ForbiddenError("no membership in that tenant")
-    return {"redirect_url": f"/api/v1/auth/login?tenant={tenant_id}"}
+    # Multi-tenant switching is not yet supported for local sign-in; send back to the form.
+    return {"redirect_url": "/login"}
 
 
 @router.post("/api/v1/auth/step-up")
 @expose(public=False, permission=None)
 async def step_up(request: Request, body: dict[str, object] | None = None) -> dict[str, str]:
+    """Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
+    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122)."""
     settings = request.app.state.settings
     payload = body or {}
     confirmed = str(payload.get("confirmed", "")).lower() in {"1", "true", "yes"}
-    if confirmed and settings.env is not EnvName.PROD:
-        principal = getattr(request.state, "principal", None)
-        if principal is None or not principal.session_id:
-            raise UnauthenticatedError()
-        data = await request.app.state.sessions.get(principal.session_id)
-        if data is None:
-            raise UnauthenticatedError()
-        data.step_up_at = utcnow()
-        await request.app.state.sessions.put(principal.session_id, data, settings.session_ttl_s)
-        return {"stepped_up": "true"}
-    raw_return = "/" if body is None else body.get("return_to", "/")
-    return_to = raw_return if isinstance(raw_return, str) else "/"
-    return {
-        "redirect_url": authorize_url(
-            issuer=settings.oidc_issuer,
-            client_id=settings.oidc_client_id,
-            redirect_uri=settings.public_url.rstrip("/") + "/api/v1/auth/callback",
-            state=uuid.uuid4().hex,
-            nonce=uuid.uuid4().hex,
-            challenge="step-up",
-        )
-        + "&acr_values=mfa&max_age=0&return_to="
-        + safe_return_to(return_to)
-    }
+    principal = getattr(request.state, "principal", None)
+    if principal is None or not principal.session_id:
+        raise UnauthenticatedError()
+    if not confirmed:
+        return {"stepped_up": "false"}
+    data = await request.app.state.sessions.get(principal.session_id)
+    if data is None:
+        raise UnauthenticatedError()
+    data.step_up_at = utcnow()
+    await request.app.state.sessions.put(principal.session_id, data, settings.session_ttl_s)
+    return {"stepped_up": "true"}
 
 
 @router.get("/api/v1/.well-known/jwks.json")

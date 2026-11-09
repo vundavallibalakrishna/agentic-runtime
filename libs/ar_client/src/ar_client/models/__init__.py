@@ -1085,6 +1085,9 @@ from .openapi_document_api_v1_openapi_json_get_response_openapi_document_api_v1_
 from .oversight_api_v1_ai_governance_oversight_get_response_oversight_api_v1_ai_governance_oversight_get import (
     OversightApiV1AiGovernanceOversightGetResponseOversightApiV1AiGovernanceOversightGet,
 )
+from .password_login_api_v1_auth_login_post_body_type_0 import (
+    PasswordLoginApiV1AuthLoginPostBodyType0,
+)
 from .patch_agent_api_v1_agents_agent_id_patch_response_patch_agent_api_v1_agents_agent_id_patch import (
     PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch,
 )
@@ -2074,6 +2077,7 @@ __all__ = (
     "OpenApiPreviewDocumentType0",
     "OpenItemApiV1ReviewItemsPostResponseOpenItemApiV1ReviewItemsPost",
     "OversightApiV1AiGovernanceOversightGetResponseOversightApiV1AiGovernanceOversightGet",
+    "PasswordLoginApiV1AuthLoginPostBodyType0",
     "PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch",
     "PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponsePatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatch",
     "PatchCardApiV1AgentsAgentIdCardsVersionPatchResponsePatchCardApiV1AgentsAgentIdCardsVersionPatch",

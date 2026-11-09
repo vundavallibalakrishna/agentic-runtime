@@ -18,7 +18,7 @@ async def meta(request: Request) -> dict[str, object]:
         "version": "0.1.0",
         "deployment_mode": settings.deployment_mode.value,
         "features": {},
-        "oidc": {"login_url": "/api/v1/auth/login"},
+        "auth": {"login_url": "/api/v1/auth/login", "method": "password"},
     }
 
 

@@ -23,8 +23,13 @@ async def bootstrap(
     name: str | None = None,
     admin_email: str | None = None,
     admin_name: str | None = None,
+    admin_password: str | None = None,
 ) -> str:
-    """Ensure a tenant and its admin user exist. Returns the tenant slug."""
+    """Ensure a tenant and its admin user exist. Returns the tenant slug.
+
+    When ``admin_password`` is given, the admin can sign in with it: sign-in is in-app and
+    the password is stored as an argon2id hash on the user row.
+    """
     tenant_slug = slug or os.environ.get("AR_BOOTSTRAP_TENANT_SLUG") or "default"
     tenant_name = name or os.environ.get("AR_BOOTSTRAP_TENANT_NAME") or "Default"
     email = admin_email or os.environ.get("AR_BOOTSTRAP_ADMIN_EMAIL") or ""
@@ -35,7 +40,12 @@ async def bootstrap(
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await apply_catalogue(session)
         await ensure_admin(
-            session, slug=tenant_slug, name=tenant_name, email=email, display_name=admin_name
+            session,
+            slug=tenant_slug,
+            name=tenant_name,
+            email=email,
+            display_name=admin_name,
+            password=admin_password,
         )
     await provision_defaults(tenant_slug, email)
     return tenant_slug
