@@ -165,6 +165,7 @@ def _definition() -> dict[str, object]:
                     "code",
                     "shell",
                     "read_file",
+                    "write_file",
                     "fetch",
                     "http",
                     "chart",
@@ -182,10 +183,10 @@ def _definition() -> dict[str, object]:
             {"server": "knowledge", "version": "*", "include": ["search"]},
         ],
         "budget": {
-            "max_steps": 6,
+            "max_steps": 8,
             "max_tokens": 8000,
             "max_cost_micros": 1_000_000,
-            "max_wall_clock_s": 60,
-            "max_tool_calls": 4,
+            "max_wall_clock_s": 120,
+            "max_tool_calls": 6,
         },
     }
