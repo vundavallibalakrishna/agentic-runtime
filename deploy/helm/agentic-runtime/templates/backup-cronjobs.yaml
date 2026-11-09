@@ -50,24 +50,6 @@ spec:
                 readOnlyRootFilesystem: true
                 capabilities:
                   drop: ["ALL"]
-{{- if .Values.keycloak.bundled }}
----
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: {{ .Release.Name }}-keycloak-export
-spec:
-  schedule: "30 20 * * *"
-  jobTemplate:
-    spec:
-      template:
-        spec:
-          restartPolicy: OnFailure
-          containers:
-            - name: export
-              image: {{ include "ar.thirdPartyImage" (list . .Values.keycloak.image.repository .Values.keycloak.image.tag) }}
-              args: ["export", "--file", "/tmp/realm.json"]
-{{- end }}
 {{- if .Values.openbao.bundled }}
 ---
 apiVersion: batch/v1

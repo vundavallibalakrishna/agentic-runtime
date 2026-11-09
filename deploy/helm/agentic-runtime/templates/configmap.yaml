@@ -45,9 +45,6 @@
 {{- $_ := set $overrides "AR_S3_BUCKET" .Values.objectStorage.bucket }}
 {{- $_ := set $overrides "AR_AUDIT_ARCHIVE_BUCKET" .Values.objectStorage.auditBucket }}
 {{- end }}
-{{- if .Values.keycloak.bundled }}
-{{- $_ := set $overrides "AR_OIDC_ISSUER" (printf "http://%s-keycloak:8080/realms/agentic-runtime" .Release.Name) }}
-{{- end }}
 {{- if .Values.openbao.bundled }}
 {{- $_ := set $overrides "AR_VAULT_ADDR" (printf "http://%s-openbao:8200" .Release.Name) }}
 {{- end }}

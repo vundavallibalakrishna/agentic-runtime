@@ -35,7 +35,6 @@ spec:
       postInitApplicationSQL:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
-        - CREATE DATABASE keycloak
         - CREATE DATABASE langfuse
   storage:
     size: {{ .Values.postgres.storage }}

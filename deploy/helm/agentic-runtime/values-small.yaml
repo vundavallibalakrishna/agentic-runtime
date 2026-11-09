@@ -24,9 +24,6 @@ qdrant:
 objectStorage:
   bundled: true
   mode: single
-keycloak:
-  bundled: true
-  replicas: 2
 openbao:
   bundled: true
   replicas: 3

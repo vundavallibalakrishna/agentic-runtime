@@ -10,8 +10,6 @@ valkey:
 temporal:
   bundled: false
   workerVersioning: true
-keycloak:
-  bundled: false
 openbao:
   bundled: false
 objectStorage:
