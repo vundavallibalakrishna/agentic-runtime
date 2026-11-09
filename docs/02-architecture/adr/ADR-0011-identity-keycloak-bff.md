@@ -1,7 +1,11 @@
 # ADR-0011: Keycloak (Organizations) as identity broker; BFF session for the web app
 
-- Status: Accepted
+- Status: Superseded by [ADR-0027](ADR-0027-in-app-password-auth.md) (2026-11-09)
 - Date: 2026-10-20
+
+> Superseded: the in-house pivot removed the external identity provider. Sign-in is now the
+> product's own userid/password check (ADR-0027). The BFF session mechanism it introduced
+> (`ar_session`/`ar_csrf` cookies, tokens never in the browser) is kept.
 
 ## Context
 

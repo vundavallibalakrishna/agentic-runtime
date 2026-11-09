@@ -6,20 +6,18 @@ Hosted in `api` (routers `ar_api.routers.identity`, `ar_api.routers.scim`, `ar_a
 
 - Tenant lifecycle (provision, configure, suspend, delete) in both deployment modes.
 - Users (JIT on login, SCIM, invitations), groups (SCIM/IdP claims/local), teams (platform org units), roles and assignments, effective permissions.
-- Enterprise SSO configuration per tenant (brokered IdPs in Keycloak Organizations), domain verification.
+- Userid/password sign-in checked by the product itself (no external identity provider), domain verification.
 - Service accounts, API keys, SCIM tokens.
 - Deprovisioning cascade (sessions, API keys, credential grants, routines pause) and DPDP erasure / export.
 
-## 2. Keycloak model ([ADR-0011](../02-architecture/adr/ADR-0011-identity-keycloak-bff.md))
+## 2. Identity model ([ADR-0027](../02-architecture/adr/ADR-0027-in-app-password-auth.md))
 
-- One realm `agentic-runtime`. Clients: `ar-web` (confidential, BFF), `ar-api` (bearer audience), `ar-admin` (service account with `realm-management: manage-users, manage-identity-providers, manage-realm (organizations)`), `ar-token-exchange` (used by `mcp-gateway` for RFC 8693).
-- Each tenant = one Keycloak **Organization** (`tenants.keycloak_org_id`). Org domains = verified `tenant_domains`. Brokered IdPs (`identity_providers.keycloak_alias`) are linked to the org with domain-based routing so users are sent to their company IdP after entering their email.
-- Token claims mapped by client scopes: `organization` (org id/alias), `groups` (IdP group names, when the tenant does not use SCIM), `email`, `name`, `acr`.
-- Single-tenant mode: the same realm layout with exactly one organization created by `TenantProvisioningWorkflow` at install (`AR_BOOTSTRAP_TENANT_SLUG`); org selection is skipped.
-- Which tenant a process serves: each process reads its tenant from the `tenants` table when it attaches to the database, by `AR_BOOTSTRAP_TENANT_SLUG`, or the only tenant when that is empty. It waits, and nobody can sign in, while the table names none or leaves the choice open. No tenant, user or agent id is written in code. A process with a database holds no demo tenant; only a dev or CI process with no database at all runs on one ([OQ-99](../open-questions.md)).
-- Sign-in: the token's `organization` must be the slug of the tenant the process serves; a token that names no organization is accepted and the tenant is the one served. The address must belong to an active user of that tenant, and the person's roles and permissions are read from its rows. Anyone else is refused with `tenant_not_found`.
+- Sign-in is the product's own **userid/password** check — there is no external identity provider. `POST /api/v1/auth/login` verifies the password against an argon2id hash on the `users` row and issues the BFF session (`ar_session` HttpOnly + `ar_csrf` cookies, state in Valkey). API clients use `ark_` keys or key-id+secret service-account keys ([§3.8](#38-service-accounts-and-api-keys)).
+- Each tenant is a row in `tenants`; users, roles and groups are rows scoped to it. Users are provisioned with a password in the database (`scripts/seed_tenant.py`, invitations [§3.4](#34-invitations-tenants-without-scim-or-saas), or an admin set/reset).
+- Which tenant a process serves: each process reads its tenant from the `tenants` table when it attaches to the database, by `AR_BOOTSTRAP_TENANT_SLUG`, or the only tenant when that is empty. It waits, and nobody can sign in, while the table names none or leaves the choice open (more than one tenant and no slug). No tenant, user or agent id is written in code. A process with a database holds no demo tenant; only a dev or CI process with no database at all runs on one ([OQ-99](../open-questions.md)).
+- Sign-in resolves against the tenant the process serves: the address must belong to an active user of that tenant and the password must match its stored hash. A missing user, an unset password and a wrong password are all refused the same way (`invalid_credentials`), so an address cannot be probed. The person's roles and permissions are read from the tenant's rows.
 - People in the process store: names, addresses, status and tenant-scope roles (direct and through groups) are loaded from the database when a process attaches, before each run, and when a person signs in. Policy, approvals and reviews read roles from there.
-- Keycloak admin calls go through `ar_domain.identity.keycloak.KeycloakAdmin` (httpx, client-credentials token cached until expiry - 30 s).
+- MFA (TOTP for local users), self-service password reset, and multi-tenant login (email-domain→tenant) are deferred follow-ups ([OQ-122](../open-questions.md)).
 
 ## 3. Public API
 
@@ -50,19 +48,12 @@ Permission: `tenant:manage`. Resolves TXT record (DNS over the system resolver, 
 #### DELETE /api/v1/tenant/domains/{domain_id}
 Permission: `tenant:manage`. Removes from Keycloak org too.
 
-### 3.2 Identity providers (enterprise SSO)
+### 3.2 Identity providers (enterprise SSO) — removed
 
-#### GET /api/v1/identity-providers
-Permission: `tenant:manage`.
-
-#### POST /api/v1/identity-providers
-Permission: `tenant:manage`. Body `{kind: "oidc"|"saml", display_name, config: IdpConfig, client_secret?: string}`. `IdpConfig` (oidc): `{issuer, client_id, scopes: ["openid","email","profile"], groups_claim?: "groups", attribute_mappings: {department: "dept", location: "loc"}}`; (saml): `{metadata_url | metadata_xml, entity_id, name_id_format, attribute_mappings}`. The client secret is stored via secrets service and referenced by `secret_ref_id`. Creates the brokered IdP in Keycloak (`keycloak_alias = "{tenant_slug}-{kind}-{n}"`) with mappers, links it to the org. Audit `idp.created`.
-
-#### PATCH /api/v1/identity-providers/{idp_id}
-Permission: `tenant:manage`. Updates display name/config/status; syncs Keycloak.
-
-#### DELETE /api/v1/identity-providers/{idp_id}
-Permission: `tenant:manage`. 409 `invalid_state` if it is the only active IdP and the tenant has no local-password users (prevents lock-out). Step-up required for session principals ([authn-authz §5](../06-security/authn-authz.md#5-step-up-authentication)).
+Enterprise SSO federation (brokering a tenant's OIDC/SAML IdP) was removed with Keycloak
+([ADR-0027](../02-architecture/adr/ADR-0027-in-app-password-auth.md)). Sign-in is the product's own
+userid/password check ([§2](#2-identity-model)). If a customer needs to federate their own IdP, it
+returns as an explicit capability ([OQ-122](../open-questions.md)).
 
 ### 3.3 Users and self
 
@@ -93,7 +84,7 @@ Permission: `users:manage` + step-up. Starts `ErasureWorkflow` (DPDP erasure): d
 Permission: `users:manage`.
 
 #### POST /api/v1/invitations
-Permission: `users:manage`. Body `{emails: [string] (≤ 100), role_keys: [string]}`. For each email: creates the Keycloak user in the org (if absent; sends Keycloak "execute actions" email for password/MFA setup when the org has no IdP), inserts `invitations` (token hash, expires 7 days), sends email via SMTP with link `/invite/{token}`. Response: list of `Invitation`.
+Permission: `users:manage`. Body `{emails: [string] (≤ 100), role_keys: [string]}`. For each email: inserts `invitations` (token hash, expires 7 days) and sends email via SMTP with link `/invite/{token}`; the invited person sets their password on accept. Response: list of `Invitation`.
 
 #### DELETE /api/v1/invitations/{invitation_id}
 Permission: `users:manage`. Revoke.
@@ -224,7 +215,12 @@ Base `/scim/v2`, auth SCIM token, `Content-Type: application/scim+json`. Support
 
 Semantics: `active=false` or DELETE → user `status='deprovisioned'` + the suspension cascade (§3.3) + Keycloak user disabled; groups map to `groups.source='scim'`; `scim_user_id` = `users.id`. All SCIM writes are audited (`scim.user.*`, `scim.group.*`).
 
-### 3.10 Platform administration (SaaS mode only; Keycloak realm role `platform_admin`)
+### 3.10 Platform administration (SaaS mode)
+
+Platform administration is a SaaS-mode concern (multi-tenant provisioning); an in-house
+single-tenant install does not use it. The `platform_admin` role is granted in the platform
+tenant. Multi-tenant SaaS provisioning details below are revisited with multi-tenant login
+([OQ-122](../open-questions.md)).
 
 #### GET /api/v1/platform/tenants
 Filters `q`, `status`, `plan_key`.

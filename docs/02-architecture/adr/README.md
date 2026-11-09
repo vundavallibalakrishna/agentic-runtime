@@ -30,3 +30,4 @@ Format: context, decision, consequences, alternatives. Status of all records bel
 | [ADR-0024](ADR-0024-guest-principals.md) | External participants are guest principals, not users |
 | [ADR-0025](ADR-0025-output-signoff.md) | Sign-off binds a statement and a content hash, separate from tool-call approval |
 | [ADR-0026](ADR-0026-public-json-camel-case.md) | Public JSON is camelCase |
+| [ADR-0027](ADR-0027-in-app-password-auth.md) | In-app userid/password sign-in; no external identity provider (supersedes ADR-0011) |

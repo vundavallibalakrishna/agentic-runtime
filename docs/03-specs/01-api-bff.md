@@ -4,7 +4,7 @@ Deployable: `api` (`services/api`, package `ar_api`). Hosts the routers of every
 
 ## 1. Responsibilities
 
-1. OIDC login for the web app as a confidential client (authorization code + PKCE) against Keycloak; server-side sessions in Valkey; session cookie `ar_session`.
+1. Userid/password sign-in for the web app (the product checks the password itself, no external identity provider); server-side sessions in Valkey; session cookie `ar_session`.
 2. Authenticate every request (session, bearer JWT, API key, SCIM token, webhook HMAC) into a `Principal`; build `RequestContext` (tenant, principal, permissions, request id, trace).
 3. Enforce RBAC via route dependencies `require(permission)`; resource-level checks in services.
 4. Open a tenant-scoped DB session per request (`tenant_session(ctx)`), commit/rollback.
@@ -21,7 +21,7 @@ Deployable: `api` (`services/api`, package `ar_api`). Hosts the routers of every
 services/api/src/ar_api/
   main.py              # create_app(): middleware, routers, lifespan (DB engine, Valkey, Temporal client, OTel)
   deps.py              # get_ctx, require(perm), get_session, pagination params, idempotency
-  auth/                # oidc.py (BFF flow), session.py, csrf.py, api_keys.py, bearer.py, scim_auth.py, webhook_sig.py
+  auth/                # routes.py (password login), identity.py, session.py, csrf.py, credentials.py (api keys, scim), step_up.py
   middleware/          # request_id.py, ratelimit.py, body_limit.py, errors.py, security_headers.py
   routers/             # one module per domain: identity.py, agents.py, conversations.py, runs.py, tools.py, ...
   sse.py               # stream helpers (Valkey XREAD → SSE)
@@ -33,15 +33,11 @@ services/api/src/ar_api/
 
 All under `/api/v1/auth`. No authentication required unless stated.
 
-#### GET /api/v1/auth/login
-Query: `return_to` (relative path, default `/chat`; absolute URLs rejected), `tenant` (optional slug hint), `idp` (optional `keycloak_alias` for IdP hint). Behaviour: creates a login state in Valkey (`ar:login:{state}` TTL 10 min: `{code_verifier, nonce, return_to, tenant_hint}`), redirects (302) to Keycloak authorize endpoint with `scope=openid profile email offline_access organization`, PKCE S256, `kc_idp_hint` if `idp`, and `organization` hint if `tenant`.
-
-#### GET /api/v1/auth/callback
-Query: `code`, `state`. Exchanges code, validates ID token (issuer, audience, nonce, `exp`), reads `organization` claim (Keycloak Organizations) to resolve the tenant (`find_tenant_for_login`). If the user belongs to several organizations and no hint was given → redirect to `/select-tenant`. Upserts `users` (JIT provisioning; status must not be `suspended`/`deprovisioned`), syncs groups from the `groups` claim when the tenant has no SCIM (source `idp_claim`), stores the offline refresh token as the user's delegation token ([spec 03](03-secrets-credentials.md) §5). Creates session `ar:sess:{sid}` (TTL = `AR_SESSION_TTL_S`, default 12 h sliding, absolute max 7 days): `{tenant_id, user_id, access_token (encrypted), refresh_token (encrypted), csrf_token, created_at, last_seen_at, ip_hash, ua_hash}`. Sets cookies `ar_session=<sid>` (HttpOnly, Secure, SameSite=Lax) and `ar_csrf=<csrf_token>` (not HttpOnly, SameSite=Strict). Audits `auth.login`. Redirects to `return_to`.
-Errors (rendered as redirect to `/login?error=<code>`): `invalid_state`, `tenant_not_found`, `user_suspended`, `tenant_suspended`.
+#### POST /api/v1/auth/login
+Body `{email, password}`. Verifies the password against the argon2id `users.password_hash` and signs the person into the tenant the process serves ([spec 02 §2](02-identity-tenancy.md#2-identity-model)). On success creates session `ar:sess:{sid}` (TTL = `AR_SESSION_TTL_S`, default 12 h sliding, absolute max 7 days): `{tenant_id, user_id, csrf_token, created_at, last_seen_at, ip_hash, ua_hash}`, sets cookies `ar_session=<sid>` (HttpOnly, SameSite=Lax) and `ar_csrf=<csrf_token>` (not HttpOnly, SameSite=Strict), audits `auth.login`, returns `{ok: true}`. A missing user, an unset password and a wrong password are all refused with `401 {error: "invalid_credentials"}` (no account enumeration); repeated failures are locked out (`429 {error: "too_many_attempts"}`). A suspended user or tenant → `401 {error: "user_suspended"|"tenant_suspended"}`.
 
 #### POST /api/v1/auth/logout
-Auth: session. Deletes the session, revokes the Keycloak refresh token (RP-initiated logout back-channel), clears cookies, returns `{logoutUrl}` (Keycloak end-session URL) for the browser to visit. Audits `auth.logout`.
+Auth: session. Deletes the session, clears the cookies, returns `{ok: true}`. Audits `auth.logout`.
 
 #### GET /api/v1/auth/session
 Auth: session or bearer. Response `SessionInfo`:
@@ -54,10 +50,10 @@ Auth: session or bearer. Response `SessionInfo`:
 ```
 
 #### POST /api/v1/auth/switch-tenant
-Auth: session. Body `{tenant_id}`. Requires that the Keycloak user is a member of that organization, or (SaaS, realm role `platform_admin`) that an active `support_access_grants` row exists for that tenant and operator ([spec 02 §3.11](02-identity-tenancy.md#311-support-access-saas-mode-only)), else 403 `forbidden`; re-runs login silently (`prompt=none`) for the new organization; returns `{redirect_url}`.
+Auth: session. Body `{tenant_id}`. A single-tenant install serves one tenant, so this confirms the caller's own tenant (else 403 `forbidden`) and returns `{redirect_url: "/login"}`. Multi-tenant switching returns with multi-tenant login ([OQ-122](../open-questions.md)).
 
 #### POST /api/v1/auth/step-up
-Auth: session. Body `{return_to}`. Returns `{redirect_url}` to Keycloak with `acr_values=mfa` and `max_age=0`. On callback with `acr=mfa`, the session gets `step_up_at` (valid 10 min, `AR_STEP_UP_TTL_S`). Used by W3 approvals.
+Auth: session. Body `{confirmed: true}`. Without an external IdP there is no MFA redirect: the person confirms and the session's `step_up_at` is stamped fresh (valid `AR_STEP_UP_TTL_S`, default 10 min). Used by W3 approvals. TOTP step-up is a follow-up ([OQ-122](../open-questions.md)).
 
 #### GET /api/v1/.well-known/jwks.json
 Public JWKS for `internal_jwt`-mode tool servers outside the cluster ([mcp-integration](../05-contracts/mcp-integration.md) §4.5).
@@ -78,8 +74,8 @@ Public JWKS for `internal_jwt`-mode tool servers outside the cluster ([mcp-integ
 
 | Credential | Resolution |
 |---|---|
-| `ar_session` | Valkey lookup; refresh Keycloak access token when < 60 s to expiry (refresh token rotation); if refresh fails → 401 and session deleted. |
-| Bearer JWT (`eyJ...`) | Verify against Keycloak JWKS (cached 10 min), `aud` contains `ar-api`, map `sub` + `organization` → user. |
+| `ar_session` | Valkey lookup; sliding TTL refreshed on use; absolute max age enforced; on expiry or revocation → 401 and the session is deleted. |
+| API key (`ark_` or key id + secret) | Prefix lookup, constant-time secret compare, resolves to the key's personal or service-account `Principal` ([spec 02 §3.8](02-identity-tenancy.md#38-service-accounts-and-api-keys)). |
 | `ark_...` | Prefix lookup (`find_api_key_by_prefix`), constant-time hash compare, not revoked/expired; principal = service account or the owning user; effective permissions = principal permissions ∩ key scopes (if non-empty). Updates `last_used_at` at most once per minute. |
 | `scim_...` | Only on `/scim/v2/*`. |
 
@@ -117,10 +113,6 @@ Auth: any. Returns the JSON Schema for a definition kind (`Agent`, `ToolServer`,
 | Variable | Default | Purpose |
 |---|---|---|
 | `AR_PUBLIC_URL` | `http://localhost:3000` | Origin of the web app (cookies, CSRF origin check, redirects) |
-| `AR_OIDC_ISSUER` | `http://localhost:8180/realms/agentic-runtime` | Keycloak realm issuer |
-| `AR_OIDC_CLIENT_ID` | `ar-web` | BFF confidential client |
-| `AR_OIDC_CLIENT_SECRET` | (secret) | |
-| `AR_OIDC_API_AUDIENCE` | `ar-api` | Audience for bearer tokens |
 | `AR_SESSION_TTL_S` | `43200` | Sliding session TTL |
 | `AR_SESSION_MAX_AGE_S` | `604800` | Absolute session max |
 | `AR_SESSION_ENCRYPTION_KEY` | (secret, 32 bytes b64) | Encrypt tokens stored in sessions |
@@ -137,7 +129,7 @@ Auth: any. Returns the JSON Schema for a definition kind (`Agent`, `ToolServer`,
 | Valkey down | Session auth fails → 503 `unavailable` (bearer/API-key requests still work for non-SSE endpoints; rate limiting fails open with a warning log and metric `ar_ratelimit_bypass_total`). |
 | Postgres down | `/readyz` 503; requests 503. |
 | Temporal down | Endpoints that start work still return `202`: message + run (`queued`) + outbox `run.start_requested` are committed in one transaction; the immediate workflow start fails silently (logged, metric `ar_run_start_deferred_total`) and `OutboxRelayWorkflow` (or, if the system worker is also down, the next relay pass after recovery) starts it. The UI shows "queued". Synchronous calls (`POST /api/v1/runs` with `wait=true`) return 503 `unavailable` after the run is recorded as queued. |
-| Keycloak down | New logins fail (redirect to `/login?error=idp_unavailable`); existing sessions continue until access token refresh is needed. |
+| Database unreachable at sign-in | Login fails closed (`invalid_credentials`); existing sessions continue until their TTL. |
 
 Workflow start reliability: `conversations.service.post_message` inserts message + run (`queued`) + outbox `run.start_requested` in one transaction, then attempts `start_workflow` immediately (fast path). `OutboxRelayWorkflow` handles `run.start_requested` events whose run is still `queued` after 5 s by starting the workflow (idempotent: workflow id `run-{run_id}`, `WorkflowIDReusePolicy.REJECT_DUPLICATE`).
 
