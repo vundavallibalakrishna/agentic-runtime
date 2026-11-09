@@ -43,8 +43,28 @@ per tool.
   the recovery task with `general.code` twice instead of `write_file`→`read_file` (the goal
   was reached, but not via the composed tools).
 
-So **tool selection is strong; tool chaining is the weak spot.** Two things to note: the
-model often prefers one powerful tool (`general.code`) over composing specific tools, and
-strict chain scoring penalises an equally-valid alternative path — both are worth weighing
-when this feeds tuning (prompting, tool descriptions, the loop). This is the measurement;
-improving the chaining accuracy is downstream work.
+So **tool selection is strong; tool chaining is the weak spot.**
+
+## Second pass (2026-11-09) — improving the chaining: 5/8 → 7/8 (88%)
+
+The chain weakness turned out to be mostly setup, not the model. Three changes, each
+measured live:
+
+1. **The gym agent was not bound to `general.write_file`.** The file-chain tasks could not
+   call the tool they needed, so the model substituted `shell` or `code`. Binding it made
+   `acc-copy-token` and `acc-recover-missing` pass.
+2. **Binding the whole file toolset hurt selection.** Adding `list_files`/`grep`/`glob`/… so
+   the model had more options made it pick `general.list_files` over `knowledge.search` for a
+   knowledge question — in both runs. Keeping the set to what the tasks need (just add
+   `write_file`) recovered the knowledge task. **Tool-choice accuracy is sensitive to the
+   tool set: bind what a task needs, not everything; a broad, overlapping set degrades
+   selection.**
+3. **Chains strained the budget.** A two-step chain against a live model hit the 60 s wall
+   clock; raising it to 120 s (and `max_tool_calls` 4 → 6) let chains finish.
+
+With all three, the accuracy suite is **7/8 (88%)**: every single-tool task and two of three
+chains pass. The remaining failure, `acc-fetch-save`, is the model occasionally **narrating
+its plan without calling a tool** (it passed, timed out, and narrated across three runs) —
+a model-behaviour variance of Qwen3-32B, not a setup gap, and the honest residual to chase
+with a stronger model or the agent loop. The tool-use prompt already says to prefer the
+specific tool and not to work values out unaided; the gap is adherence, so it was not gamed.
