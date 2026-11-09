@@ -138,20 +138,22 @@ class RetrievalStore(Protocol):
 
 
 def active_index(holder: object) -> RetrievalStore:
-    """pgvector when this process is bound to Postgres, otherwise the memory index."""
+    """pgvector when this process is bound to Postgres, otherwise the memory index.
+
+    A SQLAlchemy asyncpg engine's connection pool is bound to the event loop it was made
+    on. A tool call reaches here on a short-lived worker loop (``run_sync`` runs the search
+    on a thread), so the process's shared ``durable_engine`` cannot be used across that
+    boundary. Each call therefore gets a store with its own engine on the current loop;
+    that engine uses ``NullPool`` (see ``store_pgvector``), so nothing is left pooled.
+    """
     engine = getattr(holder, "durable_engine", None)
     if getattr(holder, "durable", False) and engine is not None:
-        current = getattr(holder, "pg_index", None)
-        if current is not None:
-            return cast("RetrievalStore", current)
-        from sqlalchemy.ext.asyncio import async_sessionmaker  # noqa: PLC0415
-
         from ar_domain.knowledge.store_pgvector import PgVectorStore  # noqa: PLC0415
 
-        created = PgVectorStore()
-        created.bind(async_sessionmaker(engine, expire_on_commit=False))
-        holder.pg_index = created  # type: ignore[attr-defined]
-        return cast("RetrievalStore", created)
+        return cast(
+            "RetrievalStore",
+            PgVectorStore(dsn=engine.url.render_as_string(hide_password=False)),
+        )
     return memory_index(holder)
 
 

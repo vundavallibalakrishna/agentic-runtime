@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from ar_domain.knowledge.store import StoreError, StoreUnavailable, UnsupportedDims
 from ar_domain.knowledge.store_types import (
@@ -289,7 +290,10 @@ class PgVectorStore:
         dsn = dsn or self.dsn
         if not dsn:
             raise StoreUnavailable("pgvector dsn is not configured")
-        engine = create_async_engine(dsn, pool_pre_ping=True, connect_args={"timeout": 2})
+        # NullPool: an engine built here belongs to one event loop (a per-call retrieval
+        # store on a run_sync worker loop), so it must not keep connections pooled past the
+        # call — each connection is opened and closed around its use and nothing lingers.
+        engine = create_async_engine(dsn, poolclass=NullPool, connect_args={"timeout": 2})
         factory = async_sessionmaker(engine, expire_on_commit=False)
         if read and os.environ.get("AR_VECTOR_PG_READ_DSN", "").strip():
             self._read_factory = factory
