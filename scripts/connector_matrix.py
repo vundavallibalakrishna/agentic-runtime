@@ -13,6 +13,7 @@ Run: uv run python scripts/connector_matrix.py
 
 from __future__ import annotations
 
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -126,7 +127,7 @@ def _classify(result: dict[str, object]) -> tuple[str, str]:
     return FAILING, f"{code}: {message}"
 
 
-def run() -> int:
+def run(*, check: bool = False) -> int:
     store = demo_store()
     transport = httpx.MockTransport(_handler)
     store.connector_transport = transport
@@ -149,7 +150,10 @@ def run() -> int:
             except Exception as exc:  # noqa: BLE001 - a crash is the worst outcome
                 bucket, note = FAILING, f"raised {type(exc).__name__}: {exc}"[:120]
             rows.append((connector.slug, name, bucket, note))
-    _report(rows)
+    failing = _report(rows)
+    if check and failing:
+        print(f"CHECK FAILED: {failing} connector tool(s) failing", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -165,7 +169,7 @@ def demo_id_admin() -> uuid.UUID:
     return demo_id("admin")
 
 
-def _report(rows: list[tuple[str, str, str, str]]) -> None:
+def _report(rows: list[tuple[str, str, str, str]]) -> int:
     counts = Counter(bucket for _, _, bucket, _ in rows)
     out = Path("docs/testing/connector-matrix/report.md")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -193,7 +197,11 @@ def _report(rows: list[tuple[str, str, str, str]]) -> None:
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"connector matrix: {len(rows)} tools -> {dict(counts)}")
     print(f"report: {out}")
+    failing = counts.get(FAILING, 0) + counts.get(INSTALL_FAILED, 0)
+    if failing:
+        print(f"FAILING: {failing} connector tool(s) need attention", file=sys.stderr)
+    return failing
 
 
 if __name__ == "__main__":
-    raise SystemExit(run())
+    raise SystemExit(run(check="--check" in sys.argv))
