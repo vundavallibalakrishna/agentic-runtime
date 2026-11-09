@@ -224,7 +224,7 @@ CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
         ["q2"],
     ),
     (
-        "grouped bars — tallest single bar's quarter",
+        "grouped bars — read the tallest bar value",
         {
             "kind": "grouped",
             "title": "Sales by Line",
@@ -235,9 +235,9 @@ CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
                 {"quarter": "Q3", "Widgets": 25, "Gadgets": 22},
             ],
         },
-        "This grouped bar chart has two series. Which quarter contains the single tallest "
-        "bar? Answer with the quarter label.",
-        ["q2"],
+        "This grouped bar chart's bars are labelled with their values. What is the value of "
+        "the single tallest bar? Give the number.",
+        ["40"],
     ),
     (
         "grouped bars — read the legend",
@@ -286,7 +286,7 @@ CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
         ["58"],
     ),
     (
-        "multiline — which line is higher at the end",
+        "multiline — read a labelled point value",
         {
             "kind": "multiline",
             "title": "Sales vs Costs",
@@ -297,9 +297,9 @@ CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
                 {"month": "Mar", "Sales": 9, "Costs": 12},
             ],
         },
-        "This chart has two lines, Sales and Costs (see the legend). At the last month (Mar), "
-        "which line is higher? Answer with the series name.",
-        ["costs"],
+        "This chart has two lines, Sales and Costs (see the legend); each point is labelled "
+        "with its value. What is the value of the Costs line in March? Give the number.",
+        ["12"],
     ),
     (
         "grouped — many categories, tallest bar",
@@ -351,6 +351,39 @@ CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
         "One series in this grouped chart has bars that drop below the zero line (negative "
         "values). Which series is it? Answer with the series name.",
         ["adjustment"],
+    ),
+    (
+        "stacked100 — read a segment percentage",
+        {
+            "kind": "stacked100",
+            "title": "Share by Product",
+            "xKey": "quarter",
+            "rows": [
+                {"quarter": "Q1", "A": 30, "B": 10, "C": 10},
+                {"quarter": "Q2", "A": 20, "B": 20, "C": 20},
+                {"quarter": "Q3", "A": 5, "B": 5, "C": 40},
+            ],
+        },
+        "This is a 100% stacked chart; each segment is labelled with its percentage. In the "
+        "Q3 bar, what percentage is the largest segment? Give the percentage.",
+        ["80"],
+    ),
+    (
+        "dual axis — identify the right-axis series",
+        {
+            "kind": "dual",
+            "title": "Revenue and Growth",
+            "xKey": "quarter",
+            "rightKeys": ["Growth"],
+            "rows": [
+                {"quarter": "Q1", "Revenue": 1200, "Growth": 5},
+                {"quarter": "Q2", "Revenue": 1800, "Growth": 12},
+                {"quarter": "Q3", "Revenue": 1500, "Growth": 8},
+            ],
+        },
+        "This dual-axis chart has bars on the left axis and a line on the right axis. The "
+        "legend marks the right-axis series with '(R)'. What is that series called?",
+        ["growth"],
     ),
 ]
 
