@@ -32,6 +32,7 @@ blob-report/
 docs/testing/eval-gym/live-scorecard.md
 docs/testing/eval-gym/accuracy-scorecard.md
 docs/testing/document-agent/live-scorecard.md
+docs/testing/document-agent/grounded-scorecard.md
 *.pem
 .idea/
 .vscode/
