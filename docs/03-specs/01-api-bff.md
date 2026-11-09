@@ -146,6 +146,7 @@ Workflow start reliability: `conversations.service.post_message` inserts message
 - `ar_http_requests_total{route,method,status}`, `ar_http_request_duration_seconds{route,method}` (histogram).
 - `ar_sse_connections{stream}` (gauge), `ar_sse_events_sent_total`.
 - `ar_auth_failures_total{mechanism,reason}`.
+- `ar_auth_principal_total{method,outcome}` — one per credential resolution, labelled by auth method (`api_key`, `scim`, `session`, …) and `outcome` (`ok`, `denied`). Labels only; no token or tenant content.
 - `ar_ratelimit_rejections_total{scope}`.
 
 ## 11. Test plan
