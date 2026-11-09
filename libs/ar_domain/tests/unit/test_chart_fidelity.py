@@ -11,7 +11,15 @@ import zlib
 
 from ar_domain.analytics import pixfont
 from ar_domain.analytics.themes import THEMES
-from ar_domain.tools.charts import Area, _fmt, _scale_for, render_chart
+from ar_domain.tools.charts import (
+    Area,
+    _fmt,
+    _multi,
+    _scale_for,
+    dispatch_chart,
+    render_chart,
+    render_multi,
+)
 
 _INK = THEMES["ink"].ink
 _WIDTH = 640
@@ -100,3 +108,59 @@ def test_negative_bar_draws_below_the_baseline() -> None:
     scale = _scale_for([("Up", 30.0), ("Down", -15.0)], Area(58, 40, _WIDTH - 20, _HEIGHT - 46))
     # The negative bar paints its accent colour below the zero line.
     assert any(accent in pixels[y] for y in range(scale.zero + 2, scale.y(-15.0)))
+
+
+def test_multi_parses_wide_rows_into_series() -> None:
+    rows = [
+        {"q": "Q1", "A": 10, "B": 20, "C": 5},
+        {"q": "Q2", "A": 15, "B": 8, "C": 12},
+    ]
+    categories, series = _multi({"rows": rows, "xKey": "q"})
+    assert categories == ["Q1", "Q2"]
+    assert [name for name, _values in series] == ["A", "B", "C"]
+    assert dict(series)["B"] == [20.0, 8.0]
+
+
+def test_multi_honours_explicit_series_keys() -> None:
+    rows = [{"q": "Q1", "wanted": 3, "ignored": 9}]
+    _categories, series = _multi({"rows": rows, "xKey": "q", "seriesKeys": ["wanted"]})
+    assert [name for name, _v in series] == ["wanted"]
+
+
+def test_multi_returns_none_without_numeric_series() -> None:
+    assert _multi({"rows": [{"q": "Q1"}], "xKey": "q"}) is None
+    assert _multi({"rows": []}) is None
+
+
+def test_grouped_chart_draws_a_legend_and_categories() -> None:
+    cats = ["Q1", "Q2"]
+    series = [("Alpha", [10.0, 15.0]), ("Beta", [20.0, 8.0])]
+    pixels = _decode(render_multi("grouped", cats, series, theme="ink", title="Sales"))
+    # Legend band sits between the title and the plot.
+    assert _band_has(pixels, 38, 50, _INK), "no legend text drawn"
+    # Category labels below the plot.
+    assert _band_has(pixels, _HEIGHT - 40, _HEIGHT - 8, _INK), "no category labels"
+    # Both series' accent colours appear.
+    accents = THEMES["ink"].accents
+    assert any(accents[0] in row for row in pixels)
+    assert any(accents[1] in row for row in pixels)
+
+
+def test_stacked_chart_labels_the_total() -> None:
+    cats = ["Q1"]
+    series = [("A", [10.0]), ("B", [20.0]), ("C", [5.0])]  # total 35
+    pixels = _decode(render_multi("stacked", cats, series, theme="ink", title="Mix"))
+    # The "35" total is drawn as ink somewhere in the upper plot.
+    assert sum(row.count(_INK) for row in pixels) > 150
+    accents = THEMES["ink"].accents
+    # Three distinct segment colours are stacked.
+    assert all(any(accents[i] in row for row in pixels) for i in range(3))
+
+
+def test_dispatch_rejects_grouped_without_series() -> None:
+    from ar_testing.demo import demo_store
+
+    store = demo_store()
+    result = dispatch_chart(store, "chart", {"kind": "grouped", "rows": [{"q": "Q1"}]})
+    assert result is not None and result["is_error"] is True
+    assert result["code"] == "validation_failed"

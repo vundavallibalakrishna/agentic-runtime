@@ -25,11 +25,16 @@ _WIDTH = 640
 _HEIGHT = 360
 _LEFT = 58  # room for y-axis tick labels
 _RIGHT = 20
-_TOP = 40  # room for the title
+_TOP = 54  # room for the title and, for multi-series charts, the legend beneath it
 _BOTTOM = 46  # room for category labels
 _TICKS = 4  # gridlines/ticks above the baseline
 _MAX_POINT_LABELS = 12  # beyond this, labelling every point clutters
-_KINDS = frozenset({"bar", "line", "area", "scatter", "pie"})
+_MAX_CATEGORIES = 20
+_MAX_SERIES = 8
+_MIN_LABEL_BAR_W = 12  # a grouped bar narrower than this has no room for a value label
+_MAX_LABELLED_BARS = 16  # beyond this, per-bar labels clutter a grouped chart
+_MULTI_KINDS = frozenset({"grouped", "stacked"})
+_KINDS = frozenset({"bar", "line", "area", "scatter", "pie"}) | _MULTI_KINDS
 
 Colour = tuple[int, int, int]
 
@@ -80,19 +85,34 @@ def _scale_for(rows: list[tuple[str, float]], area: Area) -> Scale:
 def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object] | None:
     if name != "chart":
         return None
-    rows = _rows(arguments)
-    if not rows:
-        return _error(
-            "validation_failed", "chart needs rows, or xKey and yKey over a list of objects"
-        )
     kind = str(arguments.get("kind") or "bar").lower()
     if kind not in _KINDS:
-        return _error("validation_failed", "kind must be bar, line, area, scatter or pie")
+        return _error(
+            "validation_failed", "kind must be bar, line, area, scatter, pie, grouped or stacked"
+        )
     theme = theme_for(str(arguments.get("theme") or "ink"))
     if theme is None:
         return _error("validation_failed", "theme must be ink, slate, forest, ember or midnight")
     title = str(arguments.get("title") or kind)
-    png = render_chart(kind, rows, theme=theme.name, title=title)
+    if kind in _MULTI_KINDS:
+        multi = _multi(arguments)
+        if multi is None:
+            return _error(
+                "validation_failed",
+                "grouped and stacked charts need rows with a category key and one or more "
+                "numeric series (give seriesKeys, or let every numeric column be a series)",
+            )
+        categories, series = multi
+        png = render_multi(kind, categories, series, theme=theme.name, title=title)
+        count = len(categories)
+    else:
+        rows = _rows(arguments)
+        if not rows:
+            return _error(
+                "validation_failed", "chart needs rows, or xKey and yKey over a list of objects"
+            )
+        png = render_chart(kind, rows, theme=theme.name, title=title)
+        count = len(rows)
     slide = _flag(arguments.get("slide") or arguments.get("deck"))
     from ar_domain.tools.general import _prepare, _store_file  # noqa: PLC0415
 
@@ -110,7 +130,7 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
         files.append(_store_file(store, arguments, name="chart.pptx", data=deck))
     note = " Wrote a slide." if slide else ""
     return {
-        "text": f"Drew a {kind} chart ({len(rows)} points, {theme.name}).{note}",
+        "text": f"Drew a {kind} chart ({count} points, {theme.name}).{note}",
         "structured": {
             "presentation": {
                 "kind": "chart",
@@ -152,6 +172,40 @@ def render_chart(
         _x_labels(pixels, width, height, area, rows, chosen)
     if title:
         _title(pixels, width, height, title, chosen)
+    return _encode(pixels, width, height)
+
+
+def render_multi(
+    kind: str, categories: list[str], series: Series, *, theme: str = "ink", title: str = ""
+) -> bytes:
+    """Return a grouped or stacked bar chart PNG with a series legend."""
+    chosen = theme_for(theme) or THEMES["ink"]
+    width, height = _WIDTH, _HEIGHT
+    pixels = bytearray(chosen.paper * (width * height))
+    area = Area(_LEFT, _TOP, width - _RIGHT, height - _BOTTOM)
+    if kind == "stacked":
+        totals = [
+            sum(max(0.0, values[i]) for _name, values in series) for i in range(len(categories))
+        ]
+        scale = Scale(0.0, max(totals, default=1.0) or 1.0, area)
+    else:
+        flat = [value for _name, values in series for value in values] or [0.0]
+        hi = max(*flat, 0.0) if len(flat) > 1 else max(flat[0], 0.0)
+        lo = min(*flat, 0.0) if len(flat) > 1 else min(flat[0], 0.0)
+        scale = Scale(lo, hi + 1.0 if hi == lo else hi, area)
+    _grid(pixels, width, height, scale, chosen)
+    if kind == "stacked":
+        _stacked_bars(pixels, width, height, scale, categories, series, chosen)
+    else:
+        _grouped_bars(pixels, width, height, scale, categories, series, chosen)
+    _x_labels(pixels, width, height, area, [(c, 0.0) for c in categories], chosen)
+    _legend(pixels, width, height, series, chosen)
+    if title:
+        _title(pixels, width, height, title, chosen)
+    return _encode(pixels, width, height)
+
+
+def _encode(pixels: bytearray, width: int, height: int) -> bytes:
     raw = bytearray()
     for y in range(height):
         raw.append(0)
@@ -187,6 +241,37 @@ def _rows(arguments: dict[str, object]) -> list[tuple[str, float]]:
             if number is not None:
                 found.append((str(index), number))
     return found[:40]
+
+
+Series = list[tuple[str, list[float]]]
+
+
+def _multi(arguments: dict[str, object]) -> tuple[list[str], Series] | None:
+    """Parse wide-format rows into (categories, [(series name, values)]) for grouped/stacked."""
+    raw = arguments.get("rows")
+    rows = [item for item in raw if isinstance(item, dict)] if isinstance(raw, list) else []
+    if not rows:
+        return None
+    x_key = str(arguments.get("xKey") or arguments.get("x_key") or "")
+    requested = arguments.get("seriesKeys") or arguments.get("series_keys")
+    keys: list[str] = []
+    if isinstance(requested, list):
+        keys = [str(k) for k in requested if str(k)]
+    if not keys:
+        label_keys = {x_key, "label", "x"} if x_key else {"label", "x"}
+        for key, value in rows[0].items():
+            if str(key) not in label_keys and _number(value) is not None:
+                keys.append(str(key))
+    keys = keys[:_MAX_SERIES]
+    if not keys:
+        return None
+    rows = rows[:_MAX_CATEGORIES]
+    categories = [
+        str(row.get(x_key) or row.get("label") or row.get("x") or index)
+        for index, row in enumerate(rows)
+    ]
+    series: Series = [(key, [_number(row.get(key)) or 0.0 for row in rows]) for key in keys]
+    return categories, series
 
 
 def _first_number(row: dict[str, object]) -> object:
@@ -274,6 +359,86 @@ def _bars(  # noqa: PLR0917
         label_x = center - pixfont.text_width(label) // 2
         label_y = top - 9 if value >= 0 and top - 9 >= area.y0 else bottom + 2
         pixfont.draw_text(pixels, width, height, label_x, label_y, label, theme.ink)
+
+
+def _fill(  # noqa: PLR0917
+    pixels: bytearray, width: int, left: int, right: int, top: int, bottom: int, colour: Colour
+) -> None:
+    for y in range(top, bottom):
+        for x in range(left, right):
+            _dot(pixels, width, x, y, colour)
+
+
+def _grouped_bars(  # noqa: PLR0917
+    pixels: bytearray,
+    width: int,
+    height: int,
+    scale: Scale,
+    categories: list[str],
+    series: Series,
+    theme: ChartTheme,
+) -> None:
+    area = scale.area
+    slot = area.w / max(1, len(categories))
+    group_w = slot * 0.8
+    bar_w = max(2, int(group_w / max(1, len(series))))
+    base = scale.zero
+    label = bar_w >= _MIN_LABEL_BAR_W and len(categories) * len(series) <= _MAX_LABELLED_BARS
+    for ci in range(len(categories)):
+        group_left = area.x0 + slot * ci + (slot - group_w) / 2
+        for si, (_name, values) in enumerate(series):
+            value = values[ci]
+            colour = theme.accents[si % len(theme.accents)]
+            left = int(group_left + si * bar_w)
+            tip = scale.y(value)
+            top, bottom = (tip, base) if value >= 0 else (base, tip)
+            _fill(pixels, width, left, left + max(2, bar_w - 1), top, bottom, colour)
+            if label:
+                text = _fmt(value)
+                tx = left + (bar_w - pixfont.text_width(text)) // 2
+                pixfont.draw_text(pixels, width, height, tx, top - 9, text, theme.ink)
+
+
+def _stacked_bars(  # noqa: PLR0917
+    pixels: bytearray,
+    width: int,
+    height: int,
+    scale: Scale,
+    categories: list[str],
+    series: Series,
+    theme: ChartTheme,
+) -> None:
+    area = scale.area
+    slot = area.w / max(1, len(categories))
+    bar_w = max(4, int(slot * 0.55))
+    for ci in range(len(categories)):
+        center = area.x0 + int(slot * (ci + 0.5))
+        left = center - bar_w // 2
+        cumulative = 0.0
+        for si, (_name, values) in enumerate(series):
+            value = max(0.0, values[ci])
+            colour = theme.accents[si % len(theme.accents)]
+            lower, upper = scale.y(cumulative + value), scale.y(cumulative)
+            _fill(pixels, width, left, left + bar_w, lower, upper, colour)
+            cumulative += value
+        total = _fmt(cumulative)
+        tx = center - pixfont.text_width(total) // 2
+        pixfont.draw_text(pixels, width, height, tx, scale.y(cumulative) - 9, total, theme.ink)
+
+
+def _legend(pixels: bytearray, width: int, height: int, series: Series, theme: ChartTheme) -> None:
+    items = [
+        (name[:12], theme.accents[i % len(theme.accents)]) for i, (name, _v) in enumerate(series)
+    ]
+    gap, square = 14, 8
+    widths = [square + 3 + pixfont.text_width(name) + gap for name, _c in items]
+    total = sum(widths) - gap if widths else 0
+    x = max(4, (width - total) // 2)
+    y = _TOP - 13
+    for (name, colour), item_w in zip(items, widths, strict=True):
+        _fill(pixels, width, x, x + square, y, y + square, colour)
+        pixfont.draw_text(pixels, width, height, x + square + 3, y, name.upper(), theme.ink)
+        x += item_w
 
 
 def _line(

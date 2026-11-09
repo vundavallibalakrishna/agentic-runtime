@@ -13,7 +13,7 @@ AR_EVAL_GYM_LIVE=1 AR_CERT_LLM_API_KEY="$(cat /abs/.secrets/deepinfra_api_key)" 
 The cert key is read from the environment and never printed. `AR_CERT_VISION_MODEL` overrides
 the vision model (default `Qwen/Qwen3-VL-30B-A3B-Instruct`).
 
-## Run (2026-11-09): **8/8** with `Qwen/Qwen3-VL-30B-A3B-Instruct`
+## Run (2026-11-09): **12/12** with `Qwen/Qwen3-VL-30B-A3B-Instruct`
 
 | case | the model was asked | answer |
 |---|---|---|
@@ -25,6 +25,19 @@ the vision model (default `Qwen/Qwen3-VL-30B-A3B-Instruct`).
 | line chart | the peak week | **W3** |
 | pie chart | the largest slice + share | **Organic, 50%** |
 | negative values | which quarter is a loss | **Q2** |
+| **grouped bars** | which quarter has the tallest single bar | **Q2** |
+| **grouped bars** | the other series in the legend beside Widgets | **Gadgets** |
+| **stacked bars** | which quarter has the tallest total stack | **Q2** |
+| **stacked bars** | the total printed above the Q2 bar | **58** |
+
+## Multi-series charts (grouped and stacked)
+
+`general.chart` gained two kinds, `grouped` and `stacked`, for several series per category.
+Give each row a category key and one numeric column per series (named in `seriesKeys`, or every
+numeric column is taken as a series). Both draw a **legend** of the series names, and stacked
+bars print each **total** above the stack. The vision model reads all of it — the tallest bar
+across groups, the legend series names, the tallest stack, and the printed totals (the four
+rows above).
 
 ## Two fixes this surfaced
 
