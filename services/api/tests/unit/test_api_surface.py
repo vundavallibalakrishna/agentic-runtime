@@ -12,7 +12,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ar_api.auth.csrf import csrf_ok, origin_ok
-from ar_api.auth.oidc import authorize_url, new_pkce, safe_return_to
 from ar_api.auth.session import MemorySessionStore, new_session, session_key_bytes
 from ar_api.auth.step_up import require_step_up, step_up_fresh
 from ar_api.principal import api_key_matches, api_key_prefix, classify_authorization, hash_text
@@ -101,21 +100,6 @@ def _app(principal: Principal) -> TestClient:
 
 
 def test_public_helpers_and_session_round_trip() -> None:
-    verifier, challenge = new_pkce()
-    assert verifier and challenge
-    assert safe_return_to("https://evil.example") == "/"
-    assert safe_return_to("/admin") == "/admin"
-    url = authorize_url(
-        issuer="http://localhost:8180/realms/agentic-runtime",
-        client_id="ar-web",
-        redirect_uri="http://localhost:3000/api/v1/auth/callback",
-        state="s",
-        nonce="n",
-        challenge=challenge,
-        tenant="dev",
-        idp="google",
-    )
-    assert "organization=dev" in url and "kc_idp_hint=google" in url
     assert csrf_ok("a", "a")
     assert not csrf_ok(None, "a")
     assert origin_ok(None, "http://localhost:3000")
@@ -403,12 +387,6 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     assert renamed.status_code == 200
     denied_platform = client.get("/api/v1/platform/tenants")
     assert denied_platform.status_code == 403
-    login = client.get("/api/v1/auth/login", follow_redirects=False)
-    assert login.status_code == 302
-    state = login.headers["location"].split("state=")[1].split("&")[0]
-    client.app.state.complete_login = _complete  # type: ignore[attr-defined]
-    callback = client.get(f"/api/v1/auth/callback?code=abc&state={state}", follow_redirects=False)
-    assert callback.status_code == 302
     assert client.get("/api/v1/auth/session").status_code == 200
     switched = client.post("/api/v1/auth/switch-tenant", json={"tenant_id": str(tenant_id)})
     assert switched.status_code == 200
@@ -440,18 +418,6 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
         headers={"Idempotency-Key": "k" * 300},
     )
     assert long_key.status_code == 400
-    stale = client.get("/api/v1/auth/callback?code=&state=missing", follow_redirects=False)
-    assert stale.status_code == 302
-
-
-async def _complete(code: str, saved: dict[str, object]) -> dict[str, str]:
-    del code, saved
-    return {
-        "tenant_id": str(uuid.uuid4()),
-        "user_id": str(uuid.uuid4()),
-        "access_token": "a",
-        "refresh_token": "r",
-    }
 
 
 def test_scim_and_platform_admin_and_single_tenant_hide() -> None:

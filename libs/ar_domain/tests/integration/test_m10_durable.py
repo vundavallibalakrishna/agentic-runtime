@@ -273,15 +273,16 @@ async def test_widget_credentials_and_user_status_survive_restart(
     await restarted.durable_engine.dispose()
 
 
-async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
+async def test_password_login_uses_persisted_non_demo_user_and_permissions(
     database_url: str,
 ) -> None:
-    """An OIDC email resolving to a non-demo UUID can immediately create durable rows."""
+    """A persisted non-demo user signs in with their password and gets durable rows."""
     import httpx
 
     from ar_domain.db.context import Principal, TenantContext
     from ar_domain.db.session import tenant_session
     from ar_domain.identity.models import RoleAssignment, User
+    from ar_domain.identity.passwords import hash_password
     from ar_domain.identity.repository import IdentityRepository
 
     store = ChatService()
@@ -304,6 +305,7 @@ async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
                 email=email,
                 display_name="Retained identity",
                 status="active",
+                password_hash=hash_password("retained-pw"),
             )
         )
         await session.flush()
@@ -319,17 +321,13 @@ async def test_oidc_callback_uses_persisted_non_demo_user_and_permissions(
     app = create_application()
     store._bind_attempted = True
     app.state.chat = store
-    app.state.login_states["saved"] = {"return_to": "/chat"}
-
-    async def complete(code, saved):
-        return {"email": email, "organization": "dev", "access_token": "", "refresh_token": ""}
-
-    app.state.complete_login = complete
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://localhost:3000"
     ) as client:
-        response = await client.get("/api/v1/auth/callback?code=valid&state=saved")
-        assert response.status_code == 302, response.text
+        response = await client.post(
+            "/api/v1/auth/login", json={"email": email, "password": "retained-pw"}
+        )
+        assert response.status_code == 200, response.text
         profile = (await client.get("/api/v1/auth/session")).json()
         assert profile["user"]["id"] == str(user_id)
         assert profile["tenant"]["id"] == str(binding.tenant_id)
