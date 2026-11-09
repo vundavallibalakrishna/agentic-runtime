@@ -33,7 +33,10 @@ _MAX_CATEGORIES = 20
 _MAX_SERIES = 8
 _MIN_LABEL_BAR_W = 12  # a grouped bar narrower than this has no room for a value label
 _MAX_LABELLED_BARS = 16  # beyond this, per-bar labels clutter a grouped chart
-_MULTI_KINDS = frozenset({"grouped", "stacked", "multiline"})
+_RIGHT_DUAL = 54  # a dual-axis chart needs room on the right for its second axis
+_MIN_SEGMENT_LABEL_PCT = 8  # a 100%-stacked segment smaller than this is too thin to label
+_MIN_SEGMENT_LABEL_H = 9  # and needs at least this many pixels of height for the text
+_MULTI_KINDS = frozenset({"grouped", "stacked", "stacked100", "multiline", "dual"})
 _KINDS = frozenset({"bar", "line", "area", "scatter", "pie"}) | _MULTI_KINDS
 
 Colour = tuple[int, int, int]
@@ -103,7 +106,12 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
                 "numeric series (give seriesKeys, or let every numeric column be a series)",
             )
         categories, series = multi
-        png = render_multi(kind, categories, series, theme=theme.name, title=title)
+        if kind == "dual":
+            requested = arguments.get("rightKeys") or arguments.get("right_keys")
+            right = {str(k) for k in requested} if isinstance(requested, list) else set()
+            png = render_dual(categories, series, right, theme=theme.name, title=title)
+        else:
+            png = render_multi(kind, categories, series, theme=theme.name, title=title)
         count = len(categories)
     else:
         rows = _rows(arguments)
@@ -183,7 +191,9 @@ def render_multi(
     width, height = _WIDTH, _HEIGHT
     pixels = bytearray(chosen.paper * (width * height))
     area = Area(_LEFT, _TOP, width - _RIGHT, height - _BOTTOM)
-    if kind == "stacked":
+    if kind == "stacked100":
+        scale = Scale(0.0, 100.0, area)
+    elif kind == "stacked":
         totals = [
             sum(max(0.0, values[i]) for _name, values in series) for i in range(len(categories))
         ]
@@ -193,9 +203,11 @@ def render_multi(
         hi = max(*flat, 0.0) if len(flat) > 1 else max(flat[0], 0.0)
         lo = min(*flat, 0.0) if len(flat) > 1 else min(flat[0], 0.0)
         scale = Scale(lo, hi + 1.0 if hi == lo else hi, area)
-    _grid(pixels, width, height, scale, chosen)
-    if kind == "stacked":
-        _stacked_bars(pixels, width, height, scale, categories, series, chosen)
+    _grid(pixels, width, height, scale, chosen, percent=kind == "stacked100")
+    if kind in {"stacked", "stacked100"}:
+        _stacked_bars(
+            pixels, width, height, scale, categories, series, chosen, percent=kind == "stacked100"
+        )
     elif kind == "multiline":
         _multi_lines(pixels, width, height, scale, series, chosen)
     else:
@@ -205,6 +217,85 @@ def render_multi(
     if title:
         _title(pixels, width, height, title, chosen)
     return _encode(pixels, width, height)
+
+
+def render_dual(
+    categories: list[str],
+    series: Series,
+    right_names: set[str],
+    *,
+    theme: str = "ink",
+    title: str = "",
+) -> bytes:
+    """Return a dual-axis chart: bars on the left axis, line(s) on the right axis."""
+    chosen = theme_for(theme) or THEMES["ink"]
+    width, height = _WIDTH, _HEIGHT
+    pixels = bytearray(chosen.paper * (width * height))
+    area = Area(_LEFT, _TOP, width - _RIGHT_DUAL, height - _BOTTOM)
+    if not right_names and len(series) > 1:
+        right_names = {series[-1][0]}  # by default the last series is the right-axis line
+    left = [item for item in series if item[0] not in right_names]
+    right = [item for item in series if item[0] in right_names]
+    if not left:  # everything was assigned to the right; keep the first series as bars
+        left, right = series[:1], series[1:]
+    left_scale = _scale_for_values([v for _n, vals in left for v in vals], area)
+    right_scale = _scale_for_values([v for _n, vals in right for v in vals], area)
+    right_colour = chosen.accents[len(left) % len(chosen.accents)]
+    _grid(pixels, width, height, left_scale, chosen)
+    _grouped_bars(pixels, width, height, left_scale, categories, left, chosen)
+    _right_axis(pixels, width, height, right_scale, right_colour)
+    _dual_lines(pixels, width, height, right_scale, right, chosen, len(left))
+    _x_labels(pixels, width, height, area, [(c, 0.0) for c in categories], chosen)
+    legend = [*left, *[(f"{name} (R)", vals) for name, vals in right]]
+    _legend(pixels, width, height, legend, chosen)
+    if title:
+        _title(pixels, width, height, title, chosen)
+    return _encode(pixels, width, height)
+
+
+def _scale_for_values(values: list[float], area: Area) -> Scale:
+    vals = values or [0.0]
+    hi = max(*vals, 0.0) if len(vals) > 1 else max(vals[0], 0.0)
+    lo = min(*vals, 0.0) if len(vals) > 1 else min(vals[0], 0.0)
+    return Scale(lo, hi + 1.0 if hi == lo else hi, area)
+
+
+def _right_axis(pixels: bytearray, width: int, height: int, scale: Scale, colour: Colour) -> None:
+    # The right axis, its ticks and numbers take the line's colour, so it is unmistakable which
+    # scale the line is read against (and which numbers belong to the line, not the bars).
+    area = scale.area
+    for y in range(area.y0, area.y1 + 1):
+        _dot(pixels, width, area.x1, y, colour)
+    for tick in range(_TICKS + 1):
+        value = scale.lo + (scale.hi - scale.lo) * tick / _TICKS
+        yy = scale.y(value)
+        pixfont.draw_text(pixels, width, height, area.x1 + 6, yy - 3, _fmt(value), colour)
+
+
+def _dual_lines(  # noqa: PLR0917
+    pixels: bytearray,
+    width: int,
+    height: int,
+    scale: Scale,
+    series: Series,
+    theme: ChartTheme,
+    offset: int,
+) -> None:
+    area = scale.area
+    count = len(series[0][1]) if series else 0
+    slot = area.w / max(1, count)
+    xs = [area.x0 + int(slot * (i + 0.5)) for i in range(count)]  # align with bar group centres
+    for si, (_name, values) in enumerate(series):
+        colour = theme.accents[(offset + si) % len(theme.accents)]
+        points = [(xs[i], scale.y(values[i])) for i in range(len(values))]
+        for start, end in pairwise(points):
+            _segment(pixels, width, start, end, colour)
+        for i, (px, py) in enumerate(points):
+            _fill(pixels, width, px - 2, px + 3, py - 2, py + 3, colour)
+            text = _fmt(values[i])
+            tx = px - pixfont.text_width(text) // 2
+            ty = py - 11 if py - 11 >= area.y0 else py + 6
+            pixfont.draw_text(pixels, width, height, tx, ty, text, colour)
 
 
 def _encode(pixels: bytearray, width: int, height: int) -> bytes:
@@ -318,7 +409,15 @@ def _title(pixels: bytearray, width: int, height: int, title: str, theme: ChartT
     pixfont.draw_text(pixels, width, height, start, 10, text, theme.ink, scale=2)
 
 
-def _grid(pixels: bytearray, width: int, height: int, scale: Scale, theme: ChartTheme) -> None:
+def _grid(
+    pixels: bytearray,
+    width: int,
+    height: int,
+    scale: Scale,
+    theme: ChartTheme,
+    *,
+    percent: bool = False,
+) -> None:
     area = scale.area
     for tick in range(_TICKS + 1):
         frac = tick / _TICKS
@@ -326,7 +425,7 @@ def _grid(pixels: bytearray, width: int, height: int, scale: Scale, theme: Chart
         yy = scale.y(value)
         for x in range(area.x0, area.x1):
             _dot(pixels, width, x, yy, theme.grid)
-        label = _fmt(value)
+        label = f"{_fmt(value)}%" if percent else _fmt(value)
         label_w = pixfont.text_width(label)
         pixfont.draw_text(pixels, width, height, area.x0 - 6 - label_w, yy - 3, label, theme.ink)
     for y in range(area.y0, area.y1 + 1):
@@ -409,6 +508,8 @@ def _stacked_bars(  # noqa: PLR0917
     categories: list[str],
     series: Series,
     theme: ChartTheme,
+    *,
+    percent: bool = False,
 ) -> None:
     area = scale.area
     slot = area.w / max(1, len(categories))
@@ -416,14 +517,24 @@ def _stacked_bars(  # noqa: PLR0917
     for ci in range(len(categories)):
         center = area.x0 + int(slot * (ci + 0.5))
         left = center - bar_w // 2
+        raw_total = sum(max(0.0, values[ci]) for _name, values in series)
+        factor = (100.0 / raw_total) if percent and raw_total else 1.0
         cumulative = 0.0
         for si, (_name, values) in enumerate(series):
-            value = max(0.0, values[ci])
+            value = max(0.0, values[ci]) * factor
             colour = theme.accents[si % len(theme.accents)]
             lower, upper = scale.y(cumulative + value), scale.y(cumulative)
             _fill(pixels, width, left, left + bar_w, lower, upper, colour)
+            if (
+                percent
+                and value >= _MIN_SEGMENT_LABEL_PCT
+                and upper - lower >= _MIN_SEGMENT_LABEL_H
+            ):
+                seg = f"{round(value)}%"
+                sx = center - pixfont.text_width(seg) // 2
+                pixfont.draw_text(pixels, width, height, sx, lower + 2, seg, theme.paper)
             cumulative += value
-        total = _fmt(cumulative)
+        total = "100%" if percent else _fmt(cumulative)
         tx = center - pixfont.text_width(total) // 2
         pixfont.draw_text(pixels, width, height, tx, scale.y(cumulative) - 9, total, theme.ink)
 

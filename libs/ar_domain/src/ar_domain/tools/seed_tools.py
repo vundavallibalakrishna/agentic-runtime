@@ -2042,18 +2042,20 @@ def _chart_tool() -> dict[str, object]:
     return _tool(
         "chart",
         "Draw a chart",
-        "Draw a bar, line, area, scatter, pie, grouped, stacked or multiline chart and save "
-        "a PNG. theme is ink, slate, forest, ember or midnight. "
-        "grouped, stacked and multiline draw several series per category: give each row a "
-        "category key and one numeric column per series, and name them in seriesKeys. "
-        "slide true also writes a one-slide PPTX with the title and narrative.",
+        "Draw a bar, line, area, scatter, pie, grouped, stacked, stacked100, multiline or "
+        "dual chart and save a PNG. theme is ink, slate, forest, ember or midnight. "
+        "grouped, stacked, stacked100, multiline and dual draw several series per category: "
+        "give each row a category key and one numeric column per series, and name them in "
+        "seriesKeys. stacked100 shows each category's series as a share of 100%. dual puts "
+        "bars on the left axis and the series named in rightKeys as a line on a second right "
+        "axis. slide true also writes a one-slide PPTX with the title and narrative.",
         {
             "type": "object",
             "properties": {
                 "kind": {
                     "type": "string",
-                    "description": "The chart type. grouped, stacked and multiline show "
-                    "several series per category.",
+                    "description": "The chart type. grouped, stacked, stacked100, multiline "
+                    "and dual show several series per category.",
                     "enum": [
                         "bar",
                         "line",
@@ -2062,7 +2064,9 @@ def _chart_tool() -> dict[str, object]:
                         "pie",
                         "grouped",
                         "stacked",
+                        "stacked100",
                         "multiline",
+                        "dual",
                     ],
                 },
                 "theme": {
@@ -2100,8 +2104,17 @@ def _chart_tool() -> dict[str, object]:
                         "type": "string",
                         "description": "A row key holding one series' values.",
                     },
-                    "description": "For grouped or stacked charts, the row keys to draw as "
-                    "series. Defaults to every numeric column except the category key.",
+                    "description": "For multi-series charts, the row keys to draw as series. "
+                    "Defaults to every numeric column except the category key.",
+                },
+                "rightKeys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "A series name to plot as a line on the right axis.",
+                    },
+                    "description": "For a dual chart, the series to draw on the right axis as a "
+                    "line; the rest become bars on the left axis. Defaults to the last series.",
                 },
                 "rows": {
                     "type": "array",

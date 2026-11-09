@@ -12,12 +12,16 @@ import zlib
 from ar_domain.analytics import pixfont
 from ar_domain.analytics.themes import THEMES
 from ar_domain.tools.charts import (
+    _BOTTOM,
+    _RIGHT_DUAL,
+    _TOP,
     Area,
     _fmt,
     _multi,
     _scale_for,
     dispatch_chart,
     render_chart,
+    render_dual,
     render_multi,
 )
 
@@ -175,3 +179,36 @@ def test_multiline_draws_one_line_per_series_with_a_legend() -> None:
     accents = THEMES["ink"].accents
     assert any(accents[0] in row for row in pixels)
     assert any(accents[1] in row for row in pixels)
+
+
+def test_stacked100_fills_to_full_height_with_percent_axis() -> None:
+    cats = ["Q1", "Q2"]
+    series = [("A", [30.0, 10.0]), ("B", [10.0, 10.0])]  # Q1 totals 40, Q2 totals 20
+    pixels = _decode(render_multi("stacked100", cats, series, theme="ink", title="Mix"))
+    accents = THEMES["ink"].accents
+    # Both categories' stacks reach near the top of the plot (normalised to 100%).
+    top_band = range(_TOP + 2, _TOP + 20)
+    assert any(accents[0] in pixels[y] or accents[1] in pixels[y] for y in top_band)
+    # A "%" appears on the axis.
+    assert _band_has(pixels, _TOP, _HEIGHT - _BOTTOM, _INK)
+
+
+def test_dual_axis_draws_both_axes_and_a_line() -> None:
+    cats = ["Q1", "Q2", "Q3"]
+    series = [("Revenue", [1200.0, 1800.0, 1500.0]), ("Growth", [5.0, 12.0, 8.0])]
+    pixels = _decode(render_dual(cats, series, {"Growth"}, theme="ink", title="Rev & Growth"))
+    accents = THEMES["ink"].accents
+    # Left bars (accent 0) and the right-axis line (accent 1) both present.
+    assert any(accents[0] in row for row in pixels)
+    assert any(accents[1] in row for row in pixels)
+    # Right axis line drawn near the right edge, in the line's colour (accent 1 here).
+    right_x = _WIDTH - _RIGHT_DUAL
+    assert any(pixels[y][right_x] == accents[1] for y in range(_TOP, _HEIGHT - _BOTTOM))
+
+
+def test_dual_defaults_last_series_to_the_right_axis() -> None:
+    cats = ["Q1", "Q2"]
+    series = [("Bars", [10.0, 20.0]), ("Line", [1.0, 2.0])]
+    # No explicit rightKeys: the last series ("Line") should still render (as the right line).
+    png = render_dual(cats, series, set(), theme="ink", title="D")
+    assert png[:4] == b"\x89PNG"
