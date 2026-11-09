@@ -1351,6 +1351,9 @@ from .rollback_body import RollbackBody
 from .rotate_agent_key_api_v1_agents_agent_id_api_keys_key_id_rotate_post_response_rotate_agent_key_api_v1_agents_agent_id_api_keys_key_id_rotate_post import (
     RotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePostResponseRotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePost,
 )
+from .rotate_api_key_api_v1_api_keys_api_key_id_rotate_post_response_rotate_api_key_api_v1_api_keys_api_key_id_rotate_post import (
+    RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostResponseRotateApiKeyApiV1ApiKeysApiKeyIdRotatePost,
+)
 from .rotate_api_v1_webhooks_webhook_id_rotate_secret_post_response_rotate_api_v1_webhooks_webhook_id_rotate_secret_post import (
     RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost,
 )
@@ -2179,6 +2182,7 @@ __all__ = (
     "RollbackAgentApiV1AgentsAgentIdRollbackPostResponseRollbackAgentApiV1AgentsAgentIdRollbackPost",
     "RollbackBody",
     "RotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePostResponseRotateAgentKeyApiV1AgentsAgentIdApiKeysKeyIdRotatePost",
+    "RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostResponseRotateApiKeyApiV1ApiKeysApiKeyIdRotatePost",
     "RotateApiV1WebhooksWebhookIdRotateSecretPostResponseRotateApiV1WebhooksWebhookIdRotateSecretPost",
     "RotateBody",
     "RotateCallbackApiV1TenantRunCallbackSecretRotatePostResponseRotateCallbackApiV1TenantRunCallbackSecretRotatePost",
