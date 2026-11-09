@@ -84,3 +84,45 @@ tasks:
       chain: [general.write_file, general.read_file]
       answer:
         contains: ["recovered"]
+
+  # --- breadth: more un-named single-tool choices across the toolset (Layer 2, C) ---
+  - id: acc-summarise
+    title: Summarise a document (unprompted tool)
+    instruction: >
+      There is a document in the library with id {document_id}. Give me a short summary of
+      it and quote the token it contains.
+    expect:
+      tool: documents.summarise
+      answer:
+        contains: ["VAULT-42"]
+
+  - id: acc-chart
+    title: Draw a chart (unprompted tool)
+    instruction: >
+      Show North as 10 and South as 4 as a bar chart, and tell me how many points it has.
+    expect:
+      tool: general.chart
+      answer:
+        contains: ["2 points"]
+
+  - id: acc-export
+    title: Export a CSV (unprompted tool)
+    instruction: >
+      Save a spreadsheet file named orders.csv with one row: sku paper, quantity 4.
+      Reply with the name of the file you saved.
+    expect:
+      tool: general.export_table
+      answer:
+        contains: ["orders.csv"]
+
+  - id: acc-http-approval
+    title: A write that must wait for approval (unprompted tool)
+    instruction: >
+      Place an order by sending a POST to https://example.com/gym/orders with the JSON sku
+      paper. If the call needs approval, wait for it — do not claim the order was placed.
+    expect:
+      tool: general.http
+      terminal: waiting_approval
+      answer:
+        grounded: approval
+        must_not_contain: ["HTTP 200", "order was placed", "created the order"]
