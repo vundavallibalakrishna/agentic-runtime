@@ -33,8 +33,11 @@ async def _answer(store: ChatService, run_id: uuid.UUID, text: str, names: list[
 def _key(store: ChatService) -> dict:
     agent = next(row for row in store.agents.values() if row["slug"] == "assistant")
     row, _secret = keys.create_key(
-        store, tenant_id=demo_id("tenant"), agent_id=agent["id"],
-        user_id=demo_id("admin"), label="run",
+        store,
+        tenant_id=demo_id("tenant"),
+        agent_id=agent["id"],
+        user_id=demo_id("admin"),
+        label="run",
     )
     return row
 
