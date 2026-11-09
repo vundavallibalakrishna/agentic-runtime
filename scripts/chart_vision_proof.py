@@ -223,6 +223,44 @@ CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
         "Which quarter shows a negative value (a loss)? Answer with the quarter label.",
         ["q2"],
     ),
+    (
+        "grouped bars — tallest single bar's quarter",
+        {"kind": "grouped", "title": "Sales by Line", "xKey": "quarter", "rows": [
+            {"quarter": "Q1", "Widgets": 30, "Gadgets": 12},
+            {"quarter": "Q2", "Widgets": 18, "Gadgets": 40},
+            {"quarter": "Q3", "Widgets": 25, "Gadgets": 22}]},
+        "This grouped bar chart has two series. Which quarter contains the single tallest "
+        "bar? Answer with the quarter label.",
+        ["q2"],
+    ),
+    (
+        "grouped bars — read the legend",
+        {"kind": "grouped", "title": "Sales by Line", "xKey": "quarter", "rows": [
+            {"quarter": "Q1", "Widgets": 30, "Gadgets": 12},
+            {"quarter": "Q2", "Widgets": 18, "Gadgets": 40}]},
+        "The legend names the two series. One is 'Widgets'. What is the other series called?",
+        ["gadgets"],
+    ),
+    (
+        "stacked bars — tallest total",
+        {"kind": "stacked", "title": "Sales by Line", "xKey": "quarter", "rows": [
+            {"quarter": "Q1", "Widgets": 30, "Gadgets": 12},
+            {"quarter": "Q2", "Widgets": 18, "Gadgets": 40},
+            {"quarter": "Q3", "Widgets": 25, "Gadgets": 22}]},
+        "In this stacked bar chart, which quarter has the tallest total stack? Answer with "
+        "the quarter label.",
+        ["q2"],
+    ),
+    (
+        "stacked bars — read the total label",
+        {"kind": "stacked", "title": "Sales by Line", "xKey": "quarter", "rows": [
+            {"quarter": "Q1", "Widgets": 30, "Gadgets": 12},
+            {"quarter": "Q2", "Widgets": 18, "Gadgets": 40},
+            {"quarter": "Q3", "Widgets": 25, "Gadgets": 22}]},
+        "Each stacked bar has its total printed above it. What is the total printed above "
+        "the Q2 bar? Give the number.",
+        ["58"],
+    ),
 ]
 
 

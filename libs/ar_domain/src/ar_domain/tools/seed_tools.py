@@ -2042,16 +2042,19 @@ def _chart_tool() -> dict[str, object]:
     return _tool(
         "chart",
         "Draw a chart",
-        "Draw a bar, line, area, scatter or pie chart and save a PNG. "
+        "Draw a bar, line, area, scatter, pie, grouped or stacked chart and save a PNG. "
         "theme is ink, slate, forest, ember or midnight. "
+        "grouped and stacked draw several series per category: give each row a category key "
+        "and one numeric column per series, and name them in seriesKeys. "
         "slide true also writes a one-slide PPTX with the title and narrative.",
         {
             "type": "object",
             "properties": {
                 "kind": {
                     "type": "string",
-                    "description": "The chart type.",
-                    "enum": ["bar", "line", "area", "scatter", "pie"],
+                    "description": "The chart type. grouped and stacked show several series "
+                    "per category.",
+                    "enum": ["bar", "line", "area", "scatter", "pie", "grouped", "stacked"],
                 },
                 "theme": {
                     "type": "string",
@@ -2082,12 +2085,21 @@ def _chart_tool() -> dict[str, object]:
                     "description": "The row key to plot on the y axis (or the value for a "
                     "pie). Defaults to the second column.",
                 },
+                "seriesKeys": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "A row key holding one series' values.",
+                    },
+                    "description": "For grouped or stacked charts, the row keys to draw as "
+                    "series. Defaults to every numeric column except the category key.",
+                },
                 "rows": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "description": "One data point as a key-to-value object, holding at "
-                        "least the x and y keys.",
+                        "least the x and y keys (and one column per series for grouped/stacked).",
                     },
                     "description": "The data to plot, each row an object keyed by column name.",
                 },
