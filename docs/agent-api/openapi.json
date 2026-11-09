@@ -142,6 +142,75 @@
         }
       }
     },
+    "/v1/agents/{slug}:run": {
+      "post": {
+        "summary": "Run Agent Once",
+        "description": "Stateless one-shot run: create a fresh conversation, run one message, return the reply.",
+        "operationId": "run_agent_once_v1_agents__slug__run_post",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {},
+                "example": {
+                  "id": "4f1c0b2e-6a0d-7e2a-9c3b-1d5e6f708192",
+                  "conversationId": "8a1b2c3d-4e5f-6789-abcd-ef0123456789",
+                  "status": "completed",
+                  "output": "4",
+                  "finishReason": "stop",
+                  "usage": {
+                    "tokensIn": 12,
+                    "tokensOut": 1
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/agents/{slug}/files": {
       "post": {
         "summary": "Upload External File",

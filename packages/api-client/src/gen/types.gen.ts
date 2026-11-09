@@ -5328,6 +5328,40 @@ export type CreateApiKeyApiV1ApiKeysPostResponses = {
 
 export type CreateApiKeyApiV1ApiKeysPostResponse = CreateApiKeyApiV1ApiKeysPostResponses[keyof CreateApiKeyApiV1ApiKeysPostResponses];
 
+export type RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostData = {
+    body?: never;
+    path: {
+        /**
+         * Api Key Id
+         */
+        api_key_id: string;
+    };
+    query?: never;
+    url: '/api/v1/api-keys/{api_key_id}:rotate';
+};
+
+export type RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostError = RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostErrors[keyof RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostErrors];
+
+export type RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostResponses = {
+    /**
+     * Response Rotate Api Key Api V1 Api Keys  Api Key Id  Rotate Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostResponse = RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostResponses[keyof RotateApiKeyApiV1ApiKeysApiKeyIdRotatePostResponses];
+
 export type DeleteApiKeyApiV1ApiKeysApiKeyIdDeleteData = {
     body?: never;
     path: {
@@ -17676,6 +17710,40 @@ export type SendExternalMessageV1AgentsSlugConversationsConversationIdMessagesPo
 export type SendExternalMessageV1AgentsSlugConversationsConversationIdMessagesPostError = SendExternalMessageV1AgentsSlugConversationsConversationIdMessagesPostErrors[keyof SendExternalMessageV1AgentsSlugConversationsConversationIdMessagesPostErrors];
 
 export type SendExternalMessageV1AgentsSlugConversationsConversationIdMessagesPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type RunAgentOnceV1AgentsSlugRunPostData = {
+    body: SendBody;
+    headers?: {
+        /**
+         * Idempotency-Key
+         */
+        'Idempotency-Key'?: string;
+    };
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/v1/agents/{slug}:run';
+};
+
+export type RunAgentOnceV1AgentsSlugRunPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RunAgentOnceV1AgentsSlugRunPostError = RunAgentOnceV1AgentsSlugRunPostErrors[keyof RunAgentOnceV1AgentsSlugRunPostErrors];
+
+export type RunAgentOnceV1AgentsSlugRunPostResponses = {
     /**
      * Successful Response
      */

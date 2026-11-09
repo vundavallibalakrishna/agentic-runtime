@@ -291,6 +291,38 @@ async def send_external_message(  # noqa: PLR0917
     return JSONResponse(reply, headers=headers)
 
 
+@router.post(
+    "/v1/agents/{slug}:run",
+    responses={200: {"content": {"application/json": {"example": _MESSAGE_EXAMPLE}}}},
+)
+@expose(public=True, permission=None)
+async def run_agent_once(
+    slug: str,
+    body: SendBody,
+    request: Request,
+    response: Response,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")] = "",
+) -> Response:
+    """Stateless one-shot run: create a fresh conversation, run one message, return the reply."""
+    key = _require_key(request, response)
+    reply, replayed = await runs.run_once(
+        _store(request),
+        key,
+        slug,
+        body.text,
+        body.attachment_ids,
+        idempotency_key.strip(),
+    )
+    headers = dict(getattr(request.state, "rate_headers", {}))
+    if replayed:
+        headers["Idempotent-Replayed"] = "true"
+    if body.stream:
+        return StreamingResponse(
+            _stream_reply(reply), media_type="text/event-stream", headers=headers
+        )
+    return JSONResponse(reply, headers=headers)
+
+
 @router.post("/v1/agents/{slug}/files")
 @expose(public=True, permission=None)
 async def upload_external_file(

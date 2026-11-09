@@ -62,6 +62,17 @@ async def create_api_key(body: ApiKeyCreate, identity: IdentityDep) -> dict[str,
     return _row(row, secret)
 
 
+@router.post(
+    "/api/v1/api-keys/{api_key_id}:rotate",
+    dependencies=[Depends(require_permission("api_keys:manage_own"))],
+)
+@expose(public=False, permission="api_keys:manage_own")
+async def rotate_api_key(api_key_id: uuid.UUID, identity: IdentityDep) -> dict[str, object]:
+    """Issue a new secret for the key, keeping its id. The new secret is shown once."""
+    row, secret = await identity.rotate_api_key(api_key_id)
+    return _row(row, secret)
+
+
 @router.delete(
     "/api/v1/api-keys/{api_key_id}",
     dependencies=[Depends(require_permission("api_keys:manage_own"))],

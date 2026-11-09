@@ -63,7 +63,21 @@ be a subset of what its service account may do. A request for anything outside t
 ## 2. Agent integration (`/v1`)
 
 See [README.md](README.md) for the full REST / MCP / A2A walkthrough. In short: create an agent
-key on the agent's **Expose** tab, then:
+key on the agent's **Expose** tab, then either hold a conversation, or use the **one-shot run**
+for a single stateless call:
+
+```bash
+# One-shot: creates an ephemeral conversation, runs once, returns the reply + usage.
+curl -s https://runtime.example/v1/agents/<slug>:run \
+  -H "Authorization: Bearer ara_<prefix><secret>" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"text":"...","stream":false}'
+```
+
+The reply includes `usage` with `tokensIn`, `tokensOut` and `costMicros`. A retry with the same
+`Idempotency-Key` returns the same run. For a multi-turn conversation, create one and post
+messages instead:
 
 ```bash
 curl -s https://runtime.example/v1/agents/<slug>/conversations/$CONVERSATION_ID/messages \

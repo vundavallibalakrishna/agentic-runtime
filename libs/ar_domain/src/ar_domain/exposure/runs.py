@@ -168,6 +168,9 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
         "usage": {
             "tokens_in": int(usage.get("tokens_in") or 0),
             "tokens_out": int(usage.get("tokens_out") or 0),
+            "cost_micros": int(usage.get("cost_micros") or 0),
+            "model_calls": int(usage.get("model_calls") or 0),
+            "tool_calls": int(usage.get("tool_calls") or 0),
         },
     }
     if approval_id:
@@ -293,6 +296,47 @@ async def send_message(  # noqa: PLR0917
         extra={"path": "messages", "run_id": str(run_id), "agent_id": str(agent["id"])},
     )
     return body, False
+
+
+async def run_once(  # noqa: PLR0917
+    store: Any,
+    key: dict[str, Any],
+    slug: str,
+    text: str,
+    attachment_ids: list[uuid.UUID],
+    idempotency_key: str,
+) -> tuple[dict[str, Any], bool]:
+    """Create a fresh conversation and run one message — the stateless agent-run shape.
+
+    Returns ``(reply, replayed)``; the reply carries the run id, output, finish reason and
+    usage (tokens + cost). Idempotency is keyed on the key + Idempotency-Key + body only (not
+    the conversation, which is minted per call), so a retry returns the same run rather than
+    starting a second one; the same key with a different body is ``idempotency_key_reused``.
+    """
+    agent_for_key(store, key, slug)  # validate the agent is reachable by this key
+    fingerprint = request_fingerprint(text, [str(item) for item in attachment_ids], "run")
+    if idempotency_key:
+        existing = _idempotency_row(store, key["id"], idempotency_key)
+        if existing is not None:
+            if existing.get("request_hash") != fingerprint:
+                raise ArError(
+                    ErrorCode.IDEMPOTENCY_KEY_REUSED,
+                    "Idempotency-Key was reused with a different body",
+                )
+            prior = existing.get("run_id")
+            if isinstance(prior, uuid.UUID):
+                return _reply(store, prior), True
+    conversation = create_conversation(store, key, slug)
+    conversation_id = uuid.UUID(str(conversation["id"]))
+    reply, _replayed = await send_message(
+        store, key, slug, conversation_id, text, attachment_ids, ""
+    )
+    if idempotency_key:
+        _remember_idempotency(
+            store, key, idempotency_key, fingerprint, reply,
+            uuid.UUID(str(reply["id"])), state="completed",
+        )
+    return reply, False
 
 
 def _attachment_names(store: Any, attachment_ids: list[uuid.UUID]) -> list[str]:
