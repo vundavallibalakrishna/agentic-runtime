@@ -6,10 +6,10 @@ const shots = process.env.E2E_SCREENSHOT_DIR ?? "e2e/screenshots";
 test("sign in, chat, stop, empty and error states", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  // The product has one way in. It lists nobody and offers no shortcut.
-  await expect(page.getByRole("link", { name: "Continue with SSO" })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("button")).toHaveCount(0);
-  await expect(page.getByRole("main").getByText(/dev\.local|password/i)).toHaveCount(0);
+  // The product has one way in: its own password form. It lists nobody.
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByRole("main").getByText(/dev\.local/i)).toHaveCount(0);
   await page.screenshot({ path: `${shots}/01-login.png`, fullPage: true });
   await signInAs(page, "admin@dev.local");
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
@@ -42,34 +42,11 @@ test("sign in, chat, stop, empty and error states", async ({ page }) => {
   await page.screenshot({ path: `${shots}/06-error.png`, fullPage: true });
 });
 
-test("keycloak sign-in walks username and then password", async ({ page, context }) => {
-  if (process.env.AR_E2E_KEYCLOAK !== "1") {
-    return;
-  }
-  for (const email of [
-    "admin@dev.local",
-    "builder@dev.local",
-    "member@dev.local",
-    "approver@dev.local",
-  ]) {
-    await context.clearCookies();
-    await page.goto("/login");
-    await page.getByRole("link", { name: "Continue with SSO" }).click();
-    const password = page.locator("input[name='password']");
-    const username = page.locator("input[name='username']");
-    await username.waitFor({ timeout: 20_000 });
-    if (await username.isVisible()) {
-      await username.fill(email);
-    }
-    if (!(await password.isVisible())) {
-      await page.getByRole("button", { name: /sign in/i }).click();
-    }
-    await password.fill("dev-password");
-    await page.getByRole("button", { name: /sign in/i }).click();
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText(email)).toBeVisible();
-    await page.getByRole("button", { name: /^Dev / }).click();
-    await page.getByRole("menuitem", { name: "Sign out" }).click();
-    await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  }
+test("a seeded user signs in with the password form", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("admin@dev.local");
+  await page.getByLabel("Password").fill("dev-password");
+  await page.getByRole("main").getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("admin@dev.local")).toBeVisible();
 });

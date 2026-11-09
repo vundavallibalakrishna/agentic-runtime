@@ -14,7 +14,6 @@ dependencies = [
     "uvicorn[standard]==0.54.0",
     "sse-starlette==3.5.0",
     "python-multipart==0.0.32",
-    "authlib==1.9.1",
     "httpx==0.28.1",
     "orjson==3.13.0",
     "pydantic==2.14.1",
@@ -57,4 +56,4 @@ ar-mcp-openapi = "ar_mcp_openapi"
 ar-fake-llm = "ar_fake_llm"
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["ar-domain", "sse-starlette", "python-multipart", "authlib"]
+DEP002 = ["ar-domain", "sse-starlette", "python-multipart"]
