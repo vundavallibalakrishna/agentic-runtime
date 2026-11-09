@@ -15,12 +15,15 @@ from __future__ import annotations
 import uuid  # noqa: TC003 - used at runtime in local annotations
 from typing import TYPE_CHECKING
 
+from prometheus_client import Counter
+
 from ar_api.principal import (
     api_key_matches,
     api_key_prefix,
     principal_from_user,
     split_api_key_matches,
 )
+from ar_common.metrics import REGISTRY
 from ar_common.time import utcnow
 from ar_domain.db.context import Principal, TenantContext
 from ar_domain.db.session import platform_session
@@ -43,6 +46,13 @@ if TYPE_CHECKING:
 # set is tracked in open-questions; it is intentionally narrow.
 _SCIM_PERMISSIONS = frozenset({"users:read", "users:manage", "teams:manage"})
 
+_PRINCIPAL = Counter(
+    "ar_auth_principal_total",
+    "Credential resolutions by auth method and outcome (labels only, no token content).",
+    ["method", "outcome"],
+    registry=REGISTRY,
+)
+
 
 def _dummy_compare() -> None:
     """Burn a constant-time compare so a missing prefix costs the same as a wrong secret."""
@@ -58,9 +68,13 @@ def credential_loader(
         if kind in {"session", "widget", "guest"}:
             return await session_load(kind, value)
         if kind == "api_key":
-            return await _resolve_api_key(value)
+            principal = await _resolve_api_key(value)
+            _PRINCIPAL.labels("api_key", "ok" if principal else "denied").inc()
+            return principal
         if kind == "scim":
-            return await _resolve_scim(value)
+            principal = await _resolve_scim(value)
+            _PRINCIPAL.labels("scim", "ok" if principal else "denied").inc()
+            return principal
         # OIDC bearer resolution is a separate task (needs a JWKS verifier).
         return None
 

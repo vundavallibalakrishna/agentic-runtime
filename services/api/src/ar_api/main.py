@@ -14,7 +14,7 @@ from ar_api.middleware.durable import DurableMiddleware
 from ar_api.middleware.idempotency import IdempotencyMiddleware, MemoryIdempotencyStore
 from ar_api.middleware.security_headers import SecurityHeadersMiddleware
 from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, RateLimitMiddleware
-from ar_api.ratelimit import MemoryTokenBucket
+from ar_api.ratelimit import MemoryTokenBucket, ValkeyTokenBucket
 from ar_api.routers.agents import router as agents_router
 from ar_api.routers.api_keys import router as api_keys_router
 from ar_api.routers.approvals import router as approvals_router
@@ -376,7 +376,12 @@ def create_application() -> FastAPI:
 
     attach_packs(app)
     app.state.allow_test_auth = False
-    app.state.rate_limiter = MemoryTokenBucket()
+    # Durable, shared rate limiting in real environments; process-local for dev/ci/tests.
+    app.state.rate_limiter = (
+        MemoryTokenBucket()
+        if settings.env in {EnvName.DEV, EnvName.CI}
+        else ValkeyTokenBucket(settings.valkey_url)
+    )
     app.state.rate_limit = 600
     app.state.idempotency = MemoryIdempotencyStore()
     app.state.identity_override = None
