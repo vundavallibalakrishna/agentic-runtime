@@ -74,10 +74,14 @@ jobs:
           enable-cache: true
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
+      - name: Install tesseract (for the real OCR case)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr
       - name: Tool working-state matrix
         run: uv run python scripts/tool_matrix.py --check
       - name: Connector dispatch matrix
         run: uv run python scripts/connector_matrix.py --check
+      - name: Document toolchain (real inputs)
+        run: uv run python scripts/document_toolchain.py --check
 
   web:
     runs-on: ubuntu-latest
