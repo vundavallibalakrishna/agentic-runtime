@@ -161,7 +161,10 @@ class IdentityService:
             for assignment, role in pairs
         ]
         access = resolve_access(
-            service_account_id, group_ids=set(), team_ids=set(), grants=grants,
+            service_account_id,
+            group_ids=set(),
+            team_ids=set(),
+            grants=grants,
             sa_id=service_account_id,
         )
         return access.permissions, access.roles
