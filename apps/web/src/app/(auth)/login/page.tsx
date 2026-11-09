@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -19,8 +18,6 @@ function safeReturnTo(value: string | null): string {
 export default function LoginPage() {
   const t = useTranslations("auth");
   const shell = useTranslations("shell");
-  const params = useSearchParams();
-  const returnTo = safeReturnTo(params.get("return_to"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +26,9 @@ export default function LoginPage() {
   async function signIn() {
     setError(null);
     setBusy(true);
+    // Read return_to from the URL at submit time (client only), so the page needs no
+    // useSearchParams() and can be statically prerendered.
+    const returnTo = safeReturnTo(new URLSearchParams(window.location.search).get("return_to"));
     try {
       await api("/api/v1/auth/login", {
         method: "POST",
