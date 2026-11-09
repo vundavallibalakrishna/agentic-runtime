@@ -43,10 +43,44 @@ tool flow is exercised, not stubbed.
 - Accuracy is for **one model** (Qwen3-32B); selection can vary per model, as the accuracy gym
   documents. The assertions here are on the **artifact**, so a task passes only when the output
   is actually correct, not merely because a plausible tool was called.
-- The LLM-backed grounded operations other than OCR/read (`documents.summarise`, `compare`,
-  `extract`) and `image.ask` (which needs a vision-capable alias the cert model does not
-  provide) are not yet asserted here; they are candidates for the next pass once a vision model
-  is configured.
 - This is a live proof, not a CI guard — it needs a model and a key. The deterministic
   regression guard is `scripts/document_toolchain.py` (see
   [`../document-toolchain/README.md`](../document-toolchain/README.md)).
+
+## Grounded + vision operations (`scripts/document_grounded_proof.py`)
+
+The agent proof above leaves the **model-backed** document tools untested, because the agent
+might answer by reading rather than by calling them. This companion drives each directly
+through the real `ToolPipeline` with the cert reasoning model — and, for `image.ask`, a real
+vision model installed as the `vision` alias (the reasoning model cannot see images). Run:
+
+```bash
+AR_EVAL_GYM_LIVE=1 AR_CERT_LLM_API_KEY="$(cat /abs/.secrets/deepinfra_api_key)" \
+  uv run python scripts/document_grounded_proof.py
+```
+
+`AR_CERT_VISION_MODEL` overrides the vision model (default `Qwen/Qwen3-VL-30B-A3B-Instruct`,
+served OpenAI-compatible by the same provider). The scorecard
+(`grounded-scorecard.md`) is gitignored; the finding below is the committed record.
+
+### First live run (2026-11-09): **4/4**
+
+| op | input | assertion |
+|---|---|---|
+| `documents.summarise` | a report stating "Q3 revenue reached 42 million euros" | the figure appears in the grounded summary |
+| `documents.extract` | an invoice (`fields: total due, due date`) | `4281.50` and `2026-02-15` are extracted |
+| `documents.compare` | two policies differing only in the retention period | the change (7 → 10 years) is found |
+| `image.ask` | a scanned image showing a code | the **vision model reads `4821`** from the image |
+
+Reasoning: `Qwen/Qwen3-32B`. Vision: `Qwen/Qwen3-VL-30B-A3B-Instruct`.
+
+### Finding: hand-rolled charts are not VLM-legible
+
+A fifth, exploratory check asked `image.ask` to name the tallest bar in a `general.chart`
+bar chart where one quarter (95) clearly dominates the others (20/35/50). The vision model
+answered **Q1**, not Q2 — it reads a value stamped on a scan fine, but **cannot reliably
+compare bar heights in the platform's hand-rolled chart PNG**. This is a chart-renderer
+fidelity gap (the pure-Python encoder draws bars without the gridlines, value labels and
+anti-aliasing a model — or a person — relies on), not a defect in `image.ask` or the vision
+model, both of which are proven by the value-read check. A proper plotting backend for
+`general.chart` would close it; tracked as a candidate, not a regression.
