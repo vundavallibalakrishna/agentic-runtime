@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from ar_common.ids import new_id
+from ar_common.time import utcnow
 from ar_contracts.tenants import PlanLimits, TenantSettings
 from ar_domain.demo_ids import demo_id
 from ar_domain.identity.models import (
@@ -24,11 +25,15 @@ from ar_domain.identity.models import (
     Tenant,
     User,
 )
+from ar_domain.identity.passwords import hash_password
 from ar_domain.identity.permissions import SYSTEM_ROLE_NAMES, SYSTEM_ROLE_PERMISSIONS
 from ar_domain.identity.tenant_settings import dev_tenant_settings
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+# The dev tenant's users all sign in with this password. A real tenant's admin password
+# is set by scripts/seed_tenant.py; this is only for the local `make dev` tenant.
+DEV_PASSWORD = "dev-password"  # noqa: S105 - the local dev tenant's shared password, not a secret
 DEV_USERS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("admin@dev.local", "Dev Admin", ("tenant_admin",)),
     ("builder@dev.local", "Dev Builder", ("builder", "tool_owner", "knowledge_manager")),
@@ -221,9 +226,15 @@ async def _users(session: AsyncSession, tenant_id: uuid.UUID, roles: dict[str, R
                 email=email,
                 display_name=display_name,
                 status="active",
+                password_hash=hash_password(DEV_PASSWORD),
+                password_set_at=utcnow(),
             )
             session.add(user)
             await session.flush()
+        elif user.password_hash is None:
+            # Backfill a password for a dev tenant seeded before local sign-in existed.
+            user.password_hash = hash_password(DEV_PASSWORD)
+            user.password_set_at = utcnow()
         for role_key in role_keys:
             role = roles[role_key]
             existing = await session.scalar(

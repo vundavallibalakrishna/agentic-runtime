@@ -133,6 +133,10 @@ class User(Base):
     email: Mapped[str] = mapped_column(CITEXT, nullable=False)
     display_name: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'active'"))
+    # Local sign-in credential (argon2id). Null until a password is set (invited users,
+    # or users migrated before local auth). Never returned by an API after it is set.
+    password_hash: Mapped[str | None] = mapped_column(Text)
+    password_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attributes: Mapped[dict[str, object]] = jsonb_col()
     settings: Mapped[dict[str, object]] = jsonb_col()
     scim_external_id: Mapped[str | None] = mapped_column(Text)

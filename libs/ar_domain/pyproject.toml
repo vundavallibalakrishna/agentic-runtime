@@ -36,6 +36,7 @@ dependencies = [
     "duckdb==2.0.0",
     "presidio-analyzer==2.2.364",
     "en-core-web-sm==3.8.0",
+    "argon2-cffi==23.1.0",
 ]
 
 [project.optional-dependencies]
