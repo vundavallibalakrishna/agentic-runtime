@@ -28,6 +28,7 @@ _RIGHT = 20
 _TOP = 40  # room for the title
 _BOTTOM = 46  # room for category labels
 _TICKS = 4  # gridlines/ticks above the baseline
+_MAX_POINT_LABELS = 12  # beyond this, labelling every point clutters
 _KINDS = frozenset({"bar", "line", "area", "scatter", "pie"})
 
 Colour = tuple[int, int, int]
@@ -48,6 +49,32 @@ class Area(NamedTuple):
     @property
     def h(self) -> int:
         return self.y1 - self.y0
+
+
+class Scale(NamedTuple):
+    """Maps a value to a y pixel over the data range, with a zero baseline."""
+
+    lo: float
+    hi: float
+    area: Area
+
+    def y(self, value: float) -> int:
+        span = self.hi - self.lo or 1.0
+        return self.area.y1 - int(self.area.h * (value - self.lo) / span)
+
+    @property
+    def zero(self) -> int:
+        """The y pixel of value 0 — the baseline bars grow from."""
+        return self.y(0.0)
+
+
+def _scale_for(rows: list[tuple[str, float]], area: Area) -> Scale:
+    values = [value for _label, value in rows] or [0.0]
+    hi = max(*values, 0.0) if len(values) > 1 else max(values[0], 0.0)
+    lo = min(*values, 0.0) if len(values) > 1 else min(values[0], 0.0)
+    if hi == lo:
+        hi = lo + 1.0
+    return Scale(lo, hi, area)
 
 
 def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object] | None:
@@ -106,22 +133,22 @@ def render_chart(
     width, height = _WIDTH, _HEIGHT
     pixels = bytearray(chosen.paper * (width * height))
     area = Area(_LEFT, _TOP, width - _RIGHT, height - _BOTTOM)
-    peak = max((value for _label, value in rows), default=1) or 1
+    scale = _scale_for(rows, area)
     if kind == "pie":
         _pie(pixels, width, height, rows, chosen)
         _pie_legend(pixels, width, height, rows, chosen)
     else:
-        _grid(pixels, width, height, area, peak, chosen)
+        _grid(pixels, width, height, scale, chosen)
         if kind == "scatter":
-            _scatter(pixels, width, area, rows, peak, chosen)
+            _scatter(pixels, width, scale, rows, chosen)
         elif kind == "line":
-            _line(pixels, width, area, rows, peak, chosen.ink)
-            _point_labels(pixels, width, height, area, rows, peak, chosen)
+            _line(pixels, width, scale, rows, chosen.ink)
+            _point_labels(pixels, width, height, scale, rows, chosen)
         elif kind == "area":
-            _area(pixels, width, height, area, rows, peak, chosen)
-            _point_labels(pixels, width, height, area, rows, peak, chosen)
+            _area(pixels, width, height, scale, rows, chosen)
+            _point_labels(pixels, width, height, scale, rows, chosen)
         else:
-            _bars(pixels, width, height, area, rows, peak, chosen)
+            _bars(pixels, width, height, scale, rows, chosen)
         _x_labels(pixels, width, height, area, rows, chosen)
     if title:
         _title(pixels, width, height, title, chosen)
@@ -181,9 +208,17 @@ def _number(value: object) -> float | None:
 
 
 def _fmt(value: float) -> str:
-    """A short label for an axis tick or a bar value."""
-    if value == int(value):
-        return str(int(value))
+    """A short label for an axis tick or a bar value, abbreviating thousands/millions."""
+    magnitude = abs(value)
+    if magnitude >= 1_000_000:
+        return _trim(value / 1_000_000) + "M"
+    if magnitude >= 1_000:
+        return _trim(value / 1_000) + "K"
+    return _trim(value)
+
+
+def _trim(value: float) -> str:
+    """A number with at most one decimal and no trailing ``.0``."""
     rounded = round(value, 1)
     return str(int(rounded)) if rounded == int(rounded) else f"{rounded:.1f}"
 
@@ -196,56 +231,59 @@ def _title(pixels: bytearray, width: int, height: int, title: str, theme: ChartT
     pixfont.draw_text(pixels, width, height, start, 10, text, theme.ink, scale=2)
 
 
-def _grid(  # noqa: PLR0917
-    pixels: bytearray, width: int, height: int, area: Area, peak: float, theme: ChartTheme
-) -> None:
+def _grid(pixels: bytearray, width: int, height: int, scale: Scale, theme: ChartTheme) -> None:
+    area = scale.area
     for tick in range(_TICKS + 1):
         frac = tick / _TICKS
-        yy = area.y1 - int(area.h * frac)
+        value = scale.lo + (scale.hi - scale.lo) * frac
+        yy = scale.y(value)
         for x in range(area.x0, area.x1):
             _dot(pixels, width, x, yy, theme.grid)
-        label = _fmt(peak * frac)
+        label = _fmt(value)
         label_w = pixfont.text_width(label)
         pixfont.draw_text(pixels, width, height, area.x0 - 6 - label_w, yy - 3, label, theme.ink)
     for y in range(area.y0, area.y1 + 1):
         _dot(pixels, width, area.x0, y, theme.ink)
+    if scale.lo < 0 < scale.hi:  # emphasise the zero baseline when values cross it
+        for x in range(area.x0, area.x1):
+            _dot(pixels, width, x, scale.zero, theme.ink)
 
 
 def _bars(  # noqa: PLR0917
     pixels: bytearray,
     width: int,
     height: int,
-    area: Area,
+    scale: Scale,
     rows: list[tuple[str, float]],
-    peak: float,
     theme: ChartTheme,
 ) -> None:
+    area = scale.area
     slot = area.w / max(1, len(rows))
     bar_w = max(3, int(slot * 0.6))
+    base = scale.zero
     for index, (_label, value) in enumerate(rows):
-        bar_h = int(area.h * (max(0.0, value) / peak))
         center = area.x0 + int(slot * (index + 0.5))
         left = center - bar_w // 2
         colour = theme.accents[index % len(theme.accents)]
-        top = area.y1 - bar_h
-        for y in range(top, area.y1):
+        tip = scale.y(value)
+        top, bottom = (tip, base) if value >= 0 else (base, tip)
+        for y in range(top, bottom):
             for x in range(left, left + bar_w):
                 _dot(pixels, width, x, y, colour)
         label = _fmt(value)
         label_x = center - pixfont.text_width(label) // 2
-        label_y = top - 9 if top - 9 >= area.y0 else top + 2
+        label_y = top - 9 if value >= 0 and top - 9 >= area.y0 else bottom + 2
         pixfont.draw_text(pixels, width, height, label_x, label_y, label, theme.ink)
 
 
-def _line(  # noqa: PLR0917
+def _line(
     pixels: bytearray,
     width: int,
-    area: Area,
+    scale: Scale,
     rows: list[tuple[str, float]],
-    peak: float,
     colour: Colour,
 ) -> None:
-    for start, end in pairwise(_points(area, rows, peak)):
+    for start, end in pairwise(_points(scale, rows)):
         _segment(pixels, width, start, end, colour)
 
 
@@ -253,35 +291,35 @@ def _area(  # noqa: PLR0917
     pixels: bytearray,
     width: int,
     height: int,
-    area: Area,
+    scale: Scale,
     rows: list[tuple[str, float]],
-    peak: float,
     theme: ChartTheme,
 ) -> None:
-    points = _points(area, rows, peak)
+    points = _points(scale, rows)
     colour = theme.accents[0]
+    base = scale.zero
     if len(points) == 1:
-        _bars(pixels, width, height, area, rows, peak, theme)
+        _bars(pixels, width, height, scale, rows, theme)
         return
     for start, end in pairwise(points):
         span = max(1, end[0] - start[0])
         for step in range(span + 1):
             y = start[1] + (end[1] - start[1]) * step // span
             x = start[0] + (end[0] - start[0]) * step // span
-            for yy in range(min(y, area.y1), area.y1):
+            lo_y, hi_y = (y, base) if y <= base else (base, y)
+            for yy in range(lo_y, hi_y):
                 _dot(pixels, width, x, yy, colour)
-    _line(pixels, width, area, rows, peak, theme.ink)
+    _line(pixels, width, scale, rows, theme.ink)
 
 
-def _scatter(  # noqa: PLR0917
+def _scatter(
     pixels: bytearray,
     width: int,
-    area: Area,
+    scale: Scale,
     rows: list[tuple[str, float]],
-    peak: float,
     theme: ChartTheme,
 ) -> None:
-    for x, y in _points(area, rows, peak):
+    for x, y in _points(scale, rows):
         for dx in range(-3, 4):
             for dy in range(-3, 4):
                 _dot(pixels, width, x + dx, y + dy, theme.ink)
@@ -291,14 +329,14 @@ def _point_labels(  # noqa: PLR0917
     pixels: bytearray,
     width: int,
     height: int,
-    area: Area,
+    scale: Scale,
     rows: list[tuple[str, float]],
-    peak: float,
     theme: ChartTheme,
 ) -> None:
-    if len(rows) > 12:
+    if len(rows) > _MAX_POINT_LABELS:
         return
-    for (x, y), (_label, value) in zip(_points(area, rows, peak), rows, strict=True):
+    area = scale.area
+    for (x, y), (_label, value) in zip(_points(scale, rows), rows, strict=True):
         label = _fmt(value)
         label_x = x - pixfont.text_width(label) // 2
         label_y = y - 11 if y - 11 >= area.y0 else y + 6
@@ -322,13 +360,13 @@ def _x_labels(  # noqa: PLR0917
         pixfont.draw_text(pixels, width, height, start, area.y1 + 6, text, theme.ink)
 
 
-def _points(area: Area, rows: list[tuple[str, float]], peak: float) -> list[tuple[int, int]]:
+def _points(scale: Scale, rows: list[tuple[str, float]]) -> list[tuple[int, int]]:
+    area = scale.area
     span = max(1, len(rows) - 1)
     points: list[tuple[int, int]] = []
     for index, (_label, value) in enumerate(rows):
         x = area.x0 + int(area.w * index / span) if len(rows) > 1 else area.x0 + area.w // 2
-        y = area.y1 - int(area.h * (max(0.0, value) / peak))
-        points.append((x, y))
+        points.append((x, scale.y(value)))
     return points
 
 
