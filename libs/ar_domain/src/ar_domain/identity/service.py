@@ -43,7 +43,14 @@ from ar_domain.identity.permissions import PERMISSION_KEYS, SYSTEM_ROLE_NAMES
 from ar_domain.identity.plan_limits import LimitContext, check
 from ar_domain.identity.resolver import RoleGrant, resolve_access
 from ar_domain.identity.scim_ops import apply_user_patch, member_ids_from_patch, parse_eq_filter
-from ar_domain.identity.tokens import new_api_key, new_invitation_token, new_scim_token
+from ar_domain.identity.tokens import (
+    new_api_key,
+    new_invitation_token,
+    new_scim_token,
+    new_split_api_key,
+    rotate_legacy_secret,
+    rotate_split_secret,
+)
 
 if TYPE_CHECKING:
     from ar_domain.db.context import TenantContext
@@ -412,16 +419,27 @@ class IdentityService:
         scopes: list[str],
         expires_in_days: int,
         service_account_id: uuid.UUID | None,
+        split: bool = True,
     ) -> tuple[ApiKey, str]:
+        """Create an API key. ``split`` mints a two-part ``ak_<prefix>.sk_<secret>``
+        credential (only the secret is hashed); otherwise a legacy single ``ark_`` token.
+        The full credential is returned once and never stored."""
         if not 1 <= expires_in_days <= 365:
             raise ValidationFailedError("expires_in_days must be between 1 and 365")
-        full, prefix, digest = new_api_key()
+        if split:
+            key_id, secret, prefix, digest = new_split_api_key()
+            full = f"{key_id}.{secret}"
+            key_format = "split"
+        else:
+            full, prefix, digest = new_api_key()
+            key_format = "legacy"
         user_id = None if service_account_id else self.ctx.user_id
         row = ApiKey(
             tenant_id=self.ctx.tenant_id,
             name=name,
             prefix=prefix,
             secret_hash=digest,
+            key_format=key_format,
             scopes=scopes,
             service_account_id=service_account_id,
             user_id=user_id,
@@ -430,6 +448,32 @@ class IdentityService:
         )
         self.store.add(row)
         await self.store.audit(AuditAction.API_KEY_CREATED, "api_key", str(row.id), {"name": name})
+        return row, full
+
+    async def rotate_api_key(self, api_key_id: uuid.UUID) -> tuple[ApiKey, str]:
+        """Issue a new secret for an existing key, keeping its id/prefix and scopes.
+        The old secret stops working. Returns the key and the new full credential (once)."""
+        row = await self.store.get_api_key(api_key_id)
+        if row is None:
+            raise NotFoundError("api key not found")
+        if (
+            row.user_id is not None
+            and row.user_id != self.ctx.user_id
+            and not self.ctx.principal.allows("service_accounts:manage")
+        ):
+            raise ForbiddenError("cannot rotate another user's key")
+        if row.revoked_at is not None:
+            raise ValidationFailedError("cannot rotate a revoked key")
+        if row.key_format == "split":
+            secret, digest = rotate_split_secret()
+            full = f"ak_{row.prefix}.{secret}"
+        else:
+            full, digest = rotate_legacy_secret(row.prefix)
+        row.secret_hash = digest
+        row.last_rotated_at = utcnow()
+        await self.store.audit(
+            AuditAction.API_KEY_ROTATED, "api_key", str(row.id), {"name": row.name}
+        )
         return row, full
 
     async def revoke_api_key(self, api_key_id: uuid.UUID) -> None:
