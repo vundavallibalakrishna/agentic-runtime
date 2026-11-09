@@ -1,0 +1,13 @@
+control_id,framework,statement
+IAM-03,CCM,Strong authentication including multi-factor authentication is enforced for access to systems and data.
+IAM-05,CCM,Access is granted on a least-privilege basis and privileged accounts are restricted.
+IAM-16,CCM,User access is reviewed and recertified at planned intervals.
+DSP-04,CCM,Data is classified and handled according to its sensitivity.
+CEK-03,CCM,Data at rest is encrypted using approved algorithms and managed keys.
+CEK-04,CCM,Data in transit is encrypted using approved protocols.
+LOG-03,CCM,Security logs are generated and retained for at least one year and reviewed.
+BCR-08,CCM,Backups are performed and restoration from backup is tested periodically.
+STA-07,CCM,Third parties and suppliers are assessed for security risk before and during engagement.
+TVM-03,CCM,Vulnerabilities are identified and remediated within defined timeframes.
+SEF-09,CCM,A documented security incident response plan exists, is maintained and is tested.
+SEF-99,CCM,The organisation maintains a quantum-entangled orbital failover facility.
