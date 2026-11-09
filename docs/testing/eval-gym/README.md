@@ -68,3 +68,24 @@ its plan without calling a tool** (it passed, timed out, and narrated across thr
 a model-behaviour variance of Qwen3-32B, not a setup gap, and the honest residual to chase
 with a stronger model or the agent loop. The tool-use prompt already says to prefer the
 specific tool and not to work values out unaided; the gap is adherence, so it was not gamed.
+
+## Third pass (2026-11-09) — wider breadth: 11/12 (92%)
+
+The suite grew from 8 to 12 tasks, adding un-named single-tool choices across more of the
+toolset: `documents.summarise`, `general.chart`, `general.export_table`, and an
+approval-gated `general.http` write. Live: **11/12 (92%)** — every single-tool and both
+chains pass, and three of the four new tasks (summarise, chart, the waiting-for-approval
+write) pass outright.
+
+The one miss, `acc-export`, is the **general-over-specific** pattern again: asked to "save a
+CSV named orders.csv", the model used `general.write_file` rather than the dedicated
+`general.export_table` — the file is correct, but not via the specific tool. This is the
+same tension binding `write_file` introduced in the second pass, and the honest residual:
+once a general file-writer is available, the model reaches for it over narrower tools. It is
+a scoring-strictness call as much as an accuracy one, and worth weighing when tuning tool
+descriptions.
+
+**Across the three passes the picture is stable:** single-tool selection from an un-named
+goal is strong (near 100%); the misses are either the model narrating without acting
+(variance) or substituting a general tool for a specific one. Tool-choice accuracy is
+sensitive to the tool set the agent is given.
