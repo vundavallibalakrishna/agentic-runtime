@@ -11,7 +11,7 @@ import zlib
 
 from ar_domain.analytics import pixfont
 from ar_domain.analytics.themes import THEMES
-from ar_domain.tools.charts import render_chart
+from ar_domain.tools.charts import Area, _fmt, _scale_for, render_chart
 
 _INK = THEMES["ink"].ink
 _WIDTH = 640
@@ -76,3 +76,27 @@ def test_title_adds_ink_pixels() -> None:
     top_with = sum(with_title[y].count(_INK) for y in range(8, 26))
     top_without = sum(without[y].count(_INK) for y in range(8, 26))
     assert top_with > top_without
+
+
+def test_large_numbers_are_abbreviated() -> None:
+    assert _fmt(23000) == "23K"
+    assert _fmt(15500) == "15.5K"
+    assert _fmt(1_500_000) == "1.5M"
+    assert _fmt(950) == "950"
+    assert _fmt(3.5) == "3.5"
+    assert _fmt(-15) == "-15"
+
+
+def test_negative_values_get_a_zero_baseline_inside_the_plot() -> None:
+    scale = _scale_for([("gain", 30.0), ("loss", -15.0)], Area(58, 40, 620, 314))
+    # The zero line sits between the top (positive) and bottom (negative) extents.
+    assert scale.y(30.0) < scale.zero < scale.y(-15.0)
+    assert scale.lo == -15.0 and scale.hi == 30.0
+
+
+def test_negative_bar_draws_below_the_baseline() -> None:
+    accent = THEMES["ink"].accents[1]  # the second bar's colour
+    pixels = _decode(render_chart("bar", [("Up", 30.0), ("Down", -15.0)], theme="ink"))
+    scale = _scale_for([("Up", 30.0), ("Down", -15.0)], Area(58, 40, _WIDTH - 20, _HEIGHT - 46))
+    # The negative bar paints its accent colour below the zero line.
+    assert any(accent in pixels[y] for y in range(scale.zero + 2, scale.y(-15.0)))

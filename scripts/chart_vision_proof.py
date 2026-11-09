@@ -1,0 +1,249 @@
+#!/usr/bin/env python
+"""Stress-test chart legibility: render hard charts and have a vision model read them.
+
+The chart fidelity fix (#148) labels charts so a vision model can read them. This pushes
+harder — many bars, long labels, negatives, decimals, large magnitudes, line/pie/scatter,
+and a wide value range — and for each asks the real vision model a factual question, checking
+the answer. Failures are legibility gaps to fix.
+
+  AR_EVAL_GYM_LIVE=1 AR_CERT_LLM_API_KEY=... uv run python scripts/chart_vision_proof.py
+
+The cert key is read from the environment and never printed.
+"""
+
+from __future__ import annotations
+
+import os
+import uuid
+from typing import Any  # noqa: TC003 - runtime use in annotations
+
+from ar_domain.chat.service import demo_id
+from ar_domain.evals.gym.live import install_live, live_settings
+from ar_domain.tools.pipeline import ToolPipeline
+from ar_testing.demo import demo_store
+
+VISION_MODEL = os.environ.get("AR_CERT_VISION_MODEL", "Qwen/Qwen3-VL-30B-A3B-Instruct")
+
+
+def install_vision(store: Any, tenant: uuid.UUID, key: str, url: str, model: str) -> None:
+    p, m, a = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    store.providers[p] = {
+        "id": p,
+        "tenant_id": tenant,
+        "kind": "openai",
+        "name": "V",
+        "base_url": url.rstrip("/"),
+        "api_key": key,
+        "timeout_s": 120,
+        "status": "active",
+    }
+    store.models[m] = {
+        "id": m,
+        "tenant_id": tenant,
+        "provider_id": p,
+        "upstream_model": model,
+        "name": model,
+        "capabilities": ["vision"],
+    }
+    store.aliases[a] = {
+        "id": a,
+        "tenant_id": tenant,
+        "alias": "vision",
+        "status": "active",
+        "primary_model_id": m,
+    }
+
+
+class Judge:
+    def __init__(self) -> None:
+        self.store = demo_store()
+        self.tenant, self.user = demo_id("tenant"), demo_id("admin")
+        key, url, model = live_settings()
+        install_live(self.store, self.tenant, key=key, base_url=url, model=model)
+        install_vision(self.store, self.tenant, key, url, VISION_MODEL)
+        self.by = {
+            str(r["qualified_name"]): r["id"]
+            for r in self.store.tool_versions.values()
+            if r.get("qualified_name")
+        }
+
+    def _call(self, qualified: str, args: dict[str, object]) -> dict[str, object]:
+        return ToolPipeline(self.store).execute(
+            {
+                "tenant_id": self.tenant,
+                "user_id": self.user,
+                "run_id": uuid.uuid4(),
+                "synthetic": True,
+                "tool_version_id": self.by[qualified],
+                "arguments": args,
+                "model_call_id": "c",
+            }
+        )
+
+    def ask(self, chart_args: dict[str, object], question: str) -> str:
+        chart = self._call("general.chart", chart_args)
+        structured = chart.get("structured")
+        presentation = structured.get("presentation") if isinstance(structured, dict) else None
+        files = presentation.get("files") if isinstance(presentation, dict) else None
+        if not isinstance(files, list) or not files:
+            return f"[chart failed: {chart.get('text')}]"
+        blob = self.store.blobs[uuid.UUID(str(files[0]["file_id"]))]
+        up = self.store.upload(self.tenant, self.user, "chart.png", "image/png", blob)
+        r = self._call("image.ask", {"fileId": str(up["id"]), "question": question})
+        text = str(r.get("wrapped") or r.get("result_preview") or "")
+        body = text.rsplit("nonce=", maxsplit=1)[-1].split(">", 1)[-1]
+        return body.replace("</tool_result>", "").strip()
+
+
+def _months() -> list[dict[str, object]]:
+    vals = [31, 28, 44, 39, 52, 61, 58, 70, 49, 37, 25, 33]  # Aug (index 7) = 70 is the max
+    names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return [{"m": n, "v": v} for n, v in zip(names, vals, strict=True)]
+
+
+CASES: list[tuple[str, dict[str, object], str, list[str]]] = [
+    (
+        "12 bars — find the max month",
+        {"kind": "bar", "title": "Monthly Signups", "xKey": "m", "yKey": "v", "rows": _months()},
+        "Which month has the tallest bar? Answer with the month abbreviation only.",
+        ["aug"],
+    ),
+    (
+        "long category labels",
+        {
+            "kind": "bar",
+            "title": "Headcount by Team",
+            "xKey": "team",
+            "yKey": "n",
+            "rows": [
+                {"team": "Engineering", "n": 120},
+                {"team": "Marketing", "n": 45},
+                {"team": "Operations", "n": 78},
+                {"team": "Finance", "n": 33},
+            ],
+        },
+        "Which team has the most headcount, and what is the value? Answer briefly.",
+        ["120", "engineer"],
+    ),
+    (
+        "decimal values — read one",
+        {
+            "kind": "bar",
+            "title": "Avg Rating",
+            "xKey": "p",
+            "yKey": "r",
+            "rows": [{"p": "AppA", "r": 3.5}, {"p": "AppB", "r": 4.7}, {"p": "AppC", "r": 2.9}],
+        },
+        "What is the rating value of the tallest bar? Give the number.",
+        ["4.7"],
+    ),
+    (
+        "large magnitudes (thousands)",
+        {
+            "kind": "bar",
+            "title": "Revenue USD",
+            "xKey": "q",
+            "yKey": "usd",
+            "rows": [
+                {"q": "Q1", "usd": 12000},
+                {"q": "Q2", "usd": 8500},
+                {"q": "Q3", "usd": 23000},
+                {"q": "Q4", "usd": 15500},
+            ],
+        },
+        "What is the value of the tallest bar? Read it exactly as labelled.",
+        ["23k", "23000", "23,000"],
+    ),
+    (
+        "wide range — read a small bar's value",
+        {
+            "kind": "bar",
+            "title": "Errors by Service",
+            "xKey": "s",
+            "yKey": "e",
+            "rows": [
+                {"s": "Auth", "e": 1000},
+                {"s": "Cart", "e": 8},
+                {"s": "Search", "e": 15},
+                {"s": "Pay", "e": 4},
+            ],
+        },
+        "What is the value shown for the 'Pay' bar? Give the number.",
+        ["4"],
+    ),
+    (
+        "line chart — find the peak point",
+        {
+            "kind": "line",
+            "title": "Weekly Active Users",
+            "xKey": "w",
+            "yKey": "u",
+            "rows": [
+                {"w": "W1", "u": 40},
+                {"w": "W2", "u": 65},
+                {"w": "W3", "u": 120},
+                {"w": "W4", "u": 90},
+                {"w": "W5", "u": 75},
+            ],
+        },
+        "At which week does the line reach its highest point? Answer with the week label.",
+        ["w3", "week 3"],
+    ),
+    (
+        "pie chart — largest slice",
+        {
+            "kind": "pie",
+            "title": "Traffic Source",
+            "xKey": "src",
+            "yKey": "pct",
+            "rows": [
+                {"src": "Organic", "pct": 50},
+                {"src": "Paid", "pct": 20},
+                {"src": "Social", "pct": 20},
+                {"src": "Email", "pct": 10},
+            ],
+        },
+        "Which is the largest traffic source, and what percentage? Answer briefly.",
+        ["organic", "50"],
+    ),
+    (
+        "negative values — find the loss",
+        {
+            "kind": "bar",
+            "title": "Profit by Quarter",
+            "xKey": "q",
+            "yKey": "p",
+            "rows": [
+                {"q": "Q1", "p": 30},
+                {"q": "Q2", "p": -15},
+                {"q": "Q3", "p": 20},
+                {"q": "Q4", "p": 45},
+            ],
+        },
+        "Which quarter shows a negative value (a loss)? Answer with the quarter label.",
+        ["q2"],
+    ),
+]
+
+
+def run() -> int:
+    judge = Judge()
+    results: list[tuple[str, bool, str]] = []
+    for name, chart_args, question, expected in CASES:
+        try:
+            answer = judge.ask(chart_args, question)
+            low = answer.lower()
+            ok = any(e.lower() in low for e in expected)
+        except Exception as exc:  # noqa: BLE001 - a crash is a failed case, recorded
+            ok, answer = False, f"raised {type(exc).__name__}: {exc}"[:160]
+        results.append((name, ok, answer[:140]))
+        print(
+            f"  [{'PASS' if ok else 'FAIL'}] {name}\n        expect~{expected} :: {answer[:120]!r}"
+        )
+    passed = sum(1 for _, ok, _ in results if ok)
+    print(f"\nchart vision proof: {passed}/{len(results)} (vision {VISION_MODEL})")
+    return 0 if passed == len(results) else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(run())
