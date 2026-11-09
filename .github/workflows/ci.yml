@@ -60,6 +60,25 @@ jobs:
       - run: uv sync --all-packages --all-groups --all-extras --frozen
       - run: uv run pytest -m integration -q
 
+  tool-matrices:
+    # Regression guard for the platform verification effort: every built-in and connector
+    # tool is invoked through the real pipeline (offline, no model, no network) and the run
+    # fails if any tool crashes, errors unexpectedly or has a malformed schema. See
+    # docs/testing/platform-certification.md.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --frozen
+      - name: Tool working-state matrix
+        run: uv run python scripts/tool_matrix.py --check
+      - name: Connector dispatch matrix
+        run: uv run python scripts/connector_matrix.py --check
+
   web:
     runs-on: ubuntu-latest
     steps:
