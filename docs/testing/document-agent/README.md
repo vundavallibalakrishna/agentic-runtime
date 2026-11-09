@@ -78,9 +78,12 @@ Reasoning: `Qwen/Qwen3-32B`. Vision: `Qwen/Qwen3-VL-30B-A3B-Instruct`.
 
 A fifth, exploratory check asked `image.ask` to name the tallest bar in a `general.chart`
 bar chart where one quarter (95) clearly dominates the others (20/35/50). The vision model
-answered **Q1**, not Q2 — it reads a value stamped on a scan fine, but **cannot reliably
-compare bar heights in the platform's hand-rolled chart PNG**. This is a chart-renderer
-fidelity gap (the pure-Python encoder draws bars without the gridlines, value labels and
-anti-aliasing a model — or a person — relies on), not a defect in `image.ask` or the vision
-model, both of which are proven by the value-read check. A proper plotting backend for
-`general.chart` would close it; tracked as a candidate, not a regression.
+answered **Q1**, not Q2 — it read a value stamped on a scan fine, but could not compare bar
+heights in the platform's hand-rolled chart PNG, which drew bars with no title, category
+labels, value labels or gridlines.
+
+**Resolved** (2026-11-09): `general.chart` now labels every chart — a title, gridlines with
+y-axis tick values, a category label per bar, and the value on each bar — drawn from a new
+pure-Python 5x7 bitmap font (`analytics/pixfont.py`), no plotting dependency added. On the
+same chart the same vision model now answers **"Q2"** (tallest) and reads the **value "95"**
+correctly. See `test_chart_fidelity.py`.
