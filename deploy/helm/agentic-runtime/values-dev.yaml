@@ -25,9 +25,6 @@ temporal:
   bundled: true
   ha: false
   workerVersioning: false
-keycloak:
-  bundled: true
-  replicas: 1
 openbao:
   bundled: true
   replicas: 1

@@ -66,14 +66,17 @@
   },
   "auth": {
     "title": "Sign in",
-    "body": "Use your organisation account.",
+    "body": "Enter your email and password.",
     "lede": "A calm workspace for an assistant that keeps the thread.",
-    "continue": "Continue with SSO",
-    "errorTenant": "This account is not a member of the organisation this server is set up for. Ask an administrator to add you.",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "submit": "Sign in",
+    "signingIn": "Signing in…",
+    "errorCredentials": "That email or password is not right.",
+    "errorThrottled": "Too many attempts. Wait a few minutes and try again.",
     "errorTenantSuspended": "This organisation is suspended. Ask an administrator.",
     "errorUserSuspended": "Your account is suspended. Ask an administrator.",
-    "errorState": "The sign-in attempt expired. Start again.",
-    "errorGeneric": "Sign-in did not complete. Start again."
+    "errorGeneric": "Sign-in did not complete. Try again."
   },
   "chat": {
     "product": "Agentic Runtime",

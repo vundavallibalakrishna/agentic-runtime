@@ -22,11 +22,11 @@ Full text: [docs/00-overview/principles.md](docs/00-overview/principles.md). The
 The owner set these on 6 November 2026 after a run on an empty database showed how much of the product still leaned on built-in data ([report](docs/testing/fresh-tenant-2026-11-06/report.md), [OQ-96](docs/open-questions.md)). They are strict: a change that breaks one is not merged, and none of them is traded for speed. Where existing code breaks one, [M38b](docs/09-plan/M38b-real-tenant.md) and [M38a](docs/09-plan/M38a-one-model-path.md) remove it; new code never adds to it.
 
 1. **No mocking.** The running product contains no mock, stub or stand-in for a model, a service, a tool or a person. A unit test may use the stand-in from `ar_testing`, registered from the test's own setup; nothing in `ar_domain`, a service, a connector or the web app knows it exists.
-2. **No fake services.** The product, every end-to-end check and every visual check run against real services: the database, the identity provider, the object store, the workflow engine and a real model endpoint. When one is missing the product says so in words the user can act on. It does not fall back to something that pretends to work.
+2. **No fake services.** The product, every end-to-end check and every visual check run against real services: the database, the object store, the workflow engine and a real model endpoint. When one is missing the product says so in words the user can act on. It does not fall back to something that pretends to work.
 3. **No static data.** Nothing a customer sees, and nothing the product decides on, is written into code or the UI: no built-in tenant, user, agent, provider, model name, vendor address, example row or prepared answer. Data comes from the database, from a setting the customer controls, or from a real service. A seed creates one tenant, its admin and the two agents every tenant has, and nothing else (`scripts/seed_tenant.py`). No request creates a default as a side effect.
 4. **Real data end to end.** A feature is working when it works from an empty database, through sign-in and the screens, with a real model. That run is the proof; a passing unit test is not.
 5. **Fix the architecture, not the symptom.** A defect is fixed where it is caused, for every caller. No special case for one tenant, one path, one string or one test. If the right fix is larger than the task, record it in [open-questions](docs/open-questions.md) and plan it; do not land the patch.
-6. **No shortcuts and no bypasses.** No environment switch that changes what the product does, no side door for signing in, no skip flag, no result reported before it is saved.
+6. **No shortcuts and no bypasses.** No environment switch that changes what the product does, no skip flag, no result reported before it is saved. Sign-in is the product's own userid/password check; there is no bypass around it and no second, hidden way in.
 7. **No industry-specific rules, code or configuration.** Nothing in core, in a default or in a setting assumes an industry. Such a capability is a pack or a connector the customer installs (principle 3).
 8. **Fully customisable.** Every model, prompt, limit, policy, role, tool grant and label a customer may need to change is a setting with a default, changed in the product without a code change.
 
@@ -83,7 +83,7 @@ make test-e2e    # Playwright against a running stack
 make gen         # regenerate OpenAPI, schemas, clients and CLAUDE.md; CI fails on any diff
 ```
 
-`make dev` still seeds the `dev` tenant. Sign in with **Continue with SSO** as `admin@dev.local`, password `dev-password`; the product has no other way in. A clean tenant comes from `scripts/seed_tenant.py`. Details: [local-dev](docs/07-ops/local-dev.md).
+`make dev` still seeds the `dev` tenant. Sign in on the login form with email `admin@dev.local` and password `dev-password`; the product signs people in itself (no external identity provider). A clean tenant comes from `scripts/seed_tenant.py`, which sets the admin's password. Details: [local-dev](docs/07-ops/local-dev.md).
 
 Things that catch people out:
 

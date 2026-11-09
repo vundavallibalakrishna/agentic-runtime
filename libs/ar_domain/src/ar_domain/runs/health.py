@@ -32,7 +32,6 @@ def default_targets(settings: object | None = None) -> dict[str, str]:
         "valkey": "",
         "retrieval": "",
         "opa": pick("opa_url"),
-        "keycloak": pick("oidc_issuer"),
         "object_storage": pick("s3_endpoint"),
         "model_providers": pick("model_gateway_url"),
     }

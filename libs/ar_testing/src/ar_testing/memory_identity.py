@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING, cast
 from ar_common.time import utcnow
 from ar_domain.chat.service import demo_id
 from ar_domain.identity.models import Plan, Role, RoleAssignment, Tenant, User
+from ar_domain.identity.passwords import hash_password
 from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS
-from ar_domain.identity.seed import DEV_USERS, plan_limits
+from ar_domain.identity.seed import DEV_PASSWORD, DEV_USERS, plan_limits
 from ar_domain.identity.service import IdentityService, IdentityStore
 from ar_domain.identity.tenant_settings import dev_tenant_settings
 from ar_testing.demo_people import catalogue
@@ -23,6 +24,9 @@ if TYPE_CHECKING:
     from ar_domain.db.context import TenantContext
 
 _PLAN_ID = demo_id("plan-enterprise")
+# Argon2 is deliberately slow, so hash the demo password once and share it across the
+# in-memory users (they all sign in with the dev password, like the real seed).
+_DEV_PASSWORD_HASH = hash_password(DEV_PASSWORD)
 
 
 class MemoryIdentityStore:
@@ -60,6 +64,8 @@ class MemoryIdentityStore:
                 email=email,
                 display_name=display_name,
                 status="active",
+                password_hash=_DEV_PASSWORD_HASH,
+                password_set_at=now,
                 created_at=now,
             )
             for email, display_name, _roles in DEV_USERS

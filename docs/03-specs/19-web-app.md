@@ -75,7 +75,7 @@ Each page lists: route, access, API calls, main components, URL state.
 ### 3.1 Auth
 | Route | Purpose | API |
 |---|---|---|
-| `/login` | Tenant discovery by email domain or slug, then redirect to `GET /api/v1/auth/login?tenant=…&return_to=…` (Keycloak). Shows SSO buttons per tenant IdPs. | `GET /api/v1/meta` (branding, self-signup flag) |
+| `/login` | An email + password form that posts to `POST /api/v1/auth/login`; a wrong password is shown in place, success redirects into the app. | `GET /api/v1/meta` (branding, self-signup flag) |
 | `/select-tenant` | For users in multiple tenants (platform admins) | `GET /api/v1/auth/session`, `POST /api/v1/auth/switch-tenant` |
 | `/invite/[token]` | Accept invitation → login | `POST /api/v1/invitations/{token}:accept` |
 | `/suspended` | Tenant suspended notice | – |
@@ -138,7 +138,7 @@ Layout: left **ConversationList** (search `q`, filters agent/pinned/shared; infi
 | `/admin/users` | `users:read` | Users table, invite, suspend, attributes editor, erase (step-up) |
 | `/admin/teams` | `teams:manage` | Teams + members + leads |
 | `/admin/roles` | `roles:manage` | System and custom roles (permission matrix editor), role assignments |
-| `/admin/sso` | `tenant:manage` | IdPs (OIDC/SAML), domains + verification, SCIM tokens |
+| `/admin/sso` | `tenant:manage` | Domains + verification, SCIM tokens (IdP federation removed with Keycloak, [OQ-122](../open-questions.md)) |
 | `/admin/models` | `models:read` | Providers, models, aliases (incl. platform rows read-only), alias test console, kill switch |
 | `/admin/policies` | `policies:read` | Policies list, rule editor (form + YAML), tests, simulate, activate; standing approvals |
 | `/admin/channels` | `channels:manage` | Integrations, manifest download, test, identities |
@@ -209,7 +209,7 @@ LCP < 2.0 s on `/chat` (cold, desktop, 4G fast), INP < 200 ms, JS ≤ 250 KB gzi
 
 - Unit/component (vitest + Testing Library + msw): reducer for every stream event type (fixture streams from `packages/api-client/fixtures/streams/*.jsonl`), Composer behaviours, ApprovalCard decisions, form schema mapping, permission guards.
 - Storybook for all `components/chat`, `components/common` with interaction tests.
-- E2E (Playwright, full stack via `make test-e2e` with `fake-llm`): login (Keycloak test realm), create agent from template, publish, chat with streaming, attach file, tool call with approval, knowledge upload + cited answer, routine test run, admin creates policy and sees approval required, accessibility checks (axe) on every page, visual snapshots of key pages (light/dark).
+- E2E (Playwright, full stack via `make test-e2e` with `fake-llm`): login (password form), create agent from template, publish, chat with streaming, attach file, tool call with approval, knowledge upload + cited answer, routine test run, admin creates policy and sees approval required, accessibility checks (axe) on every page, visual snapshots of key pages (light/dark).
 
 ## 10. Records, reviews and guest routes
 

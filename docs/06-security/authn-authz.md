@@ -6,17 +6,17 @@ Canonical permission catalogue and system roles. `ar_domain.identity.permissions
 
 | Principal | Method | Where |
 |---|---|---|
-| Browser user | BFF: OIDC authorization code + PKCE with Keycloak (organization = tenant, brokered company IdP); `ar_session` (HttpOnly, Secure, SameSite=Lax) + `ar_csrf` cookies | [spec 01 §3](../03-specs/01-api-bff.md#3-authentication-endpoints-bff), [ADR-0011](../02-architecture/adr/ADR-0011-identity-keycloak-bff.md) |
-| User via API | OIDC bearer token (audience `ar-api`) or personal API key (`ark_…`) | [api-conventions §2](../05-contracts/api-conventions.md#2-authentication) |
+| Browser user | A userid and password the product checks itself (no external identity provider), issuing `ar_session` (HttpOnly, SameSite=Lax) + `ar_csrf` cookies | [spec 01 §3](../03-specs/01-api-bff.md#3-authentication-endpoints-bff) |
+| User via API | Personal or service-account API key (`ark_…`, or key id + secret) | [api-conventions §2](../05-contracts/api-conventions.md#2-authentication) |
 | Service account | API key (`ark_…`), optional `on_behalf_of_user_id` when `allow_on_behalf_of` | [spec 02 §3.8](../03-specs/02-identity-tenancy.md#38-service-accounts-and-api-keys) |
 | SCIM client | SCIM bearer token (`scim_tokens`) | spec 02 §3.9 |
 | Channel users | Slack/Teams/email identity mapped to a platform user (`channel_identities`); unmapped users must link (`/api/v1/me/channel-identities:link`) | [spec 16](../03-specs/16-channels.md) |
 | Widget users | Host-signed JWT exchanged at `POST /api/v1/widget/sessions` for an `ar_widget_session` limited to `chat:use` | spec 16 §7 |
 | Routine webhooks | Unguessable path token + HMAC signature | [spec 15](../03-specs/15-routines-triggers.md) |
 | Internal services | Internal JWT (EdDSA, ≤ 60 s, `aud` = target, acting context) | [internal-apis §1](../05-contracts/internal-apis.md#1-internal-service-authentication) |
-| Platform admin (SaaS) | Keycloak realm role `platform_admin` + MFA | [spec 02 §3.10](../03-specs/02-identity-tenancy.md#310-platform-administration-saas-mode-only-keycloak-realm-role-platform_admin) |
+| Platform admin (SaaS) | The `platform_admin` role granted in the platform tenant | [spec 02 §3.10](../03-specs/02-identity-tenancy.md#310-platform-administration-saas-mode) |
 
-MFA is enforced at the IdP (company IdP or Keycloak OTP/WebAuthn for local users). Step-up uses `acr_values=mfa`, `max_age=0`.
+MFA is a planned addition (TOTP for local users, [OQ-122](../open-questions.md)); today sign-in is a single password factor. Step-up re-confirms a sensitive action against the current session.
 
 ## 2. Authorisation model
 
@@ -79,7 +79,7 @@ MFA is enforced at the IdP (company IdP or Keycloak OTP/WebAuthn for local users
 | `evals:run` | evals | Run eval suites |
 | `evals:manage` | evals | Manage eval suites/cases; read feedback |
 
-`platform:*` is not assignable inside a tenant; it is implied by the Keycloak realm role `platform_admin` and only valid on `/api/v1/platform/*` and `POST /api/v1/auth/switch-tenant`.
+`platform:*` is not assignable inside a tenant; it is implied by the `platform_admin` role and only valid on `/api/v1/platform/*` and `POST /api/v1/auth/switch-tenant`.
 
 ## 4. System roles
 
@@ -148,7 +148,7 @@ Requires a session with `step_up_at` within `AR_STEP_UP_TTL_S` (600 s); API keys
 
 - TLS 1.2+ at ingress (cert-manager); in-cluster mTLS optional via mesh; internal JWT regardless.
 - Cookies: `ar_session` HttpOnly, Secure, SameSite=Lax, path `/`; `ar_csrf` readable by JS; CSRF header `X-CSRF-Token` required on non-GET session requests.
-- Session store in Valkey with encrypted tokens (`AR_SESSION_ENCRYPTION_KEY`), sliding `AR_SESSION_TTL_S`, absolute `AR_SESSION_MAX_AGE_S`; session id rotated at login and step-up; revoked on logout, user suspension, IdP deprovisioning.
+- Session store in Valkey with encrypted tokens (`AR_SESSION_ENCRYPTION_KEY`), sliding `AR_SESSION_TTL_S`, absolute `AR_SESSION_MAX_AGE_S`; session id rotated at login and step-up; revoked on logout and user suspension.
 - Security headers: CSP (nonce-based scripts, `frame-ancestors 'none'` except widget routes), HSTS 1 year, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` minimal.
 - User-generated HTML is never rendered inline in the app origin ([spec 13](../03-specs/13-files-artifacts.md)).
 - Outbound requests (webhooks, web.fetch, OpenAPI base URLs, model providers, OAuth endpoints) pass the shared SSRF guard (`ar_common.http.ssrf_guard`): resolve and pin IPs, deny private/link-local/metadata ranges unless explicitly allowed by `AR_WEBHOOK_ALLOW_PRIVATE`, `AR_MCP_INTERNAL_HTTP_ALLOWED_CIDRS`, `AR_MODEL_PROVIDER_DENY_CIDRS`.

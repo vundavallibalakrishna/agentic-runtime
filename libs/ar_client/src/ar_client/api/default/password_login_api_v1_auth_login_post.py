@@ -9,30 +9,32 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.http_validation_error import HTTPValidationError
+from ...models.password_login_api_v1_auth_login_post_body_type_0 import (
+    PasswordLoginApiV1AuthLoginPostBodyType0,
+)
 from ...types import UNSET, Unset
 from typing import cast
 
 
 def _get_kwargs(
     *,
-    code: str | Unset = "",
-    state: str | Unset = "",
+    body: None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset = UNSET,
 ) -> dict[str, Any]:
-
-    params: dict[str, Any] = {}
-
-    params["code"] = code
-
-    params["state"] = state
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
+    headers: dict[str, Any] = {}
 
     _kwargs: dict[str, Any] = {
-        "method": "get",
-        "url": "/api/v1/auth/callback",
-        "params": params,
+        "method": "post",
+        "url": "/api/v1/auth/login",
     }
 
+    if isinstance(body, PasswordLoginApiV1AuthLoginPostBodyType0):
+        _kwargs["json"] = body.to_dict()
+    else:
+        _kwargs["json"] = body
+
+    headers["Content-Type"] = "application/json"
+
+    _kwargs["headers"] = headers
     return _kwargs
 
 
@@ -68,16 +70,14 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = "",
-    state: str | Unset = "",
+    body: None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset = UNSET,
 ) -> Response[Any | HTTPValidationError]:
-    """Callback
+    """Password Login
 
-     Finish login. Tests inject ``app.state.complete_login``.
+     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
 
     Args:
-        code (str | Unset):  Default: ''.
-        state (str | Unset):  Default: ''.
+        body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -88,8 +88,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        code=code,
-        state=state,
+        body=body,
     )
 
     response = client.get_httpx_client().request(
@@ -102,16 +101,14 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = "",
-    state: str | Unset = "",
+    body: None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset = UNSET,
 ) -> Any | HTTPValidationError | None:
-    """Callback
+    """Password Login
 
-     Finish login. Tests inject ``app.state.complete_login``.
+     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
 
     Args:
-        code (str | Unset):  Default: ''.
-        state (str | Unset):  Default: ''.
+        body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -123,24 +120,21 @@ def sync(
 
     return sync_detailed(
         client=client,
-        code=code,
-        state=state,
+        body=body,
     ).parsed
 
 
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = "",
-    state: str | Unset = "",
+    body: None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset = UNSET,
 ) -> Response[Any | HTTPValidationError]:
-    """Callback
+    """Password Login
 
-     Finish login. Tests inject ``app.state.complete_login``.
+     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
 
     Args:
-        code (str | Unset):  Default: ''.
-        state (str | Unset):  Default: ''.
+        body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -151,8 +145,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        code=code,
-        state=state,
+        body=body,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -163,16 +156,14 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-    code: str | Unset = "",
-    state: str | Unset = "",
+    body: None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset = UNSET,
 ) -> Any | HTTPValidationError | None:
-    """Callback
+    """Password Login
 
-     Finish login. Tests inject ``app.state.complete_login``.
+     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
 
     Args:
-        code (str | Unset):  Default: ''.
-        state (str | Unset):  Default: ''.
+        body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -185,7 +176,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            code=code,
-            state=state,
+            body=body,
         )
     ).parsed

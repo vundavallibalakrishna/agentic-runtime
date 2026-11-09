@@ -333,8 +333,13 @@ async def run_once(  # noqa: PLR0917
     )
     if idempotency_key:
         _remember_idempotency(
-            store, key, idempotency_key, fingerprint, reply,
-            uuid.UUID(str(reply["id"])), state="completed",
+            store,
+            key,
+            idempotency_key,
+            fingerprint,
+            reply,
+            uuid.UUID(str(reply["id"])),
+            state="completed",
         )
     return reply, False
 

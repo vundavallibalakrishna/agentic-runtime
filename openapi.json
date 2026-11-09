@@ -137,103 +137,28 @@
       }
     },
     "/api/v1/auth/login": {
-      "get": {
-        "summary": "Login",
-        "description": "Start the OIDC authorization-code flow.",
-        "operationId": "login_api_v1_auth_login_get",
-        "parameters": [
-          {
-            "name": "return_to",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "/",
-              "title": "Return To"
-            }
-          },
-          {
-            "name": "tenant",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Tenant"
-            }
-          },
-          {
-            "name": "idp",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Idp"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+      "post": {
+        "summary": "Password Login",
+        "description": "Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.",
+        "operationId": "password_login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
               }
             }
           }
-        }
-      }
-    },
-    "/api/v1/auth/callback": {
-      "get": {
-        "summary": "Callback",
-        "description": "Finish login. Tests inject ``app.state.complete_login``.",
-        "operationId": "callback_api_v1_auth_callback_get",
-        "parameters": [
-          {
-            "name": "code",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "Code"
-            }
-          },
-          {
-            "name": "state",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "",
-              "title": "State"
-            }
-          }
-        ],
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -341,6 +266,7 @@
     "/api/v1/auth/step-up": {
       "post": {
         "summary": "Step Up",
+        "description": "Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the\nperson confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).",
         "operationId": "step_up_api_v1_auth_step_up_post",
         "requestBody": {
           "content": {

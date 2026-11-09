@@ -1,78 +1,58 @@
-"""The sign-in page parser the smoke and proof scripts share, without a running Keycloak."""
+"""The userid/password sign-in helper the smoke and proof scripts share."""
 
 import importlib.util
 from pathlib import Path
 
 import httpx
 import pytest
+import respx
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def _forms():
+def _module():
     path = ROOT / "scripts" / "sign_in.py"
-    spec = importlib.util.spec_from_file_location("sign_in", path)
+    spec = importlib.util.spec_from_file_location("sign_in_helper", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def test_username_step_then_password_step() -> None:
-    forms = _forms()
-    username = forms.parse_forms('<form action="/step1"><input name="username"></form>')[0]
-    assert forms.fill_login(username, "admin@dev.local", "dev-password") == {
-        "username": "admin@dev.local"
-    }
-    password = forms.parse_forms(
-        '<form action="/step2"><input name="username" value="admin@dev.local">'
-        '<input name="password" type="password"></form>'
-    )[0]
-    filled = forms.fill_login(password, "admin@dev.local", "dev-password")
-    assert filled is not None
-    assert filled["username"] == "admin@dev.local"
-    assert filled["password"] == "dev-password"  # noqa: S105
+@respx.mock
+def test_sign_in_posts_the_password_and_returns_the_session_cookies() -> None:
+    mod = _module()
+    route = respx.post("http://localhost:3000/api/v1/auth/login").mock(
+        return_value=httpx.Response(
+            200,
+            json={"ok": True},
+            headers=[
+                ("set-cookie", "ar_session=sess-1; Path=/; HttpOnly"),
+                ("set-cookie", "ar_csrf=csrf-1; Path=/"),
+            ],
+        )
+    )
+    cookies = mod.sign_in("http://localhost:3000", "admin@dev.local", "dev-password")
+    assert cookies["ar_session"] == "sess-1"
+    assert cookies["ar_csrf"] == "csrf-1"
+    sent = route.calls.last.request
+    assert b"admin@dev.local" in sent.content
+    assert b"dev-password" in sent.content
 
 
-def test_secure_cookie_is_sent_back_to_localhost_over_http() -> None:
-    forms = _forms()
-    forms.allow_secure_cookies_on_localhost()
-    seen: dict[str, str] = {}
-    cookie = "AUTH_SESSION_ID=abc; Path=/realms/agentic-runtime/; Secure; HttpOnly; SameSite=None"
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith("/auth"):
-            return httpx.Response(200, headers=[("set-cookie", cookie)])
-        seen[request.url.host] = request.headers.get("cookie", "")
-        return httpx.Response(200, text="ok")
-
-    transport = httpx.MockTransport(handler)
-    realm = "/realms/agentic-runtime"
-    with httpx.Client(transport=transport) as client:
-        client.get(f"http://localhost:8180{realm}/protocol/openid-connect/auth")
-        client.post(f"http://localhost:8180{realm}/login-actions/authenticate")
-    with httpx.Client(transport=transport) as client:
-        client.get(f"http://example.com:8180{realm}/protocol/openid-connect/auth")
-        client.post(f"http://example.com:8180{realm}/login-actions/authenticate")
-    assert seen["localhost"] == "AUTH_SESSION_ID=abc"
-    assert seen["example.com"] == ""
+@respx.mock
+def test_sign_in_raises_when_the_password_is_refused() -> None:
+    mod = _module()
+    respx.post("http://localhost:3000/api/v1/auth/login").mock(
+        return_value=httpx.Response(401, json={"error": "invalid_credentials"})
+    )
+    with pytest.raises(mod.SignInError, match="sign-in failed"):
+        mod.sign_in("http://localhost:3000", "admin@dev.local", "wrong")
 
 
-def test_single_page_login_fills_both_fields() -> None:
-    forms = _forms()
-    page = forms.parse_forms(
-        '<form action="/auth"><input name="username"><input name="password"></form>'
-    )[0]
-    filled = forms.fill_login(page, "builder@dev.local", "dev-password")
-    assert filled == {"username": "builder@dev.local", "password": "dev-password"}
-
-
-def test_the_password_comes_from_the_environment_or_the_dev_realm_export(monkeypatch) -> None:
-    forms = _forms()
+def test_the_password_defaults_to_dev_and_honours_the_environment(monkeypatch) -> None:
+    mod = _module()
     monkeypatch.delenv("AR_SIGN_IN_PASSWORD", raising=False)
-    # A person of the local dev realm: the realm export that created them holds the password.
-    assert forms.password_for("Admin@dev.local")
-    with pytest.raises(forms.SignInError, match="AR_SIGN_IN_PASSWORD"):
-        forms.password_for("ada@acme.example")
+    assert mod.password_for("admin@dev.local") == "dev-password"
     monkeypatch.setenv("AR_SIGN_IN_PASSWORD", "given-for-this-run")
-    assert forms.password_for("ada@acme.example") == "given-for-this-run"
+    assert mod.password_for("ada@acme.example") == "given-for-this-run"

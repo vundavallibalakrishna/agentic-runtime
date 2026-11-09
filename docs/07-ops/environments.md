@@ -90,11 +90,6 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_MG_SEMAPHORE_WAIT_S` | `10` | Max wait for a concurrency slot before 429 | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MODEL_GATEWAY_URL` | `http://localhost:8001` | Internal URL of `model-gateway` | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_MODEL_PROVIDER_DENY_CIDRS` | RFC1918 + link-local + cluster CIDRs (SaaS) | SSRF guard for tenant providers | [spec 04](../03-specs/04-model-gateway.md) |
-| `AR_OFFLINE_SESSION_MAX_DAYS` | `60` | Must match Keycloak realm offline session max | [spec 03](../03-specs/03-secrets-credentials.md) |
-| `AR_OIDC_API_AUDIENCE` | `ar-api` | Audience for bearer tokens | [spec 01](../03-specs/01-api-bff.md) |
-| `AR_OIDC_CLIENT_ID` | `ar-web` | BFF confidential client | [spec 01](../03-specs/01-api-bff.md) |
-| `AR_OIDC_CLIENT_SECRET` | (secret) | Confidential client secret of `ar-web` | [spec 01](../03-specs/01-api-bff.md) |
-| `AR_OIDC_ISSUER` | `http://localhost:8180/realms/agentic-runtime` | Keycloak realm issuer | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_OPA_BUNDLE_TOKEN` | secret | Bearer token OPA uses to fetch policy bundles from `api` | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_OPA_TIMEOUT_MS` | `200` | Policy decision timeout (fail closed) | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_OPA_URL` | `http://opa:8181` | OPA decision API URL | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 09](../03-specs/09-policy-approvals.md) |
@@ -205,10 +200,7 @@ Required in `staging` and `prod` (startup fails when missing):
 | `AR_DATABASE_URL` | The database |
 | `AR_VALKEY_URL` | The cache |
 | `AR_INTERNAL_JWT_PRIVATE_KEY` | Service identity |
-| `AR_OIDC_CLIENT_SECRET` | Login to the identity provider |
 | `AR_SESSION_ENCRYPTION_KEY` | Session cookie contents |
-
-`AR_OIDC_ISSUER` and `AR_OIDC_CLIENT_ID` have defaults for local dev. Production sets them to the customer's issuer; they are identity, not product behaviour.
 
 Everything else, including evidence, guests, packs and grounding, runs on the default in the catalogue. Tenant behaviour lives in `tenants.settings` with the defaults in the owning spec. Settings screens use Simple and Advanced modes ([spec 19 §12](../03-specs/19-web-app.md#12-simple-and-advanced-settings)).
 
@@ -224,7 +216,6 @@ These are laptop publish ports. They are not set in Helm. `make ports-check` cop
 | `AR_FAKE_LLM_HOST_PORT` | `8099` | Host port for fake-llm. `FAKE_LLM_PORT` is still accepted | [local-dev](local-dev.md#5-host-ports) |
 | `AR_GRAFANA_HOST_PORT` | `3001` | Host port for Grafana. Updates `AR_TRACE_UI_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_INGEST_HOST_PORT` | `8014` | Host port for ingest-worker health | [local-dev](local-dev.md#5-host-ports) |
-| `AR_KEYCLOAK_HOST_PORT` | `8180` | Host port for Keycloak. Updates `AR_OIDC_ISSUER` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_LANGFUSE_HOST_PORT` | `3100` | Host port for Langfuse | [local-dev](local-dev.md#5-host-ports) |
 | `AR_MAILPIT_UI_HOST_PORT` | `8025` | Host port for the Mailpit UI | [local-dev](local-dev.md#5-host-ports) |
 | `AR_MCP_OPENAPI_HOST_PORT` | `8011` | Host port for mcp-openapi | [local-dev](local-dev.md#5-host-ports) |

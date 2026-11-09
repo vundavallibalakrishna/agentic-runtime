@@ -3,20 +3,23 @@ import { expect, test } from "@playwright/test";
 
 import { signInAs } from "./support/sign-in";
 
-test("the sign-in page offers one way in and is accessible", async ({ page }) => {
+test("the sign-in page shows a password form and is accessible", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Continue with SSO" })).toBeVisible();
-  await expect(page.getByRole("main").getByRole("button")).toHaveCount(0);
+  await expect(page.getByLabel("Email")).toBeVisible();
+  await expect(page.getByLabel("Password")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("button", { name: "Sign in" })).toBeVisible();
   // The dev server may still be compiling the page it just served.
   await page.waitForLoadState("networkidle");
   const report = await new AxeBuilder({ page }).analyze();
   expect(report.violations).toEqual([]);
 
-  await page.goto("/login?error=user_suspended");
-  await expect(page.getByRole("main").getByRole("alert")).toHaveText(
-    "Your account is suspended. Ask an administrator.",
-  );
+  // A wrong password is refused in place, without leaving the sign-in page.
+  await page.getByLabel("Email").fill("admin@dev.local");
+  await page.getByLabel("Password").fill("not-the-password");
+  await page.getByRole("main").getByRole("button", { name: "Sign in" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("not right");
+  await expect(page).toHaveURL(/\/login$/);
 });
 
 test("a visitor who is not signed in is sent to the sign-in page", async ({ page }) => {

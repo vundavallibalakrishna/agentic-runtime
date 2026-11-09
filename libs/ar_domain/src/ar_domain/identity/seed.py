@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from ar_common.ids import new_id
+from ar_common.time import utcnow
 from ar_contracts.tenants import PlanLimits, TenantSettings
 from ar_domain.demo_ids import demo_id
 from ar_domain.identity.models import (
@@ -24,11 +25,15 @@ from ar_domain.identity.models import (
     Tenant,
     User,
 )
+from ar_domain.identity.passwords import hash_password
 from ar_domain.identity.permissions import SYSTEM_ROLE_NAMES, SYSTEM_ROLE_PERMISSIONS
 from ar_domain.identity.tenant_settings import dev_tenant_settings
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+# The dev tenant's users all sign in with this password. A real tenant's admin password
+# is set by scripts/seed_tenant.py; this is only for the local `make dev` tenant.
+DEV_PASSWORD = "dev-password"  # noqa: S105 - the local dev tenant's shared password, not a secret
 DEV_USERS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("admin@dev.local", "Dev Admin", ("tenant_admin",)),
     ("builder@dev.local", "Dev Builder", ("builder", "tool_owner", "knowledge_manager")),
@@ -221,9 +226,15 @@ async def _users(session: AsyncSession, tenant_id: uuid.UUID, roles: dict[str, R
                 email=email,
                 display_name=display_name,
                 status="active",
+                password_hash=hash_password(DEV_PASSWORD),
+                password_set_at=utcnow(),
             )
             session.add(user)
             await session.flush()
+        elif user.password_hash is None:
+            # Backfill a password for a dev tenant seeded before local sign-in existed.
+            user.password_hash = hash_password(DEV_PASSWORD)
+            user.password_set_at = utcnow()
         for role_key in role_keys:
             role = roles[role_key]
             existing = await session.scalar(
@@ -254,8 +265,13 @@ async def ensure_admin(
     name: str,
     email: str,
     display_name: str | None = None,
+    password: str | None = None,
 ) -> str:
-    """Create a tenant on plan ``self_hosted`` and its tenant-admin user when they are missing."""
+    """Create a tenant on plan ``self_hosted`` and its tenant-admin user when they are missing.
+
+    When ``password`` is given, the admin's sign-in password is (re)set to it: sign-in is
+    in-app, so the password is stored as an argon2id hash on the user row.
+    """
     tenant = await session.scalar(select(Tenant).where(Tenant.slug == slug))
     if tenant is None:
         plan = await session.scalar(select(Plan).where(Plan.key == "self_hosted"))
@@ -283,9 +299,14 @@ async def ensure_admin(
             email=address,
             display_name=display_name or address.split("@", 1)[0],
             status="active",
+            password_hash=hash_password(password) if password else None,
+            password_set_at=utcnow() if password else None,
         )
         session.add(user)
         await session.flush()
+    elif password:
+        user.password_hash = hash_password(password)
+        user.password_set_at = utcnow()
     role = await session.scalar(
         select(Role).where(Role.key == "tenant_admin", Role.tenant_id.is_(None))
     )
