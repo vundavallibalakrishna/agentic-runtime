@@ -126,7 +126,7 @@ def test_not_live_connector_tools_stay_hidden_from_the_model() -> None:
     )
     result = dispatch(
         store,
-        "builtin://control",
+        "builtin://session",
         "search",
         {
             "_tenant_id": tenant,
