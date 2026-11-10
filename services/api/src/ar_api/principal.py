@@ -17,13 +17,15 @@ class PresentedCredential:
     value: str
 
 
-def classify_authorization(header: str | None, cookie: str | None) -> PresentedCredential | None:
+def classify_authorization(header: str | None, cookie: str | None) -> PresentedCredential | None:  # noqa: PLR0911
     """Prefer ``Authorization`` over the session cookie."""
     if header:
         scheme, _, token = header.partition(" ")
         if scheme.lower() == "bearer" and token:
             if token.startswith(("ark_", "ak_")):
                 return PresentedCredential("api_key", token)
+            if token.startswith("ara_"):
+                return PresentedCredential("agent_api_key", token)
             if token.startswith("scim_"):
                 return PresentedCredential("scim", token)
             if token.startswith("eyJ"):

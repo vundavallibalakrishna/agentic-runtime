@@ -247,7 +247,11 @@ def _configure_chat(chat: Any, settings: Settings) -> None:
     keys = os.environ.get("AR_PACK_TRUSTED_KEYS")
     if not keys:
         return
-    loaded = orjson.loads(keys)
+    try:
+        loaded = orjson.loads(keys)
+    except orjson.JSONDecodeError:
+        # The chart ships the placeholder "install-time" until an install replaces it.
+        return
     if isinstance(loaded, dict):
         chat.pack_trusted_keys = {str(key): str(value) for key, value in loaded.items()}
 
