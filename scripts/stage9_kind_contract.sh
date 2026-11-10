@@ -51,6 +51,17 @@ echo "waiting for Postgres and Valkey"
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-postgres --timeout=10m
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-valkey --timeout=5m
 
+echo "creating the migration role"
+# The bundled Postgres superuser is ar_app. Alembic rewrites that URL to ar_owner,
+# which does not exist until the first revision. Create it first.
+kubectl -n "$namespace" exec statefulset/agentic-runtime-postgres -- \
+  env PGPASSWORD=ar-install-db psql -U ar_app -d ar -v ON_ERROR_STOP=1 -c \
+  "DO \$\$ BEGIN
+     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_owner') THEN
+       CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS;
+     END IF;
+   END \$\$;"
+
 echo "migrating and bootstrapping"
 helm template agentic-runtime deploy/helm/agentic-runtime \
   --namespace "$namespace" \
@@ -67,14 +78,21 @@ for doc in docs:
     if "name: agentic-runtime-bootstrap" in doc:
         Path("/tmp/stage9-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
 PY
+job_logs() {
+  local job="$1"
+  kubectl -n "$namespace" get pods -l "job-name=${job}" -o wide || true
+  kubectl -n "$namespace" describe "job/${job}" || true
+  kubectl -n "$namespace" logs "job/${job}" --tail=200 --request-timeout=20s || true
+}
+
 kubectl apply -n "$namespace" -f /tmp/stage9-migrate.yaml
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
-  kubectl -n "$namespace" logs job/agentic-runtime-migrate --tail=200 || true
+  job_logs agentic-runtime-migrate
   exit 1
 fi
 kubectl apply -n "$namespace" -f /tmp/stage9-bootstrap.yaml
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
-  kubectl -n "$namespace" logs job/agentic-runtime-bootstrap --tail=200 || true
+  job_logs agentic-runtime-bootstrap
   exit 1
 fi
 
