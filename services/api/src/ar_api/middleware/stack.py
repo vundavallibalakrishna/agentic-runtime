@@ -12,6 +12,8 @@ _PUBLIC = frozenset(
     {
         "/api/v1/meta",
         "/api/v1/auth/login",
+        "/api/v1/auth/password-reset",
+        "/api/v1/auth/password-reset/confirm",
         "/api/v1/auth/oidc/start",
         "/api/v1/auth/callback",
         "/api/v1/.well-known/jwks.json",

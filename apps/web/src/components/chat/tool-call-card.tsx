@@ -127,19 +127,14 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       <p className="sr-only">{label}</p>
       <p className="font-medium">{name}</p>
       <p className="text-[var(--muted-foreground)]">{text(call.status ?? "")}</p>
-      {text(call.arguments) || text(call.resultPreview) || preview ? (
+      {text(call.arguments) ? (
         <details className="mt-2">
           <summary className="cursor-pointer text-[var(--muted-foreground)]">
             {t("toolDetails")}
           </summary>
-          {text(call.arguments) ? (
-            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
-              {text(call.arguments)}
-            </pre>
-          ) : null}
-          {preview ? (
-            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">{preview}</pre>
-          ) : null}
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
+            {text(call.arguments)}
+          </pre>
         </details>
       ) : null}
       {progress ? <JobMeter progress={progress} /> : null}

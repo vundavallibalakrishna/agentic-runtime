@@ -230,7 +230,7 @@ def _backfill_blobs() -> None:
             'internal',
             'ready',
             'skipped',
-            '{{}}'::jsonb
+            '{}'::jsonb
         FROM file_blobs b
         WHERE NOT EXISTS (SELECT 1 FROM files f WHERE f.id = b.id)
         """

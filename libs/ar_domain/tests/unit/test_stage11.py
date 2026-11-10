@@ -8,23 +8,24 @@ from datetime import timedelta
 import httpx
 import pytest
 
-from ar_common.errors import ArError
+from ar_common.errors import ArError, NotFoundError
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
 from ar_domain.chat.service import demo_id
 from ar_domain.connectors.book import ConnectorBook
 from ar_domain.connectors.dispatch import dispatch_connector
+from ar_domain.conversations.summary import read_summary, refresh_summary, write_summary
 from ar_domain.documents.ocr_cloud import read_cloud
 from ar_domain.exposure import a2a
 from ar_domain.exposure.grpc_a2a import grpc_call
 from ar_domain.identity.guests import open_agent_turn
-from ar_domain.identity.membership import password_matches
+from ar_domain.identity.membership import memberships, password_matches
 from ar_domain.identity.passwords import hash_password, verify_password
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.identity.recovery import confirm_reset, remember_person, request_reset
 from ar_domain.memory.book import MemoryBook
 from ar_domain.memory.qdrant_memory import MemoryPoint, MemoryQdrant, MemoryQdrantDouble
-from ar_domain.notifications.dispatch import notify_user, subscribe
+from ar_domain.notifications.dispatch import notify_user, subscribe, unsubscribe
 from ar_domain.records.memory import bucket
 from ar_domain.sandboxes.runtime import _mime
 from ar_domain.tools.handlers import dispatch as run_tool
@@ -317,6 +318,174 @@ def test_a_failed_run_with_a_checkpoint_can_resume() -> None:
     }
     resumed = store.resume_run(tenant, user, run_id)
     assert resumed["status"] == "running"
+
+
+def test_reset_rejects_unknown_short_expired_and_spent_tokens() -> None:
+    store = demo_store()
+    request_reset(store, "missing@example.com")
+    assert getattr(store, "outbox", None) in (None, [])
+    tenant = demo_id("tenant")
+    user = demo_id("admin")
+
+    class Account:
+        password_hash = ""
+
+    account = Account()
+    remember_person(
+        store,
+        email="ada@example.com",
+        tenant_id=tenant,
+        user_id=user,
+        password_hash=hash_password("old-password"),
+        user=account,
+    )
+    remember_person(
+        store,
+        email="ada@example.com",
+        tenant_id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        password_hash=hash_password("other-password"),
+        tenant_name="South",
+    )
+    mailed: list[dict[str, str]] = []
+    store.mailer = mailed.append  # type: ignore[attr-defined]
+    request_reset(store, "ada@example.com")
+    token = mailed[-1]["body"]
+    with pytest.raises(ArError, match="too short"):
+        confirm_reset(store, token, "short")
+    assert password_matches(store, "ada@example.com", "nope") == []
+    assert memberships(store, "ada@example.com")
+    person = store.local_people[str(user)]
+    person["permissions"] = "not-a-list"
+    assert password_matches(store, "ada@example.com", "old-password")[0]["permissions"] == []
+    row = next(iter(store.password_resets.values()))
+    row["expires_at"] = utcnow() - timedelta(minutes=1)
+    with pytest.raises(ArError, match="expired"):
+        confirm_reset(store, token, "new-password-1")
+    row["expires_at"] = utcnow() + timedelta(hours=1)
+    row["user_id"] = uuid.uuid4()
+    with pytest.raises(ArError, match="not valid"):
+        confirm_reset(store, token, "new-password-1")
+    row["user_id"] = user
+    confirm_reset(store, token, "new-password-1")
+    assert account.password_hash
+    with pytest.raises(ArError, match="not valid"):
+        confirm_reset(store, token, "new-password-2")
+    with pytest.raises(ArError, match="not valid"):
+        confirm_reset(store, "not-a-token", "new-password-2")
+
+
+def test_rolling_summary_reads_writes_and_refreshes() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    conversation_id = uuid.uuid4()
+    store.conversations[conversation_id] = {
+        "id": conversation_id,
+        "tenant_id": tenant,
+        "rolling_summary": "",
+    }
+    for index in range(6):
+        message_id = uuid.uuid4()
+        store.messages[message_id] = {
+            "id": message_id,
+            "conversation_id": conversation_id,
+            "created_at": f"2026-01-0{index + 1}T00:00:00Z",
+            "role": "user",
+            "text": f"line {index}",
+        }
+    written = write_summary(store, tenant, conversation_id, "  earlier  ")
+    assert written["summary"] == "earlier"
+    refreshed = refresh_summary(store, tenant, conversation_id)
+    assert refreshed["conversationId"] == str(conversation_id)
+    assert refreshed["summary"]
+    with pytest.raises(NotFoundError):
+        read_summary(store, uuid.uuid4(), conversation_id)
+
+
+def test_cloud_ocr_stays_quiet_when_the_call_fails() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    assert read_cloud(store, tenant, "no_such_engine", b"page") is None
+    assert read_cloud(store, tenant, "google_document_ai", b"page") is None
+
+    def fail(request: httpx.Request) -> httpx.Response:
+        del request
+        raise httpx.ConnectError("down")
+
+    assert (
+        read_cloud(
+            store,
+            tenant,
+            "google_document_ai",
+            b"page",
+            transport=httpx.MockTransport(fail),
+        )
+        is None
+    )
+
+    def rejected(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(400, json={"text": "no"})
+
+    assert (
+        read_cloud(
+            store,
+            tenant,
+            "azure_document_intelligence",
+            b"page",
+            transport=httpx.MockTransport(rejected),
+        )
+        is None
+    )
+
+    def empty(request: httpx.Request) -> httpx.Response:
+        del request
+        return httpx.Response(200, json=["not-a-page"])
+
+    assert (
+        read_cloud(
+            store,
+            tenant,
+            "aws_textract",
+            b"page",
+            transport=httpx.MockTransport(empty),
+        )
+        is None
+    )
+
+
+def test_push_resubscribe_and_a_vapid_secret_marks_delivery() -> None:
+    store = demo_store()
+    tenant = demo_id("tenant")
+    user = demo_id("admin")
+    created = subscribe(store, tenant_id=tenant, user_id=user, endpoint="https://push.example/sub")
+    again = subscribe(
+        store,
+        tenant_id=tenant,
+        user_id=user,
+        endpoint="https://push.example/sub",
+        encoding="",
+    )
+    assert again["id"] == created["id"]
+    subscription_id = uuid.UUID(str(created["id"]))
+    assert unsubscribe(store, tenant_id=uuid.uuid4(), subscription_id=subscription_id) is False
+    write_named_secret(store, tenant, "web_push_vapid_private", "secret")
+    note = notify_user(store, tenant_id=tenant, user_id=user, title="Done", body="ok")
+    assert note["push"]["delivered"] == 1
+    assert note["email"] is False
+    assert unsubscribe(store, tenant_id=tenant, subscription_id=subscription_id) is True
+    assert unsubscribe(store, tenant_id=tenant, subscription_id=uuid.uuid4()) is False
+
+
+def test_grpc_maps_a_task_error_to_status_three() -> None:
+    import asyncio
+
+    store = demo_store()
+    payload, status = asyncio.run(
+        grpc_call(store, {}, "assistant", "a2a.v1.A2AService/GetTask", {})
+    )
+    assert status == 3
+    assert payload["message"]
 
 
 def test_office_artifacts_have_download_types() -> None:

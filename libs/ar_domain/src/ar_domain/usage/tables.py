@@ -34,6 +34,12 @@ class UsageEvent(Base):
         CheckConstraint(f"metric IN ({_METRICS})", name="metric"),
         UniqueConstraint("tenant_id", "dedupe_key", name="uq_usage_events_dedupe"),
         Index("ix_usage_events_time", "tenant_id", "occurred_at"),
+        Index(
+            "ix_usage_events_api_key",
+            "tenant_id",
+            "api_key_id",
+            postgresql_where=text("api_key_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
