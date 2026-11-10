@@ -26,6 +26,7 @@ class UsageRecord:
     model_id: str | None = None
     tool_id: str | None = None
     routine_id: str | None = None
+    api_key_id: str | None = None
 
 
 def model_cost_micros(
@@ -65,6 +66,7 @@ class DailyUsage:
     model_alias: str
     quantity: int
     cost_micros: int
+    api_key_id: str = ZERO
 
 
 def record_usage(existing: dict[tuple[str, str], UsageRecord], item: UsageRecord) -> bool:
@@ -79,7 +81,7 @@ def record_usage(existing: dict[tuple[str, str], UsageRecord], item: UsageRecord
 def rollup_daily(records: list[UsageRecord], timezone_name: str) -> list[DailyUsage]:
     """Sum records into tenant-local days. Repeating the call is idempotent."""
     zone = ZoneInfo(timezone_name)
-    totals: dict[tuple[str, str, str, str, str, str, str], list[int]] = {}
+    totals: dict[tuple[str, str, str, str, str, str, str, str], list[int]] = {}
     for item in records:
         local = item.occurred_at.astimezone(zone)
         day = local.date().isoformat()
@@ -91,6 +93,7 @@ def rollup_daily(records: list[UsageRecord], timezone_name: str) -> list[DailyUs
             item.team_id or ZERO,
             item.agent_id or ZERO,
             item.model_alias,
+            item.api_key_id or ZERO,
         )
         bucket = totals.setdefault(key, [0, 0])
         bucket[0] += item.quantity
@@ -106,6 +109,7 @@ def rollup_daily(records: list[UsageRecord], timezone_name: str) -> list[DailyUs
             model_alias=key[6],
             quantity=values[0],
             cost_micros=values[1],
+            api_key_id=key[7],
         )
         for key, values in sorted(totals.items())
     ]

@@ -171,6 +171,14 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
         "usage": {
             "tokens_in": int(usage.get("tokens_in") or 0),
             "tokens_out": int(usage.get("tokens_out") or 0),
+            "tokensIn": int(usage.get("tokens_in") or 0),
+            "tokensOut": int(usage.get("tokens_out") or 0),
+            "cachedTokens": int(usage.get("cached_tokens") or 0),
+            "modelCalls": int(usage.get("model_calls") or 0),
+            "toolCalls": int(usage.get("tool_calls") or 0),
+            "costMicros": int(usage.get("cost_micros") or 0),
+            "sandboxCpuSeconds": int(usage.get("sandbox_cpu_seconds") or 0),
+            "elapsedMs": int(usage.get("elapsed_ms") or 0),
             "cost_micros": int(usage.get("cost_micros") or 0),
             "model_calls": int(usage.get("model_calls") or 0),
             "tool_calls": int(usage.get("tool_calls") or 0),
@@ -349,6 +357,10 @@ async def begin_message(  # noqa: PLR0917
             extra={"reason": "quota"},
         )
         raise ArError(ErrorCode.QUOTA_EXCEEDED, "monthly quota exceeded")
+    from ar_common.telemetry import record_run  # noqa: PLC0415
+    from ar_domain.usage.service import UsageBook  # noqa: PLC0415
+
+    UsageBook(store).assert_key(key["tenant_id"], key.get("id"))
     posted = store.post_message(
         key["tenant_id"],
         _user_id(key),
@@ -360,6 +372,11 @@ async def begin_message(  # noqa: PLR0917
     )
     run = posted.get("run") if isinstance(posted, dict) else None
     run_id = uuid.UUID(str(run.get("id"))) if isinstance(run, dict) else None
+    if isinstance(run, dict) and run_id is not None:
+        stored = store.runs.get(run_id)
+        if isinstance(stored, dict):
+            stored["api_key_id"] = key.get("id")
+            stored["trace_id"] = record_run(str(run_id))
     if run_id is None:
         raise NotFoundError("run not found")
     _grant(store, key, agent, conversation_id, run_id)

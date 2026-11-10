@@ -2274,6 +2274,7 @@ class ChatBehaviour:
                     source="model-gateway",
                     run_id=request_id,
                     model_id=model_id,
+                    api_key_id=str(run["api_key_id"]) if run.get("api_key_id") else None,
                 ),
             )
 
@@ -2571,6 +2572,23 @@ class ChatBehaviour:
         from ar_domain.skills.delegate import cancel_children  # noqa: PLC0415
 
         cancel_children(self, run_id)
+        return self._public(run)
+
+    def resume_run(
+        self, tenant_id: uuid.UUID, user_id: uuid.UUID, run_id: uuid.UUID
+    ) -> dict[str, object]:
+        """Continue a failed or cancelled run that still has a checkpoint."""
+        run = self.runs.get(run_id)
+        if run is None or run["tenant_id"] != tenant_id or run["user_id"] != user_id:
+            raise NotFoundError()
+        if run.get("status") not in {"failed", "cancelled", "interrupted"}:
+            raise ArError(ErrorCode.INVALID_STATE, "run cannot be resumed")
+        checkpoint = run.get("checkpoint")
+        if not isinstance(checkpoint, dict) or not checkpoint:
+            raise ArError(ErrorCode.INVALID_STATE, "run has no checkpoint")
+        run["status"] = "running"
+        run["ended_at"] = None
+        self._emit(run, "run.resumed", {"checkpoint": "present"})
         return self._public(run)
 
     def submit_input(

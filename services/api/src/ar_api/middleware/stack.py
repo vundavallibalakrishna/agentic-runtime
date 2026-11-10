@@ -230,6 +230,8 @@ def allow_guest_get(*parts: str) -> None:
 def _guest_allowed(method: str, path: str) -> bool:
     if path.startswith("/api/v1/auth/guest/") or path.startswith("/api/v1/ext/"):
         return True
+    if path.startswith("/api/v1/guest/agents/"):
+        return True
     if path in {"/api/v1/auth/session", "/api/v1/auth/logout"}:
         return True
     if method != "GET":

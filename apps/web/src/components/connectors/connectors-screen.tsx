@@ -119,6 +119,24 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
     }
   }
 
+  async function signInProvider(connectionId: string) {
+    if (!connectionId) return;
+    setBusy(true);
+    setError("");
+    try {
+      const started = await api<{ authorizeUrl?: string; authorize_url?: string }>(
+        `/api/v1/service-connections/${connectionId}:authorize`,
+        { method: "POST", body: "{}" },
+      );
+      const url = started.authorizeUrl || started.authorize_url;
+      if (url) window.location.assign(url);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("error"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function testConnection() {
     const installId = String((detail?.install as Row | undefined)?.id ?? "");
     if (!installId) return;
@@ -365,6 +383,19 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                   <a className="text-sm underline" href={String(detail.authorizeUrl)}>
                     {t("reconnect")}
                   </a>
+                ) : null}
+                {(detail.install as Row | undefined)?.connectionId ? (
+                  <Button
+                    onClick={() =>
+                      void signInProvider(
+                        String((detail.install as Row | undefined)?.connectionId ?? ""),
+                      )
+                    }
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("signInProvider")}
+                  </Button>
                 ) : null}
                 <Button onClick={() => void remove()} type="button" variant="outline">
                   {t("remove")}

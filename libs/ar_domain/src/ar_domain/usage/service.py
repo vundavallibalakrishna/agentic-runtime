@@ -21,7 +21,7 @@ from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.identity.plan_limits import load_limits
 from ar_domain.usage.logic import ZERO, UsageRecord, record_usage, rollup_daily
-from ar_domain.usage.metrics import BLOCKS, EVENTS
+from ar_domain.usage.metrics import BLOCKS, EVENTS, RUN_COST
 from ar_domain.usage.quotas import (
     MemoryCounters,
     ValkeyCounters,
@@ -38,7 +38,7 @@ from ar_domain.usage.quotas import (
 )
 from ar_domain.usage.reports import aggregate, normalise_groups, platform_csv, sum_rows, usage_csv
 
-_SCOPES = frozenset({"tenant", "team", "user", "agent"})
+_SCOPES = frozenset({"tenant", "team", "user", "agent", "api_key"})
 _METRICS = frozenset({"cost_micros", "model_tokens", "runs", "sandbox_cpu_seconds", "tool_calls"})
 _PERIODS = frozenset({"day", "month"})
 _ACTIONS = frozenset({"block", "warn"})
@@ -90,6 +90,12 @@ class UsageBook:
 
     def assert_run(self, tenant_id: uuid.UUID, user_id: uuid.UUID, agent_id: object) -> None:
         self._assert(tenant_id, user_id, agent_id, _RUN_METRICS)
+
+    def assert_key(self, tenant_id: uuid.UUID, api_key_id: object) -> None:
+        """Block when this key's monthly cost cap is already spent."""
+        if api_key_id is None:
+            return
+        self._assert(tenant_id, None, None, ("cost_micros",), api_key_id=str(api_key_id))
 
     def assert_model(self, tenant_id: uuid.UUID, user_id: object, agent_id: object) -> None:
         self._assert(tenant_id, _uuid(user_id), agent_id, _MODEL_METRICS)
@@ -173,6 +179,7 @@ class UsageBook:
         user_id: uuid.UUID | None,
         agent_id: object,
         metrics: tuple[str, ...],
+        api_key_id: str | None = None,
     ) -> None:
         now = utcnow()
         agent = str(agent_id) if agent_id else None
@@ -187,6 +194,7 @@ class UsageBook:
                 user_id=user,
                 team_ids=teams,
                 agent_id=agent,
+                api_key_id=api_key_id,
             ):
                 continue
             used = self._read(quota, user, now)
@@ -366,6 +374,9 @@ class UsageBook:
             "model_alias": item.model_alias,
             "quantity": item.quantity,
             "cost_micros": item.cost_micros,
+            "api_key_id": (
+                "" if getattr(item, "api_key_id", ZERO) in {ZERO, ""} else item.api_key_id
+            ),
             "user_id": "" if item.user_id == ZERO else item.user_id,
             "team_id": "" if item.team_id == ZERO else item.team_id,
             "agent_id": "" if item.agent_id == ZERO else item.agent_id,
@@ -578,6 +589,8 @@ def note(store: Any, record: UsageRecord) -> bool:
         return False
     if not record_usage(usage, record):
         return False
+    if record.cost_micros > 0:
+        RUN_COST.labels(source=record.source or "api").inc(record.cost_micros)
     UsageBook(store).observe(record)
     return True
 

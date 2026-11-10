@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from ar_domain.db.base import Base
 from ar_domain.db.types import created_at_col, updated_at_col, uuid_pk
 
-_SCOPES = "('user','agent','team','agent_user')"
+_SCOPES = "('user','agent','team','agent_user','workspace')"
 _CATEGORIES = "('preference','fact','instruction','lesson','contact','glossary')"
 _SOURCES = "('explicit','extracted','tool_output','admin','import')"
 _TRUST = "('high','low')"
@@ -35,7 +35,8 @@ class MemoryFact(Base):
             "(scope = 'user' AND user_id IS NOT NULL) "
             "OR (scope = 'agent' AND agent_id IS NOT NULL) "
             "OR (scope = 'team' AND team_id IS NOT NULL) "
-            "OR (scope = 'agent_user' AND agent_id IS NOT NULL AND user_id IS NOT NULL)",
+            "OR (scope = 'agent_user' AND agent_id IS NOT NULL AND user_id IS NOT NULL) "
+            "OR (scope = 'workspace')",
             name="scope_shape",
         ),
         Index(

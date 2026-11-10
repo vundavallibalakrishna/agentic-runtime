@@ -40,6 +40,24 @@ def request_body(  # noqa: PLR0911, PLR0912
     if tool.method in {"GET", "HEAD"} and tool.kind == "http":
         return None
     name = tool.name
+    if name == "gmail_send":
+        import base64  # noqa: PLC0415
+
+        raw = (
+            f"To: {arguments.get('to')}\r\n"
+            f"Subject: {arguments.get('subject')}\r\n\r\n"
+            f"{arguments.get('text') or ''}"
+        )
+        encoded = base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+        return {"raw": encoded}
+    if name == "outlook_send":
+        return {
+            "message": {
+                "subject": arguments.get("subject"),
+                "body": {"contentType": "Text", "content": arguments.get("text")},
+                "toRecipients": [{"emailAddress": {"address": str(arguments.get("to") or "")}}],
+            }
+        }
     if name == "teams_post_message":
         return {"body": {"contentType": "text", "content": str(arguments.get("content") or "")}}
     if name == "gcal_find_free":

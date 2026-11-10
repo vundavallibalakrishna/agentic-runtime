@@ -1,6 +1,6 @@
 # Agnostic production plan
 
-Status: complete. Stage 9 is the exit. The single Alembic head is revision `0039`.
+Status: Stage 11 is the current head. The single Alembic head is revision `0040`.
 
 Stage 0 records the decisions. Later stages change the product. Core stays domain-agnostic: no industry in code, schemas, seeds, tools, prompts, tests, UI, or product docs. Industry solutions ship only as optional signed packs. The security audit log and four-eyes approvals stay in core.
 
@@ -253,6 +253,22 @@ After Stage 9.
 - Chat has a research toggle, a live step stream and a sources panel. `/v1`, MCP and A2A expose the same mode.
 
 Proof label: `unit` for the loop, the citation check and the workflow definition; `contract` for `scripts/eval_run.py` without a key. `live` only from `scripts/certify_live.sh` on a machine that has `AR_LLM_API_KEY`.
+
+### Stage 11: Remaining robustness (L)
+
+After Stage 10.
+
+- Connectors for Gmail, Outlook and a generic REST API, beside the existing Slack, Google, Microsoft 365, Jira, Confluence and GitHub catalogue. OAuth and API-key tokens stay on the tenant connection and refresh. Recorded HTTP examples are the contract proof. `scripts/certify_live.sh` probes a connector only when that connector's token is set, and records the step as pending otherwise.
+- Workspace memory can be viewed, edited and deleted beside per-user memory. A conversation summary can be read and refreshed in process. Qdrant hybrid search records the embedding model id on each point.
+- Cloud OCR calls a named secret when one is set. The result is `contract`. Sandbox charts, spreadsheets, docx and pdf keep a downloadable file id. The CI sandbox image builds with Chromium (`WITH_BROWSER=1`). The kind contract image installs the `chromium` package.
+- An agent can create a scheduled or webhook routine. The schedule id is stored for Temporal. Web push subscriptions and email notices are recorded. Email tests speak SMTP. GreenMail remains the optional container from OQ-42 and is not pulled by CI.
+- Tool steps stream their arguments and results in a collapsible card. A failed run can be resumed from its checkpoint. An earlier message can be edited into a new branch.
+- Usage events carry `api_key_id`. A quota may cap a key's cost. The `/v1` trace includes the run usage fields. A run span records `ar.run_id` and no prompt. Grafana loads `ar-usage.json`. `tests/load/k6/soak.js` is the soak script. CloudNativePG point-in-time recovery is documented, with a restore contract test.
+- Password reset emails a token and stores only its hash. Sign-in lists workspaces when one password matches more than one tenant. A guest can open a turn on an agent named in the grant.
+- A2A `tasks/resubscribe` returns the task and later events. gRPC method names map to the same tasks and do not return -32601.
+- `file_blobs` is backfilled into `files` and `file_blob_payloads`, then dropped. `tool_versions.embedding` is dropped. Records-product tables move to schema `records_pack`. Guest tables stay.
+
+Proof label: `unit` for memory, routines, reset and A2A. `contract` for connector fixtures, cloud OCR, Qdrant and the restore script. `live` only from `scripts/certify_live.sh` when a real model key, and any connector token, is set. This run has no model key and no third-party credentials.
 
 ## Exit
 

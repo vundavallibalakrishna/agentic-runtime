@@ -2,6 +2,7 @@ type StreamTool = {
   name: string;
   status: string;
   preview: string;
+  arguments?: string;
   presentation?: Record<string, unknown>;
 };
 
@@ -14,6 +15,7 @@ export type StreamEvent = {
     qualifiedName?: string;
     status?: string;
     resultPreview?: string;
+    argumentsPreview?: string;
     presentation?: Record<string, unknown>;
     citation?: StreamCitation;
     factId?: string;
@@ -94,6 +96,16 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
     const citation = raw as StreamCitation;
     return { ...next, citations: [...state.citations, citation] };
   }
+  if (event.type === "tool_call.started") {
+    const tool: StreamTool = {
+      name: event.data?.qualifiedName ?? "tool",
+      status: "running",
+      preview: "",
+      arguments: event.data?.argumentsPreview ?? "",
+      presentation: event.data?.presentation,
+    };
+    return { ...next, status: "streaming", tools: [...state.tools, tool] };
+  }
   if (event.type === "tool_call.approval_required") {
     const preview = event.data?.resultPreview ?? event.data?.text ?? "";
     const tool = {
@@ -114,13 +126,25 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
     event.type === "tool_call.failed" ||
     event.type === "tool_call.approval_resolved"
   ) {
-    const tool = {
+    const tool: StreamTool = {
       name: event.data?.qualifiedName ?? "tool",
       status: event.data?.status ?? event.type,
       preview: event.data?.resultPreview ?? "",
+      arguments: event.data?.argumentsPreview,
       presentation: event.data?.presentation,
     };
-    return { ...next, status: "streaming", tools: [...state.tools, tool] };
+    const running = state.tools.findIndex(
+      (item) => item.name === tool.name && item.status === "running",
+    );
+    const tools =
+      running === -1
+        ? [...state.tools, tool]
+        : state.tools.map((item, index) =>
+            index === running
+              ? { ...item, ...tool, arguments: item.arguments || tool.arguments }
+              : item,
+          );
+    return { ...next, status: "streaming", tools };
   }
   if (event.type === "message.delta") {
     return { ...next, status: "streaming", text: state.text + (event.data?.text ?? "") };

@@ -498,6 +498,18 @@ async def get_agent_card(
 async def _a2a(request: Request, response: Response, slug: str | None) -> Response:
     key = _require_key(request, response)
     chosen = _slug_of(_store(request), key, slug)
+    content_type = request.headers.get("content-type", "")
+    grpc_method = request.headers.get("x-grpc-method", "")
+    if "application/grpc" in content_type or grpc_method:
+        from ar_domain.exposure.grpc_a2a import grpc_call  # noqa: PLC0415
+
+        payload = await request.json()
+        body = payload if isinstance(payload, dict) else {}
+        method = grpc_method or str(body.get("method") or "")
+        result, status = await grpc_call(_store(request), key, chosen, method, body)
+        headers = dict(getattr(request.state, "rate_headers", {}))
+        headers["grpc-status"] = str(status)
+        return JSONResponse(result, headers=headers)
     payload = await request.json()
     if not isinstance(payload, dict):
         raise ArError(ErrorCode.BAD_REQUEST, "json-rpc body is required")

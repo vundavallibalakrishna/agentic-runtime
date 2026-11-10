@@ -10,13 +10,14 @@ from ..types import UNSET, Unset
 
 
 T = TypeVar(
-    "T", bound="SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost"
+    "T",
+    bound="GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponseGuestAgentTurnApiV1GuestAgentsAgentIdTurnsPost",
 )
 
 
 @_attrs_define
-class SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost:
-    additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
+class GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponseGuestAgentTurnApiV1GuestAgentsAgentIdTurnsPost:
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -28,19 +29,19 @@ class SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTe
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        switch_tenant_api_v1_auth_switch_tenant_post_response_switch_tenant_api_v1_auth_switch_tenant_post = cls()
+        guest_agent_turn_api_v1_guest_agents_agent_id_turns_post_response_guest_agent_turn_api_v1_guest_agents_agent_id_turns_post = cls()
 
-        switch_tenant_api_v1_auth_switch_tenant_post_response_switch_tenant_api_v1_auth_switch_tenant_post.additional_properties = d
-        return switch_tenant_api_v1_auth_switch_tenant_post_response_switch_tenant_api_v1_auth_switch_tenant_post
+        guest_agent_turn_api_v1_guest_agents_agent_id_turns_post_response_guest_agent_turn_api_v1_guest_agents_agent_id_turns_post.additional_properties = d
+        return guest_agent_turn_api_v1_guest_agents_agent_id_turns_post_response_guest_agent_turn_api_v1_guest_agents_agent_id_turns_post
 
     @property
     def additional_keys(self) -> list[str]:
         return list(self.additional_properties.keys())
 
-    def __getitem__(self, key: str) -> str:
+    def __getitem__(self, key: str) -> Any:
         return self.additional_properties[key]
 
-    def __setitem__(self, key: str, value: str) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         self.additional_properties[key] = value
 
     def __delitem__(self, key: str) -> None:

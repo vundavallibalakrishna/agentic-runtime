@@ -4,10 +4,10 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 
 ## Summary
 
-- Total connector tools: **92**
+- Total connector tools: **100**
 - dispatched: **6**
-- needs-oauth: **25**
-- needs-egress: **55**
+- needs-oauth: **31**
+- needs-egress: **57**
 - needs-param: **6**
 - install-failed: **0**
 - failing: **0**
@@ -208,3 +208,26 @@ Every connector installed with stub credentials; every HTTP call caught by an ht
 | `gcp_list_instances` | needs-oauth | credential_required: The secret must be a Google service-account JSON key. |
 | `gcp_list_buckets` | needs-oauth | credential_required: The secret must be a Google service-account JSON key. |
 | `gcp_get_iam_policy` | needs-oauth | credential_required: The secret must be a Google service-account JSON key. |
+
+## gmail
+
+| tool | state | note |
+|---|---|---|
+| `gmail_list` | needs-oauth | credential_required: this connection has no access token yet. Reconnect the account on the connector page. |
+| `gmail_read` | needs-oauth | credential_required: this connection has no access token yet. Reconnect the account on the connector page. |
+| `gmail_send` | needs-oauth | credential_required: this connection has no access token yet. Reconnect the account on the connector page. |
+
+## outlook
+
+| tool | state | note |
+|---|---|---|
+| `outlook_list` | needs-oauth | credential_required: this connection has no access token yet. Reconnect the account on the connector page. |
+| `outlook_read` | needs-oauth | credential_required: this connection has no access token yet. Reconnect the account on the connector page. |
+| `outlook_send` | needs-oauth | credential_required: this connection has no access token yet. Reconnect the account on the connector page. |
+
+## rest
+
+| tool | state | note |
+|---|---|---|
+| `rest_get` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |
+| `rest_post` | needs-egress | egress_denied: stub.example.com is blocked by the egress deny list |

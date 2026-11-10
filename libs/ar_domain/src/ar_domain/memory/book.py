@@ -74,12 +74,12 @@ class MemoryBook:
 
     def create_user(self, actor: Actor, body: dict[str, object]) -> dict[str, object]:
         scope = str(body.get("scope") or "user")
-        if scope not in {"user", "agent_user"}:
-            raise ValidationFailedError("scope must be user or agent_user")
+        if scope not in {"user", "agent_user", "workspace"}:
+            raise ValidationFailedError("scope must be user, agent_user or workspace")
         agent_id = _uuid(body.get("agent_id"))
         if scope == "agent_user" and agent_id is None:
             raise ValidationFailedError("agent_id is required for agent_user")
-        if agent_id is not None:
+        if scope != "workspace" and agent_id is not None:
             self._agent(actor, agent_id)
         content = _content(body.get("content"))
         self._guard(content, explicit=True)
@@ -87,8 +87,8 @@ class MemoryBook:
         row = self._insert(
             actor,
             scope=scope,
-            user_id=actor.user_id,
-            agent_id=agent_id,
+            user_id=None if scope == "workspace" else actor.user_id,
+            agent_id=None if scope == "workspace" else agent_id,
             team_id=None,
             content=content,
             category=category,
@@ -683,17 +683,25 @@ class MemoryBook:
             row
             for row in self._rows().values()
             if row.get("tenant_id") == actor.tenant_id
-            and row.get("user_id") == actor.user_id
-            and row.get("scope") in {"user", "agent_user"}
+            and (
+                (row.get("user_id") == actor.user_id and row.get("scope") in {"user", "agent_user"})
+                or row.get("scope") == "workspace"
+            )
         ]
 
     def _owned_row(self, actor: Actor, fact_id: uuid.UUID) -> dict[str, object]:
         row = self._rows().get(fact_id)
+        workspace = isinstance(row, dict) and row.get("scope") == "workspace"
         if (
             not isinstance(row, dict)
             or row.get("tenant_id") != actor.tenant_id
-            or row.get("user_id") != actor.user_id
-            or row.get("scope") not in {"user", "agent_user"}
+            or (
+                not workspace
+                and (
+                    row.get("user_id") != actor.user_id
+                    or row.get("scope") not in {"user", "agent_user"}
+                )
+            )
         ):
             raise NotFoundError("memory fact not found")
         return row
@@ -917,6 +925,8 @@ def _in_recall(
         )
     if scope == "agent":
         return agent_id is not None and row.get("agent_id") == agent_id
+    if scope == "workspace":
+        return True
     return scope == "team" and row.get("team_id") in teams
 
 

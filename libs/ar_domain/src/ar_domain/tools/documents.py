@@ -146,7 +146,7 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
     return _error("unknown_tool", f"unknown tool {name}")
 
 
-def _ocr(  # noqa: PLR0911
+def _ocr(  # noqa: PLR0911, PLR0912, PLR0915
     library: DocumentLibrary, store: Any, actor: Actor, arguments: dict[str, object]
 ) -> dict[str, object]:
     """Read a scanned page with tesseract, or with the vision alias when asked."""
@@ -159,6 +159,19 @@ def _ocr(  # noqa: PLR0911
     elif engine == "vision":
         reader = VisionReader(store, actor.tenant_id)
     refused = cloud_refusal(engine if engine != "tesseract" else "")
+    if reader is None and refused is not None and not refused.startswith("Unknown"):
+        from ar_domain.documents.ocr_cloud import read_cloud  # noqa: PLC0415
+
+        file_id = _optional_uuid(arguments.get("fileId") or arguments.get("file_id"))
+        data = b""
+        if file_id is not None:
+            try:
+                data, _mime = store.file_bytes(actor.tenant_id, actor.user_id, file_id)
+            except Exception:  # noqa: BLE001 - a missing file falls through to the refusal
+                data = b""
+        cloud = read_cloud(store, actor.tenant_id, engine, data)
+        if cloud is not None:
+            return cloud
     if reader is None and refused is not None:
         code = "validation_failed" if refused.startswith("Unknown") else "not_live"
         return _error(code, refused)

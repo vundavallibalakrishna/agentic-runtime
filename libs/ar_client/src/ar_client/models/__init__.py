@@ -144,6 +144,9 @@ from .conversation_patch import ConversationPatch
 from .conversation_sandbox_api_v1_conversations_conversation_id_sandbox_get_response_conversation_sandbox_api_v1_conversations_conversation_id_sandbox_get import (
     ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponseConversationSandboxApiV1ConversationsConversationIdSandboxGet,
 )
+from .conversation_summary_api_v1_conversations_conversation_id_summary_get_response_conversation_summary_api_v1_conversations_conversation_id_summary_get import (
+    ConversationSummaryApiV1ConversationsConversationIdSummaryGetResponseConversationSummaryApiV1ConversationsConversationIdSummaryGet,
+)
 from .create_agent_api_v1_agents_post_response_create_agent_api_v1_agents_post import (
     CreateAgentApiV1AgentsPostResponseCreateAgentApiV1AgentsPost,
 )
@@ -225,6 +228,9 @@ from .create_provider_api_v1_credential_providers_post_response_create_provider_
 )
 from .create_provider_api_v1_model_providers_post_response_create_provider_api_v1_model_providers_post import (
     CreateProviderApiV1ModelProvidersPostResponseCreateProviderApiV1ModelProvidersPost,
+)
+from .create_push_subscription_api_v1_notifications_push_subscriptions_post_response_create_push_subscription_api_v1_notifications_push_subscriptions_post import (
+    CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostResponseCreatePushSubscriptionApiV1NotificationsPushSubscriptionsPost,
 )
 from .create_queue_api_v1_review_queues_post_response_create_queue_api_v1_review_queues_post import (
     CreateQueueApiV1ReviewQueuesPostResponseCreateQueueApiV1ReviewQueuesPost,
@@ -364,6 +370,9 @@ from .delete_provider_api_v1_credential_providers_provider_id_delete_response_de
 )
 from .delete_provider_api_v1_model_providers_provider_id_delete_response_delete_provider_api_v1_model_providers_provider_id_delete import (
     DeleteProviderApiV1ModelProvidersProviderIdDeleteResponseDeleteProviderApiV1ModelProvidersProviderIdDelete,
+)
+from .delete_push_subscription_api_v1_notifications_push_subscriptions_subscription_id_delete_response_delete_push_subscription_api_v1_notifications_push_subscriptions_subscription_id_delete import (
+    DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteResponseDeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDelete,
 )
 from .delete_queue_api_v1_review_queues_queue_id_delete_response_delete_queue_api_v1_review_queues_queue_id_delete import (
     DeleteQueueApiV1ReviewQueuesQueueIdDeleteResponseDeleteQueueApiV1ReviewQueuesQueueIdDelete,
@@ -668,8 +677,12 @@ from .grant_standing_api_v1_standing_approvals_post_response_grant_standing_api_
     GrantStandingApiV1StandingApprovalsPostResponseGrantStandingApiV1StandingApprovalsPost,
 )
 from .group_create import GroupCreate
+from .guest_agent_turn_api_v1_guest_agents_agent_id_turns_post_response_guest_agent_turn_api_v1_guest_agents_agent_id_turns_post import (
+    GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponseGuestAgentTurnApiV1GuestAgentsAgentIdTurnsPost,
+)
 from .guest_link_body import GuestLinkBody
 from .guest_session_body import GuestSessionBody
+from .guest_turn_body import GuestTurnBody
 from .healthz_healthz_get_response_healthz_healthz_get import (
     HealthzHealthzGetResponseHealthzHealthzGet,
 )
@@ -1017,6 +1030,12 @@ from .openapi_document_api_v1_openapi_json_get_response_openapi_document_api_v1_
 from .password_login_api_v1_auth_login_post_body_type_0 import (
     PasswordLoginApiV1AuthLoginPostBodyType0,
 )
+from .password_reset_api_v1_auth_password_reset_post_body_type_0 import (
+    PasswordResetApiV1AuthPasswordResetPostBodyType0,
+)
+from .password_reset_confirm_api_v1_auth_password_reset_confirm_post_body_type_0 import (
+    PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0,
+)
 from .patch_agent_api_v1_agents_agent_id_patch_response_patch_agent_api_v1_agents_agent_id_patch import (
     PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch,
 )
@@ -1170,6 +1189,7 @@ from .publish_body import PublishBody
 from .publish_skill_api_v1_skills_skill_id_publish_post_response_publish_skill_api_v1_skills_skill_id_publish_post import (
     PublishSkillApiV1SkillsSkillIdPublishPostResponsePublishSkillApiV1SkillsSkillIdPublishPost,
 )
+from .push_body import PushBody
 from .put_feedback_api_v1_messages_message_id_feedback_put_response_put_feedback_api_v1_messages_message_id_feedback_put import (
     PutFeedbackApiV1MessagesMessageIdFeedbackPutResponsePutFeedbackApiV1MessagesMessageIdFeedbackPut,
 )
@@ -1204,6 +1224,9 @@ from .redact_document_api_v1_library_documents_document_id_redact_post_response_
 )
 from .redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post_response_redeliver_api_v1_webhooks_webhook_id_deliveries_delivery_id_redeliver_post import (
     RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost,
+)
+from .refresh_conversation_summary_api_v1_conversations_conversation_id_summary_refresh_post_response_refresh_conversation_summary_api_v1_conversations_conversation_id_summary_refresh_post import (
+    RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponseRefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPost,
 )
 from .refresh_document_api_v1_knowledge_documents_document_id_refresh_post_response_refresh_document_api_v1_knowledge_documents_document_id_refresh_post import (
     RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponseRefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPost,
@@ -1246,6 +1269,9 @@ from .resume_research_api_v1_research_runs_run_id_resume_post_response_resume_re
 )
 from .resume_routine_api_v1_routines_routine_id_resume_post_response_resume_routine_api_v1_routines_routine_id_resume_post import (
     ResumeRoutineApiV1RoutinesRoutineIdResumePostResponseResumeRoutineApiV1RoutinesRoutineIdResumePost,
+)
+from .resume_run_api_v1_runs_run_id_resume_post_response_resume_run_api_v1_runs_run_id_resume_post import (
+    ResumeRunApiV1RunsRunIdResumePostResponseResumeRunApiV1RunsRunIdResumePost,
 )
 from .resume_source_api_v1_knowledge_sources_source_id_resume_post_response_resume_source_api_v1_knowledge_sources_source_id_resume_post import (
     ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost,
@@ -1398,9 +1424,6 @@ from .suspend_api_v1_platform_tenants_tenant_id_suspend_post_response_suspend_ap
 )
 from .switch_tenant_api_v1_auth_switch_tenant_post_body import (
     SwitchTenantApiV1AuthSwitchTenantPostBody,
-)
-from .switch_tenant_api_v1_auth_switch_tenant_post_response_switch_tenant_api_v1_auth_switch_tenant_post import (
-    SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost,
 )
 from .sync_body import SyncBody
 from .sync_source_api_v1_knowledge_sources_source_id_sync_post_response_sync_source_api_v1_knowledge_sources_source_id_sync_post import (
@@ -1625,6 +1648,7 @@ __all__ = (
     "ConversationBody",
     "ConversationPatch",
     "ConversationSandboxApiV1ConversationsConversationIdSandboxGetResponseConversationSandboxApiV1ConversationsConversationIdSandboxGet",
+    "ConversationSummaryApiV1ConversationsConversationIdSummaryGetResponseConversationSummaryApiV1ConversationsConversationIdSummaryGet",
     "CreateAgentApiV1AgentsPostResponseCreateAgentApiV1AgentsPost",
     "CreateAgentKeyApiV1AgentsAgentIdApiKeysPostResponseCreateAgentKeyApiV1AgentsAgentIdApiKeysPost",
     "CreateAgentMemoryApiV1AgentsAgentIdMemoryPostResponseCreateAgentMemoryApiV1AgentsAgentIdMemoryPost",
@@ -1653,6 +1677,7 @@ __all__ = (
     "CreatePolicyApiV1PoliciesPostResponseCreatePolicyApiV1PoliciesPost",
     "CreateProviderApiV1CredentialProvidersPostResponseCreateProviderApiV1CredentialProvidersPost",
     "CreateProviderApiV1ModelProvidersPostResponseCreateProviderApiV1ModelProvidersPost",
+    "CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostResponseCreatePushSubscriptionApiV1NotificationsPushSubscriptionsPost",
     "CreateQueueApiV1ReviewQueuesPostResponseCreateQueueApiV1ReviewQueuesPost",
     "CreateQuotaApiV1QuotasPostResponseCreateQuotaApiV1QuotasPost",
     "CreateRoleApiV1RolesPostResponseCreateRoleApiV1RolesPost",
@@ -1704,6 +1729,7 @@ __all__ = (
     "DeletePolicyApiV1PoliciesPolicyIdDeleteResponseDeletePolicyApiV1PoliciesPolicyIdDelete",
     "DeleteProviderApiV1CredentialProvidersProviderIdDeleteResponseDeleteProviderApiV1CredentialProvidersProviderIdDelete",
     "DeleteProviderApiV1ModelProvidersProviderIdDeleteResponseDeleteProviderApiV1ModelProvidersProviderIdDelete",
+    "DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteResponseDeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDelete",
     "DeleteQueueApiV1ReviewQueuesQueueIdDeleteResponseDeleteQueueApiV1ReviewQueuesQueueIdDelete",
     "DeleteRoleApiV1RolesRoleIdDeleteResponseDeleteRoleApiV1RolesRoleIdDelete",
     "DeleteSecretApiV1SecretsSecretIdDeleteResponseDeleteSecretApiV1SecretsSecretIdDelete",
@@ -1819,8 +1845,10 @@ __all__ = (
     "GrantCreate",
     "GrantStandingApiV1StandingApprovalsPostResponseGrantStandingApiV1StandingApprovalsPost",
     "GroupCreate",
+    "GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponseGuestAgentTurnApiV1GuestAgentsAgentIdTurnsPost",
     "GuestLinkBody",
     "GuestSessionBody",
+    "GuestTurnBody",
     "HealthzHealthzGetResponseHealthzHealthzGet",
     "HTTPValidationError",
     "IdpCreate",
@@ -1966,6 +1994,8 @@ __all__ = (
     "OpenApiPreviewDocumentType0",
     "OpenItemApiV1ReviewItemsPostResponseOpenItemApiV1ReviewItemsPost",
     "PasswordLoginApiV1AuthLoginPostBodyType0",
+    "PasswordResetApiV1AuthPasswordResetPostBodyType0",
+    "PasswordResetConfirmApiV1AuthPasswordResetConfirmPostBodyType0",
     "PatchAgentApiV1AgentsAgentIdPatchResponsePatchAgentApiV1AgentsAgentIdPatch",
     "PatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatchResponsePatchAgentMemoryApiV1AgentsAgentIdMemoryFactIdPatch",
     "PatchCollectionApiV1KnowledgeCollectionsCollectionIdPatchResponsePatchCollectionApiV1KnowledgeCollectionsCollectionIdPatch",
@@ -2025,6 +2055,7 @@ __all__ = (
     "PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost",
     "PublishBody",
     "PublishSkillApiV1SkillsSkillIdPublishPostResponsePublishSkillApiV1SkillsSkillIdPublishPost",
+    "PushBody",
     "PutFeedbackApiV1MessagesMessageIdFeedbackPutResponsePutFeedbackApiV1MessagesMessageIdFeedbackPut",
     "PutMemberApiV1GroupsGroupIdMembersUserIdPutResponsePutMemberApiV1GroupsGroupIdMembersUserIdPut",
     "PutModelRoutesApiV1ModelRoutesPutResponsePutModelRoutesApiV1ModelRoutesPut",
@@ -2042,6 +2073,7 @@ __all__ = (
     "ReasonBody",
     "RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponseRedactDocumentApiV1LibraryDocumentsDocumentIdRedactPost",
     "RedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPostResponseRedeliverApiV1WebhooksWebhookIdDeliveriesDeliveryIdRedeliverPost",
+    "RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponseRefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPost",
     "RefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPostResponseRefreshDocumentApiV1KnowledgeDocumentsDocumentIdRefreshPost",
     "RefreshServerApiV1ToolServersServerIdRefreshPostResponseRefreshServerApiV1ToolServersServerIdRefreshPost",
     "RegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePostResponseRegenerateApiV1ConversationsConversationIdMessagesMessageIdRegeneratePost",
@@ -2058,6 +2090,7 @@ __all__ = (
     "ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost",
     "ResumeResearchApiV1ResearchRunsRunIdResumePostResponseResumeResearchApiV1ResearchRunsRunIdResumePost",
     "ResumeRoutineApiV1RoutinesRoutineIdResumePostResponseResumeRoutineApiV1RoutinesRoutineIdResumePost",
+    "ResumeRunApiV1RunsRunIdResumePostResponseResumeRunApiV1RunsRunIdResumePost",
     "ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost",
     "ReviewDecideBody",
     "RevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDeleteResponseRevokeAgentKeyApiV1AgentsAgentIdApiKeysKeyIdDelete",
@@ -2140,7 +2173,6 @@ __all__ = (
     "SummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePostResponseSummariseDocumentApiV1LibraryDocumentsDocumentIdSummarisePost",
     "SuspendApiV1PlatformTenantsTenantIdSuspendPostResponseSuspendApiV1PlatformTenantsTenantIdSuspendPost",
     "SwitchTenantApiV1AuthSwitchTenantPostBody",
-    "SwitchTenantApiV1AuthSwitchTenantPostResponseSwitchTenantApiV1AuthSwitchTenantPost",
     "SyncBody",
     "SyncSourceApiV1KnowledgeSourcesSourceIdSyncPostResponseSyncSourceApiV1KnowledgeSourcesSourceIdSyncPost",
     "TeamCreate",

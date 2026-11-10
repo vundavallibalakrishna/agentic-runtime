@@ -259,7 +259,7 @@ def test_rotate_upload_events_and_unimplemented_a2a() -> None:
         json={"jsonrpc": "2.0", "id": 4, "method": "tasks/resubscribe"},
     )
     assert missing.status_code == 200
-    assert missing.json()["error"]["code"] == -32601
+    assert missing.json()["error"]["code"] == -32000
     note = client.post(
         "/v1/mcp",
         headers={**headers, "Accept": "application/json"},

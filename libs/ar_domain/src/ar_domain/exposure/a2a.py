@@ -1,4 +1,4 @@
-"""A2A agent card, tasks, push webhooks and a client tool. gRPC is not implemented."""
+"""A2A agent card, tasks, push webhooks and a client tool."""
 
 from __future__ import annotations
 
@@ -39,8 +39,6 @@ _IMPLEMENTED = {
     "tasks/pushNotificationConfig/get",
     "tasks/pushNotificationConfig/delete",
     "tasks/pushNotificationConfig/list",
-}
-_NOT_IMPLEMENTED = {
     "tasks/resubscribe",
 }
 
@@ -124,6 +122,10 @@ def _task_row(  # noqa: PLR0917
         "state": state,
         "output_text": output,
         "artifacts": artifacts,
+        "events": [
+            {"id": "1", "kind": "status", "state": state},
+            *([{"id": "2", "kind": "artifact", "text": output}] if output else []),
+        ],
         "created_at": utcnow(),
         "updated_at": utcnow(),
     }
@@ -201,6 +203,22 @@ async def send_task(
     )
     deliver_push(store, key, row)
     return task_body(row)
+
+
+def resubscribe(store: Any, key: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    """Return the task and the events after the caller's cursor."""
+    task_id = _task_param(params)
+    body = get_task(store, key, task_id)
+    row = _book(store, "a2a_tasks").get(task_id)
+    events = row.get("events") if isinstance(row, dict) else []
+    if not isinstance(events, list):
+        events = []
+    cursor = str(params.get("last_event_id") or params.get("lastEventId") or "")
+    if cursor:
+        events = [event for event in events if str(event.get("id")) > cursor]
+    body["events"] = events
+    body["resubscribed"] = True
+    return body
 
 
 def get_task(store: Any, key: dict[str, Any], task_id: uuid.UUID) -> dict[str, Any]:
@@ -493,8 +511,6 @@ async def rpc(
     request_id = message.get("id")
     raw_params = message.get("params")
     params = raw_params if isinstance(raw_params, dict) else {}
-    if method in _NOT_IMPLEMENTED:
-        return _error(request_id, -32601, f"Method not implemented: {method}")
     if method not in _IMPLEMENTED:
         return _error(request_id, -32601, f"Method not found: {method}")
     try:
@@ -515,8 +531,13 @@ async def _call(
         return list_tasks(store, key, params)
     if method.startswith("tasks/pushNotificationConfig/"):
         return _push_method(store, key, method, params)
+    if method == "tasks/resubscribe":
+        return resubscribe(store, key, params)
     task_raw = params.get("id") or params.get("task_id") or params.get("taskId")
-    task_id = uuid.UUID(str(task_raw))
+    try:
+        task_id = uuid.UUID(str(task_raw))
+    except ValueError as exc:
+        raise ArError(ErrorCode.VALIDATION_FAILED, "a task id is required") from exc
     if method == "tasks/get":
         return get_task(store, key, task_id)
     return cancel_task(store, key, slug, task_id)

@@ -102,6 +102,7 @@ export function ChatScreen() {
   const setDraft = useComposer((state) => state.setDraft);
   const [stream, setStream] = useState<StreamState>(emptyStream);
   const [runId, setRunId] = useState("");
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [banner, setBanner] = useState("");
   const [attachments, setAttachments] = useState<Attached[]>([]);
   const [accept, setAccept] = useState("");
@@ -564,6 +565,33 @@ export function ChatScreen() {
     }
   }
 
+  async function editMessage(messageId: string, text: string) {
+    if (!activeId || !text.trim()) return;
+    const posted = await api<{ run: { id: string } }>(
+      `/api/v1/conversations/${activeId}/messages/${messageId}:edit`,
+      { method: "POST", body: JSON.stringify({ text }) },
+    );
+    setEditing(null);
+    runRef.current = posted.run.id;
+    setRunId(posted.run.id);
+    const request = new AbortController();
+    streamRequest.current = request;
+    setStream({ ...emptyStream, status: "streaming" });
+    const streamed = await readStream(posted.run.id, request.signal);
+    await openConversation(activeId, streamed);
+  }
+
+  async function resume(id: string) {
+    const posted = await api<{ id: string }>(`/api/v1/runs/${id}:resume`, {
+      method: "POST",
+      body: "{}",
+    });
+    const request = new AbortController();
+    streamRequest.current = request;
+    setStream({ ...emptyStream, status: "streaming" });
+    await readStream(posted.id || id, request.signal);
+  }
+
   async function onUpload(files: FileList) {
     for (const file of Array.from(files)) {
       const body = new FormData();
@@ -828,7 +856,22 @@ export function ChatScreen() {
                         }
                       >
                         <p className="sr-only">{String(message.role)}</p>
-                        {failedHere ? (
+                        {editing?.id === id ? (
+                          <form
+                            className="space-y-2"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void editMessage(id, editing.text);
+                            }}
+                          >
+                            <textarea
+                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
+                              onChange={(event) => setEditing({ id, text: event.target.value })}
+                              value={editing.text}
+                            />
+                            <Button type="submit">{t("saveEdit")}</Button>
+                          </form>
+                        ) : failedHere ? (
                           <FailedReply
                             busy={stream.status === "streaming"}
                             onRetry={
@@ -840,6 +883,31 @@ export function ChatScreen() {
                         ) : (
                           <MarkdownView text={body} />
                         )}
+                        {mine && editing?.id !== id && !id.startsWith("local-") ? (
+                          <button
+                            className="mt-1 text-xs underline"
+                            onClick={() => setEditing({ id, text: body })}
+                            type="button"
+                          >
+                            {t("edit")}
+                          </button>
+                        ) : null}
+                        {failedHere ? (
+                          <button
+                            className="mt-2 text-xs underline"
+                            onClick={() => {
+                              const target = String(
+                                (message as { runId?: string; run_id?: string }).runId ??
+                                  (message as { run_id?: string }).run_id ??
+                                  runId,
+                              );
+                              if (target) void resume(target);
+                            }}
+                            type="button"
+                          >
+                            {t("resume")}
+                          </button>
+                        ) : null}
                         {!streamingHere ? <AttachmentList files={attachedOf(message)} /> : null}
                         {streamingHere && stream.tools.length > 0 ? (
                           <div>
@@ -852,6 +920,7 @@ export function ChatScreen() {
                                   qualifiedName: tool.name,
                                   status: tool.status,
                                   resultPreview: tool.preview,
+                                  arguments: tool.arguments,
                                   presentation: tool.presentation,
                                 }}
                                 key={`${id}-${tool.name}-${tool.status}-${tool.preview}`}

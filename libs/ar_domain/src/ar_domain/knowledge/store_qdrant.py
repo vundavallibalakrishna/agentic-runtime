@@ -336,6 +336,7 @@ def _payload(chunk: IndexedChunk) -> dict[str, object]:
         "acl": list(chunk.acl),
         "classification": chunk.classification,
         "title": chunk.title,
+        "embedding_model_id": chunk.embedding_model_id,
     }
 
 

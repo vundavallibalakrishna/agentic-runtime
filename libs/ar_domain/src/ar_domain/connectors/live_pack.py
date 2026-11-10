@@ -333,6 +333,34 @@ CANARIES: tuple[Canary, ...] = (
             ("zone", "AR_M36_GCP_ZONE"),
         ),
     ),
+    _canary(
+        "gmail",
+        "gmail_list",
+        "bearer",
+        secret_env="AR_M36_GMAIL_TOKEN",
+        write_tool="gmail_send",
+        write_args=(("subject", "Canary"), ("text", "Canary")),
+        write_env=(("to", "AR_M36_GMAIL_TO"),),
+    ),
+    _canary(
+        "outlook",
+        "outlook_list",
+        "bearer",
+        secret_env="AR_M36_OUTLOOK_TOKEN",
+        write_tool="outlook_send",
+        write_args=(("subject", "Canary"), ("text", "Canary")),
+        write_env=(("to", "AR_M36_OUTLOOK_TO"),),
+    ),
+    _canary(
+        "rest",
+        "rest_get",
+        "bearer",
+        secret_env="AR_M36_REST_TOKEN",
+        config_env=(("baseUrl", "AR_M36_REST_URL"),),
+        write_tool="rest_post",
+        write_args=(("body", "Canary"),),
+        write_env=(("path", "AR_M36_REST_PATH"),),
+    ),
 )
 
 

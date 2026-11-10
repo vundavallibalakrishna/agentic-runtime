@@ -174,7 +174,7 @@ def test_csv_matches_the_daily_rows() -> None:
     body = book.export_csv(actor, {})
     lines = [line for line in body.splitlines() if line]
     assert lines[0] == (
-        "day,metric,user_email,team,agent_slug,model_alias,quantity,cost_micros,currency"
+        "day,metric,user_email,team,agent_slug,model_alias,quantity,cost_micros,currency,api_key_id"
     )
     daily_qty = sum(item.quantity for item in store.usage_daily.values())
     exported = sum(int(line.split(",")[6]) for line in lines[1:])
@@ -195,8 +195,8 @@ def test_csv_matches_the_daily_rows() -> None:
         "INR",
     )
     assert snapshot == (
-        "day,metric,user_email,team,agent_slug,model_alias,quantity,cost_micros,currency\n"
-        "2026-10-22,model_input_tokens,admin@dev.local,,assistant,reasoning,3,15,INR\n"
+        "day,metric,user_email,team,agent_slug,model_alias,quantity,cost_micros,currency,api_key_id\n"
+        "2026-10-22,model_input_tokens,admin@dev.local,,assistant,reasoning,3,15,INR,\n"
     )
 
 

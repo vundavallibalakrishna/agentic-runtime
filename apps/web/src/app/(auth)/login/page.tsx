@@ -24,6 +24,8 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [method, setMethod] = useState("password");
   const [loginUrl, setLoginUrl] = useState("/api/v1/auth/oidc/start");
+  const [tenants, setTenants] = useState<{ id: string; name: string }[]>([]);
+  const [tenantId, setTenantId] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -50,10 +52,19 @@ export default function LoginPage() {
     // useSearchParams() and can be statically prerendered.
     const returnTo = safeReturnTo(new URLSearchParams(window.location.search).get("return_to"));
     try {
-      await api("/api/v1/auth/login", {
+      const signed = await api<{
+        ok?: boolean;
+        chooseTenant?: boolean;
+        tenants?: { id: string; name: string }[];
+      }>("/api/v1/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, tenantId: tenantId || undefined }),
       });
+      if (signed.chooseTenant && signed.tenants && signed.tenants.length > 1 && !tenantId) {
+        setTenants(signed.tenants);
+        setBusy(false);
+        return;
+      }
       // Full navigation so the session cookie is seen by the proxy session gate.
       window.location.assign(returnTo);
     } catch (caught) {
@@ -126,6 +137,26 @@ export default function LoginPage() {
                 required
               />
             </div>
+            {tenants.length > 1 ? (
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium" htmlFor="tenant">
+                  {t("tenantLabel")}
+                </label>
+                <select
+                  className="block h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
+                  id="tenant"
+                  onChange={(event) => setTenantId(event.target.value)}
+                  value={tenantId}
+                >
+                  <option value="">{t("chooseTenant")}</option>
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {error ? (
               <p
                 className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--destructive)]"
@@ -137,6 +168,11 @@ export default function LoginPage() {
             <Button type="submit" className="h-10 w-full" disabled={busy}>
               {busy ? t("signingIn") : t("submit")}
             </Button>
+            <p className="text-sm">
+              <a className="underline" href="/forgot-password">
+                {t("forgot")}
+              </a>
+            </p>
           </form>
         ) : null}
       </div>

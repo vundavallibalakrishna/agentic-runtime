@@ -325,7 +325,7 @@ def _copy_run(store: Any, source: uuid.UUID, target: uuid.UUID, tenant_id: uuid.
 
 def _load_blob(store: Any, file_id: uuid.UUID) -> bytes | None:
     """Bytes a release before this one kept in Postgres (``file_blobs``)."""
-    rows = _sync_rows(store, "SELECT body FROM file_blobs WHERE id = :id", {"id": file_id})
+    rows = _sync_rows(store, "SELECT body FROM file_blob_payloads WHERE id = :id", {"id": file_id})
     if not rows:
         return None
     body = rows[0].get("body")

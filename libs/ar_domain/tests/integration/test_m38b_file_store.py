@@ -90,7 +90,7 @@ async def test_a_large_upload_reaches_the_worker_and_survives_a_restart(
         ).all()
         blobs = (
             await connection.execute(
-                text("SELECT count(*) FROM file_blobs WHERE id = :id"), {"id": file_id}
+                text("SELECT count(*) FROM file_blob_payloads WHERE id = :id"), {"id": file_id}
             )
         ).scalar()
     assert len(rows) == 1
@@ -182,9 +182,21 @@ async def test_a_file_from_before_moves_to_the_object_store_on_its_first_read(
     async with engine.begin() as connection:
         await connection.execute(
             text(
-                "INSERT INTO file_blobs (id, tenant_id, owner_user_id, name, mime_type, sha256, "
-                "size_bytes, kind, body, created_at, updated_at) VALUES (:id, :tenant_id, "
-                ":owner, 'orders.csv', 'text/csv', 'x', 12, 'upload', :body, now(), now())"
+                "INSERT INTO files (id, tenant_id, owner_user_id, kind, name, mime_type, "
+                "size_bytes, sha256, object_key, status, scan_status) VALUES (:id, :tenant_id, "
+                ":owner, 'upload', 'orders.csv', 'text/csv', 12, 'x', :key, 'ready', 'skipped')"
+            ),
+            {
+                "id": old_id,
+                "tenant_id": tenant,
+                "owner": admin,
+                "key": f"legacy/file-blobs/{old_id}",
+            },
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO file_blob_payloads (id, tenant_id, body) "
+                "VALUES (:id, :tenant_id, :body)"
             ),
             {"id": old_id, "tenant_id": tenant, "owner": admin, "body": b"a,b\n1,2\n3,4\n"},
         )

@@ -6,7 +6,7 @@ Every public HTTP endpoint, generated from the `#### METHOD /path` headings of t
 
 New endpoints are appended at the end.
 
-Total: **467** endpoints.
+Total: **475** endpoints.
 
 Permission column: the permission key named first in the spec text (additional object-level rules in the spec); other entries name the authentication mechanism, or `object-level` when access depends on ownership/visibility of the resource (owner, viewer, editor, eligible approver) as defined in the spec section.
 
@@ -672,3 +672,11 @@ Routes present in `openapi.json` and absent from the spec tables above.
 | POST | `/api/v1/research/runs/{run_id}:cancel` | `chat:use` | stage 10 |
 | POST | `/api/v1/research/runs/{run_id}:resume` | `chat:use` | stage 10 |
 | POST | `/v1/research/runs` | agent key | stage 10 |
+| DELETE | `/api/v1/notifications/push-subscriptions/{subscription_id}` | session | stage 11 |
+| GET | `/api/v1/conversations/{conversation_id}/summary` | `chat:use` | stage 11 |
+| POST | `/api/v1/auth/password-reset` | public | stage 11 |
+| POST | `/api/v1/auth/password-reset/confirm` | public | stage 11 |
+| POST | `/api/v1/conversations/{conversation_id}/summary:refresh` | `chat:use` | stage 11 |
+| POST | `/api/v1/guest/agents/{agent_id}/turns` | guest session | stage 11 |
+| POST | `/api/v1/notifications/push-subscriptions` | session | stage 11 |
+| POST | `/api/v1/runs/{run_id}:resume` | `chat:use` | stage 11 |

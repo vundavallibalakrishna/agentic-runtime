@@ -194,10 +194,11 @@ _USAGE_INSERT = text(
     """
     INSERT INTO usage_events (
         id, tenant_id, occurred_at, metric, quantity, cost_micros, user_id, team_id, agent_id,
-        routine_id, run_id, model_id, model_alias, tool_id, source, dedupe_key
+        routine_id, run_id, model_id, model_alias, tool_id, source, dedupe_key, api_key_id
     ) VALUES (
         :id, :tenant_id, :occurred_at, :metric, :quantity, :cost_micros, :user_id, :team_id,
-        :agent_id, :routine_id, :run_id, :model_id, :model_alias, :tool_id, :source, :dedupe_key
+        :agent_id, :routine_id, :run_id, :model_id, :model_alias, :tool_id, :source, :dedupe_key,
+        :api_key_id
     )
     ON CONFLICT (tenant_id, dedupe_key) DO NOTHING
     """
@@ -231,6 +232,7 @@ async def _usage_events(
                 "tool_id": as_uuid(item.tool_id),
                 "source": item.source or "api",
                 "dedupe_key": item.dedupe_key,
+                "api_key_id": as_uuid(getattr(item, "api_key_id", None)),
             },
         )
         flushed.add(key)

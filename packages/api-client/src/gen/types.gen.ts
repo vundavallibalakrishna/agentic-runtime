@@ -1341,6 +1341,16 @@ export type GuestSessionBody = {
 };
 
 /**
+ * GuestTurnBody
+ */
+export type GuestTurnBody = {
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -2164,6 +2174,20 @@ export type PublishBody = {
      * Skipevalgate
      */
     skipEvalGate?: boolean;
+};
+
+/**
+ * PushBody
+ */
+export type PushBody = {
+    /**
+     * Endpoint
+     */
+    endpoint: string;
+    /**
+     * Contentencoding
+     */
+    contentEncoding?: string;
 };
 
 /**
@@ -3984,16 +4008,66 @@ export type SwitchTenantApiV1AuthSwitchTenantPostError = SwitchTenantApiV1AuthSw
 
 export type SwitchTenantApiV1AuthSwitchTenantPostResponses = {
     /**
-     * Response Switch Tenant Api V1 Auth Switch Tenant Post
-     *
      * Successful Response
      */
-    200: {
-        [key: string]: string;
-    };
+    200: unknown;
 };
 
-export type SwitchTenantApiV1AuthSwitchTenantPostResponse = SwitchTenantApiV1AuthSwitchTenantPostResponses[keyof SwitchTenantApiV1AuthSwitchTenantPostResponses];
+export type PasswordResetApiV1AuthPasswordResetPostData = {
+    /**
+     * Body
+     */
+    body?: {
+        [key: string]: unknown;
+    } | null;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/password-reset';
+};
+
+export type PasswordResetApiV1AuthPasswordResetPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PasswordResetApiV1AuthPasswordResetPostError = PasswordResetApiV1AuthPasswordResetPostErrors[keyof PasswordResetApiV1AuthPasswordResetPostErrors];
+
+export type PasswordResetApiV1AuthPasswordResetPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type PasswordResetConfirmApiV1AuthPasswordResetConfirmPostData = {
+    /**
+     * Body
+     */
+    body?: {
+        [key: string]: unknown;
+    } | null;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/password-reset/confirm';
+};
+
+export type PasswordResetConfirmApiV1AuthPasswordResetConfirmPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PasswordResetConfirmApiV1AuthPasswordResetConfirmPostError = PasswordResetConfirmApiV1AuthPasswordResetConfirmPostErrors[keyof PasswordResetConfirmApiV1AuthPasswordResetConfirmPostErrors];
+
+export type PasswordResetConfirmApiV1AuthPasswordResetConfirmPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type StepUpApiV1AuthStepUpPostData = {
     /**
@@ -6751,6 +6825,69 @@ export type ReadAllApiV1NotificationsReadAllPostResponses = {
 };
 
 export type ReadAllApiV1NotificationsReadAllPostResponse = ReadAllApiV1NotificationsReadAllPostResponses[keyof ReadAllApiV1NotificationsReadAllPostResponses];
+
+export type CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostData = {
+    body: PushBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/notifications/push-subscriptions';
+};
+
+export type CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostError = CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostErrors[keyof CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostErrors];
+
+export type CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostResponses = {
+    /**
+     * Response Create Push Subscription Api V1 Notifications Push Subscriptions Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostResponse = CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostResponses[keyof CreatePushSubscriptionApiV1NotificationsPushSubscriptionsPostResponses];
+
+export type DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Subscription Id
+         */
+        subscription_id: string;
+    };
+    query?: never;
+    url: '/api/v1/notifications/push-subscriptions/{subscription_id}';
+};
+
+export type DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteError = DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteErrors[keyof DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteErrors];
+
+export type DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteResponses = {
+    /**
+     * Response Delete Push Subscription Api V1 Notifications Push Subscriptions  Subscription Id  Delete
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: boolean;
+    };
+};
+
+export type DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteResponse = DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteResponses[keyof DeletePushSubscriptionApiV1NotificationsPushSubscriptionsSubscriptionIdDeleteResponses];
 
 export type EventsApiV1NotificationsEventsGetData = {
     body?: never;
@@ -9550,6 +9687,108 @@ export type RunInputApiV1RunsRunIdInputPostResponses = {
 };
 
 export type RunInputApiV1RunsRunIdInputPostResponse = RunInputApiV1RunsRunIdInputPostResponses[keyof RunInputApiV1RunsRunIdInputPostResponses];
+
+export type ConversationSummaryApiV1ConversationsConversationIdSummaryGetData = {
+    body?: never;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{conversation_id}/summary';
+};
+
+export type ConversationSummaryApiV1ConversationsConversationIdSummaryGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConversationSummaryApiV1ConversationsConversationIdSummaryGetError = ConversationSummaryApiV1ConversationsConversationIdSummaryGetErrors[keyof ConversationSummaryApiV1ConversationsConversationIdSummaryGetErrors];
+
+export type ConversationSummaryApiV1ConversationsConversationIdSummaryGetResponses = {
+    /**
+     * Response Conversation Summary Api V1 Conversations  Conversation Id  Summary Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ConversationSummaryApiV1ConversationsConversationIdSummaryGetResponse = ConversationSummaryApiV1ConversationsConversationIdSummaryGetResponses[keyof ConversationSummaryApiV1ConversationsConversationIdSummaryGetResponses];
+
+export type RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostData = {
+    body?: never;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{conversation_id}/summary:refresh';
+};
+
+export type RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostError = RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostErrors[keyof RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostErrors];
+
+export type RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponses = {
+    /**
+     * Response Refresh Conversation Summary Api V1 Conversations  Conversation Id  Summary Refresh Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponse = RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponses[keyof RefreshConversationSummaryApiV1ConversationsConversationIdSummaryRefreshPostResponses];
+
+export type ResumeRunApiV1RunsRunIdResumePostData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/runs/{run_id}:resume';
+};
+
+export type ResumeRunApiV1RunsRunIdResumePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResumeRunApiV1RunsRunIdResumePostError = ResumeRunApiV1RunsRunIdResumePostErrors[keyof ResumeRunApiV1RunsRunIdResumePostErrors];
+
+export type ResumeRunApiV1RunsRunIdResumePostResponses = {
+    /**
+     * Response Resume Run Api V1 Runs  Run Id  Resume Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ResumeRunApiV1RunsRunIdResumePostResponse = ResumeRunApiV1RunsRunIdResumePostResponses[keyof ResumeRunApiV1RunsRunIdResumePostResponses];
 
 export type CancelRunApiV1RunsRunIdCancelPostData = {
     body?: never;
@@ -18533,6 +18772,40 @@ export type WidgetCancelApiV1WidgetRunsRunIdCancelPostResponses = {
 };
 
 export type WidgetCancelApiV1WidgetRunsRunIdCancelPostResponse = WidgetCancelApiV1WidgetRunsRunIdCancelPostResponses[keyof WidgetCancelApiV1WidgetRunsRunIdCancelPostResponses];
+
+export type GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostData = {
+    body: GuestTurnBody;
+    path: {
+        /**
+         * Agent Id
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/api/v1/guest/agents/{agent_id}/turns';
+};
+
+export type GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostError = GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostErrors[keyof GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostErrors];
+
+export type GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponses = {
+    /**
+     * Response Guest Agent Turn Api V1 Guest Agents  Agent Id  Turns Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponse = GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponses[keyof GuestAgentTurnApiV1GuestAgentsAgentIdTurnsPostResponses];
 
 export type RequestLinkApiV1AuthGuestRequestLinkPostData = {
     body: GuestLinkBody;

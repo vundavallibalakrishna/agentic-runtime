@@ -9,7 +9,6 @@ from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-import ar_domain.agents.governance
 import ar_domain.agents.tables
 import ar_domain.approvals.models
 import ar_domain.audit.models
@@ -24,15 +23,15 @@ import ar_domain.exposure.tables
 import ar_domain.files.tables
 import ar_domain.identity.guest_tables
 import ar_domain.identity.models
+import ar_domain.identity.recovery_tables
 import ar_domain.knowledge.tables
 import ar_domain.memory.tables
 import ar_domain.models.tables
+import ar_domain.notifications.tables
 import ar_domain.orchestration.tables
 import ar_domain.packs.tables
 import ar_domain.policy.models
-import ar_domain.records.tables
 import ar_domain.routines.tables
-import ar_domain.runs.tables
 import ar_domain.sandboxes.tables
 import ar_domain.secrets.models
 import ar_domain.skills.tables
