@@ -7,6 +7,10 @@ bootstrap:
   tenantSlug: dev
   tenantName: Dev
   adminEmail: admin@dev.local
+config:
+  AR_AUTH_MODE: password
+  AR_PASSWORD_LOGIN: 'true'
+  AR_OIDC_REQUIRE_MFA: 'false'
 secrets:
   backend: db_encrypted
 sandboxes:

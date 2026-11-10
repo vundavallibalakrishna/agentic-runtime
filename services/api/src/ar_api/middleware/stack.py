@@ -5,13 +5,15 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ar_api.auth.csrf import csrf_ok, origin_ok
 from ar_api.principal import classify_authorization
-from ar_common.errors import ArError, ErrorCode, UnauthenticatedError
+from ar_common.errors import ArError, ErrorCode, RateLimitedError, UnauthenticatedError
 from ar_common.web.problems import problem_response
 
 _PUBLIC = frozenset(
     {
         "/api/v1/meta",
         "/api/v1/auth/login",
+        "/api/v1/auth/oidc/start",
+        "/api/v1/auth/callback",
         "/api/v1/.well-known/jwks.json",
         "/healthz",
         "/readyz",
@@ -152,7 +154,7 @@ class RateLimitMiddleware:
         decision = await limiter.take(f"{principal.tenant_id}:{principal.id}", limit)
         if not decision.allowed:
             response = problem_response(
-                ArError(ErrorCode.RATE_LIMITED, "rate limit exceeded"),
+                RateLimitedError("rate limit exceeded", retry_after=int(decision.reset_s or 60)),
                 instance=path,
                 request_id=_request_id(scope),
             )

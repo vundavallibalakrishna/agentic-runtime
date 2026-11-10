@@ -119,7 +119,13 @@ The `/v1` surface follows the platform [API conventions](../05-contracts/api-con
 - **Idempotency**: message send accepts `Idempotency-Key`; the same key and body return the
   stored reply without starting a second run; a different body is `idempotency_key_reused`.
 - **Versioning**: additive changes happen in `/v1` — ignore unknown response fields. A breaking
-  change ships under a new major path.
+  change ships under a new major path. Responses carry `API-Version: 1`. `GET /v1` returns
+  `{"version": "1"}`.
+- **Streams**: `POST` with `"stream": true`, and `GET /v1/agents/{slug}/runs/{runId}/events`,
+  are `text/event-stream`. Resume with `Last-Event-ID` (a sequence or `{runId}:{seq}`). The
+  server replays from the shared run-event stream, sends `: ping` heartbeats while the run
+  is still working, and closes after the tail. `Accept: application/json` on the events
+  route returns one cursor page (`items`, `nextCursor`, `hasMore`).
 
 ## Rotating and revoking a key
 

@@ -74,7 +74,7 @@ def sync_detailed(
 ) -> Response[Any | HTTPValidationError]:
     """Password Login
 
-     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
+     Sign in with a userid and password. Production installs do not serve this.
 
     Args:
         body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):
@@ -105,7 +105,7 @@ def sync(
 ) -> Any | HTTPValidationError | None:
     """Password Login
 
-     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
+     Sign in with a userid and password. Production installs do not serve this.
 
     Args:
         body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):
@@ -131,7 +131,7 @@ async def asyncio_detailed(
 ) -> Response[Any | HTTPValidationError]:
     """Password Login
 
-     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
+     Sign in with a userid and password. Production installs do not serve this.
 
     Args:
         body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):
@@ -160,7 +160,7 @@ async def asyncio(
 ) -> Any | HTTPValidationError | None:
     """Password Login
 
-     Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.
+     Sign in with a userid and password. Production installs do not serve this.
 
     Args:
         body (None | PasswordLoginApiV1AuthLoginPostBodyType0 | Unset):

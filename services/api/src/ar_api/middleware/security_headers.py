@@ -20,6 +20,9 @@ class SecurityHeadersMiddleware:
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
                 headers.extend(_HEADERS)
+                path = str(scope.get("path") or "")
+                if path == "/v1" or path.startswith("/v1/"):
+                    headers.append((b"api-version", b"1"))
                 message["headers"] = headers
             await send(message)
 

@@ -316,6 +316,7 @@
     "/v1/agents/{slug}/runs/{run_id}/events": {
       "get": {
         "summary": "Stream External Events",
+        "description": "Replay and tail run events. ``Last-Event-ID`` resumes from the shared stream.\n\n``Accept: application/json`` returns one cursor page instead of the stream.",
         "operationId": "stream_external_events_v1_agents__slug__runs__run_id__events_get",
         "parameters": [
           {

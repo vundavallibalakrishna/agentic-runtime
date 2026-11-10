@@ -1142,6 +1142,9 @@ from .preview_schedule_api_v1_routines_preview_schedule_post_response_preview_sc
 from .probe_body import ProbeBody
 from .provider_body import ProviderBody
 from .provider_patch import ProviderPatch
+from .public_version_v1_get_response_public_version_v1_get import (
+    PublicVersionV1GetResponsePublicVersionV1Get,
+)
 from .publish_agent_api_v1_agents_agent_id_publish_post_response_publish_agent_api_v1_agents_agent_id_publish_post import (
     PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost,
 )
@@ -1976,6 +1979,7 @@ __all__ = (
     "ProbeBody",
     "ProviderBody",
     "ProviderPatch",
+    "PublicVersionV1GetResponsePublicVersionV1Get",
     "PublishAgentApiV1AgentsAgentIdPublishPostResponsePublishAgentApiV1AgentsAgentIdPublishPost",
     "PublishBody",
     "PublishSkillApiV1SkillsSkillIdPublishPostResponsePublishSkillApiV1SkillsSkillIdPublishPost",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,26 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [method, setMethod] = useState("password");
+  const [loginUrl, setLoginUrl] = useState("/api/v1/auth/oidc/start");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "mfa") {
+      setError(t("errorMfa"));
+    }
+    void fetch("/api/v1/meta")
+      .then((response) => response.json())
+      .then((body: { auth?: { method?: string; loginUrl?: string } }) => {
+        if (body.auth?.method === "oidc") {
+          setMethod("oidc");
+        }
+        if (body.auth?.loginUrl) {
+          setLoginUrl(body.auth.loginUrl);
+        }
+      })
+      .catch(() => undefined);
+  }, [t]);
 
   async function signIn() {
     setError(null);
@@ -54,53 +74,71 @@ export default function LoginPage() {
         <p className="text-sm font-medium tracking-tight">{shell("product")}</p>
         <h1 className="mt-10 font-serif text-[2.5rem] leading-none tracking-tight">{t("title")}</h1>
         <p className="mt-4 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
-          {t("body")}
+          {method === "oidc" ? t("oidcBody") : t("body")}
         </p>
-        <form
-          className="mt-8 space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void signIn();
-          }}
-        >
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium" htmlFor="email">
-              {t("emailLabel")}
-            </label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium" htmlFor="password">
-              {t("passwordLabel")}
-            </label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </div>
-          {error ? (
-            <p
-              className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--destructive)]"
-              role="alert"
-            >
-              {error}
-            </p>
-          ) : null}
-          <Button type="submit" className="h-10 w-full" disabled={busy}>
-            {busy ? t("signingIn") : t("submit")}
-          </Button>
-        </form>
+        {error && method === "oidc" ? (
+          <p
+            className="mt-8 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--destructive)]"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+        {method === "oidc" ? (
+          <a
+            className="mt-8 flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] text-sm font-medium text-[var(--primary-foreground)]"
+            href={loginUrl}
+          >
+            {t("continueIdp")}
+          </a>
+        ) : null}
+        {method === "password" ? (
+          <form
+            className="mt-8 space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void signIn();
+            }}
+          >
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium" htmlFor="email">
+                {t("emailLabel")}
+              </label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="username"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium" htmlFor="password">
+                {t("passwordLabel")}
+              </label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </div>
+            {error ? (
+              <p
+                className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--destructive)]"
+                role="alert"
+              >
+                {error}
+              </p>
+            ) : null}
+            <Button type="submit" className="h-10 w-full" disabled={busy}>
+              {busy ? t("signingIn") : t("submit")}
+            </Button>
+          </form>
+        ) : null}
       </div>
     </main>
   );

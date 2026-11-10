@@ -46,8 +46,14 @@ def test_an_unknown_person_is_refused_without_revealing_it() -> None:
         "/api/v1/auth/login", json={"email": "nobody@dev.local", "password": "dev-password"}
     )
     assert answer.status_code == 401
-    # Same error as a wrong password, so an address cannot be probed.
-    assert answer.json()["error"] == "invalid_credentials"
+    # Same problem as a wrong password, so an address cannot be probed.
+    assert answer.headers["content-type"].startswith("application/problem+json")
+    assert answer.json()["code"] == "unauthenticated"
+    wrong = client.post(
+        "/api/v1/auth/login", json={"email": "admin@dev.local", "password": "wrong-password"}
+    )
+    assert wrong.json()["code"] == answer.json()["code"]
+    assert wrong.json()["detail"] == answer.json()["detail"]
 
 
 def test_the_product_has_no_side_door_for_signing_in() -> None:

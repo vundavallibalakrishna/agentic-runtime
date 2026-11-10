@@ -75,7 +75,10 @@
     "errorThrottled": "Too many attempts. Wait a few minutes and try again.",
     "errorTenantSuspended": "This organisation is suspended. Ask an administrator.",
     "errorUserSuspended": "Your account is suspended. Ask an administrator.",
-    "errorGeneric": "Sign-in did not complete. Try again."
+    "errorGeneric": "Sign-in did not complete. Try again.",
+    "errorMfa": "Your identity provider has to confirm a second factor.",
+    "oidcBody": "Your organisation signs you in.",
+    "continueIdp": "Continue"
   },
   "chat": {
     "product": "Agentic Runtime",

@@ -41,7 +41,7 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "password-sign-in",
         CONTRACT,
         "no",
-        "Login is HTTP against Postgres. Production OIDC is Stage 3 and is not this build.",
+        "Password login is the dev and single-tenant door. It is not the Helm default.",
     ),
     ("approvals", UNIT, "no", "Four-eyes decisions run in process."),
     ("audit", UNIT, "no", "The hash chain is written in process."),
@@ -59,6 +59,12 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         UNIT,
         "no",
         "Read and summarise run in process. A cloud OCR engine is not live.",
+    ),
+    (
+        "oidc-sign-in",
+        CONTRACT,
+        "no",
+        "Authorization code and JWKS bearer. Contract proof uses a local mock IdP.",
     ),
     (
         "evals",

@@ -101,6 +101,11 @@ class IdentityRepository(BaseRepository):
             select(User).where(User.tenant_id == self.ctx.tenant_id, User.email == email)
         )
 
+    async def get_user_by_subject(self, subject: str) -> User | None:
+        return await self.session.scalar(
+            select(User).where(User.tenant_id == self.ctx.tenant_id, User.idp_subject == subject)
+        )
+
     async def list_users(self, *, status: str | None, query: str | None) -> list[User]:
         stmt = select(User).where(User.tenant_id == self.ctx.tenant_id)
         if status:

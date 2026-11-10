@@ -13,12 +13,27 @@ router = APIRouter()
 @router.get("/api/v1/meta")
 @expose(public=True, permission=None)
 async def meta(request: Request) -> dict[str, object]:
+    from ar_api.auth.mode import AuthMode, resolve_auth_mode  # noqa: PLC0415
+
     settings = request.app.state.settings
+    mode = resolve_auth_mode(settings)
+    if mode is AuthMode.OIDC:
+        auth: dict[str, str] = {
+            "login_url": "/api/v1/auth/oidc/start",
+            "method": "oidc",
+            "mfa": "idp",
+        }
+    else:
+        auth = {
+            "login_url": "/api/v1/auth/login",
+            "method": "password",
+            "mfa": "totp" if settings.password_mfa else "none",
+        }
     return {
         "version": "0.1.0",
         "deployment_mode": settings.deployment_mode.value,
         "features": {},
-        "auth": {"login_url": "/api/v1/auth/login", "method": "password"},
+        "auth": auth,
     }
 
 

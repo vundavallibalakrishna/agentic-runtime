@@ -15,7 +15,7 @@ Exactly one of:
 | Mechanism | Header / cookie | Who |
 |---|---|---|
 | Session cookie | `ar_session` (HttpOnly, Secure, SameSite=Lax, Path=/) + `X-CSRF-Token` header on unsafe methods | Web app users (BFF) |
-| Bearer OIDC access token | `Authorization: Bearer <JWT>` issued by Keycloak for client `ar-api` | First-party CLIs / integrations using user identity |
+| Bearer OIDC access token | `Authorization: Bearer <JWT>` from the tenant issuer, audience `ar-api`, checked with that issuer's JWKS | Integrators using a person's identity. `ark_` keys stay as they are |
 | API key | `Authorization: Bearer ark_<prefix><secret>` | Service accounts and personal access keys |
 | SCIM token | `Authorization: Bearer scim_<prefix><secret>` | `/scim/v2/*` only |
 | Webhook signature | `X-AR-Signature: t=<unix>,v1=<hex hmac-sha256>` | `/api/v1/hooks/*` only |

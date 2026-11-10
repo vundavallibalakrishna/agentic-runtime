@@ -4,7 +4,7 @@ Deployable: `api` (`services/api`, package `ar_api`). Hosts the routers of every
 
 ## 1. Responsibilities
 
-1. Userid/password sign-in for the web app (the product checks the password itself, no external identity provider); server-side sessions in Valkey; session cookie `ar_session`.
+1. Sign-in. Production is the customer's OIDC provider: authorization code in the browser, and a JWT bearer checked against that issuer's JWKS ([ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md)). Userid/password is the dev and single-tenant mode and is not the Helm default. Server-side sessions live in Valkey. The session cookie is `ar_session` (HttpOnly, SameSite=Lax, and Secure outside dev and ci).
 2. Authenticate every request (session, bearer JWT, API key, SCIM token, webhook HMAC) into a `Principal`; build `RequestContext` (tenant, principal, permissions, request id, trace).
 3. Enforce RBAC via route dependencies `require(permission)`; resource-level checks in services.
 4. Open a tenant-scoped DB session per request (`tenant_session(ctx)`), commit/rollback.
@@ -34,7 +34,15 @@ services/api/src/ar_api/
 All under `/api/v1/auth`. No authentication required unless stated.
 
 #### POST /api/v1/auth/login
-Body `{email, password}`. Verifies the password against the argon2id `users.password_hash` and signs the person into the tenant the process serves ([spec 02 §2](02-identity-tenancy.md#2-identity-model)). On success creates session `ar:sess:{sid}` (TTL = `AR_SESSION_TTL_S`, default 12 h sliding, absolute max 7 days): `{tenant_id, user_id, csrf_token, created_at, last_seen_at, ip_hash, ua_hash}`, sets cookies `ar_session=<sid>` (HttpOnly, SameSite=Lax) and `ar_csrf=<csrf_token>` (not HttpOnly, SameSite=Strict), audits `auth.login`, returns `{ok: true}`. A missing user, an unset password and a wrong password are all refused with `401 {error: "invalid_credentials"}` (no account enumeration); repeated failures are locked out (`429 {error: "too_many_attempts"}`). A suspended user or tenant → `401 {error: "user_suspended"|"tenant_suspended"}`.
+Served only when auth mode is `password` (dev, ci, or `AR_PASSWORD_LOGIN=true` on a single-tenant install). Body `{email, password, otp?}`. Verifies the password against the argon2id `users.password_hash`. When the user has `attributes.totp_secret`, or `AR_PASSWORD_MFA` is set, `otp` must match that TOTP. On success creates session `ar:sess:{sid}` (TTL = `AR_SESSION_TTL_S`, default 12 h sliding, absolute max 7 days), sets cookies `ar_session` (HttpOnly, SameSite=Lax, Secure outside dev and ci) and `ar_csrf` (not HttpOnly, SameSite=Strict, Secure outside dev and ci), audits `auth.login`, returns `{ok: true}`. Failures are `application/problem+json`. A missing user, an unset password and a wrong password are all `401` `unauthenticated` with the same detail. Repeated failures lock the address in Valkey (`429` `rate_limited` with `Retry-After`). A suspended tenant is `403` `tenant_suspended`.
+
+#### GET /api/v1/auth/oidc/start
+Served only when auth mode is `oidc`. Redirects the browser to the configured issuer's authorization endpoint (PKCE S256). `purpose=step-up` asks the provider for a fresh MFA sign-in.
+
+#### GET /api/v1/auth/callback
+Exchanges the code, checks the id token against the issuer JWKS, and requires a configured `amr` or `acr` when `AR_OIDC_REQUIRE_MFA` is set. The email (or subject) must already be a person of the tenant. Issues the same session cookies.
+
+Integrator calls send `Authorization: Bearer` with an access token from that issuer (`aud` = `AR_OIDC_AUDIENCE`, default `ar-api`). This does not replace `ark_` keys.
 
 #### POST /api/v1/auth/logout
 Auth: session. Deletes the session, clears the cookies, returns `{ok: true}`. Audits `auth.logout`.

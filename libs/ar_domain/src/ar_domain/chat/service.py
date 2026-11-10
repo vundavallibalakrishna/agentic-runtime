@@ -2353,6 +2353,20 @@ class ChatService:
             raise NotFoundError()
         return [event for event in self.events.get(run_id, []) if _seq(event) > after]
 
+    async def _bus_replay(self, run_id: uuid.UUID, after: int) -> list[dict[str, object]]:
+        """Events on the shared stream that this process has not yielded yet."""
+        replay = getattr(self.event_bus, "replay", None)
+        if not callable(replay):
+            return []
+        try:
+            rows = await replay(run_id, after)
+        except Exception:  # noqa: BLE001 - a bus blip falls back to the local buffer
+            _log.warning("run_event_bus_replay_failed")
+            return []
+        if not isinstance(rows, list):
+            return []
+        return [row for row in rows if isinstance(row, dict)]
+
     def _publish_event(self, run_id: uuid.UUID, event: dict[str, object]) -> None:
         bus = self.event_bus
         publish = getattr(bus, "publish", None)
@@ -2396,7 +2410,7 @@ class ChatService:
     def release_sse(self, user_id: str) -> None:
         self.sse_counts[user_id] = max(0, self.sse_counts.get(user_id, 1) - 1)
 
-    async def iter_events(
+    async def iter_events(  # noqa: PLR0912
         self,
         tenant_id: uuid.UUID,
         run_id: uuid.UUID,
@@ -2414,6 +2428,11 @@ class ChatService:
         """
         for event in self.events_after(tenant_id, run_id, after):
             after = max(after, _seq(event))
+            yield event
+        for event in await self._bus_replay(run_id, after):
+            if _seq(event) <= after:
+                continue
+            after = _seq(event)
             yield event
         run = self.runs.get(run_id)
         if run is not None and not run_is_working(str(run["status"])) and after > 0:

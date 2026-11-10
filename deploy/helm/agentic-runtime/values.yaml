@@ -18,6 +18,8 @@ bootstrap:
 config:
   AR_API_INTERNAL_URL: http://api:8000
   AR_ASGI_SERVER: uvicorn
+  # Production identity is the customer's OIDC provider. Password sign-in is not the default.
+  AR_AUTH_MODE: oidc
   AR_AUDIT_ARCHIVE_BUCKET: ar-audit-archive
   AR_BILLING_CURRENCY: INR
   AR_BINDER_MAX_ITEMS: '5000'
@@ -71,6 +73,8 @@ config:
   AR_INTERNAL_JWT_JWKS: http://api:8000/internal/v1/.well-known/jwks.json
   AR_KNOWLEDGE_RERANK_CANDIDATES: '50'
   AR_LANGFUSE_HOST_PORT: '3100'
+  AR_LOGIN_LOCKOUT_S: '300'
+  AR_LOGIN_MAX_ATTEMPTS: '10'
   AR_LOG_HASH_USER_IDS: 'false'
   AR_MAILPIT_UI_HOST_PORT: '8025'
   AR_MAX_DEPTH: '3'
@@ -95,12 +99,22 @@ config:
   AR_MODEL_PROVIDER_DENY_CIDRS: 169.254.169.254/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
   AR_OPA_HOST_PORT: '8181'
   AR_OPA_TIMEOUT_MS: '200'
+  AR_OIDC_AUDIENCE: ar-api
+  AR_OIDC_CLIENT_ID: ''
+  AR_OIDC_ISSUER: ''
+  AR_OIDC_JWKS_URL: ''
+  AR_OIDC_MFA_ACR: mfa,otp
+  AR_OIDC_MFA_AMR: mfa,otp,hwk,pop
+  AR_OIDC_REDIRECT_URL: ''
+  AR_OIDC_REQUIRE_MFA: 'true'
   AR_OPA_URL: http://opa:8181
   AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
   AR_OTEL_GRPC_HOST_PORT: '4317'
   AR_OTEL_HTTP_HOST_PORT: '4318'
   AR_OUTBOX_BATCH_SIZE: '500'
   AR_PACKS_DIR: packs
+  AR_PASSWORD_LOGIN: 'false'
+  AR_PASSWORD_MFA: 'false'
   AR_PACK_SIGNATURE_REQUIRED: 'true'
   AR_PGVECTOR_DIMENSIONS: '1024'
   AR_PG_HOST_PORT: '5432'
@@ -194,6 +208,7 @@ secrets:
     AR_DEV_MODEL_API_KEY: install-time
     AR_EVIDENCE_SIGNING_KEY: install-time
     AR_INTERNAL_JWT_PRIVATE_KEY: install-time
+    AR_OIDC_CLIENT_SECRET: install-time
     AR_OPA_BUNDLE_TOKEN: install-time
     AR_PACK_TRUSTED_KEYS: install-time
     AR_QDRANT_API_KEY: install-time

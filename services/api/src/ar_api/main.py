@@ -99,6 +99,21 @@ class Settings(BaseServiceSettings):
 
     service_name: str = "api"
     public_url: str = "http://localhost:3000"
+    # Empty follows the environment: password in dev and ci, OIDC everywhere else.
+    auth_mode: str = ""
+    password_login: bool = False
+    password_mfa: bool = False
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: SecretStr = SecretStr("")
+    oidc_audience: str = "ar-api"
+    oidc_jwks_url: str = ""
+    oidc_redirect_url: str = ""
+    oidc_require_mfa: bool = True
+    oidc_mfa_amr: str = "mfa,otp,hwk,pop"
+    oidc_mfa_acr: str = "mfa,otp"
+    login_max_attempts: int = 10
+    login_lockout_s: int = 300
     session_encryption_key: SecretStr = SecretStr("")
     session_ttl_s: int = 43_200
     session_max_age_s: int = 604_800
@@ -248,6 +263,9 @@ def create_application() -> FastAPI:
     from ar_api.readiness import api_readiness  # noqa: PLC0415
 
     settings = Settings()
+    from ar_api.auth.mode import assert_auth_mode  # noqa: PLC0415
+
+    assert_auth_mode(settings)
     docs = None if settings.env is EnvName.PROD else "/api/docs"
     inner: list[tuple[type, dict[str, object]]] = [
         (DurableMiddleware, {}),
@@ -341,7 +359,7 @@ def create_application() -> FastAPI:
     app.state.resolve_principal = _resolve_principal
     from ar_api.auth.credentials import credential_loader  # noqa: PLC0415
 
-    app.state.credential_loader = credential_loader(_session_loader(app))
+    app.state.credential_loader = credential_loader(_session_loader(app), app)
     app.state.chat = ChatService(
         allow_loopback=loopback_allowed(settings),
         scanner=files_scanner_name(settings),

@@ -11,6 +11,8 @@ dependencies = [
     "ar-domain",
     "ar-common",
     "fastapi==0.151.0",
+    "httpx==0.28.1",
+    "pyjwt[crypto]==2.15.1",
     "uvicorn[standard]==0.54.0",
     "sse-starlette==3.5.0",
     "python-multipart==0.0.32",

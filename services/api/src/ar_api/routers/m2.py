@@ -156,11 +156,14 @@ def sse_frame(event: dict[str, object]) -> bytes:
     """One SSE record. A heartbeat is a comment so a long tool turn stays open.
 
     Clients ignore the comment, and it does not advance ``Last-Event-ID``.
+    The id is ``{runId}:{seq}`` when the event carries one, so a reconnect
+    resumes from that sequence on any replica.
     """
     if event.get("type") == "heartbeat":
         return b": ping\n\n"
+    event_id = event.get("id") or event.get("seq")
     payload = public_json_bytes(event)
-    return f"id: {event['seq']}\nevent: {event['type']}\ndata: ".encode() + payload + b"\n\n"
+    return f"id: {event_id}\nevent: {event['type']}\ndata: ".encode() + payload + b"\n\n"
 
 
 def _platform(principal: Principal) -> None:
@@ -997,8 +1000,11 @@ async def run_events(run_id: uuid.UUID, request: Request) -> StreamingResponse:
     service.get_run(_tenant(principal), run_id)
     if not service.acquire_sse(principal.id, 20):
         raise ArError(ErrorCode.RATE_LIMITED, "too many streams")
-    header = request.headers.get("last-event-id", "0")
-    after = int(header) if header.isdigit() else 0
+    from ar_domain.runs.event_bus import last_event_seq  # noqa: PLC0415
+
+    after = last_event_seq(
+        request.headers.get("last-event-id"), request.query_params.get("after_seq")
+    )
 
     async def frames() -> AsyncIterator[bytes]:
         try:
