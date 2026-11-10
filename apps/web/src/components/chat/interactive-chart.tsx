@@ -1,12 +1,13 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useEffect, useRef, useState } from "react";
+import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts";
 
 type ChartRow = { label: string; value: number };
 type ChartSeries = { name: string; values: number[] };
 
-const FILLS = ["var(--foreground)", "var(--muted-foreground)", "var(--primary)", "var(--accent)"];
+const FILLS = ["currentColor"];
 
 function rowsOf(presentation: Record<string, unknown>): ChartRow[] {
   const raw = presentation.rows;
@@ -46,9 +47,10 @@ function seriesOf(presentation: Record<string, unknown>): {
   return { categories, series };
 }
 
-/** The PNG is the record. This view uses the same rows the renderer drew. */
-export function InteractiveChart({ presentation }: { presentation: Record<string, unknown> }) {
-  const t = useTranslations("chat");
+export function chartData(presentation: Record<string, unknown>): {
+  data: Record<string, string | number>[];
+  keys: string[];
+} {
   const rows = rowsOf(presentation);
   const { categories, series } = seriesOf(presentation);
   const data = rows.length
@@ -59,35 +61,100 @@ export function InteractiveChart({ presentation }: { presentation: Record<string
         return point;
       });
   const keys = rows.length ? ["value"] : series.map((item) => item.name);
-  if (!data.length || !keys.length) return null;
+  return { data, keys };
+}
+
+type ChartFile = { id: string; name: string };
+
+export function ChartView({
+  presentation,
+  files,
+}: {
+  presentation: Record<string, unknown>;
+  files: ChartFile[];
+}) {
+  const t = useTranslations("chat");
+  const { data, keys } = chartData(presentation);
+  const image = files.find((file) => /\.(png|jpe?g|gif|webp)$/i.test(file.name));
+  const [mode, setMode] = useState<"image" | "interactive">(image ? "image" : "interactive");
+  const frame = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(520);
+
+  useEffect(() => {
+    const node = frame.current;
+    if (!node || mode !== "interactive") return;
+    const measure = () => setWidth(Math.max(280, Math.floor(node.clientWidth)));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [mode]);
+
+  if (!image && data.length === 0) return null;
   return (
-    <div className="mt-3" data-testid="interactive-chart">
-      <p className="mb-1 text-xs text-[var(--muted-foreground)]">{t("interactiveChart")}</p>
-      <div className="h-52 w-full">
-        <ResponsiveContainer height="100%" width="100%">
-          <BarChart data={data}>
+    <div className="mt-3" data-testid="chart-view">
+      {image && data.length > 0 ? (
+        <div className="mb-2 flex gap-2" role="tablist">
+          <button
+            aria-pressed={mode === "image"}
+            className="rounded-md bg-[var(--muted)] px-2 py-1 text-xs"
+            onClick={() => setMode("image")}
+            type="button"
+          >
+            {t("chartImage")}
+          </button>
+          <button
+            aria-pressed={mode === "interactive"}
+            className="rounded-md bg-[var(--muted)] px-2 py-1 text-xs"
+            onClick={() => setMode("interactive")}
+            type="button"
+          >
+            {t("chartInteractive")}
+          </button>
+        </div>
+      ) : null}
+      {mode === "image" && image ? (
+        <img
+          alt={textTitle(presentation) || image.name}
+          className="max-h-80 w-full rounded-lg border border-[var(--border)] object-contain"
+          src={`/api/v1/files/${image.id}/content`}
+        />
+      ) : null}
+      {mode === "interactive" && data.length > 0 && keys.length > 0 ? (
+        <div
+          className="w-full min-w-0 text-[var(--foreground)]"
+          data-testid="interactive-chart"
+          ref={frame}
+        >
+          <BarChart
+            data={data}
+            height={260}
+            margin={{ bottom: 8, left: 0, right: 8, top: 8 }}
+            width={width}
+          >
             <XAxis
               dataKey="label"
-              stroke="var(--muted-foreground)"
-              tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+              stroke="currentColor"
+              tick={{ fill: "currentColor", fontSize: 12 }}
             />
-            <YAxis
-              stroke="var(--muted-foreground)"
-              tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-              width={40}
-            />
+            <YAxis stroke="currentColor" tick={{ fill: "currentColor", fontSize: 12 }} width={36} />
             <Tooltip />
             {keys.map((key, index) => (
               <Bar
                 dataKey={key}
                 fill={FILLS[index % FILLS.length]}
+                isAnimationActive={false}
                 key={key}
                 radius={[4, 4, 0, 0]}
               />
             ))}
           </BarChart>
-        </ResponsiveContainer>
-      </div>
+        </div>
+      ) : null}
     </div>
   );
+}
+
+function textTitle(presentation: Record<string, unknown>): string {
+  return typeof presentation.title === "string" ? presentation.title : "";
 }

@@ -498,6 +498,7 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
               }
             />
             <input
+              aria-label={t("attach")}
               className="sr-only"
               multiple
               onChange={(event) => {

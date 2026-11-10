@@ -39,12 +39,15 @@ export function planItems(value: unknown): PlanStep[] {
 export function PlanChecklist({ items }: { items: PlanStep[] }) {
   const t = useTranslations("chat");
   if (items.length === 0) return null;
+  const finished = items.every((step) => step.status === "done" || step.status === "cancelled");
   return (
-    <section
-      className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+    <details
+      className="mb-3 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
       data-testid="plan-checklist"
+      key={finished ? "done" : "open"}
+      open={!finished}
     >
-      <h2 className="font-medium">{t("plan")}</h2>
+      <summary className="cursor-pointer font-medium">{t("plan")}</summary>
       <ol className="mt-2 space-y-1">
         {items.map((step) => {
           const mark = MARK[step.status] ?? MARK.pending;
@@ -62,6 +65,6 @@ export function PlanChecklist({ items }: { items: PlanStep[] }) {
           );
         })}
       </ol>
-    </section>
+    </details>
   );
 }

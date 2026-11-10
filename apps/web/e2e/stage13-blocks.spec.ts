@@ -1,11 +1,15 @@
-import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { expect, type Page, test } from "@playwright/test";
 
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "e2e/screenshots";
 
+const conversationId = "11111111-1111-4111-8111-111111111111";
+
 const conversation = {
-  id: "block-1",
+  id: conversationId,
   plan: [
     { id: "1", title: "Read the notes", status: "done" },
     { id: "2", title: "Draw the chart", status: "in_progress" },
@@ -76,30 +80,65 @@ test("each answer block renders on the chat screen", async ({ page }) => {
     route.fulfill({
       status: 200,
       contentType: "image/png",
-      body: Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-        "base64",
-      ),
+      body: readFileSync(join(process.cwd(), "e2e/fixtures/counts-chart.png")),
     }),
   );
-  await page.route("**/api/v1/conversations/block-1", (route) =>
+  await page.route(`**/api/v1/conversations/${conversationId}`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(conversation),
     }),
   );
+  await page.route("**/api/v1/files?**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [] }),
+    }),
+  );
+  await page.route(`**/api/v1/conversations/${conversationId}/sandbox`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ sandbox: null }),
+    }),
+  );
   await signInAs(page, "admin@dev.local");
-  await page.goto("/chat?conversation=block-1");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(`/chat?conversation=${conversationId}`);
   await expect(page.getByTestId("plan-checklist")).toBeVisible();
   await expect(page.getByTestId("thinking")).toBeVisible();
-  await expect(page.getByTestId("tool-call")).toBeVisible();
-  await expect(page.getByTestId("interactive-chart")).toBeVisible();
+  await expect(page.getByTestId("tool-call")).toContainText("Chart");
+  await expect(page.getByTestId("tool-call")).toContainText("Done");
+  await expect(page.getByTestId("tool-call")).not.toContainText("general.chart");
+  await expect(page.getByRole("img", { name: "Counts" })).toHaveCount(2);
   await expect(page.getByTestId("followups")).toBeVisible();
   await expect(page.getByText("Verified")).toBeVisible();
-  await page.getByTestId("plan-checklist").screenshot({ path: `${shots}/stage13-plan.png` });
-  await page.getByTestId("thinking").screenshot({ path: `${shots}/stage13-thinking.png` });
-  await page.getByTestId("tool-call").screenshot({ path: `${shots}/stage13-tool.png` });
-  await page.getByTestId("followups").screenshot({ path: `${shots}/stage13-followups.png` });
-  await page.screenshot({ path: `${shots}/stage13-answer.png`, fullPage: true });
+  await expect(page.getByText("Request validation failed")).toHaveCount(0);
+  await showWholeTurn(page);
+  await page.screenshot({ path: `${shots}/stage13-light.png`, fullPage: true });
+  await page.getByRole("button", { name: "Interactive" }).click();
+  await expect(page.getByTestId("interactive-chart")).toBeVisible();
+  await page.screenshot({ path: `${shots}/stage13-chart.png`, fullPage: true });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.reload();
+  await expect(page.getByTestId("plan-checklist")).toBeVisible();
+  await showWholeTurn(page);
+  await page.screenshot({ path: `${shots}/stage13-dark.png`, fullPage: true });
 });
+
+async function showWholeTurn(page: Page) {
+  await page.evaluate(() => {
+    const scroll = document.querySelector("[data-testid=message-scroll]");
+    let node: HTMLElement | null = scroll instanceof HTMLElement ? scroll : null;
+    while (node) {
+      node.style.overflow = "visible";
+      node.style.maxHeight = "none";
+      node.style.height = "auto";
+      node = node.parentElement;
+    }
+    document.documentElement.style.height = "auto";
+    document.body.style.height = "auto";
+  });
+}

@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-import { InteractiveChart } from "@/components/chat/interactive-chart";
+import { ChartView } from "@/components/chat/interactive-chart";
 
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
@@ -85,13 +85,24 @@ function ToolTimeline({ call }: { call: Record<string, unknown> }) {
         seen.set(mark, count + 1);
         return (
           <li key={`${mark}-${count}`}>
-            <span className="text-[var(--muted-foreground)]">{entry.kind || "step"}</span>
+            <span className="text-[var(--muted-foreground)]">{timelineLabel(entry.kind, t)}</span>
             {entry.text ? <p className="whitespace-pre-wrap">{entry.text}</p> : null}
           </li>
         );
       })}
     </ol>
   );
+}
+
+function timelineLabel(
+  kind: string | undefined,
+  t: (key: "timelineArguments" | "timelineResult" | "timelineRetry" | "timelineRepair") => string,
+): string {
+  if (kind === "arguments") return t("timelineArguments");
+  if (kind === "result") return t("timelineResult");
+  if (kind === "retry") return t("timelineRetry");
+  if (kind === "repair") return t("timelineRepair");
+  return kind || "step";
 }
 
 function text(value: unknown) {
@@ -134,9 +145,42 @@ function isImageName(name: string): boolean {
   return IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
+const TOOL_LABELS: Record<string, "toolChart"> = {
+  "general.chart": "toolChart",
+  chart: "toolChart",
+};
+
+const STATUS_LABELS: Record<
+  string,
+  "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting"
+> = {
+  succeeded: "statusDone",
+  completed: "statusDone",
+  running: "statusWorking",
+  failed: "statusFailed",
+  awaiting_approval: "statusWaiting",
+};
+
+function friendlyName(qualified: string, t: (key: "toolChart") => string): string {
+  const known = TOOL_LABELS[qualified];
+  if (known) return t(known);
+  const leaf = qualified.split(".").pop() || qualified;
+  return leaf.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function friendlyStatus(
+  status: string,
+  t: (key: "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting") => string,
+): string {
+  const known = STATUS_LABELS[status];
+  return known ? t(known) : status.replaceAll("_", " ");
+}
+
 export function ToolCallCard({ call, label }: { call: Record<string, unknown>; label: string }) {
   const t = useTranslations("chat");
-  const name = text(call.qualifiedName ?? call.qualified_name ?? "tool");
+  const qualified = text(call.qualifiedName ?? call.qualified_name ?? "tool");
+  const name = friendlyName(qualified, t);
+  const status = friendlyStatus(text(call.status ?? ""), t);
   const preview = text(call.resultPreview ?? call.result_preview ?? "");
   const approvalId = text(call.approvalId ?? call.approval_id ?? "");
   const waiting = text(call.status ?? "") === "awaiting_approval";
@@ -161,7 +205,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
     >
       <p className="sr-only">{label}</p>
       <p className="font-medium">{name}</p>
-      <p className="text-[var(--muted-foreground)]">{text(call.status ?? "")}</p>
+      <p className="text-[var(--muted-foreground)]">{status}</p>
       {text(call.arguments) ? (
         <details className="mt-2">
           <summary className="cursor-pointer text-[var(--muted-foreground)]">
@@ -356,20 +400,31 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           })}
         </ul>
       ) : null}
-      {kind === "chart" ? <InteractiveChart presentation={presentation} /> : null}
-      {files
-        .filter((file) => isImageName(text(file.name)))
-        .map((file) => {
-          const id = text(file.fileId ?? file.file_id);
-          return id ? (
-            <img
-              alt={text(file.name) || text(presentation.title) || "image"}
-              className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
-              key={id}
-              src={`/api/v1/files/${id}/content`}
-            />
-          ) : null;
-        })}
+      {kind === "chart" ? (
+        <ChartView
+          files={files
+            .map((file) => ({
+              id: text(file.fileId ?? file.file_id),
+              name: text(file.name),
+            }))
+            .filter((file) => file.id)}
+          presentation={presentation}
+        />
+      ) : null}
+      {kind !== "chart" &&
+        files
+          .filter((file) => isImageName(text(file.name)))
+          .map((file) => {
+            const id = text(file.fileId ?? file.file_id);
+            return id ? (
+              <img
+                alt={text(file.name) || text(presentation.title) || "image"}
+                className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
+                key={id}
+                src={`/api/v1/files/${id}/content`}
+              />
+            ) : null;
+          })}
       {files.filter((file) => !isImageName(text(file.name))).length > 0 ? (
         <ul className="mt-2 space-y-1">
           {files

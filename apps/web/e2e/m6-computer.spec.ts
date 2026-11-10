@@ -42,7 +42,7 @@ test("chart a spreadsheet and review computers", async ({ page }) => {
   await page.getByLabel("Message").fill("Analyse the attached CSV and chart revenue by month");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("revenue-by-month.png").first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("img", { name: "revenue-by-month.png" })).toBeVisible({
+  await expect(page.getByRole("img", { name: "revenue-by-month.png" }).first()).toBeVisible({
     timeout: 30_000,
   });
   const chat = await new AxeBuilder({ page }).analyze();

@@ -9,6 +9,9 @@ import { api } from "@/lib/api";
 
 type Row = Record<string, unknown>;
 
+const CONVERSATION_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export function WorkspacePanel({
   conversationId,
   revision = 0,
@@ -26,7 +29,7 @@ export function WorkspacePanel({
   const [tab, setTab] = useState<"files" | "computer">("files");
 
   useEffect(() => {
-    if (!conversationId) {
+    if (!CONVERSATION_ID.test(conversationId)) {
       return;
     }
     void revision;
@@ -79,7 +82,7 @@ export function WorkspacePanel({
   return (
     <aside
       aria-label={t("title")}
-      className="border-t border-[var(--border)] bg-[var(--card)] px-4 py-3 md:border-t-0 md:border-l"
+      className="h-full overflow-y-auto border-l border-[var(--border)] bg-[var(--card)] px-4 py-3"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium">{t("title")}</h2>
