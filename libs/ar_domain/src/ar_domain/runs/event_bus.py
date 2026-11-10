@@ -77,14 +77,9 @@ class ValkeyRunBus:
 
     def _redis(self) -> Any:
         if self._client is None:
-            from redis.asyncio import Redis  # noqa: PLC0415
+            from ar_common.valkey import valkey_client  # noqa: PLC0415
 
-            self._client = Redis.from_url(
-                self.url,
-                decode_responses=True,
-                socket_connect_timeout=1,
-                socket_timeout=2,
-            )
+            self._client = valkey_client(self.url, socket_connect_timeout=1, socket_timeout=2)
         return self._client
 
 

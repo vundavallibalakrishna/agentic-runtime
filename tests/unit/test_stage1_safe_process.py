@@ -10,7 +10,6 @@ from pydantic import SecretStr, ValidationError
 from temporalio.service import RPCError, RPCStatusCode
 
 from ar_api.auth.session import MemorySessionStore, ValkeySessionStore, new_session
-from ar_api.idempotency_store import PostgresIdempotencyStore, decode_body, encode_body
 from ar_api.process import install_process_state
 from ar_api.ratelimit import ValkeyTokenBucket
 from ar_api.readiness import readiness_names
@@ -26,6 +25,7 @@ from ar_common.settings import (
 )
 from ar_domain.chat.service import ChatService
 from ar_domain.events.idempotency import StoredResponse
+from ar_domain.events.idempotency_pg import PostgresIdempotencyStore, decode_body, encode_body
 from ar_domain.runs.event_bus import ValkeyRunBus
 from ar_domain.sandboxes.runtime import run_tool
 from ar_domain.tools.general import dispatch_general
@@ -327,11 +327,7 @@ class _MissingWorkflow:
 
 
 @pytest.mark.unit
-async def test_a_lost_workflow_is_marked_not_resumed(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def no_sleep(seconds: float) -> None:
-        del seconds
-
-    monkeypatch.setattr("ar_domain.chat.service.asyncio.sleep", no_sleep)
+async def test_a_lost_workflow_is_marked_not_resumed() -> None:
     service = ChatService(fake_models_allowed=False)
     service.temporal_client = _MissingWorkflow()
     service.watch_polls = 1

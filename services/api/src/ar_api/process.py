@@ -10,9 +10,9 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from ar_api.auth.session import MemorySessionStore, ValkeySessionStore
-from ar_api.idempotency_store import PostgresIdempotencyStore
 from ar_api.middleware.idempotency import MemoryIdempotencyStore
 from ar_common.settings import BaseServiceSettings, uses_shared_process_state
+from ar_domain.events.idempotency_pg import PostgresIdempotencyStore
 from ar_domain.runs.event_bus import ValkeyRunBus
 
 

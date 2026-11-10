@@ -75,21 +75,16 @@ def _cached(ping: Ping) -> ReadinessCheck:
 
 async def ping_postgres(url: str) -> None:
     """``SELECT 1`` on the application database."""
-    from sqlalchemy import text  # noqa: PLC0415
+    from ar_domain.db.engine import ping_database  # noqa: PLC0415
 
-    from ar_domain.db.engine import get_engine  # noqa: PLC0415
-
-    engine = get_engine(url)
-    async with asyncio.timeout(2):
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
+    await ping_database(url)
 
 
 async def ping_valkey(url: str) -> None:
     """``PING`` the shared Valkey."""
-    from redis.asyncio import Redis  # noqa: PLC0415
+    from ar_common.valkey import valkey_client  # noqa: PLC0415
 
-    client = Redis.from_url(url, socket_connect_timeout=1, socket_timeout=1)
+    client = valkey_client(url, socket_connect_timeout=1, socket_timeout=1)
     try:
         if await client.ping() is not True:
             raise RuntimeError("valkey did not answer")

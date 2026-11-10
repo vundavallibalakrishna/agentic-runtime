@@ -102,12 +102,7 @@ class ValkeyTokenBucket:
 
     def _client(self) -> object:
         if self._redis is None:
-            from redis.asyncio import Redis  # noqa: PLC0415
+            from ar_common.valkey import valkey_client  # noqa: PLC0415
 
-            self._redis = Redis.from_url(
-                self.url,
-                decode_responses=True,
-                socket_connect_timeout=1,
-                socket_timeout=1,
-            )
+            self._redis = valkey_client(self.url, socket_connect_timeout=1, socket_timeout=1)
         return self._redis
