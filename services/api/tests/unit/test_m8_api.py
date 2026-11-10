@@ -100,8 +100,12 @@ def test_memory_crud_is_scoped_audited_and_camel_case() -> None:
     assert removed.status_code == 200
     audit = admin.get("/api/v1/audit-events")
     assert audit.status_code == 200
-    actions = {row["action"] for row in audit.json()["items"]}
-    assert {"memory.created", "memory.updated", "memory.deleted"} <= actions
+    # The API serves the hash chain. The process log is not merged into it.
+    assert not {"memory.created", "memory.updated", "memory.deleted"} & {
+        row["action"] for row in audit.json()["items"]
+    }
+    logged = {row["action"] for row in admin.app.state.chat.audit_log}
+    assert {"memory.created", "memory.updated", "memory.deleted"} <= logged
     outsider = _client(tenant=uuid.uuid4())
     hidden = outsider.patch(f"/api/v1/memory/{fact_id}", json={"content": "stolen"})
     assert hidden.status_code == 404

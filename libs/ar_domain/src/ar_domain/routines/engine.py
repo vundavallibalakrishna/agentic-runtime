@@ -348,7 +348,7 @@ def pause_for_owner(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> int
 
 def _post(store: Any, routine: dict[str, object], call: dict[str, object]) -> dict[str, object]:
     target = str(call.get("target") or "")
-    arguments = _as_dict(call.get("arguments"))
+    arguments = _masked_arguments(store, routine.get("tenant_id"), _as_dict(call.get("arguments")))
     signed = ""
     if target == "webhook":
         secret = str(arguments.get("secret") or "")
@@ -405,6 +405,27 @@ def _post(store: Any, routine: dict[str, object], call: dict[str, object]) -> di
         "signature": signed,
         "post_id": str(recorded.get("id")),
     }
+
+
+def _masked_arguments(
+    store: Any, tenant_id: object, arguments: dict[str, object]
+) -> dict[str, object]:
+    """Mask the text that a delivery sends outside the tenant. The signature covers it."""
+    from ar_domain.security.guardrails import mask_leaving  # noqa: PLC0415
+
+    owner = tenant_id if isinstance(tenant_id, uuid.UUID) else None
+    masked = dict(arguments)
+    text = masked.get("text")
+    if isinstance(text, str):
+        masked["text"] = mask_leaving(store, owner, text)
+    payload = masked.get("payload")
+    if isinstance(payload, dict):
+        body = dict(payload)
+        inner = body.get("text")
+        if isinstance(inner, str):
+            body["text"] = mask_leaving(store, owner, inner)
+        masked["payload"] = body
+    return masked
 
 
 def _arguments(

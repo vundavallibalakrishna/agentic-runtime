@@ -89,22 +89,37 @@ def test_integrations_hide_other_tenants_and_keep_secrets() -> None:
     )
     assert patched.status_code == 200
     assert patched.json()["status"] == "disabled"
+    approval = uuid.uuid4()
+    client.app.state.chat.approvals[approval] = {
+        "id": approval,
+        "tenant_id": demo_id("tenant"),
+        "status": "pending",
+        "args_hash": "abc",
+        "requested_for_user_id": demo_id("admin"),
+        "approver_rule": {"mode": "requester"},
+        "required_approvals": 1,
+        "four_eyes": False,
+        "step_up_required": False,
+        "qualified_name": "files.write",
+        "risk_class": "W2",
+    }
+    decided = client.post(
+        "/internal/v1/channels/approval-decisions",
+        json={
+            "approvalId": str(approval),
+            "decision": "reject",
+            "argsHash": "abc",
+            "integrationId": slack_id,
+            "externalUserId": "U-ADMIN",
+            "kind": "slack",
+        },
+    )
+    assert decided.status_code == 200
+    assert decided.json()["result"] == "rejected"
     removed = client.delete(f"/api/v1/me/channel-identities/{identity_id}")
     assert removed.status_code == 204
     gone = client.delete(f"/api/v1/channel-integrations/{created.json()['id']}")
     assert gone.status_code == 204
-    approval = uuid.uuid4()
-    client.app.state.chat.approvals[approval] = {
-        "id": approval,
-        "status": "pending",
-        "args_hash": "abc",
-    }
-    decided = client.post(
-        "/internal/v1/channels/approval-decisions",
-        json={"approvalId": str(approval), "decision": "reject", "argsHash": "abc"},
-    )
-    assert decided.status_code == 200
-    assert decided.json()["result"] == "rejected"
     frame_missing = client.get(f"/api/v1/widget/integrations/{uuid.uuid4()}")
     assert frame_missing.status_code == 404
 

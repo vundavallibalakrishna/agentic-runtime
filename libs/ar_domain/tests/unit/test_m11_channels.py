@@ -157,14 +157,29 @@ def test_inbound_known_user_unknown_user_and_approval() -> None:
     )
     assert busy["detail"] == "Still working on the previous request"
     approval_id = uuid.uuid4()
-    store.approvals[approval_id] = {"id": approval_id, "status": "pending", "args_hash": "abc"}
-    mismatch = decide_approval(
-        store, {"approval_id": approval_id, "decision": "approve", "args_hash": "nope"}
-    )
+    store.approvals[approval_id] = {
+        "id": approval_id,
+        "tenant_id": demo_id("tenant"),
+        "status": "pending",
+        "args_hash": "abc",
+        "requested_for_user_id": demo_id("admin"),
+        "approver_rule": {"mode": "requester"},
+        "required_approvals": 1,
+        "four_eyes": False,
+        "step_up_required": False,
+        "qualified_name": "files.write",
+        "risk_class": "W2",
+    }
+    click = {
+        "approval_id": approval_id,
+        "decision": "approve",
+        "integration_id": integration,
+        "external_user_id": "U-ADMIN",
+        "kind": "slack",
+    }
+    mismatch = decide_approval(store, {**click, "args_hash": "nope"})
     assert mismatch["result"] == "args_mismatch"
-    decided = decide_approval(
-        store, {"approval_id": approval_id, "decision": "approve", "args_hash": "abc"}
-    )
+    decided = decide_approval(store, {**click, "args_hash": "abc"})
     assert decided["result"] == "approved"
 
 

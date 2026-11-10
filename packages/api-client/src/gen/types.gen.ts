@@ -221,9 +221,17 @@ export type ApprovalBody = {
      */
     externalUserId?: string;
     /**
+     * Externaluseremail
+     */
+    externalUserEmail?: string;
+    /**
      * Integrationid
      */
     integrationId?: string | null;
+    /**
+     * Kind
+     */
+    kind?: string;
 };
 
 /**

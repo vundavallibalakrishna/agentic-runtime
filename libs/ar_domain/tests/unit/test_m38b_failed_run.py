@@ -93,7 +93,9 @@ def test_a_failed_reply_is_not_part_of_the_next_turns_history() -> None:
     version = store.versions[store.agents[conversation["agent_id"]]["published_version_id"]]
     prepare_prompt(store, second, conversation, version["definition"], "Second question")
     history = [item["content"] for item in second["prompt_messages"]]
-    assert "First question" in history
+    joined = "\n".join(history)
+    assert "First question" in joined
+    assert "untrusted_content" in joined
     assert not any("did not answer" in item for item in history)
 
 

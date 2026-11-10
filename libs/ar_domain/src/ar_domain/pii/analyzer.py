@@ -137,6 +137,27 @@ _WORKSPACE_PATH = re.compile(
 )
 
 
+def strict_outbound_masking(masking: Masking | None = None) -> Masking:
+    """The mask for text that leaves the tenant.
+
+    The tenant may add kinds and may lower the score bar. It may not drop a
+    default kind or raise the bar above the product default: both would let
+    personal data out.
+    """
+    chosen = masking or Masking()
+    return Masking(
+        entities=chosen.entities | frozenset(DEFAULT_ENTITIES),
+        min_score=min(float(chosen.min_score), DEFAULT_MIN_SCORE),
+    )
+
+
+def mask_outbound(text: str, *, masking: Masking | None = None) -> str:
+    """Replace personal data in text that is about to leave the tenant."""
+    if not text:
+        return text
+    return redact(text, enabled=True, profile="outbound", masking=strict_outbound_masking(masking))
+
+
 def redact(
     text: str,
     *,

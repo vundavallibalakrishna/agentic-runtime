@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import orjson
 
-from ar_common.wrapping import wrap_documents, wrap_untrusted
+from ar_common.wrapping import wrap_documents, wrap_tool_result, wrap_untrusted
 from ar_domain.prompts.budget import estimate_tokens, prompt_hash, read_prompt, truncate_history
 from ar_domain.tools.structured import output_schema
 
@@ -43,8 +43,11 @@ def build_prompt(run: dict[str, object]) -> PromptBundle:
         _knowledge(run.get("documents")),
     ]
     system = "\n\n".join(block for block in blocks if block)
-    history = _history(run.get("history"))
+    channel = str(run.get("channel") or "")
+    history = _history(run.get("history"), channel=channel)
     current = str(run.get("user_text") or "")
+    if current and _channel_turn(channel):
+        current = wrap_untrusted(source=f"channel:{channel}", content=current)
     files = run.get("files")
     if isinstance(files, str) and files:
         current = with_attachments(current, files)
@@ -118,13 +121,42 @@ def _knowledge(documents: object) -> str:
     return wrap_documents(rows)
 
 
-def _history(value: object) -> list[dict[str, str]]:
+def _channel_turn(channel: str) -> bool:
+    """A turn that arrived from another system, not from the web composer."""
+    return channel in {"slack", "teams", "email", "widget"}
+
+
+def _history(value: object, *, channel: str) -> list[dict[str, str]]:
+    """Prior turns enter the prompt as data.
+
+    A tool result is a ``tool_result``. A user turn and an assistant turn are
+    ``untrusted_content``: the assistant may repeat a tool result, and a channel
+    thread may contain someone else's words. The current web message is added
+    separately and is the instruction for this turn.
+    """
     if not isinstance(value, list):
         return []
-    return [
-        {"role": item["role"], "content": item["content"]}
-        for item in value
-        if isinstance(item, dict)
-        and isinstance(item.get("role"), str)
-        and isinstance(item.get("content"), str)
-    ]
+    kept: list[dict[str, str]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if not isinstance(role, str) or not isinstance(content, str):
+            continue
+        if role not in {"user", "assistant", "tool"}:
+            role = "user"
+        kept.append({"role": role, "content": _wrap_history(role, content, channel, item)})
+    return kept
+
+
+def _wrap_history(role: str, content: str, channel: str, item: dict[str, object]) -> str:
+    if role == "tool":
+        if content.startswith("<tool_result "):
+            return content
+        call_id = str(item.get("id") or "history")
+        return wrap_tool_result(tool="history", call_id=call_id, content=content)
+    source = f"channel:{channel}" if _channel_turn(channel) else "user:turn"
+    if role == "assistant":
+        source = "assistant:turn"
+    return wrap_untrusted(source=source, content=content)

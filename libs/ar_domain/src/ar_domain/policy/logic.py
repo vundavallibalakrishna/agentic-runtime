@@ -13,7 +13,21 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from datetime import datetime
 
-_R0_BUILTINS = ("knowledge.", "memory.search", "files.list", "files.read", "plan.update")
+# Exact names the fallback may allow when OPA does not answer. A prefix is not
+# enough: ``knowledge.`` would also allow a later write, and ``files.list`` would
+# allow ``files.list_all``. ``plan.update`` is the one self-scoped write spec 08 §13
+# names; it is listed here, not matched by a prefix. Spec 09 §3.3.
+READ_ONLY_FALLBACK_TOOLS = frozenset(
+    {
+        "knowledge.search",
+        "knowledge.get_document",
+        "knowledge.list_collections",
+        "memory.search",
+        "files.list",
+        "files.read",
+        "plan.update",
+    }
+)
 _EFFECTS = {"allow": "allow", "deny": "deny", "require_approval": "require_approval"}
 _WEEKDAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
 _OPS = frozenset(
@@ -106,10 +120,11 @@ def evaluate(
 def fallback(
     policy_input: Mapping[str, object], rules: list[dict[str, object]]
 ) -> dict[str, object]:
-    """OPA is unreachable. Allow listed R0 built-ins; honour deny rules; otherwise deny."""
-    name = _qualified(policy_input)
-    if any(name == item or name.startswith(item) for item in _R0_BUILTINS):
-        return _result("allow", ["fallback_builtin"], [], None)
+    """OPA is unreachable. Deny rules win, then the explicit read-only list, else deny.
+
+    A tool is allowed only when its qualified name is in ``READ_ONLY_FALLBACK_TOOLS``.
+    A name that merely starts with one of those names is denied.
+    """
     denies = [
         rule for rule in rules if rule.get("effect") == "deny" and rule_matches(rule, policy_input)
     ]
@@ -120,6 +135,8 @@ def fallback(
             [str(rule.get("id")) for rule in denies],
             None,
         )
+    if _qualified(policy_input) in READ_ONLY_FALLBACK_TOOLS:
+        return _result("allow", ["fallback_builtin"], [], None)
     return _result("deny", ["policy_unavailable"], [], None)
 
 

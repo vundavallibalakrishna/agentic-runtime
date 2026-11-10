@@ -20,7 +20,11 @@ def remember(
     detail: dict[str, object],
     outcome: str = "success",
 ) -> None:
-    """Record one state change. ``GET /api/v1/audit-events`` merges this log."""
+    """Record one state change on the process store.
+
+    ``GET /api/v1/audit-events`` does not read this list. The audit API serves
+    the hash-chained Postgres log written by ``audit.service.record``.
+    """
     row = {
         "id": len(store.audit_log) + 1,
         "tenant_id": str(tenant_id),

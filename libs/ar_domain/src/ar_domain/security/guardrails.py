@@ -115,6 +115,15 @@ def pii_redaction_enabled(store: Any, tenant_id: uuid.UUID | None) -> bool:
     return _flag(_settings_for(store, tenant_id), "pii_redaction", default=True)
 
 
+def mask_leaving(store: Any, tenant_id: uuid.UUID | None, text: str) -> str:
+    """Mask a payload that leaves the tenant. The feature flag cannot turn this off."""
+    from ar_domain.pii.analyzer import mask_outbound  # noqa: PLC0415
+
+    if not text:
+        return text
+    return mask_outbound(text, masking=masking_for(store, tenant_id))
+
+
 def masking_for(store: Any, tenant_id: uuid.UUID | None) -> Masking:
     """What this tenant masks in a tool result (``privacy`` in its settings, OQ-97)."""
     from ar_domain.identity.tenant_settings import section  # noqa: PLC0415

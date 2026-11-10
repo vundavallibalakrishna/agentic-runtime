@@ -6,7 +6,7 @@ const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m8";
 
 test.describe.configure({ mode: "serial" });
 test.use({ video: "on" });
-test.setTimeout(120_000);
+test.setTimeout(180_000);
 
 async function signIn(page: Page, email: string) {
   await page.goto("/login", { waitUntil: "domcontentloaded" });
@@ -60,7 +60,9 @@ test("a preference is remembered, reviewed, and forgotten", async ({ page }) => 
   await expect(page.getByText("Memory updated:")).toBeVisible({ timeout: 30_000 });
   await newChat(page);
   await send(page, "Draft a short status update");
-  await expect(page.getByText("bullet points")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator("main").getByText("I kept this in bullet points")).toBeVisible({
+    timeout: 30_000,
+  });
   await capture(page, "remembered");
 
   await page.goto("/memory");

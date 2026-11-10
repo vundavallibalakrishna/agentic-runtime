@@ -154,8 +154,10 @@ def test_policy_lifecycle_simulation_and_bundle() -> None:
     assert cached.status_code == 304
     audit = client.get("/api/v1/audit-events")
     assert audit.status_code == 200
-    actions = {item["action"] for item in audit.json()["items"]}
-    assert "policy.created" in actions
+    # The API serves the hash chain. The process log is not merged into it.
+    assert "policy.created" not in {item["action"] for item in audit.json()["items"]}
+    logged = {item["action"] for item in client.app.state.chat.audit_log}
+    assert "policy.created" in logged
 
 
 def test_pet_waits_for_approval_then_runs_once() -> None:

@@ -24,14 +24,18 @@ class ApprovalBody:
         decision (str):
         args_hash (str | Unset):  Default: ''.
         external_user_id (str | Unset):  Default: ''.
+        external_user_email (str | Unset):  Default: ''.
         integration_id (None | Unset | UUID):
+        kind (str | Unset):  Default: ''.
     """
 
     approval_id: UUID
     decision: str
     args_hash: str | Unset = ""
     external_user_id: str | Unset = ""
+    external_user_email: str | Unset = ""
     integration_id: None | Unset | UUID = UNSET
+    kind: str | Unset = ""
 
     def to_dict(self) -> dict[str, Any]:
         approval_id = str(self.approval_id)
@@ -42,6 +46,8 @@ class ApprovalBody:
 
         external_user_id = self.external_user_id
 
+        external_user_email = self.external_user_email
+
         integration_id: None | str | Unset
         if isinstance(self.integration_id, Unset):
             integration_id = UNSET
@@ -49,6 +55,8 @@ class ApprovalBody:
             integration_id = str(self.integration_id)
         else:
             integration_id = self.integration_id
+
+        kind = self.kind
 
         field_dict: dict[str, Any] = {}
 
@@ -62,8 +70,12 @@ class ApprovalBody:
             field_dict["argsHash"] = args_hash
         if external_user_id is not UNSET:
             field_dict["externalUserId"] = external_user_id
+        if external_user_email is not UNSET:
+            field_dict["externalUserEmail"] = external_user_email
         if integration_id is not UNSET:
             field_dict["integrationId"] = integration_id
+        if kind is not UNSET:
+            field_dict["kind"] = kind
 
         return field_dict
 
@@ -77,6 +89,8 @@ class ApprovalBody:
         args_hash = d.pop("argsHash", UNSET)
 
         external_user_id = d.pop("externalUserId", UNSET)
+
+        external_user_email = d.pop("externalUserEmail", UNSET)
 
         def _parse_integration_id(data: object) -> None | Unset | UUID:
             if data is None:
@@ -95,12 +109,16 @@ class ApprovalBody:
 
         integration_id = _parse_integration_id(d.pop("integrationId", UNSET))
 
+        kind = d.pop("kind", UNSET)
+
         approval_body = cls(
             approval_id=approval_id,
             decision=decision,
             args_hash=args_hash,
             external_user_id=external_user_id,
+            external_user_email=external_user_email,
             integration_id=integration_id,
+            kind=kind,
         )
 
         return approval_body

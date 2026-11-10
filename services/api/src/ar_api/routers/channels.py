@@ -75,7 +75,9 @@ class ApprovalBody(ApiModel):
     decision: str
     args_hash: str = ""
     external_user_id: str = ""
+    external_user_email: str = ""
     integration_id: uuid.UUID | None = None
+    kind: str = ""
 
 
 def _book(request: Request) -> ChannelBook:
