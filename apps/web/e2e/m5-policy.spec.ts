@@ -55,12 +55,13 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
 
   await page.goto("/approvals");
   await expect(page.getByRole("heading", { name: "Approvals" })).toBeVisible();
-  await expect(page.getByText("petstore.create_pet").first()).toBeVisible();
+  const pet = page.locator("li").filter({ hasText: "petstore.create_pet" }).first();
+  await expect(pet).toBeVisible();
   const inbox = await new AxeBuilder({ page }).analyze();
   expect(inbox.violations).toEqual([]);
   await capture(page, "inbox");
-  await page.getByRole("button", { name: "Approve" }).first().click();
-  await expect(page.getByText("Nothing is waiting for you.")).toBeVisible({ timeout: 20_000 });
+  await pet.getByRole("button", { name: "Approve" }).click();
+  await expect(pet).toBeHidden({ timeout: 20_000 });
 
   await page.goto(`/chat?conversation=${conversation}`);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible({ timeout: 20_000 });

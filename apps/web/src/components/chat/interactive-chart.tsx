@@ -47,7 +47,7 @@ function seriesOf(presentation: Record<string, unknown>): {
   return { categories, series };
 }
 
-export function chartData(presentation: Record<string, unknown>): {
+function chartData(presentation: Record<string, unknown>): {
   data: Record<string, string | number>[];
   keys: string[];
 } {
