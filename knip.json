@@ -3,6 +3,7 @@
   "ignore": [
     "scripts/m31_ui.cjs",
     "scripts/fresh_run/**",
+    "tests/load/k6/soak.js",
     "docs/testing/**/*.cjs",
     "packs/examples/**"
   ],
