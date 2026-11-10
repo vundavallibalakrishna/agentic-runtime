@@ -202,17 +202,23 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         if outcome.get("stop"):
             return "final"
     else:
-        outcome = await run_sync(
-            _act,
-            store,
-            run,
-            assistant,
-            call,
-            by_name,
-            used,
-            retry=_int(state.get("consecutive_errors")) > 0,
-            limit_s=_time_left(limits, started),
-        )
+        from ar_domain.tools.agent_loop import _invalid_args, _schema_outcome  # noqa: PLC0415
+
+        invalid = _invalid_args(by_name.get(name), call)
+        if invalid:
+            outcome = _schema_outcome(call, name, invalid, used)
+        else:
+            outcome = await run_sync(
+                _act,
+                store,
+                run,
+                assistant,
+                call,
+                by_name,
+                used,
+                retry=_int(state.get("consecutive_errors")) > 0,
+                limit_s=_time_left(limits, started),
+            )
     if outcome is None:
         run["step_kind"] = "paused"
         return "paused"
@@ -248,7 +254,10 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
             _add_found_tools(outcome.get("structured"), by_name, openai_tools, offered)
     state["elapsed_s"] = time.monotonic() - started
     state["pending_index"] = index + 1
-    if _int(state.get("consecutive_errors")) >= 8:
+    from ar_domain.loop.repair import tool_failure_limit  # noqa: PLC0415
+    from ar_domain.tools.agent_loop import _definition  # noqa: PLC0415
+
+    if _int(state.get("consecutive_errors")) >= tool_failure_limit(_definition(store, run)):
         _stop_error(store, run, assistant, "The tool kept failing, so this run stopped.")
         return "final"
     if index + 1 < len(pending):

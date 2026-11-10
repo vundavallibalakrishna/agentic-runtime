@@ -77,4 +77,21 @@ describe("reduceStream", () => {
     expect(state.compacted).toBe(true);
     expect(state.status).toBe("streaming");
   });
+
+  it("keeps a tool-failure notice and research progress", () => {
+    let state = reduceStream(emptyStream, {
+      type: "research.progress",
+      seq: 1,
+      data: { phase: "fanout", sourceCount: 2, queries: [{ id: "1", text: "notes" }] },
+    });
+    state = reduceStream(state, {
+      type: "warning",
+      seq: 2,
+      data: { code: "tool_failed", message: "A tool call failed and was not recovered." },
+    });
+    expect(state.researchPhase).toBe("fanout");
+    expect(state.researchQueries).toEqual([{ id: "1", text: "notes" }]);
+    expect(state.sourceCount).toBe(2);
+    expect(state.toolFailure).toContain("failed");
+  });
 });

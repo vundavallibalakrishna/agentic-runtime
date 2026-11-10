@@ -153,7 +153,12 @@
     "privateNote": "Conversations are private unless you share them.",
     "defaultAgent": "Assistant",
     "historyToggle": "Show conversations",
-    "hideHistory": "Hide conversations"
+    "hideHistory": "Hide conversations",
+    "research": "Research",
+    "researchOn": "Research mode is on. The reply will cite sources.",
+    "researchPhase": "Research",
+    "sources": "Sources",
+    "toolFailure": "A tool call failed and was not recovered."
   },
   "memory": {
     "title": "Memory",

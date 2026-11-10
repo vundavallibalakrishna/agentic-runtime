@@ -6,6 +6,127 @@
     "description": "Call a published agent with an agent API key. Create a conversation, send a message, stream the reply, attach a file, and read that run's trace. The same key authenticates the MCP server and A2A tasks. Send Idempotency-Key on a message so a retry returns the original run."
   },
   "paths": {
+    "/v1/research/runs": {
+      "post": {
+        "summary": "Start External Research",
+        "description": "Start research with an agent API key. The same run streams on the session API.",
+        "operationId": "start_external_research_v1_research_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Start External Research V1 Research Runs Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/research/runs/{run_id}": {
+      "get": {
+        "summary": "Get External Research",
+        "operationId": "get_external_research_v1_research_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get External Research V1 Research Runs  Run Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/research/runs/{run_id}/events": {
+      "get": {
+        "summary": "Stream External Research",
+        "operationId": "stream_external_research_v1_research_runs__run_id__events_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/openapi.json": {
       "get": {
         "summary": "Openapi Document",
@@ -3772,6 +3893,11 @@
             },
             "type": "array",
             "title": "Attachmentids"
+          },
+          "researchMode": {
+            "type": "boolean",
+            "title": "Researchmode",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -4566,6 +4692,58 @@
         "type": "object",
         "title": "ReindexBody"
       },
+      "ResearchBody": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "conversationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversationid"
+          },
+          "maxDepth": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Maxdepth",
+            "default": 2
+          },
+          "maxBreadth": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Maxbreadth",
+            "default": 4
+          },
+          "maxWallClockS": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Maxwallclocks",
+            "default": 120
+          },
+          "maxCostMicros": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Maxcostmicros",
+            "default": 1000000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "ResearchBody"
+      },
       "ReviewDecideBody": {
         "properties": {
           "decision": {
@@ -4727,6 +4905,49 @@
           "secret"
         ],
         "title": "RotateBody"
+      },
+      "RouteBody": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "baseUrl": {
+            "type": "string",
+            "title": "Baseurl"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "secretName": {
+            "type": "string",
+            "title": "Secretname",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "baseUrl",
+          "model"
+        ],
+        "title": "RouteBody"
+      },
+      "RoutesBody": {
+        "properties": {
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/RouteBody"
+            },
+            "type": "array",
+            "title": "Routes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RoutesBody"
       },
       "RoutineBody": {
         "properties": {

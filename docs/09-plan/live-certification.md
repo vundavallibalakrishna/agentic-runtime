@@ -52,5 +52,8 @@ The scorecard is `var/live-certification/scorecard.json`. Playwright screenshots
 5. Send a chat turn that calls a tool through mcp-gateway.
 6. Approve a four-eyes request as the second user.
 7. Read the audit chain and run `scripts/verify_audit_chain.py`.
+8. Start a research run and read it back. The report cites stored pages. Each source has `sha256` and `fetchedAt`. This step uses the fixture provider unless a search secret is configured. It does not invent a search-provider result.
+9. Run `scripts/eval_run.py --live` against `AR_LLM_BASE_URL`. The scorecard records the model id, the date and the summary. A missing key leaves this step pending and the label stays off `live`.
+10. Send a chat turn with `researchMode` false and confirm the run trace can include `endpointId` when model routes are configured. No API key is written into the scorecard.
 
 A step that does not succeed keeps the scorecard off `live`.

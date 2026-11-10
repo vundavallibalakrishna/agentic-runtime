@@ -54,6 +54,7 @@ from ar_api.routers.platform_tenants import router as platform_router
 from ar_api.routers.platform_usage import router as platform_usage_router
 from ar_api.routers.policies import router as policies_router
 from ar_api.routers.quotas import router as quotas_router
+from ar_api.routers.research import router as research_router
 from ar_api.routers.reviews import router as reviews_router
 from ar_api.routers.roles import router as roles_router
 from ar_api.routers.routines import router as routines_router
@@ -333,6 +334,7 @@ def create_application() -> FastAPI:
             packs_router,
             builder_router,
             m2_router,
+            research_router,
             tool_servers_router,
             tools_router,
             providers_router,

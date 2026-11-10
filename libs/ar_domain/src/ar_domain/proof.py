@@ -73,6 +73,44 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "no",
         "The dry-run gym is unit. Lexical overlap is not_judged and is not a verdict.",
     ),
+    (
+        "planning",
+        UNIT,
+        "no",
+        "An optional plan step runs in process. No stored report names a model id and a date.",
+    ),
+    (
+        "repair",
+        UNIT,
+        "no",
+        "Schema and parse retries run in process. The tool-failure notice is a structured field.",
+    ),
+    (
+        "model-routing",
+        UNIT,
+        "no",
+        "Fallback and the circuit breaker run in process. Valkey holds circuit state outside dev.",
+    ),
+    (
+        "context",
+        UNIT,
+        "no",
+        "Summaries and truncated tool output are computed in process.",
+    ),
+    (
+        "eval-harness",
+        CONTRACT,
+        "no",
+        "scripts/eval_run.py scores a stubbed model over HTTP. The report has no model id. "
+        "A live label is written only when AR_LLM_API_KEY is set.",
+    ),
+    (
+        "research",
+        UNIT,
+        "no",
+        "Search, fetch, citation checks and the Temporal workflow run in process with a "
+        "fixture provider. No stored live report.",
+    ),
 )
 
 

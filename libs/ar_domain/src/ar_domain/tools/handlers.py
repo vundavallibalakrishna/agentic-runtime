@@ -99,6 +99,14 @@ def dispatch(  # noqa: PLR0911, PLR0912
         from ar_domain.connectors.dispatch import dispatch_connector  # noqa: PLC0415
 
         return dispatch_connector(store, name, arguments)
+    if endpoint == "builtin://research":
+        from ar_domain.research.handlers import dispatch_research  # noqa: PLC0415
+
+        return dispatch_research(store, name, arguments)
+    if endpoint == "builtin://context":
+        from ar_domain.research.handlers import dispatch_context  # noqa: PLC0415
+
+        return dispatch_context(store, name, arguments)
     return {
         "text": "upstream server is not reachable",
         "structured": {},

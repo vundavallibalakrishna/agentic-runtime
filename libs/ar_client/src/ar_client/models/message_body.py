@@ -22,10 +22,12 @@ class MessageBody:
     Attributes:
         text (str):
         attachment_ids (list[UUID] | Unset):
+        research_mode (bool | Unset):  Default: False.
     """
 
     text: str
     attachment_ids: list[UUID] | Unset = UNSET
+    research_mode: bool | Unset = False
 
     def to_dict(self) -> dict[str, Any]:
         text = self.text
@@ -37,6 +39,8 @@ class MessageBody:
                 attachment_ids_item = str(attachment_ids_item_data)
                 attachment_ids.append(attachment_ids_item)
 
+        research_mode = self.research_mode
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -46,6 +50,8 @@ class MessageBody:
         )
         if attachment_ids is not UNSET:
             field_dict["attachmentIds"] = attachment_ids
+        if research_mode is not UNSET:
+            field_dict["researchMode"] = research_mode
 
         return field_dict
 
@@ -63,9 +69,12 @@ class MessageBody:
 
                 attachment_ids.append(attachment_ids_item)
 
+        research_mode = d.pop("researchMode", UNSET)
+
         message_body = cls(
             text=text,
             attachment_ids=attachment_ids,
+            research_mode=research_mode,
         )
 
         return message_body

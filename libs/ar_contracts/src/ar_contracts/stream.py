@@ -388,6 +388,17 @@ class ContextCompacted(_Event):
     data: ContextCompactedData
 
 
+class ResearchProgressData(_Data):
+    phase: str
+    depth: int = 0
+    source_count: int = 0
+
+
+class ResearchProgress(_Event):
+    type: Literal["research.progress"]
+    data: ResearchProgressData
+
+
 class WarningData(_Data):
     code: str
     message: str
@@ -436,6 +447,7 @@ RunEvent = Annotated[
     | MemoryRecalled
     | MemorySaved
     | ContextCompacted
+    | ResearchProgress
     | WarningEvent
     | Heartbeat,
     Field(discriminator="type"),

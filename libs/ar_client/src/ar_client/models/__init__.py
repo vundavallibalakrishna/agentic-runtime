@@ -84,6 +84,9 @@ from .cancel_eval_run_api_v1_eval_runs_eval_run_id_cancel_post_response_cancel_e
 from .cancel_job_api_v1_knowledge_jobs_job_id_cancel_post_response_cancel_job_api_v1_knowledge_jobs_job_id_cancel_post import (
     CancelJobApiV1KnowledgeJobsJobIdCancelPostResponseCancelJobApiV1KnowledgeJobsJobIdCancelPost,
 )
+from .cancel_research_api_v1_research_runs_run_id_cancel_post_response_cancel_research_api_v1_research_runs_run_id_cancel_post import (
+    CancelResearchApiV1ResearchRunsRunIdCancelPostResponseCancelResearchApiV1ResearchRunsRunIdCancelPost,
+)
 from .cancel_run_api_v1_runs_run_id_cancel_post_response_cancel_run_api_v1_runs_run_id_cancel_post import (
     CancelRunApiV1RunsRunIdCancelPostResponseCancelRunApiV1RunsRunIdCancelPost,
 )
@@ -570,6 +573,9 @@ from .get_event_api_v1_audit_events_event_id_get_response_get_event_api_v1_audit
 from .get_exposure_api_v1_agents_agent_id_exposure_get_response_get_exposure_api_v1_agents_agent_id_exposure_get import (
     GetExposureApiV1AgentsAgentIdExposureGetResponseGetExposureApiV1AgentsAgentIdExposureGet,
 )
+from .get_external_research_v1_research_runs_run_id_get_response_get_external_research_v1_research_runs_run_id_get import (
+    GetExternalResearchV1ResearchRunsRunIdGetResponseGetExternalResearchV1ResearchRunsRunIdGet,
+)
 from .get_external_trace_v1_agents_slug_runs_run_id_get_response_get_external_trace_v1_agents_slug_runs_run_id_get import (
     GetExternalTraceV1AgentsSlugRunsRunIdGetResponseGetExternalTraceV1AgentsSlugRunsRunIdGet,
 )
@@ -599,6 +605,9 @@ from .get_policy_api_v1_policies_policy_id_get_response_get_policy_api_v1_polici
 )
 from .get_queue_api_v1_review_queues_queue_id_get_response_get_queue_api_v1_review_queues_queue_id_get import (
     GetQueueApiV1ReviewQueuesQueueIdGetResponseGetQueueApiV1ReviewQueuesQueueIdGet,
+)
+from .get_research_api_v1_research_runs_run_id_get_response_get_research_api_v1_research_runs_run_id_get import (
+    GetResearchApiV1ResearchRunsRunIdGetResponseGetResearchApiV1ResearchRunsRunIdGet,
 )
 from .get_routine_api_v1_routines_routine_id_get_response_get_routine_api_v1_routines_routine_id_get import (
     GetRoutineApiV1RoutinesRoutineIdGetResponseGetRoutineApiV1RoutinesRoutineIdGet,
@@ -831,6 +840,9 @@ from .list_members_api_v1_groups_group_id_members_get_response_list_members_api_
 )
 from .list_memory_api_v1_memory_get_response_list_memory_api_v1_memory_get import (
     ListMemoryApiV1MemoryGetResponseListMemoryApiV1MemoryGet,
+)
+from .list_model_routes_api_v1_model_routes_get_response_list_model_routes_api_v1_model_routes_get import (
+    ListModelRoutesApiV1ModelRoutesGetResponseListModelRoutesApiV1ModelRoutesGet,
 )
 from .list_models_api_v1_models_get_response_list_models_api_v1_models_get import (
     ListModelsApiV1ModelsGetResponseListModelsApiV1ModelsGet,
@@ -1164,6 +1176,9 @@ from .put_feedback_api_v1_messages_message_id_feedback_put_response_put_feedback
 from .put_member_api_v1_groups_group_id_members_user_id_put_response_put_member_api_v1_groups_group_id_members_user_id_put import (
     PutMemberApiV1GroupsGroupIdMembersUserIdPutResponsePutMemberApiV1GroupsGroupIdMembersUserIdPut,
 )
+from .put_model_routes_api_v1_model_routes_put_response_put_model_routes_api_v1_model_routes_put import (
+    PutModelRoutesApiV1ModelRoutesPutResponsePutModelRoutesApiV1ModelRoutesPut,
+)
 from .put_user_scim_v2_users_user_id_put_body import PutUserScimV2UsersUserIdPutBody
 from .put_user_scim_v2_users_user_id_put_response_put_user_scim_v2_users_user_id_put import (
     PutUserScimV2UsersUserIdPutResponsePutUserScimV2UsersUserIdPut,
@@ -1176,6 +1191,9 @@ from .quota_body import QuotaBody
 from .quota_patch import QuotaPatch
 from .read_all_api_v1_notifications_read_all_post_response_read_all_api_v1_notifications_read_all_post import (
     ReadAllApiV1NotificationsReadAllPostResponseReadAllApiV1NotificationsReadAllPost,
+)
+from .read_retained_output_api_v1_runs_run_id_outputs_output_id_get_response_read_retained_output_api_v1_runs_run_id_outputs_output_id_get import (
+    ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponseReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGet,
 )
 from .read_session_api_v1_builder_sessions_session_id_get_response_read_session_api_v1_builder_sessions_session_id_get import (
     ReadSessionApiV1BuilderSessionsSessionIdGetResponseReadSessionApiV1BuilderSessionsSessionIdGet,
@@ -1216,11 +1234,15 @@ from .remove_member_api_v1_teams_team_id_members_user_id_delete_response_remove_
 from .republish_dependants_api_v1_skills_skill_id_republish_dependants_post_response_republish_dependants_api_v1_skills_skill_id_republish_dependants_post import (
     RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponseRepublishDependantsApiV1SkillsSkillIdRepublishDependantsPost,
 )
+from .research_body import ResearchBody
 from .resource_types_scim_v2_resource_types_get_response_resource_types_scim_v2_resourcetypes_get import (
     ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet,
 )
 from .resume_api_v1_platform_tenants_tenant_id_resume_post_response_resume_api_v1_platform_tenants_tenant_id_resume_post import (
     ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost,
+)
+from .resume_research_api_v1_research_runs_run_id_resume_post_response_resume_research_api_v1_research_runs_run_id_resume_post import (
+    ResumeResearchApiV1ResearchRunsRunIdResumePostResponseResumeResearchApiV1ResearchRunsRunIdResumePost,
 )
 from .resume_routine_api_v1_routines_routine_id_resume_post_response_resume_routine_api_v1_routines_routine_id_resume_post import (
     ResumeRoutineApiV1RoutinesRoutineIdResumePostResponseResumeRoutineApiV1RoutinesRoutineIdResumePost,
@@ -1273,6 +1295,8 @@ from .rotate_secret_api_v1_secrets_secret_id_rotate_post_response_rotate_secret_
 from .rotate_service_connection_api_v1_service_connections_connection_id_rotate_post_response_rotate_service_connection_api_v1_service_connections_connection_id_rotate_post import (
     RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponseRotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePost,
 )
+from .route_body import RouteBody
+from .routes_body import RoutesBody
 from .routine_body import RoutineBody
 from .routine_body_budget_type_0 import RoutineBodyBudgetType0
 from .routine_patch import RoutinePatch
@@ -1344,6 +1368,12 @@ from .standing_body import StandingBody
 from .standing_body_argument_constraints_item import StandingBodyArgumentConstraintsItem
 from .start_connection_api_v1_connections_provider_id_start_post_response_start_connection_api_v1_connections_provider_id_start_post import (
     StartConnectionApiV1ConnectionsProviderIdStartPostResponseStartConnectionApiV1ConnectionsProviderIdStartPost,
+)
+from .start_external_research_v1_research_runs_post_response_start_external_research_v1_research_runs_post import (
+    StartExternalResearchV1ResearchRunsPostResponseStartExternalResearchV1ResearchRunsPost,
+)
+from .start_research_api_v1_research_runs_post_response_start_research_api_v1_research_runs_post import (
+    StartResearchApiV1ResearchRunsPostResponseStartResearchApiV1ResearchRunsPost,
 )
 from .start_session_api_v1_builder_sessions_post_response_start_session_api_v1_builder_sessions_post import (
     StartSessionApiV1BuilderSessionsPostResponseStartSessionApiV1BuilderSessionsPost,
@@ -1555,6 +1585,7 @@ __all__ = (
     "CancelApprovalApiV1ApprovalsApprovalIdCancelPostResponseCancelApprovalApiV1ApprovalsApprovalIdCancelPost",
     "CancelEvalRunApiV1EvalRunsEvalRunIdCancelPostResponseCancelEvalRunApiV1EvalRunsEvalRunIdCancelPost",
     "CancelJobApiV1KnowledgeJobsJobIdCancelPostResponseCancelJobApiV1KnowledgeJobsJobIdCancelPost",
+    "CancelResearchApiV1ResearchRunsRunIdCancelPostResponseCancelResearchApiV1ResearchRunsRunIdCancelPost",
     "CancelRunApiV1RunsRunIdCancelPostResponseCancelRunApiV1RunsRunIdCancelPost",
     "CaseBody",
     "CaseBodyAssertionsItem",
@@ -1755,6 +1786,7 @@ __all__ = (
     "GetEvalSuiteApiV1EvalSuitesSuiteIdGetResponseGetEvalSuiteApiV1EvalSuitesSuiteIdGet",
     "GetEventApiV1AuditEventsEventIdGetResponseGetEventApiV1AuditEventsEventIdGet",
     "GetExposureApiV1AgentsAgentIdExposureGetResponseGetExposureApiV1AgentsAgentIdExposureGet",
+    "GetExternalResearchV1ResearchRunsRunIdGetResponseGetExternalResearchV1ResearchRunsRunIdGet",
     "GetExternalTraceV1AgentsSlugRunsRunIdGetResponseGetExternalTraceV1AgentsSlugRunsRunIdGet",
     "GetFileApiV1FilesFileIdGetResponseGetFileApiV1FilesFileIdGet",
     "GetInstallApiV1ConnectorInstallsInstallIdGetResponseGetInstallApiV1ConnectorInstallsInstallIdGet",
@@ -1765,6 +1797,7 @@ __all__ = (
     "GetPackApiV1ContentPacksPackIdGetResponseGetPackApiV1ContentPacksPackIdGet",
     "GetPolicyApiV1PoliciesPolicyIdGetResponseGetPolicyApiV1PoliciesPolicyIdGet",
     "GetQueueApiV1ReviewQueuesQueueIdGetResponseGetQueueApiV1ReviewQueuesQueueIdGet",
+    "GetResearchApiV1ResearchRunsRunIdGetResponseGetResearchApiV1ResearchRunsRunIdGet",
     "GetRoutineApiV1RoutinesRoutineIdGetResponseGetRoutineApiV1RoutinesRoutineIdGet",
     "GetRunApiV1RunsRunIdGetResponseGetRunApiV1RunsRunIdGet",
     "GetSandboxApiV1SandboxesSandboxIdGetResponseGetSandboxApiV1SandboxesSandboxIdGet",
@@ -1859,6 +1892,7 @@ __all__ = (
     "ListLibraryDocumentsApiV1LibraryDocumentsGetResponseListLibraryDocumentsApiV1LibraryDocumentsGet",
     "ListMembersApiV1GroupsGroupIdMembersGetResponseListMembersApiV1GroupsGroupIdMembersGet",
     "ListMemoryApiV1MemoryGetResponseListMemoryApiV1MemoryGet",
+    "ListModelRoutesApiV1ModelRoutesGetResponseListModelRoutesApiV1ModelRoutesGet",
     "ListModelsApiV1ModelsGetResponseListModelsApiV1ModelsGet",
     "ListNotificationsApiV1NotificationsGetResponseListNotificationsApiV1NotificationsGet",
     "ListPacksApiV1ContentPacksGetResponseListPacksApiV1ContentPacksGet",
@@ -1993,6 +2027,7 @@ __all__ = (
     "PublishSkillApiV1SkillsSkillIdPublishPostResponsePublishSkillApiV1SkillsSkillIdPublishPost",
     "PutFeedbackApiV1MessagesMessageIdFeedbackPutResponsePutFeedbackApiV1MessagesMessageIdFeedbackPut",
     "PutMemberApiV1GroupsGroupIdMembersUserIdPutResponsePutMemberApiV1GroupsGroupIdMembersUserIdPut",
+    "PutModelRoutesApiV1ModelRoutesPutResponsePutModelRoutesApiV1ModelRoutesPut",
     "PutUserScimV2UsersUserIdPutBody",
     "PutUserScimV2UsersUserIdPutResponsePutUserScimV2UsersUserIdPut",
     "QueueBody",
@@ -2002,6 +2037,7 @@ __all__ = (
     "QuotaBody",
     "QuotaPatch",
     "ReadAllApiV1NotificationsReadAllPostResponseReadAllApiV1NotificationsReadAllPost",
+    "ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponseReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGet",
     "ReadSessionApiV1BuilderSessionsSessionIdGetResponseReadSessionApiV1BuilderSessionsSessionIdGet",
     "ReasonBody",
     "RedactDocumentApiV1LibraryDocumentsDocumentIdRedactPostResponseRedactDocumentApiV1LibraryDocumentsDocumentIdRedactPost",
@@ -2017,8 +2053,10 @@ __all__ = (
     "RejectApiV1ToolServersServerIdVersionsVersionIdRejectPostResponseRejectApiV1ToolServersServerIdVersionsVersionIdRejectPost",
     "RemoveMemberApiV1TeamsTeamIdMembersUserIdDeleteResponseRemoveMemberApiV1TeamsTeamIdMembersUserIdDelete",
     "RepublishDependantsApiV1SkillsSkillIdRepublishDependantsPostResponseRepublishDependantsApiV1SkillsSkillIdRepublishDependantsPost",
+    "ResearchBody",
     "ResourceTypesScimV2ResourceTypesGetResponseResourceTypesScimV2ResourcetypesGet",
     "ResumeApiV1PlatformTenantsTenantIdResumePostResponseResumeApiV1PlatformTenantsTenantIdResumePost",
+    "ResumeResearchApiV1ResearchRunsRunIdResumePostResponseResumeResearchApiV1ResearchRunsRunIdResumePost",
     "ResumeRoutineApiV1RoutinesRoutineIdResumePostResponseResumeRoutineApiV1RoutinesRoutineIdResumePost",
     "ResumeSourceApiV1KnowledgeSourcesSourceIdResumePostResponseResumeSourceApiV1KnowledgeSourcesSourceIdResumePost",
     "ReviewDecideBody",
@@ -2040,6 +2078,8 @@ __all__ = (
     "RotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPostResponseRotateSecretApiV1RoutinesRoutineIdRotateWebhookSecretPost",
     "RotateSecretApiV1SecretsSecretIdRotatePostResponseRotateSecretApiV1SecretsSecretIdRotatePost",
     "RotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePostResponseRotateServiceConnectionApiV1ServiceConnectionsConnectionIdRotatePost",
+    "RouteBody",
+    "RoutesBody",
     "RoutineBody",
     "RoutineBodyBudgetType0",
     "RoutinePatch",
@@ -2086,6 +2126,8 @@ __all__ = (
     "StandingBody",
     "StandingBodyArgumentConstraintsItem",
     "StartConnectionApiV1ConnectionsProviderIdStartPostResponseStartConnectionApiV1ConnectionsProviderIdStartPost",
+    "StartExternalResearchV1ResearchRunsPostResponseStartExternalResearchV1ResearchRunsPost",
+    "StartResearchApiV1ResearchRunsPostResponseStartResearchApiV1ResearchRunsPost",
     "StartSessionApiV1BuilderSessionsPostResponseStartSessionApiV1BuilderSessionsPost",
     "StepUpApiV1AuthStepUpPostBodyType0",
     "StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost",

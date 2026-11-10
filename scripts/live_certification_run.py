@@ -5,6 +5,7 @@ from __future__ import annotations
 import mimetypes
 import os
 import subprocess
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -177,6 +178,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
         text=True,
     )
     steps.append({"step": "audit-chain", "ok": verify.returncode == 0})
+    steps.extend(_stage10(api, auth))
     ok = all(item.get("ok") is True for item in steps)
     return {
         "label": "live" if ok else "contract",
@@ -188,3 +190,65 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
         "screenshots": shots.get("dir", ""),
         "audit": audit if isinstance(audit, dict) else {},
     }
+
+
+def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
+    """Research, the live eval sample, and the model-route read. No key is stored."""
+    steps: list[dict[str, object]] = []
+    research_status, _headers, research = _json(
+        "POST",
+        f"{api}/api/v1/research/runs",
+        {"question": "What do the stored notes say about a kite?"},
+        auth,
+    )
+    research_ok = False
+    if research_status in {200, 202} and isinstance(research, dict):
+        run_raw = research.get("runId") or research.get("run_id")
+        if run_raw:
+            for _wait in range(15):
+                got, _headers, body = _json(
+                    "GET", f"{api}/api/v1/research/runs/{run_raw}", {}, auth
+                )
+                if (
+                    got == 200
+                    and isinstance(body, dict)
+                    and body.get("status")
+                    in {
+                        "completed",
+                        "budget_exceeded",
+                    }
+                ):
+                    sources = body.get("sources")
+                    research_ok = isinstance(sources, list) and all(
+                        isinstance(row, dict) and row.get("sha256") and row.get("fetchedAt")
+                        for row in sources
+                    )
+                    research = body
+                    break
+                time.sleep(1)
+    steps.append({"step": "research", "ok": research_ok, "body": research})
+    eval_run = subprocess.run(
+        ["uv", "run", "python", "scripts/eval_run.py", "--live"],  # noqa: S607
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    eval_ok = False
+    eval_body: object = {"stderr": eval_run.stderr[-400:]}
+    if eval_run.returncode == 0 and eval_run.stdout.strip():
+        try:
+            eval_body = orjson.loads(eval_run.stdout)
+        except orjson.JSONDecodeError:
+            eval_body = {"raw": eval_run.stdout[-400:]}
+        if isinstance(eval_body, dict):
+            eval_ok = eval_body.get("label") == "live" and bool(eval_body.get("modelId"))
+    steps.append({"step": "eval-live", "ok": eval_ok, "body": eval_body})
+    routes_status, _headers, routes = _json("GET", f"{api}/api/v1/model-routes", {}, auth)
+    steps.append(
+        {
+            "step": "model-routes",
+            "ok": routes_status == 200,
+            "body": routes if routes_status == 200 else {},
+        }
+    )
+    return steps

@@ -66,7 +66,7 @@ PETSTORE: dict[str, object] = {
 }
 
 
-def seed(store: Any, *, tenant: bool = True) -> None:
+def seed(store: Any, *, tenant: bool = True) -> None:  # noqa: PLR0915
     """Insert the built-in tool catalogue, and the demo tenant's rows when ``tenant`` is set.
 
     The catalogue belongs to no tenant. The demo tenant's settings, sample review queue,
@@ -122,6 +122,8 @@ def seed(store: Any, *, tenant: bool = True) -> None:
         _memory_server(store)
         _skills_server(store)
         _connector_server(store)
+        _builtin(store, "research", "Research", "builtin://research", _research_tools())
+        _builtin(store, "context", "Context", "builtin://context", _context_tools())
         store.tools_seeded = True
     if demo:
         _analyst(store, tenant_id, admin)
@@ -2547,6 +2549,78 @@ def _history_tools() -> list[dict[str, object]]:
                 "required": ["query"],
             },
             "R1",
+        )
+    ]
+
+
+def _research_tools() -> list[dict[str, object]]:
+    return [
+        _tool(
+            "search",
+            "Search the web",
+            "Search the configured provider and return titles and URLs. "
+            "The provider and its key come from tenant settings, not from the call.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query, in plain language.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "The most results to return. Omit for the default.",
+                    },
+                },
+                "required": ["query"],
+            },
+            "R1",
+            {"openWorldHint": True, "readOnlyHint": True},
+        ),
+        _tool(
+            "fetch",
+            "Fetch a page",
+            "Fetch a page and return its readable text. Fixture pages stay local. "
+            "Other pages must be on the egress allow list.",
+            {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The http or https URL of the page to read.",
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "The question this page should help answer. Optional.",
+                    },
+                },
+                "required": ["url"],
+            },
+            "R1",
+            {"openWorldHint": True, "readOnlyHint": True},
+        ),
+    ]
+
+
+def _context_tools() -> list[dict[str, object]]:
+    return [
+        _tool(
+            "retrieve",
+            "Read a truncated tool result",
+            "Read the full text of a tool result that was shortened in the prompt. "
+            "Use the output id from the truncated message.",
+            {
+                "type": "object",
+                "properties": {
+                    "output_id": {
+                        "type": "string",
+                        "description": "The output id printed on the truncated tool result.",
+                    }
+                },
+                "required": ["output_id"],
+            },
+            "R0",
+            {"readOnlyHint": True},
         )
     ]
 

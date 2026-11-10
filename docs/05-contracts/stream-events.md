@@ -104,6 +104,7 @@ data: {"id":"0192f0c4-...:17","seq":17,"type":"tool_call.completed",...}
 | `memory.recalled` | `{factIds: uuid[], count}` | yes |
 | `memory.saved` | `{factId, content, scope}` | yes |
 | `context.compacted` | `{tokensBefore, tokensAfter}` | yes |
+| `research.progress` | `{phase, depth, sourceCount, queries}` | yes |
 
 ### Errors and heartbeats
 

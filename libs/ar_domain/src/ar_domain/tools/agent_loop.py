@@ -224,6 +224,11 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         planned = False
         failed_open = False
     provider_retries = 0
+    from ar_domain.loop.planning import planning_enabled  # noqa: PLC0415
+    from ar_domain.loop.repair import output_repair_limit, tool_failure_limit  # noqa: PLC0415
+
+    repair_cap = output_repair_limit(definition)
+    failure_cap = tool_failure_limit(definition)
     while True:
         if isinstance(saved_loop, dict) and saved_loop.get("phase") == "tools":
             kind = await consume_one_tool(
@@ -265,12 +270,40 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps - 1)
             _stop_budget(store, run, assistant, limit)
             return True
+        if planning_enabled(definition) and (not planned or run.get("needs_replan")):
+            planned = await _take_plan(
+                store, run, messages, alias, repairing=bool(run.get("needs_replan"))
+            )
+            run["needs_replan"] = False
+        messages = _fit_context(store, run, messages, limits)
         turn = await store.complete_turn(
             messages,
             openai_tools,
             tenant_id=uuid.UUID(str(run["tenant_id"])),
             model_alias=alias,
         )
+        if isinstance(turn, dict):
+            _note_endpoint(store, run, turn, steps)
+        if isinstance(turn, dict) and turn.get("parse_error"):
+            if repairs < repair_cap:
+                repairs += 1
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": _repair_text("parse", str(turn.get("parse_error"))),
+                    }
+                )
+                _audit(
+                    store,
+                    run,
+                    "run.retried",
+                    str(run.get("id")),
+                    {"reason": "parse"},
+                    outcome="failure",
+                )
+                continue
+            _stop_error(store, run, assistant, _terminal_text(), code="repair_exhausted")
+            return True
         if not isinstance(turn, dict) or _provider_error(turn):
             if provider_retries < 2:
                 provider_retries += 1
@@ -308,7 +341,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             answer = str(turn.get("text") or "").strip() or "The model returned an empty answer."
             if schema:
                 problem = validate_output(answer, schema)
-                if problem and repairs < 1:
+                if problem and repairs < repair_cap:
                     repairs += 1
                     messages.append({"role": "assistant", "content": answer})
                     messages.append(
@@ -403,19 +436,37 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     _finish(store, run, assistant, str(outcome.get("answer") or ""), previews)
                     return True
             else:
-                # The handler runs here, on the loop thread, and the loop goes on while
-                # it waits for a network call or a command (ar_common.offload).
-                outcome = await run_sync(
-                    _act,
-                    store,
-                    run,
-                    assistant,
-                    call,
-                    by_name,
-                    used_calls,
-                    retry=consecutive_errors > 0,
-                    limit_s=_time_left(limits, started),
-                )
+                invalid = _invalid_args(by_name.get(name), call)
+                if invalid:
+                    repairs += 1
+                    outcome = _schema_outcome(call, name, invalid, used_calls)
+                    _audit(
+                        store,
+                        run,
+                        "run.retried",
+                        str(call.get("id") or ""),
+                        {"reason": "schema"},
+                        outcome="failure",
+                    )
+                    if repairs > repair_cap:
+                        _stop_error(
+                            store, run, assistant, _terminal_text(), code="repair_exhausted"
+                        )
+                        return True
+                else:
+                    # The handler runs here, on the loop thread, and the loop goes on while
+                    # it waits for a network call or a command (ar_common.offload).
+                    outcome = await run_sync(
+                        _act,
+                        store,
+                        run,
+                        assistant,
+                        call,
+                        by_name,
+                        used_calls,
+                        retry=consecutive_errors > 0,
+                        limit_s=_time_left(limits, started),
+                    )
             if outcome is None:
                 return True
             failed = bool(outcome["failed"])
@@ -436,7 +487,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 batch_images.extend(produced)
             if deferred and str(call.get("name")) in _SEARCH_TOOL_NAMES:
                 _add_found_tools(outcome.get("structured"), by_name, openai_tools, offered)
-            if consecutive_errors >= 8:
+            if failed and planning_enabled(definition):
+                run["needs_replan"] = True
+                planned = False
+            if consecutive_errors >= failure_cap:
                 _stop_error(
                     store,
                     run,
@@ -705,6 +759,124 @@ def _over(  # noqa: PLR0917
     )
 
 
+def _repair_text(kind: str, detail: str) -> str:
+    from ar_domain.loop.repair import repair_prompt  # noqa: PLC0415
+
+    return repair_prompt(kind, detail)
+
+
+def _terminal_text() -> str:
+    from ar_domain.loop.repair import TERMINAL  # noqa: PLC0415
+
+    return TERMINAL
+
+
+def _fit_context(
+    store: Any, run: dict[str, object], messages: list[dict[str, object]], limits: dict[str, int]
+) -> list[dict[str, object]]:
+    from ar_domain.loop.context import context_book, fit_messages  # noqa: PLC0415
+
+    fitted, note = fit_messages(
+        messages, max_tokens=limits["max_tokens"], retained=context_book(run)
+    )
+    if note is not None:
+        run["compaction"] = note
+        store._emit(run, "context.compacted", note)
+    return fitted
+
+
+def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], step: int) -> None:
+    endpoint = turn.get("endpoint_id")
+    model = turn.get("answered_model")
+    if not isinstance(endpoint, str) or not endpoint:
+        return
+    trace = run.get("model_trace")
+    rows = list(trace) if isinstance(trace, list) else []
+    rows.append({"step": step, "endpoint_id": endpoint, "model": str(model or "")})
+    run["model_trace"] = rows
+    _audit(
+        store,
+        run,
+        "run.model_answered",
+        str(run.get("id")),
+        {"step": step, "endpoint_id": endpoint, "model": str(model or "")},
+    )
+
+
+def _invalid_args(bound: dict[str, object] | None, call: dict[str, object]) -> str | None:
+    if not isinstance(bound, dict):
+        return None
+    schema = bound.get("parameters")
+    if not isinstance(schema, dict):
+        schema = bound.get("input_schema")
+    if not isinstance(schema, dict):
+        return None
+    arguments = call.get("arguments")
+    payload = arguments if isinstance(arguments, dict) else {}
+    from ar_domain.tools.logic import schema_errors  # noqa: PLC0415
+
+    return schema_errors(schema, payload)
+
+
+def _schema_outcome(
+    call: dict[str, object], name: str, detail: str, attempt: int
+) -> dict[str, object]:
+    text = _repair_text("schema", detail)
+    return {
+        "failed": True,
+        "preview": {
+            "qualified_name": name,
+            "status": "failed",
+            "result_preview": text,
+            "attempt": attempt,
+            "error": {"code": "validation_failed", "message": detail},
+        },
+        "wrapped": wrap_tool_result(
+            tool=name or "tool", call_id=str(call.get("id") or ""), content=text
+        ),
+        "images": [],
+        "structured": {},
+    }
+
+
+async def _take_plan(
+    store: Any,
+    run: dict[str, object],
+    messages: list[dict[str, object]],
+    alias: str,
+    *,
+    repairing: bool,
+) -> bool:
+    from ar_domain.loop.planning import PLAN_INSTRUCTION, parse_plan, replan_instruction  # noqa: PLC0415
+
+    prompt = PLAN_INSTRUCTION
+    if repairing:
+        prompt = replan_instruction("a tool call failed")
+    turn = await store.complete_turn(
+        [*messages, {"role": "user", "content": prompt}],
+        [],
+        tenant_id=uuid.UUID(str(run["tenant_id"])),
+        model_alias=alias,
+    )
+    text = str(turn.get("text") or "") if isinstance(turn, dict) else ""
+    items, error = parse_plan(text)
+    if items is None:
+        items = [{"id": "1", "title": "Answer the request", "status": "in_progress"}]
+        error = error or "plan was not JSON"
+    conversation = store.conversations.get(run.get("conversation_id"))
+    if isinstance(conversation, dict):
+        conversation["plan"] = [item["title"] for item in items]
+    store._emit(run, "plan.updated", {"items": items})
+    _audit(
+        store,
+        run,
+        "run.planned",
+        str(run.get("id")),
+        {"count": len(items), "replan": repairing, "parse_error": error},
+    )
+    return True
+
+
 def _plan(store: Any, run: dict[str, object], calls: list[object]) -> None:
     items = []
     for index, call in enumerate(calls):
@@ -873,53 +1045,27 @@ def _act(  # noqa: PLR0917
     }
 
 
-# Words that show the answer already tells the person a tool did not do its job, so the
-# notice is not added on top. A refusal is phrased many ways ("blocked", "not permitted"),
-# so the list is broad; a structured marker the UI renders is the longer-term approach
-# (OQ-113).
-_ACKNOWLEDGES_FAILURE = (
-    "fail",
-    "error",
-    "could not",
-    "couldn't",
-    "cannot",
-    "can't",
-    "unable",
-    "was not able",
-    "wasn't able",
-    "not able",
-    "retry",
-    "try again",
-    "blocked",
-    "refused",
-    "denied",
-    "rejected",
-    "prevented",
-    "not permitted",
-    "not allowed",
-    "no access",
-    "unavailable",
-    "not available",
-    "did not work",
-    "didn't work",
-    "no result",
-    "nothing was returned",
-)
-
-
 def _checked(
     store: Any, run: dict[str, object], answer: str, *, failed_open: bool, tool_calls: int
 ) -> str:
-    hidden = failed_open and not any(word in answer.lower() for word in _ACKNOWLEDGES_FAILURE)
+    from ar_domain.loop.repair import acknowledges_failure, apply_tool_failure  # noqa: PLC0415
+
+    hidden = failed_open and not acknowledges_failure(answer)
     if hidden:
         answer = f"{answer}\n\nA tool call failed and was not recovered."
+    assistant = store.messages.get(run.get("assistant_message_id"))
+    notice = None
+    if isinstance(assistant, dict):
+        notice = apply_tool_failure(assistant, failed_open=failed_open)
+    if notice is not None:
+        store._emit(run, "warning", {"code": notice["code"], "message": notice["message"]})
     _audit(
         store,
         run,
         "run.checked",
         str(run.get("id")),
         {"tool_calls": tool_calls, "recovered": not failed_open},
-        outcome="failure" if hidden else "success",
+        outcome="failure" if failed_open else "success",
     )
     return answer
 
