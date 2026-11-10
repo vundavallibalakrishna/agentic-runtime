@@ -174,7 +174,6 @@ spec:
     barmanObjectStore:
       destinationPath: s3://ar-backup/pg
       endpointURL: http://minio.${namespace}.svc:9000
-      s3AddressingStyle: path
       s3Credentials:
         accessKeyId:
           name: minio-creds
@@ -184,8 +183,12 @@ spec:
           key: ACCESS_SECRET_KEY
       wal:
         compression: gzip
+        archiveAdditionalCommandArgs:
+          - "--addressing-style=path"
       data:
         compression: gzip
+        additionalCommandArgs:
+          - "--addressing-style=path"
 YAML
 
 for _ in $(seq 1 60); do
@@ -261,7 +264,6 @@ spec:
       barmanObjectStore:
         destinationPath: s3://ar-backup/pg
         endpointURL: http://minio.${namespace}.svc:9000
-        s3AddressingStyle: path
         s3Credentials:
           accessKeyId:
             name: minio-creds
@@ -271,6 +273,11 @@ spec:
             key: ACCESS_SECRET_KEY
         wal:
           compression: gzip
+          restoreAdditionalCommandArgs:
+            - "--addressing-style=path"
+        data:
+          restoreAdditionalCommandArgs:
+            - "--addressing-style=path"
   storage:
     size: 1Gi
 YAML

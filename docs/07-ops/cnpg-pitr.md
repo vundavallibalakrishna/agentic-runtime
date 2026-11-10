@@ -51,7 +51,7 @@ bash scripts/cnpg_pitr_kind.sh
 The script creates a kind cluster when kubectl has no current cluster. It then:
 
 1. Installs CloudNativePG 1.30.1.
-2. Builds MinIO from the official `RELEASE.2025-09-07T16-13-09Z` binary (Docker Hub no longer publishes `minio/minio`) and creates the `ar-backup` bucket. Requests use path-style addressing.
+2. Builds MinIO from the official `RELEASE.2025-09-07T16-13-09Z` binary (Docker Hub no longer publishes `minio/minio`) and creates the `ar-backup` bucket. Barman is told `--addressing-style path` through the 1.30 command-arg fields. The 1.30.1 CRD does not have `s3AddressingStyle`.
 3. Creates cluster `ar-src` with WAL archiving to that bucket.
 4. Inserts `before`, takes a base backup, records the clock, then inserts `after`.
 5. Restores cluster `ar-restored` to the recorded timestamp.
