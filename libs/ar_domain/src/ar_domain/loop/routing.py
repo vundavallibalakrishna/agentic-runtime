@@ -178,7 +178,7 @@ def breaker_for(store: Any) -> CircuitBreaker:
     return CircuitBreaker(memory)
 
 
-async def routed_completion(
+async def routed_completion(  # noqa: PLR0915
     store: Any,
     messages: list[dict[str, object]],
     tools: list[dict[str, object]],
@@ -193,9 +193,11 @@ async def routed_completion(
 
     breaker = breaker_for(store)
     last = "The model provider did not answer."
+    fell_back = False
     for route in routes:
         key = circuit_key(tenant_id, route["id"])
         if not breaker.allow(key):
+            fell_back = True
             continue
         headers = authorization_for(store, tenant_id, route)
         url = route["base_url"]
@@ -211,30 +213,36 @@ async def routed_completion(
         except httpx.HTTPError:
             breaker.failure(key)
             last = "The model provider did not answer."
+            fell_back = True
             continue
         if retryable_status(response.status_code):
             breaker.failure(key)
             last = "The model provider returned an error."
+            fell_back = True
             continue
         if response.status_code >= 300:
             breaker.failure(key)
             last = "The model provider returned an error."
+            fell_back = True
             continue
         try:
             payload = response.json()
         except ValueError:
             breaker.failure(key)
             last = "The model provider returned malformed JSON."
+            fell_back = True
             continue
         if _arguments_unparsed(payload):
             breaker.failure(key)
             last = "The model provider returned malformed JSON."
+            fell_back = True
             continue
         breaker.success(key)
         parsed = completion_message(payload)
         parsed["real"] = True
         parsed["endpoint_id"] = route["id"]
         parsed["answered_model"] = route["model"]
+        parsed["fallback"] = fell_back
         return parsed
     return {
         "text": last,

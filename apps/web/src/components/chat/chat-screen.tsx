@@ -22,8 +22,11 @@ import { AppShell } from "@/components/app-shell";
 import { type Attached, AttachmentList, attachedOf } from "@/components/chat/attachment-list";
 import { CitationList, citationsOf } from "@/components/chat/citations";
 import { FailedReply } from "@/components/chat/failed-reply";
+import { FeedbackButtons } from "@/components/chat/feedback-buttons";
 import { MarkdownView } from "@/components/chat/markdown-view";
 import { MemoryIndicator } from "@/components/chat/memory-indicator";
+import { MessageBody } from "@/components/chat/message-body";
+import { PlanChecklist, planItems } from "@/components/chat/plan-checklist";
 import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
@@ -36,7 +39,7 @@ import {
   streamHeaders,
   waitForResume,
 } from "@/lib/stream/reconnect";
-import { emptyStream, reduceStream, type StreamState } from "@/lib/stream/reducer";
+import { emptyStream, type PlanStep, reduceStream, type StreamState } from "@/lib/stream/reducer";
 import { cn } from "@/lib/utils";
 
 type Item = Record<string, unknown>;
@@ -52,17 +55,8 @@ type Session = {
   permissions?: string[];
 };
 
-function planTitles(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (typeof item === "string") return item;
-      if (item && typeof item === "object" && "title" in item) {
-        return String((item as { title?: string }).title ?? "");
-      }
-      return "";
-    })
-    .filter(Boolean);
+function planFrom(value: unknown): PlanStep[] {
+  return planItems(value);
 }
 
 function conversationBody(agentId: string, modelAlias: string): string {
@@ -97,7 +91,7 @@ export function ChatScreen() {
   const [aliases, setAliases] = useState<string[]>([]);
   const [agentId, setAgentId] = useState("");
   const [modelAlias, setModelAlias] = useState("");
-  const [plan, setPlan] = useState<string[]>([]);
+  const [plan, setPlan] = useState<PlanStep[]>([]);
   const draft = useComposer((state) => state.draft);
   const setDraft = useComposer((state) => state.setDraft);
   const [stream, setStream] = useState<StreamState>(emptyStream);
@@ -178,6 +172,7 @@ export function ChatScreen() {
               setActiveId(conversationId);
               setMessages(body.messages ?? []);
               setJobs(body.jobs ?? []);
+              setPlan(planFrom(body.plan));
               lateRunRef.current = "";
               setStream(emptyStream);
             }
@@ -286,7 +281,7 @@ export function ChatScreen() {
     if (request.signal.aborted) return;
     setMessages(body.messages ?? []);
     setJobs(body.jobs ?? []);
-    setPlan(planTitles(body.plan));
+    setPlan(planFrom(body.plan));
     if (typeof body.modelAlias === "string") setModelAlias(body.modelAlias);
     setStream(
       keep
@@ -362,12 +357,15 @@ export function ChatScreen() {
             seq: number;
             data?: {
               text?: string;
-              items?: { title?: string }[];
+              items?: { id?: string; title?: string; status?: string }[];
+              plan?: { id?: string; title?: string; status?: string }[] | string[];
               error?: { message?: string };
             };
           };
           if (payload.type === "plan.updated") {
-            setPlan(planTitles(payload.data?.items));
+            const items = payload.data?.items ?? payload.data?.plan;
+            const nextPlan = planFrom(items);
+            if (nextPlan.length) setPlan(nextPlan);
           }
           state = reduceStream(state, payload);
           setStream(state);
@@ -479,6 +477,7 @@ export function ChatScreen() {
             text,
             attachmentIds: attachments.map((file) => file.id),
             researchMode: researchOn,
+            suggestFollowups: true,
           }),
         },
       );
@@ -880,8 +879,17 @@ export function ChatScreen() {
                             reason={reason}
                             said={body === reason ? "" : body}
                           />
-                        ) : (
+                        ) : mine ? (
                           <MarkdownView text={body} />
+                        ) : (
+                          <MessageBody
+                            message={message}
+                            onFollowup={(prompt) => setDraft(prompt)}
+                            prompts={streamingHere ? stream.followups : undefined}
+                            reasoning={streamingHere ? stream.reasoning : undefined}
+                            reasoningMs={streamingHere ? stream.reasoningMs : undefined}
+                            text={body}
+                          />
                         )}
                         {mine && editing?.id !== id && !id.startsWith("local-") ? (
                           <button
@@ -922,6 +930,7 @@ export function ChatScreen() {
                                   resultPreview: tool.preview,
                                   arguments: tool.arguments,
                                   presentation: tool.presentation,
+                                  timeline: tool.timeline,
                                 }}
                                 key={`${id}-${tool.name}-${tool.status}-${tool.preview}`}
                                 label={t("toolCall")}
@@ -975,6 +984,21 @@ export function ChatScreen() {
                           messageId={id}
                         />
                         {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
+                        {!mine && (streamingHere ? stream.answeredModel : message.answeredModel) ? (
+                          <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                            {t("answeredBy", {
+                              model: String(
+                                streamingHere ? stream.answeredModel : message.answeredModel,
+                              ),
+                            })}
+                          </p>
+                        ) : null}
+                        {streamingHere &&
+                        stream.warnings.some((item) => item.code === "model_fallback_used") ? (
+                          <p className="mt-1 text-xs text-[var(--muted-foreground)]" role="status">
+                            {t("fallbackUsed")}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     <div className={`mt-1 flex gap-1 ${mine ? "justify-end" : ""}`}>
@@ -998,6 +1022,14 @@ export function ChatScreen() {
                         >
                           {t("regenerate")}
                         </Button>
+                      ) : null}
+                      {message.role === "assistant" && !failedHere ? (
+                        <FeedbackButtons
+                          initial={String(
+                            (message.feedback as { rating?: string } | undefined)?.rating ?? "",
+                          )}
+                          messageId={id}
+                        />
                       ) : null}
                     </div>
                   </article>
@@ -1045,6 +1077,13 @@ export function ChatScreen() {
           ) : null}
           <form
             className="shrink-0 px-4 pb-4 md:px-8 md:pb-6"
+            onDragOver={(event) => {
+              event.preventDefault();
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (event.dataTransfer.files?.length) void onUpload(event.dataTransfer.files);
+            }}
             onSubmit={(event) => {
               event.preventDefault();
               const text = draft.trim();
@@ -1071,6 +1110,7 @@ export function ChatScreen() {
                 <h2 className="font-medium">{t("sources")}</h2>
                 <p className="text-xs text-[var(--muted-foreground)]">
                   {t("researchPhase")} · {stream.researchPhase || "working"} · {stream.sourceCount}
+                  {stream.verified ? ` · ${t("verified")} ${stream.verified}` : ""}
                 </p>
                 <ol className="mt-2 list-decimal pl-5">
                   {stream.researchQueries.map((query) => (
@@ -1079,16 +1119,7 @@ export function ChatScreen() {
                 </ol>
               </section>
             ) : null}
-            {plan.length > 0 ? (
-              <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
-                <h2 className="font-medium">{t("plan")}</h2>
-                <ul>
-                  {plan.map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
+            <PlanChecklist items={stream.plan.length ? stream.plan : plan} />
             {runId ? (
               <p className="mx-auto mb-2 max-w-2xl text-sm">
                 <a className="underline" href={`/runs/${runId}`}>

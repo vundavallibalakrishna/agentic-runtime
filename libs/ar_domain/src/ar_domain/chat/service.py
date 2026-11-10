@@ -1431,6 +1431,8 @@ class ChatBehaviour:
         parent_message_id: uuid.UUID | None = None,
         schedule: bool = True,
         research: bool = False,
+        suggest_followups: bool = False,
+        response_format: dict[str, object] | None = None,
     ) -> dict[str, object]:
         conversation = self._owned_conversation(tenant_id, user_id, conversation_id)
         agent_id = conversation.get("agent_id")
@@ -1489,6 +1491,10 @@ class ChatBehaviour:
             message_id=message_id,
             trigger="research" if research else "chat",
         )
+        if suggest_followups:
+            run["suggest_followups"] = True
+        if response_format:
+            run["response_format"] = response_format
         if research:
             from ar_domain.research.engine import initial_state  # noqa: PLC0415
 

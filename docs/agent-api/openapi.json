@@ -1240,6 +1240,25 @@
         ],
         "title": "Body_upload_library_document_api_v1_library_documents_post"
       },
+      "Body_widget_upload_api_v1_widget_files_post": {
+        "properties": {
+          "upload": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Upload"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "upload"
+        ],
+        "title": "Body_widget_upload_api_v1_widget_files_post"
+      },
       "BulkBody": {
         "properties": {
           "decision": {
@@ -3912,6 +3931,23 @@
             "type": "boolean",
             "title": "Researchmode",
             "default": false
+          },
+          "suggestFollowups": {
+            "type": "boolean",
+            "title": "Suggestfollowups",
+            "default": false
+          },
+          "responseFormat": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responseformat"
           }
         },
         "additionalProperties": false,
@@ -5409,6 +5445,23 @@
             },
             "type": "array",
             "title": "Attachmentids"
+          },
+          "responseFormat": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responseformat"
+          },
+          "suggestFollowups": {
+            "type": "boolean",
+            "title": "Suggestfollowups",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -7183,6 +7236,19 @@
             "maxLength": 32000,
             "minLength": 1,
             "title": "Text"
+          },
+          "attachmentIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Attachmentids"
+          },
+          "suggestFollowups": {
+            "type": "boolean",
+            "title": "Suggestfollowups",
+            "default": false
           }
         },
         "additionalProperties": false,

@@ -62,3 +62,23 @@ Checkable:
 ## 6. Clean code
 
 Names match the spec. Modules stay inside the layering rules. Generated clients are not hand-edited. A task that needs a new name adds it to the owning spec and the catalogue in the same change.
+
+## 7. Strict rules
+
+The owner set rules 1–8 on 6 November 2026. Rules 9 onward were added for Stage 13. The short form, and the wording that a change is checked against, is [AGENTS.md](../../AGENTS.md#strict-rules). This file lists the same rules so the two do not drift.
+
+1. **No mocking.** The running product contains no mock, stub or stand-in for a model, a service, a tool or a person. A unit test may use the stand-in from `ar_testing`.
+2. **No fake services.** The product and every end-to-end check run against real services. When one is missing the product says so.
+3. **No static data.** Nothing a customer sees is written into code. Data comes from the database, a setting, or a real service.
+4. **Real data end to end.** A feature is working when it works from an empty database with a real model. A passing unit test is not that proof.
+5. **Fix the architecture, not the symptom.** Fix the cause for every caller. If a path is not good enough, re-architect it in place and remove the old path in the same change.
+6. **No shortcuts and no bypasses.** No environment switch that changes what the product does, and no second way in.
+7. **No industry-specific rules, code or configuration.** An industry capability is a pack or a connector.
+8. **Fully customisable.** Models, prompts, limits, thresholds, feature flags, labels, URLs and policies come from settings, tenant configuration or packs, with sensible defaults. No hard-coded vendor, model or tenant values.
+9. **Reuse before build.** Search for an existing implementation and extend it. Do not add a second tool, renderer, store, event stream, schema or endpoint. Every pull request has a reuse report.
+10. **Grounded status claims.** Missing, partial or done is claimed only with file paths, symbols, tests or a live run.
+11. **Research or ask when unsure.** Record the choice and the sources in an ADR or open-questions. Ask the owner for a product decision.
+12. **Scalable and stateless by default.** Shared state lives in Postgres, Valkey or the object store. Design for N replicas.
+13. **Batched delivery.** One pull request per milestone. Run the full local CI suite, including web end-to-end on a production Next build and the kind jobs, before the first push. One push, then one fix commit if CI is red.
+14. **Backward-compatible contracts.** Public API, SSE and content-part changes are additive and versioned. Clients come from `make gen`.
+15. **Security and observability by default.** Follow the never-skip rules in AGENTS.md on every new path. Do not restate them here.

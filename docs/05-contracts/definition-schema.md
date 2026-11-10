@@ -111,6 +111,8 @@ spec:
   output:
     citations: preferred        # required | preferred | off
     showReasoning: false
+    followups: false            # ask for short next prompts after an answer
+    followupCount: 3
   safety:
     piiMasking: false          # mask PII in prompts sent to the model (Presidio)
     injectionClassifier: true  # flag suspicious tool output (fast model)

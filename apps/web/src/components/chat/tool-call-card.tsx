@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 
+import { InteractiveChart } from "@/components/chat/interactive-chart";
+
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
 
@@ -59,6 +61,36 @@ export function JobList({ jobs }: { jobs: Record<string, unknown>[] }) {
         />
       ))}
     </div>
+  );
+}
+
+function ToolTimeline({ call }: { call: Record<string, unknown> }) {
+  const t = useTranslations("chat");
+  const raw = call.timeline;
+  const entries = Array.isArray(raw)
+    ? raw.filter(
+        (item): item is { kind?: string; text?: string } => !!item && typeof item === "object",
+      )
+    : [];
+  if (entries.length === 0) return null;
+  const seen = new Map<string, number>();
+  return (
+    <ol
+      aria-label={t("toolTimeline")}
+      className="mt-2 space-y-1 border-l border-[var(--border)] pl-3 text-xs"
+    >
+      {entries.map((entry) => {
+        const mark = `${entry.kind ?? "step"}-${entry.text ?? ""}`;
+        const count = seen.get(mark) ?? 0;
+        seen.set(mark, count + 1);
+        return (
+          <li key={`${mark}-${count}`}>
+            <span className="text-[var(--muted-foreground)]">{entry.kind || "step"}</span>
+            {entry.text ? <p className="whitespace-pre-wrap">{entry.text}</p> : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -123,7 +155,10 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
   const hits = Array.isArray(presentation.results) ? (presentation.results as Hit[]) : [];
   const progress = progressOf(presentation);
   return (
-    <section className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm">
+    <section
+      className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+      data-testid="tool-call"
+    >
       <p className="sr-only">{label}</p>
       <p className="font-medium">{name}</p>
       <p className="text-[var(--muted-foreground)]">{text(call.status ?? "")}</p>
@@ -137,6 +172,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           </pre>
         </details>
       ) : null}
+      <ToolTimeline call={call} />
       {progress ? <JobMeter progress={progress} /> : null}
       {kind === "code" || kind === "shell" ? (
         <div className="mt-2 space-y-2">
@@ -320,6 +356,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           })}
         </ul>
       ) : null}
+      {kind === "chart" ? <InteractiveChart presentation={presentation} /> : null}
       {files
         .filter((file) => isImageName(text(file.name)))
         .map((file) => {

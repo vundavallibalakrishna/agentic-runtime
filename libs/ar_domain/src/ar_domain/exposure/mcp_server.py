@@ -177,13 +177,19 @@ def _from_message(body: dict[str, Any]) -> dict[str, Any]:
                 "run_id": body.get("id") or "",
             },
         }
+    parts = body.get("content")
+    public_parts = (
+        [part for part in parts if isinstance(part, dict)] if isinstance(parts, list) else []
+    )
+    extra = [part for part in public_parts if part.get("type") not in {"text", "reasoning"}]
     return {
-        "content": [{"type": "text", "text": str(body.get("output") or "")}],
+        "content": [{"type": "text", "text": str(body.get("output") or "")}, *extra],
         "is_error": finish in {"failed", "cancelled"},
         "structured_content": {
             "status": body.get("status") or finish,
             "run_id": body.get("id") or "",
             "conversation_id": body.get("conversation_id") or "",
+            "content": public_parts,
         },
     }
 

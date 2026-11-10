@@ -853,7 +853,20 @@ class ToolPipeline:
         if not isinstance(run, dict) or not hasattr(self.store, "_emit"):
             return
         plan = structured.get("plan") if isinstance(structured, dict) else []
-        self.store._emit(run, "plan.updated", {"plan": plan if isinstance(plan, list) else []})
+        raw = plan if isinstance(plan, list) else []
+        items = []
+        for index, item in enumerate(raw):
+            if isinstance(item, str):
+                items.append({"id": str(index + 1), "title": item, "status": "pending"})
+            elif isinstance(item, dict):
+                items.append(
+                    {
+                        "id": str(item.get("id") or index + 1),
+                        "title": str(item.get("title") or item.get("text") or ""),
+                        "status": str(item.get("status") or "pending"),
+                    }
+                )
+        self.store._emit(run, "plan.updated", {"plan": raw, "items": items})
 
     def _provider_slug(self, server_version: dict[str, object]) -> str:
         provider = self.store.credential_providers.get(server_version.get("credential_provider_id"))

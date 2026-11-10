@@ -59,6 +59,8 @@ class SendBody(ApiModel):
     text: str = Field(examples=["What is 2 + 2?"])
     stream: bool = False
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
+    response_format: dict[str, object] | None = None
+    suggest_followups: bool = False
 
 
 def _store(request: Request) -> Any:
@@ -179,7 +181,12 @@ async def _stream_run(
         request.headers.get("last-event-id"), request.query_params.get("after_seq")
     )
     last = after
+    from ar_domain.exposure.public import include_reasoning, visible_event  # noqa: PLC0415
+
+    show_reasoning = include_reasoning(request.query_params.get("includeReasoning"))
     async for event in store.iter_events(tenant, run_id, after):
+        if not visible_event(event, show_reasoning=show_reasoning):
+            continue
         seq = event.get("seq")
         if isinstance(seq, int):
             last = max(last, seq)
@@ -223,7 +230,12 @@ async def _event_page(
 
             raise InvalidCursorError()
         after = int(keys[0])
-    rows = list(store.events_after(tenant, run_id, after))
+    from ar_domain.exposure.public import include_reasoning, public_events  # noqa: PLC0415
+
+    show_reasoning = include_reasoning(request.query_params.get("includeReasoning"))
+    rows = public_events(
+        list(store.events_after(tenant, run_id, after)), show_reasoning=show_reasoning
+    )
     seen = {event.get("seq") for event in rows}
     extra = await store._bus_replay(run_id, after)
     rows.extend(event for event in extra if event.get("seq") not in seen)
@@ -369,6 +381,9 @@ async def send_external_message(  # noqa: PLR0917
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key")] = "",
 ) -> Response:
     key = _require_key(request, response)
+    from ar_domain.tools.structured import check_response_format  # noqa: PLC0415
+
+    schema = check_response_format(body.response_format)
     reply, replayed = await runs.send_message(
         _store(request),
         key,
@@ -377,6 +392,8 @@ async def send_external_message(  # noqa: PLR0917
         body.text,
         body.attachment_ids,
         idempotency_key.strip(),
+        response_format=schema,
+        suggest_followups=body.suggest_followups,
     )
     headers = dict(getattr(request.state, "rate_headers", {}))
     if replayed:
@@ -404,6 +421,9 @@ async def run_agent_once(
 ) -> Response:
     """Stateless one-shot run: create a fresh conversation, run one message, return the reply."""
     key = _require_key(request, response)
+    from ar_domain.tools.structured import check_response_format  # noqa: PLC0415
+
+    schema = check_response_format(body.response_format)
     reply, replayed = await runs.run_once(
         _store(request),
         key,
@@ -411,6 +431,8 @@ async def run_agent_once(
         body.text,
         body.attachment_ids,
         idempotency_key.strip(),
+        response_format=schema,
+        suggest_followups=body.suggest_followups,
     )
     headers = dict(getattr(request.state, "rate_headers", {}))
     if replayed:
@@ -445,7 +467,15 @@ async def get_external_trace(
     slug: str, run_id: uuid.UUID, request: Request, response: Response
 ) -> dict[str, object]:
     key = _require_key(request, response)
-    return runs.trace(_store(request), key, slug, run_id)
+    from ar_domain.exposure.public import include_reasoning  # noqa: PLC0415
+
+    return runs.trace(
+        _store(request),
+        key,
+        slug,
+        run_id,
+        show_reasoning=include_reasoning(request.query_params.get("includeReasoning")),
+    )
 
 
 @router.get("/v1/agents/{slug}/runs/{run_id}/events")

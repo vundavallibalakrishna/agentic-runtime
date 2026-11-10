@@ -86,12 +86,18 @@ def provider_url_denied(
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+_THINK_INNER = re.compile(r"<think>(.*?)</think>", re.DOTALL | re.IGNORECASE)
 
 
 def strip_think(text: str) -> str:
     """Drop a reasoning model's private trace and keep the answer."""
     stripped = _THINK.sub("", text).strip()
     return stripped or text.strip()
+
+
+def think_trace(text: str) -> str:
+    """The private trace inside ``<think>`` tags, without the tags."""
+    return "\n".join(chunk.strip() for chunk in _THINK_INNER.findall(text) if chunk.strip())
 
 
 def completion_message(payload: object) -> dict[str, object]:
@@ -111,6 +117,7 @@ def completion_message(payload: object) -> dict[str, object]:
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         return {"text": text, "tool_calls": calls, "usage": usage}
     message = choices[0].get("message")
+    reasoning = ""
     if isinstance(message, dict):
         raw_calls = message.get("tool_calls")
         if isinstance(raw_calls, list):
@@ -118,7 +125,24 @@ def completion_message(payload: object) -> dict[str, object]:
                 parsed = _tool_call(index, call)
                 if parsed is not None:
                     calls.append(parsed)
-    return {"text": text, "tool_calls": calls, "usage": usage}
+        visible = str(message.get("content") or "").strip()
+        reasoning = _reasoning_trace(message, used_as_answer=not visible)
+    return {"text": text, "tool_calls": calls, "usage": usage, "reasoning": reasoning}
+
+
+def _reasoning_trace(message: dict[str, object], *, used_as_answer: bool) -> str:
+    """A separate thinking trace. When it is the only text, it is the answer, not a trace."""
+    content = message.get("content")
+    chunks: list[str] = []
+    if isinstance(content, str):
+        found = think_trace(content)
+        if found:
+            chunks.append(found)
+    if not used_as_answer:
+        raw = message.get("reasoning_content")
+        if isinstance(raw, str) and raw.strip():
+            chunks.append(raw.strip())
+    return "\n".join(chunks)
 
 
 def _tool_call(index: int, call: object) -> dict[str, object] | None:

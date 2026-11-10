@@ -539,6 +539,29 @@
       "title": "FilePart",
       "type": "object"
     },
+    "FollowupsPart": {
+      "additionalProperties": false,
+      "description": "Short prompts the person can send next. Additive on assistant messages.",
+      "properties": {
+        "type": {
+          "const": "followups",
+          "title": "Type",
+          "type": "string"
+        },
+        "prompts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Prompts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "FollowupsPart",
+      "type": "object"
+    },
     "GroundingChecked": {
       "additionalProperties": false,
       "properties": {
@@ -1248,6 +1271,7 @@
               "mapping": {
                 "citation_ref": "#/$defs/CitationRefPart",
                 "file": "#/$defs/FilePart",
+                "followups": "#/$defs/FollowupsPart",
                 "grounding": "#/$defs/GroundingPart",
                 "image": "#/$defs/ImagePart",
                 "text": "#/$defs/TextPart",
@@ -1277,6 +1301,9 @@
               },
               {
                 "$ref": "#/$defs/GroundingPart"
+              },
+              {
+                "$ref": "#/$defs/FollowupsPart"
               }
             ]
           },
@@ -1294,6 +1321,18 @@
         "finishReason": {
           "title": "Finishreason",
           "type": "string"
+        },
+        "answeredModel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answeredmodel"
         }
       },
       "required": [
@@ -3314,6 +3353,18 @@
           ],
           "default": null,
           "title": "Connecturl"
+        },
+        "attempt": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attempt"
         }
       },
       "required": [

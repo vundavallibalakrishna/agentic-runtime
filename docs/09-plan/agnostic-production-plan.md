@@ -270,6 +270,20 @@ After Stage 10.
 
 Proof label: `unit` for memory, routines, reset and A2A. `contract` for connector fixtures, cloud OCR, Qdrant and the restore script. `live` only from `scripts/certify_live.sh` when a real model key, and any connector token, is set. This run has no model key and no third-party credentials.
 
+### Stage 13: Rich answers (L)
+
+After Stage 11. One pull request.
+
+- The chart PNG already produced by `general.chart` is shown in the assistant answer as well as the tool card. The presentation keeps the rows the renderer used. An interactive view uses the existing recharts dependency. The PNG stays the record. No second chart package.
+- The run stream the product already emits is drawn in the chat: plan checklist with status, thinking when `showReasoning` is on, tool timeline, the model that answered, `model_fallback_used`, research progress and verified citations. Resume and cancel stay on the existing controls.
+- `/v1`, MCP and A2A omit `reasoning.delta` unless `includeReasoning=true`.
+- Markdown, citation hover (the dialog stays), attachment previews, drag-and-drop onto the existing uploader, message feedback, and a `followups` content part.
+- `SendBody.responseFormat` is an optional JSON Schema. The turn uses it, otherwise the agent `output.jsonSchema`, both through `structured.py`. `/v1` replies include `content`.
+- The widget reuses the chat message view and can attach files through the same upload.
+- Samples under `docs/agent-api/` for a generic document review with follow-ups and for CSV to chart. Webhook signatures stay the existing `X-AR-Signature` and `run.completed` topic.
+
+Proof label: `unit` for the blocks and the public filter; `contract` for SSE order and the additive OpenAPI fields. `live` only from `scripts/certify_live.sh` (`stage13-content-parts`, `stage13-chart`) when `AR_LLM_API_KEY` is set. This run has no model key.
+
 ## Exit
 
 Production is Stage 9's exit passed, and core still passes the Stage 2 grep. The runbook is [live-certification.md](live-certification.md).

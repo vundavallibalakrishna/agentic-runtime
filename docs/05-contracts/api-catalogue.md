@@ -502,6 +502,7 @@ Spec: [16-channels.md](../03-specs/16-channels.md)
 | POST | [`/api/v1/widget/conversations`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
 | GET | [`/api/v1/widget/conversations/{conversation_id}`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
 | POST | [`/api/v1/widget/conversations/{conversation_id}/messages`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
+| POST | [`/api/v1/widget/files`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
 | GET | [`/api/v1/widget/runs/{run_id}/events`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
 | POST | [`/api/v1/widget/runs/{run_id}:cancel`](../03-specs/16-channels.md#7-web-widget-feature-widget) | `chat:use`, restricted widget session | 7. Web widget (feature `widget`) |
 

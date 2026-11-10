@@ -113,6 +113,10 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
         else:
             png = render_multi(kind, categories, series, theme=theme.name, title=title)
         count = len(categories)
+        plotted: dict[str, object] = {
+            "categories": categories,
+            "series": [{"name": name, "values": values} for name, values in series],
+        }
     else:
         rows = _rows(arguments)
         if not rows:
@@ -121,6 +125,7 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
             )
         png = render_chart(kind, rows, theme=theme.name, title=title)
         count = len(rows)
+        plotted = {"rows": [{"label": label, "value": value} for label, value in rows]}
     slide = _flag(arguments.get("slide") or arguments.get("deck"))
     from ar_domain.tools.general import _prepare, _store_file  # noqa: PLC0415
 
@@ -147,6 +152,7 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
                 "title": title,
                 "files": files,
                 "truncated": False,
+                **plotted,
             }
         },
         "is_error": False,

@@ -14,6 +14,8 @@ export type CitationChip = {
   documentId?: string;
   anchor?: string;
   page?: number | string;
+  verified?: boolean;
+  status?: string;
 };
 
 export function citationsOf(message: Record<string, unknown>): CitationChip[] {
@@ -51,17 +53,32 @@ export function CitationList({
   }
   return (
     <div className="mt-3 flex flex-wrap gap-2">
-      {citations.map((citation) => (
-        <Button
-          className="h-7 px-2 text-xs font-normal"
-          key={`${citation.index}-${citation.title}`}
-          onClick={() => setOpen(citation)}
-          type="button"
-          variant="outline"
-        >
-          {t("citation", { index: citation.index, title: citation.title || t("source") })}
-        </Button>
-      ))}
+      {citations.map((citation) => {
+        const verified = citation.verified === true || citation.status === "supported";
+        return (
+          <span className="group relative" key={`${citation.index}-${citation.title}`}>
+            <Button
+              className="h-7 px-2 text-xs font-normal"
+              onClick={() => setOpen(citation)}
+              type="button"
+              variant="outline"
+            >
+              {t("citation", { index: citation.index, title: citation.title || t("source") })}
+              {verified ? (
+                <span className="ml-1 text-[var(--muted-foreground)]">{t("verified")}</span>
+              ) : null}
+            </Button>
+            {citation.snippet ? (
+              <span
+                className="pointer-events-none absolute bottom-full left-0 z-10 mb-1 hidden w-64 rounded-lg border border-[var(--border)] bg-[var(--card)] p-2 text-left text-xs leading-relaxed shadow-[var(--shadow-composer)] group-hover:block"
+                role="tooltip"
+              >
+                {citation.snippet}
+              </span>
+            ) : null}
+          </span>
+        );
+      })}
       {conversationId && messageId && !messageId.startsWith("local-") ? (
         <Button
           className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"

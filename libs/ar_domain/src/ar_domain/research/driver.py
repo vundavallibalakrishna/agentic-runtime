@@ -102,8 +102,49 @@ def _complete(store: Any, run: dict[str, object]) -> None:
         assistant["text"] = answer or assistant.get("text")
         return
     _finish(store, run, assistant, answer, [])
+    _emit_verified(store, run, assistant)
     _audit(store, run, "research.completed")
     run["research_report"] = answer
+
+
+def _emit_verified(store: Any, run: dict[str, object], assistant: dict[str, object]) -> None:
+    """Verified quotes become citation parts. Unsupported quotes are not shown as sources."""
+    if not hasattr(store, "_emit"):
+        return
+    state = state_of(run, state_question(run))
+    raw = state.get("citations")
+    sources = state.get("sources")
+    rows = raw if isinstance(raw, list) else []
+    pages = sources if isinstance(sources, list) else []
+    content = assistant.get("content")
+    parts = list(content) if isinstance(content, list) else []
+    shown = 0
+    for row in rows:
+        if not isinstance(row, dict) or row.get("status") != "supported":
+            continue
+        shown += 1
+        indexes = row.get("indexes")
+        index = indexes[0] if isinstance(indexes, list) and indexes else shown
+        source = (
+            pages[int(index) - 1] if isinstance(index, int) and 0 < int(index) <= len(pages) else {}
+        )
+        page = source if isinstance(source, dict) else {}
+        citation = {
+            "index": int(index) if isinstance(index, int) else shown,
+            "source_kind": "tool_result",
+            "title": str(page.get("title") or page.get("url") or "Source"),
+            "uri": str(page.get("url") or ""),
+            "snippet": str(row.get("quote") or ""),
+            "verified": True,
+        }
+        parts.append({"type": "citation_ref", "index": citation["index"], "citation": citation})
+        store._emit(
+            run,
+            "citation.added",
+            {"message_id": str(assistant.get("id") or ""), "citation": citation},
+        )
+    if shown:
+        assistant["content"] = parts
 
 
 def _assistant(store: Any, run: dict[str, object]) -> dict[str, object] | None:

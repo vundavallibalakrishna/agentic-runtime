@@ -20362,6 +20362,47 @@
         }
       }
     },
+    "/api/v1/widget/files": {
+      "post": {
+        "summary": "Widget Upload",
+        "description": "The same upload the signed-in chat uses, under the widget session.",
+        "operationId": "widget_upload_api_v1_widget_files_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_widget_upload_api_v1_widget_files_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Widget Upload Api V1 Widget Files Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/widget/runs/{run_id}/events": {
       "get": {
         "summary": "Widget Events",
@@ -21318,6 +21359,23 @@
         "type": "object",
         "required": ["upload"],
         "title": "Body_upload_library_document_api_v1_library_documents_post"
+      },
+      "Body_widget_upload_api_v1_widget_files_post": {
+        "properties": {
+          "upload": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "Upload"
+          },
+          "mime_type": {
+            "type": "string",
+            "title": "Mime Type",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": ["upload"],
+        "title": "Body_widget_upload_api_v1_widget_files_post"
       },
       "BulkBody": {
         "properties": {
@@ -23884,6 +23942,23 @@
             "type": "boolean",
             "title": "Researchmode",
             "default": false
+          },
+          "suggestFollowups": {
+            "type": "boolean",
+            "title": "Suggestfollowups",
+            "default": false
+          },
+          "responseFormat": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responseformat"
           }
         },
         "additionalProperties": false,
@@ -25320,6 +25395,23 @@
             },
             "type": "array",
             "title": "Attachmentids"
+          },
+          "responseFormat": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responseformat"
+          },
+          "suggestFollowups": {
+            "type": "boolean",
+            "title": "Suggestfollowups",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -27035,6 +27127,19 @@
             "maxLength": 32000,
             "minLength": 1,
             "title": "Text"
+          },
+          "attachmentIds": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Attachmentids"
+          },
+          "suggestFollowups": {
+            "type": "boolean",
+            "title": "Suggestfollowups",
+            "default": false
           }
         },
         "additionalProperties": false,

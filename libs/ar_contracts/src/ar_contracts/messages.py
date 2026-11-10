@@ -97,6 +97,13 @@ class ToolResultPart(_Part):
     is_error: bool = False
 
 
+class FollowupsPart(_Part):
+    """Short prompts the person can send next. Additive on assistant messages."""
+
+    type: Literal["followups"]
+    prompts: list[str] = Field(default_factory=list)
+
+
 ContentPart = Annotated[
     TextPart
     | FilePart
@@ -104,6 +111,7 @@ ContentPart = Annotated[
     | ToolUsePart
     | CitationRefPart
     | ToolResultPart
-    | GroundingPart,
+    | GroundingPart
+    | FollowupsPart,
     Field(discriminator="type"),
 ]

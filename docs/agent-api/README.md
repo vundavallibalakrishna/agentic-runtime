@@ -56,6 +56,10 @@ curl -s https://runtime.example/v1/agents/assistant/files \
 
 The trace for that run, and only that run, is `GET /v1/agents/assistant/runs/$RUN_ID`. Events are `GET /v1/agents/assistant/runs/$RUN_ID/events`.
 
+A finished reply includes `content`, the same parts the product stores (text, files, images, citations, follow-ups). `reasoning.delta` is omitted unless you pass `includeReasoning=true` and the agent has `showReasoning` on. Optional `responseFormat` is a JSON Schema for that turn. `suggestFollowups` asks for a `followups` part.
+
+Samples: [document review and a chart](samples.md). Webhooks: [signatures](webhooks.md).
+
 ## MCP
 
 Streamable HTTP. One tool is listed per published agent the key may call. A workspace-scoped key lists every published agent in the tenant.

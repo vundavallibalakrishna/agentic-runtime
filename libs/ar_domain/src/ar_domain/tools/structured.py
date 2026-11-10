@@ -7,6 +7,15 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError
 
 
+def schema_for(
+    definition: dict[str, object], override: object | None = None
+) -> dict[str, object] | None:
+    """The turn schema: a caller ``responseFormat``, otherwise the agent output schema."""
+    if isinstance(override, dict) and override:
+        return override
+    return output_schema(definition)
+
+
 def output_schema(definition: dict[str, object]) -> dict[str, object] | None:
     """The schema from ``output.jsonSchema``, ``json_schema`` or ``schema``."""
     output = definition.get("output")
@@ -17,6 +26,25 @@ def output_schema(definition: dict[str, object]) -> dict[str, object] | None:
         if isinstance(value, dict) and value:
             return value
     return None
+
+
+def check_response_format(schema: object) -> dict[str, object] | None:
+    """Reject a caller schema that is not a JSON Schema document. None means no override."""
+    if schema is None:
+        return None
+    if not isinstance(schema, dict) or not schema:
+        from ar_common.errors import ArError, ErrorCode  # noqa: PLC0415
+
+        raise ArError(ErrorCode.VALIDATION_FAILED, "responseFormat must be a JSON Schema object")
+    try:
+        Draft202012Validator.check_schema(schema)
+    except SchemaError as exc:
+        from ar_common.errors import ArError, ErrorCode  # noqa: PLC0415
+
+        raise ArError(
+            ErrorCode.VALIDATION_FAILED, f"responseFormat is not a JSON Schema ({exc.message})"
+        ) from exc
+    return schema
 
 
 def validate_output(text: str, schema: dict[str, object]) -> str | None:

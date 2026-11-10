@@ -31,9 +31,13 @@ def new_agent_key() -> tuple[str, str, str]:
     return full, prefix, sha256_hex(full)
 
 
-def request_fingerprint(text: str, attachment_ids: list[str], conversation_id: str) -> str:
+def request_fingerprint(
+    text: str, attachment_ids: list[str], conversation_id: str, *, extra: str = ""
+) -> str:
     """Stable hash of the work a message send will do. The stream flag is not part of it."""
     body = f"{conversation_id}\n{text}\n{'|'.join(attachment_ids)}"
+    if extra:
+        body = f"{body}\n{extra}"
     return hashlib.sha256(body.encode()).hexdigest()
 
 

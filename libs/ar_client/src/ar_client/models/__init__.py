@@ -70,6 +70,7 @@ from .body_upload_file_api_v1_files_upload_post import BodyUploadFileApiV1FilesU
 from .body_upload_library_document_api_v1_library_documents_post import (
     BodyUploadLibraryDocumentApiV1LibraryDocumentsPost,
 )
+from .body_widget_upload_api_v1_widget_files_post import BodyWidgetUploadApiV1WidgetFilesPost
 from .bulk_body import BulkBody
 from .bulk_decide_api_v1_review_items_bulk_decide_post_response_bulk_decide_api_v1_review_items_bulk_decide_post import (
     BulkDecideApiV1ReviewItemsBulkDecidePostResponseBulkDecideApiV1ReviewItemsBulkDecidePost,
@@ -993,6 +994,7 @@ from .memory_body import MemoryBody
 from .memory_patch import MemoryPatch
 from .memory_settings_body import MemorySettingsBody
 from .message_body import MessageBody
+from .message_body_response_format_type_0 import MessageBodyResponseFormatType0
 from .message_grounding_api_v1_conversations_conversation_id_messages_message_id_grounding_get_response_message_grounding_api_v1_conversations_conversation_id_messages_message_id_grounding_get import (
     MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponseMessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGet,
 )
@@ -1352,6 +1354,7 @@ from .search_body import SearchBody
 from .secret_create import SecretCreate
 from .secret_rotate import SecretRotate
 from .send_body import SendBody
+from .send_body_response_format_type_0 import SendBodyResponseFormatType0
 from .server_create import ServerCreate
 from .server_patch import ServerPatch
 from .service_account_create import ServiceAccountCreate
@@ -1564,6 +1567,9 @@ from .widget_send_api_v1_widget_conversations_conversation_id_messages_post_resp
     WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponseWidgetSendApiV1WidgetConversationsConversationIdMessagesPost,
 )
 from .widget_session_body import WidgetSessionBody
+from .widget_upload_api_v1_widget_files_post_response_widget_upload_api_v1_widget_files_post import (
+    WidgetUploadApiV1WidgetFilesPostResponseWidgetUploadApiV1WidgetFilesPost,
+)
 
 __all__ = (
     "AcceptInvitationApiV1InvitationsTokenAcceptPostResponseAcceptInvitationApiV1InvitationsTokenAcceptPost",
@@ -1602,6 +1608,7 @@ __all__ = (
     "BodyUploadExternalFileV1AgentsSlugFilesPost",
     "BodyUploadFileApiV1FilesUploadPost",
     "BodyUploadLibraryDocumentApiV1LibraryDocumentsPost",
+    "BodyWidgetUploadApiV1WidgetFilesPost",
     "BulkBody",
     "BulkDecideApiV1ReviewItemsBulkDecidePostResponseBulkDecideApiV1ReviewItemsBulkDecidePost",
     "BulkItem",
@@ -1974,6 +1981,7 @@ __all__ = (
     "MePatchSettingsType0",
     "MeSettings",
     "MessageBody",
+    "MessageBodyResponseFormatType0",
     "MessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGetResponseMessageGroundingApiV1ConversationsConversationIdMessagesMessageIdGroundingGet",
     "MetaApiV1MetaGetResponseMetaApiV1MetaGet",
     "MeTeamsItem",
@@ -2130,6 +2138,7 @@ __all__ = (
     "SecretCreate",
     "SecretRotate",
     "SendBody",
+    "SendBodyResponseFormatType0",
     "ServerCreate",
     "ServerPatch",
     "ServiceAccountCreate",
@@ -2240,4 +2249,5 @@ __all__ = (
     "WidgetMessagesApiV1WidgetConversationsConversationIdGetResponseWidgetMessagesApiV1WidgetConversationsConversationIdGet",
     "WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponseWidgetSendApiV1WidgetConversationsConversationIdMessagesPost",
     "WidgetSessionBody",
+    "WidgetUploadApiV1WidgetFilesPostResponseWidgetUploadApiV1WidgetFilesPost",
 )
