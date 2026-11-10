@@ -6,9 +6,9 @@ the tenant's rows. A missing person and a wrong password are the same error.
 """
 
 import base64
+from typing import TYPE_CHECKING
 
 from fastapi import Request
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from ar_api.auth.complete import LoginError
 from ar_api.deps import identity_store
@@ -17,6 +17,9 @@ from ar_domain.durable.bind import TenantBinding, binding_from
 from ar_domain.identity.guests import totp_matches
 from ar_domain.identity.passwords import verify_password
 from ar_domain.identity.service import IdentityService
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 async def resolve_password_login(request: Request, email: str, password: str) -> dict[str, object]:
@@ -147,10 +150,14 @@ async def _login_binding(
             return store, None, None
         return store, binding, await store.engine_for()
     binding = binding_from(store)
-    engine = getattr(store, "durable_engine", None)
-    if not isinstance(engine, AsyncEngine):
-        engine = None
-    return store, binding, engine
+    return store, binding, _as_engine(getattr(store, "durable_engine", None))
+
+
+def _as_engine(value: object) -> AsyncEngine | None:
+    """An attached database engine. The API package does not import SQLAlchemy."""
+    if value is None or not hasattr(value, "connect"):
+        return None
+    return value  # type: ignore[return-value]
 
 
 def _remember_person(store: object, user: object, roles: object) -> None:
