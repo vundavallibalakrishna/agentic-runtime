@@ -118,6 +118,7 @@ test-e2e:
 check: lint typecheck test-unit
 
 gen:
+	uv run python scripts/gen_a2a_grpc.py
 	uv run python scripts/gen_openapi.py
 	uv run python scripts/gen_json_schema.py
 	uv run python scripts/sync_agent_docs.py

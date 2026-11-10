@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import time
 
 import yaml
 
@@ -65,13 +66,22 @@ def render() -> str:
 
 def apply() -> None:
     """Submit the manifests and read back the limits and the policy. Label: contract."""
-    completed = subprocess.run(
-        ["kubectl", "apply", "-f", "-"],  # noqa: S607
-        input=render(),
-        text=True,
-        check=False,
-        capture_output=True,
-    )
+    rendered = render()
+    completed = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="")
+    for attempt in range(8):
+        completed = subprocess.run(
+            ["kubectl", "apply", "-f", "-"],  # noqa: S607
+            input=rendered,
+            text=True,
+            check=False,
+            capture_output=True,
+        )
+        if completed.returncode == 0:
+            break
+        # A new namespace does not have its default service account on the first apply.
+        if "serviceaccount" not in completed.stderr or attempt == 7:
+            break
+        time.sleep(2)
     if completed.returncode != 0:
         sys.stderr.write(completed.stderr)
         raise SystemExit(completed.returncode)

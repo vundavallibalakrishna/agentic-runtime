@@ -469,7 +469,22 @@ def test_push_resubscribe_and_a_vapid_secret_marks_delivery() -> None:
     assert again["id"] == created["id"]
     subscription_id = uuid.UUID(str(created["id"]))
     assert unsubscribe(store, tenant_id=uuid.uuid4(), subscription_id=subscription_id) is False
-    write_named_secret(store, tenant, "web_push_vapid_private", "secret")
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    ).decode()
+    write_named_secret(store, tenant, "web_push_vapid_private", pem)
+
+    def _accepted(request: httpx.Request) -> httpx.Response:
+        assert request.headers["authorization"].startswith("vapid ")
+        return httpx.Response(201)
+
+    store.push_transport = httpx.MockTransport(_accepted)  # type: ignore[attr-defined]
     note = notify_user(store, tenant_id=tenant, user_id=user, title="Done", body="ok")
     assert note["push"]["delivered"] == 1
     assert note["email"] is False

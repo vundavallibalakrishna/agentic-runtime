@@ -26,6 +26,7 @@ dev = [
     "deptry==0.25.1",
     "honcho==2.0.0",
     "openapi-python-client==0.29.1",
+    "grpcio-tools==1.84.0",
 ]
 
 [tool.uv]
@@ -38,7 +39,7 @@ members = ["libs/*", "services/*", "connectors/*", "packs/records", "packs/local
 target-version = "py314"
 line-length = 100
 src = ["libs/*/src", "services/*/src", "connectors/*/src", "packs/*/src"]
-extend-exclude = ["docs", "libs/ar_client", "packs/examples"]
+extend-exclude = ["docs", "libs/ar_client", "packs/examples", "**/a2a_gen/**"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "UP", "B", "A", "C4", "SIM", "RET", "PTH", "N", "S", "ASYNC", "DTZ", "T20", "PT", "PL", "RUF", "TRY", "PERF", "FBT", "ARG", "ERA", "LOG", "G", "BLE", "TID", "TC", "FAST"]
@@ -49,6 +50,7 @@ ignore = ["PLR0913", "TRY003", "PLR2004", "FBT003"]
 "**/tests/**" = ["S101", "PLR2004", "ARG", "FBT", "PT011", "PT018", "PLC0415", "PLR", "B017", "SIM", "TC003", "UP031"]
 "**/alembic/versions/*.py" = ["E501", "N999"]
 "**/migrations/versions/*.py" = ["E501", "N999", "PLR0915"]
+"libs/ar_domain/src/ar_domain/exposure/grpc_server.py" = ["N802"]
 "libs/ar_domain/src/ar_domain/connectors/catalog.py" = ["E501", "S105", "S106", "PLR0917"]
 "**/audit/actions.py" = ["S105"]
 "scripts/**" = ["T20"]
@@ -89,6 +91,10 @@ exclude = ["(?x)(^|/)(tests|migrations/versions)/"]
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
+module = "ar_domain.exposure.a2a_gen.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
 module = "ar_contracts.*"
 disallow_any_explicit = true
 
@@ -117,6 +123,10 @@ module = [
     "aioimaplib.*",
     "greenlet.*",
     "playwright.*",
+    "grpc",
+    "grpc.*",
+    "google.protobuf",
+    "google.protobuf.*",
 ]
 ignore_missing_imports = true
 
@@ -162,7 +172,7 @@ source = [
     "ar_fake_llm",
     "ar_testing",
 ]
-omit = ["*/tests/*", "*/migrations/*"]
+omit = ["*/tests/*", "*/migrations/*", "*/a2a_gen/*"]
 
 [tool.coverage.report]
 fail_under = 85

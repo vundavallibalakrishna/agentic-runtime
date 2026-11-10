@@ -1,9 +1,9 @@
 """ADR-0032 proof labels and the capability matrix.
 
 Only ``unit``, ``contract``, and ``live`` are proof labels. A mock transport is
-``unit``. A connector whose catalogue verification is ``not_live`` is ``unit``
-and is not offered to the model. ``public`` is ``contract`` (real HTTP, no
-customer account) and is not offered either.
+``unit``. A connector with a recorded HTTP fixture is ``contract`` and is not
+offered. ``public`` is ``contract`` (real HTTP, no customer account). ``live``
+is a customer or provider account and is the only label that is offered.
 
 Built-in tools run in this process. They stay offered and are labelled ``unit``.
 They are not a recorded live model run. See OQ-123.
@@ -53,7 +53,13 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "no",
         "Retrieval runs in process. No stored live embedding report.",
     ),
-    ("memory", UNIT, "no", "Facts are stored in process."),
+    (
+        "memory",
+        CONTRACT,
+        "no",
+        "Conversation summaries are rows in Postgres and a second replica reads them. "
+        "No stored report names a model id and a date.",
+    ),
     ("skills", UNIT, "no", "Loading a skill runs in process."),
     (
         "documents",
@@ -93,9 +99,10 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
     ),
     (
         "context",
-        UNIT,
+        CONTRACT,
         "no",
-        "Summaries and truncated tool output are computed in process.",
+        "A worker activity folds older messages into the Postgres summary. "
+        "The fold does not call a model.",
     ),
     (
         "eval-harness",
@@ -111,6 +118,23 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "Search, fetch, citation checks and the Temporal workflow run in process with a "
         "fixture provider. No stored live report.",
     ),
+)
+
+
+# Recorded HTTP fixtures (public API examples, tokens scrubbed). Still not offered.
+RECORDED_FIXTURES = frozenset(
+    {
+        "slack",
+        "gdrive",
+        "gcal",
+        "gmail",
+        "outlook",
+        "sharepoint",
+        "teams",
+        "jira",
+        "confluence",
+        "rest",
+    }
 )
 
 
@@ -130,6 +154,8 @@ def connector_proof(connector: object) -> str:
 
     if not isinstance(connector, ConnectorDef):
         return UNIT
+    if connector.slug in RECORDED_FIXTURES and shown_verification(connector) != "live":
+        return CONTRACT
     return proof_from_verification(shown_verification(connector))
 
 
@@ -178,7 +204,8 @@ def render_capability_matrix() -> str:
         "Proof labels are `unit`, `contract`, and `live` "
         "([ADR-0032](../02-architecture/adr/ADR-0032-proof-labels.md)).",
         "A mock is not `live`. Offered is `yes` only when the model may call the tool.",
-        "Twenty-one connectors have catalogue verification `not_live`; their proof is `unit`.",
+        "Twenty-one connectors have catalogue verification `not_live`. "
+        "Recorded HTTP fixtures are `contract` and are not offered. The rest stay `unit`.",
         "Self-serve signup is not a route.",
         "Tools that Stage 2 moves into a pack are omitted. They are not core capabilities.",
         "",

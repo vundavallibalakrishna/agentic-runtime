@@ -55,8 +55,12 @@ The scorecard is `var/live-certification/scorecard.json`. Playwright screenshots
 8. Start a research run and read it back. The report cites stored pages. Each source has `sha256` and `fetchedAt`. This step uses the fixture provider unless a search secret is configured. It does not invent a search-provider result.
 9. Run `scripts/eval_run.py --live` against `AR_LLM_BASE_URL`. The scorecard records the model id, the date and the summary. A missing key leaves this step pending and the label stays off `live`.
 10. Send a chat turn with `researchMode` false and confirm the run trace can include `endpointId` when model routes are configured. No API key is written into the scorecard.
-11. Probe each connector whose token is set: `AR_CERT_SLACK_TOKEN`, `AR_CERT_GOOGLE_TOKEN`, `AR_CERT_MICROSOFT_TOKEN`, `AR_CERT_ATLASSIAN_TOKEN`, `AR_CERT_GITHUB_TOKEN`, `AR_CERT_REST_TOKEN` with `AR_CERT_REST_URL`. A missing token records the step as pending and does not invent a provider result. The scorecard stays off `live` only when a provided token fails.
+11. Probe each connector whose token is set. A missing token records the step as pending and does not invent a provider result. The scorecard stays off `live` only when a provided token fails.
+    - `AR_CERT_SLACK_TOKEN`, `AR_CERT_GOOGLE_TOKEN`, `AR_CERT_MICROSOFT_TOKEN`, `AR_CERT_ATLASSIAN_TOKEN`, `AR_CERT_GITHUB_TOKEN`
+    - `AR_CERT_GDRIVE_TOKEN`, `AR_CERT_GCAL_TOKEN`, `AR_CERT_GMAIL_TOKEN`, `AR_CERT_OUTLOOK_TOKEN`, `AR_CERT_ONEDRIVE_TOKEN`, `AR_CERT_TEAMS_TOKEN`
+    - `AR_CERT_JIRA_TOKEN` with `AR_CERT_JIRA_URL`, `AR_CERT_CONFLUENCE_TOKEN` with `AR_CERT_CONFLUENCE_URL`
+    - `AR_CERT_REST_TOKEN` with `AR_CERT_REST_URL`
 12. When `AR_CERT_OCR_GOOGLE`, `AR_CERT_OCR_AWS` or `AR_CERT_OCR_AZURE` is set, post one page to that named endpoint. Otherwise the OCR step is pending.
-13. When `AR_GREENMAIL_SMTP` is set, send one notice through that SMTP server. Otherwise the mail step is pending. CI does not pull GreenMail.
+13. When `AR_GREENMAIL_SMTP` is set (`host:port`), send one notice through that SMTP server. Otherwise the mail step is pending. The integration job runs GreenMail and does not require this variable.
 
 A step that does not succeed keeps the scorecard off `live`. A pending connector, OCR or mail step is not a failure.

@@ -1006,6 +1006,30 @@ async def _conversations(session: AsyncSession, rows: list[dict[str, Any]]) -> N
                 "deleted_at": as_dt(row.get("deleted_at")),
             },
         )
+        await _one(
+            session,
+            """
+            INSERT INTO conversation_summaries (
+                id, tenant_id, conversation_id, summary, through_message_id, created_at, updated_at
+            ) VALUES (
+                :id, :tenant_id, :conversation_id, :summary, :through_message_id, :created_at,
+                :updated_at
+            )
+            ON CONFLICT (conversation_id) DO UPDATE SET
+                summary = EXCLUDED.summary,
+                through_message_id = EXCLUDED.through_message_id,
+                updated_at = EXCLUDED.updated_at
+            """,
+            {
+                "id": conversation_id,
+                "tenant_id": tenant_id,
+                "conversation_id": conversation_id,
+                "summary": as_text(row.get("rolling_summary")),
+                "through_message_id": as_uuid(row.get("summary_through_message_id")),
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
 
 
 def _version_id(store: object, row: dict[str, Any]) -> uuid.UUID | None:

@@ -13,6 +13,7 @@ from ar_domain.evals.gym.score import Report
 from ar_domain.proof import (
     CONTRACT,
     LIVE,
+    RECORDED_FIXTURES,
     UNIT,
     connector_proof,
     matrix_path,
@@ -57,7 +58,8 @@ def test_not_live_connectors_are_unit_and_not_offered() -> None:
     assert len(not_live) == 21
     assert {item.slug for item in not_live} == _NOT_LIVE
     for connector in not_live:
-        assert connector_proof(connector) == UNIT
+        expected = CONTRACT if connector.slug in RECORDED_FIXTURES else UNIT
+        assert connector_proof(connector) == expected
         for tool in connector.tools:
             qualified = f"connectors.{tool.name}"
             assert offered_to_model(qualified) is False

@@ -275,6 +275,48 @@ def _stage11() -> list[dict[str, object]]:
     )
     for name, env_name, url in probes:
         steps.append(_probe(name, os.environ.get(env_name, ""), url))
+    for name, env_name, url in (
+        (
+            "connector-gdrive",
+            "AR_CERT_GDRIVE_TOKEN",
+            "https://www.googleapis.com/drive/v3/about?fields=user",
+        ),
+        (
+            "connector-gcal",
+            "AR_CERT_GCAL_TOKEN",
+            "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+        ),
+        (
+            "connector-gmail",
+            "AR_CERT_GMAIL_TOKEN",
+            "https://gmail.googleapis.com/gmail/v1/users/me/profile",
+        ),
+        (
+            "connector-outlook",
+            "AR_CERT_OUTLOOK_TOKEN",
+            "https://graph.microsoft.com/v1.0/me/messages?$top=1",
+        ),
+        (
+            "connector-onedrive",
+            "AR_CERT_ONEDRIVE_TOKEN",
+            "https://graph.microsoft.com/v1.0/me/drive",
+        ),
+        (
+            "connector-teams",
+            "AR_CERT_TEAMS_TOKEN",
+            "https://graph.microsoft.com/v1.0/me/joinedTeams",
+        ),
+        ("connector-jira", "AR_CERT_JIRA_TOKEN", os.environ.get("AR_CERT_JIRA_URL", "")),
+        (
+            "connector-confluence",
+            "AR_CERT_CONFLUENCE_TOKEN",
+            os.environ.get("AR_CERT_CONFLUENCE_URL", ""),
+        ),
+    ):
+        if not url:
+            steps.append({"step": name, "ok": True, "pending": True, "proof": "contract"})
+            continue
+        steps.append(_probe(name, os.environ.get(env_name, ""), url))
     rest = os.environ.get("AR_CERT_REST_TOKEN", "")
     rest_url = os.environ.get("AR_CERT_REST_URL", "")
     if not rest or not rest_url:
@@ -303,10 +345,26 @@ def _stage11() -> list[dict[str, object]]:
         except httpx.HTTPError as exc:
             steps.append({"step": name, "ok": False, "error": type(exc).__name__})
     smtp = os.environ.get("AR_GREENMAIL_SMTP", "").strip()
-    if not smtp:
+    if not smtp or ":" not in smtp:
         steps.append({"step": "greenmail", "ok": True, "pending": True, "proof": "contract"})
     else:
-        steps.append({"step": "greenmail", "ok": True, "proof": "contract", "host": smtp})
+        host, _, port_text = smtp.partition(":")
+        try:
+            from ar_domain.notifications.smtp_mail import send_smtp  # noqa: PLC0415
+
+            send_smtp(
+                {
+                    "host": host,
+                    "port": int(port_text),
+                    "to": "certify@example.com",
+                    "subject": "certify",
+                    "body": "pending-check",
+                    "from": "noreply@dev.local",
+                }
+            )
+            steps.append({"step": "greenmail", "ok": True, "proof": "contract", "host": host})
+        except Exception as exc:  # noqa: BLE001 - the scorecard records the failure, not the body
+            steps.append({"step": "greenmail", "ok": False, "error": type(exc).__name__})
     return steps
 
 

@@ -35,6 +35,9 @@ Rules:
 | mcp | 2.3.0 | Official MCP Python SDK; implements spec revision **2026-07-28** (stateless Streamable HTTP). |
 | openai | 3.35.1 | OpenAI-compatible client used by `model-gateway` to talk to upstream engines (vLLM, TEI, other compatible servers). |
 | httpx | 0.28.1 | Async HTTP client for every outbound call (with OpenTelemetry instrumentation). |
+| grpcio | 1.84.0 | gRPC server and client for the A2A service. JSON-RPC stays the HTTP fallback. |
+| grpcio-tools | 1.84.0 | Generates the A2A stubs from `contracts/a2a/a2a.proto` during `make gen`. |
+| protobuf | 7.36.2 | Runtime for the generated A2A messages. |
 | redis | 8.1.0 | Client for Valkey (protocol compatible): sessions, rate limits, run event streams, caches. |
 | qdrant-client | 1.19.1 | **Optional** extra `ar-domain[qdrant]`: client for the optional Qdrant retrieval adapter ([ADR-0009](02-architecture/adr/ADR-0009-retrieval-stores.md)). |
 | fastembed | 0.9.0 | **Optional** extra `ar-domain[qdrant]`: CPU BM25 sparse vectors (`Qdrant/bm25`) for the Qdrant adapter's lexical signal (the default pgvector adapter uses Postgres full-text search). |

@@ -1,0 +1,816 @@
+{
+  "slack": {
+    "source": "https://api.slack.com/methods/conversations.list",
+    "denied": {
+      "status": 200,
+      "json": {
+        "ok": false,
+        "error": "missing_scope",
+        "needed": "chat:write",
+        "provided": "channels:read"
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "slack_list_channels",
+        "arguments": {},
+        "method": "GET",
+        "path": "/conversations.list",
+        "json": {
+          "ok": true,
+          "channels": [
+            {
+              "id": "C012AB3CD",
+              "name": "general",
+              "is_channel": true,
+              "is_member": true
+            }
+          ],
+          "response_metadata": {
+            "next_cursor": ""
+          }
+        }
+      },
+      {
+        "name": "read",
+        "tool": "slack_read_channel",
+        "arguments": {
+          "channel": "C012AB3CD"
+        },
+        "method": "GET",
+        "path": "/conversations.history",
+        "json": {
+          "ok": true,
+          "messages": [
+            {
+              "type": "message",
+              "user": "U012AB3CD",
+              "text": "Hello",
+              "ts": "1512085950.000216"
+            }
+          ],
+          "has_more": false
+        }
+      },
+      {
+        "name": "write",
+        "tool": "slack_post_message",
+        "arguments": {
+          "channel": "C012AB3CD",
+          "text": "Hello world"
+        },
+        "method": "POST",
+        "path": "/chat.postMessage",
+        "json": {
+          "ok": true,
+          "channel": "C012AB3CD",
+          "ts": "1503435956.000247",
+          "message": {
+            "text": "Hello world",
+            "type": "message",
+            "ts": "1503435956.000247"
+          }
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "gdrive": {
+    "source": "https://developers.google.com/drive/api/reference/rest/v3/files/list",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": 403,
+          "message": "Insufficient Permission",
+          "errors": [
+            {
+              "domain": "global",
+              "reason": "insufficientPermissions",
+              "message": "Insufficient Permission"
+            }
+          ]
+        }
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "gdrive_list",
+        "arguments": {},
+        "method": "GET",
+        "path": "/files",
+        "json": {
+          "kind": "drive#fileList",
+          "incompleteSearch": false,
+          "files": [
+            {
+              "kind": "drive#file",
+              "id": "1a2b3c",
+              "name": "Notes.txt",
+              "mimeType": "text/plain"
+            }
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "tool": "gdrive_download",
+        "arguments": {
+          "file_id": "1a2b3c"
+        },
+        "method": "GET",
+        "path": "/files/1a2b3c",
+        "json": {
+          "kind": "drive#file",
+          "id": "1a2b3c",
+          "name": "Notes.txt",
+          "mimeType": "text/plain"
+        }
+      },
+      {
+        "name": "write",
+        "tool": "gdrive_upload",
+        "arguments": {
+          "name": "Notes.txt",
+          "text": "Hello"
+        },
+        "method": "POST",
+        "path": "/upload/drive/v3/files",
+        "json": {
+          "kind": "drive#file",
+          "id": "1new",
+          "name": "Notes.txt",
+          "mimeType": "text/plain"
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "gcal": {
+    "source": "https://developers.google.com/calendar/api/v3/reference/events/list",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": 403,
+          "message": "Insufficient Permission",
+          "errors": [
+            {
+              "domain": "global",
+              "reason": "insufficientPermissions",
+              "message": "Insufficient Permission"
+            }
+          ]
+        }
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "gcal_list_events",
+        "arguments": {},
+        "method": "GET",
+        "path": "/calendars/primary/events",
+        "json": {
+          "kind": "calendar#events",
+          "items": [
+            {
+              "kind": "calendar#event",
+              "id": "evt1",
+              "status": "confirmed",
+              "summary": "Standup",
+              "start": {
+                "dateTime": "2026-11-10T15:00:00Z"
+              },
+              "end": {
+                "dateTime": "2026-11-10T15:30:00Z"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "tool": "gcal_find_free",
+        "arguments": {
+          "timeMin": "2026-11-10T00:00:00Z",
+          "timeMax": "2026-11-11T00:00:00Z"
+        },
+        "method": "POST",
+        "path": "/freeBusy",
+        "json": {
+          "kind": "calendar#freeBusy",
+          "calendars": {
+            "primary": {
+              "busy": [
+                {
+                  "start": "2026-11-10T15:00:00Z",
+                  "end": "2026-11-10T15:30:00Z"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "name": "write",
+        "tool": "gcal_create_event",
+        "arguments": {
+          "summary": "Review",
+          "start": "2026-11-10T16:00:00Z",
+          "end": "2026-11-10T16:30:00Z"
+        },
+        "method": "POST",
+        "path": "/calendars/primary/events",
+        "json": {
+          "kind": "calendar#event",
+          "id": "evt2",
+          "status": "confirmed",
+          "summary": "Review"
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "gmail": {
+    "source": "https://developers.google.com/gmail/api/reference/rest/v1/users.messages/list",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": 403,
+          "message": "Insufficient Permission",
+          "errors": [
+            {
+              "domain": "global",
+              "reason": "insufficientPermissions",
+              "message": "Insufficient Permission"
+            }
+          ]
+        }
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "gmail_list",
+        "arguments": {},
+        "method": "GET",
+        "path": "/gmail/v1/users/me/messages",
+        "json": {
+          "messages": [
+            {
+              "id": "18c1",
+              "threadId": "18c1"
+            }
+          ],
+          "resultSizeEstimate": 1
+        }
+      },
+      {
+        "name": "read",
+        "tool": "gmail_read",
+        "arguments": {
+          "id": "18c1"
+        },
+        "method": "GET",
+        "path": "/gmail/v1/users/me/messages/18c1",
+        "json": {
+          "id": "18c1",
+          "threadId": "18c1",
+          "snippet": "Hello"
+        }
+      },
+      {
+        "name": "write",
+        "tool": "gmail_send",
+        "arguments": {
+          "to": "ada@example.com",
+          "subject": "Hello",
+          "text": "Hello"
+        },
+        "method": "POST",
+        "path": "/gmail/v1/users/me/messages/send",
+        "json": {
+          "id": "18c2",
+          "threadId": "18c2",
+          "labelIds": [
+            "SENT"
+          ]
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "outlook": {
+    "source": "https://learn.microsoft.com/graph/api/user-list-messages",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": "ErrorAccessDenied",
+          "message": "Access is denied. Check credentials and try again."
+        }
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "outlook_list",
+        "arguments": {},
+        "method": "GET",
+        "path": "/me/messages",
+        "json": {
+          "value": [
+            {
+              "id": "msg-1",
+              "subject": "Hello"
+            }
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "tool": "outlook_read",
+        "arguments": {
+          "id": "msg-1"
+        },
+        "method": "GET",
+        "path": "/me/messages/msg-1",
+        "json": {
+          "id": "msg-1",
+          "subject": "Hello",
+          "body": {
+            "content": "Hello"
+          }
+        }
+      },
+      {
+        "name": "write",
+        "tool": "outlook_send",
+        "arguments": {
+          "to": "ada@example.com",
+          "subject": "Hello",
+          "text": "Hello"
+        },
+        "method": "POST",
+        "path": "/me/sendMail",
+        "json": {}
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "sharepoint": {
+    "source": "https://learn.microsoft.com/graph/api/driveitem-list-children",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": "ErrorAccessDenied",
+          "message": "Access is denied. Check credentials and try again."
+        }
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "sharepoint_list",
+        "arguments": {},
+        "method": "GET",
+        "path": "/me/drive/root/children",
+        "json": {
+          "value": [
+            {
+              "id": "item1",
+              "name": "Notes.txt",
+              "file": {
+                "mimeType": "text/plain"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "tool": "sharepoint_download",
+        "arguments": {
+          "item_id": "item1"
+        },
+        "method": "GET",
+        "path": "/me/drive/items/item1/content",
+        "json": {
+          "text": "Hello"
+        }
+      },
+      {
+        "name": "write",
+        "tool": "sharepoint_upload",
+        "arguments": {
+          "path": "Notes.txt",
+          "text": "Hello"
+        },
+        "method": "PUT",
+        "path": "/me/drive/root:/Notes.txt:/content",
+        "json": {
+          "id": "item2",
+          "name": "Notes.txt"
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "teams": {
+    "source": "https://learn.microsoft.com/graph/api/channel-list",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": "ErrorAccessDenied",
+          "message": "Access is denied. Check credentials and try again."
+        }
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "teams_list_channels",
+        "arguments": {
+          "team": "team-1"
+        },
+        "method": "GET",
+        "path": "/teams/team-1/channels",
+        "json": {
+          "value": [
+            {
+              "id": "channel-1",
+              "displayName": "General",
+              "membershipType": "standard"
+            }
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "tool": "teams_list_channels",
+        "arguments": {
+          "team": "team-1"
+        },
+        "method": "GET",
+        "path": "/teams/team-1/channels",
+        "json": {
+          "value": [
+            {
+              "id": "channel-1",
+              "displayName": "General",
+              "membershipType": "standard"
+            }
+          ]
+        },
+        "note": "The catalogue lists channels and does not read message text."
+      },
+      {
+        "name": "write",
+        "tool": "teams_post_message",
+        "arguments": {
+          "team": "team-1",
+          "channel": "channel-1",
+          "content": "Hello"
+        },
+        "method": "POST",
+        "path": "/teams/team-1/channels/channel-1/messages",
+        "json": {
+          "id": "1616",
+          "body": {
+            "content": "Hello"
+          }
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "jira": {
+    "source": "https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/",
+    "denied": {
+      "status": 403,
+      "json": {
+        "errorMessages": [
+          "You do not have permission to create issues in this project."
+        ]
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "jira_search",
+        "arguments": {
+          "jql": "project = DEMO"
+        },
+        "method": "GET",
+        "path": "/rest/api/3/search/jql",
+        "json": {
+          "issues": [
+            {
+              "id": "10001",
+              "key": "DEMO-1",
+              "fields": {
+                "summary": "A bug"
+              }
+            }
+          ],
+          "isLast": true
+        }
+      },
+      {
+        "name": "read",
+        "tool": "jira_search",
+        "arguments": {
+          "jql": "key = DEMO-1"
+        },
+        "method": "GET",
+        "path": "/rest/api/3/search/jql",
+        "json": {
+          "issues": [
+            {
+              "id": "10001",
+              "key": "DEMO-1",
+              "fields": {
+                "summary": "A bug"
+              }
+            }
+          ],
+          "isLast": true
+        }
+      },
+      {
+        "name": "write",
+        "tool": "jira_create_issue",
+        "arguments": {
+          "project": "DEMO",
+          "summary": "A bug"
+        },
+        "method": "POST",
+        "path": "/rest/api/3/issue",
+        "json": {
+          "id": "10002",
+          "key": "DEMO-2"
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "confluence": {
+    "source": "https://developer.atlassian.com/cloud/confluence/rest/v1/api-group-content/",
+    "denied": {
+      "status": 403,
+      "json": {
+        "statusCode": 403,
+        "message": "Not permitted to create content"
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "confluence_search",
+        "arguments": {
+          "cql": "type=page"
+        },
+        "method": "GET",
+        "path": "/wiki/rest/api/search",
+        "json": {
+          "results": [
+            {
+              "content": {
+                "id": "123",
+                "type": "page",
+                "title": "Notes"
+              },
+              "title": "Notes"
+            }
+          ],
+          "size": 1
+        }
+      },
+      {
+        "name": "read",
+        "tool": "confluence_read_page",
+        "arguments": {
+          "page_id": "123"
+        },
+        "method": "GET",
+        "path": "/wiki/rest/api/content/123",
+        "json": {
+          "id": "123",
+          "type": "page",
+          "title": "Notes",
+          "body": {
+            "storage": {
+              "value": "<p>Hello</p>",
+              "representation": "storage"
+            }
+          }
+        }
+      },
+      {
+        "name": "write",
+        "tool": "confluence_write_page",
+        "arguments": {
+          "title": "Notes",
+          "space": "DOC",
+          "body": "Hello"
+        },
+        "method": "POST",
+        "path": "/wiki/rest/api/content",
+        "json": {
+          "id": "124",
+          "type": "page",
+          "title": "Notes"
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "github": {
+    "source": "https://docs.github.com/en/rest/repos/repos#list-repositories-for-a-user",
+    "denied": {
+      "status": 403,
+      "json": {
+        "message": "Resource not accessible by integration",
+        "documentation_url": "https://docs.github.com/rest"
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "github_list_repos",
+        "arguments": {
+          "owner": "octocat"
+        },
+        "method": "GET",
+        "path": "/users/octocat/repos",
+        "json": [
+          {
+            "id": 1296269,
+            "name": "Hello-World",
+            "full_name": "octocat/Hello-World",
+            "private": false
+          }
+        ]
+      },
+      {
+        "name": "read",
+        "tool": "github_read_file",
+        "arguments": {
+          "owner": "octocat",
+          "repo": "Hello-World",
+          "path": "README.md"
+        },
+        "method": "GET",
+        "path": "/repos/octocat/Hello-World/contents/README.md",
+        "json": {
+          "type": "file",
+          "encoding": "base64",
+          "name": "README.md",
+          "path": "README.md",
+          "content": "SGVsbG8K"
+        }
+      },
+      {
+        "name": "write",
+        "tool": "github_create_issue",
+        "arguments": {
+          "owner": "octocat",
+          "repo": "Hello-World",
+          "title": "Found a bug",
+          "body": "Hello"
+        },
+        "method": "POST",
+        "path": "/repos/octocat/Hello-World/issues",
+        "json": {
+          "id": 1,
+          "number": 1,
+          "title": "Found a bug",
+          "state": "open"
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  },
+  "rest": {
+    "source": "https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": "insufficient_scope",
+        "error_description": "The request requires higher privileges than provided by the access token."
+      }
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "rest_get",
+        "arguments": {
+          "path": "pet/findByStatus"
+        },
+        "method": "GET",
+        "path": "/pet/findByStatus",
+        "json": [
+          {
+            "id": 10,
+            "name": "doggie",
+            "photoUrls": [],
+            "status": "available"
+          }
+        ]
+      },
+      {
+        "name": "read",
+        "tool": "rest_get",
+        "arguments": {
+          "path": "pet/10"
+        },
+        "method": "GET",
+        "path": "/pet/10",
+        "json": {
+          "id": 10,
+          "name": "doggie",
+          "photoUrls": [],
+          "status": "available"
+        }
+      },
+      {
+        "name": "write",
+        "tool": "rest_post",
+        "arguments": {
+          "path": "pet",
+          "body": "{\"name\":\"doggie\"}"
+        },
+        "method": "POST",
+        "path": "/pet",
+        "json": {
+          "id": 11,
+          "name": "doggie",
+          "photoUrls": [],
+          "status": "available"
+        }
+      }
+    ],
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    }
+  }
+}

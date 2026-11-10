@@ -1,6 +1,6 @@
 # CloudNativePG point-in-time recovery
 
-Proof label: `contract` for the restore check in this repository. A restore on a running CloudNativePG cluster is an operator step and is not claimed as `live` here.
+Proof label: `contract`. `scripts/cnpg_pitr_kind.sh` installs the CloudNativePG operator and MinIO on kind, writes a row, takes a base backup, writes a second row, and restores to a timestamp between the two writes. The host does not publish port 5432. The job runs when those files change and on the nightly workflow. It is not `live`.
 
 ## What the cluster already does
 
@@ -44,4 +44,17 @@ The host port is 5433. Do not use 5432.
 
 ## Contract test
 
-`scripts/dr/pitr_contract.py` can also run against a local Postgres. It creates a scratch table, copies the rows out, deletes them, restores the copy, and asserts the marker is back. That is a logical restore, not a WAL replay. It is the contract the operator check reuses: a marker from before the target is present, and a marker from after the target is not.
+```bash
+bash scripts/cnpg_pitr_kind.sh
+```
+
+The script creates a kind cluster when kubectl has no current cluster. It then:
+
+1. Installs CloudNativePG 1.30.1.
+2. Builds MinIO from the official `RELEASE.2025-09-07T16-13-09Z` binary (Docker Hub no longer publishes `minio/minio`) and creates the `ar-backup` bucket. Barman is told `--addressing-style path` through the 1.30 command-arg fields. The 1.30.1 CRD does not have `s3AddressingStyle`.
+3. Creates cluster `ar-src` with WAL archiving to that bucket.
+4. Inserts `before`, takes a base backup, records the clock, then inserts `after`.
+5. Restores cluster `ar-restored` to the recorded timestamp.
+6. Asserts `before` is present and `after` is not.
+
+`scripts/dr/pitr_contract.py` remains the logical restore a laptop can run without kind. It is not a WAL replay.
