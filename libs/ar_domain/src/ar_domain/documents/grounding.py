@@ -75,8 +75,7 @@ def check(
     rule_set_id: str = "",
     rule_set_version: str = "",
 ) -> dict[str, object]:
-    """Judge statements. ``aggressive`` is unused: a quote must match stored text."""
-    del aggressive
+    """Judge statements. A quote is accepted only when it is in the stored passage."""
     from ar_domain.documents.judgement import judge_items  # noqa: PLC0415
 
     items = [
@@ -91,6 +90,7 @@ def check(
         model_id=model_id,
         rule_set_id=rule_set_id,
         rule_set_version=rule_set_version,
+        aggressive=aggressive,
     )
     return {
         "kind": "check",

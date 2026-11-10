@@ -39,8 +39,13 @@ def judge_items(
     model_id: str,
     rule_set_id: str,
     rule_set_version: str,
+    aggressive: bool = False,
 ) -> list[dict[str, object]]:
-    """One judgement per item. Retrieval uses the stored passages only."""
+    """One judgement per item. Retrieval uses the stored passages only.
+
+    ``aggressive`` masks the text shown to the model. The quote is still checked
+    against the stored passage, so a masked quote is not a verdict.
+    """
     passages = _passages(document)
     rows: list[dict[str, object]] = []
     for item_id, statement in items:
@@ -57,6 +62,7 @@ def judge_items(
                 model_id=model_id,
                 rule_set_id=rule_set_id,
                 rule_set_version=rule_set_version,
+                aggressive=aggressive,
             )
         )
     return rows
@@ -72,8 +78,9 @@ def _one(
     model_id: str,
     rule_set_id: str,
     rule_set_version: str,
+    aggressive: bool,
 ) -> dict[str, object]:
-    evidence = _evidence(_window(passages, statement))
+    evidence = _evidence(_window(passages, statement), aggressive=aggressive)
     task = f"{_TASK}\nStatement: {statement}"
     digest = prompt_hash(task, evidence)
     base: dict[str, object] = {
@@ -89,11 +96,22 @@ def _one(
         "citation": None,
         "model": False,
     }
-    if ask is None:
-        return _row(base, "not_judged", "Lexical overlap is not a verdict.")
-    raw = ask(task, evidence)
+    raw = None if ask is None else ask(task, evidence)
     if raw is None:
-        return _row(base, "not_judged", "The model did not answer. Overlap is not a verdict.")
+        located = _statement_in_passage(passages, statement)
+        if located is None:
+            reason = (
+                "Lexical overlap is not a verdict."
+                if ask is None
+                else "The model did not answer. Overlap is not a verdict."
+            )
+            return _row(base, "not_judged", reason)
+        passage, quote = located
+        row = _row(base, "supported", "The statement is a substring of the stored passage.")
+        row["passage_id"] = str(passage.get("anchor") or "")
+        row["quote"] = quote
+        row["citation"] = _citation(document, passage, quote)
+        return row
     parsed = _schema(raw)
     if parsed is None:
         failed = _row(base, "failed", "The model response did not match the judgement schema.")
@@ -177,12 +195,15 @@ def _window(passages: list[dict[str, object]], statement: str) -> list[dict[str,
     return chosen or passages[:1]
 
 
-def _evidence(passages: list[dict[str, object]]) -> str:
+def _evidence(passages: list[dict[str, object]], *, aggressive: bool) -> str:
+    from ar_domain.documents.grounding import prepare_analysis_text  # noqa: PLC0415
+
     blocks = []
     for row in passages:
+        shown = prepare_analysis_text(str(row.get("text") or ""), aggressive=aggressive)
         body = (
             f"passageId: {row.get('anchor')} page: {row.get('page')} "
-            f"heading: {row.get('heading')}\n{row.get('text')}"
+            f"heading: {row.get('heading')}\n{shown}"
         )
         blocks.append(wrap_untrusted(source="document", content=body))
     return "\n".join(blocks)
@@ -207,6 +228,17 @@ def _passages(document: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(raw, list):
         return []
     return [row for row in raw if isinstance(row, dict)]
+
+
+def _statement_in_passage(
+    passages: list[dict[str, object]], statement: str
+) -> tuple[dict[str, object], str] | None:
+    """A statement that is itself stored text, not a word-overlap score."""
+    for row in passages:
+        text = str(row.get("text") or "")
+        if statement in text:
+            return row, text
+    return None
 
 
 def _by_anchor(passages: list[dict[str, object]], anchor: str) -> dict[str, object] | None:

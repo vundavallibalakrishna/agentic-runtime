@@ -309,7 +309,6 @@ class DocumentLibrary:
         alias: str = "",
         agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
-        del agent_version_id
         row = self._own(actor, document_id)
         pairs, source_id, set_id, version = self._rule_statements(
             actor, statements, rule_set_id=rule_set_id, rule_set=rule_set
@@ -322,6 +321,7 @@ class DocumentLibrary:
             model_id=model_id_for(self.store, actor.tenant_id, chosen),
             rule_set_id=set_id,
             rule_set_version=version,
+            aggressive=self._aggressive(actor, agent_version_id),
         )
         result: dict[str, object] = {
             "kind": "judge",
