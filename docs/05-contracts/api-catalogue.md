@@ -2,11 +2,11 @@
 
 Every public HTTP endpoint, generated from the `#### METHOD /path` headings of the specs in [03-specs](../03-specs/) (the spec section is normative). Conventions (auth, errors, pagination, idempotency, ETags): [api-conventions](api-conventions.md). Internal service-to-service endpoints: [internal-apis](internal-apis.md). Stream events: [stream-events](stream-events.md).
 
-A `scripts/check_api_catalogue.py` that fails the `docs` CI job when `openapi.json` and this catalogue differ (method + path) is planned but not yet wired; the catalogue can drift from the generated spec until then (OQ-120).
+`scripts/check_api_catalogue.py` fails the `docs` CI job when `openapi.json` and this catalogue differ on method and path (OQ-120). Path parameters compare as `{}`.
 
 New endpoints are appended at the end.
 
-Total: **552** endpoints.
+Total: **467** endpoints.
 
 Permission column: the permission key named first in the spec text (additional object-level rules in the spec); other entries name the authentication mechanism, or `object-level` when access depends on ownership/visibility of the resource (owner, viewer, editor, eligible approver) as defined in the spec section.
 
@@ -16,7 +16,6 @@ Spec: [01-api-bff.md](../03-specs/01-api-bff.md)
 
 | Method | Path | Permission | Section |
 |---|---|---|---|
-| GET | [`/api/v1/auth/login`](../03-specs/01-api-bff.md#get-apiv1authlogin) | public / session (see spec) | 3. Authentication endpoints (BFF) |
 | GET | [`/api/v1/auth/callback`](../03-specs/01-api-bff.md#get-apiv1authcallback) | public / session (see spec) | 3. Authentication endpoints (BFF) |
 | POST | [`/api/v1/auth/logout`](../03-specs/01-api-bff.md#post-apiv1authlogout) | public / session (see spec) | 3. Authentication endpoints (BFF) |
 | GET | [`/api/v1/auth/session`](../03-specs/01-api-bff.md#get-apiv1authsession) | public / session (see spec) | 3. Authentication endpoints (BFF) |
@@ -100,14 +99,10 @@ Spec: [02-identity-tenancy.md](../03-specs/02-identity-tenancy.md)
 | DELETE | [`/scim/v2/Users/{scim_user_id}`](../03-specs/02-identity-tenancy.md#delete-scimv2usersscim_user_id) | SCIM bearer token | 3. Public API |
 | GET | [`/scim/v2/Groups`](../03-specs/02-identity-tenancy.md#get-scimv2groups) | SCIM bearer token | 3. Public API |
 | POST | [`/scim/v2/Groups`](../03-specs/02-identity-tenancy.md#post-scimv2groups) | SCIM bearer token | 3. Public API |
-| GET | [`/scim/v2/Groups/{scim_group_id}`](../03-specs/02-identity-tenancy.md#get-scimv2groupsscim_group_id) | SCIM bearer token | 3. Public API |
-| PUT | [`/scim/v2/Groups/{scim_group_id}`](../03-specs/02-identity-tenancy.md#put-scimv2groupsscim_group_id) | SCIM bearer token | 3. Public API |
 | PATCH | [`/scim/v2/Groups/{scim_group_id}`](../03-specs/02-identity-tenancy.md#patch-scimv2groupsscim_group_id) | SCIM bearer token | 3. Public API |
-| DELETE | [`/scim/v2/Groups/{scim_group_id}`](../03-specs/02-identity-tenancy.md#delete-scimv2groupsscim_group_id) | SCIM bearer token | 3. Public API |
 | GET | [`/api/v1/platform/tenants`](../03-specs/02-identity-tenancy.md#get-apiv1platformtenants) | platform admin (SaaS) | 3. Public API |
 | POST | [`/api/v1/platform/tenants`](../03-specs/02-identity-tenancy.md#post-apiv1platformtenants) | platform admin (SaaS) | 3. Public API |
 | GET | [`/api/v1/platform/tenants/{tenant_id}`](../03-specs/02-identity-tenancy.md#get-apiv1platformtenantstenant_id) | platform admin (SaaS) | 3. Public API |
-| PATCH | [`/api/v1/platform/tenants/{tenant_id}`](../03-specs/02-identity-tenancy.md#patch-apiv1platformtenantstenant_id) | platform admin (SaaS) | 3. Public API |
 | POST | [`/api/v1/platform/tenants/{tenant_id}:suspend`](../03-specs/02-identity-tenancy.md#post-apiv1platformtenantstenant_idsuspend) | platform admin (SaaS) | 3. Public API |
 | POST | [`/api/v1/platform/tenants/{tenant_id}:resume`](../03-specs/02-identity-tenancy.md#post-apiv1platformtenantstenant_idresume) | platform admin (SaaS) | 3. Public API |
 | POST | [`/api/v1/platform/tenants/{tenant_id}:delete`](../03-specs/02-identity-tenancy.md#post-apiv1platformtenantstenant_iddelete) | platform admin (SaaS) | 3. Public API |
@@ -178,16 +173,6 @@ Spec: [04-model-gateway.md](../03-specs/04-model-gateway.md)
 | POST | [`/api/v1/model-aliases/{alias_id}:test`](../03-specs/04-model-gateway.md#post-apiv1model-aliasesalias_idtest) | `models:manage` | 4. Registry API (served by `api`) |
 | GET | [`/api/v1/platform/model-providers`](../03-specs/04-model-gateway.md#get-apiv1platformmodel-providers) | `models:manage` | 4. Registry API (served by `api`) |
 | POST | [`/api/v1/platform/model-providers`](../03-specs/04-model-gateway.md#post-apiv1platformmodel-providers) | `models:manage` | 4. Registry API (served by `api`) |
-| PATCH | [`/api/v1/platform/model-providers/{provider_id}`](../03-specs/04-model-gateway.md#patch-apiv1platformmodel-providersprovider_id) | `models:manage` | 4. Registry API (served by `api`) |
-| DELETE | [`/api/v1/platform/model-providers/{provider_id}`](../03-specs/04-model-gateway.md#delete-apiv1platformmodel-providersprovider_id) | `models:manage` | 4. Registry API (served by `api`) |
-| GET | [`/api/v1/platform/models`](../03-specs/04-model-gateway.md#get-apiv1platformmodels) | `models:manage` | 4. Registry API (served by `api`) |
-| POST | [`/api/v1/platform/models`](../03-specs/04-model-gateway.md#post-apiv1platformmodels) | `models:manage` | 4. Registry API (served by `api`) |
-| PATCH | [`/api/v1/platform/models/{model_id}`](../03-specs/04-model-gateway.md#patch-apiv1platformmodelsmodel_id) | `models:manage` | 4. Registry API (served by `api`) |
-| DELETE | [`/api/v1/platform/models/{model_id}`](../03-specs/04-model-gateway.md#delete-apiv1platformmodelsmodel_id) | `models:manage` | 4. Registry API (served by `api`) |
-| GET | [`/api/v1/platform/model-aliases`](../03-specs/04-model-gateway.md#get-apiv1platformmodel-aliases) | `models:manage` | 4. Registry API (served by `api`) |
-| POST | [`/api/v1/platform/model-aliases`](../03-specs/04-model-gateway.md#post-apiv1platformmodel-aliases) | `models:manage` | 4. Registry API (served by `api`) |
-| PATCH | [`/api/v1/platform/model-aliases/{alias_id}`](../03-specs/04-model-gateway.md#patch-apiv1platformmodel-aliasesalias_id) | `models:manage` | 4. Registry API (served by `api`) |
-| DELETE | [`/api/v1/platform/model-aliases/{alias_id}`](../03-specs/04-model-gateway.md#delete-apiv1platformmodel-aliasesalias_id) | `models:manage` | 4. Registry API (served by `api`) |
 
 ## Spec 05: Agent registry and definitions (`ar_domain.agents`)
 
@@ -251,14 +236,12 @@ Spec: [06-conversations-runs.md](../03-specs/06-conversations-runs.md)
 | GET | [`/api/v1/conversations/{conversation_id}`](../03-specs/06-conversations-runs.md#get-apiv1conversationsconversation_id) | `chat:use` | 3. Message posting and run start |
 | PATCH | [`/api/v1/conversations/{conversation_id}`](../03-specs/06-conversations-runs.md#patch-apiv1conversationsconversation_id) | `tenant:manage` | 3. Message posting and run start |
 | DELETE | [`/api/v1/conversations/{conversation_id}`](../03-specs/06-conversations-runs.md#delete-apiv1conversationsconversation_id) | `chat:use` | 3. Message posting and run start |
-| GET | [`/api/v1/conversations/{conversation_id}/messages`](../03-specs/06-conversations-runs.md#get-apiv1conversationsconversation_idmessages) | `chat:use` | 3. Message posting and run start |
 | POST | [`/api/v1/conversations/{conversation_id}/messages`](../03-specs/06-conversations-runs.md#post-apiv1conversationsconversation_idmessages) | `chat:use` | 3. Message posting and run start |
 | POST | [`/api/v1/conversations/{conversation_id}/messages/{message_id}:regenerate`](../03-specs/06-conversations-runs.md#post-apiv1conversationsconversation_idmessagesmessage_idregenerate) | `chat:use` | 3. Message posting and run start |
 | POST | [`/api/v1/conversations/{conversation_id}/messages/{message_id}:edit`](../03-specs/06-conversations-runs.md#post-apiv1conversationsconversation_idmessagesmessage_idedit) | `chat:use` | 3. Message posting and run start |
 | POST | [`/api/v1/conversations/{conversation_id}/messages/{message_id}:activate`](../03-specs/06-conversations-runs.md#post-apiv1conversationsconversation_idmessagesmessage_idactivate) | `chat:use` | 3. Message posting and run start |
 | PUT | [`/api/v1/messages/{message_id}/feedback`](../03-specs/06-conversations-runs.md#put-apiv1messagesmessage_idfeedback) | `chat:use` | 3. Message posting and run start |
 | DELETE | [`/api/v1/messages/{message_id}/feedback`](../03-specs/06-conversations-runs.md#delete-apiv1messagesmessage_idfeedback) | `chat:use` | 3. Message posting and run start |
-| GET | [`/api/v1/conversations/{conversation_id}/events`](../03-specs/06-conversations-runs.md#get-apiv1conversationsconversation_idevents) | `chat:use` | 3. Message posting and run start |
 | GET | [`/api/v1/conversations/{conversation_id}/shares`](../03-specs/06-conversations-runs.md#get-apiv1conversationsconversation_idshares) | `chat:use` | 3. Message posting and run start |
 | POST | [`/api/v1/conversations/{conversation_id}/shares`](../03-specs/06-conversations-runs.md#post-apiv1conversationsconversation_idshares) | `chat:use` | 3. Message posting and run start |
 | DELETE | [`/api/v1/conversations/{conversation_id}/shares/{principal_type}/{principal_id}`](../03-specs/06-conversations-runs.md#delete-apiv1conversationsconversation_idsharesprincipal_typeprincipal_id) | `chat:use` | 3. Message posting and run start |
@@ -447,14 +430,11 @@ Spec: [13-files-artifacts.md](../03-specs/13-files-artifacts.md)
 
 | Method | Path | Permission | Section |
 |---|---|---|---|
-| POST | [`/api/v1/files`](../03-specs/13-files-artifacts.md#post-apiv1files) | `chat:use` | 4. Public API |
-| POST | [`/api/v1/files/{file_id}:complete`](../03-specs/13-files-artifacts.md#post-apiv1filesfile_idcomplete) | object-level (see spec) | 4. Public API |
 | GET | [`/api/v1/files:limits`](../03-specs/13-files-artifacts.md#get-apiv1fileslimits) | `chat:use` | 4. Public API |
 | POST | [`/api/v1/files:upload`](../03-specs/13-files-artifacts.md#post-apiv1filesupload) | object-level (see spec) | 4. Public API |
 | GET | [`/api/v1/files`](../03-specs/13-files-artifacts.md#get-apiv1files) | object-level (see spec) | 4. Public API |
 | GET | [`/api/v1/files/{file_id}`](../03-specs/13-files-artifacts.md#get-apiv1filesfile_id) | object-level (see spec) | 4. Public API |
 | GET | [`/api/v1/files/{file_id}/content`](../03-specs/13-files-artifacts.md#get-apiv1filesfile_idcontent) | object-level (see spec) | 4. Public API |
-| GET | [`/api/v1/files/{file_id}/thumbnail`](../03-specs/13-files-artifacts.md#get-apiv1filesfile_idthumbnail) | object-level (see spec) | 4. Public API |
 | DELETE | [`/api/v1/files/{file_id}`](../03-specs/13-files-artifacts.md#delete-apiv1filesfile_id) | object-level (see spec) | 4. Public API |
 
 ## Spec 14: Skills (`ar_domain.skills`)
@@ -502,10 +482,6 @@ Spec: [16-channels.md](../03-specs/16-channels.md)
 
 | Method | Path | Permission | Section |
 |---|---|---|---|
-| POST | [`/channels/slack/events`](../03-specs/16-channels.md#post-channelsslackevents) | provider request signature | 2. Public endpoints on `channels` (ingress path prefix `/channels`) |
-| POST | [`/channels/slack/interactions`](../03-specs/16-channels.md#post-channelsslackinteractions) | provider request signature | 2. Public endpoints on `channels` (ingress path prefix `/channels`) |
-| POST | [`/channels/slack/commands`](../03-specs/16-channels.md#post-channelsslackcommands) | provider request signature | 2. Public endpoints on `channels` (ingress path prefix `/channels`) |
-| POST | [`/channels/teams/messages`](../03-specs/16-channels.md#post-channelsteamsmessages) | provider request signature | 2. Public endpoints on `channels` (ingress path prefix `/channels`) |
 | GET | [`/api/v1/channel-integrations`](../03-specs/16-channels.md#get-apiv1channel-integrations) | `channels:manage` | 5. Integration management API (served by `api`) |
 | POST | [`/api/v1/channel-integrations`](../03-specs/16-channels.md#post-apiv1channel-integrations) | `channels:manage` | 5. Integration management API (served by `api`) |
 | GET | [`/api/v1/channel-integrations/{integration_id}`](../03-specs/16-channels.md#get-apiv1channel-integrationsintegration_id) | `channels:manage` | 5. Integration management API (served by `api`) |
@@ -653,10 +629,6 @@ Spec: [03-specs/18-observability-eval.md](../03-specs/18-observability-eval.md)
 
 | Method | Path | Permission |
 |---|---|---|
-| GET | [`/api/v1/run-records`](../03-specs/18-observability-eval.md#get-apiv1run-records) | `run_records:read` |
-| GET | [`/api/v1/run-records/{run_record_id}`](../03-specs/18-observability-eval.md#get-apiv1run-recordsrun_record_id) | `run_records:read` |
-| POST | [`/api/v1/run-records/{run_record_id}:replay`](../03-specs/18-observability-eval.md#post-apiv1run-recordsrun_record_idreplay) | `run_records:replay` |
-| GET | [`/api/v1/run-records/{run_record_id}/replays/{replay_id}`](../03-specs/18-observability-eval.md#get-apiv1run-recordsrun_record_idreplaysreplay_id) | `run_records:read` |
 
 ### Spec 21 records and guests
 
@@ -664,43 +636,28 @@ Spec: [03-specs/21-records-governance.md](../03-specs/21-records-governance.md)
 
 | Method | Path | Permission |
 |---|---|---|
-| GET | [`/api/v1/evidence`](../03-specs/21-records-governance.md#get-apiv1evidence) | `evidence:read` |
-| POST | [`/api/v1/evidence`](../03-specs/21-records-governance.md#post-apiv1evidence) | `evidence:capture` |
-| GET | [`/api/v1/evidence/{evidence_item_id}`](../03-specs/21-records-governance.md#get-apiv1evidenceevidence_item_id) | `evidence:read` |
-| GET | [`/api/v1/evidence/{evidence_item_id}/content`](../03-specs/21-records-governance.md#get-apiv1evidenceevidence_item_idcontent) | `evidence:export` |
-| POST | [`/api/v1/evidence/{evidence_item_id}:verify`](../03-specs/21-records-governance.md#post-apiv1evidenceevidence_item_idverify) | `evidence:read` |
-| GET | [`/api/v1/evidence/{evidence_item_id}/custody`](../03-specs/21-records-governance.md#get-apiv1evidenceevidence_item_idcustody) | `evidence:read` |
-| GET | [`/api/v1/legal-holds`](../03-specs/21-records-governance.md#get-apiv1legal-holds) | `holds:manage` |
-| POST | [`/api/v1/legal-holds`](../03-specs/21-records-governance.md#post-apiv1legal-holds) | `holds:manage` |
-| GET | [`/api/v1/legal-holds/{hold_id}`](../03-specs/21-records-governance.md#get-apiv1legal-holdshold_id) | `holds:manage` |
-| POST | [`/api/v1/legal-holds/{hold_id}:release`](../03-specs/21-records-governance.md#post-apiv1legal-holdshold_idrelease) | `holds:manage` |
-| GET | [`/api/v1/retention-schedules`](../03-specs/21-records-governance.md#get-apiv1retention-schedules) | `retention:manage` |
-| PUT | [`/api/v1/retention-schedules/{record_class}`](../03-specs/21-records-governance.md#put-apiv1retention-schedulesrecord_class) | `retention:manage` |
-| GET | [`/api/v1/disposition-certificates`](../03-specs/21-records-governance.md#get-apiv1disposition-certificates) | `audit:read` |
-| GET | [`/api/v1/disposition-certificates/{certificate_id}`](../03-specs/21-records-governance.md#get-apiv1disposition-certificatescertificate_id) | `audit:read` |
-| GET | [`/api/v1/agent-cards`](../03-specs/21-records-governance.md#get-apiv1agent-cards) | `ai_governance:read` |
-| GET | [`/api/v1/agents/{agent_id}/cards`](../03-specs/21-records-governance.md#get-apiv1agentsagent_idcards) | `ai_governance:read` |
-| GET | [`/api/v1/agents/{agent_id}/cards/{version}`](../03-specs/21-records-governance.md#get-apiv1agentsagent_idcardsversion) | see spec |
-| PATCH | [`/api/v1/agents/{agent_id}/cards/{version}`](../03-specs/21-records-governance.md#patch-apiv1agentsagent_idcardsversion) | `ai_governance:manage` |
-| GET | [`/api/v1/ai-incidents`](../03-specs/21-records-governance.md#get-apiv1ai-incidents) | `ai_governance:read` |
-| POST | [`/api/v1/ai-incidents`](../03-specs/21-records-governance.md#post-apiv1ai-incidents) | `ai_governance:manage` |
-| PATCH | [`/api/v1/ai-incidents/{incident_id}`](../03-specs/21-records-governance.md#patch-apiv1ai-incidentsincident_id) | `ai_governance:manage` |
-| GET | [`/api/v1/ai-governance/oversight`](../03-specs/21-records-governance.md#get-apiv1ai-governanceoversight) | `ai_governance:read` |
-| POST | [`/api/v1/ai-governance:export`](../03-specs/21-records-governance.md#post-apiv1ai-governanceexport) | `ai_governance:read` |
-| GET | [`/api/v1/guests`](../03-specs/21-records-governance.md#get-apiv1guests) | `guests:manage` |
-| POST | [`/api/v1/guests`](../03-specs/21-records-governance.md#post-apiv1guests) | `guests:invite` |
-| GET | [`/api/v1/guests/{guest_id}`](../03-specs/21-records-governance.md#get-apiv1guestsguest_id) | `guests:manage` |
-| POST | [`/api/v1/guests/{guest_id}:revoke`](../03-specs/21-records-governance.md#post-apiv1guestsguest_idrevoke) | `guests:manage` |
-| POST | [`/api/v1/guests/{guest_id}/grants`](../03-specs/21-records-governance.md#post-apiv1guestsguest_idgrants) | `guests:manage` |
-| DELETE | [`/api/v1/guests/{guest_id}/grants/{grant_id}`](../03-specs/21-records-governance.md#delete-apiv1guestsguest_idgrantsgrant_id) | `guests:manage` |
 | POST | [`/api/v1/auth/guest/request-link`](../03-specs/21-records-governance.md#post-apiv1authguestrequest-link) | see spec |
 | POST | [`/api/v1/auth/guest/session`](../03-specs/21-records-governance.md#post-apiv1authguestsession) | see spec |
 | POST | [`/api/v1/auth/guest/totp/enroll`](../03-specs/21-records-governance.md#post-apiv1authguesttotpenroll) | see spec |
-| GET | [`/api/v1/binders`](../03-specs/21-records-governance.md#get-apiv1binders) | `binders:export` |
-| POST | [`/api/v1/binders`](../03-specs/21-records-governance.md#post-apiv1binders) | `binders:export` |
-| GET | [`/api/v1/binders/{binder_id}`](../03-specs/21-records-governance.md#get-apiv1bindersbinder_id) | see spec |
-| POST | [`/api/v1/binders/{binder_id}:build`](../03-specs/21-records-governance.md#post-apiv1bindersbinder_idbuild) | `binders:export` |
-| GET | [`/api/v1/binders/{binder_id}/download`](../03-specs/21-records-governance.md#get-apiv1bindersbinder_iddownload) | see spec |
 | GET | [`/api/v1/tenant/packs`](../03-specs/21-records-governance.md#get-apiv1tenantpacks) | Any signed-in principal |
 | POST | [`/api/v1/tenant/packs/{pack_id}:enable`](../03-specs/21-records-governance.md#post-apiv1tenantpackspack_idenable) | `packs:manage` |
 | POST | [`/api/v1/tenant/packs/{pack_id}:disable`](../03-specs/21-records-governance.md#post-apiv1tenantpackspack_iddisable) | `packs:manage` |
+
+## Generated parity (openapi.json)
+
+Routes present in `openapi.json` and absent from the spec tables above.
+
+| Method | Path | Permission | Section |
+|---|---|---|---|
+| GET | `/api/v1/auth/oidc/start` | see spec | openapi |
+| GET | `/internal/v1/channels/integrations` | see spec | openapi |
+| GET | `/internal/v1/connectors/{version_id}/config` | see spec | openapi |
+| GET | `/internal/v1/opa/bundles/ar.tar.gz` | see spec | openapi |
+| GET | `/v1` | see spec | openapi |
+| POST | `/api/v1/api-keys/{api_key_id}:rotate` | see spec | openapi |
+| POST | `/api/v1/auth/login` | see spec | openapi |
+| POST | `/internal/v1/channels/approval-decisions` | see spec | openapi |
+| POST | `/internal/v1/channels/events` | see spec | openapi |
+| POST | `/internal/v1/channels/inbound` | see spec | openapi |
+| POST | `/internal/v1/connections:test` | see spec | openapi |
+| POST | `/v1/agents/{slug}:run` | see spec | openapi |

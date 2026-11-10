@@ -669,6 +669,12 @@ class RoutineBook:
         return None
 
     def _webhook_rate(self, row: dict[str, object]) -> bool:
+        from ar_domain.process_state import take_window  # noqa: PLC0415
+
+        shared = take_window(self.store, f"routine-webhook:{row.get('id')}", _WEBHOOK_RATE)
+        if shared is not None:
+            allowed, _remaining = shared
+            return not allowed
         buckets = getattr(self.store, "rate_buckets", None)
         if not isinstance(buckets, dict):
             buckets = {}

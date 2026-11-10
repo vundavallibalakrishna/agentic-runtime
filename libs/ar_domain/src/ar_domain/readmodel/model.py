@@ -242,6 +242,9 @@ class RepositoryReadModel:
         for name in _CONFIG:
             if hasattr(self, name):
                 setattr(unit, name, getattr(self, name))
+        from ar_domain.process_state import bind_unit  # noqa: PLC0415
+
+        bind_unit(self, unit)
         return unit
 
 

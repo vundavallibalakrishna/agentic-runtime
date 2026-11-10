@@ -171,6 +171,9 @@ BUCKETS = (
     "job_progress",
     "a2a_push_configs",
     "tool_search_vectors",
+    "standing_approvals",
+    "review_queues",
+    "review_items",
 )
 
 

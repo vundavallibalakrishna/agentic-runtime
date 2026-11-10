@@ -33,6 +33,8 @@ async def bootstrap(
     tenant_slug = slug or os.environ.get("AR_BOOTSTRAP_TENANT_SLUG") or "default"
     tenant_name = name or os.environ.get("AR_BOOTSTRAP_TENANT_NAME") or "Default"
     email = admin_email or os.environ.get("AR_BOOTSTRAP_ADMIN_EMAIL") or ""
+    if admin_password is None:
+        admin_password = os.environ.get("AR_BOOTSTRAP_ADMIN_PASSWORD") or None
     if "@" not in email:
         raise SystemExit("AR_BOOTSTRAP_ADMIN_EMAIL is required: the address of the first admin")
     import_models()

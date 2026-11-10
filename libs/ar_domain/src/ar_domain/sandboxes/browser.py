@@ -1,8 +1,8 @@
 """Controlled browser session on the M6 computer.
 
-The page engine is in-process HTML (OQ-87). Chromium is optional and stays out
-of the sandbox image CI does not build. Cookies live on one sandbox context
-and are never copied onto another tenant, conversation or run.
+The in-process HTML engine is dev and CI only. Staging and production drive
+Chromium inside the sandbox image. Cookies live on one sandbox context and
+are never copied onto another tenant, conversation or run.
 """
 
 from __future__ import annotations

@@ -72,9 +72,20 @@ def slack_error(code: str) -> str:
 
 
 def rate_limited(store: Any, tenant: object, slug: str, per_minute: int) -> str | None:
-    shared = _shared_limit(store, tenant, slug, per_minute)
-    if shared is not _SKIP:
-        return shared if isinstance(shared, str) else None
+    from ar_domain.process_state import take_window  # noqa: PLC0415
+
+    shared = take_window(store, f"connector:{tenant}:{slug}", per_minute)
+    if shared is not None:
+        allowed, _remaining = shared
+        if allowed:
+            return None
+        return (
+            f"{slug} is at its shared limit of {per_minute} calls a minute. "
+            "Wait a minute and try again."
+        )
+    legacy = _shared_limit(store, tenant, slug, per_minute)
+    if legacy is not _SKIP:
+        return legacy if isinstance(legacy, str) else None
     book = getattr(store, "rate_buckets", None)
     if not isinstance(book, dict):
         store.rate_buckets = {}

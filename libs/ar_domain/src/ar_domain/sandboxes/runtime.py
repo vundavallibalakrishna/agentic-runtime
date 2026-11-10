@@ -365,7 +365,10 @@ def ensure_scope(
     user_id: uuid.UUID | None,
 ) -> dict[str, object]:
     """Create or resume the one live computer for a scope."""
-    if _delegate_to_manager(store):
+    launcher = getattr(store, "sandbox_launcher", None)
+    from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher  # noqa: PLC0415
+
+    if isinstance(launcher, SandboxManagerLauncher) or _delegate_to_manager(store):
         return _delegate_ensure(
             store,
             tenant_id=tenant_id,
@@ -746,15 +749,19 @@ def _browser(
     # applies before a navigation. Otherwise the in-process engine answers (M40-T04c).
     if bool(sandbox.get("endpoint_url")):
         return _browser_remote(store, sandbox, name, arguments)
-    if name == "screenshot" and not getattr(store, "fake_models_allowed", True):
-        return _error(
-            "sandbox_unavailable",
-            "a screenshot needs the Chromium sandbox",
-        )
+    if not host_exec_allowed():
+        return _error("sandbox_unavailable", "the browser runs in the sandbox")
     if name == "screenshot":
-        from ar_domain.sandboxes.browser import open_context  # noqa: PLC0415
+        if getattr(store, "fake_models_allowed", True):
+            from ar_domain.sandboxes.browser import open_context  # noqa: PLC0415
 
-        return _screenshot(store, sandbox, open_context(sandbox, arguments))
+            shot = _screenshot(store, sandbox, open_context(sandbox, arguments))
+        else:
+            shot = _error(
+                "sandbox_unavailable",
+                "a screenshot needs the Chromium sandbox",
+            )
+        return shot
     from ar_domain.sandboxes.browser import apply_browser  # noqa: PLC0415
 
     return apply_browser(store, sandbox, name, arguments)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Any
 
 from ar_common.settings import uses_shared_process_state
@@ -24,6 +25,8 @@ def refuse_memory_double() -> None:
     """
     from ar_common.settings import get_settings  # noqa: PLC0415
 
+    if os.environ.get("AR_BOOTSTRAP_WRITER") == "1":
+        return
     if uses_shared_process_state(get_settings().env):
         raise MemoryStoreRefusedError(
             "ChatService is an in-memory test double. "

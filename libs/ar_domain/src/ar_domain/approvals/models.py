@@ -21,7 +21,8 @@ from ar_domain.db.base import Base
 from ar_domain.db.types import created_at_col, jsonb_col, text_array, updated_at_col, uuid_pk
 
 _SUBJECTS = (
-    "('artifact','file','message','evidence_item','run_record','agent_card','binder','pack_record')"
+    "('artifact','file','message','evidence_item','sealed_record','run_record',"
+    "'agent_card','binder','packet','pack_record')"
 )
 REVIEW_SUBJECTS = frozenset(
     {

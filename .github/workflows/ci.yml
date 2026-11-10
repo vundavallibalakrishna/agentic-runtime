@@ -236,6 +236,7 @@ jobs:
       - run: uv run python scripts/check_public_camel_case.py
       - run: uv run python scripts/check_tool_descriptions.py
       - run: uv run python scripts/check_capability_matrix.py
+      - run: uv run python scripts/check_api_catalogue.py
       - run: uv run python scripts/check_docs.py
       - name: no placeholder markers
         run: |
@@ -274,6 +275,26 @@ jobs:
       - run: uv sync --all-packages --all-groups --frozen
       - name: Sandbox pod contract
         run: uv run python scripts/contract_k8s_pods.py --apply
+
+  kind-stage9:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1.12.0
+        with:
+          cluster_name: ar-stage9
+      - uses: azure/setup-helm@v4
+        with:
+          version: v4.3.1
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.13.3"
+          enable-cache: true
+      - run: uv python install 3.14.8
+      - run: uv sync --all-packages --all-groups --frozen
+      - name: Stage 9 two-replica contract
+        run: bash scripts/stage9_kind_contract.sh
 
   fresh-clone:
     runs-on: ubuntu-latest

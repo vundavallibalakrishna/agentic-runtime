@@ -86,6 +86,9 @@ class BuilderService:
             "warnings": drafted.get("warnings") or [],
             "created_at": now,
         }
+        from ar_domain.process_state import remember_builder_session  # noqa: PLC0415
+
+        remember_builder_session(self.store, session_id)
         return {
             "session_id": str(session_id),
             "conversation_id": str(conversation_id),
@@ -117,6 +120,9 @@ class BuilderService:
         row["proposal"] = proposal
         row["warnings"] = drafted.get("warnings") or []
         row["instruction"] = combined
+        from ar_domain.process_state import remember_builder_session  # noqa: PLC0415
+
+        remember_builder_session(self.store, session_id)
         run_id = new_id()
         return {"run_id": str(run_id)}
 

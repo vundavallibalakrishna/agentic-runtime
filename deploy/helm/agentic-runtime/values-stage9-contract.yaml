@@ -1,0 +1,100 @@
+# Stage 9 kind contract. Two API replicas and two workers, shared Valkey and
+# Postgres, Temporal, mcp-gateway and sandbox-manager. The model is fake-llm,
+# so a run of this file is contract proof, not live.
+# The admin password is a disposable fixture for this cluster only.
+global:
+  env: staging
+  imageTag: dev
+  deploymentMode: single_tenant
+  publicUrl: http://127.0.0.1:3000
+process:
+  shared: true
+bootstrap:
+  tenantSlug: dev
+  tenantName: Dev
+  adminEmail: admin@dev.local
+  adminPassword: stage9-contract-password
+config:
+  AR_AUTH_MODE: password
+  AR_PASSWORD_LOGIN: "true"
+  AR_OIDC_REQUIRE_MFA: "false"
+  AR_SECRETS_BACKEND: db_encrypted
+secrets:
+  backend: db_encrypted
+sandboxes:
+  driver: kubernetes
+  runtimeClassInstall: false
+  falco: false
+fakeLlm:
+  enabled: true
+postgres:
+  bundled: true
+  mode: statefulset
+  instances: 1
+valkey:
+  bundled: true
+  mode: standalone
+temporal:
+  bundled: true
+  ha: false
+  workerVersioning: false
+openbao:
+  bundled: false
+objectStorage:
+  bundled: true
+  mode: single
+autoscaling:
+  enabled: false
+keda:
+  enabled: false
+monitoring:
+  enabled: false
+gateway:
+  enabled: false
+networkPolicy:
+  enabled: false
+backup:
+  enabled: false
+clamav:
+  enabled: false
+workloads:
+  web:
+    enabled: false
+    replicas: 0
+  api:
+    replicas: 2
+  runtime-worker:
+    replicas: 2
+  system-worker:
+    enabled: false
+    replicas: 0
+  ingest-worker:
+    enabled: false
+    replicas: 0
+  model-gateway:
+    enabled: true
+    replicas: 1
+  mcp-gateway:
+    enabled: true
+    replicas: 1
+  sandbox-manager:
+    enabled: true
+    replicas: 1
+  channels:
+    enabled: false
+    replicas: 0
+  mcp-sql:
+    enabled: false
+    replicas: 0
+  mcp-openapi:
+    enabled: false
+    replicas: 0
+  opa:
+    enabled: false
+    replicas: 0
+  squid:
+    enabled: false
+    replicas: 0
+  fake-llm:
+    enabled: true
+    replicas: 1
