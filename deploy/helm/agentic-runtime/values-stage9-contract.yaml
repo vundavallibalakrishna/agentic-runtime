@@ -57,14 +57,30 @@ backup:
   enabled: false
 clamav:
   enabled: false
+# A kind node on a four-core runner cannot schedule the production requests
+# (1 CPU for each API and worker replica). These requests are only for this contract.
 workloads:
   web:
     enabled: false
     replicas: 0
   api:
     replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
   runtime-worker:
     replicas: 2
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: "1"
+        memory: 2Gi
   system-worker:
     enabled: false
     replicas: 0
@@ -74,12 +90,24 @@ workloads:
   model-gateway:
     enabled: true
     replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
   mcp-gateway:
     enabled: true
     replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
   sandbox-manager:
     enabled: true
     replicas: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
   channels:
     enabled: false
     replicas: 0

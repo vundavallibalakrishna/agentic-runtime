@@ -94,8 +94,20 @@ fi
 kill "$log_pid" >/dev/null 2>&1 || true
 
 echo "waiting for api and worker deployments"
-kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=15m
-kubectl -n "$namespace" rollout status deploy/agentic-runtime-runtime-worker --timeout=15m
+rollout() {
+  local deploy="$1"
+  local name="${deploy#agentic-runtime-}"
+  if kubectl -n "$namespace" rollout status "deploy/${deploy}" --timeout=15m; then
+    return 0
+  fi
+  kubectl -n "$namespace" get pods -o wide || true
+  kubectl -n "$namespace" describe "deploy/${deploy}" || true
+  kubectl -n "$namespace" describe pods -l "app.kubernetes.io/name=${name}" || true
+  kubectl -n "$namespace" logs -l "app.kubernetes.io/name=${name}" --all-containers --tail=200 || true
+  return 1
+}
+rollout agentic-runtime-api
+rollout agentic-runtime-runtime-worker
 kubectl -n "$namespace" get deploy agentic-runtime-mcp-gateway agentic-runtime-sandbox-manager
 
 uv run python scripts/contract_stage9.py --namespace "$namespace"
