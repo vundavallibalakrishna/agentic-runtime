@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
+from collections.abc import AsyncIterator
 from types import SimpleNamespace
 
 import pytest
@@ -12,7 +14,14 @@ from temporalio.service import RPCError, RPCStatusCode
 from ar_api.auth.session import MemorySessionStore, ValkeySessionStore, new_session
 from ar_api.process import install_process_state
 from ar_api.ratelimit import ValkeyTokenBucket
-from ar_api.readiness import readiness_names
+from ar_api.readiness import (
+    api_readiness,
+    ping_postgres,
+    ping_temporal,
+    ping_valkey,
+    readiness_names,
+)
+from ar_common.errors import UnavailableError
 from ar_common.settings import (
     DEV_CURSOR_SECRET,
     BaseServiceSettings,
@@ -324,6 +333,407 @@ class _MissingWorkflow:
 
     async def describe(self) -> None:
         raise RPCError("missing", RPCStatusCode.NOT_FOUND, b"")
+
+
+@pytest.mark.unit
+def test_publish_without_a_loop_is_a_no_op() -> None:
+    bus = ValkeyRunBus("redis://unused", client=_MemoryStream())
+    bus.publish(uuid.uuid4(), {"seq": 1, "type": "run.started"})
+    assert bus._pending == set()
+
+
+@pytest.mark.unit
+async def test_publish_and_listen_share_the_stream() -> None:
+    shared = _MemoryStream()
+    bus = ValkeyRunBus("redis://unused", client=shared)
+    run_id = uuid.uuid4()
+    bus.publish(run_id, {"seq": 4, "type": "run.completed", "data": {}})
+    pending = tuple(bus._pending)
+    assert pending
+    await pending[0]
+    stream = bus.listen(run_id)
+    event = await anext(stream)
+    await stream.aclose()
+    assert event["type"] == "run.completed"
+
+
+@pytest.mark.unit
+async def test_a_bad_stream_payload_is_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _MemoryStream()
+    bus = ValkeyRunBus("redis://example")
+    monkeypatch.setattr("ar_common.valkey.valkey_client", lambda *_args, **_kwargs: client)
+    run_id = uuid.uuid4()
+    await client.xadd(f"ar:run:{run_id}", {"payload": "not-json"})
+    await client.xadd(f"ar:run:{run_id}", {"payload": "[]"})
+    _cursor, events = await bus.take(run_id, "0-0")
+    assert events == []
+
+
+@pytest.mark.unit
+def test_idempotency_body_rejects_a_foreign_shape() -> None:
+    assert decode_body("nope") is None
+    assert decode_body({"b64": ""}) is None
+    assert decode_body({"b64": "abc"}) is None
+
+
+@pytest.mark.unit
+async def test_idempotency_store_reads_and_writes_through_the_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    tenant = str(uuid.uuid4())
+    row = SimpleNamespace(
+        request_hash="hash-1",
+        status_code=201,
+        response_body=encode_body(b'{"ok":true}'),
+    )
+
+    class _Session:
+        def __init__(self) -> None:
+            self.statement: object = None
+
+        async def get(self, _model: object, _key: object) -> object:
+            return row
+
+        async def execute(self, statement: object) -> None:
+            self.statement = statement
+
+    session = _Session()
+
+    class _Context:
+        async def __aenter__(self) -> _Session:
+            return session
+
+        async def __aexit__(self, *_args: object) -> bool:
+            return False
+
+    monkeypatch.setattr(
+        "ar_domain.events.idempotency_pg.tenant_session", lambda *_a, **_k: _Context()
+    )
+    monkeypatch.setattr("ar_domain.events.idempotency_pg.get_engine", lambda _url: object())
+    store = PostgresIdempotencyStore("postgresql+asyncpg://unused")
+    assert await store.get(("not-a-uuid", "person", "key")) is None
+    loaded = await store.get((tenant, "person", "key"))
+    assert loaded is not None and loaded.status_code == 201 and loaded.body == b'{"ok":true}'
+    await store.put(("not-a-uuid", "person", "key"), StoredResponse("h", 200, b"x"))
+    await store.put((tenant, "person", "key"), StoredResponse("hash-1", 201, b'{"ok":true}'))
+    assert session.statement is not None
+
+    def explode(*_args: object, **_kwargs: object) -> object:
+        raise ConnectionError("down")
+
+    monkeypatch.setattr("ar_domain.events.idempotency_pg.tenant_session", explode)
+    with pytest.raises(UnavailableError):
+        await store.get((tenant, "person", "key"))
+    with pytest.raises(UnavailableError):
+        await store.put((tenant, "person", "key"), StoredResponse("h", 500, None))
+
+
+class _RaisingRedis(_MemoryRedis):
+    async def set(self, key: str, value: str, ex: int | None = None) -> None:
+        del key, value, ex
+        raise ConnectionError("down")
+
+    async def get(self, key: str) -> str | None:
+        del key
+        raise ConnectionError("down")
+
+    async def ttl(self, key: str) -> int:
+        del key
+        raise ConnectionError("down")
+
+    async def delete(self, key: str) -> None:
+        del key
+        raise ConnectionError("down")
+
+
+@pytest.mark.unit
+async def test_valkey_session_errors_are_unavailable() -> None:
+    store = ValkeySessionStore(b"k" * 32, "redis://unused", client=_RaisingRedis())
+    session_id, data = new_session(uuid.uuid4(), uuid.uuid4())
+    with pytest.raises(UnavailableError):
+        await store.put(session_id, data, 30)
+    with pytest.raises(UnavailableError):
+        await store.get(session_id)
+    with pytest.raises(UnavailableError):
+        await store.update(session_id, data)
+    with pytest.raises(UnavailableError):
+        await store.delete(session_id)
+
+
+@pytest.mark.unit
+async def test_session_update_keeps_a_missing_key() -> None:
+    client = _MemoryRedis()
+    store = ValkeySessionStore(b"k" * 32, "redis://unused", client=client)
+    _session_id, data = new_session(uuid.uuid4(), uuid.uuid4())
+    await store.update("missing", data)
+    assert client.values == {}
+
+
+@pytest.mark.unit
+async def test_rate_limiter_reconnects_after_a_blip(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Fail:
+        async def incr(self, key: str) -> int:
+            del key
+            raise ConnectionError("blip")
+
+        async def expire(self, key: str, seconds: int) -> None:
+            del key, seconds
+
+    class _Ok:
+        async def incr(self, key: str) -> int:
+            del key
+            return 2
+
+        async def expire(self, key: str, seconds: int) -> None:
+            del key, seconds
+
+    clients = [_Fail(), _Ok()]
+
+    def factory(*_args: object, **_kwargs: object) -> object:
+        return clients.pop(0)
+
+    monkeypatch.setattr("ar_common.valkey.valkey_client", factory)
+    bucket = ValkeyTokenBucket("redis://shared", pause_s=0)
+    decision = await bucket.take("k", 5)
+    assert decision.allowed
+    assert decision.remaining == 3
+
+
+@pytest.mark.unit
+async def test_a_corrupt_session_is_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _MemoryRedis()
+    monkeypatch.setattr("ar_common.valkey.valkey_client", lambda *_a, **_k: client)
+    store = ValkeySessionStore(b"k" * 32, "redis://shared")
+    store._client()
+    client.values["ar:sess:bad"] = "not-sealed"
+    assert await store.get("bad") is None
+
+
+@pytest.mark.unit
+async def test_rate_limiter_builds_its_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _CountingRedis()
+    monkeypatch.setattr("ar_common.valkey.valkey_client", lambda *_a, **_k: client)
+    bucket = ValkeyTokenBucket("redis://shared")
+    decision = await bucket.take("k", 5)
+    assert decision.allowed
+    assert client.counts == [1]
+
+
+class _CountingRedis:
+    def __init__(self) -> None:
+        self.counts: list[int] = []
+
+    async def incr(self, key: str) -> int:
+        del key
+        self.counts.append(1)
+        return 1
+
+    async def expire(self, key: str, seconds: int) -> None:
+        del key, seconds
+
+
+@pytest.mark.unit
+async def test_readiness_checks_and_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    database_calls = {"n": 0}
+
+    async def ping_database(url: str) -> None:
+        database_calls["n"] += 1
+        if not url:
+            raise RuntimeError("empty")
+
+    class _Valkey:
+        def __init__(self, answer: object) -> None:
+            self.answer = answer
+            self.closed = False
+
+        async def ping(self) -> object:
+            return self.answer
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    live = _Valkey(True)
+    monkeypatch.setattr("ar_domain.db.engine.ping_database", ping_database)
+    monkeypatch.setattr("ar_common.valkey.valkey_client", lambda *_a, **_k: live)
+    await ping_postgres("postgresql+asyncpg://unused")
+    await ping_valkey("redis://unused")
+    assert live.closed
+    assert database_calls["n"] == 1
+    dead = _Valkey(False)
+    monkeypatch.setattr("ar_common.valkey.valkey_client", lambda *_a, **_k: dead)
+    with pytest.raises(RuntimeError):
+        await ping_valkey("redis://unused")
+    with pytest.raises(RuntimeError):
+        await ping_temporal("  ", "default")
+
+    class _Health:
+        async def check_health(self, **_kwargs: object) -> bool:
+            return False
+
+    class _Connected:
+        service_client = _Health()
+
+    async def connect(*_args: object, **_kwargs: object) -> _Connected:
+        return _Connected()
+
+    monkeypatch.setattr("temporalio.client.Client.connect", connect)
+    with pytest.raises(RuntimeError):
+        await ping_temporal("temporal:7233", "")
+
+    settings = _prod_settings(temporal_required=True)
+    checks = api_readiness(settings)
+    await checks["postgres"]()
+    await checks["postgres"]()
+    assert database_calls["n"] == 2
+    monkeypatch.setattr(
+        "ar_domain.db.engine.ping_database",
+        _fail_database,
+    )
+    failing = api_readiness(_prod_settings())
+    with pytest.raises(RuntimeError):
+        await failing["postgres"]()
+    with pytest.raises(RuntimeError):
+        await failing["postgres"]()
+
+
+async def _fail_database(_url: str) -> None:
+    raise RuntimeError("down")
+
+
+@pytest.mark.unit
+async def test_database_ping_uses_the_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.db.engine import ping_database
+
+    class _Connection:
+        async def execute(self, _statement: object) -> None:
+            return None
+
+        async def __aenter__(self) -> _Connection:
+            return self
+
+        async def __aexit__(self, *_args: object) -> bool:
+            return False
+
+    class _Engine:
+        def connect(self) -> _Connection:
+            return _Connection()
+
+    monkeypatch.setattr("ar_domain.db.engine.get_engine", lambda _url: _Engine())
+    await ping_database("postgresql+asyncpg://unused")
+
+
+class _Workflow:
+    def __init__(self, *, start: object = None, described: object = None) -> None:
+        self.started = False
+        self._start = start
+        self._described = described
+
+    async def start_workflow(self, *_args: object, **_kwargs: object) -> None:
+        self.started = True
+        if isinstance(self._start, Exception):
+            raise self._start
+
+    def get_workflow_handle(self, _workflow_id: str) -> _Workflow:
+        return self
+
+    async def describe(self) -> object:
+        if isinstance(self._described, Exception):
+            raise self._described
+        return self._described
+
+
+@pytest.mark.unit
+async def test_temporal_start_paths_do_not_run_in_process() -> None:
+    service = ChatService(fake_models_allowed=False)
+    service.watch_polls = 0
+    service.temporal_required = True
+    started = _Workflow()
+    service.temporal_client = started
+    run_id = _queued(service)
+    await service._start_turn(run_id, "hello", [])
+    assert started.started
+    assert service.runs[run_id]["status"] == "queued"
+
+    duplicate = type("WorkflowAlreadyStartedError", (Exception,), {})("dup")
+    service.temporal_client = _Workflow(start=duplicate)
+    again = _queued(service)
+    await service._start_turn(again, "hello", [])
+    assert service.runs[again]["status"] == "queued"
+
+    service.temporal_client = _Workflow(start=ConnectionError("down"))
+    lost = _queued(service)
+    await service._start_turn(lost, "hello", [])
+    error = service.runs[lost]["error"]
+    assert isinstance(error, dict) and error["reason"] == "not_resumed"
+
+    service.temporal_client = object()
+    missing = _queued(service)
+    await service._start_turn(missing, "hello", [])
+    assert service.runs[missing]["error"]["reason"] == "not_resumed"  # type: ignore[index]
+
+    service.temporal_required = False
+
+    async def generated(run: uuid.UUID, _text: str, _names: list[str]) -> None:
+        service.runs[run]["status"] = "generated"
+
+    service.generate = generated  # type: ignore[method-assign]
+    service.temporal_client = None
+    local = _queued(service)
+    await service._start_turn(local, "hello", [])
+    assert service.runs[local]["status"] == "generated"
+
+
+@pytest.mark.unit
+async def test_a_finished_workflow_and_the_event_bus() -> None:
+    service = ChatService(fake_models_allowed=False)
+    run_id = _queued(service)
+    assert await service._workflow_gone(run_id) is False
+    service.runs[run_id]["status"] = "completed"
+    service.temporal_client = object()
+    assert await service._workflow_gone(run_id) is False
+    service.runs[run_id]["status"] = "running"
+    assert await service._workflow_gone(run_id) is False
+
+    class _NoDescribe:
+        def get_workflow_handle(self, _workflow_id: str) -> object:
+            return object()
+
+    service.temporal_client = _NoDescribe()
+    assert await service._workflow_gone(run_id) is False
+    quiet = _Workflow()
+    service.temporal_client = quiet
+    assert await service._workflow_gone(run_id) is False
+    done = _Workflow(described=SimpleNamespace(status=SimpleNamespace(name="COMPLETED")))
+    service.temporal_client = done
+    assert await service._workflow_gone(run_id) is True
+    running = _Workflow(described=SimpleNamespace(status=SimpleNamespace(name="RUNNING")))
+    service.temporal_client = running
+    assert await service._workflow_gone(run_id) is False
+    service.temporal_client = _Workflow(described=RuntimeError("blip"))
+    assert await service._workflow_gone(run_id) is False
+
+    service.event_bus = object()
+    service._publish_event(run_id, {"seq": 1})
+
+    class _Broken:
+        def publish(self, _run_id: uuid.UUID, _event: dict[str, object]) -> None:
+            raise RuntimeError("bus down")
+
+    service.event_bus = _Broken()
+    service._publish_event(run_id, {"seq": 1})
+
+    class _Stream:
+        async def listen(self, _run_id: uuid.UUID) -> AsyncIterator[object]:
+            yield {"seq": 1, "type": "run.started"}
+            yield "skip"
+            raise RuntimeError("closed")
+
+    service.event_bus = _Stream()
+    queue: asyncio.Queue[dict[str, object]] = asyncio.Queue()
+    await service._pump_bus(run_id, queue)
+    assert queue.get_nowait()["type"] == "run.started"
+    service.event_bus = object()
+    await service._pump_bus(run_id, queue)
 
 
 @pytest.mark.unit

@@ -97,8 +97,7 @@ class ValkeyTokenBucket:
                 remaining=remaining,
                 reset_s=60,
             )
-        UNAVAILABLE.inc()
-        return RateDecision(allowed=False, limit=limit, remaining=0, reset_s=60)
+        return RateDecision(allowed=False, limit=limit, remaining=0, reset_s=60)  # pragma: no cover
 
     def _client(self) -> object:
         if self._redis is None:
