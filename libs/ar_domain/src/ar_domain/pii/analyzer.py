@@ -15,35 +15,20 @@ import threading
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
 
-from ar_domain.pii.recognizers_in import find_indian
-
-# Masked unless the tenant says otherwise: kinds whose format identifies them, and kinds
-# that are only matched with supporting words once the score is applied. Not in it:
-# names, places, dates and groups, which are guessed from the sentence and are what most
-# text is about; web and machine addresses; and a health-service number, which is ten
-# digits with one check digit, so one ordinary ten-digit number in eleven passes for it.
+# Masked unless the tenant says otherwise. The default is the four kinds whose format
+# identifies them anywhere: email, phone, card and IBAN. A locale pack can register more
+# finders; those kinds stay off until a tenant lists them.
 DEFAULT_ENTITIES: tuple[str, ...] = (
-    "aadhaar",
     "credit_card",
-    "crypto",
     "email_address",
     "iban_code",
-    "ifsc",
-    "medical_license",
-    "mobile",
-    "pan",
     "phone_number",
-    "upi",
-    "us_bank_number",
-    "us_driver_license",
-    "us_itin",
-    "us_passport",
-    "us_ssn",
 )
 DEFAULT_MIN_SCORE = 0.6
 # What a weak match scores once a word nearby says what it is: just over the default bar.
 _NAMED_SCORE = 0.65
-_OWN_ENTITIES = ("aadhaar", "ifsc", "mobile", "pan", "upi")
+_EXTRA_ENTITIES: list[str] = []
+_EXTRA_FINDERS: list[Any] = []
 # A person who asks for a document to be redacted wants everything that might be
 # personal gone, so that request takes weaker matches than a tool result does.
 _THOROUGH_MIN_SCORE = 0.35
@@ -65,6 +50,15 @@ class Masking:
         return Masking(entities=self.entities - names, min_score=self.min_score)
 
 
+def register_recogniser(entities: tuple[str, ...], finder: Any) -> None:
+    """Remember a pack's personal-data finder. Kinds stay off until a tenant lists them."""
+    for name in entities:
+        if name not in _EXTRA_ENTITIES:
+            _EXTRA_ENTITIES.append(name)
+    if finder not in _EXTRA_FINDERS:
+        _EXTRA_FINDERS.append(finder)
+
+
 def maskable_entities() -> list[str]:
     """Every kind a tenant can choose to mask, in lower case."""
     return sorted(entity_sources())
@@ -78,7 +72,7 @@ def entity_sources() -> dict[str, str]:
     guessed kind is offered only when the installed model can produce it.
     """
     engine = cast("Any", _cached_engine())
-    sources = dict.fromkeys(_OWN_ENTITIES, "format")
+    sources = dict.fromkeys(_EXTRA_ENTITIES, "format")
     labels = set(engine.nlp_engine.nlp["en"].pipe_labels.get("ner", []))
     mapping = engine.nlp_engine.ner_model_configuration.model_to_presidio_entity_mapping
     guessable = {str(kind).lower() for label, kind in mapping.items() if label in labels}
@@ -168,8 +162,8 @@ def redact(
     """Replace personal data with ``[KIND]`` tokens.
 
     ``masking`` says which kinds and how sure a match must be; without one the product
-    default applies. ``analysis`` also leaves dates, places, names and control-id shaped
-    tokens in place so a compliance check can read them, whatever the tenant lists.
+    default applies. ``verbatim`` also leaves dates, places, names and id-shaped
+    tokens in place so a check can read them, whatever the tenant lists.
     Matches that overlap become one token, named after the surest of them. Run-workspace
     paths and UUID segments inside them are left as written (OQ-66). Disabled callers
     receive the original text.
@@ -177,14 +171,19 @@ def redact(
     if not enabled or not text:
         return text
     chosen = masking or Masking()
-    if profile == "analysis":
+    if profile == "verbatim":
         chosen = chosen.without(_EVIDENCE)
     if not chosen.entities:
         return text
     protected = _protected_ranges(text)
+    extra: list[dict[str, object]] = []
+    for finder in _EXTRA_FINDERS:
+        found = finder(text)
+        if isinstance(found, list):
+            extra.extend(item for item in found if isinstance(item, dict))
     spans = [
         span
-        for span in (*find_indian(text), *_presidio(text, chosen.entities))
+        for span in (*extra, *_presidio(text, chosen.entities))
         if str(span["entity"]).lower() in chosen.entities
         and _score(span) >= chosen.min_score
         and _closed_span(text, span)

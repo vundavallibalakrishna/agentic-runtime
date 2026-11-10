@@ -121,7 +121,7 @@ def _publish(client: httpx.Client) -> str:
                     "model": {"alias": ALIAS},
                     "tools": [
                         {
-                            "server": "control",
+                            "server": "session",
                             "version": "*",
                             "include": ["propose_change", "a2a_call"],
                         }
@@ -323,7 +323,7 @@ def main() -> None:
                     "name": "agent_m29_exposed",
                     "arguments": {
                         "write": {
-                            "tool": "control.propose_change",
+                            "tool": "session.propose_change",
                             "arguments": {"summary": "rename the record"},
                         }
                     },
@@ -354,7 +354,7 @@ def main() -> None:
         )
     )
     tools = _items(client, "/api/v1/tools")
-    remote_tool = next(row for row in tools if row.get("qualifiedName") == "control.a2a_call")
+    remote_tool = next(row for row in tools if row.get("qualifiedName") == "session.a2a_call")
     tool_id = remote_tool.get("toolId") or remote_tool.get("id")
     remote = _json(
         client.post(

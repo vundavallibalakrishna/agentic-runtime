@@ -82,7 +82,7 @@ def apply_result_safety(
 
     masking = masking_for(store, tenant_id)
     if analysis and not analysis_redaction_enabled(store, tenant_id, agent_version_id):
-        cleaned = redact(text, enabled=True, profile="analysis", masking=masking)
+        cleaned = redact(text, enabled=True, profile="verbatim", masking=masking)
     elif analysis:
         # The tenant or the agent asked for document analysis to be masked in full.
         cleaned = redact(text, enabled=True, profile="outbound", masking=Masking.thorough())

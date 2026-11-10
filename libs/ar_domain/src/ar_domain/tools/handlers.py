@@ -87,16 +87,14 @@ def dispatch(  # noqa: PLR0911, PLR0912
         from ar_domain.tools.http_tools import execute_operation  # noqa: PLC0415
 
         return execute_operation(store, arguments)
-    if endpoint == "builtin://control":
-        return _control(store, name, arguments)
+    if endpoint == "builtin://session":
+        return _session(store, name, arguments)
     if endpoint == "builtin://knowledge":
         return _knowledge(store, name, arguments)
     if endpoint == "builtin://memory":
         return _memory(store, name, arguments)
     if endpoint == "builtin://skills":
         return _skills(store, name, arguments)
-    if endpoint == "builtin://records":
-        return _records(store, name, arguments)
     if endpoint == "builtin://connectors":
         from ar_domain.connectors.dispatch import dispatch_connector  # noqa: PLC0415
 
@@ -325,7 +323,7 @@ def _web(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     return _error("upstream_error", "the page could not be fetched")
 
 
-def _control(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+def _session(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
     if name in {"plan_update", "update"}:
         plan = arguments.get("plan")
         if not isinstance(plan, list):
@@ -400,7 +398,7 @@ def _propose_change(store: Any, arguments: dict[str, object]) -> dict[str, objec
 
 
 def searchable_tools(store: Any, tenant: str) -> list[dict[str, object]]:
-    """Every tool ``control.search`` ranks for a caller of this tenant."""
+    """Every tool ``session.search`` ranks for a caller of this tenant."""
     return [row for row in list(store.tool_versions.values()) if _searchable(store, row, tenant)]
 
 
@@ -455,7 +453,7 @@ def _search(
             row
             for row in rows
             if str(row.get("qualified_name")) in granted
-            or str(row.get("qualified_name")).split(".", 1)[0] in {"files", "control"}
+            or str(row.get("qualified_name")).split(".", 1)[0] in {"files", "session"}
         ]
     try:
         tenant_id: object = uuid.UUID(tenant) if tenant else None
@@ -636,45 +634,6 @@ def _skills(store: Any, name: str, arguments: dict[str, object]) -> dict[str, ob
     from ar_domain.skills.load import load_skill  # noqa: PLC0415
 
     return load_skill(store, run, str(arguments.get("skill") or ""))
-
-
-def _records(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
-    from ar_domain.agents.access import Actor  # noqa: PLC0415
-    from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
-    from ar_domain.records.vault import EvidenceBook  # noqa: PLC0415
-
-    try:
-        tenant_id = uuid.UUID(str(arguments.get("_tenant_id")))
-        user_id = uuid.UUID(str(arguments.get("_user_id")))
-    except ValueError:
-        return _error("validation_failed", "records tools need a tenant")
-    actor = Actor(tenant_id=tenant_id, user_id=user_id, permissions=PERMISSION_KEYS)
-    book = EvidenceBook(store)
-    if name == "capture":
-        text = str(arguments.get("text") or "")
-        file_id = arguments.get("bytes_file_id") or arguments.get("file_id")
-        data = text.encode()
-        if file_id:
-            blob = store.blobs.get(uuid.UUID(str(file_id)))
-            data = blob if isinstance(blob, bytes) else data
-        if str(arguments.get("collection_method")) == "browser_screenshot" and not file_id:
-            return _error("validation_failed", "browser screenshots are captured from a file")
-        captured = book.capture(actor, arguments, data)
-        return {
-            "text": str(captured.get("content_sha256")),
-            "structured": {
-                "evidence_item_id": str(captured.get("id")),
-                "content_sha256": captured.get("content_sha256"),
-            },
-            "is_error": False,
-        }
-    if name == "get":
-        item = book.get(actor, uuid.UUID(str(arguments.get("evidence_item_id"))))
-        return {"text": str(item.get("content_sha256")), "structured": item, "is_error": False}
-    if name == "verify":
-        report = book.verify(actor, uuid.UUID(str(arguments.get("evidence_item_id"))))
-        return {"text": str(report.get("valid")), "structured": report, "is_error": False}
-    return _error("unknown_tool", f"unknown tool {name}")
 
 
 def _error(code: str, message: str) -> dict[str, object]:

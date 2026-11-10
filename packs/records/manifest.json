@@ -1,0 +1,40 @@
+{
+  "apiVersion": "agentic-runtime.dev/v1",
+  "kind": "ContentPack",
+  "metadata": {
+    "id": "records",
+    "version": "1.0.0",
+    "name": "Records",
+    "minPlatform": "1.0.0"
+  },
+  "spec": {
+    "resources": [],
+    "extension": {
+      "entry": "records_pack",
+      "permissions": [
+        "evidence:read",
+        "evidence:capture",
+        "evidence:export",
+        "holds:manage",
+        "retention:manage",
+        "ai_governance:read",
+        "ai_governance:manage",
+        "guests:invite",
+        "guests:manage",
+        "binders:export",
+        "run_records:read",
+        "run_records:replay"
+      ],
+      "auditActions": ["evidence.captured", "evidence.verified"],
+      "ui": {
+        "nav": [
+          {
+            "href": "/packs/records",
+            "label": "Records",
+            "permission": "evidence:read"
+          }
+        ]
+      }
+    }
+  }
+}

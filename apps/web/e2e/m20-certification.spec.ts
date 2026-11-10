@@ -27,7 +27,7 @@ const routes = [
   "/admin/usage",
   "/admin/quotas",
   "/admin/sandboxes",
-  "/admin/assurance",
+  "/packs/records",
   "/platform/health",
   "/settings/profile",
 ];

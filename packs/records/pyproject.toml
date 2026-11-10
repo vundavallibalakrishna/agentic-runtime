@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "records-pack"
+version = "1.0.0"
+requires-python = ">=3.14,<3.15"
+dependencies = ["ar-domain", "ar-api", "ar-common", "ar-contracts"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/records_pack"]
+
+[tool.uv.sources]
+ar-domain = { workspace = true }
+ar-api = { workspace = true }
+ar-common = { workspace = true }
+ar-contracts = { workspace = true }

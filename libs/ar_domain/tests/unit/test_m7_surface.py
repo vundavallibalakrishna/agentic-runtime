@@ -171,7 +171,7 @@ def test_fetchers_and_connectors_use_recorded_http() -> None:
 def test_citations_plan_limits_and_gateway() -> None:
     assert marker(1) == "[1]"
     evidence = new_evidence("Policy", "evidence://1", "kept")
-    assert public_citation(evidence)["source_kind"] == "evidence_item"
+    assert public_citation(evidence)["source_kind"] == "sealed_record"
     assert (
         tool_result_citation("Tool", "https://example.com", "out")["source_kind"] == "tool_result"
     )

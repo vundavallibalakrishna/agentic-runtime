@@ -15,10 +15,10 @@ from ar_api.middleware.idempotency import IdempotencyMiddleware
 from ar_api.middleware.security_headers import SecurityHeadersMiddleware
 from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, RateLimitMiddleware
 from ar_api.ratelimit import MemoryTokenBucket, ValkeyTokenBucket
+from ar_api.routers.access import router as access_router
 from ar_api.routers.agents import router as agents_router
 from ar_api.routers.api_keys import router as api_keys_router
 from ar_api.routers.approvals import router as approvals_router
-from ar_api.routers.assurance import router as assurance_router
 from ar_api.routers.audit import router as audit_router
 from ar_api.routers.builder import router as builder_router
 from ar_api.routers.bundles import router as bundles_router
@@ -317,7 +317,7 @@ def create_application() -> FastAPI:
             openai_router,
             exposure_router,
             widget_router,
-            assurance_router,
+            access_router,
         ],
         inner_middleware=inner,
         docs_url=docs,
@@ -357,6 +357,17 @@ def create_application() -> FastAPI:
     from ar_api.plugins import attach_packs  # noqa: PLC0415
 
     attach_packs(app)
+    packs_dir = os.environ.get("AR_PACKS_DIR", "")
+    if packs_dir:
+        from pathlib import Path  # noqa: PLC0415
+
+        from ar_domain.packs.loader import load_pack_tree  # noqa: PLC0415
+
+        load_pack_tree(
+            app,
+            Path(packs_dir),
+            require_signature=os.environ.get("AR_PACK_SIGNATURE_REQUIRED") == "1",
+        )
     app.state.allow_test_auth = False
     # Durable, shared rate limiting in real environments; process-local for dev/ci/tests.
     app.state.rate_limiter = (

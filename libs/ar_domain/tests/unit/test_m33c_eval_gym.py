@@ -37,7 +37,7 @@ _REQUIRED = (
     "general.export_table",
     "knowledge.search",
     "documents.summarise",
-    "documents.check",
+    "documents.judge",
 )
 
 
@@ -153,7 +153,7 @@ def test_not_found_fails_when_the_answer_invents_the_menu() -> None:
         task,
         calls=[
             ObservedCall(
-                name="documents.check",
+                name="documents.judge",
                 arguments={"requirements": ["cafeteria"]},
                 result_text="The cafeteria serves mars stew on Tuesdays: not_found",
                 status="succeeded",
@@ -170,8 +170,8 @@ def test_not_found_passes_when_the_tool_and_the_answer_agree() -> None:
         _not_found_task(),
         calls=[
             ObservedCall(
-                name="documents__check",
-                arguments={"documentId": "doc", "requirements": ["cafeteria"]},
+                name="documents__judge",
+                arguments={"documentId": "doc", "statements": ["cafeteria"]},
                 result_text="requirement: not_found",
                 status="succeeded",
             )
@@ -263,8 +263,8 @@ def _not_found_task() -> Task:
         instruction="Check the requirement.",
         attachments=(),
         expect=Expectation(
-            tool="documents.check",
-            args=(ArgRule("requirements", contains=("cafeteria",)),),
+            tool="documents.judge",
+            args=(ArgRule("statements", contains=("cafeteria",)),),
             contains=(),
             must_not_contain=("mars stew is served", "555-0100"),
             grounded="not_found",

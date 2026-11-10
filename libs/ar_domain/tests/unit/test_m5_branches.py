@@ -780,17 +780,17 @@ def test_reviews_queues_signoff_and_sod() -> None:
         {
             "slug": "delegate",
             "name": "Delegate",
-            "subject_type": "binder",
+            "subject_type": "packet",
             "levels": [{"level": 1}],
         },
     )
-    binder = uuid.uuid4()
+    subject = uuid.uuid4()
     delegated = reviews.open_item(
         builder,
         {
             "queue_id": delegate_queue["id"],
-            "subject_id": str(binder),
-            "content_hash": _digest("binder", binder),
+            "subject_id": str(subject),
+            "content_hash": _digest("packet", subject),
             "statement_text": "Bind.",
         },
     )

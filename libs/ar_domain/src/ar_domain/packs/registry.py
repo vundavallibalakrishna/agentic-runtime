@@ -8,7 +8,7 @@ from ar_common.errors import ArError, ErrorCode, ForbiddenError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.identity.service import assert_step_up
-from ar_domain.records.holds import is_held
+from ar_domain.records.locks import is_held
 from ar_domain.records.memory import bucket
 
 if TYPE_CHECKING:

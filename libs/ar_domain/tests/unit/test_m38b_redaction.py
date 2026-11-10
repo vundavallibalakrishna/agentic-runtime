@@ -60,13 +60,19 @@ def test_a_card_number_that_fails_its_checksum_is_left() -> None:
     assert redact("Card 4111 1111 1111 1112") == "Card 4111 1111 1111 1112"
 
 
+def test_the_default_list_is_email_phone_card_and_iban() -> None:
+    assert set(DEFAULT_ENTITIES) == {
+        "credit_card",
+        "email_address",
+        "iban_code",
+        "phone_number",
+    }
+
+
 @pytest.mark.parametrize(
     ("bare", "named", "token"),
     [
-        ("829348951", "Passport number 829348951 was issued", "[US_PASSPORT]"),
         ("+44 20 7946 0958", "Phone: +44 20 7946 0958", "[PHONE_NUMBER]"),
-        ("order 9876543210 shipped", "call me on 9876543210", "[MOBILE]"),
-        ("ref 536-90-4399", "My SSN is 536-90-4399", "[US_SSN]"),
     ],
 )
 def test_a_number_is_masked_only_when_a_word_nearby_says_what_it_is(
@@ -76,11 +82,11 @@ def test_a_number_is_masked_only_when_a_word_nearby_says_what_it_is(
     assert token in redact(named)
 
 
-def test_a_twelve_digit_number_is_an_aadhaar_only_when_written_or_named_as_one() -> None:
-    number = "234123412346"  # passes the checksum, as one such number in ten does
-    assert redact(f"invoice {number}") == f"invoice {number}"
-    assert redact(f"Aadhaar {number}") == "Aadhaar [AADHAAR]"
-    assert redact("id 2341 2341 2346") == "id [AADHAAR]"
+def test_a_locale_kind_is_not_masked_until_the_tenant_lists_it() -> None:
+    number = "234123412346"
+    assert redact(f"Aadhaar {number}") == f"Aadhaar {number}"
+    opted = Masking(entities=frozenset({*DEFAULT_ENTITIES, "us_ssn"}))
+    assert "[US_SSN]" in redact("My SSN is 536-90-4399", masking=opted)
 
 
 def test_matches_that_overlap_become_one_token(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -95,7 +101,8 @@ def test_matches_that_overlap_become_one_token(monkeypatch: pytest.MonkeyPatch) 
         ]
 
     monkeypatch.setattr(analyzer, "_presidio", spans)
-    assert redact(text) == "id [US_SSN] end", "one token, named after the surest match"
+    masking = Masking(entities=frozenset({"us_passport", "us_ssn", "us_bank_number"}))
+    assert redact(text, masking=masking) == "id [US_SSN] end"
 
 
 def test_a_tenant_chooses_the_kinds_and_how_sure_a_match_must_be() -> None:
@@ -136,8 +143,11 @@ def test_a_tool_result_follows_the_calling_tenants_choice() -> None:
 def test_an_unknown_kind_is_refused_by_name_and_null_returns_to_the_default() -> None:
     limits = PlanLimits()
     current = TenantSettings()
-    chosen = merge_settings(current, {"privacy": {"redactionEntities": ["person", "pan"]}})
-    assert validate_tenant_settings(chosen, limits).privacy.redaction_entities == ["person", "pan"]
+    chosen = merge_settings(current, {"privacy": {"redactionEntities": ["person", "us_ssn"]}})
+    assert validate_tenant_settings(chosen, limits).privacy.redaction_entities == [
+        "person",
+        "us_ssn",
+    ]
     back = merge_settings(chosen, {"privacy": {"redactionEntities": None}})
     assert back.privacy.redaction_entities is None
     wrong = merge_settings(current, {"privacy": {"redactionEntities": ["shoe_size"]}})

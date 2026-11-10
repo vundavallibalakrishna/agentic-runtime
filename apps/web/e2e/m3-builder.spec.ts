@@ -45,7 +45,7 @@ test("build, publish, roll back and import a bundle", async ({ page }) => {
   await page.goto("/agents/new");
   await page
     .getByLabel("What should this agent do?")
-    .fill("create an agent that reviews vendor SOC 2 reports and flags gaps");
+    .fill("create an agent that reviews quarterly vendor reports and flags gaps");
   await page.getByRole("button", { name: "Draft" }).click();
   await expect(page.getByText("Tool: files")).toBeVisible();
   await expect(page.getByLabel("Validation")).toBeVisible();
@@ -57,7 +57,7 @@ test("build, publish, roll back and import a bundle", async ({ page }) => {
   await page.getByRole("button", { name: "Use this draft" }).click();
   await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toHaveValue(
-    /SOC 2|report/i,
+    /quarterly vendor|report/i,
   );
 
   await page.goto("/agents/new");
@@ -103,7 +103,7 @@ test("catalogue, builder and editor in light and dark", async ({ page }) => {
   await page.goto("/agents/new");
   await page
     .getByLabel("What should this agent do?")
-    .fill("create an agent that reviews vendor SOC 2 reports and flags gaps");
+    .fill("create an agent that reviews quarterly vendor reports and flags gaps");
   await page.getByRole("button", { name: "Draft" }).click();
   await expect(page.getByText("Tool: files")).toBeVisible();
   await capture(page, "builder");

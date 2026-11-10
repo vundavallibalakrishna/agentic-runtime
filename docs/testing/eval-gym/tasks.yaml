@@ -143,11 +143,11 @@ tasks:
       Check document id: {document_id} for the requirement:
       "Staff store passwords in a vault". Quote the token and the verdict.
     expect:
-      tool: documents.check
+      tool: documents.judge
       args:
         documentId:
           contains: ["{document_id}"]
-        requirements:
+        statements:
           contains: ["Staff store passwords in a vault"]
       answer:
         contains: ["VAULT-42"]
@@ -160,11 +160,11 @@ tasks:
       "The cafeteria serves mars stew on Tuesdays".
       If the passage was not found, say not_found and do not invent a menu.
     expect:
-      tool: documents.check
+      tool: documents.judge
       args:
         documentId:
           contains: ["{document_id}"]
-        requirements:
+        statements:
           contains: ["cafeteria"]
       answer:
         grounded: not_found

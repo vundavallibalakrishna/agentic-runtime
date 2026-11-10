@@ -224,11 +224,16 @@ def main() -> None:
     )
     checked = _json(
         client.post(
-            f"/api/v1/library-documents/{uploaded['id']}:check",
+            f"/api/v1/library-documents/{uploaded['id']}:judge",
             json={
-                "standardDocumentId": standard["id"],
-                "requirements": ["The document must state the warehouse code for the north dock."],
-                "label": "Customer standard",
+                "ruleSet": {
+                    "id": "dock",
+                    "version": "1",
+                    "items": [],
+                    "sourceFileId": standard["id"],
+                },
+                "statements": ["The document must state the warehouse code for the north dock."],
+                "label": "Dock rule set",
                 "modelAlias": ALIAS,
             },
         )
@@ -264,7 +269,7 @@ def main() -> None:
             ),
             "model": {"alias": ALIAS},
             "knowledge": {"collections": [collection.get("slug") or f"m30-library-{stamp}"]},
-            "tools": [{"server": "documents", "version": "*", "include": ["read", "check"]}],
+            "tools": [{"server": "documents", "version": "*", "include": ["read", "judge"]}],
             "budget": _budget(),
         },
     )

@@ -6,15 +6,15 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ApiError, api } from "@/lib/api";
 
-type BinderRow = { id: string; title?: string; status?: string };
+type SharedRow = { id: string; title?: string; status?: string };
 
 export default function GuestRecordsPage() {
-  const [rows, setRows] = useState<BinderRow[] | null>(null);
+  const [rows, setRows] = useState<SharedRow[] | null>(null);
   const [signedOut, setSignedOut] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void api<{ items?: BinderRow[]; data?: BinderRow[] }>("/api/v1/binders")
+    void api<{ items?: SharedRow[]; data?: SharedRow[] }>("/api/v1/tenant/packs")
       .then((page) => setRows(page.items ?? page.data ?? []))
       .catch((caught: unknown) => {
         if (caught instanceof ApiError && (caught.status === 401 || caught.status === 403)) {
@@ -30,7 +30,7 @@ export default function GuestRecordsPage() {
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">Shared records</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
-        Binders shared with this guest. A download carries your name.
+        Items shared with this guest. A download carries your name.
       </p>
       {error ? (
         <p className="mt-6 text-sm text-[var(--destructive)]" role="alert">

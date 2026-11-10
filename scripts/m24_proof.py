@@ -21,7 +21,6 @@ DOWNLOADS = {
     "gpl-3.0.txt": "https://www.gnu.org/licenses/gpl-3.0.txt",
     "gpl-2.0.txt": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",
     "rfc9110.txt": "https://www.rfc-editor.org/rfc/rfc9110.txt",
-    "nist-800-53r5.pdf": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf",
 }
 
 
@@ -236,7 +235,7 @@ def main() -> None:
     gpl3 = str(uploaded["gpl-3.0.txt"]["id"])
     gpl2 = str(uploaded["gpl-2.0.txt"]["id"])
     rfc = str(uploaded["rfc9110.txt"]["id"])
-    long_doc = str(uploaded["nist-800-53r5.pdf"]["id"])
+    long_doc = str(uploaded["rfc9110.txt"]["id"])
     summary = _json(
         client.post(
             f"/api/v1/library-documents/{gpl3}:summarise",
@@ -260,9 +259,9 @@ def main() -> None:
     )
     checked = _json(
         client.post(
-            f"/api/v1/library-documents/{gpl3}:check",
+            f"/api/v1/library-documents/{gpl3}:judge",
             json={
-                "requirements": [
+                "statements": [
                     "You may convey verbatim copies of the Program's source code",
                     "This License does not grant permission to use trade names",
                     "The organisation shall operate a colony on Mars",
@@ -275,9 +274,9 @@ def main() -> None:
     _record("check", checked)
     gaps = _json(
         client.post(
-            f"/api/v1/library-documents/{gpl3}:gaps",
+            f"/api/v1/library-documents/{gpl3}:missing",
             json={
-                "requirements": ["The organisation shall operate a colony on Mars"],
+                "statements": ["The organisation shall operate a colony on Mars"],
                 "modelAlias": "qwenm24",
             },
         )
@@ -318,7 +317,7 @@ def main() -> None:
     _record(
         "long",
         {
-            "pages": uploaded["nist-800-53r5.pdf"].get("pageCount"),
+            "pages": uploaded["rfc9110.txt"].get("pageCount"),
             "returned": len(long_read.get("passages") or [])
             if isinstance(long_read.get("passages"), list)
             else 0,

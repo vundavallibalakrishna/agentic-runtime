@@ -1,0 +1,17 @@
+{
+  "apiVersion": "agentic-runtime.dev/v1",
+  "kind": "ContentPack",
+  "metadata": {
+    "id": "locale_in",
+    "version": "1.0.0",
+    "name": "Locale recognisers",
+    "minPlatform": "1.0.0"
+  },
+  "spec": {
+    "resources": [],
+    "extension": {
+      "entry": "locale_pack",
+      "recognisers": ["aadhaar", "pan", "ifsc", "upi", "medical_license"]
+    }
+  }
+}

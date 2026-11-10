@@ -47,22 +47,22 @@ def test_builtin_handlers_cover_control_memory_and_skills() -> None:
     store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
-    assert dispatch(store, "builtin://control", "checkpoint", {}, "")["is_error"] is True
-    failed = dispatch(store, "builtin://control", "checkpoint", {"note": "x"}, "")
+    assert dispatch(store, "builtin://session", "checkpoint", {}, "")["is_error"] is True
+    failed = dispatch(store, "builtin://session", "checkpoint", {"note": "x"}, "")
     assert failed["is_error"] is True
     again = dispatch(
         store,
-        "builtin://control",
+        "builtin://session",
         "checkpoint",
         {"note": "x", "confirm": False, "_run_id": failed.get("code")},
         "",
     )
     assert again["is_error"] is True
-    assert dispatch(store, "builtin://control", "propose_change", {}, "")["is_error"] is True
+    assert dispatch(store, "builtin://session", "propose_change", {}, "")["is_error"] is True
     conversation = store.create_conversation(tenant, user, None)
     saved = dispatch(
         store,
-        "builtin://control",
+        "builtin://session",
         "propose_change",
         {"summary": "rename", "_conversation_id": uuid.UUID(str(conversation["id"]))},
         "",
@@ -107,7 +107,7 @@ def test_assistant_can_call_tools() -> None:
     assert budget["max_tool_calls"] == 8
     tools = definition["tools"]
     assert isinstance(tools, list) and tools
-    assert tools[0]["server"] == "control"  # type: ignore[index]
+    assert tools[0]["server"] == "session"  # type: ignore[index]
 
 
 def test_completion_message_reads_tool_calls() -> None:
@@ -121,7 +121,7 @@ def test_completion_message_reads_tool_calls() -> None:
                             {
                                 "id": "call_1",
                                 "function": {
-                                    "name": "control__checkpoint",
+                                    "name": "session__checkpoint",
                                     "arguments": '{"note": "ready"}',
                                 },
                             }
@@ -134,7 +134,7 @@ def test_completion_message_reads_tool_calls() -> None:
     )
     calls = parsed["tool_calls"]
     assert isinstance(calls, list)
-    assert calls[0]["name"] == "control__checkpoint"  # type: ignore[index]
+    assert calls[0]["name"] == "session__checkpoint"  # type: ignore[index]
     assert calls[0]["arguments"] == {"note": "ready"}  # type: ignore[index]
 
 
@@ -160,7 +160,7 @@ def test_loop_retries_a_failed_checkpoint_and_checks() -> None:
             {
                 "text": "",
                 "tool_calls": [
-                    {"id": "c1", "name": "control__checkpoint", "arguments": {"note": "ready"}}
+                    {"id": "c1", "name": "session__checkpoint", "arguments": {"note": "ready"}}
                 ],
                 "usage": {"tokens_in": 2, "tokens_out": 2},
                 "real": True,
@@ -170,7 +170,7 @@ def test_loop_retries_a_failed_checkpoint_and_checks() -> None:
                 "tool_calls": [
                     {
                         "id": "c2",
-                        "name": "control__checkpoint",
+                        "name": "session__checkpoint",
                         "arguments": {"note": "ready", "confirm": True},
                     }
                 ],
@@ -233,7 +233,7 @@ def test_change_waits_for_approval() -> None:
                 "tool_calls": [
                     {
                         "id": "c1",
-                        "name": "control__propose_change",
+                        "name": "session__propose_change",
                         "arguments": {"summary": "rename the folder"},
                     }
                 ],
@@ -278,7 +278,7 @@ def test_loop_stops_at_the_step_limit() -> None:
             {
                 "text": "",
                 "tool_calls": [
-                    {"id": "c1", "name": "control__plan_update", "arguments": {"plan": ["one"]}}
+                    {"id": "c1", "name": "session__plan_update", "arguments": {"plan": ["one"]}}
                 ],
                 "usage": {"tokens_in": 1, "tokens_out": 1},
             }
@@ -416,7 +416,7 @@ def test_complete_turn_reports_a_provider_error(monkeypatch: object) -> None:
     parsed = asyncio.run(
         store.complete_turn(
             [{"role": "user", "content": "ping"}],
-            [{"type": "function", "function": {"name": "control__search"}}],
+            [{"type": "function", "function": {"name": "session__search"}}],
             tenant_id=demo_id("tenant"),
             model_alias="reasoning",
         )

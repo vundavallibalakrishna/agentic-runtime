@@ -18,7 +18,6 @@ PHASE = os.environ.get("M25_PHASE", "all")
 DOWNLOADS = {
     "gpl-3.0.txt": "https://www.gnu.org/licenses/gpl-3.0.txt",
     "rfc9110.txt": "https://www.rfc-editor.org/rfc/rfc9110.txt",
-    "nist-800-53r5.pdf": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf",
 }
 DOCK = (
     "# North dock\n\nThe warehouse code for the north dock is ND-1844-QUILL. "

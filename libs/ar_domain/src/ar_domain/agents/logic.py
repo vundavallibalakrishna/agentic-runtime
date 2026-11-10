@@ -80,7 +80,7 @@ def assistant_definition(*, fixtures: bool = True) -> dict[str, object]:
         "model": {"alias": "reasoning", "fast_alias": "fast", "vision_alias": "vision"},
         "tools": [
             {
-                "server": "control",
+                "server": "session",
                 "version": "*",
                 "include": ["plan_update", "search", "checkpoint"]
                 if fixtures

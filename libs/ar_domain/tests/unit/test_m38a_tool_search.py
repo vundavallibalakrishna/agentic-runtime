@@ -1,6 +1,6 @@
 """Tools are ranked by meaning and by shared words, never by a made-up vector (M38a-T06).
 
-An agent with many tools is offered the ones closest to the request, and ``control.search``
+An agent with many tools is offered the ones closest to the request, and ``session.search``
 finds a tool by description. The ranking used vectors computed from a hash of the text,
 which carry no meaning: which tools the model saw was close to random.
 """

@@ -20,7 +20,7 @@ def _store() -> ChatService:
     version = store.versions[agent["published_version_id"]]
     definition = dict(version["definition"])
     definition["tools"] = [
-        {"server": "control", "version": "*", "include": ["propose_change", "a2a_call"]}
+        {"server": "session", "version": "*", "include": ["propose_change", "a2a_call"]}
     ]
     definition["contract"] = {"description": "Answers short questions."}
     version["definition"] = definition
@@ -179,7 +179,7 @@ def test_write_returns_approval_required() -> None:
         label="Write",
     )
     outcome = runs.execute_write(
-        store, row, "assistant", "control.propose_change", {"summary": "rename the record"}
+        store, row, "assistant", "session.propose_change", {"summary": "rename the record"}
     )
     assert outcome["status"] == "approval_required"
     assert outcome["output"] == "Approval required"

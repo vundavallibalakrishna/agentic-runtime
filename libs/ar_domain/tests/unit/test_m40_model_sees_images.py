@@ -167,7 +167,7 @@ def test_the_loop_shows_a_tool_image_to_a_vision_model() -> None:
     turns = [
         {
             "text": "",
-            "tool_calls": [{"id": "c1", "name": "control__checkpoint", "arguments": {"note": "x"}}],
+            "tool_calls": [{"id": "c1", "name": "session__checkpoint", "arguments": {"note": "x"}}],
             "usage": {"tokens_in": 2, "tokens_out": 2},
             "real": True,
         },
@@ -211,7 +211,7 @@ def test_the_loop_shows_a_tool_image_to_a_vision_model() -> None:
         del retry
         return {
             "failed": False,
-            "preview": {"qualified_name": "control.checkpoint", "status": "succeeded"},
+            "preview": {"qualified_name": "session.checkpoint", "status": "succeeded"},
             "wrapped": f'<tool_result call="{call.get("id")}">done</tool_result>',
             "images": [{"name": "revenue.png", "media_type": "image/png", "data": PNG}],
         }

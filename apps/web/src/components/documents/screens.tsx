@@ -233,15 +233,18 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
     setBusy(true);
     setError("");
     try {
-      const result = await api<{ id?: string }>(`/api/v1/library-documents/${documentId}:check`, {
+      const statements = requirements
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      const result = await api<{ id?: string }>(`/api/v1/library-documents/${documentId}:judge`, {
         method: "POST",
         body: JSON.stringify({
-          requirements: requirements
-            .split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean),
-          standardDocumentId: standard || null,
-          label: "Check",
+          statements,
+          ruleSet: standard
+            ? { id: "inline", version: "1", items: [], sourceFileId: standard }
+            : null,
+          label: "Judge",
         }),
       });
       window.location.assign(`/documents/checks/${result.id ?? ""}`);

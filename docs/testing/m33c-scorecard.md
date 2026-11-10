@@ -37,7 +37,7 @@ How often the model chose the expected tool (or chain), by tool.
 | Tool | Selected | Rate |
 |---|---|---|
 | `data.query` | 1/1 | 100% |
-| `documents.check` | 2/2 | 100% |
+| `documents.judge` | 2/2 | 100% |
 | `documents.summarise` | 1/1 | 100% |
 | `general.chart` | 1/1 | 100% |
 | `general.code` | 1/1 | 100% |

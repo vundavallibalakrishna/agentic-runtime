@@ -59,7 +59,7 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
             {
                 "text": "",
                 "tool_calls": [
-                    {"id": "c1", "name": "control__checkpoint", "arguments": {"note": "ready"}}
+                    {"id": "c1", "name": "session__checkpoint", "arguments": {"note": "ready"}}
                 ],
                 "usage": {"tokens_in": 1000, "tokens_out": 100},
                 "real": True,
@@ -69,7 +69,7 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
                 "tool_calls": [
                     {
                         "id": "c2",
-                        "name": "control__checkpoint",
+                        "name": "session__checkpoint",
                         "arguments": {"note": "ready", "confirm": True},
                     }
                 ],
@@ -141,7 +141,7 @@ def test_budget_stop_keeps_the_usage_spent_so_far() -> None:
     _cap(store, 7100)
     tool_turn = {
         "text": "",
-        "tool_calls": [{"id": "c1", "name": "control__checkpoint", "arguments": {"note": "x"}}],
+        "tool_calls": [{"id": "c1", "name": "session__checkpoint", "arguments": {"note": "x"}}],
         "usage": {"tokens_in": 7000, "tokens_out": 100},
         "real": True,
     }
@@ -173,7 +173,7 @@ def test_six_step_turn_does_not_recount_the_prompt() -> None:
                 "tool_calls": [
                     {
                         "id": f"c{index}",
-                        "name": "control__checkpoint",
+                        "name": "session__checkpoint",
                         "arguments": {"note": str(index)},
                     }
                 ],

@@ -53,7 +53,7 @@ FAILING = "failing"
 # Tools that return an error by design as a demo/dev fixture (review A14); they are gated out
 # of the product catalogue outside dev. A deliberate fixture error is not a regression, so the
 # --check guard must not trip on it — but any OTHER tool that starts failing does trip it.
-_KNOWN_FIXTURES = {"control.checkpoint"}
+_KNOWN_FIXTURES = {"session.checkpoint"}
 
 # Error codes that are a tool working correctly, not a defect: it is refusing because the
 # install, a connection, a referent, the egress list or policy has not been set up.

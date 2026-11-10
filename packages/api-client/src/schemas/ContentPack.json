@@ -81,6 +81,18 @@
           "title": "Auditactions",
           "type": "array"
         },
+        "entry": {
+          "default": "",
+          "title": "Entry",
+          "type": "string"
+        },
+        "recognisers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Recognisers",
+          "type": "array"
+        },
         "mcpServer": {
           "default": "",
           "title": "Mcpserver",

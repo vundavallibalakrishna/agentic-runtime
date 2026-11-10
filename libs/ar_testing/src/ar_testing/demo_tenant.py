@@ -53,11 +53,6 @@ def seed_demo_tenant(store: ChatService) -> None:
         return
     store.demo_tenant_seeded = True
     _seed_scripted_provider(store)
-    # The dev tenant shows every screen, including the assurance desk that a
-    # fresh customer tenant keeps off until it turns the feature on.
-    # Kept sparse on purpose: a full settings dump here changes defaults that other
-    # code reads as "unset" (tool review, self-review), see test_m22_api.
-    store.tenant_settings.setdefault(demo_id("tenant"), {"features": {"assurance": True}})
     store.ensure_assistant(demo_id("tenant"), demo_id("admin"))
     AgentLifecycle(store).ensure_example(demo_id("tenant"), demo_id("admin"))
     AgentLifecycle(store).ensure_builtins(demo_id("tenant"), demo_id("admin"))

@@ -46,7 +46,7 @@ def _client() -> tuple[TestClient, dict[str, Principal | None]]:
     version = app.state.chat.versions[agent["published_version_id"]]
     definition = dict(version["definition"])
     definition["tools"] = [
-        {"server": "control", "version": "*", "include": ["propose_change", "a2a_call"]}
+        {"server": "session", "version": "*", "include": ["propose_change", "a2a_call"]}
     ]
     version["definition"] = definition
     return TestClient(app), holder
@@ -170,7 +170,7 @@ def test_rate_limit_mcp_and_a2a_card() -> None:
                 "name": "agent_assistant",
                 "arguments": {
                     "write": {
-                        "tool": "control.propose_change",
+                        "tool": "session.propose_change",
                         "arguments": {"summary": "rename the record"},
                     }
                 },

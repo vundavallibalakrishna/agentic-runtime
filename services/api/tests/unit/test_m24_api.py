@@ -61,8 +61,8 @@ def test_library_upload_and_cross_tenant_404() -> None:
     )
     assert compared.status_code == 200, compared.text
     checked = client.post(
-        f"/api/v1/library-documents/{document_id}:check",
-        json={"requirements": ["Staff use badges", "Operate a colony on Mars"]},
+        f"/api/v1/library-documents/{document_id}:judge",
+        json={"statements": ["Staff use badges", "Operate a colony on Mars"]},
     )
     assert checked.status_code == 200, checked.text
     assert checked.json()["rows"][1]["verdict"] == "not_found"

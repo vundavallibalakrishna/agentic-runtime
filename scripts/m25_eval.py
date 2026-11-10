@@ -31,9 +31,9 @@ QUESTIONS = [
         "expect": "Hypertext Transfer Protocol",
     },
     {
-        "id": "nist-ac2",
-        "query": "What is control AC-2 about in NIST SP 800-53?",
-        "expect": "AC-2",
+        "id": "rfc-safe",
+        "query": "Which methods does RFC 9110 say are safe?",
+        "expect": "GET",
     },
 ]
 

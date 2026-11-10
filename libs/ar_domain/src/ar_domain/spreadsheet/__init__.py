@@ -1,4 +1,4 @@
-"""Spreadsheet SQL and questionnaire write-back.
+"""Spreadsheet SQL.
 
 Queries run in memory-only DuckDB with external access disabled (OQ-60).
 """

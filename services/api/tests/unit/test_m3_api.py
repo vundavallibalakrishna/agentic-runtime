@@ -139,7 +139,9 @@ def test_builder_bundle_and_pack_routes() -> None:
     client = _client()
     started = client.post(
         "/api/v1/builder/sessions",
-        json={"instruction": "create an agent that reviews vendor SOC 2 reports and flags gaps"},
+        json={
+            "instruction": "create an agent that reviews quarterly vendor reports and flags gaps"
+        },
     )
     assert started.status_code == 200
     session_id = started.json()["sessionId"]

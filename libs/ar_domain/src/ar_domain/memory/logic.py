@@ -16,7 +16,7 @@ _SECRET = re.compile(
 )
 _CARD = re.compile(r"\b(?:\d[ -]?){13,19}\b")
 _ACCOUNT = re.compile(
-    r"(?i)\b(account number|iban|aadhaar|ssn|social security|routing number)\b\s*[:=]?\s*\d"
+    r"(?i)\b(account number|iban|ssn|social security|routing number)\b\s*[:=]?\s*\d"
 )
 _SENSITIVE = re.compile(
     r"(?i)\b(my religion|my caste|sexual orientation|biometric|blood type|"
