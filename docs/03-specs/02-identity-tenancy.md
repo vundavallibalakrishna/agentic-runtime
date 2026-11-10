@@ -259,7 +259,7 @@ Permission `tenant:manage` + step-up. Body `{operator_email, level: "metadata"|"
 Permission `tenant:manage`. Sets `revoked_at`; active operator sessions in that tenant end on next request. Audit `support_access.revoked`.
 
 #### POST /api/v1/signup
-Public; only when `AR_SAAS_SELF_SIGNUP=true`. Body `{company_name, slug, email, captcha_token}`. Creates tenant on plan `free` via `TenantProvisioningWorkflow`; owner receives a Keycloak verification email.
+Removed in Stage 7. The route is not offered. The handler that used to answer here returned `provisioning` without creating a tenant. A local install comes from `make seed`. `AR_SAAS_SELF_SIGNUP` does not mount a route.
 
 ## 4. Workflows (task queue `ar-system`)
 

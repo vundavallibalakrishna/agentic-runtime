@@ -205,7 +205,7 @@ class EvalBook:
         if not isinstance(assertions, list) or not assertions:
             assertions = [
                 {
-                    "type": "llm_judge",
+                    "type": "lexical_overlap",
                     "rubric": comment or "The answer should address the user's request.",
                     "threshold": 0.5,
                 }

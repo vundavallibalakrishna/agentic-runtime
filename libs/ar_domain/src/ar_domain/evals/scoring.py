@@ -25,8 +25,17 @@ def grade(assertions: list[object], outcome: Mapping[str, object]) -> dict[str, 
 
 
 def passed(scores: Mapping[str, Mapping[str, object]]) -> bool:
-    """A case passes when every assertion passes."""
-    return all(bool(item.get("passed")) for item in scores.values()) if scores else False
+    """A case passes when every verdict passes.
+
+    Lexical overlap is ``not_judged``. It is not a verdict, so it neither passes
+    nor fails the case. A case whose only assertion is overlap does not pass.
+    """
+    if not scores:
+        return False
+    judging = [item for item in scores.values() if str(item.get("verdict") or "") != "not_judged"]
+    if not judging:
+        return False
+    return all(bool(item.get("passed")) for item in judging)
 
 
 def summarise(
@@ -95,8 +104,8 @@ def _one(item: Mapping[str, object], outcome: Mapping[str, object]) -> dict[str,
         return _similarity(
             text, str(item.get("reference") or ""), _float(item.get("threshold"), 0.8)
         )
-    if kind == "llm_judge":
-        return _judge(text, item)
+    if kind in {"llm_judge", "lexical_overlap"}:
+        return _overlap(text, item)
     if kind == "max_latency_ms":
         return _limit(_int(outcome.get("latency_ms")), _int(item.get("value")), "latency")
     if kind == "max_cost_micros":
@@ -183,14 +192,13 @@ def _similarity(text: str, reference: str, threshold: float) -> dict[str, object
     return _score(score >= threshold, score, f"{score:.2f}")
 
 
-def _judge(text: str, item: Mapping[str, object]) -> dict[str, object]:
-    JUDGE_CALLS.inc()
+def _overlap(text: str, item: Mapping[str, object]) -> dict[str, object]:
+    """Word overlap with the rubric. This does not call a model and is not a verdict."""
     rubric = str(item.get("rubric") or "")
-    threshold = _float(item.get("threshold"), 0.5)
-    score = _cosine(_tokens(text), _tokens(rubric + " " + text[:240]))
-    if _REFUSAL.search(text) and "declin" in rubric.lower():
-        score = 1.0
-    return _score(score >= threshold, score, "judge")
+    score = _cosine(_tokens(text), _tokens(rubric))
+    body = _score(False, score, "not_judged")
+    body["verdict"] = "not_judged"
+    return body
 
 
 def _limit(actual: int, bound: int, label: str) -> dict[str, object]:

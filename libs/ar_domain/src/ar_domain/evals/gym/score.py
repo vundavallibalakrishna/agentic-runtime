@@ -38,10 +38,24 @@ class TaskScore:
 
 @dataclass(frozen=True, slots=True)
 class Report:
-    """One gym run."""
+    """One gym run. ``dry-run`` is proof ``unit``. ``live`` names the model and the date."""
 
     mode: str
     scores: tuple[TaskScore, ...]
+    model_id: str = ""
+    reported_on: str = ""
+
+    def __post_init__(self) -> None:
+        if self.mode not in {"dry-run", "live"}:
+            raise ValueError("an eval artifact is dry-run or live")
+        if self.mode == "live" and (not self.model_id.strip() or not self.reported_on.strip()):
+            raise ValueError("a live report names the model id and the date")
+        if self.mode != "live" and (self.model_id or self.reported_on):
+            raise ValueError("a dry-run report does not name a model")
+
+    @property
+    def proof(self) -> str:
+        return "live" if self.mode == "live" else "unit"
 
     @property
     def total(self) -> int:
@@ -118,6 +132,8 @@ def render_scorecard(report: Report) -> str:
         "# M33c tool-choice scorecard",
         "",
         f"Mode: `{report.mode}`.",
+        f"Proof: `{report.proof}`.",
+        _proof_sentence(report),
         "",
         "Each task passes when the agent loop selected the expected tool, the arguments",
         "matched, and the final answer is grounded in the tool result. `not_found` passes",
@@ -125,8 +141,8 @@ def render_scorecard(report: Report) -> str:
         "An approval task passes when the run is waiting and the answer does not claim success.",
         "",
         "The dry-run mode replays a scripted model through the real agent loop and does not",
-        "call a paid provider. A live Qwen3-32B run is a separate file. See",
-        "`docs/testing/m33c-checklist.md`.",
+        "call a paid provider. A live run is a separate file. It names the model id and the date.",
+        "See `docs/testing/m33c-checklist.md`.",
         "",
         "| Task | Tool | Args | Grounded | Pass | Note |",
         "|---|---|---|---|---|---|",
@@ -150,6 +166,12 @@ def render_scorecard(report: Report) -> str:
         lines.append(f"| `{tool}` | {hit}/{total} | {rate}% |")
     lines.append("")
     return "\n".join(lines)
+
+
+def _proof_sentence(report: Report) -> str:
+    if report.proof == "live":
+        return f"Model: `{report.model_id}`. Date: `{report.reported_on}`."
+    return "A dry-run is unit. It is not a live result, and it names no model."
 
 
 def _arg_ok(rule: ArgRule, arguments: dict[str, object]) -> bool:

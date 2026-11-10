@@ -14,7 +14,7 @@ The specification set under `docs/` is still the behaviour contract. [AGENTS.md]
 | Data | PostgreSQL 18 + pgvector (system of record and default retrieval store for knowledge, memory and tool search), Valkey, S3-compatible object storage; Qdrant optional retrieval backend |
 | Orchestration | Temporal (durable agent runs, routines, ingestion) |
 | Tools | Model Context Protocol (MCP) via `mcp-gateway`; OPA policies |
-| Identity | Keycloak (Organizations) with BFF sessions, SCIM 2.0 |
+| Identity | Userid and password on this build (dev and single-tenant). Production OIDC is [ADR-0031](docs/02-architecture/adr/ADR-0031-oidc-production-identity.md) and is not wired yet (Stage 3). |
 | Frontend | Next.js (App Router), React, Tailwind CSS, shadcn/ui, TanStack Query |
 | Observability | OpenTelemetry, Prometheus, Tempo, Loki, Grafana, Langfuse |
 | Deployment | Docker Compose (dev), Helm chart on Kubernetes (staging/prod), gVisor sandboxes |
@@ -43,11 +43,11 @@ How the running system fits together: [docs/architecture/README.md](docs/archite
 
 ```bash
 make bootstrap   # install toolchains and dependencies, generate dev keys
-make dev         # Postgres, Valkey, Temporal, Keycloak, API, workers, and the web app
+make dev         # Postgres, Valkey, Temporal, API, workers, and the web app
 open http://localhost:3000
 ```
 
-Choose **Continue with SSO** and sign in as `admin@dev.local`. On a laptop the Keycloak password is `dev-password`. That is the only way in: the product has no shortcut sign-in. Chat is the first screen. `make seed` inserts the dev tenant, four users, a local `fake-llm` provider, and the built-in assistants. It does not insert sample conversations.
+Sign in on the password form as `admin@dev.local` with password `dev-password`. Chat is the first screen. `make seed` inserts the dev tenant, four users (`admin@`, `builder@`, `member@`, `approver@dev.local`, all `dev-password`), a local `fake-llm` provider, and the built-in assistants. It does not insert sample conversations. There is no self-serve signup route.
 
 Connect the model you actually want to use:
 
@@ -87,7 +87,7 @@ Details: [docs/07-ops/local-dev.md](docs/07-ops/local-dev.md).
 - Run sandboxed Python and shell, read and write workspace files, fetch a page, and call HTTP. A POST waits for a person who is allowed to approve it.
 - Upload a document, read its outline, and ask for a summary or a check with page anchors. A compare and a rewrite stay proposed until someone accepts them.
 - Build a knowledge base, keep memory, and load a skill when the request matches its description.
-- Install a connector. GitHub can be used live. Connectors without credentials stay labelled **Not live-tested**.
+- Install a connector. The badge is the proof (`unit`, `contract`, or `live`). Email and GitHub are `live`. The other connectors are not offered to an agent. The generated list is [the capability matrix](docs/09-plan/capability-matrix.md).
 - Orchestrate child agents, pause for an inbox answer, and fire a schedule or a signed webhook.
 - Publish an agent and call it with a key over `/v1`, MCP, and A2A.
 

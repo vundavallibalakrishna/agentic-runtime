@@ -42,6 +42,7 @@ describe("connector catalog", () => {
               summary: "Search pages",
               implementation: "built",
               verification: "not_live",
+              proof: "unit",
               verificationNote: "No workspace was connected.",
               installed: false,
             },
@@ -50,9 +51,11 @@ describe("connector catalog", () => {
       ),
     );
     render(wrap(<ConnectorsScreen />));
-    expect(await screen.findByText("Built")).toBeTruthy();
-    expect(screen.getByText("Not live-tested")).toBeTruthy();
-    expect(screen.getByText(/Built means the tools are in the product/)).toBeTruthy();
+    expect(await screen.findByText("Unit")).toBeTruthy();
+    expect(screen.getByText("Not offered to an agent")).toBeTruthy();
+    expect(screen.queryByText("Built")).toBeNull();
+    expect(screen.queryByText("Ready")).toBeNull();
+    expect(screen.getByText(/Only Live is offered to an agent/)).toBeTruthy();
     expect(screen.getByText("No workspace was connected.")).toBeTruthy();
   });
 });

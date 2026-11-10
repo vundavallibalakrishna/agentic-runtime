@@ -19,7 +19,7 @@ Local ports and the `make dev` path are in [local development](../07-ops/local-d
 
 ## How a request moves
 
-1. A person signs in through the identity provider (Keycloak) and lands on Chat. There is no other way in.
+1. A person signs in with email and password (`POST /api/v1/auth/login`) and lands on Chat. That is the dev and single-tenant door. Production OIDC is not this build (Stage 3).
 2. The tenant registers an OpenAI-compatible provider. The API key is sealed in `encrypted_secrets`. Later reads return `hasApiKey`, not the key.
 3. An agent definition names instructions, a model alias, and tools. Publishing freezes that version.
 4. A message starts a run. The model may call tools. Tool results enter the prompt only through the untrusted-content wrapper. A write that the policy marks W2 waits for an approver who is allowed to decide it. The owner of the agent cannot approve that call.
@@ -27,6 +27,6 @@ Local ports and the `make dev` path are in [local development](../07-ops/local-d
 
 ## What is deliberately not in the core
 
-Industry catalogues, control frameworks, and the old pack routes are gone. `/grc` renders **Page not found**. Evidence, approvals, retention, and audit remain generic.
+Industry catalogues, control frameworks, and the old pack routes are gone. `/grc` renders **Page not found**. Approvals and the security audit log stay. Records-as-a-product is not a core feature (Stage 2).
 
-Search stays off until a provider key is set. Public self-signup is off. See [open questions](../open-questions.md).
+Search stays off until a provider key is set. There is no self-serve signup route. Proof labels are `unit`, `contract`, and `live` ([capability matrix](../09-plan/capability-matrix.md)). See [open questions](../open-questions.md).

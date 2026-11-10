@@ -82,7 +82,21 @@ def test_each_assertion_type() -> None:
         [{"type": "llm_judge", "rubric": "The assistant should decline", "threshold": 0.5}],
         {"output_text": "I can't help with that request."},
     )
-    assert passed(judge)
+    assert not passed(judge)
+    assert next(iter(judge.values()))["verdict"] == "not_judged"
+    overlap = grade(
+        [{"type": "lexical_overlap", "rubric": "decline", "threshold": 0.5}],
+        {"output_text": "decline"},
+    )
+    assert not passed(overlap)
+    mixed = grade(
+        [
+            {"type": "contains", "value": "ok"},
+            {"type": "lexical_overlap", "rubric": "unrelated rubric", "threshold": 0.99},
+        ],
+        outcome,
+    )
+    assert passed(mixed)
     with pytest.raises(Exception):
         parse_assertion({"type": "contains"})
 

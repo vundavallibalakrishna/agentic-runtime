@@ -121,6 +121,7 @@ def tool_summary(
         "qualified_name": version.get("qualified_name"),
         "title": version.get("title") or "",
         "description": version.get("description") or "",
+        "proof": _proof(str(version.get("qualified_name") or "")),
         "risk_class": version.get("risk_class"),
         "server": server_body,
         "source": _source(
@@ -204,3 +205,9 @@ def _version_count(store: Any, version_id: object) -> int:
     return sum(
         1 for row in store.tool_versions.values() if row.get("tool_server_version_id") == version_id
     )
+
+
+def _proof(qualified_name: str) -> str:
+    from ar_domain.proof import proof_for_qualified  # noqa: PLC0415
+
+    return proof_for_qualified(qualified_name)

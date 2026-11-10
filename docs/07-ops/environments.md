@@ -113,7 +113,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_S3_REGION` | `us-east-1` | Object store region | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_S3_SECRET_ACCESS_KEY` | (empty → IRSA/instance role) | Object store credentials | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_S3_SSE` | `AES256` | `none` to disable | [spec 13](../03-specs/13-files-artifacts.md) |
-| `AR_SAAS_SELF_SIGNUP` | `false` | Enables public `POST /api/v1/signup` (saas only) | [spec 02](../03-specs/02-identity-tenancy.md) |
+| `AR_SAAS_SELF_SIGNUP` | `false` | Unused. Self-serve signup was removed in Stage 7 and this flag does not mount a route | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_SANDBOX_ALLOWED_REGISTRIES` | `registry.local/ar` | Registries sandbox template images may come from | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DEFAULT_RUNTIME_CLASS` | `gvisor` | Kubernetes RuntimeClass for sandboxes | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal docker network the in-process launcher attaches a sandbox container to; empty publishes the agent port to loopback (dev) | [spec 12](../03-specs/12-sandbox-manager.md) |

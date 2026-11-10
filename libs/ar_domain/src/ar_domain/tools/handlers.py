@@ -417,7 +417,11 @@ def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
         return False
     if server.get("status") != "approved" or server.get("disabled_at") is not None:
         return False
-    return row.get("tool_server_version_id") == server.get("current_version_id")
+    if row.get("tool_server_version_id") != server.get("current_version_id"):
+        return False
+    from ar_domain.proof import offered_to_model  # noqa: PLC0415
+
+    return offered_to_model(str(row.get("qualified_name") or ""))
 
 
 def _granted_names(store: Any, arguments: dict[str, object]) -> set[str] | None:

@@ -66,6 +66,10 @@ def main(
         path = args.tasks.with_name(f"{args.tasks.stem}-scorecard.md")
     else:
         path = _default_path(live=live)
+    refused = _artifact_refusal(path, live=live)
+    if refused:
+        sys.stderr.write(refused + "\n")
+        return 2
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_scorecard(report), encoding="utf-8")
     sys.stdout.write(
@@ -79,6 +83,16 @@ def _default_path(*, live: bool) -> Path:
     if live:
         return root / "docs" / "testing" / "eval-gym" / "live-scorecard.md"
     return root / "docs" / "testing" / "m33c-scorecard.md"
+
+
+def _artifact_refusal(path: Path, *, live: bool) -> str:
+    """A dry-run file and a live file are not the same path."""
+    name = path.name.lower()
+    if live and (name == "m33c-scorecard.md" or "dry-run" in name):
+        return "a live scorecard cannot use the dry-run file"
+    if not live and "live" in name:
+        return "a dry-run scorecard file name must not contain live"
+    return ""
 
 
 def _repo_root() -> Path:

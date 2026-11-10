@@ -37,7 +37,7 @@ Case format: the in-product import format (JSONL/YAML, spec 18 `EvalInput` + ass
 
 ## 4. Judges
 
-- LLM judge (`llm_judge`, `refusal`, citation precision) uses alias `reasoning` by default with the judge prompt `ar_system/prompts/judge.md` (rubric + JSON `{score, reason}`), temperature 0.
+- Lexical overlap (`lexical_overlap`) does not call a model. Its result is `not_judged`, never a pass. `refusal` remains a pattern check. A live eval artifact names the model id and the date; a dry-run artifact is proof `unit` and is a different file.
 - Judge calibration: `evals/judge-calibration.yaml` (40 human-labelled examples); judge agreement with labels ≥ 85 % required before a judge model/prompt change is accepted.
 - Deterministic assertions preferred whenever possible (`tool_called`, `contains`, `json_schema`, `citation_present`).
 

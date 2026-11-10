@@ -4,7 +4,7 @@ Builders and the platform team measure agent quality and safety with test suites
 
 ### US-EVAL-01 · Create a test suite (P0)
 As a **builder**, I want a suite of test cases for my agent (inputs, expected behaviour, tool mocks, tags).
-- `POST /api/v1/eval-suites` (kind `functional`, `retrieval`, `safety`, `red_team`) and cases with multi-turn inputs, optional files, simulated user attributes/groups, assertions (`contains`, `regex`, `json_schema`, `tool_called`, `tool_not_called`, `citation_present`, `refusal`, `answer_similarity`, `llm_judge`, latency/cost/steps limits, `no_policy_denials`) and tool mocks.
+- `POST /api/v1/eval-suites` (kind `functional`, `retrieval`, `safety`, `red_team`) and cases with multi-turn inputs, optional files, simulated user attributes/groups, assertions (`contains`, `regex`, `json_schema`, `tool_called`, `tool_not_called`, `citation_present`, `refusal`, `answer_similarity`, `lexical_overlap`, latency/cost/steps limits, `no_policy_denials`) and tool mocks. `lexical_overlap` is `not_judged` and does not call a model.
 - Import from JSONL/YAML (`cases:import`) with per-line errors.
 - Spec: spec 18 §4.1, §4.3. Plan: M13-T03, M13-T05.
 
@@ -25,7 +25,7 @@ As a **tenant admin**, I want agents to publish only if their gating suites pass
 
 ### US-EVAL-05 · Turn feedback into test cases (P1)
 As a **builder**, I want thumbs-down conversations to become regression cases.
-- `GET /api/v1/feedback` lists feedback for agents I can edit (content only where I may view it); `cases:from-conversation` creates a case with a default `llm_judge` rubric from the feedback comment.
+- `GET /api/v1/feedback` lists feedback for agents I can edit (content only where I may view it); `cases:from-conversation` creates a case with a default `lexical_overlap` rubric from the feedback comment. Overlap is not a verdict.
 - Spec: spec 18 §4.3. Plan: M13-T06.
 
 ### US-EVAL-06 · Platform red-team and functional suites (P0)

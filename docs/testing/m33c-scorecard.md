@@ -1,6 +1,8 @@
 # M33c tool-choice scorecard
 
 Mode: `dry-run`.
+Proof: `unit`.
+A dry-run is unit. It is not a live result, and it names no model.
 
 Each task passes when the agent loop selected the expected tool, the arguments
 matched, and the final answer is grounded in the tool result. `not_found` passes
@@ -8,8 +10,8 @@ only when the tool said the passage was missing and the answer does not invent i
 An approval task passes when the run is waiting and the answer does not claim success.
 
 The dry-run mode replays a scripted model through the real agent loop and does not
-call a paid provider. A live Qwen3-32B run is a separate file. See
-`docs/testing/m33c-checklist.md`.
+call a paid provider. A live run is a separate file. It names the model id and the date.
+See `docs/testing/m33c-checklist.md`.
 
 | Task | Tool | Args | Grounded | Pass | Note |
 |---|---|---|---|---|---|

@@ -117,7 +117,6 @@ Spec: [02-identity-tenancy.md](../03-specs/02-identity-tenancy.md)
 | GET | [`/api/v1/tenant/support-access`](../03-specs/02-identity-tenancy.md#get-apiv1tenantsupport-access) | `tenant:manage` | 3. Public API |
 | POST | [`/api/v1/tenant/support-access`](../03-specs/02-identity-tenancy.md#post-apiv1tenantsupport-access) | `tenant:manage` | 3. Public API |
 | POST | [`/api/v1/tenant/support-access/{grant_id}:revoke`](../03-specs/02-identity-tenancy.md#post-apiv1tenantsupport-accessgrant_idrevoke) | `tenant:manage` | 3. Public API |
-| POST | [`/api/v1/signup`](../03-specs/02-identity-tenancy.md#post-apiv1signup) | `tenant:manage` | 3. Public API |
 
 ## Spec 03: Secrets and delegated credentials (`ar_domain.secrets`)
 

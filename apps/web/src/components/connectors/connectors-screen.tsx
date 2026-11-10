@@ -17,13 +17,22 @@ import { api } from "@/lib/api";
 
 type Row = Record<string, unknown>;
 
-function verificationLabel(
-  t: (key: "live" | "public" | "not_live") => string,
-  verification: string,
+function proofOf(row: Row): "unit" | "contract" | "live" {
+  const explicit = String(row.proof ?? "");
+  if (explicit === "unit" || explicit === "contract" || explicit === "live") return explicit;
+  const verification = String(row.verification ?? "not_live");
+  if (verification === "live") return "live";
+  if (verification === "public") return "contract";
+  return "unit";
+}
+
+function proofLabel(
+  t: (key: "proofUnit" | "proofContract" | "proofLive") => string,
+  proof: string,
 ) {
-  if (verification === "live") return t("live");
-  if (verification === "public") return t("public");
-  return t("not_live");
+  if (proof === "live") return t("proofLive");
+  if (proof === "contract") return t("proofContract");
+  return t("proofUnit");
 }
 
 export function ConnectorsScreen({ slug }: { slug?: string }) {
@@ -219,11 +228,11 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
             </label>
           </div>
           {!error && visible.length === 0 ? <EmptyState title={t("empty")} /> : null}
-          <p className="mb-4 text-sm text-[var(--muted-foreground)]">{t("builtHint")}</p>
+          <p className="mb-4 text-sm text-[var(--muted-foreground)]">{t("proofHint")}</p>
           <ul className="grid gap-3 md:grid-cols-2">
             {visible.map((row) => {
               const rowSlug = String(row.slug);
-              const verification = String(row.verification ?? "not_live");
+              const proof = proofOf(row);
               return (
                 <li key={rowSlug}>
                   <Link
@@ -232,8 +241,8 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{String(row.name)}</span>
-                      <Badge>{t("built")}</Badge>
-                      <Badge>{verificationLabel(t, verification)}</Badge>
+                      <Badge>{proofLabel(t, proof)}</Badge>
+                      {proof !== "live" ? <Badge>{t("notOffered")}</Badge> : null}
                       {row.installed ? <Badge>{t("installed")}</Badge> : null}
                     </div>
                     <p className="mt-2 text-sm text-[var(--muted-foreground)]">
@@ -252,11 +261,11 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <section>
             <div className="flex flex-wrap gap-2">
-              <Badge>{t("built")}</Badge>
-              <Badge>{verificationLabel(t, String(detail.verification ?? ""))}</Badge>
+              <Badge>{proofLabel(t, proofOf(detail))}</Badge>
+              {proofOf(detail) !== "live" ? <Badge>{t("notOffered")}</Badge> : null}
               <Badge>{detail.installed ? t("installed") : t("notInstalled")}</Badge>
             </div>
-            <p className="mt-3 text-sm text-[var(--muted-foreground)]">{t("builtHint")}</p>
+            <p className="mt-3 text-sm text-[var(--muted-foreground)]">{t("proofHint")}</p>
             <p className="mt-3 text-sm">{String(detail.verificationNote ?? "")}</p>
             <p className="mt-2 text-sm text-[var(--muted-foreground)]">
               {t("rate", { count: Number(detail.ratePerMinute ?? 0) })}
@@ -306,6 +315,8 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                       <p className="text-sm font-medium">
                         {String(tool.title)}{" "}
                         <span className="text-[var(--muted-foreground)]">
+                          {proofLabel(t, proofOf(tool.proof ? tool : detail))}
+                          {" · "}
                           {tool.risk === "W2" ? t("asks") : t("read")}
                         </span>
                       </p>
@@ -313,7 +324,7 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                         {String(tool.description)}
                       </p>
                     </div>
-                    {detail.installed ? (
+                    {detail.installed && proofOf(detail) === "live" ? (
                       <label className="flex items-center gap-2 text-sm">
                         <input
                           checked={enabled}
@@ -327,11 +338,15 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                 );
               })}
             </ul>
-            <p className="mt-4 text-sm">
-              <Link className="underline" href="/agents">
-                {t("attach")}
-              </Link>
-            </p>
+            {proofOf(detail) === "live" ? (
+              <p className="mt-4 text-sm">
+                <Link className="underline" href="/agents">
+                  {t("attach")}
+                </Link>
+              </p>
+            ) : (
+              <p className="mt-4 text-sm">{t("notOffered")}</p>
+            )}
           </section>
           <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
             {detail.installed ? (
@@ -432,7 +447,9 @@ export function ConnectorsScreen({ slug }: { slug?: string }) {
                     </label>
                   );
                 })}
-                <Button type="submit">{t("connect")}</Button>
+                <Button type="submit">
+                  {proofOf(detail) === "live" ? t("connect") : t("saveCredentials")}
+                </Button>
               </form>
             )}
           </section>

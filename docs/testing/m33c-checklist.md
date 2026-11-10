@@ -11,7 +11,7 @@ uv run pytest libs/ar_domain/tests/unit/test_m33c_eval_gym.py -q
 make eval-gym
 ```
 
-`make eval-gym` rewrites `docs/testing/m33c-scorecard.md`. The dry-run aggregate is 12/12. That number measures the scripted model plus the real tools (code, shell, files, the fetch fixture, approval hold, SQL, chart, export, knowledge, documents). It is not a Qwen score.
+`make eval-gym` rewrites `docs/testing/m33c-scorecard.md`. The dry-run aggregate is 12/12. Proof is `unit`. That number measures the scripted model plus the real tools (code, shell, files, the fetch fixture, approval hold, SQL, chart, export, knowledge, documents). It is not a live model score. A live run writes `docs/testing/eval-gym/live-scorecard.md` and names the model id and the date.
 
 ## Live Qwen3-32B on DeepInfra
 

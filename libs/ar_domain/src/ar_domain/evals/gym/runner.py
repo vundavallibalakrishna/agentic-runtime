@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ar_domain.evals.gym.live import install_live, live_settings
@@ -39,9 +40,11 @@ async def run_suite_async(
     if make_store is None:
         raise ValueError("run_suite needs make_store: a seeded tenant to build the world on")
     world = build_world(make_store(), prepare)
+    model_id = ""
     if live_plan is not None:
         key, url, model = live_plan
         install_live(world.store, world.tenant_id, key=key, base_url=url, model=model)
+        model_id = model
     else:
         _install_dry_run(world.store)
     chosen = tasks if tasks is not None else load_tasks()
@@ -49,7 +52,13 @@ async def run_suite_async(
     for task in chosen:
         bound = task.bound(world.document_id)
         scores.append(await _run_task(world, bound))
-    return Report(mode=mode, scores=tuple(scores))
+    reported_on = datetime.now(UTC).date().isoformat() if model_id else ""
+    return Report(
+        mode=mode,
+        scores=tuple(scores),
+        model_id=model_id,
+        reported_on=reported_on,
+    )
 
 
 def run_suite(

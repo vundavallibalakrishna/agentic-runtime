@@ -6,8 +6,8 @@ agent loop — scripted in dry-run (CI-stable), or against a real model when liv
 
 ## Suites
 
-- **`tasks.yaml` → `../m33c-scorecard.md`** — the golden suite in **dry-run**, committed so CI
-  can diff it. See [m33c-checklist](../m33c-checklist.md).
+- **`tasks.yaml` → `../m33c-scorecard.md`** — the golden suite in **dry-run**. Proof is `unit`.
+  It is not a live result. See [m33c-checklist](../m33c-checklist.md).
 - **`accuracy.yaml` → `accuracy-scorecard.md`** — a harder suite where the instruction does
   **not** name the tool (the model must infer it) and several tasks need a **chain** of
   tools or a **recovery**. Meant for a **live** run; the scripted dry-run cannot solve it.

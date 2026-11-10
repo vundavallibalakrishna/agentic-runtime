@@ -11,6 +11,7 @@ from ar_common.time import utcnow
 from ar_domain.connectors.catalog import CONNECTORS, ConnectorDef, connector_by_slug
 from ar_domain.connectors.dispatch import probe_install
 from ar_domain.connectors.live_pack import shown_verification
+from ar_domain.proof import connector_proof
 
 if TYPE_CHECKING:
     from typing import Any
@@ -148,6 +149,7 @@ class ConnectorBook:
             "summary": connector.summary,
             "implementation": connector.implementation,
             "verification": shown_verification(connector),
+            "proof": connector_proof(connector),
             "verification_note": connector.verification_note,
             "docs": connector.docs,
             "installed": install is not None,
@@ -184,9 +186,11 @@ class ConnectorBook:
                         "title": tool.title,
                         "description": tool.description,
                         "risk": tool.risk,
+                        "proof": connector_proof(connector),
                         "enabled": install is not None
                         and tool.name not in disabled
-                        and install.get("status") == "installed",
+                        and install.get("status") == "installed"
+                        and connector_proof(connector) == "live",
                     }
                     for tool in connector.tools
                 ],
