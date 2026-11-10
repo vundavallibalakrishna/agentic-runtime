@@ -31,6 +31,40 @@ kubectl apply --server-side -f "$operator_url"
 kubectl rollout status deployment -n cnpg-system cnpg-controller-manager --timeout=180s
 kubectl create namespace "$namespace" --dry-run=client -o yaml | kubectl apply -f -
 
+# Docker Hub no longer publishes minio/minio. The official binaries are the release
+# assets. The image is loaded into kind so the node does not pull a missing tag.
+build_minio_image() {
+  local work minio_tag mc_tag ctx
+  work="$(mktemp -d)"
+  minio_tag="RELEASE.2025-09-07T16-13-09Z"
+  mc_tag="RELEASE.2025-08-13T08-35-41Z"
+  curl -fsSL -o "${work}/minio" \
+    "https://github.com/minio/minio/releases/download/${minio_tag}/minio.linux-amd64.${minio_tag}"
+  curl -fsSL -o "${work}/mc" \
+    "https://github.com/minio/mc/releases/download/${mc_tag}/mc.linux-amd64.${mc_tag}"
+  chmod 755 "${work}/minio" "${work}/mc"
+  cat > "${work}/Dockerfile" <<'EOF'
+FROM debian:bookworm-slim
+COPY minio /usr/local/bin/minio
+COPY mc /usr/local/bin/mc
+ENTRYPOINT ["/usr/local/bin/minio"]
+EOF
+  docker build -t ar-minio:dev "${work}"
+  rm -rf "${work}"
+  ctx="$(kubectl config current-context)"
+  if [[ "${ctx}" == kind-* ]]; then
+    kind load docker-image ar-minio:dev --name "${ctx#kind-}"
+  fi
+}
+
+dump_namespace() {
+  kubectl -n "$namespace" get pods -o wide >&2 || true
+  kubectl -n "$namespace" describe pods >&2 || true
+  kubectl -n "$namespace" logs -l app=minio --tail=80 >&2 || true
+}
+
+build_minio_image
+
 cat <<'YAML' | kubectl apply -n "$namespace" -f -
 apiVersion: v1
 kind: Secret
@@ -57,7 +91,8 @@ spec:
     spec:
       containers:
         - name: minio
-          image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+          image: ar-minio:dev
+          imagePullPolicy: IfNotPresent
           args: ["server", "/data"]
           env:
             - name: MINIO_ROOT_USER
@@ -69,6 +104,13 @@ spec:
           readinessProbe:
             tcpSocket:
               port: 9000
+            initialDelaySeconds: 2
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -79,7 +121,14 @@ spec:
     app: minio
   ports:
     - port: 9000
----
+YAML
+
+if ! kubectl -n "$namespace" rollout status deploy/minio --timeout=300s; then
+  dump_namespace
+  exit 1
+fi
+
+cat <<'YAML' | kubectl apply -n "$namespace" -f -
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -91,17 +140,21 @@ spec:
       restartPolicy: OnFailure
       containers:
         - name: mc
-          image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+          image: ar-minio:dev
+          imagePullPolicy: IfNotPresent
           command:
             - /bin/sh
             - -c
             - |
-              mc alias set local http://minio:9000 minio minio12345
-              mc mb -p local/ar-backup || true
+              /usr/local/bin/mc alias set local http://minio:9000 minio minio12345
+              /usr/local/bin/mc mb -p local/ar-backup || true
 YAML
 
-kubectl -n "$namespace" rollout status deploy/minio --timeout=180s
-kubectl -n "$namespace" wait --for=condition=complete job/minio-bucket --timeout=180s
+if ! kubectl -n "$namespace" wait --for=condition=complete job/minio-bucket --timeout=180s; then
+  dump_namespace
+  kubectl -n "$namespace" logs job/minio-bucket --tail=80 >&2 || true
+  exit 1
+fi
 
 cat <<YAML | kubectl apply -n "$namespace" -f -
 apiVersion: postgresql.cnpg.io/v1
@@ -121,6 +174,7 @@ spec:
     barmanObjectStore:
       destinationPath: s3://ar-backup/pg
       endpointURL: http://minio.${namespace}.svc:9000
+      s3AddressingStyle: path
       s3Credentials:
         accessKeyId:
           name: minio-creds
@@ -207,6 +261,7 @@ spec:
       barmanObjectStore:
         destinationPath: s3://ar-backup/pg
         endpointURL: http://minio.${namespace}.svc:9000
+        s3AddressingStyle: path
         s3Credentials:
           accessKeyId:
             name: minio-creds
