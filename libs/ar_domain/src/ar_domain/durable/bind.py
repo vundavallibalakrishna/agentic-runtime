@@ -124,10 +124,10 @@ async def _connect(url: str) -> AsyncEngine | None:
         url,
         pool_pre_ping=True,
         hide_parameters=True,
-        connect_args={"timeout": 0.4, "statement_cache_size": 0},
+        connect_args={"timeout": 2, "statement_cache_size": 0},
     )
     try:
-        async with asyncio.timeout(0.6):
+        async with asyncio.timeout(3):
             async with engine.connect() as connection:
                 await connection.execute(text("SELECT 1"))
     except Exception as exc:  # noqa: BLE001 — no database means the memory cache stays

@@ -143,6 +143,9 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             from ar_domain.durable.m28 import save_runtime_rows  # noqa: PLC0415
 
             await save_runtime_rows(session, store, pending)
+            from ar_domain.durable.stage9 import save_shared_rows  # noqa: PLC0415
+
+            await save_shared_rows(session, pending)
             from ar_domain.durable.m29 import save_exposure  # noqa: PLC0415
 
             await save_exposure(session, pending)

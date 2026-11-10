@@ -269,6 +269,12 @@ def mark_used(row: dict[str, Any]) -> None:
 def take_rate(store: Any, row: dict[str, Any]) -> tuple[bool, int, int]:
     """One-minute window for this key. Returns allowed, limit and remaining."""
     limit = int(row.get("rate_limit_rpm") or 60)
+    from ar_domain.process_state import take_window  # noqa: PLC0415
+
+    shared = take_window(store, f"agent-api:{row.get('id')}", limit)
+    if shared is not None:
+        allowed, remaining = shared
+        return allowed, limit, remaining
     now = time.monotonic()
     book = _hits(store)
     key = str(row.get("id"))

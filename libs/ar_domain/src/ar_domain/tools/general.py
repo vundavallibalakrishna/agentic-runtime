@@ -1045,6 +1045,12 @@ def _scrub(text: str, secret: str) -> str:
 
 
 def _rate_ok(store: Any, tenant_id: object) -> bool:
+    from ar_domain.process_state import take_window  # noqa: PLC0415
+
+    shared = take_window(store, f"general-http:{tenant_id}", _HTTP_PER_MINUTE)
+    if shared is not None:
+        allowed, _remaining = shared
+        return allowed
     buckets = getattr(store, "rate_buckets", None)
     if not isinstance(buckets, dict):
         return True

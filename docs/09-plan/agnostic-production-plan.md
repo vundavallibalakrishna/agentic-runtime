@@ -1,12 +1,12 @@
 # Agnostic production plan
 
-Status: complete. Stage 8 is the exit. The single Alembic head is revision `0038`.
+Status: complete. Stage 9 is the exit. The single Alembic head is revision `0039`.
 
 Stage 0 records the decisions. Later stages change the product. Core stays domain-agnostic: no industry in code, schemas, seeds, tools, prompts, tests, UI, or product docs. Industry solutions ship only as optional signed packs. The security audit log and four-eyes approvals stay in core.
 
 Decisions: [ADR-0028](../02-architecture/adr/ADR-0028-agnostic-core.md) through [ADR-0034](../02-architecture/adr/ADR-0034-signed-pack-model.md).
 
-Production means the Stage 8 exit has passed and core still passes the Stage 2 grep.
+Production means the Stage 9 exit has passed and core still passes the Stage 2 grep.
 
 ## Target architecture
 
@@ -227,6 +227,18 @@ Status: done. Last, after Stages 1 through 7.
 
 Closes F15, F23.
 
+### Stage 9: Hardening and live certification (L)
+
+Status: done. After Stage 8.
+
+- Builder sessions, rate-limit buckets and the external API minute window live in Valkey. Standing approvals and review queues live in Postgres. Staging and production refuse an in-memory implementation (`ProcessLocalStateRefusedError`).
+- Two instances on shared Valkey and Postgres see the same session, window, standing approval and review queue.
+- The runtime worker registers the sandbox manager launcher. Tool steps that need a sandbox go through the manager. The sandbox image bakes Chromium, LibreOffice and the pinned data libraries. The in-process browser is dev and CI only.
+- `scripts/check_api_catalogue.py` fails CI when the catalogue and `openapi.json` disagree on method and path.
+- A kind job installs the chart with 2 API replicas and 2 workers and runs the contract scenarios (fake-llm). Bundled Postgres creates `ar_owner` during database init, before the migrate Job, for both CloudNativePG and the dev StatefulSet. `scripts/certify_live.sh` is the live run against `AR_LLM_BASE_URL` / `AR_LLM_API_KEY` (default Qwen3-32B on DeepInfra). Without a key the scorecard is `contract` and the live run stays pending.
+
+Proof label: `unit` for boot refusal; `contract` for two instances and the kind job; `live` only from `scripts/certify_live.sh` when a real model key is set.
+
 ## Exit
 
-Production is Stage 8's exit passed, and core still passes the Stage 2 grep.
+Production is Stage 9's exit passed, and core still passes the Stage 2 grep. The runbook is [live-certification.md](live-certification.md).

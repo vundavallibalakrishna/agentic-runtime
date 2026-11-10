@@ -27,7 +27,16 @@ def _prepare(
         egress_allow_loopback=loopback,
         database_url="postgresql://unused",
         model_gateway_url="",
+        valkey_url="redis://shared/0",
     )
+
+    class _Valkey:
+        def ping(self) -> bool:
+            return True
+
+    monkeypatch.setattr("redis.Redis.from_url", lambda *_a, **_k: _Valkey())
+    if env not in {EnvName.DEV, EnvName.CI}:
+        monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
 
     async def bind(store: object, url: str) -> object:
         del store, url

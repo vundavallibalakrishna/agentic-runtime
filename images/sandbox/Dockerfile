@@ -1,11 +1,12 @@
 # The ar-sandbox image: the computer an agent gets per conversation. It bakes the
 # sandbox-agent (which runs one sandbox's commands and file operations) and the
 # toolbox user code reaches — the scientific-Python and document libraries
-# (sandbox-tools.txt), LibreOffice headless, poppler, tesseract (configurable
-# languages via SANDBOX_TESSERACT_LANGS), ffmpeg and Noto fonts. uid 10001, no
-# package-manager credentials. Node, Playwright and Chromium are added only with
-# --build-arg WITH_BROWSER=1 (the `browser` template); CI's default image leaves them
-# out so it stays small (OQ-37, OQ-87). Spec: docs/03-specs/12-sandbox-manager.md §7.1.
+# (sandbox-tools.txt, pinned by uv.lock), LibreOffice headless, poppler, tesseract
+# (languages via SANDBOX_TESSERACT_LANGS), ffmpeg and Noto fonts. Chromium is baked
+# too: Node is pinned by NODE_VERSION and Playwright's Chromium by the lockfile.
+# Set WITH_BROWSER=0 only for a slim local experiment. The in-process browser is
+# dev-only. uid 10001, no package-manager credentials.
+# Spec: docs/03-specs/12-sandbox-manager.md §7.1.
 FROM ghcr.io/astral-sh/uv:0.13.3 AS uvbin
 
 FROM python:3.14.8-slim-bookworm
@@ -45,11 +46,9 @@ RUN uv sync --frozen --no-dev --no-editable --package ar-sandbox-agent \
     && mkdir -p /workspace \
     && chown -R sandbox:sandbox /app /workspace
 
-# The browser, built only for the `browser` template (OQ-37, OQ-87): Node 24 with pnpm
-# for user JavaScript, and Playwright-driven Chromium the agent's browser tools use. CI's
-# default image leaves it out (WITH_BROWSER=0) so it stays small; build the browser image
-# with --build-arg WITH_BROWSER=1.
-ARG WITH_BROWSER=0
+# Node is pinned. Playwright Chromium is the version locked for ar-sandbox-agent's
+# browser extra. WITH_BROWSER=0 skips that layer for a slim local build.
+ARG WITH_BROWSER=1
 ARG NODE_VERSION=24.22.2
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 RUN if [ "$WITH_BROWSER" = "1" ]; then \

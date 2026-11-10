@@ -743,6 +743,21 @@ class ToolPipeline:
     ) -> dict[str, object] | None:
         cap = as_int(version.get("rate_limit_per_minute"), 60)
         key = f"{request.get('tenant_id')}:{tool.get('id')}"
+        from ar_domain.process_state import take_window  # noqa: PLC0415
+
+        shared = take_window(self.store, f"tool:{key}", cap)
+        if shared is not None:
+            allowed, _remaining = shared
+            if not allowed:
+                return self._fail(
+                    request,
+                    "tool_rate_limited",
+                    "this tool is rate limited",
+                    time.perf_counter(),
+                    version,
+                    tool,
+                )
+            return None
         bucket: list[float] = self.store.rate_buckets.setdefault(key, [])
         now = time.time()
         fresh = [stamp for stamp in bucket if now - stamp < 60]

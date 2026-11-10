@@ -791,7 +791,7 @@ def test_aws_refuses_metadata_and_a_failed_role() -> None:
     )
 
 
-def test_valkey_rate_limit_falls_back_when_the_client_errors() -> None:
+def test_valkey_rate_limit_denies_when_the_client_errors() -> None:
     class _Down:
         def incr(self, key: str) -> int:
             del key
@@ -803,7 +803,8 @@ def test_valkey_rate_limit_falls_back_when_the_client_errors() -> None:
     store.valkey_client = _Down()  # type: ignore[attr-defined]
     store.connector_transport = httpx.MockTransport(lambda _request: httpx.Response(200, json=[]))  # type: ignore[attr-defined]
     result = dispatch_connector(store, "okta_list_users", _args(actor))
-    assert result["is_error"] is False
+    assert result["code"] == "rate_limited"
+    assert "shared limit" in str(result.get("text"))
 
 
 def _pad(segment: str) -> bytes:

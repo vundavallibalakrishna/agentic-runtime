@@ -157,6 +157,9 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     from ar_domain.durable.m28 import load_runtime_rows  # noqa: PLC0415
 
     await load_runtime_rows(session, store, tenant_id)
+    from ar_domain.durable.stage9 import load_shared_rows  # noqa: PLC0415
+
+    await load_shared_rows(session, store, tenant_id)
     from ar_domain.durable.m29 import load_exposure  # noqa: PLC0415
 
     await load_exposure(session, store, tenant_id)

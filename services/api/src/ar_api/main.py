@@ -395,6 +395,12 @@ def create_application() -> FastAPI:
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)
     _configure_sandbox(app.state.chat, settings)
+    from ar_domain.process_state import (  # noqa: PLC0415
+        ProcessLocalStateRefusedError,
+        install_shared_state,
+    )
+
+    install_shared_state(app.state.chat, settings)
     # Tool calls can run in this process. The engine that masks their results is built
     # now, on its own thread, not in the first call.
     from ar_domain.pii.analyzer import warm_up  # noqa: PLC0415
@@ -422,6 +428,10 @@ def create_application() -> FastAPI:
         if settings.env in {EnvName.DEV, EnvName.CI}
         else ValkeyTokenBucket(settings.valkey_url)
     )
+    if settings.env not in {EnvName.DEV, EnvName.CI} and isinstance(
+        app.state.rate_limiter, MemoryTokenBucket
+    ):
+        raise ProcessLocalStateRefusedError("the API rate limiter is process-local")
     app.state.rate_limit = 600
     from ar_api.process import install_process_state  # noqa: PLC0415
 

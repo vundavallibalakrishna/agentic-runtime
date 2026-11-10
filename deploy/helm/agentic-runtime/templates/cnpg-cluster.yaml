@@ -32,6 +32,9 @@ spec:
     initdb:
       database: ar
       owner: {{ .Values.postgres.username }}
+      postInitSQL:
+        - |
+{{ include "ar.postgresRolesSql" . | indent 10 }}
       postInitApplicationSQL:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
@@ -117,6 +120,13 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d/01-roles.sql
+              subPath: 01-roles.sql
+      volumes:
+        - name: init
+          configMap:
+            name: {{ .Release.Name }}-postgres-init
   volumeClaimTemplates:
     - metadata:
         name: data
@@ -125,6 +135,17 @@ spec:
         resources:
           requests:
             storage: {{ .Values.postgres.storage }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-postgres-init
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  01-roles.sql: |
+{{ include "ar.postgresRolesSql" . | indent 4 }}
 ---
 apiVersion: v1
 kind: Service

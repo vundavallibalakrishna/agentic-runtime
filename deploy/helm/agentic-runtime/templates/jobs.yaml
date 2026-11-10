@@ -81,6 +81,12 @@ spec:
               value: {{ .Values.global.deploymentMode | quote }}
             - name: AR_ENV
               value: {{ .Values.global.env | quote }}
+            - name: AR_BOOTSTRAP_WRITER
+              value: "1"
+            {{- if .Values.bootstrap.adminPassword }}
+            - name: AR_BOOTSTRAP_ADMIN_PASSWORD
+              value: {{ .Values.bootstrap.adminPassword | quote }}
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
