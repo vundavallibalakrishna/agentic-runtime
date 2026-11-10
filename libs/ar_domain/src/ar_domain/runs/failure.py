@@ -23,6 +23,7 @@ def fail_run(
     *,
     code: str,
     message: str,
+    reason: str | None = None,
     assistant: dict[str, object] | None = None,
 ) -> None:
     """Mark the run failed with ``code`` and ``message``, and its reply failed too.
@@ -33,7 +34,10 @@ def fail_run(
     """
     run["status"] = "failed"
     run["ended_at"] = utcnow()
-    run["error"] = {"code": code, "message": message}
+    error: dict[str, object] = {"code": code, "message": message}
+    if reason:
+        error["reason"] = reason
+    run["error"] = error
     run["result_summary"] = message
     conversations = getattr(store, "conversations", {})
     conversation = conversations.get(run.get("conversation_id"))

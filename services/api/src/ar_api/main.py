@@ -9,9 +9,9 @@ from fastapi import FastAPI
 from pydantic import SecretStr
 
 from ar_api.auth.routes import router as auth_router
-from ar_api.auth.session import MemorySessionStore, session_key_bytes
+from ar_api.auth.session import session_key_bytes
 from ar_api.middleware.durable import DurableMiddleware
-from ar_api.middleware.idempotency import IdempotencyMiddleware, MemoryIdempotencyStore
+from ar_api.middleware.idempotency import IdempotencyMiddleware
 from ar_api.middleware.security_headers import SecurityHeadersMiddleware
 from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, RateLimitMiddleware
 from ar_api.ratelimit import MemoryTokenBucket, ValkeyTokenBucket
@@ -241,7 +241,9 @@ def _configure_policy(chat: ChatService, settings: Settings) -> None:
 
 
 def create_application() -> FastAPI:
-    """Build the ASGI app. Health does not connect to Postgres or Temporal."""
+    """Build the ASGI app. ``/healthz`` does not connect. ``/readyz`` does."""
+    from ar_api.readiness import api_readiness  # noqa: PLC0415
+
     settings = Settings()
     docs = None if settings.env is EnvName.PROD else "/api/docs"
     inner: list[tuple[type, dict[str, object]]] = [
@@ -320,6 +322,7 @@ def create_application() -> FastAPI:
         inner_middleware=inner,
         docs_url=docs,
         camel_json=True,
+        readiness_checks=api_readiness(settings),
         # A route that takes a file accepts the upload cap, not the JSON body limit.
         body_limits={
             "/api/v1/files:upload": UPLOAD_BODY_LIMIT,
@@ -332,8 +335,6 @@ def create_application() -> FastAPI:
         settings.cursor_secret.get_secret_value(),
         prod=settings.env is EnvName.PROD,
     )
-    app.state.sessions = MemorySessionStore(key)
-    app.state.widget_sessions = MemorySessionStore(key)
     app.state.resolve_principal = _resolve_principal
     from ar_api.auth.credentials import credential_loader  # noqa: PLC0415
 
@@ -364,7 +365,9 @@ def create_application() -> FastAPI:
         else ValkeyTokenBucket(settings.valkey_url)
     )
     app.state.rate_limit = 600
-    app.state.idempotency = MemoryIdempotencyStore()
+    from ar_api.process import install_process_state  # noqa: PLC0415
+
+    install_process_state(app, settings, key)
     app.state.identity_override = None
     # Identity is read from the database. Test setup may plug in another source here.
     app.state.identity_provider = None

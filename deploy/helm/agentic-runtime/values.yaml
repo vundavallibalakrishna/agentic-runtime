@@ -1,5 +1,9 @@
 # Umbrella values for Agentic Runtime. Spec: docs/07-ops/helm-k8s.md
 # Non-secret AR_* live under config. Secret AR_* live under secrets.data or secrets.existingSecret.
+# Sessions, idempotency and the run-event bus live outside the API process.
+# Replicas and the autoscaler minimum stay at 1 when this is false.
+process:
+  shared: true
 global:
   imageRegistry: ''
   imageTag: "1.0.0"
@@ -153,6 +157,7 @@ config:
   AR_TEMPORAL_ADDRESS: temporal:7233
   AR_TEMPORAL_HOST_PORT: '7233'
   AR_TEMPORAL_NAMESPACE: agentic-runtime
+  AR_TEMPORAL_REQUIRED: 'true'
   AR_TEMPORAL_UI_HOST_PORT: '8233'
   AR_TEMPO_HOST_PORT: '3200'
   AR_TENANT_DB_ROUTES: '{}'

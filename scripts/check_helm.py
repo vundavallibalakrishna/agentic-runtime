@@ -115,6 +115,8 @@ def main() -> None:
     assert_fails(
         ["--set", "global.env=prod", "--set", "sandboxes.driver=docker"], "sandboxes.driver"
     )
+    assert_fails(["--set", "global.env=prod", "--set", "sandboxes.driver=host"], "must be one of")
+    assert_fails(["--set", "process.shared=false"], "stay at 1")
     sys.stdout.write("helm render checks ok\n")
 
 

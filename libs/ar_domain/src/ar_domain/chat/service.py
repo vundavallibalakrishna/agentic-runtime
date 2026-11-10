@@ -81,6 +81,15 @@ def _string_tuple(value: object) -> tuple[str, ...]:
     return tuple(str(item) for item in value)
 
 
+def _workflow_not_found(exc: BaseException) -> bool:
+    """A missing workflow is a lost turn. Any other error is not."""
+    try:
+        from temporalio.service import RPCError, RPCStatusCode  # noqa: PLC0415
+    except ImportError:
+        return "NotFound" in type(exc).__name__
+    return isinstance(exc, RPCError) and exc.status == RPCStatusCode.NOT_FOUND
+
+
 def _seq(event: dict[str, object]) -> int:
     seq = event["seq"]
     return seq if isinstance(seq, int) else int(str(seq))
@@ -292,6 +301,10 @@ class ChatService:
     model_gateway_url: str = ""
     sandbox_launcher: object | None = None
     temporal_client: object | None = None
+    # When set, a missing worker is a refusal. The turn is not run in this process.
+    temporal_required: bool = False
+    event_bus: object | None = None
+    watch_polls: int = 240
     durable: bool = False
     durable_engine: AsyncEngine | None = None
     tenant_binding: object | None = None
@@ -1681,14 +1694,14 @@ class ChatService:
         """Run on the runtime worker when Temporal is connected."""
         client = self.temporal_client
         if client is None:
-            await self.generate(run_id, text, names)
+            await self._run_here_or_stop(run_id, text, names)
             return
         from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
         await flush_store(self)
         start = getattr(client, "start_workflow", None)
         if not callable(start):
-            await self.generate(run_id, text, names)
+            await self._run_here_or_stop(run_id, text, names)
             return
         try:
             await start(
@@ -1697,17 +1710,42 @@ class ChatService:
                 id=f"run-{run_id}",
                 task_queue="ar-runtime",
             )
-        except Exception:  # noqa: BLE001 — a down worker still answers in this process
-            await self.generate(run_id, text, names)
+        except Exception as exc:  # noqa: BLE001 — required Temporal does not run the turn here
+            if type(exc).__name__ == "WorkflowAlreadyStartedError":
+                await self._watch(run_id)
+                return
+            await self._run_here_or_stop(run_id, text, names)
             return
         await self._watch(run_id)
+
+    async def _run_here_or_stop(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
+        """Dev runs the turn here. A required worker that is missing does not."""
+        if self.temporal_required:
+            self.mark_not_resumed(run_id)
+            return
+        await self.generate(run_id, text, names)
+
+    def mark_not_resumed(self, run_id: uuid.UUID) -> None:
+        """The worker lost this turn. It is failed, not run in this process."""
+        run = self.runs.get(run_id)
+        if not isinstance(run, dict) or not run_is_active(str(run.get("status"))):
+            return
+        from ar_domain.runs.failure import fail_run  # noqa: PLC0415
+
+        fail_run(
+            self,
+            run,
+            code="interrupted",
+            reason="not_resumed",
+            message="The worker lost this turn. It was not resumed.",
+        )
 
     async def _watch(self, run_id: uuid.UUID) -> None:
         """Copy worker events into the SSE queues for this process."""
         from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
         seen = max((_seq(event) for event in self.events.get(run_id, [])), default=0)
-        for _ in range(240):
+        for poll in range(self.watch_polls):
             await reload_run(self, run_id)
             for event in self.events.get(run_id, []):
                 seq = _seq(event)
@@ -1720,7 +1758,34 @@ class ChatService:
             status = str(run.get("status") if isinstance(run, dict) else "completed")
             if not run_is_active(status):
                 return
+            if poll % 20 == 0 and await self._workflow_gone(run_id):
+                self.mark_not_resumed(run_id)
+                return
             await asyncio.sleep(0.25)
+
+    async def _workflow_gone(self, run_id: uuid.UUID) -> bool:
+        """True when Temporal no longer has this turn and the run is still working."""
+        client = self.temporal_client
+        run = self.runs.get(run_id)
+        if client is None or not isinstance(run, dict):
+            return False
+        if not run_is_working(str(run.get("status"))):
+            return False
+        handle_for = getattr(client, "get_workflow_handle", None)
+        if not callable(handle_for):
+            return False
+        workflow_id = str(run.get("temporal_workflow_id") or f"run-{run_id}")
+        describe = getattr(handle_for(workflow_id), "describe", None)
+        if not callable(describe):
+            return False
+        try:
+            described = await describe()
+        except Exception as exc:  # noqa: BLE001 - only a missing workflow is a lost turn
+            return _workflow_not_found(exc)
+        status = getattr(described, "status", None)
+        name = str(getattr(status, "name", ""))
+        terminal = {"COMPLETED", "FAILED", "CANCELED", "CANCELLED", "TERMINATED", "TIMED_OUT"}
+        return name in terminal
 
     def _prepare_run(
         self,
@@ -2227,7 +2292,7 @@ class ChatService:
 
     def _emit(self, run: dict[str, object], event_type: str, data: dict[str, object]) -> None:
         run_id = uuid.UUID(str(run["id"]))
-        seq = len(self.events[run_id]) + 1
+        seq = len(self.events.setdefault(run_id, [])) + 1
         if event_type == "run.completed":
             self._meter_run(run)
         event = {
@@ -2248,6 +2313,7 @@ class ChatService:
             queue.put_nowait(event)
         if not self.reloading:
             self.flush_soon()
+            self._publish_event(run_id, event)
 
     def events_after(
         self, tenant_id: uuid.UUID, run_id: uuid.UUID, after: int
@@ -2256,6 +2322,29 @@ class ChatService:
         if run is None or run["tenant_id"] != tenant_id:
             raise NotFoundError()
         return [event for event in self.events.get(run_id, []) if _seq(event) > after]
+
+    def _publish_event(self, run_id: uuid.UUID, event: dict[str, object]) -> None:
+        bus = self.event_bus
+        publish = getattr(bus, "publish", None)
+        if not callable(publish):
+            return
+        try:
+            publish(run_id, event)
+        except Exception:  # noqa: BLE001 - a bus blip must not drop the local event
+            _log.warning("run_event_bus_publish_failed")
+
+    async def _pump_bus(self, run_id: uuid.UUID, queue: asyncio.Queue[dict[str, object]]) -> None:
+        listen = getattr(self.event_bus, "listen", None)
+        if not callable(listen):
+            return
+        try:
+            async for event in listen(run_id):
+                if isinstance(event, dict):
+                    queue.put_nowait(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - the stream ending is not a run failure
+            _log.warning("run_event_bus_listen_failed")
 
     def subscribe(self, run_id: uuid.UUID) -> asyncio.Queue[dict[str, object]]:
         queue: asyncio.Queue[dict[str, object]] = asyncio.Queue()
@@ -2303,6 +2392,9 @@ class ChatService:
         watcher = (
             asyncio.create_task(self._watch(run_id)) if self.durable_engine is not None else None
         )
+        pump = None
+        if self.event_bus is not None:
+            pump = asyncio.create_task(self._pump_bus(run_id, queue))
         try:
             while True:
                 try:
@@ -2331,6 +2423,10 @@ class ChatService:
                 watcher.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await watcher
+            if pump is not None:
+                pump.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await pump
             self.unsubscribe(run_id, queue)
 
     def cancel_run(

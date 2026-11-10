@@ -101,3 +101,15 @@ def platform_engine() -> AsyncEngine:
 def dispose_engines() -> None:
     """Drop cached engines. Tests call this after changing settings."""
     _engines.clear()
+
+
+async def ping_database(url: str) -> None:
+    """``SELECT 1`` on ``url``. Readiness uses this and fails closed on any error."""
+    import asyncio  # noqa: PLC0415
+
+    from sqlalchemy import text  # noqa: PLC0415
+
+    engine = get_engine(url)
+    async with asyncio.timeout(2):
+        async with engine.connect() as connection:
+            await connection.execute(text("SELECT 1"))

@@ -51,7 +51,7 @@ As listed in [internal-apis §4](../05-contracts/internal-apis.md#4-sandbox-mana
 - Falco rules (deployed via Helm) alert on shell spawns of unexpected binaries in sandbox namespaces only as defence in depth.
 
 ### 4.2 `docker` (local dev, CI)
-`aiodocker`; one container per sandbox on network `ar-sandbox-net` (internal, no internet) with Squid attached to both networks; runtime `runc` (`runtime_class='runc_dev'`) unless `runsc` is installed (`AR_SANDBOX_DOCKER_RUNTIME=runsc`). Snapshots identical (via the agent). An unisolated driver (docker, or the host) is refused at startup unless `AR_SANDBOX_ALLOW_UNISOLATED` is set; it is a setting of the install, not a consequence of `AR_ENV`.
+`aiodocker`; one container per sandbox on network `ar-sandbox-net` (internal, no internet) with Squid attached to both networks; runtime `runc` (`runtime_class='runc_dev'`) unless `runsc` is installed (`AR_SANDBOX_DOCKER_RUNTIME=runsc`). Snapshots identical (via the agent). An unisolated driver (docker, or the host) is refused at startup unless `AR_SANDBOX_ALLOW_UNISOLATED` is set; it is a setting of the install, not a consequence of `AR_ENV`. Outside `dev` and `ci`, host bash does not run: an empty `endpoint_url` returns `sandbox_unavailable`, and Helm production accepts only the kubernetes driver.
 
 ## 5. Egress control
 

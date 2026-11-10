@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 import secrets
 from base64 import b64encode
@@ -37,7 +36,9 @@ _NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,40}$")
 
 def connection_key() -> bytes:
     """Key for connection secrets. Derived from the cursor secret, never logged."""
-    raw = os.environ.get("AR_CURSOR_SECRET", "dev-cursor-secret")
+    from ar_common.settings import cursor_secret_text  # noqa: PLC0415
+
+    raw = cursor_secret_text()
     return hashlib.sha256(b"ar-connection-v1:" + raw.encode()).digest()
 
 

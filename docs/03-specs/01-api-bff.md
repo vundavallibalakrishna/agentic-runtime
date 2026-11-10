@@ -87,7 +87,7 @@ Permissions are computed by `identity.service.effective_permissions(principal)` 
 Liveness: 200 `{"status":"ok"}` if the process is up.
 
 #### GET /readyz
-Readiness: checks Postgres (`SELECT 1`), Valkey `PING`, Temporal `GetSystemInfo` (cached 10 s). 503 with details if any fails.
+Readiness, cached 10 s. Always checks Postgres (`SELECT 1`). Checks Valkey `PING` when sessions and the rate limiter are shared (not `dev` or `ci`). Checks Temporal health when `AR_TEMPORAL_REQUIRED` is set. 503 with the failing check names. `/healthz` does not connect.
 
 #### GET /metrics
 Prometheus exposition (not routed by public ingress).
@@ -116,7 +116,7 @@ Auth: any. Returns the JSON Schema for a definition kind (`Agent`, `ToolServer`,
 | `AR_SESSION_TTL_S` | `43200` | Sliding session TTL |
 | `AR_SESSION_MAX_AGE_S` | `604800` | Absolute session max |
 | `AR_SESSION_ENCRYPTION_KEY` | (secret, 32 bytes b64) | Encrypt tokens stored in sessions |
-| `AR_CURSOR_SECRET` | (secret) | HMAC for pagination cursors |
+| `AR_CURSOR_SECRET` | (secret) | HMAC for pagination cursors. Outside `dev` and `ci` the process refuses to boot when this is missing or still `dev-cursor-secret`. |
 | `AR_STEP_UP_TTL_S` | `600` | Step-up validity |
 | `AR_SSE_MAX_PER_USER` | `20` | |
 | `AR_MAX_JSON_BODY_BYTES` | `1048576` | |
@@ -126,9 +126,9 @@ Auth: any. Returns the JSON Schema for a definition kind (`Agent`, `ToolServer`,
 
 | Failure | Behaviour |
 |---|---|
-| Valkey down | Session auth fails → 503 `unavailable` (bearer/API-key requests still work for non-SSE endpoints; rate limiting fails open with a warning log and metric `ar_ratelimit_bypass_total`). |
+| Valkey down | Session auth fails → 503 `unavailable` (bearer/API-key requests still work for non-SSE endpoints). The shared rate limiter retries, then denies the request (`ar_ratelimit_unavailable_total`). It does not latch open. |
 | Postgres down | `/readyz` 503; requests 503. |
-| Temporal down | Endpoints that start work still return `202`: message + run (`queued`) + outbox `run.start_requested` are committed in one transaction; the immediate workflow start fails silently (logged, metric `ar_run_start_deferred_total`) and `OutboxRelayWorkflow` (or, if the system worker is also down, the next relay pass after recovery) starts it. The UI shows "queued". Synchronous calls (`POST /api/v1/runs` with `wait=true`) return 503 `unavailable` after the run is recorded as queued. |
+| Temporal down | When `AR_TEMPORAL_REQUIRED` is unset, the API still runs the turn in process. When it is set, the turn is not run in process: it is marked failed with error `code` `interrupted` and `reason` `not_resumed`. `/readyz` is 503 while the check fails. |
 | Database unreachable at sign-in | Login fails closed (`invalid_credentials`); existing sessions continue until their TTL. |
 
 Workflow start reliability: `conversations.service.post_message` inserts message + run (`queued`) + outbox `run.start_requested` in one transaction, then attempts `start_workflow` immediately (fast path). `OutboxRelayWorkflow` handles `run.start_requested` events whose run is still `queued` after 5 s by starting the workflow (idempotent: workflow id `run-{run_id}`, `WorkflowIDReusePolicy.REJECT_DUPLICATE`).
