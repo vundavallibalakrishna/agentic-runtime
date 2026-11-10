@@ -196,7 +196,7 @@ def session_key_bytes(raw_b64: str, fallback: str, *, prod: bool) -> bytes:
         padding = "=" * (-len(raw_b64) % 4)
         try:
             decoded = base64.b64decode(raw_b64 + padding)
-        except (ValueError, binascii.Error):
+        except ValueError, binascii.Error:
             decoded = b""
         if len(decoded) == 32:
             return decoded
