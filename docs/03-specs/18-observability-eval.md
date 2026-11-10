@@ -74,7 +74,7 @@ Run inspector data comes from [spec 06](06-conversations-runs.md) endpoints (`/r
 | `citation_present` | `min?: 1`, `document_ids?` | citations in final message |
 | `refusal` | – | judge determines the agent declined |
 | `answer_similarity` | `reference`, `threshold: 0.8` | cosine of embeddings (`embed` alias) |
-| `llm_judge` | `rubric`, `threshold: 0..1`, `judge_alias?: "reasoning"` | judge score ≥ threshold (prompt `ar_system/prompts/judge.md`, JSON output `{score, reason}`) |
+| `lexical_overlap` | `rubric`, `threshold` kept for old files | Word overlap with the rubric. The result is `not_judged`. It does not call a model and it is not a verdict. The old type name `llm_judge` is stored as `lexical_overlap`. |
 | `max_latency_ms` / `max_cost_micros` / `max_steps` | `value` | from run usage |
 | `no_policy_denials` | – | no `denied` tool calls |
 
@@ -104,7 +104,7 @@ Query `agent_id`, `kind`. Item `EvalSuite {id, name, description, kind, agent: {
 #### POST /api/v1/eval-suites/{suite_id}/cases:import
 Body `{file_id}` (JSONL: one case per line; or YAML list; `files.kind='eval_dataset'`) → `{imported, errors: [{line, msg}]}`.
 #### POST /api/v1/eval-suites/{suite_id}/cases:from-conversation
-Body `{conversation_id, message_id, assertions?}` → creates a case from the conversation's user turns up to `message_id`, default assertion `llm_judge` with rubric derived from the feedback comment.
+Body `{conversation_id, message_id, assertions?}` → creates a case from the conversation's user turns up to `message_id`, default assertion `lexical_overlap` with rubric derived from the feedback comment. Overlap is `not_judged`.
 #### POST /api/v1/eval-suites/{suite_id}:run
 `evals:run`. Body `{agent_version_ref: "draft"|"published"|int, model_alias_override?, baseline_eval_run_id?, tags?: [..] (subset of cases)}` → `202 EvalRun`.
 #### GET /api/v1/eval-runs

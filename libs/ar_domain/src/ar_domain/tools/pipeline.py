@@ -685,7 +685,9 @@ class ToolPipeline:
                 }
             )
         del user_id
-        return rows
+        from ar_domain.proof import offered_to_model  # noqa: PLC0415
+
+        return [row for row in rows if offered_to_model(str(row.get("qualified_name") or ""))]
 
     def _entitled(self, request: dict[str, object], version: dict[str, object]) -> bool:
         if request.get("synthetic") is True:

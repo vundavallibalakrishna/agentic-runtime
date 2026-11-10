@@ -84,11 +84,12 @@ class SimilarityAssertion(ApiModel):
     threshold: float = 0.8
 
 
-class JudgeAssertion(ApiModel):
-    type: Literal["llm_judge"]
+class OverlapAssertion(ApiModel):
+    """Lexical overlap with a rubric. It is not a model judgement."""
+
+    type: Literal["lexical_overlap"]
     rubric: str
     threshold: float = 0.5
-    judge_alias: str = "reasoning"
 
 
 class MaxLatencyAssertion(ApiModel):
@@ -128,7 +129,7 @@ Assertion = Annotated[
     | CitationAssertion
     | RefusalAssertion
     | SimilarityAssertion
-    | JudgeAssertion
+    | OverlapAssertion
     | MaxLatencyAssertion
     | MaxCostAssertion
     | MaxStepsAssertion
@@ -150,7 +151,13 @@ class ToolMock(ApiModel):
 
 
 def parse_assertion(raw: object) -> dict[str, object]:
-    """Validate one assertion and return snake_case fields."""
+    """Validate one assertion and return snake_case fields.
+
+    The old name ``llm_judge`` is accepted and stored as ``lexical_overlap``.
+    The check does not call a model.
+    """
+    if isinstance(raw, dict) and raw.get("type") == "llm_judge":
+        raw = {**raw, "type": "lexical_overlap"}
     try:
         model = _ASSERTIONS.validate_python(raw)
     except ValidationError as exc:

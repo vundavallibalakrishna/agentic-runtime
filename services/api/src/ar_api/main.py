@@ -61,7 +61,6 @@ from ar_api.routers.scim_tokens import router as scim_tokens_router
 from ar_api.routers.secrets import router as secrets_router
 from ar_api.routers.service_accounts import router as service_accounts_router
 from ar_api.routers.service_connections import router as service_connections_router
-from ar_api.routers.signup import router as signup_router
 from ar_api.routers.skills import router as skills_router
 from ar_api.routers.sod import router as sod_router
 from ar_api.routers.standing_approvals import router as standing_router
@@ -194,11 +193,6 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
     return load
 
 
-async def _signup(slug: str, name: str, email: str) -> str:
-    del slug, name, email
-    return "pending"
-
-
 def _configure_chat(chat: ChatService, settings: Settings) -> None:
     """Pack trust follows the environment. Dev and CI accept unsigned packs and fake models."""
     chat.fake_models_allowed = fake_models_allowed(settings.env)
@@ -280,7 +274,6 @@ def create_application() -> FastAPI:
             scim_router,
             scim_tokens_router,
             support_router,
-            signup_router,
             platform_router,
             platform_health_router,
             platform_usage_router,
@@ -380,7 +373,6 @@ def create_application() -> FastAPI:
     app.state.platform = PlatformApi()
     app.state.notifications = NotificationApi()
     app.state.webhooks = WebhookApi()
-    app.state.signup = _signup
     install_platform_hook()
     return app
 

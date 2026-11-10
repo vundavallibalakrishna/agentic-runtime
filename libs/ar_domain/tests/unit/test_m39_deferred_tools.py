@@ -37,14 +37,15 @@ def _real_store() -> Any:
 def test_many_tools_offer_the_search_tool_then_add_a_found_one() -> None:
     store = _real_store()
     tenant, user = demo_id("tenant"), demo_id("admin")
-    version_id = _agent(store, ["connectors"])  # 90+ tools, past the threshold
+    # Built-in servers past the threshold. Not-live connector tools are not in this set.
+    version_id = _agent(store, ["browser", "general", "documents", "knowledge", "data"])
 
     captured: list[list[str]] = []
     turns = [
         {
             "text": "",
             "tool_calls": [
-                {"id": "c1", "name": "control__search", "arguments": {"query": "list buckets"}}
+                {"id": "c1", "name": "control__search", "arguments": {"query": "read a file"}}
             ],
             "usage": {"tokens_in": 2, "tokens_out": 2},
             "real": True,
@@ -82,9 +83,61 @@ def test_many_tools_offer_the_search_tool_then_add_a_found_one() -> None:
     # The first call is not sent the whole catalogue; it gets the search tool.
     assert "control__search" in captured[0]
     assert len(captured[0]) < 20
-    assert not any(name.startswith("connectors__") for name in captured[0])
+    assert "general__read_file" not in captured[0]
     # The searched tool's schema joins the next call.
-    assert any("bucket" in name.lower() for name in captured[1])
+    assert "general__read_file" in captured[1]
+
+
+def test_not_live_connector_tools_stay_hidden_from_the_model() -> None:
+    store = _real_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    version_id = _agent(store, ["connectors"])
+    captured: list[list[str]] = []
+
+    async def complete(
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        *,
+        tenant_id: uuid.UUID,
+        model_alias: str,
+    ) -> dict[str, object]:
+        del messages, tenant_id, model_alias
+        captured.append([str(tool["function"]["name"]) for tool in tools])  # type: ignore[index]
+        return {
+            "text": "done",
+            "tool_calls": [],
+            "usage": {"tokens_in": 1, "tokens_out": 1},
+            "real": True,
+        }
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    conversation = store.create_conversation(
+        tenant, user, _agent_id(store), model_alias="reasoning"
+    )
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "find a tool", schedule=False
+    )
+    asyncio.run(store.generate(uuid.UUID(str(posted["run"]["id"])), "find a tool", []))
+    names = captured[0]
+    assert names
+    assert all(
+        name.startswith("connectors__email_") or name.startswith("connectors__github_")
+        for name in names
+    )
+    result = dispatch(
+        store,
+        "builtin://control",
+        "search",
+        {
+            "_tenant_id": tenant,
+            "_user_id": user,
+            "_agent_version_id": version_id,
+            "query": "list buckets",
+        },
+        "",
+    )
+    found = [str(row["qualified_name"]) for row in result["structured"]["tools"]]
+    assert not any("s3" in name or name.startswith("connectors.slack") for name in found)
 
 
 def _agent_id(store: Any) -> uuid.UUID:

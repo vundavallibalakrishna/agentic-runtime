@@ -3036,24 +3036,6 @@ export type ShareBody = {
 };
 
 /**
- * SignupBody
- */
-export type SignupBody = {
-    /**
-     * Slug
-     */
-    slug: string;
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Email
-     */
-    email: string;
-};
-
-/**
  * SimulateBody
  */
 export type SimulateBody = {
@@ -6386,35 +6368,6 @@ export type RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponses = {
 };
 
 export type RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponse = RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponses[keyof RevokeGrantApiV1TenantSupportAccessGrantIdRevokePostResponses];
-
-export type SignupApiV1SignupPostData = {
-    body: SignupBody;
-    path?: never;
-    query?: never;
-    url: '/api/v1/signup';
-};
-
-export type SignupApiV1SignupPostErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type SignupApiV1SignupPostError = SignupApiV1SignupPostErrors[keyof SignupApiV1SignupPostErrors];
-
-export type SignupApiV1SignupPostResponses = {
-    /**
-     * Response Signup Api V1 Signup Post
-     *
-     * Successful Response
-     */
-    200: {
-        [key: string]: string;
-    };
-};
-
-export type SignupApiV1SignupPostResponse = SignupApiV1SignupPostResponses[keyof SignupApiV1SignupPostResponses];
 
 export type ListTenantsApiV1PlatformTenantsGetData = {
     body?: never;

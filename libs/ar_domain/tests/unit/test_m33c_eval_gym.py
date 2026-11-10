@@ -232,6 +232,7 @@ def test_live_install_keeps_the_key_on_the_provider_row() -> None:
 def test_dry_run_gym_passes_and_matches_the_committed_scorecard() -> None:
     report = run_suite(make_store=_make_store, live=False, prepare=_prepare)
     assert report.mode == "dry-run"
+    assert report.proof == "unit"
     assert report.percent == 100
     assert report.passed_count == report.total
     committed = tasks_path().parents[1] / "m33c-scorecard.md"

@@ -3242,48 +3242,6 @@
         }
       }
     },
-    "/api/v1/signup": {
-      "post": {
-        "summary": "Signup",
-        "operationId": "signup_api_v1_signup_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SignupBody"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object",
-                  "title": "Response Signup Api V1 Signup Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/platform/tenants": {
       "get": {
         "summary": "List Tenants",
@@ -26261,26 +26219,6 @@
         "type": "object",
         "required": ["principalType", "principalId"],
         "title": "ShareBody"
-      },
-      "SignupBody": {
-        "properties": {
-          "slug": {
-            "type": "string",
-            "title": "Slug"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "email": {
-            "type": "string",
-            "title": "Email"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": ["slug", "name", "email"],
-        "title": "SignupBody"
       },
       "SimulateBody": {
         "properties": {

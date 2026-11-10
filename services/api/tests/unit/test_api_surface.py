@@ -361,8 +361,7 @@ def test_identity_and_admin_surface_is_camel_case() -> None:
     client.delete(f"/api/v1/teams/{team_id}")
     client.delete(f"/api/v1/groups/{group_id}")
     signup = client.post("/api/v1/signup", json={"slug": "acme", "name": "Acme", "email": "a@b.c"})
-    assert signup.status_code == 200
-    assert "tenantId" in signup.json()
+    assert signup.status_code == 404
     platform = _app(_principal(user_id, tenant_id, kind="platform_admin"))
     created = platform.post(
         "/api/v1/platform/tenants",

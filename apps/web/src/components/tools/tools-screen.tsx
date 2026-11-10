@@ -8,6 +8,7 @@ import { ActionStatus } from "@/components/common/detail-state";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,6 +19,15 @@ import { M22Panels } from "./m22-panels";
 type Row = Record<string, unknown>;
 
 const MODE_KEY = "ar-settings-mode";
+
+function proofLabel(
+  t: (key: "proofUnit" | "proofContract" | "proofLive") => string,
+  proof: string,
+) {
+  if (proof === "live") return t("proofLive");
+  if (proof === "contract") return t("proofContract");
+  return t("proofUnit");
+}
 
 export function ToolsScreen() {
   const t = useTranslations("tools");
@@ -314,7 +324,10 @@ export function ToolsScreen() {
                 .filter((tool) => String(tool.qualifiedName ?? "").startsWith("general."))
                 .map((tool) => (
                   <li key={String(tool.id ?? tool.qualifiedName)}>
-                    <p className="font-medium">{String(tool.qualifiedName ?? "")}</p>
+                    <p className="flex flex-wrap items-center gap-2 font-medium">
+                      {String(tool.qualifiedName ?? "")}
+                      <Badge>{proofLabel(t, String(tool.proof ?? "unit"))}</Badge>
+                    </p>
                     <p className="text-sm text-[var(--muted-foreground)]">
                       {String(tool.riskClass ?? "")} · {String(tool.description ?? "")}
                     </p>
