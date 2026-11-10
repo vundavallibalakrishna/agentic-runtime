@@ -18,7 +18,11 @@ NAMESPACE = "ar-sandboxes"
 
 
 def documents() -> list[dict[str, object]]:
-    """Namespace, default-deny policy, and one limited sandbox pod."""
+    """Namespace, a gVisor class kind can admit, the network policy, and one limited pod.
+
+    kind has no gVisor runtime. The class is named ``gvisor`` so the production pod
+    spec is unchanged, and its handler is ``runc``, which kind's containerd provides.
+    """
     pod = pod_spec(
         sandbox_id="12345678-aaaa-bbbb-cccc-ddddeeeeffff",
         tenant_id="tenant",
@@ -42,6 +46,12 @@ def documents() -> list[dict[str, object]]:
             "apiVersion": "v1",
             "kind": "Namespace",
             "metadata": {"name": NAMESPACE, "labels": {"ar.io/purpose": "sandboxes"}},
+        },
+        {
+            "apiVersion": "node.k8s.io/v1",
+            "kind": "RuntimeClass",
+            "metadata": {"name": "gvisor"},
+            "handler": "runc",
         },
         policy,
         pod,

@@ -283,9 +283,11 @@ def test_contract_manifest_is_namespaced_and_limited() -> None:
     spec.loader.exec_module(module)
     docs = module.documents()
     assert docs[0]["metadata"]["name"] == "ar-sandboxes"  # type: ignore[index]
-    policy = docs[1]
+    kinds = {doc["kind"] for doc in docs}
+    assert "RuntimeClass" in kinds
+    policy = next(doc for doc in docs if doc["kind"] == "NetworkPolicy")
     assert policy["kind"] == "NetworkPolicy"
-    pod = docs[2]
+    pod = next(doc for doc in docs if doc["kind"] == "Pod")
     assert pod["metadata"]["namespace"] == "ar-sandboxes"  # type: ignore[index]
     limits = pod["spec"]["containers"][0]["resources"]["limits"]  # type: ignore[index]
     assert limits["cpu"] == "500m"
