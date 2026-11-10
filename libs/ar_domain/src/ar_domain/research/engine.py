@@ -70,13 +70,24 @@ def save_state(run: dict[str, object], state: dict[str, object]) -> None:
     checkpoint["research"] = state
 
 
+def _whole(value: object, default: int = 0) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return default
+    return value
+
+
 def over_budget(state: dict[str, object]) -> str | None:
-    elapsed = time.monotonic() - float(state.get("started_monotonic") or time.monotonic())
-    if elapsed > int(state.get("max_wall_clock_s") or 120):
+    started = state.get("started_monotonic")
+    if isinstance(started, int | float) and not isinstance(started, bool):
+        origin = float(started)
+    else:
+        origin = time.monotonic()
+    elapsed = time.monotonic() - origin
+    if elapsed > _whole(state.get("max_wall_clock_s"), 120):
         return "max_wall_clock_s"
-    if int(state.get("cost_micros") or 0) > int(state.get("max_cost_micros") or 0):
+    if _whole(state.get("cost_micros")) > _whole(state.get("max_cost_micros")):
         return "max_cost_micros"
-    if int(state.get("depth") or 0) > int(state.get("max_depth") or 1):
+    if _whole(state.get("depth")) > _whole(state.get("max_depth"), 1):
         return "max_depth"
     return None
 
@@ -198,10 +209,10 @@ def store_subtask(run: dict[str, object], query_id: str, result: dict[str, objec
 
 
 def _plan(state: dict[str, object], run: dict[str, object]) -> str:
-    breadth = int(state.get("max_breadth") or 4)
+    breadth = _whole(state.get("max_breadth"), 4)
     queries = plan_queries(str(state.get("question") or ""), breadth=breadth)
     state["queries"] = queries
-    state["depth"] = int(state.get("depth") or 0) + 1
+    state["depth"] = _whole(state.get("depth")) + 1
     state["phase"] = "fanout"
     save_state(run, state)
     return "fanout"

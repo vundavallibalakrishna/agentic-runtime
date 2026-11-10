@@ -73,6 +73,18 @@ def retryable_status(status: int) -> bool:
     return status in _RETRYABLE or status >= 500
 
 
+def _number(value: object) -> float:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return 0.0
+    return float(value)
+
+
+def _whole(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value
+
+
 def circuit_key(tenant_id: uuid.UUID, endpoint_id: str) -> str:
     return f"ar:model-circuit:{tenant_id}:{endpoint_id}"
 
@@ -87,7 +99,7 @@ class CircuitBreaker:
         row = self._read(key)
         if row.get("state") != "open":
             return True
-        opened = float(row.get("opened_at") or 0)
+        opened = _number(row.get("opened_at"))
         moment = time.time() if now is None else now
         if moment - opened >= _OPEN_S:
             row["state"] = "half_open"
@@ -103,7 +115,7 @@ class CircuitBreaker:
         if row.get("state") == "half_open":
             failures = _OPEN_AFTER
         else:
-            failures = int(row.get("failures") or 0) + 1
+            failures = _whole(row.get("failures")) + 1
         state = "open" if failures >= _OPEN_AFTER else "closed"
         opened = time.time() if now is None else now
         self._write(

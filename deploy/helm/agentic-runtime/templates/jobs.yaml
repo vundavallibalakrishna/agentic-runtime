@@ -81,6 +81,11 @@ spec:
               value: {{ .Values.global.deploymentMode | quote }}
             - name: AR_ENV
               value: {{ .Values.global.env | quote }}
+            - name: AR_CURSOR_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) }}
+                  key: AR_CURSOR_SECRET
             - name: AR_BOOTSTRAP_WRITER
               value: "1"
             {{- if .Values.bootstrap.adminPassword }}

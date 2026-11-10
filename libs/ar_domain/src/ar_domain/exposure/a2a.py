@@ -167,7 +167,8 @@ async def send_task(
     text = _text_parts(message)
     if not text:
         raise ArError(ErrorCode.VALIDATION_FAILED, "a text part is required")
-    metadata = message.get("metadata") if isinstance(message.get("metadata"), dict) else {}
+    raw_meta = message.get("metadata")
+    metadata = raw_meta if isinstance(raw_meta, dict) else {}
     research = str(metadata.get("mode") or params.get("mode") or "") == "research"
     context = message.get("context_id") or message.get("contextId") or params.get("context_id")
     if context:

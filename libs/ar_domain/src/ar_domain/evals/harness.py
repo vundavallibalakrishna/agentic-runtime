@@ -12,10 +12,12 @@ _REFUSAL = ("can't", "cannot", "won't", "will not", "not able", "i must refuse",
 
 def case_passed(case: dict[str, Any], reply: dict[str, Any]) -> dict[str, bool]:
     """Pass, tool correctness, citation validity and refusal for one case."""
-    expect = case.get("expect") if isinstance(case.get("expect"), dict) else {}
+    raw_expect = case.get("expect")
+    expect: dict[str, Any] = raw_expect if isinstance(raw_expect, dict) else {}
     text = str(reply.get("text") or "")
     lowered = text.lower()
-    contains = expect.get("contains") if isinstance(expect.get("contains"), list) else []
+    raw_contains = expect.get("contains")
+    contains = raw_contains if isinstance(raw_contains, list) else []
     text_ok = all(str(piece).lower() in lowered for piece in contains)
     tool = str(expect.get("tool") or "")
     called = str(reply.get("tool") or "")
@@ -81,7 +83,8 @@ def _rate(rows: list[dict[str, Any]], key: str) -> float:
 
 def stub_reply(case: dict[str, Any]) -> dict[str, Any]:
     """Deterministic OpenAI-shaped reply for the contract stub."""
-    expect = case.get("expect") if isinstance(case.get("expect"), dict) else {}
+    raw_expect = case.get("expect")
+    expect: dict[str, Any] = raw_expect if isinstance(raw_expect, dict) else {}
     if expect.get("refuses"):
         text = "I can't help with that request."
         tool = ""
@@ -89,7 +92,8 @@ def stub_reply(case: dict[str, Any]) -> dict[str, Any]:
         text = "I will use the tool."
         tool = str(expect.get("tool"))
     else:
-        contains = expect.get("contains") if isinstance(expect.get("contains"), list) else []
+        raw_contains = expect.get("contains")
+        contains = raw_contains if isinstance(raw_contains, list) else []
         text = str(contains[0]) if contains else "Done."
         if expect.get("cites"):
             text = f"{text} [1]"

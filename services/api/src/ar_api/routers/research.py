@@ -21,6 +21,7 @@ from ar_domain.research.engine import public_research
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from typing import Any
 
 router = APIRouter()
 
@@ -43,6 +44,13 @@ class RouteBody(ApiModel):
 
 class RoutesBody(ApiModel):
     routes: list[RouteBody] = Field(default_factory=list)
+
+
+def _tenant_id(principal: Principal) -> uuid.UUID:
+    tenant = principal.tenant_id
+    if not isinstance(tenant, uuid.UUID):
+        raise NotFoundError()
+    return tenant
 
 
 def _principal(request: Request) -> Principal:
@@ -73,7 +81,7 @@ def _owned(request: Request, run_id: uuid.UUID) -> dict[str, object]:
 async def start_research(body: ResearchBody, request: Request) -> dict[str, object]:
     principal = _principal(request)
     service = chat(request)
-    tenant = principal.tenant_id
+    tenant = _tenant_id(principal)
     user = uuid.UUID(principal.id)
     conversation_id = body.conversation_id
     if conversation_id is None:
@@ -122,7 +130,7 @@ async def get_research(run_id: uuid.UUID, request: Request) -> dict[str, object]
 async def cancel_research(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     principal = _principal(request)
     _owned(request, run_id)
-    chat(request).cancel_run(principal.tenant_id, uuid.UUID(principal.id), run_id)
+    chat(request).cancel_run(_tenant_id(principal), uuid.UUID(principal.id), run_id)
     return public_research(_owned(request, run_id))
 
 
@@ -160,7 +168,7 @@ async def research_events(run_id: uuid.UUID, request: Request) -> StreamingRespo
     service = chat(request)
 
     async def frames() -> AsyncIterator[bytes]:
-        async for event in service.iter_events(principal.tenant_id, run_id, 0):
+        async for event in service.iter_events(_tenant_id(principal), run_id, 0):
             yield sse_frame(event)
 
     return StreamingResponse(frames(), media_type="text/event-stream")
@@ -188,7 +196,7 @@ async def read_retained_output(
 @expose(public=False, permission="models:read")
 async def list_model_routes(request: Request) -> dict[str, object]:
     principal = _principal(request)
-    rows = routes_for(chat(request), principal.tenant_id)
+    rows = routes_for(chat(request), _tenant_id(principal))
     return {"routes": [public_route(row) for row in rows]}
 
 
@@ -209,11 +217,11 @@ async def put_model_routes(body: RoutesBody, request: Request) -> dict[str, obje
         }
         for item in body.routes
     ]
-    replace_routes(service, principal.tenant_id, saved)
+    replace_routes(service, _tenant_id(principal), saved)
     return {"routes": [public_route(row) for row in saved]}
 
 
-def _key_store(request: Request, response: Response) -> tuple[object, dict[str, object]]:
+def _key_store(request: Request, response: Response) -> tuple[Any, dict[str, Any]]:
     from ar_api.routers.exposure import _require_key, _store  # noqa: PLC0415
 
     key = _require_key(request, response)

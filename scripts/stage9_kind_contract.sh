@@ -80,10 +80,18 @@ if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-m
   exit 1
 fi
 kubectl apply -n "$namespace" -f /tmp/stage9-bootstrap.yaml
+# The job controller deletes the pod once the backoff limit is hit, so follow
+# the log while the wait is in progress.
+kubectl -n "$namespace" logs -f job/agentic-runtime-bootstrap --pod-running-timeout=2m \
+  > /tmp/stage9-bootstrap.log 2>&1 &
+log_pid=$!
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
+  wait "$log_pid" || true
+  cat /tmp/stage9-bootstrap.log || true
   job_logs agentic-runtime-bootstrap
   exit 1
 fi
+kill "$log_pid" >/dev/null 2>&1 || true
 
 echo "waiting for api and worker deployments"
 kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=15m

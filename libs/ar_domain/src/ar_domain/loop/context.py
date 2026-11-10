@@ -51,10 +51,16 @@ def fit_messages(
         next_messages.extend(item for item in kept if isinstance(item, dict))
     if not next_messages:
         return truncated, None
-    before = int(folded.get("tokens_before") or 0)
-    after = int(folded.get("tokens_after") or 0)
+    before = _whole(folded.get("tokens_before"))
+    after = _whole(folded.get("tokens_after"))
     retained["rolling_summary"] = summary
     return next_messages, {"tokens_before": before, "tokens_after": after}
+
+
+def _whole(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return 0
+    return int(value)
 
 
 def retain_output(retained: dict[str, object], text: str) -> str:

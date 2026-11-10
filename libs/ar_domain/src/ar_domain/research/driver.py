@@ -140,6 +140,12 @@ def _emit_from_phase(store: Any, run: dict[str, object]) -> None:
     _emit_progress(store, run, phase or "plan")
 
 
+def _whole(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value
+
+
 def _emit_progress(store: Any, run: dict[str, object], phase: str) -> None:
     if not hasattr(store, "_emit"):
         return
@@ -151,7 +157,7 @@ def _emit_progress(store: Any, run: dict[str, object], phase: str) -> None:
         "research.progress",
         {
             "phase": phase,
-            "depth": int(state.get("depth") or 0),
+            "depth": _whole(state.get("depth")),
             "source_count": len(sources) if isinstance(sources, list) else 0,
             "queries": queries if isinstance(queries, list) else [],
         },

@@ -294,6 +294,10 @@ export function ChatScreen() {
             memories: keep.memories,
             recalled: keep.recalled,
             compacted: keep.compacted,
+            toolFailure: keep.toolFailure,
+            researchPhase: keep.researchPhase,
+            researchQueries: keep.researchQueries,
+            sourceCount: keep.sourceCount,
           }
         : emptyStream,
     );

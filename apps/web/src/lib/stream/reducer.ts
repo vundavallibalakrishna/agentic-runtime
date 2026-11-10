@@ -43,7 +43,7 @@ export type StreamMemory = {
   status: string;
 };
 
-export type ResearchQuery = { id: string; text: string };
+type ResearchQuery = { id: string; text: string };
 
 export type StreamState = {
   status: "idle" | "streaming" | "completed" | "cancelled" | "failed";
