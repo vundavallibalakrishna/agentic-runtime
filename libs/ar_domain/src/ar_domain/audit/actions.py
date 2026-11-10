@@ -191,6 +191,8 @@ class AuditAction(StrEnum):
     DOCUMENT_REWRITE_PROPOSED = "document_rewrite.proposed"
     DOCUMENT_REWRITE_ACCEPTED = "document_rewrite.accepted"
     DOCUMENT_REWRITE_REJECTED = "document_rewrite.rejected"
+    RULE_SET_IMPORTED = "rule_set.imported"
+    DOCUMENT_JUDGED = "document.judged"
     COLLECTION_STORE_MIGRATED = "collection.store_migrated"
     MEMORY_CREATED = "memory.created"
     MEMORY_UPDATED = "memory.updated"

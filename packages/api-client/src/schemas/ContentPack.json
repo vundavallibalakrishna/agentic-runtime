@@ -23,6 +23,13 @@
             }
           ],
           "default": null
+        },
+        "ruleSets": {
+          "items": {
+            "$ref": "#/$defs/RuleSetDef"
+          },
+          "title": "Rulesets",
+          "type": "array"
         }
       },
       "title": "ContentPackSpec",
@@ -131,6 +138,67 @@
       ],
       "title": "PackMetadata",
       "type": "object"
+    },
+    "RuleSetDef": {
+      "additionalProperties": false,
+      "description": "A versioned rule set carried by a pack. Core does not name what it is for.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/RuleSetItemDef"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "sourceFileId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcefileid"
+        },
+        "sha256": {
+          "default": "",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version"
+      ],
+      "title": "RuleSetDef",
+      "type": "object"
+    },
+    "RuleSetItemDef": {
+      "additionalProperties": false,
+      "properties": {
+        "itemId": {
+          "default": "",
+          "title": "Itemid",
+          "type": "string"
+        },
+        "statement": {
+          "default": "",
+          "title": "Statement",
+          "type": "string"
+        }
+      },
+      "title": "RuleSetItemDef",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -153,7 +221,8 @@
       "$ref": "#/$defs/ContentPackSpec",
       "default": {
         "resources": [],
-        "extension": null
+        "extension": null,
+        "ruleSets": []
       }
     }
   },

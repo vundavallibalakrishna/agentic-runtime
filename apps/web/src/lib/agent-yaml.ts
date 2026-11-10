@@ -29,10 +29,11 @@ function emit(value: JsonValue, indent: number): string {
     return quote(value);
   }
   if (Array.isArray(value)) {
-    if (value.length === 0) {
+    const items = value.filter((item) => item !== undefined);
+    if (items.length === 0) {
       return "[]";
     }
-    return value
+    return items
       .map((item) => {
         if (item && typeof item === "object" && !Array.isArray(item)) {
           const body = emit(item, 0);
@@ -45,7 +46,7 @@ function emit(value: JsonValue, indent: number): string {
       })
       .join("\n");
   }
-  const entries = Object.entries(value);
+  const entries = Object.entries(value).filter(([, item]) => item !== undefined);
   if (entries.length === 0) {
     return "{}";
   }

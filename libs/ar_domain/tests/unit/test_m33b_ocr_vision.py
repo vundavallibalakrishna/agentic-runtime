@@ -60,11 +60,12 @@ def test_canary_fixture_lists_the_golden_strings() -> None:
 
 def test_engine_catalogue_marks_cloud_ocr_not_live() -> None:
     report = engine_catalogue()
-    assert report["tesseract"]["status"] == ("live" if tesseract_installed() else "not_live")
-    assert (
-        "tesseract-ocr" in report["tesseract"]["operator"]
-        or report["tesseract"]["status"] == "live"
+    assert report["tesseract"]["status"] == (
+        "unit" if tesseract_installed() else "text_not_extracted"
     )
+    assert report["tesseract"]["proof"] == "unit"
+    assert report["vision"]["proof"] == "unit"
+    assert "vision" in report["vision"]["operator"]
     for name in ("google_document_ai", "aws_textract", "azure_document_intelligence"):
         assert report[name]["status"] == "not_live"
         assert "not_live" in report[name]["operator"]
@@ -125,7 +126,8 @@ def test_scanned_pdf_canary_goes_through_ocr(monkeypatch: pytest.MonkeyPatch) ->
     assert saved["is_error"] is False
     assert seen and seen[0] == b"\xff\xd8\xff"
     assert _matches(str(saved["text"]), _expected())
-    assert saved["structured"]["presentation"]["status"] == "live"  # type: ignore[index]
+    assert saved["structured"]["presentation"]["status"] == "extracted"  # type: ignore[index]
+    assert saved["structured"]["presentation"]["proof"] == "unit"  # type: ignore[index]
 
 
 def test_cloud_ocr_is_not_live_and_stores_nothing() -> None:
@@ -179,7 +181,7 @@ def test_ocr_canary_live() -> None:
     assert _matches(str(scanned["text"]), _expected())
 
 
-def test_missing_tesseract_is_ocr_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_tesseract_is_text_not_extracted(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("ar_domain.documents.extract.shutil.which", lambda _name: None)
     store = demo_store()
     tenant = demo_id("tenant")
@@ -187,7 +189,7 @@ def test_missing_tesseract_is_ocr_unavailable(monkeypatch: pytest.MonkeyPatch) -
         store, tenant, (_FIXTURES / "ocr-canary.png").read_bytes(), "ocr-canary.png", "image/png"
     )
     missing = dispatch_documents(store, "ocr", _args(tenant, demo_id("admin"), fileId=str(file_id)))
-    assert missing["code"] == "ocr_unavailable"
+    assert missing["code"] == "text_not_extracted"
     assert "tesseract" in str(missing["text"]).lower() or "OCR" in str(missing["text"])
 
 

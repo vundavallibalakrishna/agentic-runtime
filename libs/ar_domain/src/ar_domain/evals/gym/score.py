@@ -213,7 +213,9 @@ def _not_found_grounded(task: Task, calls: list[ObservedCall], answer: str, stat
         return False
     blob = _results(calls).lower()
     lowered = answer.lower()
-    tool_says = "not_found" in blob or "not found" in blob
+    tool_says = any(
+        token in blob for token in ("not_found", "not_supported", "not_judged", "not found")
+    )
     answer_says = "not_found" in lowered or "not found" in lowered or "does not contain" in lowered
     clean = all(banned.lower() not in lowered for banned in task.expect.must_not_contain)
     return tool_says and answer_says and clean

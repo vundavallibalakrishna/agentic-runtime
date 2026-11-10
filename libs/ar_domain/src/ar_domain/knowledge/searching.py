@@ -10,7 +10,11 @@ from ar_domain.knowledge.access import (
     principals,
     readable_classes,
 )
-from ar_domain.knowledge.embedding import collection_dims, embed_for_collection
+from ar_domain.knowledge.embedding import (
+    collection_dims,
+    embed_for_collection,
+    refuse_embedding_mismatch,
+)
 from ar_domain.knowledge.fetchers import check_access
 from ar_domain.knowledge.metrics import SEARCH_HITS, SEARCH_SECONDS, UNANSWERABLE
 from ar_domain.knowledge.retrieval import answerable, apply_rerank
@@ -63,6 +67,7 @@ async def search_async(
     targets, collections = _targets(store, actor, collection_ids)
     if not targets:
         return {"hits": [], "answerable": False}
+    refuse_embedding_mismatch(store, collections)
     index = active_index(store)
     fused: list[Any] = []
     # A question is embedded once for each model that indexed a searched collection.

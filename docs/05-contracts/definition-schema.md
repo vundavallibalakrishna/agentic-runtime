@@ -439,7 +439,7 @@ spec:
     mcpServer: sample
 ```
 
-The signature is not inside the manifest. It is a sibling value supplied to `:install` ([spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs)). `spec.resources` follows [§1](#1-bundle-format). Kind `ContentPack` is not itself a member of `spec.resources`. `configSchema` and `ui` are the extension-framework fields ([extension-framework](extension-framework.md)).
+The signature is not inside the manifest. It is a sibling value supplied to `:install` ([spec 05 §10](../03-specs/05-agent-registry.md#10-content-packs)). `spec.resources` follows [§1](#1-bundle-format). Kind `ContentPack` is not itself a member of `spec.resources`. `configSchema` and `ui` are the extension-framework fields ([extension-framework](extension-framework.md)). `spec.ruleSets` is optional versioned content (`id`, `version`, `items` of `itemId` and `statement`, `sourceFileId`, `sha256`). A published version is immutable. Core does not name a framework inside a rule set.
 
 ## 12. Defaults
 

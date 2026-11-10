@@ -26,7 +26,16 @@ def quote_result(content: str) -> str:
         return "The tool returned an empty result."
     lowered = text.lower()
     # The document banner says "not found" even on a hit. Only a verdict counts.
-    missing = "not_found" in lowered or "no sufficiently relevant" in lowered
+    # not_supported and not_judged are the Stage 5 names for a miss.
+    missing = any(
+        token in lowered
+        for token in (
+            "not_found",
+            "not_supported",
+            "not_judged",
+            "no sufficiently relevant",
+        )
+    )
     if missing:
         return f"not_found. The passage was not found.\n{text[:1500]}"
     return text[:1500]

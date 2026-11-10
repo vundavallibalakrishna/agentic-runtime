@@ -11662,6 +11662,74 @@ export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponses = {
 
 export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponse = JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponses[keyof JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostResponses];
 
+export type ImportRuleSetRouteApiV1RuleSetsPostData = {
+    body: RuleSetBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/rule-sets';
+};
+
+export type ImportRuleSetRouteApiV1RuleSetsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ImportRuleSetRouteApiV1RuleSetsPostError = ImportRuleSetRouteApiV1RuleSetsPostErrors[keyof ImportRuleSetRouteApiV1RuleSetsPostErrors];
+
+export type ImportRuleSetRouteApiV1RuleSetsPostResponses = {
+    /**
+     * Response Import Rule Set Route Api V1 Rule Sets Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ImportRuleSetRouteApiV1RuleSetsPostResponse = ImportRuleSetRouteApiV1RuleSetsPostResponses[keyof ImportRuleSetRouteApiV1RuleSetsPostResponses];
+
+export type ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Rule Set Id
+         */
+        rule_set_id: string;
+    };
+    query?: {
+        /**
+         * Version
+         */
+        version?: string;
+    };
+    url: '/api/v1/rule-sets/{rule_set_id}';
+};
+
+export type ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetError = ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetErrors[keyof ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetErrors];
+
+export type ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponses = {
+    /**
+     * Response Export Rule Set Route Api V1 Rule Sets  Rule Set Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponse = ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponses[keyof ExportRuleSetRouteApiV1RuleSetsRuleSetIdGetResponses];
+
 export type DocumentMissingApiV1LibraryDocumentsDocumentIdMissingPostData = {
     body: MissingBody;
     path: {

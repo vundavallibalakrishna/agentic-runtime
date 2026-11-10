@@ -67,16 +67,9 @@ def _document() -> dict[str, object]:
 
 
 def _ask(task: str, evidence: str) -> str:
-    del task
-    if "colony on Mars" in evidence:
-        return (
-            '{"verdict":"not_found","anchor":"","quote":"","confidence":0,'
-            '"reason":"No passage supports a Mars colony."}'
-        )
-    return (
-        '{"verdict":"met","anchor":"p1-s0","quote":"' + QUOTE + '",'
-        '"confidence":0.91,"reason":"A second login challenge is required."}'
-    )
+    if "colony on Mars" in task or "colony on Mars" in evidence:
+        return '{"verdict":"not_supported","passageId":"","quote":""}'
+    return '{"verdict":"supported","passageId":"p1-s0","quote":"' + QUOTE + '"}'
 
 
 def test_analysis_profile_keeps_dates_places_and_control_ids(
@@ -113,8 +106,8 @@ def test_check_input_keeps_evidence_and_cites_the_paraphrase(
     offline = check(_document(), [MFA, MARS], None)
     offline_rows = offline["rows"]
     assert isinstance(offline_rows, list)
-    assert offline_rows[0]["verdict"] == "not_found"  # type: ignore[index]
-    assert offline_rows[1]["verdict"] == "not_found"  # type: ignore[index]
+    assert offline_rows[0]["verdict"] == "not_judged"  # type: ignore[index]
+    assert offline_rows[1]["verdict"] == "not_judged"  # type: ignore[index]
 
     report = check(_document(), [MFA, MARS], ask)
     assert seen
@@ -130,35 +123,33 @@ def test_check_input_keeps_evidence_and_cites_the_paraphrase(
     missing = rows[1]
     assert isinstance(met, dict)
     assert isinstance(missing, dict)
-    assert met["verdict"] == "met"
+    assert met["verdict"] == "supported"
     citation = met["citation"]
     assert isinstance(citation, dict)
     quote = str(citation["quote"])
     assert "login challenge" in quote
     assert "picnic" not in quote.lower()
     assert quote in PASSAGE
-    assert missing["verdict"] == "not_found"
+    assert missing["verdict"] == "not_supported"
     assert missing["citation"] is None
 
 
-def test_near_miss_quote_cites_the_supporting_sentence(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_near_miss_quote_is_not_supported(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("ar_domain.pii.analyzer._presidio", _fake_presidio)
 
     def ask(task: str, evidence: str) -> str:
         del task, evidence
         return (
-            '{"verdict":"met","anchor":"p1-s0",'
-            '"quote":"second login challenge before opening production",'
-            '"confidence":0.8,"reason":"The control is implemented."}'
+            '{"verdict":"supported","passageId":"p1-s0",'
+            '"quote":"second login challenge before opening production"}'
         )
 
     report = check(_document(), [MFA], ask)
     row = report["rows"][0]  # type: ignore[index]
     assert isinstance(row, dict)
-    quote = str(row["citation"]["quote"])  # type: ignore[index]
-    assert "login challenge" in quote
-    assert "picnic" not in quote.lower()
-    assert quote in PASSAGE
+    assert row["verdict"] == "not_supported"
+    assert row["citation"] is None
+    assert row["quote"] == ""
 
 
 def test_aggressive_setting_masks_the_model_input(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -168,7 +159,7 @@ def test_aggressive_setting_masks_the_model_input(monkeypatch: pytest.MonkeyPatc
     def ask(task: str, evidence: str) -> str:
         del task
         seen.append(evidence)
-        return '{"verdict":"not_found","quote":"","reason":"masked","confidence":0}'
+        return '{"verdict":"not_supported","passageId":"","quote":""}'
 
     check(_document(), [MFA], ask, aggressive=True)
     assert seen

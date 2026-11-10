@@ -1,6 +1,6 @@
 # Spec 24: Document library
 
-A tenant uploads a file or an agent finds one. The platform extracts text, headings, tables and page anchors, stores that extraction in Postgres, and lets any agent read it. The bytes of the original upload stay on the process file store (OQ-59). The extraction is the durable document.
+A tenant uploads a file or an agent finds one. The platform stores the original bytes in the object store, keeps their sha256 and object key on the library row, and stores the extracted passages beside that key. Retrieval and citations point at those stored passages. The extraction is not a substitute for the original.
 
 Document text is untrusted data. It is wrapped before it enters a model prompt. A claim cites an anchor that exists on the document. When no passage supports the claim, the result says so.
 
@@ -16,15 +16,17 @@ Errors:
 | `corrupt` | The file is empty or cannot be parsed |
 | `unsupported` | The type is not in the list above |
 | `too_many_pages` | More than 600 pages |
-| `ocr_unavailable` | An image or a scanned page needs OCR and tesseract is not installed |
+| `ocr_unavailable` | Tesseract ran and could not finish (for example it timed out) |
+| `text_not_extracted` | An image or a scanned page had no reader, or the reader returned no text |
+| `not_unicode` | A PDF's extracted text is not Unicode |
 | `no_text` | Parsing succeeded and no text was found |
 | infected | The upload scanner rejects the bytes. Nothing is stored |
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `check`, `gaps`, `rewrite`, `redact`, `extract`, `create`, `ocr`, `fill_questionnaire`.
+Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `judge`, `missing`, `rewrite`, `redact`, `extract`, `create`, `ocr`.
 
-`ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. A file is read with local tesseract and stored once, the same way as `ingest`. `documentId` returns text already stored. Another tenant receives 404. `engine` defaults to `tesseract`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and do not call those providers. A missing tesseract binary is `ocr_unavailable`.
+`ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. `engine` defaults to `tesseract`, which is proof `unit` (a local binary, not a model). `engine` `vision` uses the configured vision alias. That result is proof `live` only when the model answers, and the result names the model id and the date. Otherwise the result is `text_not_extracted` and the proof stays `unit`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and are not called. A PDF is Unicode text, or the tool returns `not_unicode` or `text_not_extracted`.
 
 `image.ask` is server `builtin://image`, tool `ask`. It takes `fileId`, a workspace `path`, or a `url`, plus `question`. The image is PNG, JPEG, GIF or WebP, at most 8 MB. A PDF is refused; the caller uses `documents.ocr`. The call uses the agent `visionAlias` when it is set, otherwise the alias `vision`, through the same sealed provider key as chat. The key is not logged and is not returned. A fake alias, or a model that is not vision-capable, returns `vision_unavailable` and does not send the image. The image is untrusted data.
 
@@ -32,7 +34,9 @@ Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outlin
 
 `read` returns at most 12,000 characters. A longer file is searched and read by page or anchor.
 
-`check` takes `requirements` or `standardDocumentId`. Each row is `met`, `partial` or `not_found`, with a citation and a confidence. `not_found` has no citation. When a model is configured, it judges the requirement from the retrieved passages (the whole document when it fits the retrieval budget), including a paraphrase, and the citation is the supporting sentence. A lexical overlap floor does not skip that call. Without a model, a requirement that shares too few words is `not_found`.
+`judge` takes `ruleSetId`, `statements`, or an inline `ruleSet` (`id`, `version`, `items` of `itemId` and `statement`, `sourceFileId`, `sha256`). `missing` returns the rows that are not `supported`. A published rule-set version is immutable. `POST /api/v1/rule-sets` imports one and `GET /api/v1/rule-sets/{ruleSetId}` exports it. Another tenant receives 404.
+
+A verdict is `supported` only when `quote` is a substring of the named stored passage. A quote that is not in that passage is `not_supported`. Lexical overlap is `not_judged` and is never a verdict. A model response that is not the schema is `failed`. Every row records the model id, the prompt hash, the rule-set id and the rule-set version. Library search uses the same stored-passage retrieval as a judgement.
 
 `rewrite` stores a proposal. Accepting a change updates the passage. Rejecting leaves it.
 

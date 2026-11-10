@@ -65,7 +65,7 @@ def test_library_upload_and_cross_tenant_404() -> None:
         json={"statements": ["Staff use badges", "Operate a colony on Mars"]},
     )
     assert checked.status_code == 200, checked.text
-    assert checked.json()["rows"][1]["verdict"] == "not_found"
+    assert checked.json()["rows"][1]["verdict"] in {"not_judged", "not_supported", "failed"}
     redacted = client.post(f"/api/v1/library-documents/{document_id}:redact")
     assert redacted.status_code == 200
     rewrite = client.post(
@@ -99,3 +99,20 @@ def test_library_upload_and_cross_tenant_404() -> None:
         ).status_code
         == 404
     )
+
+
+def test_rule_set_import_is_hidden_from_another_tenant() -> None:
+    client, holder = _client()
+    created = client.post(
+        "/api/v1/rule-sets",
+        json={
+            "id": "door-access",
+            "version": "1",
+            "items": [{"itemId": "badges", "statement": "Staff use badges at the door."}],
+        },
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["id"] == "door-access"
+    holder["tenant"] = uuid.uuid4()
+    hidden = client.get("/api/v1/rule-sets/door-access", params={"version": "1"})
+    assert hidden.status_code == 404

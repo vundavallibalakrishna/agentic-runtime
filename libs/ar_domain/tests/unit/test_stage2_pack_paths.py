@@ -398,8 +398,13 @@ def test_judge_stores_a_rule_set_and_reads_it_back() -> None:
     )
     assert report["rule_set_version"] == "3"
     assert report["kind"] == "judge"
-    assert bucket(store, "rule_sets")["access-rules"]["sha256"] == "abc"
-    bucket(store, "rule_sets")["broken"] = "nope"  # type: ignore[assignment]
+    stored = next(
+        row
+        for row in store.rule_sets.values()
+        if isinstance(row, dict) and row.get("set_id") == "access-rules"
+    )
+    assert stored["sha256"] == "abc"
+    store.rule_sets[uuid.uuid4()] = "nope"  # type: ignore[assignment]
     library.judge(actor, subject_id, statements=["Trips need approval"], rule_set_id="broken")
     named = library.missing(
         actor,

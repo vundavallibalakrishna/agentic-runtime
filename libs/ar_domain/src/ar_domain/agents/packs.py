@@ -161,6 +161,10 @@ class PackService:
             body = self._out(existing)
             body["import_results"] = []
             return body
+        for rule_set in parsed.spec.rule_sets:
+            from ar_domain.documents.rules import import_rule_set  # noqa: PLC0415
+
+            import_rule_set(self.store, actor, rule_set.model_dump(by_alias=False))
         imported = import_bundle(
             self.store,
             actor,

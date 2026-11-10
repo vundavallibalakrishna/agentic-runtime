@@ -1,4 +1,4 @@
-"""Library documents. Schema section 31. Revision 0026."""
+"""Library documents, rule sets and judgements. Schema section 31."""
 
 import uuid  # noqa: TC003
 from datetime import datetime  # noqa: TC003
@@ -21,7 +21,7 @@ from ar_domain.db.types import created_at_col, updated_at_col, uuid_pk
 
 
 class LibraryDocument(Base):
-    """Extracted document. The original upload bytes stay out of this table."""
+    """Extracted document. Original bytes live in the object store at ``object_key``."""
 
     __tablename__ = "library_documents"
     __table_args__ = (
@@ -44,6 +44,7 @@ class LibraryDocument(Base):
     source: Mapped[str] = mapped_column(Text, nullable=False)
     source_ref: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    object_key: Mapped[str | None] = mapped_column(Text)
     size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'ready'"))
     error_code: Mapped[str | None] = mapped_column(Text)
@@ -139,3 +140,64 @@ class DocumentRewrite(Base):
     )
     created_at: Mapped[datetime] = created_at_col()
     updated_at: Mapped[datetime] = updated_at_col()
+
+
+class RuleSet(Base):
+    """One immutable version of a tenant rule set."""
+
+    __tablename__ = "rule_sets"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "set_id", "version", name="uq_rule_sets_version"),
+        Index("ix_rule_sets_tenant", "tenant_id", "set_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    set_id: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[str] = mapped_column(Text, nullable=False)
+    items: Mapped[list[object]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    source_file_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("library_documents.id", ondelete="SET NULL")
+    )
+    sha256: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = created_at_col()
+
+
+class Judgement(Base):
+    """One quote check. Append-only."""
+
+    __tablename__ = "judgements"
+    __table_args__ = (
+        CheckConstraint(
+            "verdict IN ('supported','not_supported','not_judged','failed')",
+            name="verdict",
+        ),
+        Index("ix_judgements_document", "tenant_id", "document_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("library_documents.id", ondelete="CASCADE"), nullable=False
+    )
+    rule_set_id: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    rule_set_version: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    item_id: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    verdict: Mapped[str] = mapped_column(Text, nullable=False)
+    passage_id: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    quote: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    model_id: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    prompt_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = created_at_col()

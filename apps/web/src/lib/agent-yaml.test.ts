@@ -23,11 +23,15 @@ describe("agent yaml", () => {
     expect(() => yamlToDefinition("instructions hello")).toThrow(/YAML/);
   });
 
-  it("treats a missing map as an empty object", () => {
+  it("omits a key whose value is undefined", () => {
     const dirty = {
       tools: [{ server: "data", version: "*", include: ["query"], overrides: undefined }],
     } as unknown as JsonValue;
-    expect(definitionToYaml(dirty)).toContain("overrides: {}");
+    const text = definitionToYaml(dirty);
+    expect(text).not.toContain("overrides");
+    expect(yamlToDefinition(text)).toEqual({
+      tools: [{ server: "data", version: "*", include: ["query"] }],
+    });
   });
 
   it("keeps a null value through a round trip", () => {

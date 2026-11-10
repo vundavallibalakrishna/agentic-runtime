@@ -202,6 +202,7 @@ async def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in
         lexical = "\n".join(
             part for part in (prefix, " / ".join(draft.heading_path), draft.text) if part
         )
+        collection = store.knowledge_collections[document["collection_id"]]
         store.document_chunks[chunk_id] = {
             "id": chunk_id,
             "tenant_id": document["tenant_id"],
@@ -214,6 +215,7 @@ async def _replace_chunks(  # noqa: PLR0917 - ingest writes every chunk field in
             "page_to": draft.page_to,
             "token_count": draft.token_count,
             "index_version": version,
+            "embedding_model_id": collection.get("embedding_model_id"),
             "created_at": utcnow(),
         }
         chunks.append(

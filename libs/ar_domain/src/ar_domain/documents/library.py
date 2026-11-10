@@ -1,4 +1,8 @@
-"""Tenant document library. Extracted rows survive a restart. The bytes do not."""
+"""Tenant document library.
+
+Original bytes live in the object store under the row's key. The row keeps the
+sha256 and the derived passages. Retrieval and citations point at those passages.
+"""
 
 from __future__ import annotations
 
@@ -15,21 +19,22 @@ from ar_common.errors import (
 )
 from ar_common.ids import new_id
 from ar_common.time import utcnow
-from ar_domain.documents.chunk import passage_dicts
+from ar_domain.documents.chunk import passage_dicts, retrieve, score
 from ar_domain.documents.extract import Extracted, ExtractError, extract_bytes
 from ar_domain.documents.grounding import (
     apply_hunks,
-    check,
     compare,
     extract_fields,
-    gaps,
     line_hunks,
     redaction_preview,
     requirements_from,
     rewrite_text,
     summarise,
 )
-from ar_domain.documents.model import ask_model
+from ar_domain.documents.judgement import judge_items
+from ar_domain.documents.model import ask_model, model_id_for
+from ar_domain.documents.originals import read_original, store_original
+from ar_domain.documents.rules import remember
 from ar_domain.files.logic import scan_bytes
 from ar_domain.security.guardrails import analysis_redaction_enabled
 
@@ -74,6 +79,14 @@ class DocumentLibrary:
         digest = hashlib.sha256(data).hexdigest()
         existing = self._by_hash(actor.tenant_id, digest)
         if existing is not None:
+            if not existing.get("object_key"):
+                existing["object_key"] = store_original(
+                    self.store,
+                    tenant_id=actor.tenant_id,
+                    document_id=_as_uuid(existing.get("id")) or new_id(),
+                    data=data,
+                    media_type=str(existing.get("media_type") or media_type),
+                )
             view = self._view(existing)
             view["deduped"] = True
             return view
@@ -98,6 +111,13 @@ class DocumentLibrary:
             raise ValidationFailedError("The extraction could not be stored.")
         now = utcnow()
         document_id = new_id()
+        object_key = store_original(
+            self.store,
+            tenant_id=actor.tenant_id,
+            document_id=document_id,
+            data=data,
+            media_type=extracted.media_type or media_type,
+        )
         row = {
             "id": document_id,
             "tenant_id": actor.tenant_id,
@@ -108,6 +128,7 @@ class DocumentLibrary:
             "source": source,
             "source_ref": source_ref[:500],
             "content_hash": digest,
+            "object_key": object_key,
             "size_bytes": len(data),
             "status": "ready",
             "error_code": None,
@@ -164,27 +185,30 @@ class DocumentLibrary:
         return {"document_id": str(document_id), "tables": _rows(row.get("tables"))}
 
     def search(self, actor: Actor, query: str) -> list[dict[str, object]]:
-        from ar_domain.documents.chunk import score  # noqa: PLC0415
-
+        """One retrieval path: stored passages, scored by ``retrieve``."""
         hits: list[dict[str, object]] = []
         for row in self.store.library_documents.values():
             if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
                 continue
-            for passage in _rows(row.get("passages")):
-                weight = score(query, str(passage.get("text") or ""))
-                if weight <= 0 and query.lower() not in str(passage.get("text") or "").lower():
+            passages = _rows(row.get("passages"))
+            for passage in retrieve(passages, query):
+                text = str(passage.get("text") or "")
+                weight = score(query, text)
+                if weight <= 0 and query.lower() not in text.lower():
                     continue
                 if weight <= 0:
                     weight = 0.1
-                text = str(passage.get("text") or "")
+                anchor = str(passage.get("anchor") or "")
                 hits.append(
                     {
                         "document_id": str(row.get("id")),
                         "title": row.get("title"),
-                        "anchor": passage.get("anchor"),
+                        "passage_id": anchor,
+                        "anchor": anchor,
                         "page": passage.get("page"),
                         "heading": passage.get("heading"),
                         "snippet": text[:240],
+                        "content_hash": row.get("content_hash"),
                         "score": round(weight, 2),
                     }
                 )
@@ -286,21 +310,31 @@ class DocumentLibrary:
         agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         row = self._own(actor, document_id)
-        items, source_id, set_id, version = self._rule_statements(
+        pairs, source_id, set_id, version = self._rule_statements(
             actor, statements, rule_set_id=rule_set_id, rule_set=rule_set
         )
-        result = check(
+        chosen = alias or "reasoning"
+        rows = judge_items(
             row,
-            items[:40],
-            self._ask(actor, alias),
-            label=label,
+            pairs[:40],
+            self._ask(actor, chosen),
+            model_id=model_id_for(self.store, actor.tenant_id, chosen),
+            rule_set_id=set_id,
+            rule_set_version=version,
             aggressive=self._aggressive(actor, agent_version_id),
         )
-        result["kind"] = "judge"
-        result["rule_set_id"] = set_id
-        result["rule_set_version"] = version
+        result: dict[str, object] = {
+            "kind": "judge",
+            "document_id": str(document_id),
+            "label": label,
+            "rows": rows,
+            "rule_set_id": set_id,
+            "rule_set_version": version,
+            "model_used": any(bool(item.get("model")) for item in rows),
+        }
         check_id = new_id()
         now = utcnow()
+        self._record_judgements(actor, document_id, rows, now)
         self.store.document_checks[check_id] = {
             "id": check_id,
             "tenant_id": actor.tenant_id,
@@ -328,20 +362,34 @@ class DocumentLibrary:
         alias: str = "",
         agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
+        del agent_version_id
+        report = dict(
+            self.judge(
+                actor,
+                document_id,
+                statements=statements,
+                rule_set_id=rule_set_id,
+                rule_set=rule_set,
+                alias=alias,
+            )
+        )
+        raw = report.get("rows")
+        rows = raw if isinstance(raw, list) else []
+        report["kind"] = "missing"
+        report["rows"] = [
+            row for row in rows if isinstance(row, dict) and row.get("verdict") != "supported"
+        ]
+        return report
+
+    def original(self, actor: Actor, document_id: uuid.UUID) -> bytes:
+        """The stored original. A hash mismatch is a failure, not the derived text."""
         row = self._own(actor, document_id)
-        items, _source, set_id, version = self._rule_statements(
-            actor, statements, rule_set_id=rule_set_id, rule_set=rule_set
-        )
-        result = gaps(
-            row,
-            items[:40],
-            self._ask(actor, alias),
-            aggressive=self._aggressive(actor, agent_version_id),
-        )
-        result["kind"] = "missing"
-        result["rule_set_id"] = set_id
-        result["rule_set_version"] = version
-        return result
+        data = read_original(self.store, str(row.get("object_key") or ""))
+        if data is None:
+            raise NotFoundError()
+        if hashlib.sha256(data).hexdigest() != row.get("content_hash"):
+            raise ValidationFailedError("The stored file does not match its content hash.")
+        return data
 
     def _rule_statements(
         self,
@@ -350,44 +398,53 @@ class DocumentLibrary:
         *,
         rule_set_id: str,
         rule_set: dict[str, object] | None,
-    ) -> tuple[list[str], uuid.UUID | None, str, str]:
+    ) -> tuple[list[tuple[str, str]], uuid.UUID | None, str, str]:
         """Statements from the caller, an inline rule set, or one stored earlier."""
-        from ar_domain.records.memory import bucket  # noqa: PLC0415
-
-        items = [item.strip() for item in statements if item.strip()]
-        source_id: uuid.UUID | None = None
-        set_id = rule_set_id.strip()
-        version = ""
-        payload = rule_set if isinstance(rule_set, dict) else None
-        if set_id and payload is None:
-            stored = bucket(self.store, "rule_sets").get(set_id)
-            payload = stored if isinstance(stored, dict) else None
-        if payload is not None:
-            set_id = set_id or str(payload.get("id") or "")
-            version = str(payload.get("version") or "")
-            raw_items = payload.get("items")
-            if isinstance(raw_items, list):
-                for item in raw_items:
-                    if isinstance(item, dict):
-                        text = str(item.get("statement") or "").strip()
-                    else:
-                        text = str(item).strip()
-                    if text:
-                        items.append(text)
-            source_id = _as_uuid(payload.get("sourceFileId") or payload.get("source_file_id"))
-            if set_id:
-                bucket(self.store, "rule_sets")[set_id] = {
-                    "id": set_id,
-                    "version": version,
-                    "items": [{"statement": item} for item in items],
-                    "source_file_id": source_id,
-                    "sha256": str(payload.get("sha256") or ""),
-                }
+        items, set_id, version, source_id = remember(
+            self.store,
+            actor,
+            rule_set if isinstance(rule_set, dict) else None,
+            statements=statements,
+            rule_set_id=rule_set_id,
+        )
         if source_id is not None:
-            items.extend(requirements_from(self._own(actor, source_id)))
+            for index, text in enumerate(requirements_from(self._own(actor, source_id)), start=1):
+                items.append((f"r{index}", text))
         if not items:
             raise ValidationFailedError("Provide a rule set or a list of statements.")
         return items, source_id, set_id, version
+
+    def _record_judgements(
+        self,
+        actor: Actor,
+        document_id: uuid.UUID,
+        rows: list[dict[str, object]],
+        now: object,
+    ) -> None:
+        bucket = self.store.judgements
+        for row in rows:
+            judgement_id = new_id()
+            bucket[judgement_id] = {
+                "id": judgement_id,
+                "tenant_id": actor.tenant_id,
+                "document_id": document_id,
+                "rule_set_id": row.get("rule_set_id") or "",
+                "rule_set_version": row.get("rule_set_version") or "",
+                "item_id": row.get("item_id") or "",
+                "verdict": row.get("verdict") or "failed",
+                "passage_id": row.get("passage_id") or "",
+                "quote": row.get("quote") or "",
+                "model_id": row.get("model_id") or "",
+                "prompt_hash": row.get("prompt_hash") or "",
+                "created_by": actor.user_id,
+                "created_at": now,
+            }
+        self._audit(
+            actor,
+            "document.judged",
+            document_id,
+            {"count": len(rows)},
+        )
 
     def redact(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         row = self._own(actor, document_id)
@@ -601,6 +658,8 @@ class DocumentLibrary:
             "document_checks",
             "document_comparisons",
             "document_rewrites",
+            "rule_sets",
+            "judgements",
         ):
             if not isinstance(getattr(self.store, name, None), dict):
                 setattr(self.store, name, {})
@@ -616,6 +675,7 @@ class DocumentLibrary:
             "source": row.get("source"),
             "source_ref": row.get("source_ref"),
             "content_hash": row.get("content_hash"),
+            "object_key": row.get("object_key") or "",
             "size_bytes": row.get("size_bytes"),
             "status": row.get("status"),
             "page_count": row.get("page_count"),
