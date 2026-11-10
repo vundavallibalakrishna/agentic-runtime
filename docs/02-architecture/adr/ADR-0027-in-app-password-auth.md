@@ -1,6 +1,6 @@
 # ADR-0027: In-app userid/password sign-in; no external identity provider
 
-- Status: Accepted
+- Status: Accepted for the documented dev and single-tenant password mode. Production identity is [ADR-0031](ADR-0031-oidc-production-identity.md) (2026-11-10). This password check is not the Helm default.
 - Date: 2026-11-09
 
 ## Context

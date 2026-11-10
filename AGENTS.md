@@ -10,7 +10,7 @@ Full text: [docs/00-overview/principles.md](docs/00-overview/principles.md). The
 
 1. **camelCase on the wire.** Public JSON (REST, SSE, webhooks, definition files the UI shows) uses camelCase properties. Python stays snake_case via `ar_contracts.api_model.ApiModel` (`alias_generator=to_camel`, `populate_by_name=True`, `serialize_by_alias=True`). Database columns and env vars are unchanged. CI runs `scripts/check_public_camel_case.py`.
 2. **Demo-grade UI.** The primary create-agent path is a natural-language instruction handled by the built-in `builder` agent, with a reviewable preview and a form/YAML escape hatch. Empty, loading, and error states are mandatory. Bar: [ux-quality](docs/08-quality/ux-quality.md). Visual design follows [design-system](docs/08-quality/design-system.md): tokens in `apps/web/src/app/globals.css`, no new hex colours in feature code, light and dark both finished, theme defaults to the system preference.
-3. **No industry in core.** Evidence, sign-off, segregation of duties, legal hold, retention, the AI register, external participants, and binders are generic. New capabilities are packs or connector plugins ([extension-framework](docs/05-contracts/extension-framework.md)). The former industry pack was removed in M30.
+3. **Agnostic core.** Core has no industry in it. Records-as-a-product (the evidence vault, legal holds, binders, the AI register, guest packets, and the questionnaire product) ships only as an optional signed pack. Four-eyes and the security audit log stay in core. New capabilities are packs or connector plugins ([extension-framework](docs/05-contracts/extension-framework.md)). Decisions: [ADR-0028](docs/02-architecture/adr/ADR-0028-agnostic-core.md) and the [production plan](docs/09-plan/agnostic-production-plan.md).
 4. **The product is the generic platform.** A customer connects a model, builds agents, and gives them tools, connectors, skills and files.
 5. **Defaults.** A tenant works after secrets and identity. Every other setting has a default. Settings UI has Simple and Advanced modes.
 6. **North star.** A corporate assistant with its own computer, in the customer's environment, able to automate any work ([vision](docs/00-overview/vision.md)).
@@ -64,10 +64,10 @@ So:
 
 ## How work is picked and tracked
 
-1. The owner's request comes first. Without one, take the next open task in [M38b](docs/09-plan/M38b-real-tenant.md), then [M38a](docs/09-plan/M38a-one-model-path.md), [M38](docs/09-plan/M38-tool-framework.md) and the milestones after them ([tool review](docs/testing/tools-review-2026-11-05/tools-review.md)), then the open items in the November review's phases and [M32-hardening](docs/09-plan/M32-hardening.md).
+1. The owner's request comes first. Without one, take the next stage in the [agnostic production plan](docs/09-plan/agnostic-production-plan.md): the lowest-numbered stage whose dependencies are done. Future work is tracked by those stages, not by new M-numbers. M41-M43 have landed; [progress.md](docs/09-plan/progress.md) records the shas.
 2. Earlier milestone files record how the platform was built. Use them as history and do not re-implement a task marked `done` in [progress.md](docs/09-plan/progress.md).
-3. New work gets a task in a milestone file, written in the [plan's task format](docs/09-plan/README.md#task-format), with a row in the plan's milestone table if the milestone is new. Never renumber a task; split one as `M{n}-T{nn}a`.
-4. Mark the task `in_progress` in `progress.md`, then `done` with the commit sha. One task per pull request unless the task says otherwise.
+3. Do not open a new M-number. A change belongs to the stage it implements. Milestone files stay as history; never renumber a task that is already there.
+4. Record the stage result in [progress.md](docs/09-plan/progress.md) with the commit sha. One stage per pull request unless the stage says otherwise.
 5. A pull request that changes a screen includes **How to test visually**, as defined in the plan's [Visual test](docs/09-plan/README.md#visual-test) section: exact start commands, seeded login and data, and a numbered click-through with expected results.
 
 ## Running and checking

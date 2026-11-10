@@ -1,6 +1,6 @@
 # Architecture decision records
 
-Format: context, decision, consequences, alternatives. Status of all records below: **Accepted** (2026-10-20). New ADRs take the next number; superseded ADRs are kept and marked.
+Format: context, decision, consequences, alternatives. New ADRs take the next number; superseded ADRs are kept and marked. Each record carries its own status and date.
 
 | ADR | Title |
 |---|---|
@@ -30,4 +30,11 @@ Format: context, decision, consequences, alternatives. Status of all records bel
 | [ADR-0024](ADR-0024-guest-principals.md) | External participants are guest principals, not users |
 | [ADR-0025](ADR-0025-output-signoff.md) | Sign-off binds a statement and a content hash, separate from tool-call approval |
 | [ADR-0026](ADR-0026-public-json-camel-case.md) | Public JSON is camelCase |
-| [ADR-0027](ADR-0027-in-app-password-auth.md) | In-app userid/password sign-in; no external identity provider (supersedes ADR-0011) |
+| [ADR-0027](ADR-0027-in-app-password-auth.md) | In-app userid/password sign-in; no external identity provider (supersedes ADR-0011). Production default is ADR-0031 |
+| [ADR-0028](ADR-0028-agnostic-core.md) | Agnostic core; records-as-a-product moves to a pack (2026-11-10) |
+| [ADR-0029](ADR-0029-generic-judgements.md) | Generic judgements over a versioned rule set (2026-11-10) |
+| [ADR-0030](ADR-0030-production-topology.md) | Production topology: stateless API, worker loop, tool gateway, pods (2026-11-10) |
+| [ADR-0031](ADR-0031-oidc-production-identity.md) | Production identity is OIDC; local passwords are not the Helm default (2026-11-10) |
+| [ADR-0032](ADR-0032-proof-labels.md) | Proof labels are unit, contract, and live (2026-11-10) |
+| [ADR-0033](ADR-0033-postgres-read-model.md) | Postgres is the API read model (2026-11-10) |
+| [ADR-0034](ADR-0034-signed-pack-model.md) | Signed pack manifest; core never imports a pack (2026-11-10) |
