@@ -235,7 +235,7 @@ Status: done. After Stage 8.
 - Two instances on shared Valkey and Postgres see the same session, window, standing approval and review queue.
 - The runtime worker registers the sandbox manager launcher. Tool steps that need a sandbox go through the manager. The sandbox image bakes Chromium, LibreOffice and the pinned data libraries. The in-process browser is dev and CI only.
 - `scripts/check_api_catalogue.py` fails CI when the catalogue and `openapi.json` disagree on method and path.
-- A kind job installs the chart with 2 API replicas and 2 workers and runs the contract scenarios (fake-llm). `scripts/certify_live.sh` is the live run against `AR_LLM_BASE_URL` / `AR_LLM_API_KEY` (default Qwen3-32B on DeepInfra). Without a key the scorecard is `contract` and the live run stays pending.
+- A kind job installs the chart with 2 API replicas and 2 workers and runs the contract scenarios (fake-llm). Bundled Postgres creates `ar_owner` during database init, before the migrate Job, for both CloudNativePG and the dev StatefulSet. `scripts/certify_live.sh` is the live run against `AR_LLM_BASE_URL` / `AR_LLM_API_KEY` (default Qwen3-32B on DeepInfra). Without a key the scorecard is `contract` and the live run stays pending.
 
 Proof label: `unit` for boot refusal; `contract` for two instances and the kind job; `live` only from `scripts/certify_live.sh` when a real model key is set.
 

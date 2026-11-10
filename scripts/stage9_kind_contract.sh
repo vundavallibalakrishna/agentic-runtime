@@ -51,17 +51,6 @@ echo "waiting for Postgres and Valkey"
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-postgres --timeout=10m
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-valkey --timeout=5m
 
-echo "creating the migration role"
-# The bundled Postgres superuser is ar_app. Alembic rewrites that URL to ar_owner,
-# which does not exist until the first revision. Create it first.
-kubectl -n "$namespace" exec statefulset/agentic-runtime-postgres -- \
-  env PGPASSWORD=ar-install-db psql -U ar_app -d ar -v ON_ERROR_STOP=1 -c \
-  "DO \$\$ BEGIN
-     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_owner') THEN
-       CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS;
-     END IF;
-   END \$\$;"
-
 echo "migrating and bootstrapping"
 helm template agentic-runtime deploy/helm/agentic-runtime \
   --namespace "$namespace" \
