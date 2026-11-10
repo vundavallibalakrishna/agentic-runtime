@@ -484,6 +484,33 @@ def _connection(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     return {"tables": ["public.orders"], "columns_deny": [], "row_limit": 1000}
 
 
+def _resolve_collection_ids(raw: object, collections: list[dict[str, object]]) -> list[str]:
+    """Turn a model's ``collection_ids`` into real collection ids.
+
+    The model only sees collection names in its context, so it often passes a name, a slug
+    or a hallucinated id instead of a uuid. Accept any of a uuid, a slug or a name
+    (case-insensitive), matched against the collections the person can read, and drop
+    anything that does not match — so a bad id never crashes the search, and the handler
+    falls back to searching every readable collection.
+    """
+    if not isinstance(raw, list):
+        return []
+    by_id = {str(row["id"]): str(row["id"]) for row in collections}
+    by_slug = {
+        str(row.get("slug") or "").lower(): str(row["id"]) for row in collections if row.get("slug")
+    }
+    by_name = {
+        str(row.get("name") or "").lower(): str(row["id"]) for row in collections if row.get("name")
+    }
+    resolved: list[str] = []
+    for item in raw:
+        key = str(item).strip()
+        match = by_id.get(key) or by_slug.get(key.lower()) or by_name.get(key.lower())
+        if match and match not in resolved:
+            resolved.append(match)
+    return resolved
+
+
 def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
     from ar_domain.agents.access import Actor  # noqa: PLC0415
     from ar_domain.knowledge.book import KnowledgeBook  # noqa: PLC0415
@@ -511,9 +538,14 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         }
     if name != "search":
         return _error("unknown_tool", f"unknown tool {name}")
-    raw_ids = arguments.get("collection_ids")
-    if not isinstance(raw_ids, list) or not raw_ids:
-        raw_ids = [row["id"] for row in book.list_collections(actor)]
+    collections = book.list_collections(actor)
+    raw_ids: list[object] = list(
+        _resolve_collection_ids(arguments.get("collection_ids"), collections)
+    )
+    if not raw_ids:
+        # None given, or none matched a readable collection: search them all, as the tool's
+        # description promises ("omit to search every collection the person can read").
+        raw_ids = [row["id"] for row in collections]
     raw_top = arguments.get("top_k")
     top_k = raw_top if isinstance(raw_top, int) and not isinstance(raw_top, bool) else 8
     try:

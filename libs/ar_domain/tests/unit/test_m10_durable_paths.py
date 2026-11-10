@@ -673,14 +673,25 @@ async def test_ingest_uses_the_worker_when_temporal_is_up(monkeypatch: pytest.Mo
 
 
 def test_active_index_uses_pgvector_when_bound() -> None:
-    holder = SimpleNamespace(durable=False, durable_engine=None, pg_index=None)
-    assert active_index(holder) is not None
-    cached = object()
-    bound = SimpleNamespace(durable=True, durable_engine=object(), pg_index=cached)
-    assert active_index(bound) is cached
-    fresh = SimpleNamespace(durable=True, durable_engine=object(), pg_index=None)
-    created = active_index(fresh)
-    assert fresh.pg_index is created
+    from ar_domain.knowledge.store_pgvector import PgVectorStore
+
+    # Not durable: the in-process memory index, not pgvector.
+    holder = SimpleNamespace(durable=False, durable_engine=None)
+    assert not isinstance(active_index(holder), PgVectorStore)
+
+    # Durable + an engine: a pgvector store with its own engine on the current loop. The
+    # store is not shared or cached across calls, because an asyncpg pool belongs to the
+    # loop it was built on and a tool call reaches here on a different (run_sync) loop.
+    class _Url:
+        def render_as_string(self, *, hide_password: bool = True) -> str:
+            del hide_password
+            return "postgresql+asyncpg://ar_app:ar_app@localhost:5432/agentic_runtime"
+
+    bound = SimpleNamespace(durable=True, durable_engine=SimpleNamespace(url=_Url()))
+    store = active_index(bound)
+    assert isinstance(store, PgVectorStore)
+    assert store.backend == "pgvector"
+    assert active_index(bound) is not store
 
 
 @pytest.mark.asyncio
