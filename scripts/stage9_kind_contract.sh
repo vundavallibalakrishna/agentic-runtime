@@ -67,23 +67,31 @@ for doc in docs:
     if "name: agentic-runtime-bootstrap" in doc:
         Path("/tmp/stage9-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
 PY
-job_logs() {
+wait_job() {
   local job="$1"
-  kubectl -n "$namespace" get pods -l "job-name=${job}" -o wide || true
-  kubectl -n "$namespace" describe "job/${job}" || true
-  kubectl -n "$namespace" logs "job/${job}" --tail=200 --request-timeout=20s || true
+  local logfile="/tmp/${job}.log"
+  : > "$logfile"
+  kubectl -n "$namespace" logs -f "job/${job}" --tail=400 > "$logfile" 2>&1 &
+  local logpid=$!
+  local ok=0
+  if kubectl -n "$namespace" wait --for=condition=complete "job/${job}" --timeout=8m; then
+    ok=1
+  fi
+  sleep 2
+  kill "$logpid" 2>/dev/null || true
+  wait "$logpid" 2>/dev/null || true
+  if [[ "$ok" -ne 1 ]]; then
+    echo "---- ${job} ----"
+    cat "$logfile" || true
+    kubectl -n "$namespace" describe "job/${job}" || true
+    exit 1
+  fi
 }
 
 kubectl apply -n "$namespace" -f /tmp/stage9-migrate.yaml
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
-  job_logs agentic-runtime-migrate
-  exit 1
-fi
+wait_job agentic-runtime-migrate
 kubectl apply -n "$namespace" -f /tmp/stage9-bootstrap.yaml
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
-  job_logs agentic-runtime-bootstrap
-  exit 1
-fi
+wait_job agentic-runtime-bootstrap
 
 echo "waiting for api and worker deployments"
 kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=15m

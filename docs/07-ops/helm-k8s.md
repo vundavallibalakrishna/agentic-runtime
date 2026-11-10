@@ -20,7 +20,7 @@ One umbrella chart `deploy/helm/agentic-runtime` installs every deployable for b
 | `squid` (egress proxy) | Deployment | 2 / 3–10 | TCP 3128 | HPA CPU | Only path to the internet for sandboxes and tools |
 | `fake-llm` | Deployment | dev / CI only | | | Disabled unless `fakeLlm.enabled` |
 | `migrate` | Job (pre-install/pre-upgrade hook) | — | | | `alembic upgrade head`, then OPA bundle warmup |
-| `bootstrap` | Job (post-install, single_tenant) | — | | | `python -m ar_domain.bootstrap` |
+| `bootstrap` | Job (post-install, single_tenant) | — | | | `python -m ar_domain.bootstrap`. Loads the install ConfigMap and Secret, so staging and production have `AR_CURSOR_SECRET` and the other boot settings. |
 | Sandboxes | Pods created by sandbox-manager | per run | | warm pool | Namespace `ar-sandboxes` (or `ar-sbx-{tenant_slug}` for dedicated tenants); `runtimeClassName` gVisor/Kata |
 
 Every Python deployable runs the shared `python-service` image, whose entrypoint is `python -m ar_common.serve`. The chart sets `AR_APP_MODULE` and `AR_PORT` per workload (`workloads.<name>.appModule`) for the HTTP services, and overrides `command` with the worker console script (`ar-runtime`, `ar-system`, `ar-ingest`) for the Temporal workers, because only their `main()` starts the poller; the ASGI factory alone serves health probes and nothing else.
