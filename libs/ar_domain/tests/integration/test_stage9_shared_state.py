@@ -151,5 +151,9 @@ async def test_two_instances_share_durable_and_valkey_state(
         assert second_hit is not None
         assert second_hit[1] == 1
 
+    for model in (first, second):
+        held = getattr(model, "engine", None)
+        if held is not None:
+            await held.dispose()
     await engine.dispose()
     client.close()

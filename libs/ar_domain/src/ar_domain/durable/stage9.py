@@ -9,9 +9,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from ar_common.time import utcnow
-from ar_domain.approvals.models import REVIEW_SUBJECTS
 from ar_domain.durable.codec import as_dt, as_int, as_json, as_text, as_uuid
 
 if TYPE_CHECKING:
@@ -89,8 +89,9 @@ async def save_standing_approvals(session: AsyncSession, rows: list[dict[str, An
         if agent_id is not None and not await _exists(session, "agents", agent_id):
             continue
         max_uses = row.get("max_uses")
-        await session.execute(
-            text(sql),
+        await _one(
+            session,
+            sql,
             {
                 "id": standing_id,
                 "tenant_id": tenant_id,
@@ -128,13 +129,14 @@ async def save_review_queues(session: AsyncSession, rows: list[dict[str, Any]]) 
         tenant_id = as_uuid(row.get("tenant_id"))
         subject = as_text(row.get("subject_type"))
         slug = as_text(row.get("slug"))
-        if None in {queue_id, tenant_id} or not slug or subject not in REVIEW_SUBJECTS:
+        if None in {queue_id, tenant_id} or not slug or not subject:
             continue
         if not await _exists(session, "tenants", tenant_id):
             continue
         now = utcnow()
-        await session.execute(
-            text(sql),
+        await _one(
+            session,
+            sql,
             {
                 "id": queue_id,
                 "tenant_id": tenant_id,
@@ -180,8 +182,9 @@ async def save_review_items(session: AsyncSession, rows: list[dict[str, Any]]) -
         if not await _exists(session, "review_queues", queue_id):
             continue
         now = utcnow()
-        await session.execute(
-            text(sql),
+        await _one(
+            session,
+            sql,
             {
                 "id": item_id,
                 "tenant_id": tenant_id,
@@ -201,6 +204,15 @@ async def save_review_items(session: AsyncSession, rows: list[dict[str, Any]]) -
                 "updated_at": as_dt(row.get("updated_at")) or now,
             },
         )
+
+
+async def _one(session: AsyncSession, sql: str, params: dict[str, Any]) -> None:
+    """One insert. A check or foreign-key failure does not abort the rest of the flush."""
+    try:
+        async with session.begin_nested():
+            await session.execute(text(sql), params)
+    except DBAPIError, IntegrityError:
+        return
 
 
 async def _exists(session: AsyncSession, table: str, row_id: object) -> bool:

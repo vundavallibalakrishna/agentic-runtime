@@ -76,11 +76,10 @@ def install_shared_state(store: object, settings: BaseServiceSettings) -> None:
         return
     client = getattr(store, "valkey_client", None)
     if client is None:
-        from redis import Redis  # noqa: PLC0415
+        from ar_common.valkey import valkey_sync_client  # noqa: PLC0415
 
-        client = Redis.from_url(
+        client = valkey_sync_client(
             settings.valkey_url,
-            decode_responses=True,
             socket_connect_timeout=1,
             socket_timeout=1,
         )
