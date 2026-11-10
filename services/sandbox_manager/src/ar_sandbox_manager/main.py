@@ -30,10 +30,15 @@ def create_application() -> FastAPI:
     assert_driver_allowed(driver, allow_unisolated=allow_unisolated)
     app = create_app("sandbox-manager", settings)
     app.include_router(sandbox_router)
-    app.state.chat = ChatService(
+    chat = ChatService(
         allow_loopback=loopback_allowed(settings),
         fake_models_allowed=fake_models_allowed(settings.env),
     )
+    if driver == "kubernetes":
+        from ar_sandbox_manager.drivers.kubernetes import KubernetesPods  # noqa: PLC0415
+
+        chat.pod_creator = KubernetesPods()
+    app.state.chat = chat
     app.state.sandbox_driver = driver
     return app
 

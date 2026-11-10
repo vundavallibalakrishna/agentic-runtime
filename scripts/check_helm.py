@@ -117,7 +117,43 @@ def main() -> None:
     )
     assert_fails(["--set", "global.env=prod", "--set", "sandboxes.driver=host"], "must be one of")
     assert_fails(["--set", "process.shared=false"], "stay at 1")
+    assert_stage6(default)
     sys.stdout.write("helm render checks ok\n")
+
+
+def assert_stage6(rendered: str) -> None:
+    """api, worker, gateway and sandbox-manager are separate, and only the manager has a token."""
+    workloads = {"api", "runtime-worker", "mcp-gateway", "sandbox-manager"}
+    found: dict[str, dict[str, object]] = {}
+    for doc in docs(rendered):
+        if doc.get("kind") != "Deployment":
+            continue
+        meta = doc.get("metadata")
+        if not isinstance(meta, dict):
+            continue
+        name = str(meta.get("name") or "")
+        short = name.removeprefix("agentic-runtime-")
+        if short in workloads:
+            found[short] = doc
+    missing = workloads - set(found)
+    if missing:
+        raise SystemExit("missing deployments: " + ", ".join(sorted(missing)))
+    for short, doc in found.items():
+        spec = doc.get("spec")
+        template = spec.get("template") if isinstance(spec, dict) else None
+        pod = template.get("spec") if isinstance(template, dict) else None
+        token = pod.get("automountServiceAccountToken") if isinstance(pod, dict) else None
+        if short == "sandbox-manager" and token is not True:
+            raise SystemExit("sandbox-manager must mount a token so it can create pods")
+        if short != "sandbox-manager" and token is not False:
+            raise SystemExit(f"{short} must not mount a service account token")
+    policies = names(rendered, "NetworkPolicy")
+    for short in workloads:
+        if f"agentic-runtime-{short}" not in policies:
+            raise SystemExit(f"network policy for {short} is missing")
+    text = rendered
+    if "ar.io/purpose: sandboxes" not in text:
+        raise SystemExit("sandbox namespace purpose label missing")
 
 
 if __name__ == "__main__":

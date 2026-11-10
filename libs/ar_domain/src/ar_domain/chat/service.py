@@ -303,6 +303,10 @@ class ChatService:
     temporal_client: object | None = None
     # When set, a missing worker is a refusal. The turn is not run in this process.
     temporal_required: bool = False
+    # Production posts every tool call to mcp-gateway. Dev and unit tests stay in process.
+    tool_gateway_http: bool = False
+    # Set only on the sandbox manager. No other process may create pods.
+    pod_creator: object | None = None
     event_bus: object | None = None
     watch_polls: int = 240
     durable: bool = False
@@ -1706,7 +1710,7 @@ class ChatService:
         try:
             await start(
                 "AgentRunWorkflow",
-                {"run_id": str(run_id)},
+                {"run_id": str(run_id), "steps": True},
                 id=f"run-{run_id}",
                 task_queue="ar-runtime",
             )
@@ -1885,11 +1889,37 @@ class ChatService:
             if not fail_unexpected(self, run_id, exc):
                 raise
 
-    async def _generate(  # noqa: PLR0911, PLR0915
-        self, run_id: uuid.UUID, text: str, names: list[str]
+    async def advance_turn(self, run_id: uuid.UUID, text: str, names: list[str]) -> str:
+        """One model call or one tool call. The worker activity is this method."""
+        await self._generate(run_id, text, names, one_step=True)
+        run = self.runs[run_id]
+        if not run_is_active(str(run.get("status"))):
+            return "final"
+        kind = str(run.get("step_kind") or "")
+        if kind in {"tools", "model", "paused"}:
+            return kind
+        return "model"
+
+    async def _generate(  # noqa: PLR0911, PLR0912, PLR0915
+        self, run_id: uuid.UUID, text: str, names: list[str], *, one_step: bool = False
     ) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
+        if one_step:
+            from ar_domain.tools.worker_loop import worker_loop_open  # noqa: PLC0415
+
+            if worker_loop_open(run):
+                assistant = self.messages[uuid.UUID(str(run["assistant_message_id"]))]
+                prior = self.messages[uuid.UUID(str(run["input_message_id"]))]
+                resumed_text = str(prior.get("text") or text)
+                from ar_domain.tools.agent_loop import run_agent_loop  # noqa: PLC0415
+
+                if (
+                    await run_agent_loop(self, run, assistant, resumed_text, one_step=True)
+                    and str(run.get("status")) == "completed"
+                ):
+                    await self._remember(run, resumed_text, str(assistant.get("text") or ""))
+                return
         conversation = self.conversations[uuid.UUID(str(run["conversation_id"]))]
         agent = self.agents[uuid.UUID(str(conversation["agent_id"]))]
         from ar_common.errors import QuotaExceededError  # noqa: PLC0415
@@ -1933,7 +1963,7 @@ class ChatService:
         from ar_domain.workspace.turn import ground_run  # noqa: PLC0415
 
         await ground_run(self, run, text)
-        if await run_agent_loop(self, run, assistant, text):
+        if await run_agent_loop(self, run, assistant, text, one_step=one_step):
             if str(run.get("status")) == "completed":
                 await self._remember(run, text, str(assistant.get("text") or ""))
             return

@@ -9,6 +9,7 @@ from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
 from ar_common.settings import fake_models_allowed, get_settings, loopback_allowed
 from ar_common.temporal_worker import temporal_worker_kwargs
+from ar_runtime.activities.advance_chat_step import advance_chat_step
 from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
@@ -42,6 +43,9 @@ async def _prepare_store() -> None:
         fake_models_allowed=fake_models_allowed(settings.env),
     )
     store.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
+    from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
+
+    configure_gateway(store, env=str(getattr(settings, "env", "dev")))
     # Tool calls run here. The engine that masks their results is built now, not in the
     # first call.
     warm_up()
@@ -73,6 +77,7 @@ async def run_worker() -> None:
                 ],
                 activities=[
                     execute_chat_turn,
+                    advance_chat_step,
                     finish_chat_turn,
                     start_run,
                     create_child_run,

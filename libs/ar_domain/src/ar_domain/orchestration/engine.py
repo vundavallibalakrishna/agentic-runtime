@@ -143,6 +143,8 @@ def _elapsed(state: dict[str, object]) -> int:
 
 def save_checkpoint(run: dict[str, object], state: dict[str, object], call_id: str) -> None:
     elapsed = _elapsed(state)
+    previous = run.get("checkpoint")
+    worker_loop = previous.get("worker_loop") if isinstance(previous, dict) else None
     run["checkpoint"] = {
         "messages": state.get("messages") or [],
         "steps": state.get("steps") or 0,
@@ -157,6 +159,10 @@ def save_checkpoint(run: dict[str, object], state: dict[str, object], call_id: s
         "user_text": state.get("user_text") or "",
         "resumable": True,
     }
+    if worker_loop is not None:
+        checkpoint = run.get("checkpoint")
+        if isinstance(checkpoint, dict):
+            checkpoint["worker_loop"] = worker_loop
 
 
 class RestoredRun(TypedDict):

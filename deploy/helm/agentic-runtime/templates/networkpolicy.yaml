@@ -30,7 +30,11 @@ kind: NetworkPolicy
 metadata:
   name: {{ .Release.Name }}-allow-app
 spec:
-  podSelector: {}
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: NotIn
+        values: ["api", "runtime-worker", "mcp-gateway", "sandbox-manager"]
   policyTypes: ["Ingress", "Egress"]
   ingress:
     - from:
@@ -41,6 +45,143 @@ spec:
     - ports:
         - port: 443
           protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-api
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: web
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: channels
+        - namespaceSelector: {}
+      ports:
+        - port: 8000
+          protocol: TCP
+  egress:
+    - to:
+        - podSelector: {}
+      ports:
+        - {port: 5432, protocol: TCP}
+        - {port: 6379, protocol: TCP}
+        - {port: 7233, protocol: TCP}
+        - {port: 8001, protocol: TCP}
+        - {port: 8003, protocol: TCP}
+        - {port: 8181, protocol: TCP}
+        - {port: 8200, protocol: TCP}
+        - {port: 8333, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-runtime-worker
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: runtime-worker
+  policyTypes: ["Ingress", "Egress"]
+  egress:
+    - to:
+        - podSelector: {}
+      ports:
+        - {port: 5432, protocol: TCP}
+        - {port: 6379, protocol: TCP}
+        - {port: 7233, protocol: TCP}
+        - {port: 8001, protocol: TCP}
+        - {port: 8002, protocol: TCP}
+        - {port: 8200, protocol: TCP}
+        - {port: 8333, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-mcp-gateway
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mcp-gateway
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: runtime-worker
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: system-worker
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api
+      ports:
+        - port: 8002
+          protocol: TCP
+  egress:
+    - to:
+        - podSelector: {}
+      ports:
+        - {port: 5432, protocol: TCP}
+        - {port: 6379, protocol: TCP}
+        - {port: 8003, protocol: TCP}
+        - {port: 8010, protocol: TCP}
+        - {port: 8011, protocol: TCP}
+        - {port: 8181, protocol: TCP}
+        - {port: 3128, protocol: TCP}
+        - {port: 8200, protocol: TCP}
+        - {port: 8333, protocol: TCP}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ar.io/purpose: sandboxes
+      ports:
+        - {port: 8080, protocol: TCP}
+    - ports:
+        - {port: 443, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-sandbox-manager
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sandbox-manager
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcp-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: runtime-worker
+      ports:
+        - port: 8003
+          protocol: TCP
+  egress:
+    - to:
+        - podSelector: {}
+      ports:
+        - {port: 5432, protocol: TCP}
+        - {port: 6443, protocol: TCP}
+        - {port: 443, protocol: TCP}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ar.io/purpose: sandboxes
+      ports:
+        - {port: 8080, protocol: TCP}
 {{- if .Values.airgap.lockdown }}
 ---
 apiVersion: networking.k8s.io/v1

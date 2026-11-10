@@ -119,6 +119,7 @@ class RoutineRunWorkflow:
                 "run_id": prepared["run_id"],
                 "text": prepared.get("text") or "",
                 "names": [],
+                "steps": True,
             },
             id=f"run-{prepared['run_id']}",
             task_queue=queue,
