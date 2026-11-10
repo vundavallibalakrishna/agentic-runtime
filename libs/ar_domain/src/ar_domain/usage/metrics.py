@@ -16,3 +16,8 @@ EVENTS = Counter(
     "Usage events recorded",
     ["metric", "source"],
 )
+RUN_COST = Counter(
+    "ar_run_cost_micros_total",
+    "Cost micros recorded on usage events",
+    ["source"],
+)

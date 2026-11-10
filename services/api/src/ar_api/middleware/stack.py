@@ -12,6 +12,8 @@ _PUBLIC = frozenset(
     {
         "/api/v1/meta",
         "/api/v1/auth/login",
+        "/api/v1/auth/password-reset",
+        "/api/v1/auth/password-reset/confirm",
         "/api/v1/auth/oidc/start",
         "/api/v1/auth/callback",
         "/api/v1/.well-known/jwks.json",
@@ -229,6 +231,8 @@ def allow_guest_get(*parts: str) -> None:
 
 def _guest_allowed(method: str, path: str) -> bool:
     if path.startswith("/api/v1/auth/guest/") or path.startswith("/api/v1/ext/"):
+        return True
+    if path.startswith("/api/v1/guest/agents/"):
         return True
     if path in {"/api/v1/auth/session", "/api/v1/auth/logout"}:
         return True

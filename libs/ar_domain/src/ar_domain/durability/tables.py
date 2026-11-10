@@ -20,27 +20,21 @@ from ar_domain.db.base import Base
 from ar_domain.db.types import created_at_col, updated_at_col, uuid_pk
 
 
-class FileBlob(Base):
-    """Bytes for one uploaded or created file. The cache may drop them."""
+class FileBlobPayload(Base):
+    """Bytes copied out of ``file_blobs`` before that table was dropped.
 
-    __tablename__ = "file_blobs"
-    __table_args__ = (Index("ix_file_blobs_tenant", "tenant_id"),)
+    Hydrate moves each body to the object store. The row is the backfill, not a
+    new place to write uploads.
+    """
+
+    __tablename__ = "file_blob_payloads"
+    __table_args__ = (Index("ix_file_blob_payloads_tenant", "tenant_id"),)
 
     id: Mapped[uuid.UUID] = uuid_pk()
     tenant_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
-    owner_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    conversation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    name: Mapped[str] = mapped_column(Text, nullable=False)
-    mime_type: Mapped[str] = mapped_column(Text, nullable=False)
-    sha256: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
-    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default=text("0"))
-    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'upload'"))
     body: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    created_at: Mapped[datetime] = created_at_col()
-    updated_at: Mapped[datetime] = updated_at_col()
 
 
 class WorkspaceFile(Base):

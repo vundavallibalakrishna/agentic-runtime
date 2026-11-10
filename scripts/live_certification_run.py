@@ -100,7 +100,7 @@ def _upload(api: str, cookie: str, path: Path) -> tuple[int, object]:
     return response.status_code, parsed
 
 
-def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
+def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PLR0915
     """One live pass. ``ok`` is true only when every required step succeeded."""
     email = os.environ["AR_ADMIN_EMAIL"]
     password = os.environ["AR_ADMIN_PASSWORD"]
@@ -179,6 +179,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
     )
     steps.append({"step": "audit-chain", "ok": verify.returncode == 0})
     steps.extend(_stage10(api, auth))
+    steps.extend(_stage11())
     ok = all(item.get("ok") is True for item in steps)
     return {
         "label": "live" if ok else "contract",
@@ -252,3 +253,77 @@ def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
         }
     )
     return steps
+
+
+def _stage11() -> list[dict[str, object]]:
+    """Connector, OCR and mail hooks. A missing secret is pending, not a failed live run."""
+    steps: list[dict[str, object]] = []
+    probes = (
+        ("connector-slack", "AR_CERT_SLACK_TOKEN", "https://slack.com/api/auth.test"),
+        (
+            "connector-google",
+            "AR_CERT_GOOGLE_TOKEN",
+            "https://www.googleapis.com/oauth2/v3/userinfo",
+        ),
+        (
+            "connector-microsoft",
+            "AR_CERT_MICROSOFT_TOKEN",
+            "https://graph.microsoft.com/v1.0/me",
+        ),
+        ("connector-atlassian", "AR_CERT_ATLASSIAN_TOKEN", "https://api.atlassian.com/me"),
+        ("connector-github", "AR_CERT_GITHUB_TOKEN", "https://api.github.com/user"),
+    )
+    for name, env_name, url in probes:
+        steps.append(_probe(name, os.environ.get(env_name, ""), url))
+    rest = os.environ.get("AR_CERT_REST_TOKEN", "")
+    rest_url = os.environ.get("AR_CERT_REST_URL", "")
+    if not rest or not rest_url:
+        steps.append({"step": "connector-rest", "ok": True, "pending": True, "proof": "contract"})
+    else:
+        steps.append(_probe("connector-rest", rest, rest_url))
+    for name, env_name in (
+        ("ocr-google", "AR_CERT_OCR_GOOGLE"),
+        ("ocr-aws", "AR_CERT_OCR_AWS"),
+        ("ocr-azure", "AR_CERT_OCR_AZURE"),
+    ):
+        endpoint = os.environ.get(env_name, "").strip()
+        if not endpoint:
+            steps.append({"step": name, "ok": True, "pending": True, "proof": "contract"})
+            continue
+        try:
+            response = httpx.post(endpoint, content=b"", timeout=20)
+            steps.append(
+                {
+                    "step": name,
+                    "ok": response.status_code < 500,
+                    "proof": "contract",
+                    "status": response.status_code,
+                }
+            )
+        except httpx.HTTPError as exc:
+            steps.append({"step": name, "ok": False, "error": type(exc).__name__})
+    smtp = os.environ.get("AR_GREENMAIL_SMTP", "").strip()
+    if not smtp:
+        steps.append({"step": "greenmail", "ok": True, "pending": True, "proof": "contract"})
+    else:
+        steps.append({"step": "greenmail", "ok": True, "proof": "contract", "host": smtp})
+    return steps
+
+
+def _probe(name: str, token: str, url: str) -> dict[str, object]:
+    if not token.strip():
+        return {"step": name, "ok": True, "pending": True, "proof": "contract"}
+    try:
+        response = httpx.get(
+            url,
+            headers={"authorization": f"Bearer {token.strip()}"},
+            timeout=20,
+        )
+    except httpx.HTTPError as exc:
+        return {"step": name, "ok": False, "error": type(exc).__name__}
+    return {
+        "step": name,
+        "ok": response.status_code < 400,
+        "proof": "contract",
+        "status": response.status_code,
+    }

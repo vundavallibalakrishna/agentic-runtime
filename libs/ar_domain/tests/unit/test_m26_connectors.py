@@ -57,6 +57,9 @@ def test_catalogue_labels_reads_and_writes() -> None:
         "aws",
         "azure",
         "gcp",
+        "gmail",
+        "outlook",
+        "rest",
     }
     for connector in CONNECTORS:
         assert connector.verification in {"live", "public", "not_live"}

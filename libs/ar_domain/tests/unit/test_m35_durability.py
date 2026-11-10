@@ -14,7 +14,7 @@ from ar_domain.chat.eviction import evict_chat_cache, recall_conversation
 from ar_domain.chat.service import demo_id
 from ar_domain.documents.extract import ExtractError, extract_bytes
 from ar_domain.durability.store import clear_workspace_dir, read_blob
-from ar_domain.durability.tables import A2APushConfig, FileBlob, JobProgress, WorkspaceFile
+from ar_domain.durability.tables import A2APushConfig, FileBlobPayload, JobProgress, WorkspaceFile
 from ar_domain.exposure import a2a, keys
 from ar_domain.jobs.progress import jobs_for, mark_jobs_interrupted, note_job
 from ar_domain.routines.clock import build_schedule, schedule_workflow_id
@@ -23,7 +23,7 @@ from ar_testing.demo import demo_store
 
 
 def test_tables_match_the_migration_names() -> None:
-    assert FileBlob.__tablename__ == "file_blobs"
+    assert FileBlobPayload.__tablename__ == "file_blob_payloads"
     assert WorkspaceFile.__tablename__ == "workspace_files"
     assert JobProgress.__tablename__ == "job_progress"
     assert A2APushConfig.__tablename__ == "a2a_push_configs"
@@ -424,7 +424,7 @@ def test_a2a_lists_tasks_and_stores_a_push_config() -> None:
     missing = asyncio.run(
         a2a.rpc(store, row, "assistant", {"jsonrpc": "2.0", "id": 7, "method": "tasks/resubscribe"})
     )
-    assert missing["error"]["code"] == -32601
+    assert missing["error"]["code"] == -32000
     actions = [item["action"] for item in store.audit_log]
     assert "a2a_push.configured" in actions
     assert "a2a_push.removed" in actions

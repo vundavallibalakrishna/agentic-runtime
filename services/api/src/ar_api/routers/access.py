@@ -14,10 +14,33 @@ from fastapi.responses import JSONResponse, Response
 
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, page
+from ar_common.errors import UnauthenticatedError
 from ar_contracts.api_model import ApiModel
-from ar_domain.identity.guests import GuestBook
+from ar_domain.agents.access import Actor
+from ar_domain.identity.guests import GuestBook, open_agent_turn
 
 router = APIRouter()
+
+
+class GuestTurnBody(ApiModel):
+    text: str
+
+
+@router.post("/api/v1/guest/agents/{agent_id}/turns")
+@expose(public=False, permission=None)
+async def guest_agent_turn(
+    agent_id: uuid.UUID, body: GuestTurnBody, request: Request
+) -> dict[str, object]:
+    principal = getattr(request.state, "principal", None)
+    if principal is None or getattr(principal, "kind", "") != "guest":
+        raise UnauthenticatedError()
+    person = Actor(
+        tenant_id=uuid.UUID(str(principal.tenant_id)),
+        user_id=uuid.UUID(str(principal.id)),
+        permissions=frozenset(),
+        kind="guest",
+    )
+    return open_agent_turn(chat(request), person, agent_id, body.text)
 
 
 class GuestLinkBody(ApiModel):

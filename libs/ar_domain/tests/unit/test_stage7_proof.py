@@ -42,16 +42,19 @@ _NOT_LIVE = frozenset(
         "aws",
         "azure",
         "gcp",
+        "gmail",
+        "outlook",
+        "rest",
     }
 )
 
 
 @pytest.mark.unit
-def test_eighteen_connectors_are_unit_and_not_offered() -> None:
+def test_not_live_connectors_are_unit_and_not_offered() -> None:
     by_slug = {item.slug: item for item in CONNECTORS}
     assert _NOT_LIVE <= set(by_slug)
     not_live = [item for item in CONNECTORS if item.verification == "not_live"]
-    assert len(not_live) == 18
+    assert len(not_live) == 21
     assert {item.slug for item in not_live} == _NOT_LIVE
     for connector in not_live:
         assert connector_proof(connector) == UNIT

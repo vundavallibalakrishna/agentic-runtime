@@ -20,7 +20,7 @@ Implementation: [spec 17 §1](../03-specs/17-audit-usage-metering.md#1-audit), t
 
 | Area | Actions |
 |---|---|
-| Auth & sessions | `auth.login`, `auth.login_failed` (F), `auth.logout`, `auth.step_up`, `auth.tenant_switched`, `auth.session_revoked` |
+| Auth & sessions | `auth.login`, `auth.login_failed` (F), `auth.logout`, `auth.step_up`, `auth.tenant_switched`, `auth.session_revoked`, `auth.password_reset` |
 | Tenant | `tenant.provisioned`, `tenant.updated`, `tenant.suspended`, `tenant.resumed`, `tenant.deletion_requested`, `tenant.deleted`, `tenant.domain_added`, `tenant.domain_verified`, `tenant.domain_removed`, `tenant.run_callback_secret_rotated` |
 | Identity providers & SCIM | `idp.created`, `idp.updated`, `idp.deleted`, `scim_token.created`, `scim_token.revoked`, `scim.user.created`, `scim.user.updated`, `scim.user.deprovisioned`, `scim.group.created`, `scim.group.updated`, `scim.group.deleted` |
 | Users, groups, teams | `user.provisioned`, `user.updated`, `user.suspended`, `user.reactivated`, `user.erasure_requested`, `user.notice_accepted`, `user.data_exported`, `invitation.created`, `invitation.revoked`, `invitation.accepted`, `group.created`, `group.deleted`, `group.member_added`, `group.member_removed`, `team.created`, `team.updated`, `team.deleted`, `team.member_added`, `team.member_removed` |

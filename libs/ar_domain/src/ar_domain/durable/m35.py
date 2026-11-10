@@ -102,7 +102,7 @@ async def load_conversation_files(
     for mapping in found.mappings():
         row = dict(mapping)
         _merge(store, "files", row["id"], row)
-    await _legacy_rows(session, store, tenant_id, [item for item in missing if item not in held])
+    await _legacy_rows(session, store, tenant_id, missing)
 
 
 async def _legacy_rows(
@@ -125,23 +125,30 @@ async def _legacy_rows(
     if not isinstance(held, dict) or ids == []:
         return
     sql = (
-        "SELECT id, tenant_id, owner_user_id, conversation_id, run_id, name, mime_type, "
-        "sha256, size_bytes, kind, body, created_at FROM file_blobs WHERE tenant_id = :tenant_id"
+        "SELECT p.id, p.tenant_id, p.body, f.owner_user_id, f.conversation_id, f.run_id, "
+        "f.name, f.mime_type, f.sha256, f.size_bytes, f.kind, f.created_at, f.object_key "
+        "FROM file_blob_payloads p LEFT JOIN files f ON f.id = p.id "
+        "WHERE p.tenant_id = :tenant_id"
     )
     params: dict[str, Any] = {"tenant_id": tenant_id}
     statement = text(sql)
     if ids is not None:
-        statement = text(sql + " AND id IN :ids").bindparams(bindparam("ids", expanding=True))
+        statement = text(sql + " AND p.id IN :ids").bindparams(bindparam("ids", expanding=True))
         params["ids"] = ids
     found = await session.execute(statement, params)
     for mapping in found.mappings():
         blob = dict(mapping)
         file_id = blob["id"]
-        if file_id in held:
-            continue
         body = blob.get("body")
         if isinstance(body, memoryview):
             body = body.tobytes()
+        if file_id in held and isinstance(body, bytes):
+            existing = held[file_id]
+            if isinstance(existing, dict) and existing.get("object_key"):
+                keep_bytes(store, existing, body)
+            continue
+        if file_id in held:
+            continue
         if not isinstance(body, bytes):
             continue
         made = blob.get("created_at")
@@ -159,7 +166,8 @@ async def _legacy_rows(
             "mime_type": blob.get("mime_type") or "application/octet-stream",
             "size_bytes": blob.get("size_bytes") or len(body),
             "sha256": blob.get("sha256"),
-            "object_key": object_key(str(tenant_id), kind, year, month, str(file_id)),
+            "object_key": blob.get("object_key")
+            or object_key(str(tenant_id), kind, year, month, str(file_id)),
             "status": "ready",
             "scan_status": "skipped",
             "preview": {},

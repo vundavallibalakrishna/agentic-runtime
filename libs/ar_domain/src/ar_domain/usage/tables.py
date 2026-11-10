@@ -34,6 +34,12 @@ class UsageEvent(Base):
         CheckConstraint(f"metric IN ({_METRICS})", name="metric"),
         UniqueConstraint("tenant_id", "dedupe_key", name="uq_usage_events_dedupe"),
         Index("ix_usage_events_time", "tenant_id", "occurred_at"),
+        Index(
+            "ix_usage_events_api_key",
+            "tenant_id",
+            "api_key_id",
+            postgresql_where=text("api_key_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -56,6 +62,7 @@ class UsageEvent(Base):
     tool_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     source: Mapped[str] = mapped_column(Text, nullable=False)
     dedupe_key: Mapped[str] = mapped_column(Text, nullable=False)
+    api_key_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
 
 class UsageDaily(Base):
@@ -86,6 +93,11 @@ class UsageDaily(Base):
         server_default=text(f"'{_ZERO}'::uuid"),
     )
     model_alias: Mapped[str] = mapped_column(Text, primary_key=True, server_default=text("''"))
+    api_key_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text(f"'{_ZERO}'::uuid"),
+    )
     quantity: Mapped[int] = mapped_column(BigInteger, nullable=False)
     cost_micros: Mapped[int] = mapped_column(BigInteger, nullable=False)
 
@@ -93,7 +105,9 @@ class UsageDaily(Base):
 class Quota(Base):
     __tablename__ = "quotas"
     __table_args__ = (
-        CheckConstraint("scope_type IN ('tenant','team','user','agent')", name="scope_type"),
+        CheckConstraint(
+            "scope_type IN ('tenant','team','user','agent','api_key')", name="scope_type"
+        ),
         CheckConstraint(
             "metric IN ('cost_micros','model_tokens','runs','sandbox_cpu_seconds','tool_calls')",
             name="metric",

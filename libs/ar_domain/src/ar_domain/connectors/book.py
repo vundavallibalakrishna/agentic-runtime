@@ -321,6 +321,9 @@ def _install_view(row: dict[str, object]) -> dict[str, object]:
         "id": str(row["id"]),
         "slug": row.get("slug"),
         "connection_name": row.get("connection_name") or "",
+        "connection_id": (
+            None if row.get("connection_id") is None else str(row.get("connection_id"))
+        ),
         "status": row.get("status"),
         "disabled_tools": list(disabled) if isinstance(disabled, list) else [],
         "config": config if isinstance(config, dict) else {},

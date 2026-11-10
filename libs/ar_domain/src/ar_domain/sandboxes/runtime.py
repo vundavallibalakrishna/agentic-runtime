@@ -1474,7 +1474,7 @@ def _uuid(value: object) -> uuid.UUID | None:
     return None
 
 
-def _mime(name: str) -> str:
+def _mime(name: str) -> str:  # noqa: PLR0911
     if name.endswith(".png"):
         return "image/png"
     if name.endswith(".csv"):
@@ -1485,6 +1485,12 @@ def _mime(name: str) -> str:
         return "image/svg+xml"
     if name.endswith(".md"):
         return "text/markdown"
+    if name.endswith(".pdf"):
+        return "application/pdf"
+    if name.endswith(".docx"):
+        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    if name.endswith(".xlsx"):
+        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     return "application/octet-stream"
 
 

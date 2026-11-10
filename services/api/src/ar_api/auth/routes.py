@@ -145,7 +145,7 @@ async def password_login(request: Request, body: dict[str, object] | None = None
     return await _password_attempt(request, body or {})
 
 
-async def _password_attempt(  # noqa: PLR0911
+async def _password_attempt(  # noqa: PLR0911, PLR0912
     request: Request, payload: dict[str, object]
 ) -> JSONResponse:
     email = str(payload.get("email", "")).strip()
@@ -159,6 +159,39 @@ async def _password_attempt(  # noqa: PLR0911
         return _problem(request, RateLimitedError("too many attempts", retry_after=locked))
     if not email or not password:
         return _login_error(request, "invalid_credentials")
+    from ar_domain.identity.membership import password_matches  # noqa: PLC0415
+
+    matches = password_matches(request.app.state.chat, email, password)
+    requested = str(payload.get("tenant_id") or payload.get("tenantId") or "")
+    if len(matches) > 1 and not requested:
+        return JSONResponse(
+            {
+                "ok": False,
+                "chooseTenant": True,
+                "tenants": [
+                    {"id": item["tenant_id"], "name": item["tenant_name"]} for item in matches
+                ],
+            }
+        )
+    if requested and matches:
+        chosen = next((item for item in matches if item["tenant_id"] == requested), None)
+        if chosen is None:
+            return _login_error(request, "invalid_credentials")
+        try:
+            await request.app.state.login_lockout.clear(subject)
+        except UnavailableError as exc:
+            return _problem(request, exc)
+        return await _finish_login(
+            request,
+            {
+                "tenant_id": chosen["tenant_id"],
+                "user_id": chosen["user_id"],
+                "email": chosen["email"],
+                "display_name": chosen["display_name"],
+                "permissions": chosen.get("permissions") or [],
+                "roles": chosen.get("roles") or [],
+            },
+        )
     failure = ""
     result: dict[str, object] | None = None
     try:
@@ -301,7 +334,7 @@ async def session(request: Request) -> dict[str, object]:
         },
         "permissions": sorted(principal.permissions),
         "roles": sorted(principal.roles),
-        "memberships": [],
+        "memberships": _memberships(request, principal),
         "csrf_token": principal.csrf_token,
         "features": features,
     }
@@ -309,15 +342,47 @@ async def session(request: Request) -> dict[str, object]:
 
 @router.post("/api/v1/auth/switch-tenant")
 @expose(public=False, permission=None)
-async def switch_tenant(request: Request, body: dict[str, str]) -> dict[str, str]:
+async def switch_tenant(request: Request, body: dict[str, str]) -> JSONResponse:
     principal: Principal | None = getattr(request.state, "principal", None)
     if principal is None:
         raise UnauthenticatedError()
-    tenant_id = body.get("tenant_id", "")
+    tenant_id = body.get("tenant_id") or body.get("tenantId") or ""
+    switched = _switch_result(request, principal, tenant_id)
+    if switched is not None:
+        return await _finish_login(request, switched)
     if principal.kind != "platform_admin" and str(principal.tenant_id) != tenant_id:
         raise ForbiddenError("no membership in that tenant")
-    # Multi-tenant switching is not yet supported for local sign-in; send back to the form.
-    return {"redirect_url": "/login"}
+    return JSONResponse({"redirect_url": "/login"})
+
+
+@router.post("/api/v1/auth/password-reset")
+@expose(public=True, permission=None)
+async def password_reset(request: Request, body: dict[str, object] | None = None) -> JSONResponse:
+    """Accept a reset request. The response does not say whether the address exists."""
+    payload = body or {}
+    email = str(payload.get("email") or "").strip()
+    if email:
+        await _remember_signed_in_person(request, email)
+        from ar_domain.identity.recovery import request_reset  # noqa: PLC0415
+
+        request_reset(request.app.state.chat, email)
+    return JSONResponse({"accepted": True})
+
+
+@router.post("/api/v1/auth/password-reset/confirm")
+@expose(public=True, permission=None)
+async def password_reset_confirm(
+    request: Request, body: dict[str, object] | None = None
+) -> JSONResponse:
+    payload = body or {}
+    from ar_domain.identity.recovery import confirm_reset  # noqa: PLC0415
+
+    confirm_reset(
+        request.app.state.chat,
+        str(payload.get("token") or ""),
+        str(payload.get("password") or ""),
+    )
+    return JSONResponse({"reset": True})
 
 
 @router.post("/api/v1/auth/step-up")
@@ -364,3 +429,67 @@ async def jwks(request: Request) -> dict[str, object]:
     if isinstance(loaded, dict):
         return loaded
     return {"keys": []}
+
+
+def _memberships(request: Request, principal: object) -> list[dict[str, str]]:
+    from ar_domain.identity.membership import memberships  # noqa: PLC0415
+
+    email = str(getattr(principal, "email", "") or "")
+    if not email:
+        return []
+    return [
+        {"id": row["tenant_id"], "name": row["tenant_name"]}
+        for row in memberships(request.app.state.chat, email)
+    ]
+
+
+def _switch_result(request: Request, principal: object, tenant_id: str) -> dict[str, object] | None:
+    from ar_domain.identity.membership import memberships  # noqa: PLC0415
+
+    email = str(getattr(principal, "email", "") or "")
+    current = str(getattr(principal, "tenant_id", "") or "")
+    if not email or not tenant_id or tenant_id == current:
+        return None
+    for row in memberships(request.app.state.chat, email):
+        if row["tenant_id"] != tenant_id:
+            continue
+        return {
+            "tenant_id": row["tenant_id"],
+            "user_id": row["user_id"],
+            "email": email,
+            "display_name": str(getattr(principal, "display_name", "") or email),
+            "permissions": list(getattr(principal, "permissions", []) or []),
+            "roles": list(getattr(principal, "roles", []) or []),
+        }
+    return None
+
+
+async def _remember_signed_in_person(request: Request, email: str) -> None:
+    """Copy the identity row onto the reset book so the mailed token can change it."""
+    from ar_api.auth.identity import _login_binding  # noqa: PLC0415
+    from ar_api.deps import identity_store  # noqa: PLC0415
+    from ar_domain.db.context import Principal as DomainPrincipal  # noqa: PLC0415
+    from ar_domain.db.context import TenantContext  # noqa: PLC0415
+    from ar_domain.identity.recovery import remember_person  # noqa: PLC0415
+
+    try:
+        _store, binding, engine = await _login_binding(request)
+    except Exception:  # noqa: BLE001 - reset stays silent when identity is down
+        return
+    if binding is None:
+        return
+    principal = DomainPrincipal(kind="system", id="login", tenant_id=binding.tenant_id)
+    ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "")))
+    async with identity_store(request, ctx, engine=engine) as identity:
+        user = await identity.get_user_by_email(email.strip().lower())
+    if user is None or not getattr(user, "password_hash", None):
+        return
+    remember_person(
+        request.app.state.chat,
+        email=user.email,
+        tenant_id=user.tenant_id,
+        user_id=user.id,
+        password_hash=str(user.password_hash),
+        display_name=str(getattr(user, "display_name", "") or ""),
+        user=user,
+    )

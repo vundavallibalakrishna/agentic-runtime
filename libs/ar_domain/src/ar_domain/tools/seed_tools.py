@@ -120,6 +120,7 @@ def seed(store: Any, *, tenant: bool = True) -> None:  # noqa: PLR0915
         _image_server(store)
         _knowledge_server(store)
         _memory_server(store)
+        _routines_server(store)
         _skills_server(store)
         _connector_server(store)
         _builtin(store, "research", "Research", "builtin://research", _research_tools())
@@ -764,6 +765,59 @@ def _skills_server(store: Any) -> None:
                 },
                 "R0",
             )
+        ],
+    )
+
+
+def _routines_server(store: Any) -> None:
+    _builtin(
+        store,
+        "routines",
+        "Routines",
+        "builtin://routines",
+        [
+            _tool(
+                "create",
+                "Create a routine",
+                "Create a scheduled or webhook routine for this agent. A schedule uses a "
+                "cron expression at least five minutes apart. A webhook returns a URL the "
+                "caller can post to later.",
+                {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "A short name for the routine.",
+                        },
+                        "instructions": {
+                            "type": "string",
+                            "description": "What the agent should do each time the routine runs.",
+                        },
+                        "trigger_type": {
+                            "type": "string",
+                            "description": "schedule for a cron, or webhook for an inbound event.",
+                            "enum": ["schedule", "webhook"],
+                        },
+                        "cron": {
+                            "type": "string",
+                            "description": "Cron expression when trigger_type is schedule.",
+                        },
+                        "timezone": {
+                            "type": "string",
+                            "description": "IANA timezone for the cron. Defaults to UTC.",
+                        },
+                    },
+                    "required": ["name", "instructions", "trigger_type"],
+                },
+                "W1",
+            ),
+            _tool(
+                "list",
+                "List routines",
+                "List routines the signed-in person owns.",
+                {"type": "object", "properties": {}, "required": []},
+                "R0",
+            ),
         ],
     )
 

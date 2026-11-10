@@ -317,6 +317,41 @@ class GuestBook:
         raise ArError(ErrorCode.UNAUTHENTICATED, "guest login failed")
 
 
+def open_agent_turn(store: Any, actor: Actor, agent_id: uuid.UUID, text: str) -> dict[str, object]:
+    """Start a turn on an agent this guest was granted. Other agents stay hidden."""
+    if not guest_allows(store, actor, "agent", agent_id):
+        raise ArError(ErrorCode.FORBIDDEN, "guest_forbidden")
+    agent = store.agents.get(agent_id)
+    if not isinstance(agent, dict) or agent.get("tenant_id") != actor.tenant_id:
+        raise NotFoundError("agent not found")
+    if agent.get("status") not in {None, "published"}:
+        raise NotFoundError("agent not found")
+    now = utcnow()
+    conversation_id = new_id()
+    store.conversations[conversation_id] = {
+        "id": conversation_id,
+        "tenant_id": actor.tenant_id,
+        "user_id": actor.user_id,
+        "agent_id": agent_id,
+        "agent_name": agent.get("name") or "Agent",
+        "title": "New chat",
+        "status": "active",
+        "pinned": False,
+        "is_preview": False,
+        "agent_version_id": agent.get("published_version_id"),
+        "model_alias": None,
+        "active_run_id": None,
+        "plan": [],
+        "created_at": now,
+        "updated_at": now,
+        "deleted_at": None,
+    }
+    posted: dict[str, object] = store.post_message(
+        actor.tenant_id, actor.user_id, conversation_id, text, schedule=False
+    )
+    return posted
+
+
 def guest_allows(store: Any, actor: Actor, kind: str, record_id: uuid.UUID) -> bool:
     now = utcnow()
     for grant in bucket(store, "guest_grants").values():
@@ -328,7 +363,12 @@ def guest_allows(store: Any, actor: Actor, kind: str, record_id: uuid.UUID) -> b
         scope = grant.get("scope")
         if not isinstance(scope, dict):
             continue
-        key = "evidence_ids" if kind == "evidence" else "binder_ids"
+        if kind == "agent":
+            key = "agent_ids"
+        elif kind == "evidence":
+            key = "evidence_ids"
+        else:
+            key = "binder_ids"
         if str(record_id) in {str(item) for item in scope.get(key, [])}:
             return True
     return False

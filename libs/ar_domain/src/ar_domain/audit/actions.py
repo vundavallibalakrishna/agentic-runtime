@@ -12,6 +12,7 @@ class AuditAction(StrEnum):
     AUTH_STEP_UP = "auth.step_up"
     AUTH_TENANT_SWITCHED = "auth.tenant_switched"
     AUTH_SESSION_REVOKED = "auth.session_revoked"
+    AUTH_PASSWORD_RESET = "auth.password_reset"
     TENANT_PROVISIONED = "tenant.provisioned"
     TENANT_UPDATED = "tenant.updated"
     TENANT_SUSPENDED = "tenant.suspended"

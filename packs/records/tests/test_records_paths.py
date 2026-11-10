@@ -57,25 +57,21 @@ def _actor(**extra: object) -> Actor:
 
 
 def test_table_modules_load() -> None:
-    from ar_domain.agents.governance import AgentCard, AiIncident, AiOversightDaily
+    from ar_domain.db.base import Base
+    from ar_domain.db.registry import import_models
     from ar_domain.identity.guest_tables import GuestGrant, GuestLoginChallenge, GuestPrincipal
     from ar_domain.packs.tables import PackRegistration, TenantPackFlag
-    from ar_domain.records import tables as record_tables
-    from ar_domain.runs.tables import RunRecord, RunRecordReplay
 
-    assert AgentCard.__tablename__ == "agent_cards"
-    assert AiIncident.__tablename__ == "ai_incidents"
-    assert AiOversightDaily.__tablename__ == "ai_oversight_daily"
+    import_models()
+    names = set(Base.metadata.tables)
     assert GuestPrincipal.__tablename__ == "guest_principals"
     assert GuestGrant.__tablename__ == "guest_grants"
     assert GuestLoginChallenge.__tablename__ == "guest_login_challenges"
     assert PackRegistration.__tablename__ == "pack_registrations"
     assert TenantPackFlag.__tablename__ == "tenant_pack_flags"
-    assert record_tables.EvidenceItem.__tablename__ == "evidence_items"
-    assert record_tables.LegalHold.__tablename__ == "legal_holds"
-    assert record_tables.BinderExport.__tablename__ == "binder_exports"
-    assert RunRecord.__tablename__ == "run_records"
-    assert RunRecordReplay.__tablename__ == "run_record_replays"
+    assert "guest_principals" in names
+    assert "evidence_items" not in names
+    assert "file_blobs" not in names
 
 
 def test_hold_schedule_sweep_and_release() -> None:

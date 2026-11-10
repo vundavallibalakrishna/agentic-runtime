@@ -78,6 +78,7 @@ def usage_csv(rows: list[dict[str, object]], currency: str) -> str:
         "quantity",
         "cost_micros",
         "currency",
+        "api_key_id",
     ]
     ordered = sorted(
         rows,

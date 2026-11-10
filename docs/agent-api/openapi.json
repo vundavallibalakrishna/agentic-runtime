@@ -3070,6 +3070,20 @@
         ],
         "title": "GuestSessionBody"
       },
+      "GuestTurnBody": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "GuestTurnBody"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4456,6 +4470,25 @@
         "additionalProperties": false,
         "type": "object",
         "title": "PublishBody"
+      },
+      "PushBody": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "title": "Endpoint"
+          },
+          "contentEncoding": {
+            "type": "string",
+            "title": "Contentencoding",
+            "default": "aes128gcm"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "endpoint"
+        ],
+        "title": "PushBody"
       },
       "QueueBody": {
         "properties": {

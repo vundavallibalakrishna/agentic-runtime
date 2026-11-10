@@ -102,6 +102,20 @@ def record_model_call(*, model: str, tokens_in: int, tokens_out: int) -> None:
     span.end()
 
 
+def record_run(run_id: str) -> str:
+    """One span per run. The attribute is the run id. Prompts are not attached.
+
+    Returns the trace id, or an empty string when the tracer has no context.
+    """
+    span = trace.get_tracer("ar.run").start_span("ar.run")
+    span.set_attribute("ar.run_id", run_id)
+    context = span.get_span_context()
+    span.end()
+    if context is None or not context.trace_id:
+        return ""
+    return format(context.trace_id, "032x")
+
+
 def record_tool_call(*, tool: str, status: str) -> None:
     """GenAI span for one tool call. Arguments and results stay off the span."""
     span = trace.get_tracer("ar.genai").start_span("tool_call")

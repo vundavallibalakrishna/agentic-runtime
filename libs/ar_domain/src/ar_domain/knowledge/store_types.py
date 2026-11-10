@@ -46,6 +46,7 @@ class IndexedChunk(_Frozen):
     title: str = ""
     language: str = ""
     modified_at: datetime | None = None
+    embedding_model_id: str = ""
 
 
 class DeleteFilter(_Frozen):

@@ -93,6 +93,8 @@ def dispatch(  # noqa: PLR0911, PLR0912
         return _knowledge(store, name, arguments)
     if endpoint == "builtin://memory":
         return _memory(store, name, arguments)
+    if endpoint == "builtin://routines":
+        return _routines(store, name, arguments)
     if endpoint == "builtin://skills":
         return _skills(store, name, arguments)
     if endpoint == "builtin://connectors":
@@ -583,6 +585,54 @@ def _knowledge(store: Any, name: str, arguments: dict[str, object]) -> dict[str,
         if isinstance(hit, dict)
     ]
     return {"text": "\n".join(str(line) for line in lines), "structured": found, "is_error": False}
+
+
+def _routines(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.routines.book import RoutineBook  # noqa: PLC0415
+
+    tenant = arguments.get("_tenant_id")
+    user = arguments.get("_user_id")
+    if not isinstance(tenant, uuid.UUID) or not isinstance(user, uuid.UUID):
+        return _error("validation_failed", "routine tools need a signed-in person")
+    actor = Actor(tenant, user, frozenset({"routines:create", "routines:read", "chat:use"}))
+    book = RoutineBook(store)
+    try:
+        if name == "list":
+            rows = book.list_routines(actor)
+            return {
+                "text": f"{len(rows)} routines.",
+                "structured": {"routines": rows},
+                "is_error": False,
+            }
+        if name != "create":
+            return _error("unknown_tool", f"unknown tool {name}")
+        trigger_type = str(arguments.get("trigger_type") or arguments.get("triggerType") or "")
+        trigger: dict[str, object] = {"type": trigger_type}
+        if trigger_type == "schedule":
+            trigger["cron"] = str(arguments.get("cron") or "0 * * * *")
+            trigger["timezone"] = str(arguments.get("timezone") or "UTC")
+        run_id = arguments.get("_run_id")
+        run = store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
+        agent_id = arguments.get("agent_id") or (
+            run.get("agent_id") if isinstance(run, dict) else None
+        )
+        created = book.create(
+            actor,
+            {
+                "name": arguments.get("name"),
+                "instructions": arguments.get("instructions"),
+                "agent_id": agent_id,
+                "trigger": trigger,
+            },
+        )
+    except (ValueError, TypeError, ArError) as exc:
+        return _error("validation_failed", str(exc))
+    return {
+        "text": f"Created routine {created.get('id')}.",
+        "structured": created,
+        "is_error": False,
+    }
 
 
 def _memory(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:

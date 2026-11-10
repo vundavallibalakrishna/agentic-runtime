@@ -178,7 +178,7 @@ def render_capability_matrix() -> str:
         "Proof labels are `unit`, `contract`, and `live` "
         "([ADR-0032](../02-architecture/adr/ADR-0032-proof-labels.md)).",
         "A mock is not `live`. Offered is `yes` only when the model may call the tool.",
-        "Eighteen connectors have catalogue verification `not_live`; their proof is `unit`.",
+        "Twenty-one connectors have catalogue verification `not_live`; their proof is `unit`.",
         "Self-serve signup is not a route.",
         "Tools that Stage 2 moves into a pack are omitted. They are not core capabilities.",
         "",

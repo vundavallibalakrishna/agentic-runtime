@@ -165,7 +165,10 @@ async def test_made_up_tool_vectors_are_cleared(migrated: str) -> None:
     _alembic(migrated, "upgrade", "head")
     async with engine.begin() as connection:
         left = await connection.scalar(
-            text("SELECT count(*) FROM tool_versions WHERE embedding IS NOT NULL")
+            text(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'tool_versions' AND column_name = 'embedding'"
+            )
         )
         kept = await connection.scalar(
             text("SELECT description FROM tool_versions WHERE tool_id = :tool"), {"tool": tool}

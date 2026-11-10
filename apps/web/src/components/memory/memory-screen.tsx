@@ -120,7 +120,7 @@ export function MemoryScreen() {
     try {
       await api("/api/v1/memory", {
         method: "POST",
-        body: JSON.stringify({ content, scope: "user" }),
+        body: JSON.stringify({ content, scope: scope || "user" }),
       });
       setContent("");
       setNotice(t("saved"));
@@ -244,6 +244,7 @@ export function MemoryScreen() {
                 >
                   <option value="">All</option>
                   <option value="user">user</option>
+                  <option value="workspace">workspace</option>
                   <option value="agent_user">agent_user</option>
                 </select>
               </label>

@@ -9,7 +9,6 @@ whose parent table it never imported. The list is checked against the source tre
 import importlib
 
 TABLE_MODULES: tuple[str, ...] = (
-    "ar_domain.agents.governance",
     "ar_domain.agents.tables",
     "ar_domain.approvals.models",
     "ar_domain.audit.models",
@@ -24,15 +23,15 @@ TABLE_MODULES: tuple[str, ...] = (
     "ar_domain.files.tables",
     "ar_domain.identity.guest_tables",
     "ar_domain.identity.models",
+    "ar_domain.identity.recovery_tables",
     "ar_domain.knowledge.tables",
     "ar_domain.memory.tables",
     "ar_domain.models.tables",
+    "ar_domain.notifications.tables",
     "ar_domain.orchestration.tables",
     "ar_domain.packs.tables",
     "ar_domain.policy.models",
-    "ar_domain.records.tables",
     "ar_domain.routines.tables",
-    "ar_domain.runs.tables",
     "ar_domain.sandboxes.tables",
     "ar_domain.secrets.models",
     "ar_domain.skills.tables",

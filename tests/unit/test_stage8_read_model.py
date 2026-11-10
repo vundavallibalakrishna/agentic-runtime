@@ -121,7 +121,7 @@ def test_single_alembic_head_is_stage5_revision() -> None:
             revisions[revision] = down
     pointed = {item for item in revisions.values() if item}
     heads = sorted(rev for rev in revisions if rev not in pointed)
-    assert heads == ["0039"]
+    assert heads == ["0040"]
 
 
 class _Result:

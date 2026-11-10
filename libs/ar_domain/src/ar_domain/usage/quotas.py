@@ -104,6 +104,8 @@ def in_scope(quota: dict[str, object], record: UsageRecord) -> bool:  # noqa: PL
         if scope_id is None:
             return record.user_id is not None
         return record.user_id == str(scope_id)
+    if scope == "api_key":
+        return record.api_key_id is not None and record.api_key_id == str(scope_id)
     return False
 
 
@@ -114,6 +116,7 @@ def applies(  # noqa: PLR0911
     user_id: str | None,
     team_ids: set[str],
     agent_id: str | None,
+    api_key_id: str | None = None,
 ) -> bool:
     """Whether this quota binds the caller about to spend it."""
     if str(quota.get("tenant_id")) != tenant_id:
@@ -130,6 +133,8 @@ def applies(  # noqa: PLR0911
         if user_id is None:
             return False
         return scope_id is None or str(scope_id) == user_id
+    if scope == "api_key":
+        return api_key_id is not None and scope_id is not None and str(scope_id) == api_key_id
     return False
 
 

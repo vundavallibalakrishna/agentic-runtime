@@ -271,6 +271,7 @@ async def _usage_events(session: AsyncSession, store: object, tenant_id: uuid.UU
             model_id=_text_or_none(row.get("model_id")),
             tool_id=_text_or_none(row.get("tool_id")),
             routine_id=_text_or_none(row.get("routine_id")),
+            api_key_id=_text_or_none(row.get("api_key_id")),
         )
         record_usage(usage, item)
         flushed.add((item.tenant_id, item.dedupe_key))

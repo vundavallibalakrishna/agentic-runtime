@@ -966,6 +966,39 @@ async def run_input(run_id: uuid.UUID, request: Request) -> dict[str, object]:
     return _chat(request).submit_input(_tenant(principal), uuid.UUID(principal.id), run_id, text)
 
 
+@router.get(
+    "/api/v1/conversations/{conversation_id}/summary",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def conversation_summary(conversation_id: uuid.UUID, request: Request) -> dict[str, object]:
+    from ar_domain.conversations.summary import read_summary  # noqa: PLC0415
+
+    principal = _principal(request)
+    return read_summary(_chat(request), _tenant(principal), conversation_id)
+
+
+@router.post(
+    "/api/v1/conversations/{conversation_id}/summary:refresh",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def refresh_conversation_summary(
+    conversation_id: uuid.UUID, request: Request
+) -> dict[str, object]:
+    from ar_domain.conversations.summary import refresh_summary  # noqa: PLC0415
+
+    principal = _principal(request)
+    return refresh_summary(_chat(request), _tenant(principal), conversation_id)
+
+
+@router.post("/api/v1/runs/{run_id}:resume", dependencies=[Depends(require_permission("chat:use"))])
+@expose(public=False, permission="chat:use")
+async def resume_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
+    principal = _principal(request)
+    return _chat(request).resume_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+
+
 @router.post("/api/v1/runs/{run_id}:cancel", dependencies=[Depends(require_permission("chat:use"))])
 @expose(public=False, permission="chat:use")
 async def cancel_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:

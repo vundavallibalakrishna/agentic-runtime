@@ -3,7 +3,6 @@
 import uuid  # noqa: TC003
 from datetime import datetime  # noqa: TC003
 
-from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -261,12 +260,6 @@ class ToolVersion(Base):
         CheckConstraint("timeout_s BETWEEN 1 AND 900", name="timeout_s"),
         UniqueConstraint("tool_id", "tool_server_version_id", name="uq_tool_versions"),
         Index("ix_tool_versions_tenant", "tenant_id", "tool_id"),
-        Index(
-            "ix_tool_versions_embedding",
-            "embedding",
-            postgresql_using="hnsw",
-            postgresql_ops={"embedding": "vector_cosine_ops"},
-        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -301,7 +294,6 @@ class ToolVersion(Base):
     )
     idempotent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
     approval_preview: Mapped[dict[str, object]] = jsonb_col()
-    embedding: Mapped[list[float] | None] = mapped_column(Vector(1024))
     created_at: Mapped[datetime] = created_at_col()
 
 

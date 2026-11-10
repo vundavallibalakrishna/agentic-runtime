@@ -210,7 +210,7 @@ def test_agent_card_and_unimplemented_a2a_method() -> None:
             {"jsonrpc": "2.0", "id": 1, "method": "tasks/resubscribe", "params": {}},
         )
     )
-    assert result["error"]["code"] == -32601
+    assert result["error"]["code"] == -32000
 
 
 def test_remote_a2a_uses_named_secret_and_not_the_model_argument() -> None:

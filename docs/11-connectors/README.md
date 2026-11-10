@@ -31,4 +31,7 @@ Every row below is **built**: the tools, setup steps and error messages ship in 
 | [AWS](aws.md) | Built | Not live-tested | `docs/11-connectors/aws.md` |
 | [Azure](azure.md) | Built | Not live-tested | `docs/11-connectors/azure.md` |
 | [Google Cloud](gcp.md) | Built | Not live-tested | `docs/11-connectors/gcp.md` |
+| [Gmail](gmail.md) | Built | Not live-tested | `docs/11-connectors/gmail.md` |
+| [Outlook](outlook.md) | Built | Not live-tested | `docs/11-connectors/outlook.md` |
+| [REST API](rest.md) | Built | Not live-tested | `docs/11-connectors/rest.md` |
 
