@@ -35,7 +35,6 @@ def seed_showcase(store: ChatService) -> None:
         _seed_routines(store, tenant_id, user_id)
         _seed_channels(store, tenant_id, user_id)
         _seed_usage(store, tenant_id, user_id)
-        _seed_assurance(store, tenant_id, user_id)
         return
     agent = store.ensure_assistant(tenant_id, user_id)
     samples = (
@@ -150,45 +149,6 @@ def seed_showcase(store: ChatService) -> None:
     _seed_routines(store, tenant_id, user_id)
     _seed_channels(store, tenant_id, user_id)
     _seed_usage(store, tenant_id, user_id)
-    _seed_assurance(store, tenant_id, user_id)
-
-
-def _seed_assurance(store: ChatService, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
-    from ar_domain.agents.access import Actor  # noqa: PLC0415
-    from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
-    from ar_domain.identity.tenant_settings import feature_enabled  # noqa: PLC0415
-    from ar_domain.records.vault import EvidenceBook  # noqa: PLC0415
-
-    if not feature_enabled(store, tenant_id, "assurance", default=False):
-        return
-    officer = demo_id("officer")
-    store.user_roles.setdefault(officer, {"tenant_admin"})
-    store.display_names.setdefault(officer, "Compliance officer")
-    actor = Actor(
-        tenant_id=tenant_id,
-        user_id=user_id,
-        permissions=PERMISSION_KEYS,
-        step_up_at=utcnow(),
-    )
-    existing = [
-        row
-        for row in store.records.get("evidence", {}).values()
-        if isinstance(row, dict) and row.get("idempotency_key") == "seed-evidence"
-    ]
-    if existing:
-        return
-    EvidenceBook(store).capture(
-        actor,
-        {
-            "text": "Quarterly controls note",
-            "media_type": "text/plain",
-            "source_system": "desk",
-            "collection_method": "upload",
-            "provenance": {"note": "Seeded for the assurance desk"},
-        },
-        b"Quarterly controls note",
-        idempotency_key="seed-evidence",
-    )
 
 
 def _seed_usage(store: ChatService, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:

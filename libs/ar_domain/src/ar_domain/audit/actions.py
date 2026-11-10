@@ -290,6 +290,3 @@ class AuditAction(StrEnum):
     GUEST_GRANT_REVOKED = "guest.grant_revoked"
     GUEST_ACCESS = "guest.access"
     GUEST_DOWNLOADED = "guest.downloaded"
-    BINDER_CREATED = "binder.created"
-    BINDER_BUILT = "binder.built"
-    BINDER_DOWNLOADED = "binder.downloaded"

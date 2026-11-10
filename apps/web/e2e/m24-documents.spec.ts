@@ -70,10 +70,11 @@ test("document library, comparison, check and rewrite", async ({ page }) => {
   const cookies = await page.context().cookies();
   const csrf = cookies.find((cookie) => cookie.name === "ar_csrf")?.value ?? "";
   const listed = await page.request.get("/api/v1/library-documents");
+  expect(listed.ok()).toBeTruthy();
   const items = ((await listed.json()) as { items: { id: string; title: string }[] }).items;
   const access = items.find((item) => item.title === "Access");
-  const checked = await page.request.post(`/api/v1/library-documents/${access?.id}:check`, {
-    data: { requirements: ["Staff use badges", "Operate a colony on Mars"] },
+  const checked = await page.request.post(`/api/v1/library-documents/${access?.id}:judge`, {
+    data: { statements: ["Staff use badges", "Operate a colony on Mars"] },
     headers: { "x-csrf-token": csrf },
   });
   expect(checked.ok()).toBeTruthy();

@@ -45,7 +45,7 @@ def test_many_tools_offer_the_search_tool_then_add_a_found_one() -> None:
         {
             "text": "",
             "tool_calls": [
-                {"id": "c1", "name": "control__search", "arguments": {"query": "read a file"}}
+                {"id": "c1", "name": "session__search", "arguments": {"query": "read a file"}}
             ],
             "usage": {"tokens_in": 2, "tokens_out": 2},
             "real": True,
@@ -81,7 +81,7 @@ def test_many_tools_offer_the_search_tool_then_add_a_found_one() -> None:
 
     assert store.runs[run_id]["status"] == "completed"
     # The first call is not sent the whole catalogue; it gets the search tool.
-    assert "control__search" in captured[0]
+    assert "session__search" in captured[0]
     assert len(captured[0]) < 20
     assert "general__read_file" not in captured[0]
     # The searched tool's schema joins the next call.
@@ -126,7 +126,7 @@ def test_not_live_connector_tools_stay_hidden_from_the_model() -> None:
     )
     result = dispatch(
         store,
-        "builtin://control",
+        "builtin://session",
         "search",
         {
             "_tenant_id": tenant,
@@ -188,7 +188,7 @@ def test_search_only_returns_tools_the_agent_is_granted() -> None:
     version_id = _agent(store, ["data"])  # bound to data only
     result = dispatch(
         store,
-        "builtin://control",
+        "builtin://session",
         "search",
         {
             "_tenant_id": tenant,

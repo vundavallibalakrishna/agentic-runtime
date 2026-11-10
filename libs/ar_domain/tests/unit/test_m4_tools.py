@@ -86,7 +86,7 @@ def test_seeded_servers_and_files_can_be_bound() -> None:
     life_actor = _actor()
     registry = ToolRegistry(store)
     slugs = {row["slug"] for row in registry.list_servers(life_actor)}
-    assert {"files", "conversations", "web", "control", "tickets", "petstore", "warehouse"} <= slugs
+    assert {"files", "conversations", "web", "session", "tickets", "petstore", "warehouse"} <= slugs
     from ar_domain.agents.service import AgentLifecycle
 
     life = AgentLifecycle(store)

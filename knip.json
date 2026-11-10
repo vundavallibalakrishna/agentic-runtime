@@ -1,6 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["scripts/m31_ui.cjs", "scripts/fresh_run/**", "docs/testing/**/*.cjs"],
+  "ignore": [
+    "scripts/m31_ui.cjs",
+    "scripts/fresh_run/**",
+    "docs/testing/**/*.cjs",
+    "packs/examples/**"
+  ],
   "ignoreWorkspaces": ["packages/stack-pins"],
   "ignoreDependencies": [
     "lefthook",

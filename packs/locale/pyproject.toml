@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "locale-pack"
+version = "1.0.0"
+requires-python = ">=3.14,<3.15"
+dependencies = ["ar-domain"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/locale_pack"]
+
+[tool.uv.sources]
+ar-domain = { workspace = true }

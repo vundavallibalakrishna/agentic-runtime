@@ -28,6 +28,8 @@ members = [
     "ar-sandbox-manager",
     "ar-system",
     "ar-testing",
+    "locale-pack",
+    "records-pack",
 ]
 
 [[package]]
@@ -2644,6 +2646,17 @@ wheels = [
 ]
 
 [[package]]
+name = "locale-pack"
+version = "1.0.0"
+source = { editable = "packs/locale" }
+dependencies = [
+    { name = "ar-domain" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "ar-domain", editable = "libs/ar_domain" }]
+
+[[package]]
 name = "locust"
 version = "2.46.7"
 source = { registry = "https://pypi.org/simple" }
@@ -4576,6 +4589,25 @@ dependencies = [
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/59/07/203065283bba0c5e9c10af3602dc25ab3e59ee54dc2d1d22c8faeabf5ed8/rapidocr-3.10.0-py3-none-any.whl", hash = "sha256:2fc34e26cd0f48514804a94f8832283039c7334076bff60768b1fed9ad068050", size = 27288134, upload-time = "2026-10-08T15:07:45.98Z" },
+]
+
+[[package]]
+name = "records-pack"
+version = "1.0.0"
+source = { editable = "packs/records" }
+dependencies = [
+    { name = "ar-api" },
+    { name = "ar-common" },
+    { name = "ar-contracts" },
+    { name = "ar-domain" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "ar-api", editable = "services/api" },
+    { name = "ar-common", editable = "libs/ar_common" },
+    { name = "ar-contracts", editable = "libs/ar_contracts" },
+    { name = "ar-domain", editable = "libs/ar_domain" },
 ]
 
 [[package]]

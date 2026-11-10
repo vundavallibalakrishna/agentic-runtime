@@ -286,7 +286,7 @@ async def test_builder_apply_does_not_publish() -> None:
     store, _life_unused, actor = _life()
     # The builder drafts with the tenant's model; connect the stand-in so there is one.
     connect_chat(store, demo_id("tenant"))
-    sentence = "create an agent that reviews vendor SOC 2 reports and flags gaps"
+    sentence = "create an agent that reviews quarterly vendor reports and flags gaps"
     session = await BuilderService(store).start(actor, sentence)
     read = BuilderService(store).read(actor, uuid.UUID(session["session_id"]))
     proposal = read["proposal"]

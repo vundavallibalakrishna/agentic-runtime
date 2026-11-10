@@ -19,16 +19,31 @@ class CompareBody(ApiModel):
     model_alias: str = ""
 
 
-class LibraryCheckBody(ApiModel):
-    standard_document_id: uuid.UUID | None = None
-    requirements: list[str] = Field(default_factory=list)
+class RuleSetItem(ApiModel):
+    item_id: str = ""
+    statement: str = ""
+
+
+class RuleSetBody(ApiModel):
+    id: str = ""
+    version: str = ""
+    items: list[RuleSetItem] = Field(default_factory=list)
+    source_file_id: uuid.UUID | None = None
+    sha256: str = ""
+
+
+class JudgeBody(ApiModel):
+    rule_set_id: str = ""
+    statements: list[str] = Field(default_factory=list)
+    rule_set: RuleSetBody | None = None
     label: str = ""
     model_alias: str = ""
 
 
-class GapsBody(ApiModel):
-    standard_document_id: uuid.UUID | None = None
-    requirements: list[str] = Field(default_factory=list)
+class MissingBody(ApiModel):
+    rule_set_id: str = ""
+    statements: list[str] = Field(default_factory=list)
+    rule_set: RuleSetBody | None = None
     model_alias: str = ""
 
 
@@ -152,36 +167,40 @@ async def compare_documents(
 
 
 @router.post(
-    "/api/v1/library-documents/{document_id}:check",
+    "/api/v1/library-documents/{document_id}:judge",
     dependencies=[Depends(require_permission("chat:use"))],
 )
 @expose(public=False, permission="chat:use")
-async def check_document(
-    document_id: uuid.UUID, body: LibraryCheckBody, request: Request
+async def judge_document(
+    document_id: uuid.UUID, body: JudgeBody, request: Request
 ) -> dict[str, object]:
-    return _library(request).check(
+    payload = body.rule_set.model_dump(by_alias=False) if body.rule_set is not None else None
+    return _library(request).judge(
         actor(request),
         document_id,
-        requirements=body.requirements,
-        standard_id=body.standard_document_id,
+        statements=body.statements,
+        rule_set_id=body.rule_set_id,
+        rule_set=payload,
         label=body.label,
         alias=body.model_alias,
     )
 
 
 @router.post(
-    "/api/v1/library-documents/{document_id}:gaps",
+    "/api/v1/library-documents/{document_id}:missing",
     dependencies=[Depends(require_permission("chat:use"))],
 )
 @expose(public=False, permission="chat:use")
-async def document_gaps(
-    document_id: uuid.UUID, body: GapsBody, request: Request
+async def document_missing(
+    document_id: uuid.UUID, body: MissingBody, request: Request
 ) -> dict[str, object]:
-    return _library(request).gaps(
+    payload = body.rule_set.model_dump(by_alias=False) if body.rule_set is not None else None
+    return _library(request).missing(
         actor(request),
         document_id,
-        requirements=body.requirements,
-        standard_id=body.standard_document_id,
+        statements=body.statements,
+        rule_set_id=body.rule_set_id,
+        rule_set=payload,
         alias=body.model_alias,
     )
 

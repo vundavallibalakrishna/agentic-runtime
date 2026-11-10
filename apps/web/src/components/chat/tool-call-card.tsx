@@ -222,7 +222,11 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           ) : null}
         </div>
       ) : null}
-      {kind === "summary" || kind === "check" || kind === "gaps" ? (
+      {kind === "summary" ||
+      kind === "check" ||
+      kind === "judge" ||
+      kind === "gaps" ||
+      kind === "missing" ? (
         <ul className="mt-2 space-y-2">
           {(Array.isArray(presentation.claims)
             ? presentation.claims
@@ -352,7 +356,9 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       kind !== "chart" &&
       kind !== "summary" &&
       kind !== "check" &&
+      kind !== "judge" &&
       kind !== "gaps" &&
+      kind !== "missing" &&
       kind !== "compare" &&
       kind !== "rewrite" &&
       kind !== "redact" &&

@@ -87,6 +87,8 @@ source_modules =
     ar_fake_llm
 forbidden_modules =
     ar_pack_fixture
+    records_pack
+    locale_pack
 
 [importlinter:contract:retrieval-adapters]
 name = Services never import retrieval store adapters or engine clients

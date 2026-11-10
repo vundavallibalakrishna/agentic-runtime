@@ -50,9 +50,10 @@ Implementation: [spec 17 §1](../03-specs/17-audit-usage-metering.md#1-audit), t
 | Evidence and holds | `evidence.captured`, `evidence.accessed`, `evidence.verified`, `evidence.exported`, `evidence.disposed`, `legal_hold.created`, `legal_hold.released`, `retention_schedule.updated`, `disposition.certified` |
 | AI governance | `agent_card.published`, `agent_card.updated`, `ai_incident.created`, `ai_incident.updated`, `ai_governance.exported` |
 | Guests | `guest.invited`, `guest.login`, `guest.login_failed` (F), `guest.revoked`, `guest.grant_created`, `guest.grant_revoked`, `guest.access`, `guest.downloaded` |
-| Binders | `binder.created`, `binder.built`, `binder.downloaded` |
 
 `audit.event` is **not** an action: it is the outbox topic carrying each audit row to the SIEM webhook.
+
+The records pack registers `binder.created`, `binder.built`, and `binder.downloaded`. They are not core enum members.
 
 ## 4. Required fields by action family
 

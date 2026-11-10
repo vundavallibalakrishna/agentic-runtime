@@ -1,1 +1,1 @@
-"""Evidence, holds, retention and binders. Spec: docs/03-specs/21-records-governance.md."""
+"""Shared row maps for tenant data. The records desk is a pack."""

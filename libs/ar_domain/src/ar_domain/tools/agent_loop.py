@@ -141,7 +141,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     offered: set[str] = {_spec_name(spec) for spec in openai_tools}
     if deferred:
         core = [row for row in tools if str(row.get("qualified_name")) in _CORE_WHEN_SEARCHING]
-        if not any(str(row.get("qualified_name")) == "control.search" for row in core):
+        if not any(str(row.get("qualified_name")) == "session.search" for row in core):
             search_row = _search_tool_row(store)
             if search_row is not None:
                 core.append(search_row)
@@ -508,9 +508,9 @@ def _openai_tool(row: dict[str, object]) -> dict[str, object]:
 # search tool; it finds the rest with a search, and a found tool's schema is added to the
 # next call (M39-T04).
 _CORE_WHEN_SEARCHING = frozenset(
-    {"files.read", "files.list", "control.plan_update", "control.search", "skills.load"}
+    {"files.read", "files.list", "session.plan_update", "session.search", "skills.load"}
 )
-_SEARCH_TOOL_NAMES = frozenset({"control__search", "tools__search"})
+_SEARCH_TOOL_NAMES = frozenset({"session__search", "tools__search"})
 
 
 def _spec_name(spec: dict[str, object]) -> str:
@@ -535,8 +535,8 @@ def _catalogue_row(store: Any, qualified: str, model_name: str) -> dict[str, obj
 
 
 def _search_tool_row(store: Any) -> dict[str, object] | None:
-    """The catalogue row for ``control.search``, so the search tool can always be offered."""
-    return _catalogue_row(store, "control.search", "control__search")
+    """The catalogue row for ``session.search``, so the search tool can always be offered."""
+    return _catalogue_row(store, "session.search", "session__search")
 
 
 def _add_found_tools(

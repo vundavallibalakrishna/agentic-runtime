@@ -1,4 +1,4 @@
-"""M34b: DuckDB sheet SQL, questionnaire write-back, chart themes and a slide."""
+"""M34b: DuckDB sheet SQL, chart themes and a slide."""
 
 from __future__ import annotations
 
@@ -10,18 +10,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from ar_domain.demo_ids import demo_id
-from ar_domain.documents.create import parse, render
 from ar_domain.documents.extract import extract_bytes
-from ar_domain.skills.book import SkillBook
-from ar_domain.spreadsheet.grid import grids_from_xlsx
-from ar_domain.spreadsheet.skill import INSTRUCTIONS, SLUG
 from ar_domain.tools.charts import render_chart
-from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.general import _prepare, dispatch_general
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 from ar_testing.demo import demo_store
-from ar_testing.showcase.skills import seed_composition
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
@@ -130,109 +123,6 @@ def test_pivot_table_sums_across_a_column() -> None:
     assert by_region["S"][pen] == 2
 
 
-def test_questionnaire_writes_answers_and_grounds_a_document() -> None:
-    store, arguments = _args()
-    root = _prepare(store, arguments)
-    book = render(
-        parse(
-            {
-                "format": "xlsx",
-                "title": "CAIQ",
-                "sheets": [
-                    {
-                        "name": "CAIQ",
-                        "columns": ["Question ID", "Question", "Answer", "Notes"],
-                        "rows": [
-                            ["CAIQ-1", "Do you encrypt data at rest?", "", ""],
-                            ["CAIQ-2", "Is the cafeteria open on Sunday?", "", ""],
-                        ],
-                    }
-                ],
-            }
-        )
-    )
-    (root / "workspace" / "inputs" / "caiq.xlsx").write_bytes(book)
-    filled = dispatch_documents(
-        store,
-        "fill_questionnaire",
-        {
-            **arguments,
-            "path": "caiq.xlsx",
-            "fileName": "caiq-filled.xlsx",
-            "answers": [
-                {
-                    "id": "CAIQ-1",
-                    "answer": "Yes. Data at rest uses AES.",
-                    "notes": "See the policy.",
-                    "citation": "policy p-1",
-                }
-            ],
-        },
-    )
-    assert filled["is_error"] is False
-    presentation = filled["structured"]["presentation"]
-    assert presentation["filled"] == 1
-    assert presentation["unanswered"] == 1
-    blob = store.blobs[uuid.UUID(presentation["files"][0]["file_id"])]
-    grid = next(item for item in grids_from_xlsx(blob) if item.name == "CAIQ")
-    header = list(grid.columns)
-    answer = header.index("Answer")
-    status = header.index("Status")
-    by_id = {row[0]: row for row in grid.rows}
-    assert "AES" in by_id["CAIQ-1"][answer]
-    assert by_id["CAIQ-1"][status] == "provided"
-    assert by_id["CAIQ-2"][answer] == ""
-    assert by_id["CAIQ-2"][status] == "unanswered"
-    tenant = arguments["_tenant_id"]
-    assert isinstance(tenant, uuid.UUID)
-    document_id = uuid.uuid4()
-    store.library_documents[document_id] = {
-        "id": document_id,
-        "tenant_id": tenant,
-        "title": "Security policy",
-        "passages": [
-            {
-                "anchor": "p-1",
-                "page": 1,
-                "heading": "Encryption",
-                "text": "We encrypt data at rest with AES-256.",
-            }
-        ],
-    }
-    grounded = dispatch_documents(
-        store,
-        "fill_questionnaire",
-        {
-            **arguments,
-            "path": "caiq.xlsx",
-            "documentId": str(document_id),
-            "fileName": "grounded.xlsx",
-        },
-    )
-    assert grounded["is_error"] is False
-    grounded_blob = store.blobs[
-        uuid.UUID(grounded["structured"]["presentation"]["files"][0]["file_id"])
-    ]
-    grounded_grid = next(item for item in grids_from_xlsx(grounded_blob) if item.name == "CAIQ")
-    grounded_answer = list(grounded_grid.columns).index("Answer")
-    grounded_rows = {row[0]: row for row in grounded_grid.rows}
-    assert "AES-256" in grounded_rows["CAIQ-1"][grounded_answer]
-    assert grounded_rows["CAIQ-2"][grounded_answer] == ""
-    other = dispatch_documents(
-        store,
-        "fill_questionnaire",
-        {
-            **arguments,
-            "_tenant_id": uuid.uuid4(),
-            "path": "caiq.xlsx",
-            "documentId": str(document_id),
-        },
-    )
-    assert other["is_error"] is True
-    assert other["code"] == "not_found"
-    assert "AES-256" not in str(other)
-
-
 def test_chart_themes_area_and_slide_round_trip() -> None:
     rows = [("North", 4.0), ("South", 2.0), ("West", 3.0)]
     ink = render_chart("bar", rows, theme="ink")
@@ -275,31 +165,9 @@ def test_chart_themes_area_and_slide_round_trip() -> None:
     assert refused["is_error"] is True
 
 
-def test_docx_and_skill_canaries() -> None:
+def test_docx_canary() -> None:
     docx = (_FIXTURES / "q3-brief.docx").read_bytes()
     extracted = extract_bytes(docx, filename="q3-brief.docx")
     text = "\n".join(row.text for row in extracted.passages)
     assert "Summary" in text
     assert "café" in text
-    store = demo_store()
-    seed_composition(store, demo_id("tenant"), demo_id("admin"))
-    published = SkillBook(store).published_by_slug(demo_id("tenant"), SLUG)
-    assert published is not None
-    version = next(
-        row
-        for row in store.skill_versions.values()
-        if isinstance(row, dict) and row.get("skill_id") == published["id"]
-    )
-    assert "documents.fill_questionnaire" in list(version["required_tools"])
-    assert "unanswered" in str(version["instructions_md"]).lower()
-    assert INSTRUCTIONS.split("\n", 1)[0] in str(version["instructions_md"])
-    tool = next(
-        row
-        for row in store.tool_versions.values()
-        if row.get("qualified_name") == "documents.fill_questionnaire"
-    )
-    assert tool["risk_class"] == "W1"
-    chart = next(
-        row for row in store.tool_versions.values() if row.get("qualified_name") == "general.chart"
-    )
-    assert "midnight" in str(chart["description"])

@@ -231,7 +231,7 @@ def prepare_analysis_text(text: str, *, aggressive: bool) -> str:
         return text
     if aggressive:
         return redact(text, enabled=True, profile="outbound", masking=Masking.thorough())
-    return redact(text, enabled=True, profile="analysis")
+    return redact(text, enabled=True, profile="verbatim")
 
 
 def redaction_preview(text: str) -> dict[str, object]:

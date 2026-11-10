@@ -134,7 +134,7 @@ export function BuilderScreen() {
             instructions: formInstructions.trim(),
             model: { alias: formModel },
             tools: [
-              { server: "control", version: "*", include: ["plan_update", "search", "checkpoint"] },
+              { server: "session", version: "*", include: ["plan_update", "search", "checkpoint"] },
               ...(enabledTools.length
                 ? [
                     {

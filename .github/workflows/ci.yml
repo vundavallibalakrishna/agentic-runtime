@@ -16,6 +16,13 @@ jobs:
         run: |
           echo "$TITLE" | grep -Eq '^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)(\([^)]+\))?: .+'
 
+  domain-agnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Core names no industry
+        run: python3 scripts/check_domain_agnostic.py
+
   python-lint:
     runs-on: ubuntu-latest
     steps:

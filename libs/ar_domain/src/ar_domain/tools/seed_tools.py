@@ -95,12 +95,11 @@ def seed(store: Any, *, tenant: bool = True) -> None:
         _settings(store, tenant_id)
     if catalogue:
         _builtin(store, "files", "Files", "builtin://files", _file_tools())
-        _builtin(store, "records", "Records", "builtin://records", _record_tools())
         _builtin(
             store, "conversations", "Conversations", "builtin://conversations", _history_tools()
         )
-        control = _control_tools(fixtures=bool(getattr(store, "fake_models_allowed", True)))
-        _builtin(store, "control", "Control", "builtin://control", control)
+        session = _session_tools(fixtures=bool(getattr(store, "fake_models_allowed", True)))
+        _builtin(store, "session", "Session", "builtin://session", session)
     if fixtures:
         # `web.fetch` answers one canned page. The real page reader is `general.fetch`.
         _builtin(store, "web", "Web", "builtin://web", _web_tools())
@@ -589,70 +588,6 @@ def _tool(  # noqa: PLR0917
         "risk_class": risk,
         "annotations": annotations or {},
     }
-
-
-def _record_tools() -> list[dict[str, object]]:
-    body: dict[str, object] = {
-        "type": "object",
-        "properties": {
-            "text": {
-                "type": "string",
-                "description": "The text to seal as evidence, when the evidence is text rather "
-                "than a stored file. Give this or bytes_file_id.",
-            },
-            "bytes_file_id": {
-                "type": "string",
-                "description": "The id of a file already in this conversation to seal as "
-                "evidence. Give this or text.",
-            },
-            "media_type": {
-                "type": "string",
-                "description": "The MIME type of the evidence, for example text/plain or "
-                "application/pdf. Inferred from the file when omitted.",
-            },
-            "source_system": {
-                "type": "string",
-                "description": "A short name for where the evidence came from, for the "
-                "evidence record, for example 'bank portal' or 'email'.",
-            },
-            "collection_method": {
-                "type": "string",
-                "description": "How the evidence was obtained, for the evidence record, "
-                "for example 'download' or 'screenshot'.",
-            },
-            "evidence_item_id": {
-                "type": "string",
-                "description": "The id of an existing evidence item: required by get and "
-                "verify to name which item to read or check; omit for capture.",
-            },
-        },
-    }
-    return [
-        _tool(
-            "capture",
-            "Capture evidence",
-            "Seal text or a file's bytes as a tamper-evident evidence item and return its id. "
-            "Returns the evidence item id and its manifest hash.",
-            body,
-            "R1",
-        ),
-        _tool(
-            "get",
-            "Get evidence",
-            "Read the metadata of one evidence item by id. Returns its source, method, "
-            "media type and time, not the sealed bytes.",
-            body,
-            "R0",
-        ),
-        _tool(
-            "verify",
-            "Verify evidence",
-            "Recompute an evidence item's manifest hash and report whether it still matches. "
-            "Returns a verdict and the stored and recomputed hashes.",
-            body,
-            "R0",
-        ),
-    ]
 
 
 def _file_tools() -> list[dict[str, object]]:
@@ -1594,9 +1529,9 @@ def _documents_server(store: Any) -> None:
                 "R0",
             ),
             _tool(
-                "check",
-                "Check against a standard",
-                "Check a document against a standard document or a list of requirements. "
+                "judge",
+                "Judge a document",
+                "Judge a document against a versioned rule set or a list of statements. "
                 "Each row has a verdict, a citation and a confidence. "
                 "A missing passage is reported as not found.",
                 {
@@ -1604,25 +1539,29 @@ def _documents_server(store: Any) -> None:
                     "properties": {
                         "documentId": {
                             "type": "string",
-                            "description": "The id of the document to check.",
+                            "description": "The id of the document to judge.",
                         },
-                        "standardDocumentId": {
+                        "ruleSetId": {
                             "type": "string",
-                            "description": "The id of a standard document to check against. "
-                            "Give this or requirements.",
+                            "description": "The id of a rule set already stored for this tenant. "
+                            "Give this or statements or ruleSet.",
                         },
-                        "requirements": {
+                        "statements": {
                             "type": "array",
                             "items": {
                                 "type": "string",
-                                "description": "One requirement to check the document against.",
+                                "description": "One statement to judge the document against.",
                             },
-                            "description": "An explicit list of requirements to check against. "
-                            "Give this or standardDocumentId.",
+                            "description": "Statements to judge against. Give these or a rule set.",
+                        },
+                        "ruleSet": {
+                            "type": "object",
+                            "description": "A rule set: id, version, items (itemId, statement), "
+                            "sourceFileId and sha256.",
                         },
                         "label": {
                             "type": "string",
-                            "description": "An optional label for the check, shown in the result.",
+                            "description": "An optional label for the judgement.",
                         },
                     },
                     "required": ["documentId"],
@@ -1630,9 +1569,9 @@ def _documents_server(store: Any) -> None:
                 "R0",
             ),
             _tool(
-                "gaps",
-                "Find gaps",
-                "Find requirements with no supporting passage, and sections that are too thin. "
+                "missing",
+                "Find missing statements",
+                "Find statements with no supporting passage, and sections that are too thin. "
                 "Do not invent a gap.",
                 {
                     "type": "object",
@@ -1641,19 +1580,22 @@ def _documents_server(store: Any) -> None:
                             "type": "string",
                             "description": "The id of the document to examine.",
                         },
-                        "standardDocumentId": {
+                        "ruleSetId": {
                             "type": "string",
-                            "description": "The id of a standard document whose requirements to "
-                            "look for. Give this or requirements.",
+                            "description": "The id of a stored rule set. Give this or statements "
+                            "or ruleSet.",
                         },
-                        "requirements": {
+                        "statements": {
                             "type": "array",
                             "items": {
                                 "type": "string",
-                                "description": "One requirement to look for in the document.",
+                                "description": "One statement to look for in the document.",
                             },
-                            "description": "An explicit list of requirements to look for. Give "
-                            "this or standardDocumentId.",
+                            "description": "Statements to look for. Give these or a rule set.",
+                        },
+                        "ruleSet": {
+                            "type": "object",
+                            "description": "A rule set: id, version, items, sourceFileId, sha256.",
                         },
                     },
                     "required": ["documentId"],
@@ -1720,7 +1662,6 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
-            _fill_questionnaire_tool(),
             _tool(
                 "create",
                 "Create a document",
@@ -1938,11 +1879,10 @@ def ensure_m33b(store: Any) -> None:
 
 
 def ensure_m34b(store: Any) -> None:
-    """Add sheet pivot, questionnaire fill, and the chart theme arguments."""
+    """Add sheet pivot and the chart theme arguments."""
     if not isinstance(getattr(store, "tool_servers", None), dict):
         return
     _append_tools(store, "general", [_pivot_tool()])
-    _append_tools(store, "documents", [_fill_questionnaire_tool()])
     _refresh_tool(store, "general.query_table", _query_table_tool())
     _refresh_tool(store, "general.chart", _chart_tool())
 
@@ -2127,70 +2067,6 @@ def _chart_tool() -> dict[str, object]:
                 },
             },
             "required": ["rows"],
-        },
-        "W1",
-    )
-
-
-def _fill_questionnaire_tool() -> dict[str, object]:
-    return _tool(
-        "fill_questionnaire",
-        "Fill a questionnaire",
-        "Fill a questionnaire xlsx from answers or from a library document and "
-        "write the workbook back for download. Unanswered rows stay blank. "
-        "Another tenant's document is not found.",
-        {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "The questionnaire xlsx to fill, as a path relative to the "
-                    "working folder.",
-                },
-                "sheet": {
-                    "type": "string",
-                    "description": "The sheet holding the questions, for a workbook with more "
-                    "than one.",
-                },
-                "fileName": {
-                    "type": "string",
-                    "description": "The name to save the filled workbook under. Defaults to "
-                    "the input name with a suffix.",
-                },
-                "title": {
-                    "type": "string",
-                    "description": "An optional title written into the workbook.",
-                },
-                "documentId": {
-                    "type": "string",
-                    "description": "A library document to draw answers from. Give answers, or "
-                    "documentId, or set searchLibrary.",
-                },
-                "searchLibrary": {
-                    "type": "boolean",
-                    "description": "Draw answers by searching the whole library instead of one "
-                    "document. Defaults to false.",
-                },
-                "answers": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "description": "An explicit answer, keyed by the question it answers.",
-                    },
-                    "description": "Explicit answers to place. Give these, or a documentId, or "
-                    "set searchLibrary.",
-                },
-                "sources": {
-                    "type": "array",
-                    "items": {
-                        "type": "string",
-                        "description": "A library document id to draw answers from.",
-                    },
-                    "description": "Library document ids to draw answers from, as an "
-                    "alternative to a single documentId.",
-                },
-            },
-            "required": ["path"],
         },
         "W1",
     )
@@ -2693,7 +2569,7 @@ def _web_tools() -> list[dict[str, object]]:
 _TEST_CONTROL_TOOLS = frozenset({"checkpoint", "propose_change"})
 
 
-def _control_tools(*, fixtures: bool = True) -> list[dict[str, object]]:
+def _session_tools(*, fixtures: bool = True) -> list[dict[str, object]]:
     """Control tools. `checkpoint` and `propose_change` exist to exercise retry and approval."""
     tools = _all_control_tools()
     if fixtures:

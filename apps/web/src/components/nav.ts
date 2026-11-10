@@ -20,7 +20,6 @@ import {
   Repeat,
   Settings,
   Shield,
-  ShieldCheck,
   Sparkles,
   Wrench,
 } from "lucide-react";
@@ -50,8 +49,7 @@ export type NavItem = {
     | "navRuns"
     | "navModels"
     | "navUsers"
-    | "navComputers"
-    | "navAssurance";
+    | "navComputers";
   section: "workspace" | "resources" | "manage";
   permission: string;
   /** A tenant feature flag that must be on for the item to show. */
@@ -208,14 +206,6 @@ export const primaryNav: NavItem[] = [
     labelKey: "navComputers",
     permission: "sandboxes:manage",
     icon: Monitor,
-  },
-  {
-    href: "/admin/assurance",
-    section: "manage",
-    labelKey: "navAssurance",
-    permission: "evidence:read",
-    feature: "assurance",
-    icon: ShieldCheck,
   },
   {
     href: "/admin/users",

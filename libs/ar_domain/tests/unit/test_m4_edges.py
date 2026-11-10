@@ -366,13 +366,13 @@ def test_handlers_cover_each_builtin() -> None:
     ]
     plan = dispatch(
         store,
-        "builtin://control",
+        "builtin://session",
         "plan_update",
         {"plan": ["one"], "conversation_id": conversation_id},
         "",
     )
     assert plan["text"] == "Plan updated."
-    found = dispatch(store, "builtin://control", "search", {"query": "files"}, "")
+    found = dispatch(store, "builtin://session", "search", {"query": "files"}, "")
     assert "files.list" in found["text"]
 
 

@@ -214,6 +214,17 @@ def presented_credential(scope: Scope) -> tuple[str, str] | None:
     return found.kind, found.value
 
 
+# Extra GET prefixes a pack may register. Core keeps the sealed-item read.
+_GUEST_GET_PREFIXES: list[list[str]] = [["api", "v1", "evidence"]]
+
+
+def allow_guest_get(*parts: str) -> None:
+    """Let a signed-in guest GET one path prefix. A pack calls this when it mounts."""
+    prefix = list(parts)
+    if prefix not in _GUEST_GET_PREFIXES:
+        _GUEST_GET_PREFIXES.append(prefix)
+
+
 def _guest_allowed(method: str, path: str) -> bool:
     if path.startswith("/api/v1/auth/guest/") or path.startswith("/api/v1/ext/"):
         return True
@@ -222,9 +233,10 @@ def _guest_allowed(method: str, path: str) -> bool:
     if method != "GET":
         return False
     parts = path.strip("/").split("/")
-    if len(parts) >= 4 and parts[:3] == ["api", "v1", "evidence"]:
-        return True
-    return len(parts) >= 4 and parts[:3] == ["api", "v1", "binders"]
+    return any(
+        len(parts) > len(prefix) and parts[: len(prefix)] == prefix
+        for prefix in _GUEST_GET_PREFIXES
+    )
 
 
 def _tenant_allowed(principal: object, path: str) -> bool:

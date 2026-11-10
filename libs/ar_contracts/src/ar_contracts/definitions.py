@@ -437,6 +437,8 @@ class PackExtension(_Model):
     ui: dict[str, JsonValue] = Field(default_factory=dict)
     permissions: list[str] = Field(default_factory=list)
     audit_actions: list[str] = Field(default_factory=list)
+    entry: str = ""
+    recognisers: list[str] = Field(default_factory=list)
     mcp_server: str = ""
 
 

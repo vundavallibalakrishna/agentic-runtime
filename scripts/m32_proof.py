@@ -75,7 +75,7 @@ def _row(report: dict[str, object], index: int) -> dict[str, object]:
 def main() -> int:
     key = os.environ.get("AR_CERT_LLM_API_KEY", "").strip()
     sample = "Records stay in Ireland for 90 days under control P6.3."
-    kept = redact(sample, profile="analysis")
+    kept = redact(sample, profile="verbatim")
     outbound = redact(sample, profile="outbound")
     print("analysis_profile", kept)
     print("outbound_profile", outbound)
@@ -96,10 +96,10 @@ def main() -> int:
     policy = library.ingest(actor, data=POLICY.encode(), filename="acme-policy.md")
     ireland = library.ingest(actor, data=IRELAND.encode(), filename="dpa-ireland.md")
     cayman = library.ingest(actor, data=CAYMAN.encode(), filename="dpa-cayman.md")
-    checked = library.check(
+    checked = library.judge(
         actor,
         uuid.UUID(str(policy["id"])),
-        requirements=[MFA, MARS],
+        statements=[MFA, MARS],
         label="M32",
     )
     met = _row(checked, 0)

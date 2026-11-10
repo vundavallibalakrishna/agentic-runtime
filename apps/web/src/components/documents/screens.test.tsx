@@ -51,7 +51,7 @@ describe("document library", () => {
       wrap(
         <ToolCallCard
           call={{
-            qualifiedName: "documents.check",
+            qualifiedName: "documents.judge",
             status: "succeeded",
             presentation: {
               kind: "check",

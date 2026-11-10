@@ -25,6 +25,8 @@ export type Apimount = string;
 export type Webslot = string;
 export type Permissions = string[];
 export type Auditactions = string[];
+export type Entry = string;
+export type Recognisers = string[];
 export type Mcpserver = string;
 
 /**
@@ -65,6 +67,8 @@ export interface PackExtension {
   ui?: Ui;
   permissions?: Permissions;
   auditActions?: Auditactions;
+  entry?: Entry;
+  recognisers?: Recognisers;
   mcpServer?: Mcpserver;
 }
 export interface Configschema {

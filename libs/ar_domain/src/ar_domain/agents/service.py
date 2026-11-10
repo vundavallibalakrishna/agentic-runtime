@@ -841,9 +841,9 @@ class AgentLifecycle:
                 "version": version["version"],
             },
         )
-        from ar_domain.agents.cards import GovernanceBook  # noqa: PLC0415
+        from ar_domain.packs.hooks import notify_published  # noqa: PLC0415
 
-        GovernanceBook(self.store).publish_card(actor, agent, version)
+        notify_published(self.store, actor, agent, version)
         return self.detail(agent, actor)
 
     def _gated_publish(

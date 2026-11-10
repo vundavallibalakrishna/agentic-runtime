@@ -8,6 +8,7 @@ from ar_common.errors import ConflictError, ForbiddenError, NotFoundError, Valid
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.approvals.errors import StepUpRequiredError
+from ar_domain.approvals.models import REVIEW_SUBJECTS
 from ar_domain.approvals.sod import SodBook
 from ar_domain.audit.memory import remember
 from ar_domain.policy.service import _settings
@@ -16,18 +17,7 @@ from ar_domain.rows import as_dict, as_int, as_list, as_uuid
 if TYPE_CHECKING:
     from ar_domain.agents.access import Actor
 
-_SUBJECTS = frozenset(
-    {
-        "artifact",
-        "file",
-        "message",
-        "evidence_item",
-        "run_record",
-        "agent_card",
-        "binder",
-        "pack_record",
-    }
-)
+_SUBJECTS = REVIEW_SUBJECTS
 _BULK_LIMIT = 100
 
 

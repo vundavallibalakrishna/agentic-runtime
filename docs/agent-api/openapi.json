@@ -1066,31 +1066,6 @@
         ],
         "title": "AssignmentCreate"
       },
-      "BinderBody": {
-        "properties": {
-          "title": {
-            "type": "string",
-            "title": "Title"
-          },
-          "selection": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Selection"
-          },
-          "requireReview": {
-            "type": "boolean",
-            "title": "Requirereview",
-            "default": false
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "title",
-          "selection"
-        ],
-        "title": "BinderBody"
-      },
       "Body_upload_external_file_v1_agents__slug__files_post": {
         "properties": {
           "upload": {
@@ -1194,49 +1169,6 @@
           "statementHash"
         ],
         "title": "BulkItem"
-      },
-      "CardPatch": {
-        "properties": {
-          "knownLimitations": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Knownlimitations"
-          },
-          "reviewDueAt": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reviewdueat"
-          },
-          "dataCategories": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Datacategories"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "CardPatch"
       },
       "CaseBody": {
         "properties": {
@@ -2797,69 +2729,6 @@
         "type": "object",
         "title": "EvalRunBody"
       },
-      "EvidenceBody": {
-        "properties": {
-          "fileId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fileid"
-          },
-          "text": {
-            "type": "string",
-            "title": "Text",
-            "default": ""
-          },
-          "mediaType": {
-            "type": "string",
-            "title": "Mediatype",
-            "default": "text/plain"
-          },
-          "sourceSystem": {
-            "type": "string",
-            "title": "Sourcesystem",
-            "default": "api"
-          },
-          "collectionMethod": {
-            "type": "string",
-            "title": "Collectionmethod",
-            "default": "api"
-          },
-          "provenance": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provenance"
-          },
-          "collectorRunId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Collectorrunid"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "EvidenceBody"
-      },
       "ExportBody": {
         "properties": {
           "path": {
@@ -2996,82 +2865,6 @@
         ],
         "title": "FromConversationBody"
       },
-      "GapsBody": {
-        "properties": {
-          "standardDocumentId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Standarddocumentid"
-          },
-          "requirements": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Requirements"
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "GapsBody"
-      },
-      "GovernanceExportBody": {
-        "properties": {
-          "agentIds": {
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "type": "array",
-            "title": "Agentids"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "GovernanceExportBody"
-      },
-      "GrantBody": {
-        "properties": {
-          "portal": {
-            "type": "string",
-            "title": "Portal",
-            "default": "records"
-          },
-          "scope": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Scope"
-          },
-          "expiresAt": {
-            "type": "string",
-            "title": "Expiresat",
-            "default": ""
-          },
-          "watermark": {
-            "type": "boolean",
-            "title": "Watermark",
-            "default": true
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "scope"
-        ],
-        "title": "GrantBody"
-      },
       "GrantCreate": {
         "properties": {
           "operatorSubject": {
@@ -3122,48 +2915,6 @@
         ],
         "title": "GroupCreate"
       },
-      "GuestBody": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "title": "Email"
-          },
-          "displayName": {
-            "type": "string",
-            "title": "Displayname"
-          },
-          "kind": {
-            "type": "string",
-            "title": "Kind",
-            "default": "external"
-          },
-          "authMethod": {
-            "type": "string",
-            "title": "Authmethod",
-            "default": "magic_link_totp"
-          },
-          "expiresAt": {
-            "type": "string",
-            "title": "Expiresat",
-            "default": ""
-          },
-          "grants": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "array",
-            "title": "Grants"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "email",
-          "displayName"
-        ],
-        "title": "GuestBody"
-      },
       "GuestLinkBody": {
         "properties": {
           "email": {
@@ -3209,40 +2960,6 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
-      },
-      "HoldBody": {
-        "properties": {
-          "matter": {
-            "type": "string",
-            "title": "Matter"
-          },
-          "custodians": {
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "type": "array",
-            "title": "Custodians"
-          },
-          "scopeQuery": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Scopequery"
-          },
-          "approverUserId": {
-            "type": "string",
-            "format": "uuid",
-            "title": "Approveruserid"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "matter",
-          "scopeQuery",
-          "approverUserId"
-        ],
-        "title": "HoldBody"
       },
       "IdpCreate": {
         "properties": {
@@ -3388,101 +3105,6 @@
           "kind"
         ],
         "title": "InboundBody"
-      },
-      "IncidentBody": {
-        "properties": {
-          "agentId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Agentid"
-          },
-          "agentVersionId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Agentversionid"
-          },
-          "runId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Runid"
-          },
-          "severity": {
-            "type": "string",
-            "title": "Severity"
-          },
-          "summary": {
-            "type": "string",
-            "title": "Summary"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "severity",
-          "summary"
-        ],
-        "title": "IncidentBody"
-      },
-      "IncidentPatch": {
-        "properties": {
-          "status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          },
-          "summary": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Summary"
-          },
-          "severity": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Severity"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "IncidentPatch"
       },
       "InstallBody": {
         "properties": {
@@ -3720,6 +3342,45 @@
         ],
         "title": "ItemBody"
       },
+      "JudgeBody": {
+        "properties": {
+          "ruleSetId": {
+            "type": "string",
+            "title": "Rulesetid",
+            "default": ""
+          },
+          "statements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Statements"
+          },
+          "ruleSet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleSetBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "default": ""
+          },
+          "modelAlias": {
+            "type": "string",
+            "title": "Modelalias",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "JudgeBody"
+      },
       "KeyCreate": {
         "properties": {
           "label": {
@@ -3751,42 +3412,6 @@
           "label"
         ],
         "title": "KeyCreate"
-      },
-      "LibraryCheckBody": {
-        "properties": {
-          "standardDocumentId": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Standarddocumentid"
-          },
-          "requirements": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Requirements"
-          },
-          "label": {
-            "type": "string",
-            "title": "Label",
-            "default": ""
-          },
-          "modelAlias": {
-            "type": "string",
-            "title": "Modelalias",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "LibraryCheckBody"
       },
       "LinkBody": {
         "properties": {
@@ -4154,6 +3779,40 @@
           "text"
         ],
         "title": "MessageBody"
+      },
+      "MissingBody": {
+        "properties": {
+          "ruleSetId": {
+            "type": "string",
+            "title": "Rulesetid",
+            "default": ""
+          },
+          "statements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Statements"
+          },
+          "ruleSet": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleSetBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "modelAlias": {
+            "type": "string",
+            "title": "Modelalias",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "MissingBody"
       },
       "ModelBody": {
         "properties": {
@@ -4906,32 +4565,6 @@
         "type": "object",
         "title": "ReindexBody"
       },
-      "ReleaseBody": {
-        "properties": {
-          "reason": {
-            "type": "string",
-            "title": "Reason"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "reason"
-        ],
-        "title": "ReleaseBody"
-      },
-      "ReplayBody": {
-        "properties": {
-          "modelId": {
-            "type": "string",
-            "title": "Modelid",
-            "default": ""
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "title": "ReplayBody"
-      },
       "ReviewDecideBody": {
         "properties": {
           "decision": {
@@ -5316,6 +4949,64 @@
         "type": "object",
         "title": "RoutineRunBody"
       },
+      "RuleSetBody": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "default": ""
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RuleSetItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "sourceFileId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcefileid"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RuleSetBody"
+      },
+      "RuleSetItem": {
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "title": "Itemid",
+            "default": ""
+          },
+          "statement": {
+            "type": "string",
+            "title": "Statement",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RuleSetItem"
+      },
       "RunBody": {
         "properties": {
           "agentId": {
@@ -5368,25 +5059,6 @@
           "text"
         ],
         "title": "RunBody"
-      },
-      "ScheduleBody": {
-        "properties": {
-          "retentionDays": {
-            "type": "integer",
-            "title": "Retentiondays"
-          },
-          "disposition": {
-            "type": "string",
-            "title": "Disposition"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "retentionDays",
-          "disposition"
-        ],
-        "title": "ScheduleBody"
       },
       "SearchBody": {
         "properties": {

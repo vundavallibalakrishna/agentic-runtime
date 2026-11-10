@@ -233,10 +233,10 @@ def test_chunk_parse_ground_and_cite(monkeypatch: pytest.MonkeyPatch) -> None:
                 "collection_id": "k",
                 "snippet": "desk",
             },
-            {"source_kind": "evidence_item", "evidence_id": "e", "title": "Note", "snippet": "n"},
+            {"source_kind": "sealed_record", "evidence_id": "e", "title": "Note", "snippet": "n"},
         ]
     )
-    assert citations[0]["index"] == 1 and citations[1]["source_kind"] == "evidence_item"
+    assert citations[0]["index"] == 1 and citations[1]["source_kind"] == "sealed_record"
     assert content_parts("desk [1]", citations)[1]["type"] == "citation_ref"
     assert strip_unknown("see [3]", {1}) == "see "
     assert cited_indexes("a [1] b [2]") == [1, 2]

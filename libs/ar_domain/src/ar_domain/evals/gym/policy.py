@@ -71,8 +71,8 @@ def _requirement_call(
     if "requirement:" not in lowered or document_id is None or requirement is None:
         return None
     return _call(
-        "documents__check",
-        {"documentId": document_id, "requirements": [requirement]},
+        "documents__judge",
+        {"documentId": document_id, "statements": [requirement]},
     )
 
 

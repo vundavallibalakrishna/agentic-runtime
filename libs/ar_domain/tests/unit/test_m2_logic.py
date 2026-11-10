@@ -101,7 +101,7 @@ def test_runtime_loop_and_callback() -> None:
     request.cancelled = True
     assert advance(request, definition["budget"]) == "cancelled"  # type: ignore[arg-type]
     tooled = advance(
-        RunRequest("2", {"tools": [{"server": "control"}]}, "hi"),
+        RunRequest("2", {"tools": [{"server": "session"}]}, "hi"),
         {
             "max_steps": 8,
             "max_tokens": 10,

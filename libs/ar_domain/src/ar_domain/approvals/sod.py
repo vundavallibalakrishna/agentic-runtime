@@ -7,6 +7,7 @@ from ar_common.errors import NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor
+from ar_domain.approvals.models import OWNER_BLOCK_SUBJECTS
 from ar_domain.audit.memory import remember
 
 if TYPE_CHECKING:
@@ -226,7 +227,7 @@ class SodBook:
         return found
 
     def _owner_blocked(self, actor: Actor, item: Mapping[str, object]) -> bool:
-        if item.get("subject_type") not in {"message", "artifact", "run_record", "binder"}:
+        if item.get("subject_type") not in OWNER_BLOCK_SUBJECTS:
             return False
         agent_id = item.get("agent_id") or _subject_agent(self.store, item)
         agent = self.store.agents.get(agent_id)

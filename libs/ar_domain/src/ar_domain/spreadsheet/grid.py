@@ -1,7 +1,7 @@
 """Read an xlsx grid with the original header text.
 
-Spreadsheet SQL sanitises names so they are identifiers. Questionnaire
-write-back keeps the headers the user will see in the downloaded file.
+Spreadsheet SQL sanitises names so they are identifiers. A sheet fill
+keeps the headers the user will see in the downloaded file.
 """
 
 from __future__ import annotations

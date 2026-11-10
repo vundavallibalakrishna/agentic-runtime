@@ -165,7 +165,7 @@ def test_tool_search_ranks_platform_and_own_tenant_tools_only() -> None:
     _tool(store, tenant_b, "bravo", "Look up a quasar payroll row for tenant b.")
 
     def names(who: dict[str, object]) -> list[str]:
-        found = dispatch(store, "builtin://control", "search", {"query": "quasar", **who}, "")
+        found = dispatch(store, "builtin://session", "search", {"query": "quasar", **who}, "")
         tools = found["structured"]["tools"]  # type: ignore[index]
         return [str(row["qualified_name"]) for row in tools]
 
@@ -174,7 +174,7 @@ def test_tool_search_ranks_platform_and_own_tenant_tools_only() -> None:
     assert "bravo.lookup" not in seen_by_a
     assert "bravo.lookup" in names(_who(tenant_b, user))
     assert "alpha.lookup" not in names({}) and "bravo.lookup" not in names({})
-    platform = dispatch(store, "builtin://control", "search", {"query": "files"}, "")
+    platform = dispatch(store, "builtin://session", "search", {"query": "files"}, "")
     assert "files.list" in str(platform["text"]), "platform tools stay searchable"
 
 
@@ -187,7 +187,7 @@ def test_tool_search_skips_disabled_and_superseded_versions() -> None:
 
     def found() -> str:
         return str(
-            dispatch(store, "builtin://control", "search", {"query": "quasar", **who}, "")["text"]
+            dispatch(store, "builtin://session", "search", {"query": "quasar", **who}, "")["text"]
         )
 
     assert "alpha.lookup" in found()

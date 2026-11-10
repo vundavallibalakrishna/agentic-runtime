@@ -435,9 +435,9 @@ def _documents(client: httpx.Client) -> None:
         quote = str(rows[0].get("text") or "")[:180]
     checked = _body(
         client.post(
-            f"/api/v1/library-documents/{document_id}:check",
+            f"/api/v1/library-documents/{document_id}:judge",
             json={
-                "requirements": [
+                "statements": [
                     quote[:120] or "architecture",
                     "The organisation shall operate a colony on Mars",
                 ],

@@ -318,18 +318,18 @@ def test_compare_tables_and_long_retrieval() -> None:
     assert elapsed < 2
     assert any(row["page"] == 250 for row in chosen)
     assert sum(len(str(row["text"])) for row in chosen) <= 12_000
-    report = library.check(
+    report = library.judge(
         actor,
         uuid.UUID(str(right["id"])),
-        requirements=["Trips need approval", "Operate a colony on Mars"],
+        statements=["Trips need approval", "Operate a colony on Mars"],
     )
     rows = report["rows"]
     assert isinstance(rows, list)
     assert rows[1]["verdict"] == "not_found"  # type: ignore[index]
-    gaps = library.gaps(
+    gaps = library.missing(
         actor,
         uuid.UUID(str(right["id"])),
-        requirements=["Operate a colony on Mars"],
+        statements=["Operate a colony on Mars"],
     )
     assert any(
         isinstance(row, dict) and row.get("verdict") == "not_found"
@@ -397,12 +397,12 @@ def test_tools_cover_ingest_paths_and_model_call(monkeypatch: pytest.MonkeyPatch
     )
     checked = dispatch_documents(
         store,
-        "check",
-        {**args, "requirements": ["Staff use badges", "Operate a colony on Mars"]},
+        "judge",
+        {**args, "statements": ["Staff use badges", "Operate a colony on Mars"]},
     )
     assert "not_found" in str(checked["text"])
     assert (
-        dispatch_documents(store, "gaps", {**args, "requirements": ["Operate a colony on Mars"]})[
+        dispatch_documents(store, "missing", {**args, "statements": ["Operate a colony on Mars"]})[
             "is_error"
         ]
         is False

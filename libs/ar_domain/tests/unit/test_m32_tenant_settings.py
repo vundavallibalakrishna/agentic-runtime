@@ -5,16 +5,15 @@ from typing import TYPE_CHECKING
 
 from ar_domain.identity.tenant_settings import section, settings_for
 from ar_domain.pii.analyzer import Masking, _presidio, maskable_entities, redact
-from ar_domain.pii.recognizers_in import find_indian
-from ar_domain.records.vault import EvidenceBook
 from ar_domain.security.guardrails import apply_result_safety
 from ar_domain.tools.handlers import dispatch
 from ar_testing.demo import demo_store
+from records_pack.vault import EvidenceBook
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
 
-PHONE = "call 9876543210 now"
+PHONE = "write ada@acme.com now"
 
 
 def _store() -> tuple[ChatService, uuid.UUID, uuid.UUID]:
@@ -28,7 +27,7 @@ def _store() -> tuple[ChatService, uuid.UUID, uuid.UUID]:
 def _entities(text: str) -> list[str]:
     """Every kind either recogniser reports for ``text``."""
     everything = frozenset(maskable_entities())
-    found = (*find_indian(text), *_presidio(text, everything))
+    found = _presidio(text, everything)
     return sorted({str(span["entity"]).lower() for span in found})
 
 
@@ -50,13 +49,13 @@ def test_redaction_follows_the_calling_tenant_only() -> None:
     unknown, _ = apply_result_safety(store, PHONE, open_world=False, tenant_id=uuid.uuid4())
     no_tenant, _ = apply_result_safety(store, PHONE, open_world=False, tenant_id=None)
     assert off == PHONE
-    assert "9876543210" not in on
-    assert "9876543210" not in unknown, "a tenant without a row keeps the safe default"
-    assert "9876543210" not in no_tenant, "no tenant must not borrow tenant A's opt-out"
+    assert "ada@acme.com" not in on
+    assert "ada@acme.com" not in unknown, "a tenant without a row keeps the safe default"
+    assert "ada@acme.com" not in no_tenant, "no tenant must not borrow tenant A's opt-out"
 
 
 def test_tenant_can_skip_entity_types() -> None:
-    assert "9876543210" not in redact(PHONE)
+    assert "ada@acme.com" not in redact(PHONE)
     found = _entities(PHONE)
     assert found, "the fixture must trip at least one recogniser"
     assert redact(PHONE, masking=Masking().without(frozenset(found))) == PHONE
@@ -65,7 +64,7 @@ def test_tenant_can_skip_entity_types() -> None:
     kept, _ = apply_result_safety(store, PHONE, open_world=False, tenant_id=tenant_b)
     assert kept == PHONE
     masked, _ = apply_result_safety(store, PHONE, open_world=False, tenant_id=uuid.uuid4())
-    assert "9876543210" not in masked
+    assert "ada@acme.com" not in masked
 
 
 def test_web_fetch_feature_is_read_per_tenant() -> None:

@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 
 def allocate(hits: list[dict[str, object]], *, start: int = 1) -> list[dict[str, object]]:
-    """Give each hit a stable index. Tool results and evidence items may omit documents."""
+    """Give each hit a stable index. Tool results and sealed records may omit documents."""
     citations: list[dict[str, object]] = []
     index = start
     for hit in hits:
@@ -47,7 +47,7 @@ def marker(index: int) -> str:
 
 def new_evidence(title: str, uri: str, snippet: str) -> dict[str, object]:
     return {
-        "source_kind": "evidence_item",
+        "source_kind": "sealed_record",
         "evidence_id": str(uuid.uuid4()),
         "title": title,
         "uri": uri,

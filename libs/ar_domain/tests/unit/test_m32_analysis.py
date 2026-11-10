@@ -83,7 +83,7 @@ def test_analysis_profile_keeps_dates_places_and_control_ids(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("ar_domain.pii.analyzer._presidio", _fake_presidio)
-    kept = redact(EVIDENCE, profile="analysis")
+    kept = redact(EVIDENCE, profile="verbatim")
     assert "90 days" in kept
     assert "Ireland" in kept
     assert "P6.3" in kept
@@ -287,7 +287,7 @@ def test_installed_recogniser_keeps_grc_tokens() -> None:
     analysis must not.
     """
     sample = "Records stay in Ireland for 90 days under control P6.3."
-    kept = redact(sample, profile="analysis")
+    kept = redact(sample, profile="verbatim")
     outbound = redact(sample, profile="outbound")
     assert "Ireland" in kept
     assert "90 days" in kept

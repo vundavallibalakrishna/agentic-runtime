@@ -1,6 +1,6 @@
 """Rank tools against what was asked. Spec: docs/03-specs/08-tool-registry-mcp.md §4.
 
-An agent with many tools is offered the ones closest to the request, and ``control.search``
+An agent with many tools is offered the ones closest to the request, and ``session.search``
 finds a tool by description. Closeness is measured two ways and added up: by meaning, with
 the tenant's embedding model, and by the words the request shares with the tool's name and
 description. With no embedding model, or when it does not answer, the ranking is by words

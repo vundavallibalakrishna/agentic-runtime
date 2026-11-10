@@ -23,6 +23,21 @@ from ar_domain.db.types import created_at_col, jsonb_col, text_array, updated_at
 _SUBJECTS = (
     "('artifact','file','message','evidence_item','run_record','agent_card','binder','pack_record')"
 )
+REVIEW_SUBJECTS = frozenset(
+    {
+        "artifact",
+        "file",
+        "message",
+        "evidence_item",
+        "sealed_record",
+        "run_record",
+        "agent_card",
+        "binder",
+        "packet",
+        "pack_record",
+    }
+)
+OWNER_BLOCK_SUBJECTS = frozenset({"message", "artifact", "run_record", "binder", "packet"})
 
 
 class Approval(Base):

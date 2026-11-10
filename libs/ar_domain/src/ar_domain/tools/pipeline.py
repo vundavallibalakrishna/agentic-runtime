@@ -37,8 +37,8 @@ _IMPLICIT = frozenset(
     {
         "files.read",
         "files.list",
-        "control.plan_update",
-        "control.search",
+        "session.plan_update",
+        "session.search",
         "plan.update",
         "tools.search",
         "skills.load",
@@ -696,7 +696,7 @@ class ToolPipeline:
         if (
             qualified in _IMPLICIT
             or qualified.startswith("files.")
-            or qualified.startswith("control.")
+            or qualified.startswith("session.")
         ):
             return True
         agent_version_id = request.get("agent_version_id")

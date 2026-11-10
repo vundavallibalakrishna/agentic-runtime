@@ -102,7 +102,7 @@ async def _chat(store: ChatService, agent_id: uuid.UUID, text: str) -> tuple[lis
 
 async def _check_builder(store: ChatService) -> tuple[bool, str]:
     result = await draft_from_description(
-        store, _actor(), "Review vendor SOC 2 reports and flag missing controls"
+        store, _actor(), "Review quarterly vendor reports and flag missing items"
     )
     definition = result.get("definition") if isinstance(result, dict) else None
     persona = definition.get("persona") if isinstance(definition, dict) else None

@@ -77,7 +77,7 @@ _SPECS: dict[ErrorCode, tuple[int, str]] = {
     ErrorCode.EXTENSION_UNAVAILABLE: (422, "Extension unavailable"),
     ErrorCode.TSA_UNAVAILABLE: (422, "Timestamp authority unavailable"),
     ErrorCode.RETENTION_BELOW_MINIMUM: (422, "Retention below minimum"),
-    ErrorCode.BINDER_TOO_LARGE: (422, "Binder too large"),
+    ErrorCode.BINDER_TOO_LARGE: (422, "The export is too large"),
     ErrorCode.GUEST_FORBIDDEN: (403, "Guest forbidden"),
     ErrorCode.WATERMARK_UNSUPPORTED: (415, "Watermark unsupported"),
     ErrorCode.REVIEW_REQUIRED: (409, "Review required"),

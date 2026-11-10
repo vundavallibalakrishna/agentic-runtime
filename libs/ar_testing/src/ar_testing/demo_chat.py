@@ -119,17 +119,15 @@ DEMO_CHAT: list[dict[str, object]] = [
         "match": {"system_contains": _BUILDER_SYSTEM, "contains": "report name"},
         "respond": {
             "text": _agent_definition(
-                "First ask for the report name, then review the vendor SOC 2 report "
-                "and flag the gaps with evidence."
+                "First ask for the report name, then review the quarterly vendor report "
+                "and flag the gaps."
             )
         },
     },
     {
-        "match": {"system_contains": _BUILDER_SYSTEM, "contains": "SOC 2"},
+        "match": {"system_contains": _BUILDER_SYSTEM, "contains": "quarterly vendor"},
         "respond": {
-            "text": _agent_definition(
-                "Review the vendor SOC 2 report and flag the gaps with evidence."
-            )
+            "text": _agent_definition("Review the quarterly vendor report and flag the gaps.")
         },
     },
 ]

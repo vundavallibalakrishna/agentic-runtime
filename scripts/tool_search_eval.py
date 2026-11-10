@@ -9,7 +9,7 @@ the ``embed`` alias at another model.
     uv run python scripts/tool_search_eval.py --tenant acme --agent assistant
     uv run python scripts/tool_search_eval.py --tenant acme --all
 
-``--all`` ranks every tool the tenant can search, which is what ``control.search`` does. A
+``--all`` ranks every tool the tenant can search, which is what ``session.search`` does. A
 request whose tool is not among those ranked is left out. Exit code 1 when a wanted tool is
 ranked below ``--within`` (the number of tools an agent is offered by default).
 """
@@ -40,8 +40,8 @@ CASES: list[tuple[str, set[str]]] = [
     ("Run a Python script that sorts these numbers", {"general.code"}),
     ("Save these notes as a text file in my workspace", {"general.write_file"}),
     (
-        "Which questions in this vendor questionnaire are still unanswered?",
-        {"documents.gaps", "documents.fill_questionnaire"},
+        "Which statements in this list have no supporting passage?",
+        {"documents.missing"},
     ),
     ("What changed between the March and April versions of the contract?", {"documents.compare"}),
     ("Hide the names and phone numbers in this letter", {"documents.redact"}),
@@ -49,11 +49,11 @@ CASES: list[tuple[str, set[str]]] = [
     ("What is in this chart screenshot?", {"image.ask"}),
     ("Post this JSON to our billing API", {"general.http"}),
     ("Which files did I upload to this chat?", {"general.list_files"}),
-    ("Does our policy meet every clause of the standard?", {"documents.check"}),
+    ("Does our policy meet every statement in this rule set?", {"documents.judge"}),
     ("Pull the invoice number, date and total out of this PDF", {"documents.extract"}),
     ("Install nothing, just show me the disk usage with du", {"general.shell"}),
     ("Add the uploaded handbook to the library", {"documents.ingest"}),
-    ("Show me the steps you intend to take", {"control.plan_update"}),
+    ("Show me the steps you intend to take", {"session.plan_update"}),
     ("Make the introduction of the proposal clearer", {"documents.rewrite"}),
     ("Quelle est la météo à Paris aujourd'hui ?", {"general.search", "general.fetch"}),
     ("Resume este documento en tres puntos", {"documents.summarise"}),

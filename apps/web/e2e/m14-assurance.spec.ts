@@ -35,23 +35,13 @@ async function capture(page: Page, name: string) {
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 
-test("assurance desk, guest portal and export stay usable", async ({ page }) => {
+test("guest access and the pack frame stay usable", async ({ page }) => {
   await signIn(page);
-  await page.goto("/admin/assurance");
-  await expect(page.getByRole("heading", { name: "Assurance" })).toBeVisible();
-  await page.getByLabel("Note").fill("Desk note");
-  await page.getByRole("button", { name: "Seal evidence" }).click();
-  await expect(page.getByText("Evidence sealed.")).toBeVisible();
-  await expect(page.getByText("desk").first()).toBeVisible();
-  await page.getByRole("tab", { name: "Holds" }).click();
-  await expect(page.getByText("Someone else with hold access must be the approver.")).toBeVisible();
-  await page.getByRole("tab", { name: "Retention" }).click();
-  await expect(page.getByText("evidence_item")).toBeVisible();
-  await page.getByRole("tab", { name: "Guests" }).click();
-  await expect(page.getByRole("heading", { name: "Invite a guest" })).toBeVisible();
+  await page.goto("/packs/records");
+  await expect(page.getByText("This pack is not enabled")).toBeVisible();
   const axe = await new AxeBuilder({ page }).analyze();
   expect(axe.violations).toEqual([]);
-  await capture(page, "assurance");
+  await capture(page, "pack");
   await page.goto("/guest");
   await expect(page.getByRole("heading", { name: "Guest access" })).toBeVisible();
   await capture(page, "guest");

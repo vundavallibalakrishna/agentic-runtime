@@ -35,12 +35,9 @@ def feature_enabled(store: Any, tenant_id: object, name: str, *, default: bool) 
 def permissions_for_features(
     store: Any, tenant_id: object, permissions: frozenset[str]
 ) -> frozenset[str]:
-    """Drop the permissions of features the tenant has not turned on."""
-    from ar_domain.identity.permissions import ASSURANCE_PERMISSIONS  # noqa: PLC0415
-
-    if feature_enabled(store, tenant_id, "assurance", default=False):
-        return permissions
-    return permissions - ASSURANCE_PERMISSIONS
+    """Permissions after feature flags. Pack permissions are added separately."""
+    del store, tenant_id
+    return permissions
 
 
 def section(settings: dict[str, object], *path: str) -> dict[str, object]:
@@ -57,10 +54,8 @@ def dev_tenant_settings() -> dict[str, object]:
     """Settings the ``dev`` tenant starts with, wherever it is created.
 
     The database seed, the in-memory identity store and the demo catalogue must agree,
-    or the first settings patch replaces one copy with another's defaults. The dev
-    tenant shows every screen, so the assurance desk is on; a customer tenant starts
-    with it off.
+    or the first settings patch replaces one copy with another's defaults.
     """
-    from ar_contracts.tenants import FeatureFlags, TenantSettings  # noqa: PLC0415
+    from ar_contracts.tenants import TenantSettings  # noqa: PLC0415
 
-    return TenantSettings(features=FeatureFlags(assurance=True)).model_dump(by_alias=False)
+    return TenantSettings().model_dump(by_alias=False)

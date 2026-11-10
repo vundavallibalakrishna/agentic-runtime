@@ -273,23 +273,22 @@ class DocumentLibrary:
         result["id"] = str(comparison_id)
         return result
 
-    def check(
+    def judge(
         self,
         actor: Actor,
         document_id: uuid.UUID,
         *,
-        requirements: list[str],
-        standard_id: uuid.UUID | None = None,
+        statements: list[str],
+        rule_set_id: str = "",
+        rule_set: dict[str, object] | None = None,
         label: str = "",
         alias: str = "",
         agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         row = self._own(actor, document_id)
-        items = [item.strip() for item in requirements if item.strip()]
-        if standard_id is not None:
-            items.extend(requirements_from(self._own(actor, standard_id)))
-        if not items:
-            raise ValidationFailedError("Provide a standard document or a list of requirements.")
+        items, source_id, set_id, version = self._rule_statements(
+            actor, statements, rule_set_id=rule_set_id, rule_set=rule_set
+        )
         result = check(
             row,
             items[:40],
@@ -297,14 +296,19 @@ class DocumentLibrary:
             label=label,
             aggressive=self._aggressive(actor, agent_version_id),
         )
+        result["kind"] = "judge"
+        result["rule_set_id"] = set_id
+        result["rule_set_version"] = version
         check_id = new_id()
         now = utcnow()
         self.store.document_checks[check_id] = {
             "id": check_id,
             "tenant_id": actor.tenant_id,
             "document_id": document_id,
-            "standard_document_id": standard_id,
-            "label": label or "Check",
+            "standard_document_id": source_id,
+            "rule_set_id": set_id,
+            "rule_set_version": version,
+            "label": label or "Judge",
             "rows": result,
             "created_by": actor.user_id,
             "created_at": now,
@@ -313,26 +317,77 @@ class DocumentLibrary:
         result["id"] = str(check_id)
         return result
 
-    def gaps(
+    def missing(
         self,
         actor: Actor,
         document_id: uuid.UUID,
         *,
-        requirements: list[str],
-        standard_id: uuid.UUID | None = None,
+        statements: list[str],
+        rule_set_id: str = "",
+        rule_set: dict[str, object] | None = None,
         alias: str = "",
         agent_version_id: uuid.UUID | None = None,
     ) -> dict[str, object]:
         row = self._own(actor, document_id)
-        items = [item.strip() for item in requirements if item.strip()]
-        if standard_id is not None:
-            items.extend(requirements_from(self._own(actor, standard_id)))
-        return gaps(
+        items, _source, set_id, version = self._rule_statements(
+            actor, statements, rule_set_id=rule_set_id, rule_set=rule_set
+        )
+        result = gaps(
             row,
             items[:40],
             self._ask(actor, alias),
             aggressive=self._aggressive(actor, agent_version_id),
         )
+        result["kind"] = "missing"
+        result["rule_set_id"] = set_id
+        result["rule_set_version"] = version
+        return result
+
+    def _rule_statements(
+        self,
+        actor: Actor,
+        statements: list[str],
+        *,
+        rule_set_id: str,
+        rule_set: dict[str, object] | None,
+    ) -> tuple[list[str], uuid.UUID | None, str, str]:
+        """Statements from the caller, an inline rule set, or one stored earlier."""
+        from ar_domain.records.memory import bucket  # noqa: PLC0415
+
+        items = [item.strip() for item in statements if item.strip()]
+        source_id: uuid.UUID | None = None
+        set_id = rule_set_id.strip()
+        version = ""
+        payload = rule_set if isinstance(rule_set, dict) else None
+        if set_id and payload is None:
+            stored = bucket(self.store, "rule_sets").get(set_id)
+            payload = stored if isinstance(stored, dict) else None
+        if payload is not None:
+            set_id = set_id or str(payload.get("id") or "")
+            version = str(payload.get("version") or "")
+            raw_items = payload.get("items")
+            if isinstance(raw_items, list):
+                for item in raw_items:
+                    if isinstance(item, dict):
+                        text = str(item.get("statement") or "").strip()
+                    else:
+                        text = str(item).strip()
+                    if text:
+                        items.append(text)
+            source_id = _as_uuid(payload.get("sourceFileId") or payload.get("source_file_id"))
+            if set_id:
+                bucket(self.store, "rule_sets")[set_id] = {
+                    "id": set_id,
+                    "version": version,
+                    "items": [{"statement": item} for item in items],
+                    "source_file_id": source_id,
+                    "sha256": str(payload.get("sha256") or ""),
+                }
+        if source_id is not None:
+            items.extend(requirements_from(self._own(actor, source_id)))
+        if not items:
+            raise ValidationFailedError("Provide a rule set or a list of statements.")
+        return items, source_id, set_id, version
 
     def redact(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         row = self._own(actor, document_id)
@@ -604,6 +659,17 @@ def _extract_error(exc: ExtractError) -> ArError:
     if exc.code == "too_many_pages":
         return PayloadTooLargeError(exc.message)
     return ValidationFailedError(exc.message)
+
+
+def _as_uuid(value: object) -> uuid.UUID | None:
+    if isinstance(value, uuid.UUID):
+        return value
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return uuid.UUID(value)
+    except ValueError:
+        return None
 
 
 def _rows(value: object) -> list[dict[str, object]]:

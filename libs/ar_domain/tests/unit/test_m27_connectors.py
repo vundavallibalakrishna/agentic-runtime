@@ -28,6 +28,8 @@ from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
+    import pytest
+
     from ar_domain.chat.service import ChatService
 
 _BATCH = {
@@ -536,7 +538,11 @@ def test_aws_reads_recorded_xml_and_caches_a_role() -> None:
     assert "temp-secret" not in " ".join(calls)
 
 
-def test_shared_rate_limit_counts_across_stores() -> None:
+def test_shared_rate_limit_counts_across_stores(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The shared key includes the current minute. A slow suite can cross that
+    # boundary and reset the counter, so the next call is not limited.
+    monkeypatch.setattr("time.time", lambda: 1_700_000_000.0)
+
     class _Valkey:
         def __init__(self) -> None:
             self.values: dict[str, int] = {}

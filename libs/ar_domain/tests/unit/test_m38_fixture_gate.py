@@ -6,7 +6,7 @@ from ar_domain.chat.service import ChatService, demo_id
 from ar_testing.demo import demo_store
 
 FIXTURE_SERVERS = {"tickets", "petstore", "warehouse", "web"}
-FIXTURE_TOOLS = {"control.checkpoint", "control.propose_change", "web.fetch"}
+FIXTURE_TOOLS = {"session.checkpoint", "session.propose_change", "web.fetch"}
 
 
 def _servers(store: ChatService) -> set[str]:
@@ -24,7 +24,7 @@ def _agents(store: ChatService) -> set[str]:
 def _control_binding(definition: dict[str, object]) -> list[str]:
     tools = definition["tools"]
     assert isinstance(tools, list)
-    binding = next(row for row in tools if row["server"] == "control")
+    binding = next(row for row in tools if row["server"] == "session")
     return list(binding["include"])
 
 
@@ -51,9 +51,9 @@ def test_a_production_store_keeps_the_real_tools_and_the_assistant() -> None:
     tools = _tools(store)
     for name in (
         "files.read",
-        "control.plan_update",
-        "control.search",
-        "control.a2a_call",
+        "session.plan_update",
+        "session.search",
+        "session.a2a_call",
         "general.fetch",
         "general.code",
         "documents.read",
