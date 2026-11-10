@@ -1,10 +1,11 @@
 """Identity queries. Spec: docs/04-data/schema.md §1."""
 
 import uuid  # noqa: TC003
+from dataclasses import dataclass
 from datetime import datetime  # noqa: TC003
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from ar_domain.audit.service import record, record_for_context
 from ar_domain.db import BaseRepository
@@ -33,6 +34,41 @@ if TYPE_CHECKING:
 
     from ar_domain.audit.actions import AuditAction
     from ar_domain.db.context import TenantContext
+
+
+@dataclass(frozen=True, slots=True)
+class AgentApiKeyRow:
+    """An agent API key found by prefix before the tenant is known."""
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    created_by_user_id: uuid.UUID | None
+    secret_hash: str
+    revoked_at: datetime | None
+
+
+async def resolve_agent_api_key_by_prefix(
+    session: AsyncSession, prefix: str
+) -> AgentApiKeyRow | None:
+    """Look up an ``ara_`` key by prefix, without a tenant context."""
+    found = (
+        await session.execute(
+            text(
+                "SELECT id, tenant_id, created_by_user_id, secret_hash, revoked_at "
+                "FROM agent_api_keys WHERE prefix = :prefix"
+            ),
+            {"prefix": prefix},
+        )
+    ).first()
+    if found is None:
+        return None
+    return AgentApiKeyRow(
+        id=found.id,
+        tenant_id=found.tenant_id,
+        created_by_user_id=found.created_by_user_id,
+        secret_hash=str(found.secret_hash or ""),
+        revoked_at=found.revoked_at,
+    )
 
 
 async def resolve_api_key_by_prefix(session: AsyncSession, prefix: str) -> ApiKey | None:

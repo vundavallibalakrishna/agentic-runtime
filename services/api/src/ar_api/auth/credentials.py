@@ -155,26 +155,18 @@ async def _resolve_agent_api_key(value: str) -> Principal | None:
     The prefix lookup is BYPASSRLS because the tenant is not known yet. The
     secret is compared in constant time and is not logged.
     """
-    from sqlalchemy import text  # noqa: PLC0415
+    from ar_domain.identity.repository import resolve_agent_api_key_by_prefix  # noqa: PLC0415
 
     if not value.startswith("ara_") or len(value) < 16:
         _dummy_compare()
         return None
     prefix = value[4:16]
     async with platform_session("resolve agent api key") as session:
-        found = (
-            await session.execute(
-                text(
-                    "SELECT id, tenant_id, created_by_user_id, secret_hash, revoked_at "
-                    "FROM agent_api_keys WHERE prefix = :prefix"
-                ),
-                {"prefix": prefix},
-            )
-        ).first()
+        found = await resolve_agent_api_key_by_prefix(session, prefix)
     if found is None:
         _dummy_compare()
         return None
-    if not constant_time_equal(sha256_hex(value), str(found.secret_hash or "")):
+    if not constant_time_equal(sha256_hex(value), found.secret_hash):
         return None
     if found.revoked_at is not None or found.created_by_user_id is None:
         return None
