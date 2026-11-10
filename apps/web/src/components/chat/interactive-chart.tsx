@@ -3,12 +3,12 @@
 import { useTranslations } from "next-intl";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-export type ChartRow = { label: string; value: number };
-export type ChartSeries = { name: string; values: number[] };
+type ChartRow = { label: string; value: number };
+type ChartSeries = { name: string; values: number[] };
 
 const FILLS = ["var(--foreground)", "var(--muted-foreground)", "var(--primary)", "var(--accent)"];
 
-export function rowsOf(presentation: Record<string, unknown>): ChartRow[] {
+function rowsOf(presentation: Record<string, unknown>): ChartRow[] {
   const raw = presentation.rows;
   if (!Array.isArray(raw)) return [];
   return raw
@@ -22,7 +22,7 @@ export function rowsOf(presentation: Record<string, unknown>): ChartRow[] {
     .filter((item): item is ChartRow => item !== null);
 }
 
-export function seriesOf(presentation: Record<string, unknown>): {
+function seriesOf(presentation: Record<string, unknown>): {
   categories: string[];
   series: ChartSeries[];
 } {

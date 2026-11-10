@@ -1,8 +1,8 @@
 export type PlanStep = { id: string; title: string; status: string };
 
-export type TimelineEntry = { kind: string; text: string };
+type TimelineEntry = { kind: string; text: string };
 
-export type StreamWarning = { code: string; message: string };
+type StreamWarning = { code: string; message: string };
 
 type StreamTool = {
   name: string;
