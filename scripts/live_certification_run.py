@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import mimetypes
 import os
-import subprocess
+import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -35,9 +35,17 @@ def _json(
     return response.status_code, dict(response.headers), parsed
 
 
-def _cookie(headers: dict[str, str]) -> str:
+def _cookies(headers: dict[str, str]) -> tuple[str, str]:
+    """Return the cookie header to echo back and the CSRF token to submit.
+
+    Login sets ``ar_session`` and ``ar_csrf``. Mutating calls use the double-submit
+    pattern: the ``ar_csrf`` cookie is echoed back and its value is also sent in the
+    ``x-csrf-token`` header, or the API rejects the write with ``csrf_failed``.
+    """
     raw = headers.get("Set-Cookie") or headers.get("set-cookie") or ""
-    return raw.split(";", 1)[0]
+    pairs = dict(re.findall(r"(ar_session|ar_csrf)=([^;,\s]+)", raw))
+    cookie = "; ".join(f"{name}={value}" for name, value in pairs.items())
+    return cookie, pairs.get("ar_csrf", "")
 
 
 def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, object]:
@@ -73,7 +81,7 @@ def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, ob
     return {"ok": True, "dir": str(shots)}
 
 
-def _upload(api: str, cookie: str, path: Path) -> tuple[int, object]:
+def _upload(api: str, cookie: str, csrf: str, path: Path) -> tuple[int, object]:
     data = path.read_bytes()
     boundary = uuid.uuid4().hex
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
@@ -89,7 +97,11 @@ def _upload(api: str, cookie: str, path: Path) -> tuple[int, object]:
     response = httpx.post(
         f"{api}/api/v1/library-documents",
         content=body,
-        headers={"cookie": cookie, "content-type": f"multipart/form-data; boundary={boundary}"},
+        headers={
+            "cookie": cookie,
+            "x-csrf-token": csrf,
+            "content-type": f"multipart/form-data; boundary={boundary}",
+        },
         timeout=180,
     )
     try:
@@ -97,6 +109,17 @@ def _upload(api: str, cookie: str, path: Path) -> tuple[int, object]:
     except orjson.JSONDecodeError:
         parsed = {}
     return response.status_code, parsed
+
+
+def _verify_chain(api: str, auth_w: dict[str, str]) -> dict[str, object]:
+    """Verify the hash-chained audit log through the product's own endpoint.
+
+    The endpoint reads the tenant's chain from Postgres and returns ``ok`` when no
+    row was tampered with.
+    """
+    status, _headers, verified = _json("POST", f"{api}/api/v1/audit-events:verify", {}, auth_w)
+    ok = status == 200 and isinstance(verified, dict) and verified.get("ok") is True
+    return {"step": "audit-chain", "ok": ok, "body": verified}
 
 
 def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
@@ -113,11 +136,13 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
     status, headers, _parsed = _json(
         "POST", f"{api}/api/v1/auth/login", {"email": email, "password": password}, {}
     )
-    cookie = _cookie(headers)
+    cookie, csrf = _cookies(headers)
     steps.append({"step": "login", "ok": status == 200 and cookie.startswith("ar_session=")})
     auth = {"cookie": cookie}
+    # Session writes use the double-submit CSRF token; reads need only the cookie.
+    auth_w = {"cookie": cookie, "x-csrf-token": csrf}
     if document.is_file() and cookie:
-        upload_status, uploaded = _upload(api, cookie, document)
+        upload_status, uploaded = _upload(api, cookie, csrf, document)
         document_id = uploaded.get("id") if isinstance(uploaded, dict) else None
         steps.append({"step": "upload", "ok": upload_status in {200, 201} and bool(document_id)})
         if document_id:
@@ -125,7 +150,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
                 "POST",
                 f"{api}/api/v1/library-documents/{document_id}:judge",
                 {"statements": ["The document states what it is about."], "modelAlias": "chat"},
-                auth,
+                auth_w,
             )
             steps.append({"step": "documents.judge", "ok": judge_status == 200, "body": judged})
     else:
@@ -146,7 +171,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
             "POST",
             f"{api}/api/v1/agents/{assistant.get('id')}/api-keys",
             {"label": "live-cert", "scope": "agent"},
-            auth,
+            auth_w,
         )
         token = ""
         if isinstance(created, dict):
@@ -166,17 +191,11 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:
         {"email": second_email, "password": second_password},
         {},
     )
-    second_cookie = _cookie(second_headers)
+    second_cookie, _second_csrf = _cookies(second_headers)
     steps.append({"step": "second-user", "ok": second_status == 200 and bool(second_cookie)})
     audit_status, _headers, audit = _json("GET", f"{api}/api/v1/audit-events", {}, auth)
     steps.append({"step": "audit-api", "ok": audit_status == 200})
-    verify = subprocess.run(
-        ["uv", "run", "python", "scripts/verify_audit_chain.py"],  # noqa: S607
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    steps.append({"step": "audit-chain", "ok": verify.returncode == 0})
+    steps.append(_verify_chain(api, auth_w))
     ok = all(item.get("ok") is True for item in steps)
     return {
         "label": "live" if ok else "contract",
