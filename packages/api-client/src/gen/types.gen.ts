@@ -1843,6 +1843,10 @@ export type MessageBody = {
      * Attachmentids
      */
     attachmentIds?: Array<string>;
+    /**
+     * Researchmode
+     */
+    researchMode?: boolean;
 };
 
 /**
@@ -2297,6 +2301,36 @@ export type ReindexBody = {
 };
 
 /**
+ * ResearchBody
+ */
+export type ResearchBody = {
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * Conversationid
+     */
+    conversationId?: string | null;
+    /**
+     * Maxdepth
+     */
+    maxDepth?: number;
+    /**
+     * Maxbreadth
+     */
+    maxBreadth?: number;
+    /**
+     * Maxwallclocks
+     */
+    maxWallClockS?: number;
+    /**
+     * Maxcostmicros
+     */
+    maxCostMicros?: number;
+};
+
+/**
  * ReviewDecideBody
  */
 export type ReviewDecideBody = {
@@ -2398,6 +2432,38 @@ export type RotateBody = {
      * Secret
      */
     secret: string;
+};
+
+/**
+ * RouteBody
+ */
+export type RouteBody = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Baseurl
+     */
+    baseUrl: string;
+    /**
+     * Model
+     */
+    model: string;
+    /**
+     * Secretname
+     */
+    secretName?: string;
+};
+
+/**
+ * RoutesBody
+ */
+export type RoutesBody = {
+    /**
+     * Routes
+     */
+    routes?: Array<RouteBody>;
 };
 
 /**
@@ -9600,6 +9666,343 @@ export type AnswerInboxApiV1InboxQuestionIdAnswerPostResponses = {
 };
 
 export type AnswerInboxApiV1InboxQuestionIdAnswerPostResponse = AnswerInboxApiV1InboxQuestionIdAnswerPostResponses[keyof AnswerInboxApiV1InboxQuestionIdAnswerPostResponses];
+
+export type StartResearchApiV1ResearchRunsPostData = {
+    body: ResearchBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/research/runs';
+};
+
+export type StartResearchApiV1ResearchRunsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartResearchApiV1ResearchRunsPostError = StartResearchApiV1ResearchRunsPostErrors[keyof StartResearchApiV1ResearchRunsPostErrors];
+
+export type StartResearchApiV1ResearchRunsPostResponses = {
+    /**
+     * Response Start Research Api V1 Research Runs Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type StartResearchApiV1ResearchRunsPostResponse = StartResearchApiV1ResearchRunsPostResponses[keyof StartResearchApiV1ResearchRunsPostResponses];
+
+export type GetResearchApiV1ResearchRunsRunIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/research/runs/{run_id}';
+};
+
+export type GetResearchApiV1ResearchRunsRunIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetResearchApiV1ResearchRunsRunIdGetError = GetResearchApiV1ResearchRunsRunIdGetErrors[keyof GetResearchApiV1ResearchRunsRunIdGetErrors];
+
+export type GetResearchApiV1ResearchRunsRunIdGetResponses = {
+    /**
+     * Response Get Research Api V1 Research Runs  Run Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetResearchApiV1ResearchRunsRunIdGetResponse = GetResearchApiV1ResearchRunsRunIdGetResponses[keyof GetResearchApiV1ResearchRunsRunIdGetResponses];
+
+export type CancelResearchApiV1ResearchRunsRunIdCancelPostData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/research/runs/{run_id}:cancel';
+};
+
+export type CancelResearchApiV1ResearchRunsRunIdCancelPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelResearchApiV1ResearchRunsRunIdCancelPostError = CancelResearchApiV1ResearchRunsRunIdCancelPostErrors[keyof CancelResearchApiV1ResearchRunsRunIdCancelPostErrors];
+
+export type CancelResearchApiV1ResearchRunsRunIdCancelPostResponses = {
+    /**
+     * Response Cancel Research Api V1 Research Runs  Run Id  Cancel Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CancelResearchApiV1ResearchRunsRunIdCancelPostResponse = CancelResearchApiV1ResearchRunsRunIdCancelPostResponses[keyof CancelResearchApiV1ResearchRunsRunIdCancelPostResponses];
+
+export type ResumeResearchApiV1ResearchRunsRunIdResumePostData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/research/runs/{run_id}:resume';
+};
+
+export type ResumeResearchApiV1ResearchRunsRunIdResumePostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResumeResearchApiV1ResearchRunsRunIdResumePostError = ResumeResearchApiV1ResearchRunsRunIdResumePostErrors[keyof ResumeResearchApiV1ResearchRunsRunIdResumePostErrors];
+
+export type ResumeResearchApiV1ResearchRunsRunIdResumePostResponses = {
+    /**
+     * Response Resume Research Api V1 Research Runs  Run Id  Resume Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ResumeResearchApiV1ResearchRunsRunIdResumePostResponse = ResumeResearchApiV1ResearchRunsRunIdResumePostResponses[keyof ResumeResearchApiV1ResearchRunsRunIdResumePostResponses];
+
+export type ResearchEventsApiV1ResearchRunsRunIdEventsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/api/v1/research/runs/{run_id}/events';
+};
+
+export type ResearchEventsApiV1ResearchRunsRunIdEventsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ResearchEventsApiV1ResearchRunsRunIdEventsGetError = ResearchEventsApiV1ResearchRunsRunIdEventsGetErrors[keyof ResearchEventsApiV1ResearchRunsRunIdEventsGetErrors];
+
+export type ResearchEventsApiV1ResearchRunsRunIdEventsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+        /**
+         * Output Id
+         */
+        output_id: string;
+    };
+    query?: never;
+    url: '/api/v1/runs/{run_id}/outputs/{output_id}';
+};
+
+export type ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetError = ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetErrors[keyof ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetErrors];
+
+export type ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponses = {
+    /**
+     * Response Read Retained Output Api V1 Runs  Run Id  Outputs  Output Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponse = ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponses[keyof ReadRetainedOutputApiV1RunsRunIdOutputsOutputIdGetResponses];
+
+export type ListModelRoutesApiV1ModelRoutesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/model-routes';
+};
+
+export type ListModelRoutesApiV1ModelRoutesGetResponses = {
+    /**
+     * Response List Model Routes Api V1 Model Routes Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type ListModelRoutesApiV1ModelRoutesGetResponse = ListModelRoutesApiV1ModelRoutesGetResponses[keyof ListModelRoutesApiV1ModelRoutesGetResponses];
+
+export type PutModelRoutesApiV1ModelRoutesPutData = {
+    body: RoutesBody;
+    path?: never;
+    query?: never;
+    url: '/api/v1/model-routes';
+};
+
+export type PutModelRoutesApiV1ModelRoutesPutErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PutModelRoutesApiV1ModelRoutesPutError = PutModelRoutesApiV1ModelRoutesPutErrors[keyof PutModelRoutesApiV1ModelRoutesPutErrors];
+
+export type PutModelRoutesApiV1ModelRoutesPutResponses = {
+    /**
+     * Response Put Model Routes Api V1 Model Routes Put
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type PutModelRoutesApiV1ModelRoutesPutResponse = PutModelRoutesApiV1ModelRoutesPutResponses[keyof PutModelRoutesApiV1ModelRoutesPutResponses];
+
+export type StartExternalResearchV1ResearchRunsPostData = {
+    body: ResearchBody;
+    path?: never;
+    query?: never;
+    url: '/v1/research/runs';
+};
+
+export type StartExternalResearchV1ResearchRunsPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartExternalResearchV1ResearchRunsPostError = StartExternalResearchV1ResearchRunsPostErrors[keyof StartExternalResearchV1ResearchRunsPostErrors];
+
+export type StartExternalResearchV1ResearchRunsPostResponses = {
+    /**
+     * Response Start External Research V1 Research Runs Post
+     *
+     * Successful Response
+     */
+    202: {
+        [key: string]: unknown;
+    };
+};
+
+export type StartExternalResearchV1ResearchRunsPostResponse = StartExternalResearchV1ResearchRunsPostResponses[keyof StartExternalResearchV1ResearchRunsPostResponses];
+
+export type GetExternalResearchV1ResearchRunsRunIdGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/v1/research/runs/{run_id}';
+};
+
+export type GetExternalResearchV1ResearchRunsRunIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetExternalResearchV1ResearchRunsRunIdGetError = GetExternalResearchV1ResearchRunsRunIdGetErrors[keyof GetExternalResearchV1ResearchRunsRunIdGetErrors];
+
+export type GetExternalResearchV1ResearchRunsRunIdGetResponses = {
+    /**
+     * Response Get External Research V1 Research Runs  Run Id  Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type GetExternalResearchV1ResearchRunsRunIdGetResponse = GetExternalResearchV1ResearchRunsRunIdGetResponses[keyof GetExternalResearchV1ResearchRunsRunIdGetResponses];
+
+export type StreamExternalResearchV1ResearchRunsRunIdEventsGetData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/v1/research/runs/{run_id}/events';
+};
+
+export type StreamExternalResearchV1ResearchRunsRunIdEventsGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamExternalResearchV1ResearchRunsRunIdEventsGetError = StreamExternalResearchV1ResearchRunsRunIdEventsGetErrors[keyof StreamExternalResearchV1ResearchRunsRunIdEventsGetErrors];
+
+export type StreamExternalResearchV1ResearchRunsRunIdEventsGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type ListServersApiV1ToolServersGetData = {
     body?: never;

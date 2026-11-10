@@ -54,6 +54,8 @@ jobs:
           curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -o /usr/local/bin/opa "https://github.com/open-policy-agent/opa/releases/download/v1.21.3/opa_linux_amd64_static"
           chmod +x /usr/local/bin/opa
       - run: uv run pytest -m "not integration and not e2e and not qdrant" -q --cov
+      - name: Contract eval does not regress
+        run: uv run python scripts/eval_run.py --check
 
   python-integration:
     runs-on: ubuntu-latest

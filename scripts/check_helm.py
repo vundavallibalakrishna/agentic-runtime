@@ -103,6 +103,8 @@ def main() -> None:
     small = template("-f", str(CHART / "values-small.yaml"))
     if "agentic-runtime-bootstrap" not in names(small, "Job"):
         raise SystemExit("small install must bootstrap the tenant")
+    assert_bootstrap_secret(default)
+    assert_bootstrap_secret(small)
     airgap = template("-f", str(CHART / "values-airgap.yaml"))
     if "0.0.0.0/0" in airgap:
         raise SystemExit("air-gap render allows world egress")
@@ -120,6 +122,31 @@ def main() -> None:
     assert_stage6(default)
     assert_stage8(default)
     sys.stdout.write("helm render checks ok\n")
+
+
+def assert_bootstrap_secret(rendered: str) -> None:
+    """Staging and production refuse the dev cursor secret, so the job must receive one."""
+    for doc in docs(rendered):
+        if doc.get("kind") != "Job":
+            continue
+        meta = doc.get("metadata")
+        name = str(meta.get("name")) if isinstance(meta, dict) else ""
+        if not name.endswith("-bootstrap"):
+            continue
+        spec = doc.get("spec")
+        template_spec = spec.get("template", {}).get("spec", {}) if isinstance(spec, dict) else {}
+        containers = template_spec.get("containers", [])
+        if not isinstance(containers, list):
+            continue
+        for container in containers:
+            if not isinstance(container, dict):
+                continue
+            env = container.get("env", [])
+            names_in_env = {
+                str(item.get("name")) for item in env if isinstance(item, dict) and item.get("name")
+            }
+            if "AR_CURSOR_SECRET" not in names_in_env:
+                raise SystemExit(f"{name} must receive AR_CURSOR_SECRET")
 
 
 def assert_stage6(rendered: str) -> None:

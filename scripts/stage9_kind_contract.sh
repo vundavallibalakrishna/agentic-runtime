@@ -36,8 +36,24 @@ echo "building the contract image"
 docker build -f images/contract.Dockerfile -t ar-contract:dev .
 for repo in ar-api ar-runtime ar-mcp-gateway ar-sandbox-manager ar-model-gateway ar-fake-llm ar-migrate; do
   docker tag ar-contract:dev "${repo}:dev"
-  kind load docker-image "${repo}:dev" --name "$name"
 done
+if ! kind load docker-image ar-api:dev ar-runtime:dev ar-mcp-gateway:dev \
+  ar-sandbox-manager:dev ar-model-gateway:dev ar-fake-llm:dev ar-migrate:dev --name "$name"; then
+  # kind load asks containerd for the host's fuse-overlayfs snapshotter, which
+  # the node does not have. Import once and retag with the node's snapshotter.
+  echo "kind load failed; importing the contract image with ctr"
+  tar="$(mktemp)"
+  node="${name}-control-plane"
+  docker save ar-contract:dev -o "${tar}"
+  # The node's /tmp is a tmpfs mounted after the container root, so a copy there disappears.
+  docker cp "${tar}" "${node}:/root/ar-image.tar"
+  docker exec "${node}" ctr --namespace k8s.io images import /root/ar-image.tar
+  for repo in ar-api ar-runtime ar-mcp-gateway ar-sandbox-manager ar-model-gateway ar-fake-llm ar-migrate; do
+    docker exec "${node}" ctr --namespace k8s.io images tag docker.io/library/ar-contract:dev "docker.io/library/${repo}:dev"
+  done
+  docker exec "${node}" rm -f /root/ar-image.tar
+  rm -f "${tar}"
+fi
 
 # The migrate Job is a pre-install hook, so it would run before Postgres exists.
 # Install the workloads first, migrate once Postgres answers, then bootstrap.
@@ -80,14 +96,34 @@ if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-m
   exit 1
 fi
 kubectl apply -n "$namespace" -f /tmp/stage9-bootstrap.yaml
+# The job controller deletes the pod once the backoff limit is hit, so follow
+# the log while the wait is in progress.
+kubectl -n "$namespace" logs -f job/agentic-runtime-bootstrap --pod-running-timeout=2m \
+  > /tmp/stage9-bootstrap.log 2>&1 &
+log_pid=$!
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
+  wait "$log_pid" || true
+  cat /tmp/stage9-bootstrap.log || true
   job_logs agentic-runtime-bootstrap
   exit 1
 fi
+kill "$log_pid" >/dev/null 2>&1 || true
 
 echo "waiting for api and worker deployments"
-kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=15m
-kubectl -n "$namespace" rollout status deploy/agentic-runtime-runtime-worker --timeout=15m
+rollout() {
+  local deploy="$1"
+  local name="${deploy#agentic-runtime-}"
+  if kubectl -n "$namespace" rollout status "deploy/${deploy}" --timeout=15m; then
+    return 0
+  fi
+  kubectl -n "$namespace" get pods -o wide || true
+  kubectl -n "$namespace" describe "deploy/${deploy}" || true
+  kubectl -n "$namespace" describe pods -l "app.kubernetes.io/name=${name}" || true
+  kubectl -n "$namespace" logs -l "app.kubernetes.io/name=${name}" --all-containers --tail=200 || true
+  return 1
+}
+rollout agentic-runtime-api
+rollout agentic-runtime-runtime-worker
 kubectl -n "$namespace" get deploy agentic-runtime-mcp-gateway agentic-runtime-sandbox-manager
 
 uv run python scripts/contract_stage9.py --namespace "$namespace"

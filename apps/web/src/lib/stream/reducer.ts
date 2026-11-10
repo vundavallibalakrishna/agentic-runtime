@@ -20,6 +20,11 @@ export type StreamEvent = {
     content?: string;
     scope?: string;
     count?: number;
+    code?: string;
+    message?: string;
+    phase?: string;
+    sourceCount?: number;
+    queries?: { id?: string; text?: string; title?: string }[];
   };
 };
 
@@ -38,6 +43,8 @@ export type StreamMemory = {
   status: string;
 };
 
+type ResearchQuery = { id: string; text: string };
+
 export type StreamState = {
   status: "idle" | "streaming" | "completed" | "cancelled" | "failed";
   text: string;
@@ -47,6 +54,10 @@ export type StreamState = {
   memories: StreamMemory[];
   recalled: number;
   compacted: boolean;
+  toolFailure: string;
+  researchPhase: string;
+  researchQueries: ResearchQuery[];
+  sourceCount: number;
 };
 
 export const emptyStream: StreamState = {
@@ -58,6 +69,10 @@ export const emptyStream: StreamState = {
   memories: [],
   recalled: 0,
   compacted: false,
+  toolFailure: "",
+  researchPhase: "",
+  researchQueries: [],
+  sourceCount: 0,
 };
 
 export function reduceStream(state: StreamState, event: StreamEvent): StreamState {
@@ -136,6 +151,27 @@ export function reduceStream(state: StreamState, event: StreamEvent): StreamStat
   }
   if (event.type === "context.compacted") {
     return { ...next, compacted: true };
+  }
+  if (event.type === "warning" && event.data?.code === "tool_failed") {
+    return {
+      ...next,
+      toolFailure: event.data.message ?? "A tool call failed and was not recovered.",
+    };
+  }
+  if (event.type === "research.progress") {
+    const queries = Array.isArray(event.data?.queries)
+      ? event.data.queries.map((item, index) => ({
+          id: String(item.id ?? index + 1),
+          text: String(item.text ?? item.title ?? ""),
+        }))
+      : state.researchQueries;
+    return {
+      ...next,
+      status: "streaming",
+      researchPhase: event.data?.phase ?? state.researchPhase,
+      researchQueries: queries.filter((item) => item.text),
+      sourceCount: event.data?.sourceCount ?? state.sourceCount,
+    };
   }
   if (event.type === "run.started" || event.type === "run.queued") {
     return { ...next, status: "streaming" };

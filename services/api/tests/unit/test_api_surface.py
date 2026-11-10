@@ -7,6 +7,7 @@ import importlib.util
 import uuid
 from datetime import timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -99,6 +100,17 @@ def _app(principal: Principal) -> TestClient:
     return TestClient(app)
 
 
+def test_placeholder_pack_keys_do_not_stop_boot(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_api.main import _configure_chat
+    from ar_common.settings import EnvName
+
+    monkeypatch.setenv("AR_PACK_TRUSTED_KEYS", "install-time")
+    monkeypatch.delenv("AR_PACK_SIGNATURE_REQUIRED", raising=False)
+    chat = SimpleNamespace()
+    _configure_chat(chat, SimpleNamespace(env=EnvName.STAGING))  # type: ignore[arg-type]
+    assert not getattr(chat, "pack_trusted_keys", None)
+
+
 def test_public_helpers_and_session_round_trip() -> None:
     assert csrf_ok("a", "a")
     assert not csrf_ok(None, "a")
@@ -110,6 +122,7 @@ def test_public_helpers_and_session_round_trip() -> None:
     require_step_up(now, now=now, ttl_s=60, needed=False)
     key = session_key_bytes("", "cursor", prod=False)
     assert len(key) == 32
+    assert session_key_bytes("install-time", "cursor", prod=False) == key
     try:
         session_key_bytes("aaaa", "cursor", prod=True)
     except RuntimeError:
@@ -125,6 +138,7 @@ def test_public_helpers_and_session_round_trip() -> None:
     assert loaded is not None and loaded.csrf_token == data.csrf_token
     asyncio.run(store.delete(session_id))
     assert asyncio.run(store.get(session_id)) is None
+    assert classify_authorization("Bearer ara_abc", None).kind == "agent_api_key"  # type: ignore[union-attr]
     presented = classify_authorization("Bearer ark_abc", None)
     assert presented is not None and presented.kind == "api_key"
     assert classify_authorization("Bearer scim_abc", None).kind == "scim"  # type: ignore[union-attr]

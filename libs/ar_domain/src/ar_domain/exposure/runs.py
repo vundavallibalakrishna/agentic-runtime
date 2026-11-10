@@ -295,10 +295,19 @@ async def send_message(  # noqa: PLR0917
     text: str,
     attachment_ids: list[uuid.UUID],
     idempotency_key: str,
+    *,
+    research: bool = False,
 ) -> tuple[dict[str, Any], bool]:
     """Start at most one run for an idempotency key. A retry returns the stored reply."""
     run_id, replay = await begin_message(
-        store, key, slug, conversation_id, text, attachment_ids, idempotency_key
+        store,
+        key,
+        slug,
+        conversation_id,
+        text,
+        attachment_ids,
+        idempotency_key,
+        research=research,
     )
     if replay is not None:
         return replay, True
@@ -316,6 +325,8 @@ async def begin_message(  # noqa: PLR0917
     text: str,
     attachment_ids: list[uuid.UUID],
     idempotency_key: str,
+    *,
+    research: bool = False,
 ) -> tuple[uuid.UUID, dict[str, Any] | None]:
     """Open a run, or return the stored reply when the idempotency key already finished."""
     agent = agent_for_key(store, key, slug)
@@ -345,6 +356,7 @@ async def begin_message(  # noqa: PLR0917
         text,
         attachment_ids=attachment_ids,
         schedule=False,
+        research=research,
     )
     run = posted.get("run") if isinstance(posted, dict) else None
     run_id = uuid.UUID(str(run.get("id"))) if isinstance(run, dict) else None

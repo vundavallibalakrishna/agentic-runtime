@@ -72,6 +72,10 @@ def credential_loader(
             principal = await _resolve_api_key(value)
             _PRINCIPAL.labels("api_key", "ok" if principal else "denied").inc()
             return principal
+        if kind == "agent_api_key":
+            principal = await _resolve_agent_api_key(value)
+            _PRINCIPAL.labels("api_key", "ok" if principal else "denied").inc()
+            return principal
         if kind == "scim":
             principal = await _resolve_scim(value)
             _PRINCIPAL.labels("scim", "ok" if principal else "denied").inc()
@@ -143,6 +147,36 @@ def _bearer_request(app: object) -> object:
     request = Request(scope)
     request.state.request_id = "bearer"
     return request
+
+
+async def _resolve_agent_api_key(value: str) -> Principal | None:
+    """Resolve an ``ara_`` agent key to its tenant so the read model can load.
+
+    The prefix lookup is BYPASSRLS because the tenant is not known yet. The
+    secret is compared in constant time and is not logged.
+    """
+    from ar_domain.identity.repository import resolve_agent_api_key_by_prefix  # noqa: PLC0415
+
+    if not value.startswith("ara_") or len(value) < 16:
+        _dummy_compare()
+        return None
+    prefix = value[4:16]
+    async with platform_session("resolve agent api key") as session:
+        found = await resolve_agent_api_key_by_prefix(session, prefix)
+    if found is None:
+        _dummy_compare()
+        return None
+    if not constant_time_equal(sha256_hex(value), found.secret_hash):
+        return None
+    if found.revoked_at is not None or found.created_by_user_id is None:
+        return None
+    return Principal(
+        kind="user",
+        id=str(found.created_by_user_id),
+        tenant_id=found.tenant_id,
+        auth_method="api_key",
+        api_key_id=found.id,
+    )
 
 
 async def _resolve_api_key(value: str) -> Principal | None:

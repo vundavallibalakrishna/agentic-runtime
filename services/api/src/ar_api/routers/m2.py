@@ -103,6 +103,7 @@ class UploadLimits(ApiModel):
 class MessageBody(ApiModel):
     text: str
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
+    research_mode: bool = False
 
 
 class EditBody(ApiModel):
@@ -622,6 +623,7 @@ async def post_message(
         body.text,
         attachment_ids=body.attachment_ids,
         schedule=not await_runs,
+        research=body.research_mode,
     )
     run = posted["run"]
     message = posted["message"]

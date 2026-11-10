@@ -1,0 +1,11 @@
+{
+  "label": "contract",
+  "modelId": "",
+  "note": "Stubbed model over HTTP. This file is not a live score. Latency is not gated.",
+  "summary": {
+    "pass_rate": 1.0,
+    "tool_call_correctness": 1.0,
+    "citation_validity": 1.0,
+    "refusal_rate": 1.0
+  }
+}

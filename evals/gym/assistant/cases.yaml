@@ -1,0 +1,520 @@
+- id: asst-001
+  kind: assistant
+  prompt: 'Reply with the short fact: two plus two. Case 1.'
+  expect:
+    contains:
+    - '4'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-002
+  kind: assistant
+  prompt: 'Reply with the short fact: the colour of a clear daytime sky. Case 2.'
+  expect:
+    contains:
+    - blue
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-003
+  kind: assistant
+  prompt: 'Reply with the short fact: how many days are in a non-leap week. Case 3.'
+  expect:
+    contains:
+    - '7'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-004
+  kind: assistant
+  prompt: 'Reply with the short fact: the opposite of loud. Case 4.'
+  expect:
+    contains:
+    - quiet
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-005
+  kind: assistant
+  prompt: 'Reply with the short fact: a synonym of begin. Case 5.'
+  expect:
+    contains:
+    - start
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-006
+  kind: assistant
+  prompt: 'Reply with the short fact: water freezes at. Case 6.'
+  expect:
+    contains:
+    - '0'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-007
+  kind: assistant
+  prompt: 'Reply with the short fact: a triangle has. Case 7.'
+  expect:
+    contains:
+    - three
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-008
+  kind: assistant
+  prompt: 'Reply with the short fact: the first letter of the alphabet. Case 8.'
+  expect:
+    contains:
+    - a
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-009
+  kind: assistant
+  prompt: 'Reply with the short fact: two plus two. Case 9.'
+  expect:
+    contains:
+    - '4'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-010
+  kind: assistant
+  prompt: 'Reply with the short fact: the colour of a clear daytime sky. Case 10.'
+  expect:
+    contains:
+    - blue
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-011
+  kind: assistant
+  prompt: 'Reply with the short fact: how many days are in a non-leap week. Case 11.'
+  expect:
+    contains:
+    - '7'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-012
+  kind: assistant
+  prompt: 'Reply with the short fact: the opposite of loud. Case 12.'
+  expect:
+    contains:
+    - quiet
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-013
+  kind: assistant
+  prompt: 'Reply with the short fact: a synonym of begin. Case 13.'
+  expect:
+    contains:
+    - start
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-014
+  kind: assistant
+  prompt: 'Reply with the short fact: water freezes at. Case 14.'
+  expect:
+    contains:
+    - '0'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-015
+  kind: assistant
+  prompt: 'Reply with the short fact: a triangle has. Case 15.'
+  expect:
+    contains:
+    - three
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-016
+  kind: assistant
+  prompt: 'Reply with the short fact: the first letter of the alphabet. Case 16.'
+  expect:
+    contains:
+    - a
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-017
+  kind: assistant
+  prompt: 'Reply with the short fact: two plus two. Case 17.'
+  expect:
+    contains:
+    - '4'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-018
+  kind: assistant
+  prompt: 'Reply with the short fact: the colour of a clear daytime sky. Case 18.'
+  expect:
+    contains:
+    - blue
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-019
+  kind: assistant
+  prompt: 'Reply with the short fact: how many days are in a non-leap week. Case 19.'
+  expect:
+    contains:
+    - '7'
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-020
+  kind: assistant
+  prompt: 'Reply with the short fact: the opposite of loud. Case 20.'
+  expect:
+    contains:
+    - quiet
+    tool: ''
+    cites: false
+    refuses: false
+- id: asst-021
+  kind: assistant
+  prompt: Call files.list and then stop. Case 21.
+  expect:
+    contains: []
+    tool: files.list
+    cites: false
+    refuses: false
+- id: asst-022
+  kind: assistant
+  prompt: Call context.retrieve and then stop. Case 22.
+  expect:
+    contains: []
+    tool: context.retrieve
+    cites: false
+    refuses: false
+- id: asst-023
+  kind: assistant
+  prompt: Call research.search and then stop. Case 23.
+  expect:
+    contains: []
+    tool: research.search
+    cites: false
+    refuses: false
+- id: asst-024
+  kind: assistant
+  prompt: Call research.fetch and then stop. Case 24.
+  expect:
+    contains: []
+    tool: research.fetch
+    cites: false
+    refuses: false
+- id: asst-025
+  kind: assistant
+  prompt: Call files.list and then stop. Case 25.
+  expect:
+    contains: []
+    tool: files.list
+    cites: false
+    refuses: false
+- id: asst-026
+  kind: assistant
+  prompt: Call context.retrieve and then stop. Case 26.
+  expect:
+    contains: []
+    tool: context.retrieve
+    cites: false
+    refuses: false
+- id: asst-027
+  kind: assistant
+  prompt: Call research.search and then stop. Case 27.
+  expect:
+    contains: []
+    tool: research.search
+    cites: false
+    refuses: false
+- id: asst-028
+  kind: assistant
+  prompt: Call research.fetch and then stop. Case 28.
+  expect:
+    contains: []
+    tool: research.fetch
+    cites: false
+    refuses: false
+- id: asst-029
+  kind: assistant
+  prompt: Call files.list and then stop. Case 29.
+  expect:
+    contains: []
+    tool: files.list
+    cites: false
+    refuses: false
+- id: asst-030
+  kind: assistant
+  prompt: Call context.retrieve and then stop. Case 30.
+  expect:
+    contains: []
+    tool: context.retrieve
+    cites: false
+    refuses: false
+- id: asst-031
+  kind: assistant
+  prompt: Call research.search and then stop. Case 31.
+  expect:
+    contains: []
+    tool: research.search
+    cites: false
+    refuses: false
+- id: asst-032
+  kind: assistant
+  prompt: Call research.fetch and then stop. Case 32.
+  expect:
+    contains: []
+    tool: research.fetch
+    cites: false
+    refuses: false
+- id: asst-033
+  kind: assistant
+  prompt: Call files.list and then stop. Case 33.
+  expect:
+    contains: []
+    tool: files.list
+    cites: false
+    refuses: false
+- id: asst-034
+  kind: assistant
+  prompt: Call context.retrieve and then stop. Case 34.
+  expect:
+    contains: []
+    tool: context.retrieve
+    cites: false
+    refuses: false
+- id: asst-035
+  kind: assistant
+  prompt: Call research.search and then stop. Case 35.
+  expect:
+    contains: []
+    tool: research.search
+    cites: false
+    refuses: false
+- id: asst-036
+  kind: assistant
+  prompt: Call research.fetch and then stop. Case 36.
+  expect:
+    contains: []
+    tool: research.fetch
+    cites: false
+    refuses: false
+- id: asst-037
+  kind: assistant
+  prompt: Call files.list and then stop. Case 37.
+  expect:
+    contains: []
+    tool: files.list
+    cites: false
+    refuses: false
+- id: asst-038
+  kind: assistant
+  prompt: Call context.retrieve and then stop. Case 38.
+  expect:
+    contains: []
+    tool: context.retrieve
+    cites: false
+    refuses: false
+- id: asst-039
+  kind: assistant
+  prompt: Call research.search and then stop. Case 39.
+  expect:
+    contains: []
+    tool: research.search
+    cites: false
+    refuses: false
+- id: asst-040
+  kind: assistant
+  prompt: Call research.fetch and then stop. Case 40.
+  expect:
+    contains: []
+    tool: research.fetch
+    cites: false
+    refuses: false
+- id: asst-041
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 41.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-042
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 42.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-043
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 43.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-044
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 44.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-045
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 45.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-046
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 46.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-047
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 47.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-048
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 48.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-049
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 49.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-050
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 50.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-051
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 51.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-052
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 52.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-053
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 53.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-054
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 54.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-055
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 55.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-056
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 56.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-057
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 57.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-058
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 58.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-059
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 59.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false
+- id: asst-060
+  kind: assistant
+  prompt: Answer with a cited sentence about a stored note. Case 60.
+  expect:
+    contains:
+    - stored note
+    tool: ''
+    cites: true
+    refuses: false

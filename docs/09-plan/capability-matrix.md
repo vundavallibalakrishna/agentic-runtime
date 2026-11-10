@@ -22,6 +22,12 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | capability | `documents` | `unit` | no | Read and summarise run in process. A cloud OCR engine is not live. |
 | capability | `oidc-sign-in` | `contract` | no | Authorization code and JWKS bearer. Contract proof uses a local mock IdP. |
 | capability | `evals` | `unit` | no | The dry-run gym is unit. Lexical overlap is not_judged and is not a verdict. |
+| capability | `planning` | `unit` | no | An optional plan step runs in process. No stored report names a model id and a date. |
+| capability | `repair` | `unit` | no | Schema and parse retries run in process. The tool-failure notice is a structured field. |
+| capability | `model-routing` | `unit` | no | Fallback and the circuit breaker run in process. Valkey holds circuit state outside dev. |
+| capability | `context` | `unit` | no | Summaries and truncated tool output are computed in process. |
+| capability | `eval-harness` | `contract` | no | scripts/eval_run.py scores a stubbed model over HTTP. The report has no model id. A live label is written only when AR_LLM_API_KEY is set. |
+| capability | `research` | `unit` | no | Search, fetch, citation checks and the Temporal workflow run in process with a fixture provider. No stored live report. |
 | connector | `email` | `live` | yes | Catalogue verification is live. |
 | connector-tool | `email_send` | `live` | yes | Same proof as its connector. Hidden from the model unless live. |
 | connector-tool | `email_list` | `live` | yes | Same proof as its connector. Hidden from the model unless live. |
@@ -152,6 +158,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `browser.type` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `browser.upload` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `browser.use_connection` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `context.retrieve` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `conversations.search_history` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `data.describe_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `data.list_schemas` | `unit` | yes | In-process tool. Not a recorded live model run. |
@@ -200,6 +207,8 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `memory.forget` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `memory.save` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `memory.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `research.fetch` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `research.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `sandbox.exec` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `sandbox.export_file` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `sandbox.list_files` | `unit` | yes | In-process tool. Not a recorded live model run. |

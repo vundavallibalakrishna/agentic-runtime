@@ -1648,6 +1648,91 @@
       "title": "ReasoningDelta",
       "type": "object"
     },
+    "ResearchProgress": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "title": "Seq",
+          "type": "integer"
+        },
+        "runId": {
+          "format": "uuid",
+          "title": "Runid",
+          "type": "string"
+        },
+        "rootRunId": {
+          "format": "uuid",
+          "title": "Rootrunid",
+          "type": "string"
+        },
+        "conversationId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Conversationid"
+        },
+        "ts": {
+          "format": "date-time",
+          "title": "Ts",
+          "type": "string"
+        },
+        "type": {
+          "const": "research.progress",
+          "title": "Type",
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/$defs/ResearchProgressData"
+        }
+      },
+      "required": [
+        "id",
+        "seq",
+        "runId",
+        "rootRunId",
+        "conversationId",
+        "ts",
+        "type",
+        "data"
+      ],
+      "title": "ResearchProgress",
+      "type": "object"
+    },
+    "ResearchProgressData": {
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "title": "Phase",
+          "type": "string"
+        },
+        "depth": {
+          "default": 0,
+          "title": "Depth",
+          "type": "integer"
+        },
+        "sourceCount": {
+          "default": 0,
+          "title": "Sourcecount",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "phase"
+      ],
+      "title": "ResearchProgressData",
+      "type": "object"
+    },
     "RunBudget": {
       "additionalProperties": false,
       "description": "Limits for one top-level run. Subagents draw from the same budget.",
@@ -3608,6 +3693,7 @@
       "message.started": "#/$defs/MessageStarted",
       "plan.updated": "#/$defs/PlanUpdated",
       "reasoning.delta": "#/$defs/ReasoningDelta",
+      "research.progress": "#/$defs/ResearchProgress",
       "run.budget_exceeded": "#/$defs/RunBudgetExceeded",
       "run.cancelled": "#/$defs/RunCancelled",
       "run.completed": "#/$defs/RunCompleted",
@@ -3726,6 +3812,9 @@
     },
     {
       "$ref": "#/$defs/ContextCompacted"
+    },
+    {
+      "$ref": "#/$defs/ResearchProgress"
     },
     {
       "$ref": "#/$defs/WarningEvent"

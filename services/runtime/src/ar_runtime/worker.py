@@ -14,10 +14,12 @@ from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
+from ar_runtime.activities.research_step import research_cancel, research_step, research_subtask
 from ar_runtime.activities.start_run import start_run
 from ar_runtime.main import TASK_QUEUE
 from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow
 from ar_runtime.workflows.delegation import AgentRunWorkflow, ChildRunWorkflow
+from ar_runtime.workflows.research import ResearchSubtaskWorkflow, ResearchWorkflow
 from ar_runtime.workflows.tool_turn import ToolTurnWorkflow
 from ar_runtime.workflows.turn import TurnWorkflow
 
@@ -82,11 +84,16 @@ async def run_worker() -> None:
                     ChildRunWorkflow,
                     ApprovalWaitWorkflow,
                     ToolTurnWorkflow,
+                    ResearchWorkflow,
+                    ResearchSubtaskWorkflow,
                 ],
                 activities=[
                     execute_chat_turn,
                     advance_chat_step,
                     finish_chat_turn,
+                    research_step,
+                    research_subtask,
+                    research_cancel,
                     start_run,
                     create_child_run,
                     expire_approval,

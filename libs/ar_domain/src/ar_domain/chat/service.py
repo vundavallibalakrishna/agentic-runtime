@@ -1430,6 +1430,7 @@ class ChatBehaviour:
         attachment_ids: list[uuid.UUID] | None = None,
         parent_message_id: uuid.UUID | None = None,
         schedule: bool = True,
+        research: bool = False,
     ) -> dict[str, object]:
         conversation = self._owned_conversation(tenant_id, user_id, conversation_id)
         agent_id = conversation.get("agent_id")
@@ -1486,8 +1487,25 @@ class ChatBehaviour:
             conversation,
             run_id,
             message_id=message_id,
-            trigger="chat",
+            trigger="research" if research else "chat",
         )
+        if research:
+            from ar_domain.research.engine import initial_state  # noqa: PLC0415
+
+            run["mode"] = "research"
+            run["checkpoint"] = {"research": initial_state(text)}
+            self.audit_log.append(
+                {
+                    "tenant_id": str(tenant_id),
+                    "actor_id": str(user_id),
+                    "action": "research.started",
+                    "target_type": "run",
+                    "target_id": str(run_id),
+                    "detail": {"mode": "research"},
+                    "outcome": "success",
+                    "at": now.isoformat(),
+                }
+            )
         assistant = {
             "id": assistant_id,
             "tenant_id": tenant_id,
@@ -1720,11 +1738,16 @@ class ChatBehaviour:
         if not callable(start):
             await self._run_here_or_stop(run_id, text, names)
             return
+        run = self.runs.get(run_id)
+        research = isinstance(run, dict) and run.get("mode") == "research"
+        workflow_id = f"run-{run_id}"
+        if isinstance(run, dict) and isinstance(run.get("temporal_workflow_id"), str):
+            workflow_id = str(run["temporal_workflow_id"])
         try:
             await start(
-                "AgentRunWorkflow",
-                {"run_id": str(run_id), "steps": True},
-                id=f"run-{run_id}",
+                "ResearchWorkflow" if research else "AgentRunWorkflow",
+                {"run_id": str(run_id), "steps": True, "text": text},
+                id=workflow_id,
                 task_queue="ar-runtime",
             )
         except Exception as exc:  # noqa: BLE001 — required Temporal does not run the turn here
@@ -1918,6 +1941,11 @@ class ChatBehaviour:
     ) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
+        if str(run.get("mode") or "") == "research":
+            from ar_domain.research.driver import advance_research  # noqa: PLC0415
+
+            await advance_research(self, run, text, one_step=one_step)
+            return
         if one_step:
             from ar_domain.tools.worker_loop import worker_loop_open  # noqa: PLC0415
 
@@ -2143,7 +2171,7 @@ class ChatBehaviour:
         else:
             return "The model provider returned an empty answer." if real else None
 
-    async def complete_turn(
+    async def complete_turn(  # noqa: PLR0911
         self,
         messages: list[dict[str, object]],
         tools: list[dict[str, object]],
@@ -2152,8 +2180,14 @@ class ChatBehaviour:
         model_alias: str,
     ) -> dict[str, object] | None:
         """One model round, including tool calls. None when a fake provider is silent."""
+        from ar_domain.loop.routing import routed_completion, routes_for  # noqa: PLC0415
         from ar_domain.models.logic import completion_message  # noqa: PLC0415
 
+        routes = routes_for(self, tenant_id)
+        if routes:
+            return await routed_completion(
+                self, messages, tools, tenant_id=tenant_id, routes=routes
+            )
         model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
         if real:
             await self._ensure_provider_key(tenant_id, model_alias)
@@ -2189,7 +2223,19 @@ class ChatBehaviour:
                 "usage": {"tokens_in": 0, "tokens_out": 0},
                 "real": True,
             }
-        parsed = completion_message(response.json())
+        try:
+            payload = response.json()
+        except ValueError:
+            if not real:
+                return None
+            return {
+                "text": "",
+                "tool_calls": [],
+                "usage": {"tokens_in": 0, "tokens_out": 0},
+                "real": True,
+                "parse_error": "The model provider returned malformed JSON.",
+            }
+        parsed = completion_message(payload)
         parsed["real"] = real
         return parsed
 

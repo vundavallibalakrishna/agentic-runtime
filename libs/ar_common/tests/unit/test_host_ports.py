@@ -68,6 +68,8 @@ def test_listen_port_and_fake_llm_follow_the_env(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("AR_FAKE_LLM_HOST_PORT", "18099")
     assert listen_port("AR_PORT", 8000) == 18000
     assert fake_llm_base_url() == "http://127.0.0.1:18099/v1"
+    monkeypatch.setenv("AR_FAKE_LLM_BASE_URL", "http://fake-llm:8099/v1/")
+    assert fake_llm_base_url() == "http://fake-llm:8099/v1"
 
 
 def test_health_urls_use_the_defaults_when_unset() -> None:

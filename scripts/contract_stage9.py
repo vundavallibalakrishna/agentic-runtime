@@ -88,18 +88,25 @@ def request(
     return response.status_code, dict(response.headers), response.content
 
 
-def login(base: str) -> str:
-    status, headers, _payload = request(
-        "POST",
+def login(base: str) -> tuple[str, str]:
+    response = httpx.post(
         f"{base}/api/v1/auth/login",
-        body={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+        json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+        timeout=30,
     )
-    if status != 200:
-        raise SystemExit(f"login failed: {status}")
-    cookie = headers.get("Set-Cookie") or headers.get("set-cookie") or ""
-    if "ar_session=" not in cookie:
+    if response.status_code != 200:
+        raise SystemExit(f"login failed: {response.status_code}")
+    session = ""
+    csrf = ""
+    for raw in response.headers.get_list("set-cookie"):
+        pair = raw.split(";", 1)[0]
+        if pair.startswith("ar_session="):
+            session = pair
+        elif pair.startswith("ar_csrf="):
+            csrf = pair.split("=", 1)[1]
+    if not session or not csrf:
         raise SystemExit("login did not set a session cookie")
-    return cookie.split(";", 1)[0]
+    return session, csrf
 
 
 def api_pods(namespace: str) -> list[str]:
@@ -177,7 +184,7 @@ def main() -> int:  # noqa: PLR0915
         status, _headers, _body = request("GET", f"{base}/readyz")
         if status != 200:
             raise SystemExit(f"readyz returned {status}")
-        cookie = login(base)
+        cookie, csrf = login(base)
         status, _headers, body = request("GET", f"{base}/api/v1/agents", headers={"cookie": cookie})
         if status != 200:
             raise SystemExit(f"agents list failed: {status} {body[:200]!r}")
@@ -198,7 +205,7 @@ def main() -> int:  # noqa: PLR0915
             "POST",
             f"{base}/api/v1/agents/{agent_id}/api-keys",
             body={"label": "stage9", "scope": "agent"},
-            headers={"cookie": cookie},
+            headers={"cookie": cookie, "x-csrf-token": csrf},
         )
         if status not in {200, 201}:
             raise SystemExit(f"api key failed: {status} {body[:300]!r}")

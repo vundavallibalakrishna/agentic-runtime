@@ -46,6 +46,23 @@ def listed_agents(store: Any, key: dict[str, Any]) -> list[dict[str, Any]]:
         return []
 
 
+def _research_tool() -> dict[str, Any]:
+    return {
+        "name": "research",
+        "description": "Search, read pages and return a report whose claims cite stored sources.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "The question to research.",
+                }
+            },
+            "required": ["question"],
+        },
+    }
+
+
 def tool_name(slug: str) -> str:
     return "agent_" + slug.replace("-", "_")
 
@@ -91,12 +108,15 @@ def tools_list(store: Any, key: dict[str, Any]) -> dict[str, Any]:
                 },
             }
         )
+    tools.append(_research_tool())
     return {"tools": tools}
 
 
 async def tools_call(
     store: Any, key: dict[str, Any], name: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
+    if name == "research":
+        return await _research_call(store, key, arguments)
     agents = listed_agents(store, key)
     slug = _slug_from_tool(name, agents)
     if slug is None:
@@ -166,6 +186,24 @@ def _from_message(body: dict[str, Any]) -> dict[str, Any]:
             "conversation_id": body.get("conversation_id") or "",
         },
     }
+
+
+async def _research_call(
+    store: Any, key: dict[str, Any], arguments: dict[str, Any]
+) -> dict[str, Any]:
+    question = str(arguments.get("question") or "").strip()
+    if not question:
+        return _error("question is required")
+    agents = listed_agents(store, key)
+    if not agents:
+        return _error("no published agent")
+    slug = str(agents[0].get("slug") or "")
+    created = create_conversation(store, key, slug)
+    conversation_id = uuid.UUID(str(created["id"]))
+    body, _replayed = await send_message(
+        store, key, slug, conversation_id, question, [], "", research=True
+    )
+    return _from_message(body)
 
 
 def _error(text: str) -> dict[str, Any]:

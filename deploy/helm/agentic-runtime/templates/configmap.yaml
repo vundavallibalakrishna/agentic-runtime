@@ -32,6 +32,9 @@
   "AR_EGRESS_DENY_CIDRS" (join "," .Values.egress.denyCidrs)
   "AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES" "100"
 }}
+{{- if .Values.fakeLlm.enabled }}
+{{- $_ := set $overrides "AR_FAKE_LLM_BASE_URL" (printf "http://%s-fake-llm:%v/v1" .Release.Name (index .Values.workloads "fake-llm" "port")) }}
+{{- end }}
 {{- if .Values.valkey.bundled }}
 {{- $_ := set $overrides "AR_VALKEY_URL" (printf "redis://%s-valkey:6379/0" .Release.Name) }}
 {{- end }}

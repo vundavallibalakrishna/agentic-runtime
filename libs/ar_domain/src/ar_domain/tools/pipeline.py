@@ -689,7 +689,21 @@ class ToolPipeline:
 
         return [row for row in rows if offered_to_model(str(row.get("qualified_name") or ""))]
 
-    def _entitled(self, request: dict[str, object], version: dict[str, object]) -> bool:
+    def _request_run(self, request: dict[str, object]) -> dict[str, object] | None:
+        raw = request.get("run_id")
+        runs = getattr(self.store, "runs", None)
+        if not isinstance(runs, dict) or raw is None:
+            return None
+        found = runs.get(raw)
+        if isinstance(found, dict):
+            return found
+        try:
+            found = runs.get(uuid.UUID(str(raw)))
+        except ValueError:
+            return None
+        return found if isinstance(found, dict) else None
+
+    def _entitled(self, request: dict[str, object], version: dict[str, object]) -> bool:  # noqa: PLR0911
         if request.get("synthetic") is True:
             return True
         qualified = str(version.get("qualified_name"))
@@ -697,8 +711,13 @@ class ToolPipeline:
             qualified in _IMPLICIT
             or qualified.startswith("files.")
             or qualified.startswith("session.")
+            or qualified == "context.retrieve"
         ):
             return True
+        if qualified.startswith("research."):
+            run = self._request_run(request)
+            if isinstance(run, dict) and run.get("mode") == "research":
+                return True
         agent_version_id = request.get("agent_version_id")
         version_row = (
             self.store.versions.get(agent_version_id)

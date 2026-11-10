@@ -281,7 +281,14 @@ def fake_llm_port() -> int:
 
 
 def fake_llm_base_url() -> str:
-    """OpenAI-compatible base URL for the local fake-llm process."""
+    """OpenAI-compatible base URL for fake-llm.
+
+    ``AR_FAKE_LLM_BASE_URL`` names the in-cluster service. A laptop keeps the
+    localhost URL that follows ``AR_FAKE_LLM_HOST_PORT``.
+    """
+    explicit = os.environ.get("AR_FAKE_LLM_BASE_URL", "").strip()
+    if explicit:
+        return explicit.rstrip("/")
     spec = PORT_BY_NAME["AR_FAKE_LLM_HOST_PORT"]
     return align_local_value(
         "http://127.0.0.1:8099/v1",

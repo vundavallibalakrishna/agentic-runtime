@@ -109,6 +109,7 @@ export function ChatScreen() {
   const [live, setLive] = useState("");
   const [stuck, setStuck] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [researchOn, setResearchOn] = useState(false);
   const [copiedId, setCopiedId] = useState("");
   const parentRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -293,6 +294,10 @@ export function ChatScreen() {
             memories: keep.memories,
             recalled: keep.recalled,
             compacted: keep.compacted,
+            toolFailure: keep.toolFailure,
+            researchPhase: keep.researchPhase,
+            researchQueries: keep.researchQueries,
+            sourceCount: keep.sourceCount,
           }
         : emptyStream,
     );
@@ -472,6 +477,7 @@ export function ChatScreen() {
           body: JSON.stringify({
             text,
             attachmentIds: attachments.map((file) => file.id),
+            researchMode: researchOn,
           }),
         },
       );
@@ -983,6 +989,27 @@ export function ChatScreen() {
               void send(text);
             }}
           >
+            {stream.toolFailure ? (
+              <p
+                className="mx-auto mb-3 max-w-2xl text-sm text-[var(--muted-foreground)]"
+                role="status"
+              >
+                {stream.toolFailure}
+              </p>
+            ) : null}
+            {stream.researchQueries.length > 0 || stream.sourceCount > 0 ? (
+              <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
+                <h2 className="font-medium">{t("sources")}</h2>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  {t("researchPhase")} · {stream.researchPhase || "working"} · {stream.sourceCount}
+                </p>
+                <ol className="mt-2 list-decimal pl-5">
+                  {stream.researchQueries.map((query) => (
+                    <li key={query.id}>{query.text}</li>
+                  ))}
+                </ol>
+              </section>
+            ) : null}
             {plan.length > 0 ? (
               <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
                 <h2 className="font-medium">{t("plan")}</h2>
@@ -1099,6 +1126,15 @@ export function ChatScreen() {
                   >
                     <Paperclip size={15} aria-hidden="true" />
                     <span className="ml-1.5">{t("attach")}</span>
+                  </Button>
+                  <Button
+                    aria-pressed={researchOn}
+                    className="h-8 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                    onClick={() => setResearchOn((current) => !current)}
+                    type="button"
+                    variant={researchOn ? "outline" : "ghost"}
+                  >
+                    {t("research")}
                   </Button>
                   <p className="hidden text-xs text-[var(--muted-foreground)] sm:block">
                     {t("hint")}

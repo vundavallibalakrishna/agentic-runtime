@@ -68,7 +68,13 @@ def agent_card(store: Any, key: dict[str, Any], slug: str, base_url: str) -> dic
                 "name": str(agent.get("name") or slug),
                 "description": description,
                 "tags": ["agent"],
-            }
+            },
+            {
+                "id": "research",
+                "name": "Research",
+                "description": "Search, read and cite sources for a question.",
+                "tags": ["research"],
+            },
         ],
         "security_schemes": {"bearer": {"type": "http", "scheme": "bearer"}},
         "security": [{"bearer": []}],
@@ -161,6 +167,9 @@ async def send_task(
     text = _text_parts(message)
     if not text:
         raise ArError(ErrorCode.VALIDATION_FAILED, "a text part is required")
+    raw_meta = message.get("metadata")
+    metadata = raw_meta if isinstance(raw_meta, dict) else {}
+    research = str(metadata.get("mode") or params.get("mode") or "") == "research"
     context = message.get("context_id") or message.get("contextId") or params.get("context_id")
     if context:
         conversation_id = uuid.UUID(str(context))
@@ -168,7 +177,9 @@ async def send_task(
     else:
         created = create_conversation(store, key, slug)
         conversation_id = uuid.UUID(str(created["id"]))
-    reply, _replayed = await send_message(store, key, slug, conversation_id, text, [], "")
+    reply, _replayed = await send_message(
+        store, key, slug, conversation_id, text, [], "", research=research
+    )
     state = _state_for(reply)
     output = str(reply.get("output") or "")
     if state == "input-required":

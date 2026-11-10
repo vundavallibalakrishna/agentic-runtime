@@ -120,7 +120,8 @@ def test_workspace_key_sees_every_published_agent() -> None:
         label="One",
     )
     assert [item["name"] for item in mcp_server.tools_list(store, scoped)["tools"]] == [
-        "agent_assistant"
+        "agent_assistant",
+        "research",
     ]
 
 

@@ -38,6 +38,7 @@ export type RunEvent =
   | MemoryRecalled
   | MemorySaved
   | ContextCompacted
+  | ResearchProgress
   | WarningEvent
   | Heartbeat;
 export type Id = string;
@@ -424,16 +425,26 @@ export type Runid32 = string;
 export type Rootrunid32 = string;
 export type Conversationid32 = string | null;
 export type Ts32 = string;
-export type Type39 = "warning";
-export type Code1 = string;
-export type Message3 = string;
+export type Type39 = "research.progress";
+export type Phase = string;
+export type Depth = number;
+export type Sourcecount = number;
 export type Id34 = string;
 export type Seq33 = number;
 export type Runid33 = string;
 export type Rootrunid33 = string;
 export type Conversationid33 = string | null;
 export type Ts33 = string;
-export type Type40 = "heartbeat";
+export type Type40 = "warning";
+export type Code1 = string;
+export type Message3 = string;
+export type Id35 = string;
+export type Seq34 = number;
+export type Runid34 = string;
+export type Rootrunid34 = string;
+export type Conversationid34 = string | null;
+export type Ts34 = string;
+export type Type41 = "heartbeat";
 
 export interface RunQueued {
   id: Id;
@@ -1024,7 +1035,7 @@ export interface ContextCompactedData {
   tokensBefore: Tokensbefore;
   tokensAfter: Tokensafter;
 }
-export interface WarningEvent {
+export interface ResearchProgress {
   id: Id33;
   seq: Seq32;
   runId: Runid32;
@@ -1032,13 +1043,14 @@ export interface WarningEvent {
   conversationId: Conversationid32;
   ts: Ts32;
   type: Type39;
-  data: WarningData;
+  data: ResearchProgressData;
 }
-export interface WarningData {
-  code: Code1;
-  message: Message3;
+export interface ResearchProgressData {
+  phase: Phase;
+  depth?: Depth;
+  sourceCount?: Sourcecount;
 }
-export interface Heartbeat {
+export interface WarningEvent {
   id: Id34;
   seq: Seq33;
   runId: Runid33;
@@ -1046,6 +1058,20 @@ export interface Heartbeat {
   conversationId: Conversationid33;
   ts: Ts33;
   type: Type40;
+  data: WarningData;
+}
+export interface WarningData {
+  code: Code1;
+  message: Message3;
+}
+export interface Heartbeat {
+  id: Id35;
+  seq: Seq34;
+  runId: Runid34;
+  rootRunId: Rootrunid34;
+  conversationId: Conversationid34;
+  ts: Ts34;
+  type: Type41;
   data: _Data;
 }
 export interface _Data {}

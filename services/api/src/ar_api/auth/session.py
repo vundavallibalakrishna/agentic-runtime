@@ -1,6 +1,7 @@
 """Encrypted server-side sessions. Spec: docs/03-specs/01-api-bff.md §3."""
 
 import base64
+import binascii
 import hashlib
 import uuid
 from dataclasses import dataclass
@@ -186,10 +187,17 @@ def _unavailable() -> Exception:
 
 
 def session_key_bytes(raw_b64: str, fallback: str, *, prod: bool) -> bytes:
-    """Decode ``AR_SESSION_ENCRYPTION_KEY`` or derive a dev key."""
+    """Decode ``AR_SESSION_ENCRYPTION_KEY`` or derive a dev key.
+
+    A placeholder such as ``install-time`` is not a key. Outside production it
+    falls through to the cursor-secret digest instead of crashing the process.
+    """
     if raw_b64:
         padding = "=" * (-len(raw_b64) % 4)
-        decoded = base64.b64decode(raw_b64 + padding)
+        try:
+            decoded = base64.b64decode(raw_b64 + padding)
+        except ValueError, binascii.Error:
+            decoded = b""
         if len(decoded) == 32:
             return decoded
     if prod:

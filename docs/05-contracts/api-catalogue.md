@@ -661,3 +661,14 @@ Routes present in `openapi.json` and absent from the spec tables above.
 | POST | `/internal/v1/channels/inbound` | see spec | openapi |
 | POST | `/internal/v1/connections:test` | see spec | openapi |
 | POST | `/v1/agents/{slug}:run` | see spec | openapi |
+| GET | `/api/v1/model-routes` | `models:read` | stage 10 |
+| PUT | `/api/v1/model-routes` | `models:manage` | stage 10 |
+| GET | `/api/v1/research/runs/{run_id}` | `chat:use` | stage 10 |
+| GET | `/api/v1/research/runs/{run_id}/events` | `chat:use` | stage 10 |
+| GET | `/api/v1/runs/{run_id}/outputs/{output_id}` | `chat:use` | stage 10 |
+| GET | `/v1/research/runs/{run_id}` | agent key | stage 10 |
+| GET | `/v1/research/runs/{run_id}/events` | agent key | stage 10 |
+| POST | `/api/v1/research/runs` | `chat:use` | stage 10 |
+| POST | `/api/v1/research/runs/{run_id}:cancel` | `chat:use` | stage 10 |
+| POST | `/api/v1/research/runs/{run_id}:resume` | `chat:use` | stage 10 |
+| POST | `/v1/research/runs` | agent key | stage 10 |
