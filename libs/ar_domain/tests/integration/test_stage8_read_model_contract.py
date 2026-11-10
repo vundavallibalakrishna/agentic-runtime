@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import uuid
 
 import pytest
 from sqlalchemy import text
@@ -51,7 +52,7 @@ async def test_a_second_unit_reads_the_first_units_commit(database_url: str) -> 
         user_id = next(iter(unit.display_names))
         agent = unit.ensure_assistant(tenant_id, user_id)
         created = unit.create_conversation(tenant_id, user_id, agent["id"])
-        conversation_id = created["id"]
+        conversation_id = uuid.UUID(str(created["id"]))
     async with second.open(tenant_id) as unit:
         row = unit.conversations.get(conversation_id)
     assert isinstance(row, dict)
