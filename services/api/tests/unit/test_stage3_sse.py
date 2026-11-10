@@ -64,9 +64,7 @@ async def test_last_event_id_replays_the_shared_stream() -> None:
     if bus._pending:
         await __import__("asyncio").gather(*list(bus._pending))
     store.events[run_id] = []
-    seen = [
-        int(event["seq"]) async for event in store.iter_events(tenant, run_id, 1, idle_s=0.01)
-    ]
+    seen = [int(event["seq"]) async for event in store.iter_events(tenant, run_id, 1, idle_s=0.01)]
     assert seen
     assert 1 not in seen
     assert max(seen) > 1

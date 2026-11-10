@@ -36,8 +36,8 @@ def password_mode_allowed(settings: Settings) -> bool:
     """Password sign-in is dev, CI, or an explicit single-tenant opt-in."""
     if settings.env in {EnvName.DEV, EnvName.CI}:
         return True
-    return (
-        settings.deployment_mode is DeploymentMode.SINGLE_TENANT and bool(settings.password_login)
+    return settings.deployment_mode is DeploymentMode.SINGLE_TENANT and bool(
+        settings.password_login
     )
 
 

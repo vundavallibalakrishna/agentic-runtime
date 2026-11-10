@@ -72,15 +72,11 @@ def test_oidc_auth_code_and_bearer_against_a_mock_idp(monkeypatch: pytest.Monkey
         assert session.json()["user"]["email"] == "admin@dev.local"
         token = httpx.get(f"{issuer}/access-token", timeout=5.0).json()["access_token"]
         anonymous = TestClient(client.app, follow_redirects=False)
-        bearer = anonymous.get(
-            "/api/v1/auth/session", headers={"Authorization": f"Bearer {token}"}
-        )
+        bearer = anonymous.get("/api/v1/auth/session", headers={"Authorization": f"Bearer {token}"})
         assert bearer.status_code == 200
         assert bearer.json()["user"]["email"] == "admin@dev.local"
         weak = httpx.get(f"{issuer}/access-token?mfa=0", timeout=5.0).json()["access_token"]
-        refused = anonymous.get(
-            "/api/v1/me", headers={"Authorization": f"Bearer {weak}"}
-        )
+        refused = anonymous.get("/api/v1/me", headers={"Authorization": f"Bearer {weak}"})
         assert refused.status_code == 401
     finally:
         container.stop()

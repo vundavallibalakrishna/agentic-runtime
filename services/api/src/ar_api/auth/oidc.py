@@ -50,9 +50,7 @@ class ValkeyOidcState:
 
     async def put(self, state: str, payload: dict[str, str], ttl_s: int) -> None:
         try:
-            await self._client().set(
-                _key(state), orjson.dumps(payload).decode(), ex=max(1, ttl_s)
-            )
+            await self._client().set(_key(state), orjson.dumps(payload).decode(), ex=max(1, ttl_s))
         except Exception as exc:
             raise LoginError("oidc_unavailable") from exc
 

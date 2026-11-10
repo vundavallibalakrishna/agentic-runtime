@@ -37,6 +37,7 @@ async def public_version() -> dict[str, str]:
     """The versioned public agent API. Additive changes stay on ``/v1``."""
     return {"version": "1"}
 
+
 _MESSAGE_EXAMPLE = {
     "id": "4f1c0b2e-6a0d-7e2a-9c3b-1d5e6f708192",
     "conversationId": "8a1b2c3d-4e5f-6789-abcd-ef0123456789",

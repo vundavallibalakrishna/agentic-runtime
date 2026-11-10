@@ -304,9 +304,7 @@ async def send_message(  # noqa: PLR0917
         return replay, True
     names = _attachment_names(store, attachment_ids)
     await store.generate(run_id, text, names)
-    body = await finish_message(
-        store, key, slug, idempotency_key, run_id, text, attachment_ids
-    )
+    body = await finish_message(store, key, slug, idempotency_key, run_id, text, attachment_ids)
     return body, False
 
 
