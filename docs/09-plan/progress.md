@@ -377,6 +377,6 @@ Shas from `git log` on `main` (`2424f3a`):
 ## Production stages
 
 Stage 0 | done | 2424f3a | agnostic-core decisions and the production plan
-Stage 7 | in_progress | - | honest proof labels, capability matrix, signup removed, progress and status docs
+Stage 7 | done | 5617a4a | honest proof labels, capability matrix, signup removed, progress and status docs
 
 The capability matrix is [capability-matrix.md](capability-matrix.md). It is generated from code. CI fails when the file drifts.
