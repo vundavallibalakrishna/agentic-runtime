@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import uuid  # noqa: TC003
+import uuid
 from typing import Any  # noqa: TC003
 
 from ar_common.errors import NotFoundError
@@ -15,7 +15,7 @@ def read_summary(store: Any, tenant_id: uuid.UUID, conversation_id: uuid.UUID) -
         "conversationId": str(conversation_id),
         "summary": str(row.get("rolling_summary") or ""),
         "throughMessageId": str(row.get("summary_through_message_id") or ""),
-        "proof": "unit",
+        "proof": "contract" if getattr(store, "durable", False) else "unit",
     }
 
 
@@ -41,7 +41,12 @@ def refresh_summary(
     packed = compact_context(messages, context_window=200_000, keep_messages=4)
     summary = str(packed.get("summary") or "") or summarise(messages)
     row["rolling_summary"] = summary
-    row["summary_through_message_id"] = packed.get("summary_through_message_id") or None
+    through = packed.get("summary_through_message_id") or None
+    if through:
+        try:
+            row["summary_through_message_id"] = uuid.UUID(str(through))
+        except ValueError:
+            row["summary_through_message_id"] = None
     return read_summary(store, tenant_id, conversation_id)
 
 

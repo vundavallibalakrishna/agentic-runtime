@@ -362,8 +362,11 @@ def _gdrive_upload(
     from ar_domain.connectors.http import explain_status  # noqa: PLC0415
     from ar_domain.tools.http_tools import guard_public  # noqa: PLC0415
 
-    del install
-    url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+    configured = _config(install).get("baseUrl", "").rstrip("/")
+    if configured:
+        url = f"{configured}/upload/drive/v3/files?uploadType=multipart"
+    else:
+        url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
     problem = guard_public(url, allow=["*"], loopback=True)
     if problem:
         return _fail("egress_denied", problem)
@@ -404,9 +407,9 @@ def _share_upload(
     from ar_domain.connectors.http import explain_status  # noqa: PLC0415
     from ar_domain.tools.http_tools import guard_public  # noqa: PLC0415
 
-    del install
     path = quote(str(arguments.get("path") or "note.txt"), safe="/")
-    url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{path}:/content"
+    base = _config(install).get("baseUrl", "").rstrip("/") or "https://graph.microsoft.com/v1.0"
+    url = f"{base}/me/drive/root:/{path}:/content"
     problem = guard_public(url, allow=["*"], loopback=True)
     if problem:
         return _fail("egress_denied", problem)

@@ -52,6 +52,10 @@ async def run_worker() -> None:
         EvalRunWorkflow,
         execute_eval_activity,
     )
+    from ar_system.workflows.notification_mail import (  # noqa: PLC0415
+        NotificationEmailWorkflow,
+        send_smtp_notification,
+    )
     from ar_system.workflows.routine_poll import RoutinePollWorkflow, poll_activity  # noqa: PLC0415
     from ar_system.workflows.routine_run import (  # noqa: PLC0415
         RoutineReconcileWorkflow,
@@ -62,6 +66,10 @@ async def run_worker() -> None:
         reconcile_activity,
     )
     from ar_system.workflows.sandbox_reaper import SandboxReaperWorkflow, reap_sandboxes  # noqa: PLC0415
+    from ar_system.workflows.summary_refresh import (  # noqa: PLC0415
+        ConversationSummaryWorkflow,
+        refresh_conversation_summary,
+    )
 
     while True:
         try:
@@ -81,6 +89,8 @@ async def run_worker() -> None:
                     RoutineRunWorkflow,
                     RoutinePollWorkflow,
                     RoutineReconcileWorkflow,
+                    NotificationEmailWorkflow,
+                    ConversationSummaryWorkflow,
                 ],
                 activities=[
                     reap_sandboxes,
@@ -89,6 +99,8 @@ async def run_worker() -> None:
                     complete_activity,
                     poll_activity,
                     reconcile_activity,
+                    send_smtp_notification,
+                    refresh_conversation_summary,
                 ],
                 **temporal_worker_kwargs(),
             )

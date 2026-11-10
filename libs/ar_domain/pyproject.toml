@@ -37,6 +37,8 @@ dependencies = [
     "presidio-analyzer==2.2.364",
     "en-core-web-sm==3.8.0",
     "argon2-cffi==23.1.0",
+    "grpcio==1.84.0",
+    "protobuf==7.36.2",
 ]
 
 [project.optional-dependencies]

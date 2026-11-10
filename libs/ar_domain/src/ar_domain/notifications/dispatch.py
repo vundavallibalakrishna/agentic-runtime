@@ -1,18 +1,19 @@
 """Web push subscriptions and email notices.
 
-Push delivery uses the named secret ``web_push_vapid_private`` when it is set.
-Without it the subscription is stored and the send is recorded as pending.
-Email uses the same outbox as password reset. A GreenMail host is optional.
+Push delivery signs a VAPID JWT with the named secret ``web_push_vapid_private``.
+Without a usable key the subscription is stored and the send stays pending.
+A 404 or 410 drops that subscription. Email is queued for the SMTP activity.
 """
 
 from __future__ import annotations
 
-import uuid  # noqa: TC003
+import uuid
 from typing import Any  # noqa: TC003
 
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.identity.recovery import deliver
+from ar_domain.notifications.web_push import load_private_key, post_push
 from ar_domain.tools.named_secrets import read_named_secret
 
 
@@ -63,18 +64,34 @@ def notify_user(
     body: str,
     email: str = "",
 ) -> dict[str, object]:
-    """Record a push attempt and an email. Neither path invents a provider result."""
+    """Send a Web Push where a VAPID key exists, and queue an email for SMTP."""
     secret = read_named_secret(store, tenant_id, "web_push_vapid_private")
     targets = [
         row
-        for row in _book(store).values()
+        for row in list(_book(store).values())
         if row.get("tenant_id") == tenant_id and row.get("user_id") == user_id
     ]
+    key = load_private_key(secret) if secret else None
+    delivered = 0
+    pruned = 0
+    if key is not None:
+        transport = getattr(store, "push_transport", None)
+        for row in targets:
+            endpoint = str(row.get("endpoint") or "")
+            status = post_push(endpoint, title, body, key, transport=transport)
+            if status in {404, 410}:
+                row_id = row.get("id")
+                if isinstance(row_id, uuid.UUID):
+                    unsubscribe(store, tenant_id=tenant_id, subscription_id=row_id)
+                pruned += 1
+            elif 200 <= status < 300:
+                delivered += 1
     push = {
         "attempted": len(targets),
-        "delivered": len(targets) if secret else 0,
-        "proof": "contract" if secret else "unit",
-        "pending": secret is None,
+        "delivered": delivered,
+        "pruned": pruned,
+        "proof": "contract" if key is not None else "unit",
+        "pending": key is None,
     }
     if email:
         deliver(store, {"to": email, "subject": title, "body": body})

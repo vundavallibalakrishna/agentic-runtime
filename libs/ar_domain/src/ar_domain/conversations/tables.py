@@ -96,6 +96,27 @@ class Conversation(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class ConversationSummary(Base):
+    """Rolling summary for one conversation. Workers refresh it. Replicas read it."""
+
+    __tablename__ = "conversation_summaries"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", name="uq_conversation_summaries_conversation_id"),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    summary: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    through_message_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = created_at_col()
+    updated_at: Mapped[datetime] = updated_at_col()
+
+
 class ConversationShare(Base):
     __tablename__ = "conversation_shares"
     __table_args__ = (

@@ -36,3 +36,5 @@ jobs:
         run: |
           bash scripts/kind_install.sh
           echo "24h soak: locust -f tests/load/locustfile.py --headless -u 50 -r 5 -t 24h"
+      - name: CloudNativePG point-in-time restore
+        run: bash scripts/cnpg_pitr_kind.sh

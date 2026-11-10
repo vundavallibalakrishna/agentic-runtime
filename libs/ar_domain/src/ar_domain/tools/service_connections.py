@@ -433,7 +433,9 @@ def _refresh_token(row: dict[str, object]) -> dict[str, str]:
     token_url = str(row.get("token_url") or "")
     if token_url.startswith("memory://"):
         return {"access_token": f"refreshed-{row.get('name')}", "expires_in": "3600"}
-    problem = guard_public(token_url, allow=["*"], loopback=False)
+    # A recorded fixture may point the token URL at a loopback server. Production
+    # rows do not set this flag, so a loopback token URL stays denied.
+    problem = guard_public(token_url, allow=["*"], loopback=bool(row.get("allow_loopback_token")))
     if problem:
         raise ArError(ErrorCode.FORBIDDEN, problem)
     form = {
@@ -442,7 +444,7 @@ def _refresh_token(row: dict[str, object]) -> dict[str, str]:
         "client_id": str(row.get("client_id") or ""),
         "client_secret": _open(row.get("secret")),
     }
-    return _token_response(token_url, form)
+    return _token_response(token_url, form, row.get("_token_transport"))
 
 
 def _token_response(
