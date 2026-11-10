@@ -208,14 +208,11 @@ def test_check_says_when_evidence_is_missing_and_cites_when_present() -> None:
     missing = rows[1]
     assert isinstance(found, dict)
     assert isinstance(missing, dict)
-    assert found["verdict"] != "not_found"
-    citation = found["citation"]
-    assert isinstance(citation, dict)
-    assert citation["anchor"] == "p1-s0"
-    assert "badges" in str(citation["quote"]).lower() or "badge" in str(found["text"] or "").lower()
-    assert missing["verdict"] == "not_found"
+    assert found["verdict"] == "not_judged"
+    assert found["citation"] is None
+    assert missing["verdict"] == "not_judged"
     assert missing["citation"] is None
-    assert "does not contain" in str(missing["reason"])
+    assert "not a verdict" in str(found["reason"])
 
     def invent(_task: str, _evidence: str) -> str:
         return '{"claims":[{"text":"There is a Mars base.","anchor":"nope","quote":"Mars"}]}'
@@ -325,14 +322,14 @@ def test_compare_tables_and_long_retrieval() -> None:
     )
     rows = report["rows"]
     assert isinstance(rows, list)
-    assert rows[1]["verdict"] == "not_found"  # type: ignore[index]
+    assert rows[1]["verdict"] == "not_judged"  # type: ignore[index]
     gaps = library.missing(
         actor,
         uuid.UUID(str(right["id"])),
         statements=["Operate a colony on Mars"],
     )
     assert any(
-        isinstance(row, dict) and row.get("verdict") == "not_found"
+        isinstance(row, dict) and row.get("verdict") == "not_judged"
         for row in gaps["rows"]  # type: ignore[union-attr]
     )
 
@@ -400,7 +397,7 @@ def test_tools_cover_ingest_paths_and_model_call(monkeypatch: pytest.MonkeyPatch
         "judge",
         {**args, "statements": ["Staff use badges", "Operate a colony on Mars"]},
     )
-    assert "not_found" in str(checked["text"])
+    assert "not_judged" in str(checked["text"]) or "not_supported" in str(checked["text"])
     assert (
         dispatch_documents(store, "missing", {**args, "statements": ["Operate a colony on Mars"]})[
             "is_error"
@@ -598,19 +595,28 @@ def test_long_text_is_chunked_and_model_can_judge() -> None:
     assert isinstance(passages, list)
     assert len(passages) > 1
 
+    passage = passages[0]
+    assert isinstance(passage, dict)
+    quote = "staff use badges"
+    assert quote in str(passage.get("text") or "")
+
     def judge(task: str, evidence: str) -> str:
         del task
         assert "untrusted_content" in evidence
         return (
-            '{"verdict":"met","anchor":"p1-s0","quote":"staff use badges",'
-            '"confidence":0.8,"reason":"The passage mentions badges."}'
+            '{"verdict":"supported","passageId":"'
+            + str(passage.get("anchor"))
+            + '","quote":"staff use badges"}'
         )
 
-    report = check(row, ["staff use badges"], judge)
+    report = check(row, ["staff use badges"], judge, model_id="fixture-model")
     first = report["rows"][0]  # type: ignore[index]
     assert isinstance(first, dict)
     assert first["model"] is True
-    assert first["verdict"] == "met"
+    assert first["verdict"] == "supported"
+    assert first["model_id"] == "fixture-model"
+    assert first["prompt_hash"]
+    assert first["quote"] == quote
 
 
 def test_text_pdf_and_ocr_binary() -> None:

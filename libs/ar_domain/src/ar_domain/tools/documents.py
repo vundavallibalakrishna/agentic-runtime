@@ -149,9 +149,17 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
 def _ocr(  # noqa: PLR0911
     library: DocumentLibrary, store: Any, actor: Actor, arguments: dict[str, object]
 ) -> dict[str, object]:
-    """Read a scanned page with local tesseract and store the extraction."""
-    refused = cloud_refusal(str(arguments.get("engine") or ""))
-    if refused is not None:
+    """Read a scanned page with tesseract, or with the vision alias when asked."""
+    from ar_domain.documents.ocr import VisionReader  # noqa: PLC0415
+
+    engine = str(arguments.get("engine") or "").strip().lower().replace("-", "_")
+    reader: VisionReader | None = None
+    if engine in {"", "tesseract", "local"}:
+        engine = "tesseract"
+    elif engine == "vision":
+        reader = VisionReader(store, actor.tenant_id)
+    refused = cloud_refusal(engine if engine != "tesseract" else "")
+    if reader is None and refused is not None:
         code = "validation_failed" if refused.startswith("Unknown") else "not_live"
         return _error(code, refused)
     document_id = _optional_uuid(arguments.get("documentId") or arguments.get("document_id"))
@@ -166,7 +174,8 @@ def _ocr(  # noqa: PLR0911
             f"Stored text for {body.get('title')} ({document_id}).\n\n{text}",
             {
                 "kind": "ocr",
-                "engine": "tesseract",
+                "engine": engine,
+                "proof": "unit",
                 "status": "stored",
                 "documentId": str(document_id),
             },
@@ -190,7 +199,13 @@ def _ocr(  # noqa: PLR0911
         )
 
     try:
-        extracted = extract_bytes(data, filename=filename, media_type=media, on_page=_page)
+        extracted = extract_bytes(
+            data,
+            filename=filename,
+            media_type=media,
+            ocr=reader,
+            on_page=_page,
+        )
     except ExtractError as exc:
         note_job(
             store,
@@ -223,7 +238,8 @@ def _ocr(  # noqa: PLR0911
             text = str(library.read(actor, saved_id).get("text") or "")
         except ArError:
             text = ""
-    header = f"OCR read {saved.get('title')} ({saved.get('id')}) with tesseract."
+    proof = "unit" if reader is None else reader.proof
+    header = f"OCR read {saved.get('title')} ({saved.get('id')}) with {engine}. Proof: {proof}."
     pages = max(int(getattr(extracted, "page_count", 1) or 1), 1)
     job = note_job(
         store,
@@ -237,8 +253,11 @@ def _ocr(  # noqa: PLR0911
     )
     presentation: dict[str, object] = {
         "kind": "ocr",
-        "engine": "tesseract",
-        "status": "live",
+        "engine": engine,
+        "proof": proof,
+        "status": "extracted",
+        "modelId": "" if reader is None else reader.model_id,
+        "observedOn": "" if reader is None else reader.observed_on,
         "documentId": str(saved.get("id") or ""),
         "document": saved,
     }

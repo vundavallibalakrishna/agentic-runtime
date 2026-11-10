@@ -442,9 +442,25 @@ class PackExtension(_Model):
     mcp_server: str = ""
 
 
+class RuleSetItemDef(_Model):
+    item_id: str = ""
+    statement: str = ""
+
+
+class RuleSetDef(_Model):
+    """A versioned rule set carried by a pack. Core does not name what it is for."""
+
+    id: str
+    version: str
+    items: list[RuleSetItemDef] = Field(default_factory=list)
+    source_file_id: str | None = None
+    sha256: str = ""
+
+
 class ContentPackSpec(_Model):
     resources: list[dict[str, JsonValue]] = Field(default_factory=list)
     extension: PackExtension | None = None
+    rule_sets: list[RuleSetDef] = Field(default_factory=list)
 
 
 class ContentPack(_Model):

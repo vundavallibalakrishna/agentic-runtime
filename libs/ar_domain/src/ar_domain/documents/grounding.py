@@ -12,12 +12,11 @@ from collections.abc import Callable
 import orjson
 
 from ar_common.wrapping import wrap_untrusted
-from ar_domain.documents.chunk import RETRIEVAL_BUDGET, retrieve, score
+from ar_domain.documents.chunk import retrieve, score
 from ar_domain.pii.analyzer import Masking, redact
 
 Ask = Callable[[str, str], str | None]
 _QUOTE = 240
-_MIN_SCORE = 0.34
 _EMAIL = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 _PHONE = re.compile(r"(?:\+?\d[\d\-\s().]{7,}\d)")
 _MISSING = "The document does not contain a passage that supports this."
@@ -72,9 +71,27 @@ def check(
     *,
     label: str = "",
     aggressive: bool = False,
+    model_id: str = "",
+    rule_set_id: str = "",
+    rule_set_version: str = "",
 ) -> dict[str, object]:
-    passages = _prepare_passages(_passages(document), aggressive=aggressive)
-    rows = [_requirement(document, passages, item, ask) for item in requirements if item.strip()]
+    """Judge statements. ``aggressive`` is unused: a quote must match stored text."""
+    del aggressive
+    from ar_domain.documents.judgement import judge_items  # noqa: PLC0415
+
+    items = [
+        (f"s{index}", item.strip())
+        for index, item in enumerate(requirements, start=1)
+        if item.strip()
+    ]
+    rows = judge_items(
+        document,
+        items,
+        ask,
+        model_id=model_id,
+        rule_set_id=rule_set_id,
+        rule_set_version=rule_set_version,
+    )
     return {
         "kind": "check",
         "document_id": str(document.get("id") or ""),
@@ -94,33 +111,20 @@ def gaps(
     report = check(document, requirements, ask, label="gaps", aggressive=aggressive)
     raw = report["rows"]
     rows = raw if isinstance(raw, list) else []
-    found = [
-        row
-        for row in rows
-        if isinstance(row, dict) and row.get("verdict") in {"not_found", "not_met"}
-    ]
-    for passage in _passages(document):
-        text = str(passage.get("text") or "")
-        if 0 < len(text) < 40:
-            found.append(
-                {
-                    "requirement": str(passage.get("heading") or passage.get("anchor")),
-                    "verdict": "weak",
-                    "reason": "This section is too short to support a claim.",
-                    "citation": _citation(document, passage, text),
-                    "confidence": 0.4,
-                    "model": False,
-                }
-            )
+    found = [row for row in rows if isinstance(row, dict) and row.get("verdict") != "supported"]
     if not found:
         found.append(
             {
                 "requirement": "",
-                "verdict": "none",
-                "reason": "No gap was found for the supplied requirements.",
+                "statement": "",
+                "verdict": "not_judged",
+                "reason": "No gap was found for the supplied statements.",
                 "citation": None,
-                "confidence": 0,
                 "model": False,
+                "model_id": "",
+                "prompt_hash": "",
+                "passage_id": "",
+                "quote": "",
             }
         )
     return {
@@ -304,108 +308,6 @@ def requirements_from(document: dict[str, object], *, limit: int = 40) -> list[s
     return found[:limit]
 
 
-def _requirement(
-    document: dict[str, object],
-    passages: list[dict[str, object]],
-    requirement: str,
-    ask: Ask | None,
-) -> dict[str, object]:
-    bundle = _for_judgment(passages, requirement)
-    if ask is not None and bundle:
-        judged = _from_model(
-            document,
-            passages,
-            requirement,
-            _object(
-                ask(
-                    "Judge one requirement using only the passages. "
-                    'Return JSON {"verdict": "met|partial|not_found", "anchor": "", '
-                    '"quote": "", "confidence": 0.5, "reason": ""}. '
-                    "quote must be an exact substring of the sentence that supports the "
-                    "requirement. Use met when that sentence clearly implements the "
-                    "requirement, even if the wording differs. Use partial only when it "
-                    "covers part of the requirement. "
-                    'Use verdict "not_found" when the passages do not support it.',
-                    f"Requirement: {requirement}\n\n{_evidence(bundle)}",
-                )
-            ),
-        )
-        if judged is not None:
-            return judged
-    return _lexical(document, passages, requirement)
-
-
-def _for_judgment(passages: list[dict[str, object]], requirement: str) -> list[dict[str, object]]:
-    """Short documents go to the model whole. Long ones send a retrieved window."""
-    total = sum(len(str(row.get("text") or "")) for row in passages)
-    if total <= RETRIEVAL_BUDGET:
-        return passages
-    chosen = retrieve(passages, requirement, budget=RETRIEVAL_BUDGET)
-    return chosen or passages[:1]
-
-
-def _from_model(
-    document: dict[str, object],
-    passages: list[dict[str, object]],
-    requirement: str,
-    parsed: dict[str, object] | None,
-) -> dict[str, object] | None:
-    if parsed is None or "verdict" not in parsed:
-        return None
-    verdict = str(parsed.get("verdict") or "").strip().lower()
-    reason = str(parsed.get("reason") or "")[:400]
-    if verdict in {"not_found", "not_met", "unsupported", "missing", "none"}:
-        return _not_found(requirement, reason or _MISSING, model=True)
-    if verdict not in {"met", "partial"}:
-        return None
-    snippet = str(parsed.get("quote") or "")
-    located = _locate_quote(passages, snippet, str(parsed.get("anchor") or ""))
-    if located is None and snippet:
-        located = _closest_sentence(passages, snippet)
-    if located is None:
-        return _not_found(requirement, reason or _MISSING, model=True)
-    passage, quote = located
-    return {
-        "requirement": requirement,
-        "verdict": verdict,
-        "reason": reason or "The passage supports the requirement.",
-        "citation": _citation(document, passage, quote),
-        "confidence": _confidence(parsed.get("confidence"), 0.5),
-        "model": True,
-    }
-
-
-def _lexical(
-    document: dict[str, object], passages: list[dict[str, object]], requirement: str
-) -> dict[str, object]:
-    """Offline fallback. A paraphrase with no shared words stays not_found."""
-    chosen = retrieve(passages, requirement, budget=4000)
-    best = chosen[0] if chosen else None
-    weight = score(requirement, str(best.get("text") or "")) if best else 0.0
-    if best is None or weight < _MIN_SCORE:
-        return _not_found(requirement, _MISSING, model=False)
-    quote = _supporting_sentence(str(best.get("text") or ""), requirement)
-    return {
-        "requirement": requirement,
-        "verdict": "partial",
-        "reason": "The passage shares terms with the requirement.",
-        "citation": _citation(document, best, quote),
-        "confidence": round(min(weight, 0.99), 2),
-        "model": False,
-    }
-
-
-def _not_found(requirement: str, reason: str, *, model: bool) -> dict[str, object]:
-    return {
-        "requirement": requirement,
-        "verdict": "not_found",
-        "reason": reason,
-        "citation": None,
-        "confidence": 0,
-        "model": model,
-    }
-
-
 def _prepare_passages(
     passages: list[dict[str, object]], *, aggressive: bool
 ) -> list[dict[str, object]]:
@@ -569,17 +471,6 @@ def _evidence(passages: list[dict[str, object]]) -> str:
     return "\n".join(blocks)
 
 
-def _citation(
-    document: dict[str, object], passage: dict[str, object], quote: str
-) -> dict[str, object]:
-    return {
-        "document_id": str(document.get("id") or ""),
-        "anchor": str(passage.get("anchor") or ""),
-        "page": int(str(passage.get("page") or 0)),
-        "quote": quote[:_QUOTE],
-    }
-
-
 def _passages(document: dict[str, object]) -> list[dict[str, object]]:
     raw = document.get("passages")
     if not isinstance(raw, list):
@@ -637,72 +528,6 @@ def _sentences(text: str) -> list[str]:
     return [part.strip() for part in re.split(r"(?<=[.!?])\s+", cleaned) if part.strip()]
 
 
-def _supporting_sentence(text: str, query: str) -> str:
-    """The sentence that shares the query's words, not the first sentence."""
-    sentences = _sentences(text)
-    if not sentences:
-        return _first_sentence(text)
-    best = sentences[0]
-    best_score = -1.0
-    for sentence in sentences:
-        weight = score(query, sentence)
-        if weight > best_score:
-            best_score = weight
-            best = sentence
-    return best[:_QUOTE]
-
-
-def _locate_quote(
-    passages: list[dict[str, object]], snippet: str, anchor: str
-) -> tuple[dict[str, object], str] | None:
-    if not snippet.strip():
-        return None
-    ordered: list[dict[str, object]] = []
-    pinned = _by_anchor(passages, anchor) if anchor else None
-    if pinned is not None:
-        ordered.append(pinned)
-    ordered.extend(row for row in passages if row is not pinned)
-    for row in ordered:
-        quote = _quote_in_passage(str(row.get("text") or ""), snippet)
-        if quote:
-            return row, quote
-    return None
-
-
-def _quote_in_passage(text: str, snippet: str) -> str | None:
-    if not _contains(text, snippet):
-        return None
-    for sentence in _sentences(text):
-        if _contains(sentence, snippet):
-            return sentence[:_QUOTE]
-    exact = _exact_quote(text, snippet)
-    return None if exact is None else exact[:_QUOTE]
-
-
-def _exact_quote(text: str, snippet: str) -> str | None:
-    folded = re.sub(r"\s+", " ", text)
-    wanted = re.sub(r"\s+", " ", snippet).strip()
-    index = folded.lower().find(wanted.lower())
-    if index < 0:
-        return None
-    return folded[index : index + len(wanted)]
-
-
-def _closest_sentence(
-    passages: list[dict[str, object]], snippet: str
-) -> tuple[dict[str, object], str] | None:
-    """A near-miss quote cites the sentence it overlaps, not an earlier one."""
-    best: tuple[dict[str, object], str] | None = None
-    best_score = 0.45
-    for row in passages:
-        for sentence in _sentences(str(row.get("text") or "")):
-            weight = score(snippet, sentence)
-            if weight > best_score:
-                best_score = weight
-                best = (row, sentence[:_QUOTE])
-    return best
-
-
 def _field_value(name: str, text: str) -> str:
     pattern = re.compile(rf"{re.escape(name)}\s*[:\-]\s*(.+)", re.IGNORECASE)
     for line in text.splitlines():
@@ -730,16 +555,6 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
-def _confidence(value: object, default: float) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return default
-    return round(max(0.0, min(float(value), 1.0)), 2)
-
-
 def _outline_query(passages: list[dict[str, object]]) -> str:
     headings = " ".join(str(row.get("heading") or "") for row in passages[:12])
     return headings or "summary"
-
-
-def _missing() -> str:
-    return _MISSING

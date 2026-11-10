@@ -234,6 +234,9 @@ class DocumentChunk(Base):
     page_to: Mapped[int | None] = mapped_column(Integer)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
     index_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding_model_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("models.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = created_at_col()
 
 

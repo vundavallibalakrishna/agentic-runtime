@@ -1925,7 +1925,9 @@ Core total is 97 tables: 74 in §19 plus these 23. Retired pack schemas are not 
 
 ## 31. Document library (`ar_domain.documents`)
 
-Revision `0026`. Tenant owned, with the RLS policy from [rls §3](rls.md). The original upload bytes are not stored here.
+Revision `0026`, extended by `0038`. Tenant owned, with the RLS policy from [rls §3](rls.md). `library_documents.object_key` is the object-store key of the original bytes. `content_hash` is their sha256. `document_chunks.embedding_model_id` is the model that embedded that chunk. A search whose collection model does not match a chunk is HTTP 409.
+
+`rule_sets` stores one immutable version (`set_id`, `version`, `items`, `source_file_id`, `sha256`). `judgements` stores one quote check (`rule_set_id`, `rule_set_version`, `item_id`, `verdict`, `passage_id`, `quote`, `model_id`, `prompt_hash`). Both tables are append-only. Verdicts are `supported`, `not_supported`, `not_judged` and `failed`.
 
 ```sql
 CREATE TABLE library_documents (

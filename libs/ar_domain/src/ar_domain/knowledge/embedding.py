@@ -7,8 +7,9 @@ two models do not compare. Spec: docs/03-specs/10-knowledge-rag.md.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from ar_common.errors import ConflictError
 from ar_domain.models.embedding import (
     EmbeddingUnconfiguredError,
     ModelTarget,
@@ -20,7 +21,6 @@ from ar_domain.models.embedding import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from typing import Any
 
 
 def choose_model(
@@ -94,6 +94,33 @@ def _named(store: Any, tenant_id: object, name: str) -> ModelTarget | None:
 def _chunking(row: dict[str, object]) -> dict[str, object]:
     raw = row.get("chunking")
     return raw if isinstance(raw, dict) else {}
+
+
+def refuse_embedding_mismatch(store: Any, collections: list[dict[str, object]]) -> None:
+    """HTTP 409 when a stored chunk was embedded by a different model than the collection."""
+    documents = getattr(store, "knowledge_documents", None)
+    chunks = getattr(store, "document_chunks", None)
+    if not isinstance(documents, dict) or not isinstance(chunks, dict):
+        return
+    for collection in collections:
+        expected = collection.get("embedding_model_id")
+        if not expected:
+            continue
+        collection_id = collection.get("id")
+        document_ids = {
+            key
+            for key, document in documents.items()
+            if isinstance(document, dict) and document.get("collection_id") == collection_id
+        }
+        for chunk in chunks.values():
+            if not isinstance(chunk, dict) or chunk.get("document_id") not in document_ids:
+                continue
+            recorded = chunk.get("embedding_model_id")
+            if recorded and str(recorded) != str(expected):
+                raise ConflictError(
+                    "A passage was embedded with a different model than this collection. "
+                    "Re-index the collection before searching it."
+                )
 
 
 def _whole(value: object) -> int | None:

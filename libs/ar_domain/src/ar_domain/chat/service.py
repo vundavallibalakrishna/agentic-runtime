@@ -227,6 +227,8 @@ class ChatService:
     data_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     browser_connections: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     library_documents: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    rule_sets: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    judgements: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_checks: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_comparisons: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     document_rewrites: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)

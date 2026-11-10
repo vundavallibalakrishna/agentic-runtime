@@ -429,8 +429,10 @@ Spec: [24-documents.md](../03-specs/24-documents.md)
 | GET | [`/api/v1/library-documents/{document_id}/tables`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | POST | [`/api/v1/library-documents/{document_id}:summarise`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | POST | [`/api/v1/library-documents/{document_id}:compare`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
-| POST | [`/api/v1/library-documents/{document_id}:check`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
-| POST | [`/api/v1/library-documents/{document_id}:gaps`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:judge`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:missing`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/rule-sets`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| GET | [`/api/v1/rule-sets/{rule_set_id}`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | POST | [`/api/v1/library-documents/{document_id}:redact`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | POST | [`/api/v1/library-documents/{document_id}:extract`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | POST | [`/api/v1/library-documents/{document_id}:rewrite`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |

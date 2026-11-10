@@ -28,6 +28,14 @@ export type Auditactions = string[];
 export type Entry = string;
 export type Recognisers = string[];
 export type Mcpserver = string;
+export type Id1 = string;
+export type Version1 = string;
+export type Itemid = string;
+export type Statement = string;
+export type Items = RuleSetItemDef[];
+export type Sourcefileid = string | null;
+export type Sha256 = string;
+export type Rulesets = RuleSetDef[];
 
 /**
  * Signed manifest. ``spec.resources`` uses the same documents as a bundle.
@@ -51,6 +59,7 @@ export interface PackMetadata {
 export interface ContentPackSpec {
   resources?: Resources;
   extension?: PackExtension | null;
+  ruleSets?: Rulesets;
 }
 /**
  * Optional pack code. Present only when the manifest is not declarative.
@@ -78,10 +87,32 @@ export interface Ui {
   [k: string]: JsonValue;
 }
 /**
+ * A versioned rule set carried by a pack. Core does not name what it is for.
+ *
+ * This interface was referenced by `ContentPack`'s JSON-Schema
+ * via the `definition` "RuleSetDef".
+ */
+export interface RuleSetDef {
+  id: Id1;
+  version: Version1;
+  items?: Items;
+  sourceFileId?: Sourcefileid;
+  sha256?: Sha256;
+}
+/**
+ * This interface was referenced by `ContentPack`'s JSON-Schema
+ * via the `definition` "RuleSetItemDef".
+ */
+export interface RuleSetItemDef {
+  itemId?: Itemid;
+  statement?: Statement;
+}
+/**
  * This interface was referenced by `ContentPack`'s JSON-Schema
  * via the `definition` "ContentPackSpec".
  */
 export interface ContentPackSpec1 {
   resources?: Resources;
   extension?: PackExtension | null;
+  ruleSets?: Rulesets;
 }

@@ -1532,8 +1532,9 @@ def _documents_server(store: Any) -> None:
                 "judge",
                 "Judge a document",
                 "Judge a document against a versioned rule set or a list of statements. "
-                "Each row has a verdict, a citation and a confidence. "
-                "A missing passage is reported as not found.",
+                "A verdict is supported only when the quote is in the stored passage. "
+                "A quote that is not in the passage is not_supported. "
+                "Lexical overlap is not_judged. A schema failure is failed.",
                 {
                     "type": "object",
                     "properties": {
@@ -1571,7 +1572,7 @@ def _documents_server(store: Any) -> None:
             _tool(
                 "missing",
                 "Find missing statements",
-                "Find statements with no supporting passage, and sections that are too thin. "
+                "Return statements that were not supported, not judged, or failed. "
                 "Do not invent a gap.",
                 {
                     "type": "object",
@@ -1787,8 +1788,9 @@ def _ocr_tool() -> dict[str, object]:
     return _tool(
         "ocr",
         "Read a scanned document",
-        "Read text from a scanned PDF or an image with local tesseract and store the "
-        "extraction. Pass fileId, a workspace path, a url, or documentId. "
+        "Read text from a scanned PDF or an image. The default provider is tesseract "
+        "(proof: unit). engine vision uses the configured vision model and is live only "
+        "when that model answers. Without a reader the result is text_not_extracted. "
         "Cloud OCR engines return not_live.",
         {
             "type": "object",
@@ -1815,8 +1817,8 @@ def _ocr_tool() -> dict[str, object]:
                 },
                 "engine": {
                     "type": "string",
-                    "description": "The OCR engine. Defaults to local tesseract; a cloud "
-                    "engine returns not_live until configured.",
+                    "description": "tesseract (default) or vision. A cloud engine returns "
+                    "not_live. A missing reader returns text_not_extracted.",
                 },
             },
         },

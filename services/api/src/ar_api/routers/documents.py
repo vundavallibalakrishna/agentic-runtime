@@ -187,6 +187,32 @@ async def judge_document(
 
 
 @router.post(
+    "/api/v1/rule-sets",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def import_rule_set_route(body: RuleSetBody, request: Request) -> dict[str, object]:
+    from ar_domain.documents.rules import import_rule_set  # noqa: PLC0415
+
+    return import_rule_set(chat(request), actor(request), body.model_dump(by_alias=False))
+
+
+@router.get(
+    "/api/v1/rule-sets/{rule_set_id}",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def export_rule_set_route(
+    rule_set_id: str,
+    request: Request,
+    version: Annotated[str, Query()] = "",
+) -> dict[str, object]:
+    from ar_domain.documents.rules import export_rule_set  # noqa: PLC0415
+
+    return export_rule_set(chat(request), actor(request), rule_set_id, version)
+
+
+@router.post(
     "/api/v1/library-documents/{document_id}:missing",
     dependencies=[Depends(require_permission("chat:use"))],
 )

@@ -28,21 +28,22 @@ _BUILT = frozenset(
 
 
 def _strip(value: object) -> object:
+    """Drop secrets, resolved fields, and keys whose value is undefined (None)."""
     if isinstance(value, dict):
         return {
             str(key): _strip(item)
             for key, item in value.items()
-            if str(key) not in _SECRET_KEYS and str(key) != "resolved"
+            if item is not None and str(key) not in _SECRET_KEYS and str(key) != "resolved"
         }
     if isinstance(value, list):
-        return [_strip(item) for item in value]
+        return [_strip(item) for item in value if item is not None]
     return value
 
 
 def _spec(definition: dict[str, object]) -> dict[str, object]:
     cleaned = cast("dict[str, object]", _strip(definition))
     model = AgentDefinition.model_validate(cleaned)
-    dumped = model.model_dump(by_alias=True, mode="json")
+    dumped = model.model_dump(by_alias=True, mode="json", exclude_none=True)
     dumped.pop("resolved", None)
     return cast("dict[str, object]", dumped)
 
@@ -153,5 +154,6 @@ def _skill_resources(
 
 
 def to_yaml(document: dict[str, object]) -> str:
-    """Canonical YAML for a bundle document."""
-    return str(yaml.safe_dump(cast("JsonValue", document), sort_keys=True, allow_unicode=True))
+    """Canonical YAML for a bundle document. Undefined keys are omitted."""
+    cleaned = cast("dict[str, object]", _strip(document))
+    return str(yaml.safe_dump(cast("JsonValue", cleaned), sort_keys=True, allow_unicode=True))

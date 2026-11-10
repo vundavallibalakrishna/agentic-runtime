@@ -1,0 +1,10 @@
+{
+  "id": "door-access",
+  "version": "1",
+  "items": [
+    {"itemId": "badges", "statement": "Staff use badges at the door."},
+    {"itemId": "visitors", "statement": "Visitors sign the book."}
+  ],
+  "sourceFileId": null,
+  "sha256": ""
+}

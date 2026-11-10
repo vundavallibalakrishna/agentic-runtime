@@ -124,13 +124,17 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
                 save_document_checks,
                 save_document_comparisons,
                 save_document_rewrites,
+                save_judgements,
                 save_library_documents,
+                save_rule_sets,
             )
 
             await save_library_documents(session, pending["library_documents"])
             await save_document_checks(session, pending["document_checks"])
             await save_document_comparisons(session, pending["document_comparisons"])
             await save_document_rewrites(session, pending["document_rewrites"])
+            await save_rule_sets(session, pending["rule_sets"])
+            await save_judgements(session, pending["judgements"])
             await save_routines(session, pending["routines"])
             await _conversations(session, pending["conversations"])
             await _runs(session, store, pending["runs"])
@@ -665,16 +669,17 @@ async def _chunks(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     sql = """
         INSERT INTO document_chunks (
             id, tenant_id, document_id, ordinal, text, context_prefix, heading_path,
-            page_from, page_to, token_count, index_version, created_at
+            page_from, page_to, token_count, index_version, embedding_model_id, created_at
         ) VALUES (
             :id, :tenant_id, :document_id, :ordinal, :text, :context_prefix, :heading_path,
-            :page_from, :page_to, :token_count, :index_version, :created_at
+            :page_from, :page_to, :token_count, :index_version, :embedding_model_id, :created_at
         )
         ON CONFLICT (id) DO UPDATE SET
             text = EXCLUDED.text,
             context_prefix = EXCLUDED.context_prefix,
             token_count = EXCLUDED.token_count,
-            index_version = EXCLUDED.index_version
+            index_version = EXCLUDED.index_version,
+            embedding_model_id = EXCLUDED.embedding_model_id
     """
     for row in rows:
         chunk_id = as_uuid(row.get("id"))
@@ -700,6 +705,7 @@ async def _chunks(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "page_to": row.get("page_to") if isinstance(row.get("page_to"), int) else None,
                 "token_count": as_int(row.get("token_count")),
                 "index_version": as_int(row.get("index_version"), 1),
+                "embedding_model_id": as_uuid(row.get("embedding_model_id")),
                 "created_at": as_dt(row.get("created_at")) or utcnow(),
             },
         )

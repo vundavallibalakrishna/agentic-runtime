@@ -156,6 +156,8 @@ BUCKETS = (
     "document_checks",
     "document_comparisons",
     "document_rewrites",
+    "rule_sets",
+    "judgements",
     "channel_integrations",
     "channel_identities",
     "channel_threads",

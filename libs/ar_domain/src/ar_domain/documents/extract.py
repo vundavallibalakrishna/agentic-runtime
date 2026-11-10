@@ -163,7 +163,9 @@ def _looks_text(data: bytes) -> bool:
     )
 
 
-def _pdf(data: bytes, ocr: Ocr, on_page: Callable[[int, int], None] | None = None) -> Extracted:
+def _pdf(  # noqa: PLR0912
+    data: bytes, ocr: Ocr, on_page: Callable[[int, int], None] | None = None
+) -> Extracted:
     from pypdf import PdfReader  # noqa: PLC0415
     from pypdf.errors import PdfReadError  # noqa: PLC0415
 
@@ -188,17 +190,36 @@ def _pdf(data: bytes, ocr: Ocr, on_page: Callable[[int, int], None] | None = Non
         )
     passages: list[Passage] = []
     used_ocr = False
+    scan_without_text = False
     for index, page in enumerate(reader.pages, start=1):
         try:
             text = page.extract_text() or ""
         except Exception as exc:
             raise ExtractError("corrupt", "This PDF could not be read.") from exc
+        if text.strip() and not unicode_text(text):
+            raise ExtractError(
+                "not_unicode",
+                "This PDF is not Unicode text. Upload a Unicode PDF, or a scan the "
+                "OCR provider can read.",
+            )
         if len(text.strip()) < 20:
-            read = _ocr_page(page, text, ocr)
+            try:
+                read = _ocr_page(page, text, ocr)
+            except ExtractError as exc:
+                if exc.code != "text_not_extracted":
+                    raise
+                scan_without_text = True
+                read = text
             if read.strip() != text.strip():
                 used_ocr = True
             text = read
-        passages.extend(_sections(text, index, len(passages)))
+            if text.strip() and not unicode_text(text):
+                raise ExtractError(
+                    "not_unicode",
+                    "OCR did not return Unicode text for this PDF.",
+                )
+        if text.strip():
+            passages.extend(_sections(text, index, len(passages)))
         if on_page is not None:
             on_page(index, pages)
     title = ""
@@ -206,6 +227,11 @@ def _pdf(data: bytes, ocr: Ocr, on_page: Callable[[int, int], None] | None = Non
     if meta is not None and meta.title:
         title = str(meta.title)
     if not passages:
+        if scan_without_text:
+            raise ExtractError(
+                "text_not_extracted",
+                "This PDF has no Unicode text and OCR did not extract any.",
+            )
         raise ExtractError("no_text", "No text could be read from this PDF.")
     return Extracted(
         title=title or _title_from(passages),
@@ -218,12 +244,28 @@ def _pdf(data: bytes, ocr: Ocr, on_page: Callable[[int, int], None] | None = Non
 
 def _ocr_page(page: object, text: str, ocr: Ocr) -> str:
     parts = [text.strip()]
+    failed: ExtractError | None = None
     for blob in _page_images(page):
         try:
-            parts.append(ocr(blob).strip())
-        except ExtractError:
+            read = ocr(blob).strip()
+        except ExtractError as exc:
+            failed = exc
             continue
-    return "\n".join(part for part in parts if part)
+        if read:
+            parts.append(read)
+    joined = "\n".join(part for part in parts if part)
+    if (
+        not joined.strip()
+        and failed is not None
+        and failed.code
+        in {
+            "text_not_extracted",
+            "ocr_unavailable",
+            "not_unicode",
+        }
+    ):
+        raise failed
+    return joined
 
 
 def _page_images(page: object) -> list[bytes]:
@@ -288,15 +330,27 @@ def _pillow_images(page: object) -> list[bytes]:
         return blobs
 
 
+def unicode_text(text: str) -> bool:
+    """True when ``text`` is Unicode prose, not a replacement-character dump."""
+    if "\ufffd" in text:
+        return False
+    if not text:
+        return True
+    controls = sum(1 for char in text if ord(char) < 32 and char not in "\n\r\t")
+    return controls / len(text) <= 0.02
+
+
 def _image(data: bytes, filename: str, ocr: Ocr) -> Extracted:
     try:
         text = ocr(data)
     except ExtractError:
         raise
     except Exception as exc:
-        raise ExtractError("ocr_unavailable", "OCR could not read this image.") from exc
+        raise ExtractError("text_not_extracted", "OCR could not read this image.") from exc
     if not text.strip():
-        raise ExtractError("no_text", "OCR did not find text in this image.")
+        raise ExtractError("text_not_extracted", "No text was extracted from this image.")
+    if not unicode_text(text):
+        raise ExtractError("not_unicode", "OCR did not return Unicode text for this image.")
     passages = _chunk_all(_sections(text, 1, 0))
     return Extracted(
         title=Path(filename).stem or "Image",
@@ -311,8 +365,8 @@ def _tesseract(data: bytes) -> str:
     binary = shutil.which("tesseract")
     if not binary:
         raise ExtractError(
-            "ocr_unavailable",
-            "OCR is not installed on this runtime, so this image could not be read.",
+            "text_not_extracted",
+            "Tesseract is not in this image, so no text was extracted.",
         )
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "page"

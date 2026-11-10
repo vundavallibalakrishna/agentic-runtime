@@ -17,6 +17,12 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def _object_key(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
 def _json_value(value: object, default: object) -> object:
     if isinstance(value, str):
         try:
@@ -37,16 +43,17 @@ async def save_library_documents(session: AsyncSession, rows: list[dict[str, Any
     sql = """
         INSERT INTO library_documents (
             id, tenant_id, owner_user_id, title, filename, media_type, source, source_ref,
-            content_hash, size_bytes, status, error_code, error_message, page_count,
+            content_hash, object_key, size_bytes, status, error_code, error_message, page_count,
             metadata, passages, tables, created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :owner_user_id, :title, :filename, :media_type, :source, :source_ref,
-            :content_hash, :size_bytes, :status, :error_code, :error_message, :page_count,
-            CAST(:metadata AS jsonb), CAST(:passages AS jsonb), CAST(:tables AS jsonb),
+            :content_hash, :object_key, :size_bytes, :status, :error_code, :error_message,
+            :page_count, CAST(:metadata AS jsonb), CAST(:passages AS jsonb), CAST(:tables AS jsonb),
             :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             title = EXCLUDED.title,
+            object_key = COALESCE(library_documents.object_key, EXCLUDED.object_key),
             status = EXCLUDED.status,
             error_code = EXCLUDED.error_code,
             error_message = EXCLUDED.error_message,
@@ -76,6 +83,7 @@ async def save_library_documents(session: AsyncSession, rows: list[dict[str, Any
                 "source": as_text(row.get("source"), "upload"),
                 "source_ref": as_text(row.get("source_ref")),
                 "content_hash": as_text(row.get("content_hash")),
+                "object_key": _object_key(row.get("object_key")),
                 "size_bytes": as_int(row.get("size_bytes")),
                 "status": as_text(row.get("status"), "ready"),
                 "error_code": row.get("error_code"),
@@ -229,3 +237,87 @@ async def load_library(session: AsyncSession, store: object, tenant_id: uuid.UUI
         row["passage_anchors"] = _json_value(row.get("passage_anchors"), [])
         row["hunks"] = _json_value(row.get("hunks"), [])
         _merge(store, "document_rewrites", row["id"], row)
+    rule_sets = await _rows(
+        session, "SELECT * FROM rule_sets WHERE tenant_id = :tenant_id", tenant_id
+    )
+    for row in rule_sets:
+        row["items"] = _json_value(row.get("items"), [])
+        _merge(store, "rule_sets", row["id"], row)
+    judgements = await _rows(
+        session, "SELECT * FROM judgements WHERE tenant_id = :tenant_id", tenant_id
+    )
+    for row in judgements:
+        _merge(store, "judgements", row["id"], row)
+
+
+async def save_rule_sets(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO rule_sets (
+            id, tenant_id, set_id, version, items, source_file_id, sha256, created_by, created_at
+        ) VALUES (
+            :id, :tenant_id, :set_id, :version, CAST(:items AS jsonb), :source_file_id, :sha256,
+            :created_by, :created_at
+        )
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        item_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        if item_id is None or tenant_id is None:
+            continue
+        await _one(
+            session,
+            sql,
+            {
+                "id": item_id,
+                "tenant_id": tenant_id,
+                "set_id": as_text(row.get("set_id")),
+                "version": as_text(row.get("version")),
+                "items": as_json(row.get("items"), []),
+                "source_file_id": as_uuid(row.get("source_file_id")),
+                "sha256": as_text(row.get("sha256")),
+                "created_by": as_uuid(row.get("created_by")),
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
+            },
+        )
+
+
+async def save_judgements(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO judgements (
+            id, tenant_id, document_id, rule_set_id, rule_set_version, item_id, verdict,
+            passage_id, quote, model_id, prompt_hash, created_by, created_at
+        ) VALUES (
+            :id, :tenant_id, :document_id, :rule_set_id, :rule_set_version, :item_id, :verdict,
+            :passage_id, :quote, :model_id, :prompt_hash, :created_by, :created_at
+        )
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        item_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        document_id = as_uuid(row.get("document_id"))
+        if None in {item_id, tenant_id, document_id}:
+            continue
+        verdict = as_text(row.get("verdict"), "failed")
+        if verdict not in {"supported", "not_supported", "not_judged", "failed"}:
+            verdict = "failed"
+        await _one(
+            session,
+            sql,
+            {
+                "id": item_id,
+                "tenant_id": tenant_id,
+                "document_id": document_id,
+                "rule_set_id": as_text(row.get("rule_set_id")),
+                "rule_set_version": as_text(row.get("rule_set_version")),
+                "item_id": as_text(row.get("item_id")),
+                "verdict": verdict,
+                "passage_id": as_text(row.get("passage_id")),
+                "quote": as_text(row.get("quote")),
+                "model_id": as_text(row.get("model_id")),
+                "prompt_hash": as_text(row.get("prompt_hash")),
+                "created_by": as_uuid(row.get("created_by")),
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
+            },
+        )
