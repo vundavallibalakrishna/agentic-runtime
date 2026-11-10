@@ -5,15 +5,21 @@ Without one, tests may place chained rows on ``audit_api``. The process-local
 ``audit_log`` is not merged in: those rows are not chained.
 """
 
+from typing import TYPE_CHECKING
+
 import orjson
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.ext.asyncio import AsyncEngine
 
 from ar_api.deps import expose, require_permission
 from ar_api.state import as_object
 from ar_common.errors import NotFoundError, ValidationFailedError
+from ar_domain.audit.read import as_engine
 from ar_domain.db.context import Principal, TenantContext
 from ar_domain.db.session import tenant_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncEngine
+
 
 router = APIRouter()
 
@@ -88,8 +94,7 @@ async def _one(request: Request, event_id: int) -> dict[str, object] | None:
 
 def _binding(request: Request) -> tuple[AsyncEngine | None, Principal | None]:
     chat = getattr(request.app.state, "chat", None)
-    engine = getattr(chat, "durable_engine", None)
-    bound = engine if isinstance(engine, AsyncEngine) else None
+    bound = as_engine(getattr(chat, "durable_engine", None))
     principal = getattr(request.state, "principal", None)
     if not isinstance(principal, Principal):
         return bound, None

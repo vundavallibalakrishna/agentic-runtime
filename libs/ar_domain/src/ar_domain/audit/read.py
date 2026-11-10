@@ -17,7 +17,7 @@ from ar_domain.audit.models import AuditEvent
 from ar_domain.audit.service import find_broken
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 
 def seal_chain_row(
@@ -111,6 +111,13 @@ def chained_only(rows: list[dict[str, object]]) -> list[dict[str, object]]:
             and row.get("tenant_seq") is not None
         )
     ]
+
+
+def as_engine(engine: object) -> AsyncEngine | None:
+    """The database engine, or None when the process has no Postgres binding."""
+    from sqlalchemy.ext.asyncio import AsyncEngine as _AsyncEngine  # noqa: PLC0415
+
+    return engine if isinstance(engine, _AsyncEngine) else None
 
 
 async def list_chain(session: AsyncSession, tenant_id: uuid.UUID) -> list[dict[str, object]]:
