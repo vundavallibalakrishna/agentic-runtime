@@ -43,7 +43,7 @@ from ar_common.sandboxkit import (
     truncate_output,
     virtual_path,
 )
-from ar_common.settings import loopback_allowed, wildcard_egress_allowed
+from ar_common.settings import host_exec_allowed, loopback_allowed, wildcard_egress_allowed
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.files.logic import object_key
@@ -139,9 +139,11 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     if not isinstance(sandbox, dict):
         return _error("sandbox_unavailable", "the computer is not ready")
     root = workspace_root(uuid.UUID(str(sandbox["id"])))
-    # When the manager has started a container for this sandbox, the agent inside runs
-    # the command and file operations; otherwise they run on the dev host (M40-T01d).
+    # A container endpoint runs the tool inside the sandbox. An empty endpoint is host
+    # bash in dev and CI only. Everywhere else the tool does not run.
     remote = bool(sandbox.get("endpoint_url"))
+    if not remote and not host_exec_allowed():
+        return _error("sandbox_unavailable", "the computer is not ready")
     if name == "exec":
         return (
             _exec_remote(store, sandbox, arguments)

@@ -14,6 +14,11 @@
 {{- if and $.Values.global.maintenance (or (eq $name "runtime-worker") (eq $name "system-worker") (eq $name "ingest-worker")) }}
 {{- $replicas = 0 }}
 {{- end }}
+{{- if and (eq $name "api") (not $.Values.process.shared) }}
+{{- if or (gt $replicas 1) (gt (int $workload.hpa.min) 1) }}
+{{- fail "api replicas and the autoscaler minimum stay at 1 until Valkey sessions, idempotency and the run-event bus exist" }}
+{{- end }}
+{{- end }}
 {{- $secretName := $.Values.secrets.existingSecret | default (printf "%s-secrets" $.Release.Name) }}
 ---
 apiVersion: apps/v1

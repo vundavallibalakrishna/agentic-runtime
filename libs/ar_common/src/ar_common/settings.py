@@ -142,6 +142,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_STEP_UP_TTL_S",
         "AR_TEMPORAL_ADDRESS",
         "AR_TEMPORAL_NAMESPACE",
+        "AR_TEMPORAL_REQUIRED",
         "AR_TENANT_DB_ROUTES",
         "AR_TENANT_DELETE_GRACE_DAYS",
         "AR_TENANT_TEMPORAL_NAMESPACES",
@@ -249,6 +250,8 @@ class BaseServiceSettings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     log_hash_user_ids: bool = False
     cursor_secret: SecretStr = SecretStr("dev-cursor-secret")
+    # When set, a turn is not run in this process if Temporal is down.
+    temporal_required: bool = False
     max_json_body_bytes: int = 1_048_576
     trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     valkey_url: str = "redis://localhost:6379/0"
@@ -309,7 +312,20 @@ class BaseServiceSettings(BaseSettings):
         if self.deployment_mode is DeploymentMode.SAAS and "AR_LOG_HASH_USER_IDS" not in os.environ:
             self.log_hash_user_ids = True
         apply_host_ports(self)
+        self._refuse_default_cursor_secret()
         return self
+
+    def _refuse_default_cursor_secret(self) -> None:
+        """Staging and production do not boot with a missing or well-known cursor secret."""
+        if self.env in {EnvName.DEV, EnvName.CI}:
+            return
+        secret = self.cursor_secret.get_secret_value().strip()
+        if secret and secret != DEV_CURSOR_SECRET:
+            return
+        raise ValueError(
+            "AR_CURSOR_SECRET must be set to a value other than the dev default "
+            f"when AR_ENV is {self.env.value}"
+        )
 
 
 class _SettingsState:
@@ -333,6 +349,29 @@ def wildcard_egress_allowed(settings: BaseServiceSettings | None = None) -> bool
     that has not turned it on drops ``*`` from the allowlist, so an allowlist names hosts.
     """
     return (settings or get_settings()).egress_allow_wildcard
+
+
+DEV_CURSOR_SECRET = "dev-cursor-secret"  # noqa: S105 - the value that must be refused
+
+
+def host_exec_allowed(settings: BaseServiceSettings | None = None) -> bool:
+    """Host bash is a development driver. Staging and production never run it."""
+    current = get_settings() if settings is None else settings
+    return current.env in {EnvName.DEV, EnvName.CI}
+
+
+def uses_shared_process_state(env: EnvName) -> bool:
+    """Sessions, idempotency and run events leave the process outside dev and CI."""
+    return env not in {EnvName.DEV, EnvName.CI}
+
+
+def cursor_secret_text() -> str:
+    """The cursor HMAC secret. Outside dev and CI a missing or default value refuses."""
+    raw = os.environ.get("AR_CURSOR_SECRET", "").strip()
+    env = os.environ.get("AR_ENV", "dev").strip().lower()
+    if env not in {"dev", "ci"} and (not raw or raw == DEV_CURSOR_SECRET):
+        raise RuntimeError("AR_CURSOR_SECRET must be set to a value other than the dev default")
+    return raw or DEV_CURSOR_SECRET
 
 
 def unisolated_sandbox_allowed(settings: BaseServiceSettings | None = None) -> bool:

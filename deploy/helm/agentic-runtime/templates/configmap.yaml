@@ -1,8 +1,8 @@
 {{- if and (eq .Values.global.deploymentMode "single_tenant") (not .Values.bootstrap.adminEmail) }}
 {{- fail "bootstrap.adminEmail is required when global.deploymentMode=single_tenant" }}
 {{- end }}
-{{- if and (eq .Values.global.env "prod") (eq .Values.sandboxes.driver "docker") }}
-{{- fail "sandboxes.driver=docker is refused when global.env=prod" }}
+{{- if and (eq .Values.global.env "prod") (ne .Values.sandboxes.driver "kubernetes") }}
+{{- fail "sandboxes.driver must be kubernetes when global.env=prod" }}
 {{- end }}
 {{- $overrides := dict
   "AR_DEPLOYMENT_MODE" .Values.global.deploymentMode
@@ -62,9 +62,11 @@
 {{- if eq .Values.global.env "prod" }}
 {{- $_ := set $overrides "AR_FILES_SCANNER" "clamav" }}
 {{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "true" }}
+{{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" "true" }}
 {{- else }}
 {{- $_ := set $overrides "AR_FILES_SCANNER" "none" }}
 {{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "false" }}
+{{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" "false" }}
 {{- end }}
 {{- $cfg := merge $overrides .Values.config }}
 apiVersion: v1

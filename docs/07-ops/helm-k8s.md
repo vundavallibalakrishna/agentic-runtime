@@ -7,7 +7,7 @@ One umbrella chart `deploy/helm/agentic-runtime` installs every deployable for b
 | Deployable | Kind | Replicas (small / large) | Probes | Scaling | Notes |
 |---|---|---|---|---|---|
 | `web` | Deployment | 2 / 4–20 | `/healthz` | HPA CPU 60 % | Stateless |
-| `api` | Deployment | 2 / 4–30 | `/healthz` (liveness), `/readyz` (DB, Valkey, Temporal) | HPA CPU 60 % + RPS | Long-lived SSE: `terminationGracePeriodSeconds: 60`, preStop sleep 10 s |
+| `api` | Deployment | 2 / 4–30 | `/healthz` (liveness), `/readyz` (Postgres; Valkey when shared; Temporal when `AR_TEMPORAL_REQUIRED`) | HPA CPU 60 % + RPS | More than one replica requires `process.shared` (Valkey sessions, Postgres idempotency, the run-event bus). Production sandboxes use the kubernetes driver only. |
 | `runtime-worker` | Deployment | 2 / 4–50 | `/healthz` on 8012 | KEDA on `ar-runtime` backlog (target 20 per pod) | `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` 100 |
 | `system-worker` | Deployment | 2 / 2–10 | `/healthz` on 8013 | KEDA on `ar-system` + `ar-eval` | |
 | `ingest-worker` | Deployment | 1 / 2–20 | `/healthz` on 8014 | KEDA on `ar-ingest` | 2 CPU / 4 GiB (parsing, OCR) |

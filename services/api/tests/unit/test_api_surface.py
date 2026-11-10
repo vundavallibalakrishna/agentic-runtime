@@ -137,7 +137,7 @@ def test_public_helpers_and_session_round_trip() -> None:
     assert hash_text("x")
 
 
-def test_rate_limit_window_and_valkey_fail_open() -> None:
+def test_rate_limit_window_and_valkey_fails_closed() -> None:
     import asyncio
 
     bucket = MemoryTokenBucket()
@@ -145,10 +145,20 @@ def test_rate_limit_window_and_valkey_fail_open() -> None:
     second = asyncio.run(bucket.take("k", 1, now=10))
     reset = asyncio.run(bucket.take("k", 1, now=70))
     assert first.allowed and not second.allowed and reset.allowed
-    valkey = ValkeyTokenBucket("redis://127.0.0.1:1")
-    opened = asyncio.run(valkey.take("k", 5))
+
+    class _Down:
+        async def incr(self, key: str) -> int:
+            del key
+            raise ConnectionError("valkey down")
+
+        async def expire(self, key: str, seconds: int) -> None:
+            del key, seconds
+
+    valkey = ValkeyTokenBucket("redis://127.0.0.1:1", client=_Down(), pause_s=0)
+    denied = asyncio.run(valkey.take("k", 5))
     again = asyncio.run(valkey.take("k", 5))
-    assert opened.allowed and again.allowed and valkey._open
+    assert not denied.allowed and not again.allowed
+    assert not hasattr(valkey, "_open")
 
 
 def test_anonymous_is_rejected_and_meta_is_public() -> None:

@@ -23,8 +23,9 @@ def link_ttl_s() -> int:
 
 
 def _secret() -> bytes:
-    raw = os.environ.get("AR_CURSOR_SECRET", "dev-cursor-secret")
-    return raw.encode()
+    from ar_common.settings import cursor_secret_text  # noqa: PLC0415
+
+    return cursor_secret_text().encode()
 
 
 def issue_link_token(integration_id: str, external_user_id: str) -> str:

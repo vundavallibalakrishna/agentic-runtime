@@ -33,7 +33,7 @@ from ar_common.sandboxkit import (
     relative_path,
     sanitise_name,
 )
-from ar_common.settings import loopback_allowed
+from ar_common.settings import host_exec_allowed, loopback_allowed
 from ar_common.time import utcnow
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
@@ -95,6 +95,8 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     source = str(arguments.get("source") or "")
     if not source.strip():
         return _error("validation_failed", "source is required")
+    if not host_exec_allowed():
+        return _error("sandbox_unavailable", "the computer is not ready")
     limits = _limits(store, arguments, "code")
     if limits["network"] and not _command_hosts_ok(store, arguments, source):
         return _egress_block(store, arguments, source)
@@ -118,6 +120,8 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     command = str(arguments.get("command") or "")
     if not command.strip():
         return _error("validation_failed", "command is required")
+    if not host_exec_allowed():
+        return _error("sandbox_unavailable", "the computer is not ready")
     limits = _limits(store, arguments, "shell")
     if not limits["network"] and _URL.search(command):
         return _error(

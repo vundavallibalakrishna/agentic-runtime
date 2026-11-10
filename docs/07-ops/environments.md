@@ -39,7 +39,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_CHANNEL_LINK_TTL_S` | `900` | Lifetime of account-link tokens | [spec 16](../03-specs/16-channels.md) |
 | `AR_CLAMAV_ADDRESS` | `clamav:3310` | clamd host:port for malware scanning | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_CONSECUTIVE_TOOL_ERROR_LIMIT` | `8` | Run fails after this many consecutive tool errors | [spec 07](../03-specs/07-agent-runtime.md) |
-| `AR_CURSOR_SECRET` | (secret) | HMAC for pagination cursors | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_CURSOR_SECRET` | (secret) | HMAC for pagination cursors. Outside `dev` and `ci`, startup fails when this is missing or equal to `dev-cursor-secret` | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_DATABASE_URL` | (required) | Read registry | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_DB_ENCRYPTION_ACTIVE_KEY` | `k1` | Active KEK id | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DB_ENCRYPTION_KEYS` | (secret) | KEKs for `db_encrypted` | [spec 03](../03-specs/03-secrets-credentials.md) |
@@ -145,6 +145,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_STEP_UP_TTL_S` | `600` | Step-up validity | [spec 01](../03-specs/01-api-bff.md), [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_TEMPORAL_ADDRESS` | `localhost:7233` | Temporal frontend host:port | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_TEMPORAL_NAMESPACE` | `agentic-runtime` | One namespace per environment; dedicated tenants may get their own (`AR_TENANT_TEMPORAL_NAMESPACES`) | [spec 07](../03-specs/07-agent-runtime.md) |
+| `AR_TEMPORAL_REQUIRED` | `false` (`true` in the production chart) | When set, `/readyz` checks Temporal and a turn is not run in the API process if the worker cannot take it. The turn is marked `interrupted` / `not_resumed` | [spec 01](../03-specs/01-api-bff.md), [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_TENANT_DB_ROUTES` | `{}` | JSON map `tenant_id → database URL` for `dedicated_db` tenants | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |
 | `AR_TENANT_DELETE_GRACE_DAYS` | `7` | Grace period before tenant data deletion | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_TENANT_TEMPORAL_NAMESPACES` | `{}` | JSON map `tenant_id → Temporal namespace` for dedicated tenants | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |

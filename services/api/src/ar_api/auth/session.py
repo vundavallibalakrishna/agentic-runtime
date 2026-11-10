@@ -113,6 +113,80 @@ class MemorySessionStore:
         self._expires.pop(session_id, None)
 
 
+class ValkeySessionStore:
+    """Encrypted session map in Valkey, shared by every API replica.
+
+    The payload is the same sealed blob the memory store writes. A Valkey error
+    is ``unavailable`` (the caller is not treated as signed out).
+    """
+
+    def __init__(self, key: bytes, url: str, *, client: object | None = None) -> None:
+        self.key = key
+        self.url = url
+        self._redis = client
+
+    async def put(self, session_id: str, data: SessionData, ttl_s: int) -> None:
+        blob = base64.b64encode(seal(self.key, data.to_json())).decode("ascii")
+        try:
+            await self._client().set(  # type: ignore[attr-defined]
+                self._name(session_id), blob, ex=max(1, ttl_s)
+            )
+        except Exception as exc:
+            raise _unavailable() from exc
+
+    async def get(self, session_id: str) -> SessionData | None:
+        try:
+            raw = await self._client().get(self._name(session_id))  # type: ignore[attr-defined]
+        except Exception as exc:
+            raise _unavailable() from exc
+        if not isinstance(raw, str) or not raw:
+            return None
+        try:
+            opened = open_sealed(self.key, base64.b64decode(raw))
+            return SessionData.from_json(opened)
+        except Exception:  # noqa: BLE001 - a corrupt blob is not a live session
+            return None
+
+    async def update(self, session_id: str, data: SessionData) -> None:
+        """Replace the payload and keep the remaining lifetime."""
+        name = self._name(session_id)
+        try:
+            ttl = int(await self._client().ttl(name))  # type: ignore[attr-defined]
+        except Exception as exc:
+            raise _unavailable() from exc
+        if ttl < 1:
+            return
+        await self.put(session_id, data, ttl)
+
+    async def delete(self, session_id: str) -> None:
+        try:
+            await self._client().delete(self._name(session_id))  # type: ignore[attr-defined]
+        except Exception as exc:
+            raise _unavailable() from exc
+
+    def _client(self) -> object:
+        if self._redis is None:
+            from redis.asyncio import Redis  # noqa: PLC0415
+
+            self._redis = Redis.from_url(
+                self.url,
+                decode_responses=True,
+                socket_connect_timeout=1,
+                socket_timeout=1,
+            )
+        return self._redis
+
+    @staticmethod
+    def _name(session_id: str) -> str:
+        return f"ar:sess:{session_id}"
+
+
+def _unavailable() -> Exception:
+    from ar_common.errors import UnavailableError  # noqa: PLC0415
+
+    return UnavailableError("session store is unavailable")
+
+
 def session_key_bytes(raw_b64: str, fallback: str, *, prod: bool) -> bytes:
     """Decode ``AR_SESSION_ENCRYPTION_KEY`` or derive a dev key."""
     if raw_b64:

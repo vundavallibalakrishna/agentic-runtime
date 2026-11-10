@@ -13,6 +13,8 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from pydantic import SecretStr
+
 from ar_common.settings import BaseServiceSettings, EnvName, get_settings, loopback_allowed
 from ar_common.settings import set_settings as use_settings
 from ar_domain.tools import general
@@ -130,9 +132,13 @@ def test_loopback_is_the_installs_setting_whatever_the_environment_is_called(
 ) -> None:
     # The test run turns the setting on for itself. An install that says nothing has it off.
     monkeypatch.delenv("AR_EGRESS_ALLOW_LOOPBACK", raising=False)
+    secret = SecretStr("unit-test-cursor-secret")
     for env in (EnvName.DEV, EnvName.CI, EnvName.PROD):
-        assert loopback_allowed(BaseServiceSettings(_env_file=None, env=env)) is False
-        allowed = BaseServiceSettings(_env_file=None, env=env, egress_allow_loopback=True)
+        plain = BaseServiceSettings(_env_file=None, env=env, cursor_secret=secret)
+        assert loopback_allowed(plain) is False
+        allowed = BaseServiceSettings(
+            _env_file=None, env=env, egress_allow_loopback=True, cursor_secret=secret
+        )
         assert loopback_allowed(allowed) is True
 
 
