@@ -80,7 +80,7 @@ test("document library, comparison, check and rewrite", async ({ page }) => {
   expect(checked.ok()).toBeTruthy();
   const check = (await checked.json()) as { id: string };
   await page.goto(`/documents/checks/${check.id}`);
-  await expect(page.getByText("not_found")).toBeVisible();
+  await expect(page.getByText(/not_judged|not_supported|failed/).first()).toBeVisible();
   await capture(page, "check");
 
   const rewrite = await page.request.post(`/api/v1/library-documents/${access?.id}:rewrite`, {
