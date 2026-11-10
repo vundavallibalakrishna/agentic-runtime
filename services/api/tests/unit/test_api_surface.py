@@ -110,6 +110,7 @@ def test_public_helpers_and_session_round_trip() -> None:
     require_step_up(now, now=now, ttl_s=60, needed=False)
     key = session_key_bytes("", "cursor", prod=False)
     assert len(key) == 32
+    assert session_key_bytes("install-time", "cursor", prod=False) == key
     try:
         session_key_bytes("aaaa", "cursor", prod=True)
     except RuntimeError:
