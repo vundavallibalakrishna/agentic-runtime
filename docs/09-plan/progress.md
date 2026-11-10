@@ -360,3 +360,13 @@ M38b-T04d | done | 6bd71fb | the eval suite command stops building the demo tena
 M38b-T04f | done | 606bbea | the showcase half moved to ar_testing (`showcase_build`, `showcase.*`)
 M38b-T04f | done | 8dd7bfc | `seed_demo_tenant`/`seed_demo`/`_seed_scripted_provider` move to `ar_testing.demo_tenant`; no demo-tenant building remains in any product package
 M38b-T05d | done | - | the web middleware gates every workspace page server-side: no `ar_session` cookie redirects to sign-in, a present one is validated against the API; nothing of the workspace reaches a browser that is not signed in; sha recorded with the next task
+
+## After M40
+
+M41-M43 have landed. Future work is tracked by the stages in [agnostic-production-plan.md](agnostic-production-plan.md), not by new M-numbers.
+
+Shas from `git log` on `main` (`b43d1b9`):
+
+- M42, integrator API (service-account credential, durable limiter, `/v1` runs): `72714dd`, `9a65ed6`, `3904466`.
+- M43, in-app password sign-in, Keycloak removed: `9cfbe8f`. Follow-up tagged `Task: M43`: `ea2f001`.
+- M41 has no commit whose message contains `M41`. The documents-and-media outline was not committed under that id. It is closed as a milestone number with the other two; file and judgement work continues as Stage 5, not as a new M-number.

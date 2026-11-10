@@ -27,22 +27,23 @@ The product is demo-grade. A rough admin screen is a failed task.
 
 Checkable:
 
-- The primary way to create an agent is a natural-language instruction, for example "create an agent that reviews vendor SOC 2 reports and flags gaps". A built-in `builder` agent drafts the full definition (persona, tools, knowledge, policies, routines), shows a reviewable preview, and lets the user refine in the conversation or switch to the form or YAML view. Specified in [spec 05 §11](../03-specs/05-agent-registry.md#11-natural-language-builder) and [spec 19 §5.1](../03-specs/19-web-app.md#51-natural-language-builder).
+- The primary way to create an agent is a natural-language instruction, for example "create an agent that reviews an uploaded file and lists what is missing". A built-in `builder` agent drafts the full definition (persona, tools, knowledge, policies, routines), shows a reviewable preview, and lets the user refine in the conversation or switch to the form or YAML view. Specified in [spec 05 §11](../03-specs/05-agent-registry.md#11-natural-language-builder) and [spec 19 §5.1](../03-specs/19-web-app.md#51-natural-language-builder).
 - Every page has a designed empty state, a loading state, and an error state. Streaming shows a caret and does not jump the scroll position when the user has scrolled up.
 - WCAG 2.1 AA, keyboard access, visible focus, labelled inputs, and axe clean on the page. Layouts work at 375 px and 1280 px.
 - First login lands in a short onboarding path: one sentence of what the product does, then the natural-language builder. No settings wall.
 - Quality bar: [ux-quality](../08-quality/ux-quality.md) and [spec 19 §11](../03-specs/19-web-app.md#11-presentation-quality-bar).
 
-## 3. Industry-agnostic, extensible core
+## 3. Agnostic core
 
-Core has no industry in it. Governance, risk, compliance, and any other vertical live in packs.
+Core has no industry in it. Records-as-a-product ships only as an optional signed pack: the evidence vault, legal holds, binders, the AI register, guest packets, and the questionnaire product. Four-eyes and the security audit log stay in core. Any other vertical lives in a pack.
 
 Checkable:
 
-- No core table, column, setting, permission, route, or Python module is named for an industry. Evidence is an immutable record store. Guests are external participants. Sign-off, segregation of duties, legal hold, retention, the AI register, and binders are generic.
-- A feature that only one industry needs is a pack, installed through the extension framework, with no core code change.
+- No core table, column, setting, permission, route, prompt, seed, test, or Python module is named for an industry or a framework.
+- Records-as-a-product is not installed with core. It is a pack, through the extension framework, with no core code change.
+- Four-eyes (segregation of duties) and the security audit log stay in core.
 - Integrations, MCP servers, tools, connectors, agent templates, skills, domain tables, and UI pages are packs or connector plugins.
-- The framework covers packaging, manifest, versioning, install, upgrade, uninstall, permissions, a config schema, UI contribution points, pack-owned migrations, and a testing kit. Normative: [extension-framework](../05-contracts/extension-framework.md).
+- The framework covers packaging, a signed manifest, versioning, install, upgrade, uninstall, permissions, a config schema, UI contribution points, pack-owned migrations, and a testing kit. Normative: [extension-framework](../05-contracts/extension-framework.md). Decision: [ADR-0028](../02-architecture/adr/ADR-0028-agnostic-core.md).
 
 ## 4. The product is the generic platform
 

@@ -1,6 +1,6 @@
 # ADR-0021: Evidence objects are immutable, hashed, signed and locked
 
-- Status: Accepted
+- Status: Superseded for placement by [ADR-0028](ADR-0028-agnostic-core.md) (2026-11-10). The evidence vault is pack content. The immutability rules below apply inside that pack, not as a core product.
 - Date: 2026-10-20
 
 ## Context

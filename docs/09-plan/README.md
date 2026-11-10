@@ -1,6 +1,6 @@
 # Plan
 
-This is the record of how the platform was built, milestone by milestone, and the place new work is added. [progress.md](progress.md) says what is done. Open work comes from the owner and from the [November 2026 review](../testing/review-2026-11-05/review-and-remediation-plan.md) ([AGENTS.md](../../AGENTS.md#how-work-is-picked-and-tracked)). A task is sized for one working session (roughly 300–1,500 changed lines including tests), and its dependencies still have to be done first.
+This is the record of how the platform was built, milestone by milestone. [progress.md](progress.md) says what is done. New work is the stages in [agnostic-production-plan.md](agnostic-production-plan.md), not a new M-number. Open work comes from the owner and from that plan ([AGENTS.md](../../AGENTS.md#how-work-is-picked-and-tracked)). A task is sized for one working session (roughly 300–1,500 changed lines including tests), and its dependencies still have to be done first.
 
 ## Task format
 

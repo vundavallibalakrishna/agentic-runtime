@@ -1,6 +1,6 @@
 # ADR-0023: Solution packs use public extension points and a separate Alembic history
 
-- Status: Accepted
+- Status: Accepted. Refined by [ADR-0034](ADR-0034-signed-pack-model.md) (2026-11-10): a pack is out of process, the manifest is signed, and an unsigned pack is refused outside development.
 - Date: 2026-10-20
 
 ## Context

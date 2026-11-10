@@ -1,6 +1,6 @@
 # ADR-0024: External participants are guest principals, not users
 
-- Status: Accepted
+- Status: Superseded for placement by [ADR-0028](ADR-0028-agnostic-core.md) (2026-11-10). Guest packets are pack content.
 - Date: 2026-10-20
 
 ## Context
