@@ -49,6 +49,24 @@ class ValkeyRunBus:
             )
         )
 
+    async def replay(self, run_id: uuid.UUID, after_seq: int) -> list[dict[str, object]]:
+        """Events already on the stream whose ``seq`` is greater than ``after_seq``.
+
+        A replica that did not run the turn still has them. ``Last-Event-ID`` is
+        that sequence, not a process-local counter.
+        """
+        client = self._redis()
+        rows = await client.xrange(_key(run_id), min="-", max="+")
+        events: list[dict[str, object]] = []
+        for _message_id, fields in rows or []:
+            event = _decode(fields)
+            if event is None:
+                continue
+            seq = _seq(event)
+            if seq > after_seq:
+                events.append(event)
+        return events
+
     async def take(self, run_id: uuid.UUID, last: str) -> tuple[str, list[dict[str, object]]]:
         """Read the next batch after ``last``. An empty batch keeps ``last``."""
         client = self._redis()
@@ -85,6 +103,26 @@ class ValkeyRunBus:
 
 def _key(run_id: uuid.UUID) -> str:
     return f"ar:run:{run_id}"
+
+
+def last_event_seq(header: str | None, after_seq: str | None = None) -> int:
+    """``Last-Event-ID`` may be a bare sequence or ``{runId}:{seq}``."""
+    raw = (header or "").strip() or (after_seq or "").strip() or "0"
+    if raw.isdigit():
+        return int(raw)
+    tail = raw.rsplit(":", 1)[-1]
+    if tail.isdigit():
+        return int(tail)
+    return 0
+
+
+def _seq(event: dict[str, object]) -> int:
+    seq = event.get("seq")
+    if isinstance(seq, int):
+        return seq
+    if isinstance(seq, str) and seq.isdigit():
+        return int(seq)
+    return 0
 
 
 def _decode(fields: object) -> dict[str, object] | None:

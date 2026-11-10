@@ -1,21 +1,34 @@
 """Login, session, logout, switch-tenant and step-up.
 
-Sign-in is handled in-house: a userid and password are checked against the tenant's own
-rows (no external identity provider). Spec: docs/03-specs/01-api-bff.md §3.
+Dev and single-tenant installs check a userid and password. Production uses the
+customer's OIDC provider (authorization code in the browser, JWKS for bearers).
+Spec: docs/03-specs/01-api-bff.md §3.
 """
 
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Query, Request
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from ar_api.auth.complete import LoginError
-from ar_api.auth.identity import resolve_password_login
+from ar_api.auth.cookies import clear_session_cookies, write_session_cookies
+from ar_api.auth.identity import login_otp_ok, resolve_oidc_claims, resolve_password_login
+from ar_api.auth.lockout import lockout_subject
+from ar_api.auth.mode import AuthMode, resolve_auth_mode
+from ar_api.auth.oidc import OidcClient
 from ar_api.auth.session import new_session, remember_profile
 from ar_api.deps import expose
-from ar_common.errors import ForbiddenError, UnauthenticatedError
+from ar_common.errors import (
+    ErrorCode,
+    ForbiddenError,
+    NotFoundError,
+    RateLimitedError,
+    UnauthenticatedError,
+    UnavailableError,
+)
 from ar_common.time import utcnow
+from ar_common.web.problems import problem_response
 
 if TYPE_CHECKING:
     from ar_api.auth.session import SessionData
@@ -24,11 +37,6 @@ if TYPE_CHECKING:
 
 router = APIRouter()
 
-# In-process login throttle. Single-replica in-house installs keep this in memory, like the
-# other rate limits (OQ-59). A new entry is {count, locked_until_epoch}.
-_LOGIN_MAX_ATTEMPTS = 10
-_LOGIN_LOCKOUT_S = 300
-
 
 def _string_list(value: object) -> list[str]:
     if not isinstance(value, list):
@@ -36,15 +44,13 @@ def _string_list(value: object) -> list[str]:
     return [str(item) for item in value]
 
 
-def _login_attempts(request: Request) -> dict[str, tuple[int, float]]:
-    attempts = getattr(request.app.state, "login_attempts", None)
-    if attempts is None:
-        attempts = {}
-        request.app.state.login_attempts = attempts
-    return attempts
-
-
-def _issue_session(request: Request, result: dict[str, object]) -> tuple[str, SessionData]:
+def _issue_session(
+    request: Request,
+    result: dict[str, object],
+    *,
+    amr: list[str] | None = None,
+    step_up: bool = False,
+) -> tuple[str, SessionData]:
     """Mint a session for a resolved sign-in and record the audit event."""
     session_id, data = new_session(
         uuid.UUID(str(result["tenant_id"])), uuid.UUID(str(result["user_id"]))
@@ -56,6 +62,9 @@ def _issue_session(request: Request, result: dict[str, object]) -> tuple[str, Se
         roles=_string_list(result.get("roles")),
         permissions=_string_list(result.get("permissions")),
     )
+    data.amr = list(amr or [])
+    if step_up:
+        data.step_up_at = utcnow()
     audit = getattr(request.app.state, "audit_api", None)
     events = getattr(audit, "events", None)
     if isinstance(events, list):
@@ -69,37 +78,150 @@ def _issue_session(request: Request, result: dict[str, object]) -> tuple[str, Se
     return session_id, data
 
 
-@router.post("/api/v1/auth/login")
-@expose(public=True, permission=None)
-async def password_login(request: Request, body: dict[str, object] | None = None) -> JSONResponse:
-    """Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies."""
-    payload = body or {}
-    email = str(payload.get("email", "")).strip()
-    password = str(payload.get("password", ""))
-    attempts = _login_attempts(request)
-    key = email.lower()
-    count, locked_until = attempts.get(key, (0, 0.0))
-    now = utcnow().timestamp()
-    if locked_until > now:
-        return JSONResponse({"error": "too_many_attempts"}, status_code=429)
-    if not email or not password:
-        return JSONResponse({"error": "invalid_credentials"}, status_code=401)
-    try:
-        result = await resolve_password_login(request, email, password)
-    except LoginError as exc:
-        count += 1
-        lock = now + _LOGIN_LOCKOUT_S if count >= _LOGIN_MAX_ATTEMPTS else 0.0
-        attempts[key] = (count, lock)
-        return JSONResponse({"error": exc.code}, status_code=401)
-    attempts.pop(key, None)
-    session_id, data = _issue_session(request, result)
+def _problem(request: Request, error: Exception) -> JSONResponse:
+    from ar_common.errors import ArError  # noqa: PLC0415
+
+    if not isinstance(error, ArError):
+        error = UnauthenticatedError("invalid credentials")
+    return problem_response(
+        error,
+        instance=request.url.path,
+        request_id=str(getattr(request.state, "request_id", "")),
+    )
+
+
+def _login_error(request: Request, code: str) -> JSONResponse:
+    if code == "tenant_suspended":
+        from ar_common.errors import ArError  # noqa: PLC0415
+
+        return _problem(request, ArError(ErrorCode.TENANT_SUSPENDED, "tenant is suspended"))
+    if code == "mfa_required":
+        return _problem(request, UnauthenticatedError("mfa required"))
+    return _problem(request, UnauthenticatedError("invalid credentials"))
+
+
+def _oidc(request: Request) -> OidcClient:
+    return OidcClient(
+        request.app.state.settings,
+        request.app.state.oidc_states,
+        http=getattr(request.app.state, "oidc_http", None),
+        jwks=getattr(request.app.state, "oidc_jwks", None),
+    )
+
+
+async def _open_session(
+    request: Request,
+    result: dict[str, object],
+    *,
+    amr: list[str] | None = None,
+    step_up: bool = False,
+) -> tuple[str, str]:
+    session_id, data = _issue_session(request, result, amr=amr, step_up=step_up)
     await request.app.state.sessions.put(
         session_id, data, int(request.app.state.settings.session_ttl_s)
     )
+    return session_id, data.csrf_token
+
+
+async def _finish_login(
+    request: Request,
+    result: dict[str, object],
+    *,
+    amr: list[str] | None = None,
+    step_up: bool = False,
+) -> JSONResponse:
+    session_id, csrf = await _open_session(request, result, amr=amr, step_up=step_up)
     response = JSONResponse({"ok": True})
-    response.set_cookie("ar_session", session_id, httponly=True, samesite="lax", secure=False)
-    response.set_cookie("ar_csrf", data.csrf_token, httponly=False, samesite="strict", secure=False)
+    write_session_cookies(response, request.app.state.settings, session_id, csrf)
     return response
+
+
+@router.post("/api/v1/auth/login")
+@expose(public=True, permission=None)
+async def password_login(request: Request, body: dict[str, object] | None = None) -> JSONResponse:
+    """Sign in with a userid and password. Production installs do not serve this."""
+    if resolve_auth_mode(request.app.state.settings) is not AuthMode.PASSWORD:
+        return _problem(request, ForbiddenError("password sign-in is not enabled"))
+    return await _password_attempt(request, body or {})
+
+
+async def _password_attempt(  # noqa: PLR0911
+    request: Request, payload: dict[str, object]
+) -> JSONResponse:
+    email = str(payload.get("email", "")).strip()
+    password = str(payload.get("password", ""))
+    subject = lockout_subject(email or "missing")
+    try:
+        locked = await request.app.state.login_lockout.retry_after(subject)
+    except UnavailableError as exc:
+        return _problem(request, exc)
+    if locked:
+        return _problem(request, RateLimitedError("too many attempts", retry_after=locked))
+    if not email or not password:
+        return _login_error(request, "invalid_credentials")
+    failure = ""
+    result: dict[str, object] | None = None
+    try:
+        result = await resolve_password_login(request, email, password)
+        if not await login_otp_ok(request, email, str(payload.get("otp") or "")):
+            failure = "mfa_required"
+    except LoginError as exc:
+        failure = exc.code
+    if failure or result is None:
+        try:
+            retry = await request.app.state.login_lockout.record_failure(subject)
+        except UnavailableError as down:
+            return _problem(request, down)
+        if retry:
+            return _problem(request, RateLimitedError("too many attempts", retry_after=retry))
+        return _login_error(request, failure or "invalid_credentials")
+    try:
+        await request.app.state.login_lockout.clear(subject)
+    except UnavailableError as exc:
+        return _problem(request, exc)
+    return await _finish_login(request, result)
+
+
+@router.get("/api/v1/auth/oidc/start")
+@expose(public=True, permission=None)
+async def oidc_start(
+    request: Request,
+    purpose: Annotated[str, Query()] = "",
+    next_path: Annotated[str, Query(alias="next")] = "/",
+) -> Response:
+    """Send the browser to the customer's identity provider."""
+    if resolve_auth_mode(request.app.state.settings) is not AuthMode.OIDC:
+        raise NotFoundError()
+    try:
+        url = await _oidc(request).authorization_url(
+            purpose=purpose or "login", next_path=next_path
+        )
+    except LoginError as exc:
+        return _problem(request, UnavailableError(exc.code))
+    return RedirectResponse(url, status_code=302)
+
+
+@router.get("/api/v1/auth/callback")
+@expose(public=True, permission=None)
+async def oidc_callback(request: Request, code: str = "", state: str = "") -> Response:
+    """Exchange the authorization code and issue the browser session."""
+    if resolve_auth_mode(request.app.state.settings) is not AuthMode.OIDC:
+        raise NotFoundError()
+    try:
+        claims, stored = await _oidc(request).complete(code=code, state=state)
+        result = await resolve_oidc_claims(request, claims)
+    except LoginError as exc:
+        if exc.code == "mfa_required":
+            return RedirectResponse("/login?error=mfa", status_code=302)
+        return _login_error(request, exc.code)
+    amr = claims.get("amr")
+    factors = [str(item) for item in amr] if isinstance(amr, list) else []
+    step_up = stored.get("purpose") == "step-up"
+    session_id, csrf = await _open_session(request, result, amr=factors, step_up=step_up)
+    target = stored.get("next") or "/"
+    redirect = RedirectResponse(target if target.startswith("/") else "/", status_code=302)
+    write_session_cookies(redirect, request.app.state.settings, session_id, csrf)
+    return redirect
 
 
 @router.post("/api/v1/auth/logout")
@@ -111,8 +233,7 @@ async def logout(request: Request) -> JSONResponse:
     await request.app.state.sessions.delete(principal.session_id)
     # Sign-in is in-app, so logging out is just dropping the session and its cookies.
     response = JSONResponse({"ok": True})
-    response.delete_cookie("ar_session")
-    response.delete_cookie("ar_csrf")
+    clear_session_cookies(response, request.app.state.settings)
     return response
 
 
@@ -196,16 +317,26 @@ async def switch_tenant(request: Request, body: dict[str, str]) -> dict[str, str
 @router.post("/api/v1/auth/step-up")
 @expose(public=False, permission=None)
 async def step_up(request: Request, body: dict[str, object] | None = None) -> dict[str, str]:
-    """Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
-    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122)."""
+    """Re-confirm a sensitive action.
+
+    OIDC sends the browser back to the identity provider and stamps the session
+    only when the token carries an MFA ``amr`` or ``acr``. Password mode stamps
+    the session when the person confirms, and checks TOTP when that factor is on.
+    """
     settings = request.app.state.settings
     payload = body or {}
     confirmed = str(payload.get("confirmed", "")).lower() in {"1", "true", "yes"}
     principal = getattr(request.state, "principal", None)
     if principal is None or not principal.session_id:
         raise UnauthenticatedError()
+    if resolve_auth_mode(settings) is AuthMode.OIDC:
+        return {"stepped_up": "false", "redirect_url": "/api/v1/auth/oidc/start?purpose=step-up"}
     if not confirmed:
         return {"stepped_up": "false"}
+    if settings.password_mfa and not await login_otp_ok(
+        request, str(getattr(principal, "email", "")), str(payload.get("otp") or "")
+    ):
+        raise UnauthenticatedError("mfa required")
     data = await request.app.state.sessions.get(principal.session_id)
     if data is None:
         raise UnauthenticatedError()

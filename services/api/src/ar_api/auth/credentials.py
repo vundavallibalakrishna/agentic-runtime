@@ -12,7 +12,7 @@ docs/06-security/authn-authz.md §1-2, docs/03-specs/01-api-bff.md §5.
 
 from __future__ import annotations
 
-import uuid  # noqa: TC003 - used at runtime in local annotations
+import uuid
 from typing import TYPE_CHECKING
 
 from prometheus_client import Counter
@@ -61,8 +61,9 @@ def _dummy_compare() -> None:
 
 def credential_loader(
     session_load: Callable[[str, str], Awaitable[Principal | None]],
+    app: object | None = None,
 ) -> Callable[[str, str], Awaitable[Principal | None]]:
-    """Return a loader that adds api_key/scim resolution on top of the session loader."""
+    """Return a loader that adds api_key, scim, and OIDC bearer resolution."""
 
     async def load(kind: str, value: str) -> Principal | None:
         if kind in {"session", "widget", "guest"}:
@@ -75,10 +76,73 @@ def credential_loader(
             principal = await _resolve_scim(value)
             _PRINCIPAL.labels("scim", "ok" if principal else "denied").inc()
             return principal
-        # OIDC bearer resolution is a separate task (needs a JWKS verifier).
+        if kind == "bearer" and app is not None:
+            principal = await _resolve_bearer(app, value)
+            _PRINCIPAL.labels("bearer", "ok" if principal else "denied").inc()
+            return principal
         return None
 
     return load
+
+
+async def _resolve_bearer(app: object, token: str) -> Principal | None:
+    """A JWT access token checked against the tenant issuer's JWKS."""
+    from ar_api.auth.identity import resolve_oidc_claims  # noqa: PLC0415
+    from ar_api.auth.oidc import OidcClient, claims_have_mfa  # noqa: PLC0415
+    from ar_api.principal import principal_from_user  # noqa: PLC0415
+
+    state = getattr(app, "state", None)
+    settings = getattr(state, "settings", None)
+    if settings is None or not str(getattr(settings, "oidc_issuer", "")).strip():
+        return None
+    client = OidcClient(
+        settings,
+        getattr(state, "oidc_states", None),
+        http=getattr(state, "oidc_http", None),
+        jwks=getattr(state, "oidc_jwks", None),
+    )
+    from ar_api.auth.complete import LoginError  # noqa: PLC0415
+
+    try:
+        await client.discovery()
+    except LoginError:
+        return None
+    claims = client.verify(token, audience=str(settings.oidc_audience or "ar-api"))
+    if claims is None or not claims_have_mfa(claims, settings):
+        return None
+    request = _bearer_request(app)
+    try:
+        result = await resolve_oidc_claims(request, claims)  # type: ignore[arg-type]
+    except LoginError:
+        return None
+    permissions = result.get("permissions")
+    roles = result.get("roles")
+    return principal_from_user(
+        user_id=uuid.UUID(str(result["user_id"])),
+        tenant_id=uuid.UUID(str(result["tenant_id"])),
+        email=str(result.get("email") or ""),
+        display_name=str(result.get("display_name") or ""),
+        permissions=_names(permissions),
+        team_permissions=frozenset(),
+        roles=_names(roles),
+        auth_method="bearer",
+    )
+
+
+def _names(value: object) -> frozenset[str]:
+    if not isinstance(value, list):
+        return frozenset()
+    return frozenset(str(item) for item in value)
+
+
+def _bearer_request(app: object) -> object:
+    """A request-shaped object so claim lookup can use the identity store."""
+    from starlette.requests import Request  # noqa: PLC0415
+
+    scope = {"type": "http", "method": "GET", "path": "/", "headers": [], "app": app}
+    request = Request(scope)
+    request.state.request_id = "bearer"
+    return request
 
 
 async def _resolve_api_key(value: str) -> Principal | None:

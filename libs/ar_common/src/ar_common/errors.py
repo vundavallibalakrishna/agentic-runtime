@@ -177,8 +177,9 @@ class PayloadTooLargeError(ArError):
 
 
 class RateLimitedError(ArError):
-    def __init__(self, detail: str = "Rate limit exceeded") -> None:
+    def __init__(self, detail: str = "Rate limit exceeded", *, retry_after: int = 60) -> None:
         super().__init__(ErrorCode.RATE_LIMITED, detail)
+        self.retry_after = max(1, retry_after)
 
 
 class InternalError(ArError):

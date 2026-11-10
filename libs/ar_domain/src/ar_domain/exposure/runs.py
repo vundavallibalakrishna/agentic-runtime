@@ -5,9 +5,12 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
+import orjson
+
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
+from ar_domain.events.idempotency import StoredResponse
 from ar_domain.exposure.keys import (
     _book,
     audit_key,
@@ -178,6 +181,68 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
     return body
 
 
+async def _replay(
+    store: Any, key: dict[str, Any], header: str, fingerprint: str
+) -> dict[str, Any] | None:
+    """The stored reply for this key, from the shared store or the process book."""
+    shared = await _shared_get(store, key, header)
+    if shared is not None:
+        if shared.request_hash != fingerprint:
+            raise ArError(
+                ErrorCode.IDEMPOTENCY_KEY_REUSED,
+                "Idempotency-Key was reused with a different body",
+            )
+        if shared.status_code is None or not shared.body:
+            raise ConflictError("a request with this Idempotency-Key is in flight")
+        loaded = orjson.loads(shared.body)
+        if isinstance(loaded, dict):
+            return loaded
+    if not header:
+        return None
+    existing = _idempotency_row(store, key["id"], header)
+    if existing is None:
+        return None
+    if existing.get("request_hash") != fingerprint:
+        raise ArError(
+            ErrorCode.IDEMPOTENCY_KEY_REUSED,
+            "Idempotency-Key was reused with a different body",
+        )
+    if existing.get("state") == "in_flight":
+        raise ConflictError("a request with this Idempotency-Key is in flight")
+    stored = existing.get("response")
+    return stored if isinstance(stored, dict) and stored else None
+
+
+async def _shared_get(store: Any, key: dict[str, Any], header: str) -> StoredResponse | None:
+    shared = getattr(store, "shared_idempotency", None)
+    if shared is None or not header:
+        return None
+    found = await shared.get((str(key["tenant_id"]), str(key["id"]), header))
+    return found if isinstance(found, StoredResponse) else None
+
+
+async def _shared_put(
+    store: Any,
+    key: dict[str, Any],
+    header: str,
+    fingerprint: str,
+    body: dict[str, Any] | None,
+    *,
+    done: bool,
+) -> None:
+    shared = getattr(store, "shared_idempotency", None)
+    if shared is None or not header:
+        return
+    await shared.put(
+        (str(key["tenant_id"]), str(key["id"]), header),
+        StoredResponse(
+            request_hash=fingerprint,
+            status_code=200 if done else None,
+            body=None if body is None else orjson.dumps(body),
+        ),
+    )
+
+
 def _idempotency_row(store: Any, key_id: uuid.UUID, header: str) -> dict[str, Any] | None:
     for row in _book(store, "agent_api_idempotency").values():
         if (
@@ -232,24 +297,37 @@ async def send_message(  # noqa: PLR0917
     idempotency_key: str,
 ) -> tuple[dict[str, Any], bool]:
     """Start at most one run for an idempotency key. A retry returns the stored reply."""
+    run_id, replay = await begin_message(
+        store, key, slug, conversation_id, text, attachment_ids, idempotency_key
+    )
+    if replay is not None:
+        return replay, True
+    names = _attachment_names(store, attachment_ids)
+    await store.generate(run_id, text, names)
+    body = await finish_message(
+        store, key, slug, idempotency_key, run_id, text, attachment_ids
+    )
+    return body, False
+
+
+async def begin_message(  # noqa: PLR0917
+    store: Any,
+    key: dict[str, Any],
+    slug: str,
+    conversation_id: uuid.UUID,
+    text: str,
+    attachment_ids: list[uuid.UUID],
+    idempotency_key: str,
+) -> tuple[uuid.UUID, dict[str, Any] | None]:
+    """Open a run, or return the stored reply when the idempotency key already finished."""
     agent = agent_for_key(store, key, slug)
     _conversation_for(store, key, conversation_id)
     fingerprint = request_fingerprint(
         text, [str(item) for item in attachment_ids], str(conversation_id)
     )
-    if idempotency_key:
-        existing = _idempotency_row(store, key["id"], idempotency_key)
-        if existing is not None:
-            if existing.get("request_hash") != fingerprint:
-                raise ArError(
-                    ErrorCode.IDEMPOTENCY_KEY_REUSED,
-                    "Idempotency-Key was reused with a different body",
-                )
-            if existing.get("state") == "in_flight":
-                raise ConflictError("a request with this Idempotency-Key is in flight")
-            stored = existing.get("response")
-            if isinstance(stored, dict):
-                return stored, True
+    replay = await _replay(store, key, idempotency_key, fingerprint)
+    if replay is not None:
+        return uuid.UUID(str(replay["id"])), replay
     if not take_quota(key):
         audit_key(
             store,
@@ -279,13 +357,31 @@ async def send_message(  # noqa: PLR0917
         _remember_idempotency(
             store, key, idempotency_key, fingerprint, {}, run_id, state="in_flight"
         )
-    names = _attachment_names(store, attachment_ids)
-    await store.generate(run_id, text, names)
+        await _shared_put(store, key, idempotency_key, fingerprint, None, done=False)
+    return run_id, None
+
+
+async def finish_message(  # noqa: PLR0917
+    store: Any,
+    key: dict[str, Any],
+    slug: str,
+    idempotency_key: str,
+    run_id: uuid.UUID,
+    text: str,
+    attachment_ids: list[uuid.UUID],
+) -> dict[str, Any]:
+    """Store the finished reply under the idempotency key."""
+    agent = agent_for_key(store, key, slug)
     body = _reply(store, run_id)
+    conversation_id = body.get("conversation_id")
+    fingerprint = request_fingerprint(
+        text, [str(item) for item in attachment_ids], str(conversation_id)
+    )
     if idempotency_key:
         _remember_idempotency(
             store, key, idempotency_key, fingerprint, body, run_id, state="completed"
         )
+        await _shared_put(store, key, idempotency_key, fingerprint, body, done=True)
     audit_key(
         store,
         tenant_id=key["tenant_id"],
@@ -295,7 +391,7 @@ async def send_message(  # noqa: PLR0917
         label=str(key.get("label") or ""),
         extra={"path": "messages", "run_id": str(run_id), "agent_id": str(agent["id"])},
     )
-    return body, False
+    return body
 
 
 async def run_once(  # noqa: PLR0917
@@ -315,17 +411,9 @@ async def run_once(  # noqa: PLR0917
     """
     agent_for_key(store, key, slug)  # validate the agent is reachable by this key
     fingerprint = request_fingerprint(text, [str(item) for item in attachment_ids], "run")
-    if idempotency_key:
-        existing = _idempotency_row(store, key["id"], idempotency_key)
-        if existing is not None:
-            if existing.get("request_hash") != fingerprint:
-                raise ArError(
-                    ErrorCode.IDEMPOTENCY_KEY_REUSED,
-                    "Idempotency-Key was reused with a different body",
-                )
-            prior = existing.get("run_id")
-            if isinstance(prior, uuid.UUID):
-                return _reply(store, prior), True
+    replay = await _replay(store, key, idempotency_key, fingerprint)
+    if replay is not None:
+        return replay, True
     conversation = create_conversation(store, key, slug)
     conversation_id = uuid.UUID(str(conversation["id"]))
     reply, _replayed = await send_message(
@@ -341,6 +429,7 @@ async def run_once(  # noqa: PLR0917
             uuid.UUID(str(reply["id"])),
             state="completed",
         )
+        await _shared_put(store, key, idempotency_key, fingerprint, reply, done=True)
     return reply, False
 
 

@@ -139,7 +139,7 @@
     "/api/v1/auth/login": {
       "post": {
         "summary": "Password Login",
-        "description": "Sign in with a userid and password. Issues the ``ar_session`` + ``ar_csrf`` cookies.",
+        "description": "Sign in with a userid and password. Production installs do not serve this.",
         "operationId": "password_login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -159,6 +159,104 @@
             }
           }
         },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/oidc/start": {
+      "get": {
+        "summary": "Oidc Start",
+        "description": "Send the browser to the customer's identity provider.",
+        "operationId": "oidc_start_api_v1_auth_oidc_start_get",
+        "parameters": [
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Purpose"
+            }
+          },
+          {
+            "name": "next",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "/",
+              "title": "Next"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/callback": {
+      "get": {
+        "summary": "Oidc Callback",
+        "description": "Exchange the authorization code and issue the browser session.",
+        "operationId": "oidc_callback_api_v1_auth_callback_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "State"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -266,7 +364,7 @@
     "/api/v1/auth/step-up": {
       "post": {
         "summary": "Step Up",
-        "description": "Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the\nperson confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).",
+        "description": "Re-confirm a sensitive action.\n\nOIDC sends the browser back to the identity provider and stamps the session\nonly when the token carries an MFA ``amr`` or ``acr``. Password mode stamps\nthe session when the person confirms, and checks TOTP when that factor is on.",
         "operationId": "step_up_api_v1_auth_step_up_post",
         "requestBody": {
           "content": {
@@ -18418,6 +18516,29 @@
         }
       }
     },
+    "/v1": {
+      "get": {
+        "summary": "Public Version",
+        "description": "The versioned public agent API. Additive changes stay on ``/v1``.",
+        "operationId": "public_version_v1_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Public Version V1 Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/openapi.json": {
       "get": {
         "summary": "Openapi Document",
@@ -18928,6 +19049,7 @@
     "/v1/agents/{slug}/runs/{run_id}/events": {
       "get": {
         "summary": "Stream External Events",
+        "description": "Replay and tail run events. ``Last-Event-ID`` resumes from the shared stream.\n\n``Accept: application/json`` returns one cursor page instead of the stream.",
         "operationId": "stream_external_events_v1_agents__slug__runs__run_id__events_get",
         "parameters": [
           {

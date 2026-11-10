@@ -80,8 +80,11 @@ def sync_detailed(
 ) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
     """Step Up
 
-     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
-    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
+     Re-confirm a sensitive action.
+
+    OIDC sends the browser back to the identity provider and stamps the session
+    only when the token carries an MFA ``amr`` or ``acr``. Password mode stamps
+    the session when the person confirms, and checks TOTP when that factor is on.
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -112,8 +115,11 @@ def sync(
 ) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
     """Step Up
 
-     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
-    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
+     Re-confirm a sensitive action.
+
+    OIDC sends the browser back to the identity provider and stamps the session
+    only when the token carries an MFA ``amr`` or ``acr``. Password mode stamps
+    the session when the person confirms, and checks TOTP when that factor is on.
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -139,8 +145,11 @@ async def asyncio_detailed(
 ) -> Response[HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost]:
     """Step Up
 
-     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
-    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
+     Re-confirm a sensitive action.
+
+    OIDC sends the browser back to the identity provider and stamps the session
+    only when the token carries an MFA ``amr`` or ``acr``. Password mode stamps
+    the session when the person confirms, and checks TOTP when that factor is on.
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):
@@ -169,8 +178,11 @@ async def asyncio(
 ) -> HTTPValidationError | StepUpApiV1AuthStepUpPostResponseStepUpApiV1AuthStepUpPost | None:
     """Step Up
 
-     Re-confirm a sensitive action. Without an external IdP there is no MFA redirect: the
-    person confirms and the session is stamped fresh. TOTP step-up is a later task (OQ-122).
+     Re-confirm a sensitive action.
+
+    OIDC sends the browser back to the identity provider and stamps the session
+    only when the token carries an MFA ``amr`` or ``acr``. Password mode stamps
+    the session when the person confirms, and checks TOTP when that factor is on.
 
     Args:
         body (None | StepUpApiV1AuthStepUpPostBodyType0 | Unset):

@@ -140,6 +140,7 @@ def test_rate_limit_mcp_and_a2a_card() -> None:
     assert blocked.status_code == 200
     limited = client.get("/.well-known/agent-card.json", headers=headers)
     assert limited.status_code == 429
+    assert limited.headers.get("retry-after")
     document = client.get("/v1/openapi.json").json()
     assert "/v1/agents/{slug}/conversations" in document["paths"]
     assert document["info"]["title"] == "Agentic Runtime Agent API"

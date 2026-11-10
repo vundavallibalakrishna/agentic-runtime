@@ -14,7 +14,7 @@ The specification set under `docs/` is still the behaviour contract. [AGENTS.md]
 | Data | PostgreSQL 18 + pgvector (system of record and default retrieval store for knowledge, memory and tool search), Valkey, S3-compatible object storage; Qdrant optional retrieval backend |
 | Orchestration | Temporal (durable agent runs, routines, ingestion) |
 | Tools | Model Context Protocol (MCP) via `mcp-gateway`; OPA policies |
-| Identity | Userid and password on this build (dev and single-tenant). Production OIDC is [ADR-0031](docs/02-architecture/adr/ADR-0031-oidc-production-identity.md) and is not wired yet (Stage 3). |
+| Identity | Production is the customer's OIDC provider (authorization code and JWKS bearer, [ADR-0031](docs/02-architecture/adr/ADR-0031-oidc-production-identity.md)). Userid and password is the dev and single-tenant mode and is not the Helm default. |
 | Frontend | Next.js (App Router), React, Tailwind CSS, shadcn/ui, TanStack Query |
 | Observability | OpenTelemetry, Prometheus, Tempo, Loki, Grafana, Langfuse |
 | Deployment | Docker Compose (dev), Helm chart on Kubernetes (staging/prod), gVisor sandboxes |

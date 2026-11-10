@@ -66,6 +66,10 @@ def sync_detailed(
 ) -> Response[Any | HTTPValidationError]:
     """Stream External Events
 
+     Replay and tail run events. ``Last-Event-ID`` resumes from the shared stream.
+
+    ``Accept: application/json`` returns one cursor page instead of the stream.
+
     Args:
         slug (str):
         run_id (UUID):
@@ -98,6 +102,10 @@ def sync(
 ) -> Any | HTTPValidationError | None:
     """Stream External Events
 
+     Replay and tail run events. ``Last-Event-ID`` resumes from the shared stream.
+
+    ``Accept: application/json`` returns one cursor page instead of the stream.
+
     Args:
         slug (str):
         run_id (UUID):
@@ -124,6 +132,10 @@ async def asyncio_detailed(
     client: AuthenticatedClient | Client,
 ) -> Response[Any | HTTPValidationError]:
     """Stream External Events
+
+     Replay and tail run events. ``Last-Event-ID`` resumes from the shared stream.
+
+    ``Accept: application/json`` returns one cursor page instead of the stream.
 
     Args:
         slug (str):
@@ -154,6 +166,10 @@ async def asyncio(
     client: AuthenticatedClient | Client,
 ) -> Any | HTTPValidationError | None:
     """Stream External Events
+
+     Replay and tail run events. ``Last-Event-ID`` resumes from the shared stream.
+
+    ``Accept: application/json`` returns one cursor page instead of the stream.
 
     Args:
         slug (str):

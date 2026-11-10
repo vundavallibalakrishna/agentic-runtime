@@ -135,6 +135,20 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SESSION_ENCRYPTION_KEY_PREVIOUS` | (empty) | Previous session key accepted for decryption during rotation | [secrets](../06-security/secrets.md) |
 | `AR_SESSION_MAX_AGE_S` | `604800` | Absolute session max | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_SESSION_TTL_S` | `43200` | Sliding session TTL | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_AUTH_MODE` | empty (`password` in dev and ci, `oidc` otherwise) | `password` or `oidc`. Password is not the Helm default | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_PASSWORD_LOGIN` | `false` | Explicit opt-in for password sign-in on a single-tenant install outside dev and ci | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_PASSWORD_MFA` | `false` | When true, password sign-in also requires the user's TOTP | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_OIDC_ISSUER` | empty | Customer OIDC issuer. Required outside dev and ci when auth mode is `oidc` | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_OIDC_CLIENT_ID` | empty | OIDC client id. Required with the issuer | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_OIDC_CLIENT_SECRET` | (secret, empty) | OIDC client secret. Never logged or returned | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_OIDC_AUDIENCE` | `ar-api` | Expected audience of integrator access tokens | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_OIDC_JWKS_URL` | issuer JWKS | Override for the JWKS document | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_OIDC_REDIRECT_URL` | `{AR_PUBLIC_URL}/api/v1/auth/callback` | Authorization-code redirect | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_OIDC_REQUIRE_MFA` | `true` | Access and id tokens must carry a configured `amr` or `acr` | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
+| `AR_OIDC_MFA_AMR` | `mfa,otp,hwk,pop` | `amr` values that count as MFA | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_OIDC_MFA_ACR` | `mfa,otp` | `acr` values that count as MFA | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_LOGIN_MAX_ATTEMPTS` | `10` | Failed sign-ins before the shared lockout | [spec 01](../03-specs/01-api-bff.md) |
+| `AR_LOGIN_LOCKOUT_S` | `300` | How long a locked sign-in stays locked. State is in Valkey | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_SMTP_FROM` | `Agentic Runtime <no-reply@localhost>` | Sender address | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SMTP_HOST` | `localhost` | SMTP host (Mailpit in dev) | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SMTP_PASSWORD` | (empty) | SMTP auth password (Secret) | [spec 20](../03-specs/20-notifications-events.md) |

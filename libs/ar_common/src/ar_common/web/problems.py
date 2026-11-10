@@ -16,11 +16,19 @@ _log = get_logger(__name__)
 
 
 def problem_response(error: ArError, *, instance: str, request_id: str) -> JSONResponse:
-    """Serialise an :class:`ArError` as ``application/problem+json``."""
+    """Serialise an :class:`ArError` as ``application/problem+json``.
+
+    Every HTTP 429 carries ``Retry-After`` so a client knows when to try again.
+    """
+    headers: dict[str, str] = {}
+    if error.status == 429:
+        retry = getattr(error, "retry_after", None)
+        headers["Retry-After"] = str(retry if isinstance(retry, int) and retry > 0 else 60)
     return JSONResponse(
         error.to_problem(instance=instance, request_id=request_id),
         status_code=error.status,
         media_type="application/problem+json",
+        headers=headers,
     )
 
 

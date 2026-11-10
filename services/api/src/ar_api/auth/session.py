@@ -28,6 +28,7 @@ class SessionData:
     display_name: str = ""
     roles: list[str] | None = None
     permissions: list[str] | None = None
+    amr: list[str] | None = None
     widget_integration_id: uuid.UUID | None = None
     widget_conversation_id: uuid.UUID | None = None
 
@@ -46,6 +47,7 @@ class SessionData:
                 "display_name": self.display_name,
                 "roles": list(self.roles or []),
                 "permissions": list(self.permissions or []),
+                "amr": list(self.amr or []),
                 "widget_integration_id": str(self.widget_integration_id)
                 if self.widget_integration_id
                 else None,
@@ -72,6 +74,7 @@ class SessionData:
             display_name=str(payload.get("display_name", "")),
             roles=_strings(payload.get("roles")),
             permissions=_strings(payload.get("permissions")),
+            amr=_strings(payload.get("amr")),
             widget_integration_id=uuid.UUID(payload["widget_integration_id"])
             if payload.get("widget_integration_id")
             else None,

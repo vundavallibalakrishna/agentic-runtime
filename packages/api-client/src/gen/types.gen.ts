@@ -3797,6 +3797,70 @@ export type PasswordLoginApiV1AuthLoginPostResponses = {
     200: unknown;
 };
 
+export type OidcStartApiV1AuthOidcStartGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Purpose
+         */
+        purpose?: string;
+        /**
+         * Next
+         */
+        next?: string;
+    };
+    url: '/api/v1/auth/oidc/start';
+};
+
+export type OidcStartApiV1AuthOidcStartGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OidcStartApiV1AuthOidcStartGetError = OidcStartApiV1AuthOidcStartGetErrors[keyof OidcStartApiV1AuthOidcStartGetErrors];
+
+export type OidcStartApiV1AuthOidcStartGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type OidcCallbackApiV1AuthCallbackGetData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Code
+         */
+        code?: string;
+        /**
+         * State
+         */
+        state?: string;
+    };
+    url: '/api/v1/auth/callback';
+};
+
+export type OidcCallbackApiV1AuthCallbackGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type OidcCallbackApiV1AuthCallbackGetError = OidcCallbackApiV1AuthCallbackGetErrors[keyof OidcCallbackApiV1AuthCallbackGetErrors];
+
+export type OidcCallbackApiV1AuthCallbackGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type LogoutApiV1AuthLogoutPostData = {
     body?: never;
     path?: never;
@@ -17206,6 +17270,26 @@ export type ChatCompletionsApiV1OpenaiChatCompletionsPostResponses = {
      */
     200: unknown;
 };
+
+export type PublicVersionV1GetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1';
+};
+
+export type PublicVersionV1GetResponses = {
+    /**
+     * Response Public Version V1 Get
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: string;
+    };
+};
+
+export type PublicVersionV1GetResponse = PublicVersionV1GetResponses[keyof PublicVersionV1GetResponses];
 
 export type OpenapiDocumentV1OpenapiJsonGetData = {
     body?: never;

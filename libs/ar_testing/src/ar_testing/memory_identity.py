@@ -84,6 +84,10 @@ class MemoryIdentityStore:
         needle = email.lower()
         return next((user for user in self.users.values() if user.email.lower() == needle), None)
 
+    async def get_user_by_subject(self, subject: str) -> User | None:
+        needle = subject.strip()
+        return next((user for user in self.users.values() if user.idp_subject == needle), None)
+
     async def list_users(self, *, status: str | None, query: str | None) -> list[User]:
         rows = list(self.users.values())
         if status:

@@ -12,7 +12,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | capability | `chat` | `unit` | no | The worker runs one step per activity and calls the tool gateway over HTTP. No stored report names a model id and a date. |
 | capability | `agents` | `unit` | no | Definitions and publish run in process. |
 | capability | `builder` | `unit` | no | A draft uses the tenant model when one is set. No stored live report. |
-| capability | `password-sign-in` | `contract` | no | Login is HTTP against Postgres. Production OIDC is Stage 3 and is not this build. |
+| capability | `password-sign-in` | `contract` | no | Password login is the dev and single-tenant door. It is not the Helm default. |
 | capability | `approvals` | `unit` | no | Four-eyes decisions run in process. |
 | capability | `audit` | `unit` | no | The hash chain is written in process. |
 | capability | `files` | `unit` | no | File tools run in process. |
@@ -20,6 +20,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | capability | `memory` | `unit` | no | Facts are stored in process. |
 | capability | `skills` | `unit` | no | Loading a skill runs in process. |
 | capability | `documents` | `unit` | no | Read and summarise run in process. A cloud OCR engine is not live. |
+| capability | `oidc-sign-in` | `contract` | no | Authorization code and JWKS bearer. Contract proof uses a local mock IdP. |
 | capability | `evals` | `unit` | no | The dry-run gym is unit. Lexical overlap is not_judged and is not a verdict. |
 | connector | `email` | `live` | yes | Catalogue verification is live. |
 | connector-tool | `email_send` | `live` | yes | Same proof as its connector. Hidden from the model unless live. |

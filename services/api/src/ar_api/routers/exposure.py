@@ -13,7 +13,13 @@ from pydantic import Field
 from ar_api.actors import principal_of
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import chat
-from ar_common.errors import ArError, ErrorCode, NotFoundError, UnauthenticatedError
+from ar_common.errors import (
+    ArError,
+    ErrorCode,
+    NotFoundError,
+    RateLimitedError,
+    UnauthenticatedError,
+)
 from ar_common.json_api import camelize
 from ar_contracts.api_model import ApiModel
 from ar_domain.exposure import a2a, keys, mcp_server, runs
@@ -23,6 +29,13 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
 router = APIRouter()
+
+
+@router.get("/v1")
+@expose(public=True, permission=None)
+async def public_version() -> dict[str, str]:
+    """The versioned public agent API. Additive changes stay on ``/v1``."""
+    return {"version": "1"}
 
 _MESSAGE_EXAMPLE = {
     "id": "4f1c0b2e-6a0d-7e2a-9c3b-1d5e6f708192",
@@ -107,7 +120,7 @@ def _require_key(request: Request, response: Response) -> dict[str, object]:
             outcome="failure",
             extra={"reason": "rate_limit"},
         )
-        raise ArError(ErrorCode.RATE_LIMITED, "rate limit exceeded")
+        raise RateLimitedError("rate limit exceeded", retry_after=60)
     return row
 
 
@@ -140,6 +153,89 @@ def _stream_reply(body: dict[str, object]) -> Iterator[bytes]:
     for piece in pieces:
         yield _sse({"text": piece}, "delta")
     yield _sse(body, "done")
+
+
+async def _stream_run(
+    request: Request,
+    key: dict[str, object],
+    run_id: uuid.UUID,
+    *,
+    include_done: bool = True,
+) -> AsyncIterator[bytes]:
+    """SSE for one run: missed events, heartbeats while it works, then ``done``.
+
+    Resume uses ``Last-Event-ID`` (a sequence or ``{runId}:{seq}``). Events that
+    this process did not produce are read from the shared Valkey stream.
+    """
+    from ar_api.routers.m2 import sse_frame  # noqa: PLC0415
+    from ar_domain.runs.event_bus import last_event_seq  # noqa: PLC0415
+
+    store = _store(request)
+    tenant = key.get("tenant_id")
+    if not isinstance(tenant, uuid.UUID):
+        return
+    after = last_event_seq(
+        request.headers.get("last-event-id"), request.query_params.get("after_seq")
+    )
+    last = after
+    async for event in store.iter_events(tenant, run_id, after):
+        seq = event.get("seq")
+        if isinstance(seq, int):
+            last = max(last, seq)
+        yield sse_frame(event)
+    if not include_done:
+        return
+    reply = runs._reply(store, run_id)
+    done_seq = last + 1
+    yield sse_frame(
+        {
+            "id": f"{run_id}:{done_seq}",
+            "seq": done_seq,
+            "type": "done",
+            "run_id": str(run_id),
+            "data": {"output": reply.get("output"), "status": reply.get("status")},
+        }
+    )
+
+
+async def _event_page(
+    request: Request, key: dict[str, object], run_id: uuid.UUID
+) -> dict[str, object]:
+    """One cursor page of a run's events. The cursor is the signed sequence."""
+    from ar_common.pagination import decode_cursor, encode_cursor  # noqa: PLC0415
+    from ar_common.settings import cursor_secret_text  # noqa: PLC0415
+
+    store = _store(request)
+    tenant = key.get("tenant_id")
+    if not isinstance(tenant, uuid.UUID):
+        raise NotFoundError("run not found")
+    limit_raw = request.query_params.get("limit") or "50"
+    limit = int(limit_raw) if limit_raw.isdigit() else 50
+    limit = min(max(limit, 1), 200)
+    after = 0
+    cursor = request.query_params.get("cursor") or ""
+    secret = cursor_secret_text()
+    if cursor:
+        keys, _direction = decode_cursor(cursor, secret=secret)
+        if not keys or not isinstance(keys[0], int):
+            from ar_common.errors import InvalidCursorError  # noqa: PLC0415
+
+            raise InvalidCursorError()
+        after = int(keys[0])
+    rows = list(store.events_after(tenant, run_id, after))
+    seen = {event.get("seq") for event in rows}
+    extra = await store._bus_replay(run_id, after)
+    rows.extend(event for event in extra if event.get("seq") not in seen)
+    rows.sort(key=lambda event: int(event["seq"]) if isinstance(event.get("seq"), int) else 0)
+    page = rows[:limit]
+    has_more = len(rows) > limit
+    next_cursor = None
+    if has_more and page:
+        seq = page[-1].get("seq")
+        next_cursor = encode_cursor(
+            [seq if isinstance(seq, int) else 0], direction="asc", secret=secret
+        )
+    return {"items": page, "next_cursor": next_cursor, "has_more": has_more}
 
 
 @router.get("/v1/openapi.json")
@@ -286,7 +382,9 @@ async def send_external_message(  # noqa: PLR0917
         headers["Idempotent-Replayed"] = "true"
     if body.stream:
         return StreamingResponse(
-            _stream_reply(reply), media_type="text/event-stream", headers=headers
+            _stream_run(request, key, uuid.UUID(str(reply["id"]))),
+            media_type="text/event-stream",
+            headers=headers,
         )
     return JSONResponse(reply, headers=headers)
 
@@ -318,7 +416,9 @@ async def run_agent_once(
         headers["Idempotent-Replayed"] = "true"
     if body.stream:
         return StreamingResponse(
-            _stream_reply(reply), media_type="text/event-stream", headers=headers
+            _stream_run(request, key, uuid.UUID(str(reply["id"]))),
+            media_type="text/event-stream",
+            headers=headers,
         )
     return JSONResponse(reply, headers=headers)
 
@@ -351,19 +451,22 @@ async def get_external_trace(
 @expose(public=True, permission=None)
 async def stream_external_events(
     slug: str, run_id: uuid.UUID, request: Request, response: Response
-) -> StreamingResponse:
+) -> Response:
+    """Replay and tail run events. ``Last-Event-ID`` resumes from the shared stream.
+
+    ``Accept: application/json`` returns one cursor page instead of the stream.
+    """
     key = _require_key(request, response)
-    body = runs.trace(_store(request), key, slug, run_id)
-    events = body.get("events")
-
-    async def generate() -> AsyncIterator[bytes]:
-        if isinstance(events, list):
-            for event in events:
-                if isinstance(event, dict):
-                    yield _sse(event, str(event.get("type") or "message"))
-
+    runs.owned_run(_store(request), key, slug, run_id)
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept and "text/event-stream" not in accept:
+        return JSONResponse(await _event_page(request, key, run_id))
     headers = dict(getattr(request.state, "rate_headers", {}))
-    return StreamingResponse(generate(), media_type="text/event-stream", headers=headers)
+    return StreamingResponse(
+        _stream_run(request, key, run_id, include_done=False),
+        media_type="text/event-stream",
+        headers=headers,
+    )
 
 
 def _card(request: Request, response: Response, slug: str | None) -> dict[str, object]:
