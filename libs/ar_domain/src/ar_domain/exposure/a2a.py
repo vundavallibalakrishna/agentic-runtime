@@ -188,6 +188,23 @@ async def send_task(
         output = "Approval required"
     run_id = uuid.UUID(str(reply["id"])) if reply.get("id") else None
     row = _task_row(store, key, agent, conversation_id, run_id, state, output)
+    parts = reply.get("content")
+    if isinstance(parts, list):
+        extra = [
+            part
+            for part in parts
+            if isinstance(part, dict) and part.get("type") not in {"text", "reasoning"}
+        ]
+        if extra:
+            artifacts = row.get("artifacts")
+            if isinstance(artifacts, list):
+                artifacts.append(
+                    {
+                        "artifact_id": str(new_id()),
+                        "name": "content",
+                        "parts": extra,
+                    }
+                )
     embedded = _embedded_push(params)
     if embedded is not None:
         with contextlib.suppress(ArError):

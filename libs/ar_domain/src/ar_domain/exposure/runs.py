@@ -137,7 +137,27 @@ def upload_file(  # noqa: PLR0917
     return {"id": str(uploaded.get("id")), "name": name, "mime_type": mime}
 
 
+def _work_fingerprint(
+    text: str,
+    attachment_ids: list[uuid.UUID],
+    conversation_id: str,
+    response_format: dict[str, Any] | None,
+    *,
+    suggest_followups: bool,
+) -> str:
+    extra = ""
+    if response_format or suggest_followups:
+        extra = orjson.dumps(
+            {"responseFormat": response_format or {}, "suggestFollowups": suggest_followups}
+        ).decode()
+    return request_fingerprint(
+        text, [str(item) for item in attachment_ids], conversation_id, extra=extra
+    )
+
+
 def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
+    from ar_domain.exposure.public import public_content  # noqa: PLC0415
+
     run = store.runs.get(run_id)
     if not isinstance(run, dict):
         raise NotFoundError("run not found")
@@ -145,10 +165,12 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
     messages = store.messages
     assistant_id = run.get("assistant_message_id")
     text = ""
+    content: list[dict[str, Any]] = []
     if isinstance(assistant_id, uuid.UUID):
         message = messages.get(assistant_id)
         if isinstance(message, dict):
             text = str(message.get("text") or "")
+            content = public_content(message)
     approval_id = None
     finish = "stop"
     if status == "waiting_approval":
@@ -167,6 +189,7 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
         "conversation_id": str(run.get("conversation_id")),
         "status": "approval_required" if finish == "approval_required" else status,
         "output": text,
+        "content": content,
         "finish_reason": finish,
         "usage": {
             "tokens_in": int(usage.get("tokens_in") or 0),
@@ -305,6 +328,8 @@ async def send_message(  # noqa: PLR0917
     idempotency_key: str,
     *,
     research: bool = False,
+    response_format: dict[str, Any] | None = None,
+    suggest_followups: bool = False,
 ) -> tuple[dict[str, Any], bool]:
     """Start at most one run for an idempotency key. A retry returns the stored reply."""
     run_id, replay = await begin_message(
@@ -316,12 +341,24 @@ async def send_message(  # noqa: PLR0917
         attachment_ids,
         idempotency_key,
         research=research,
+        response_format=response_format,
+        suggest_followups=suggest_followups,
     )
     if replay is not None:
         return replay, True
     names = _attachment_names(store, attachment_ids)
     await store.generate(run_id, text, names)
-    body = await finish_message(store, key, slug, idempotency_key, run_id, text, attachment_ids)
+    body = await finish_message(
+        store,
+        key,
+        slug,
+        idempotency_key,
+        run_id,
+        text,
+        attachment_ids,
+        response_format=response_format,
+        suggest_followups=suggest_followups,
+    )
     return body, False
 
 
@@ -335,12 +372,18 @@ async def begin_message(  # noqa: PLR0917
     idempotency_key: str,
     *,
     research: bool = False,
+    response_format: dict[str, Any] | None = None,
+    suggest_followups: bool = False,
 ) -> tuple[uuid.UUID, dict[str, Any] | None]:
     """Open a run, or return the stored reply when the idempotency key already finished."""
     agent = agent_for_key(store, key, slug)
     _conversation_for(store, key, conversation_id)
-    fingerprint = request_fingerprint(
-        text, [str(item) for item in attachment_ids], str(conversation_id)
+    fingerprint = _work_fingerprint(
+        text,
+        attachment_ids,
+        str(conversation_id),
+        response_format,
+        suggest_followups=suggest_followups,
     )
     replay = await _replay(store, key, idempotency_key, fingerprint)
     if replay is not None:
@@ -369,6 +412,8 @@ async def begin_message(  # noqa: PLR0917
         attachment_ids=attachment_ids,
         schedule=False,
         research=research,
+        suggest_followups=suggest_followups,
+        response_format=response_format,
     )
     run = posted.get("run") if isinstance(posted, dict) else None
     run_id = uuid.UUID(str(run.get("id"))) if isinstance(run, dict) else None
@@ -396,13 +441,20 @@ async def finish_message(  # noqa: PLR0917
     run_id: uuid.UUID,
     text: str,
     attachment_ids: list[uuid.UUID],
+    *,
+    response_format: dict[str, Any] | None = None,
+    suggest_followups: bool = False,
 ) -> dict[str, Any]:
     """Store the finished reply under the idempotency key."""
     agent = agent_for_key(store, key, slug)
     body = _reply(store, run_id)
     conversation_id = body.get("conversation_id")
-    fingerprint = request_fingerprint(
-        text, [str(item) for item in attachment_ids], str(conversation_id)
+    fingerprint = _work_fingerprint(
+        text,
+        attachment_ids,
+        str(conversation_id),
+        response_format,
+        suggest_followups=suggest_followups,
     )
     if idempotency_key:
         _remember_idempotency(
@@ -428,6 +480,9 @@ async def run_once(  # noqa: PLR0917
     text: str,
     attachment_ids: list[uuid.UUID],
     idempotency_key: str,
+    *,
+    response_format: dict[str, Any] | None = None,
+    suggest_followups: bool = False,
 ) -> tuple[dict[str, Any], bool]:
     """Create a fresh conversation and run one message — the stateless agent-run shape.
 
@@ -437,14 +492,24 @@ async def run_once(  # noqa: PLR0917
     starting a second one; the same key with a different body is ``idempotency_key_reused``.
     """
     agent_for_key(store, key, slug)  # validate the agent is reachable by this key
-    fingerprint = request_fingerprint(text, [str(item) for item in attachment_ids], "run")
+    fingerprint = _work_fingerprint(
+        text, attachment_ids, "run", response_format, suggest_followups=suggest_followups
+    )
     replay = await _replay(store, key, idempotency_key, fingerprint)
     if replay is not None:
         return replay, True
     conversation = create_conversation(store, key, slug)
     conversation_id = uuid.UUID(str(conversation["id"]))
     reply, _replayed = await send_message(
-        store, key, slug, conversation_id, text, attachment_ids, ""
+        store,
+        key,
+        slug,
+        conversation_id,
+        text,
+        attachment_ids,
+        "",
+        response_format=response_format,
+        suggest_followups=suggest_followups,
     )
     if idempotency_key:
         _remember_idempotency(
@@ -482,13 +547,20 @@ def owned_run(store: Any, key: dict[str, Any], slug: str, run_id: uuid.UUID) -> 
     return run
 
 
-def trace(store: Any, key: dict[str, Any], slug: str, run_id: uuid.UUID) -> dict[str, Any]:
+def trace(
+    store: Any, key: dict[str, Any], slug: str, run_id: uuid.UUID, *, show_reasoning: bool = False
+) -> dict[str, Any]:
+    from ar_domain.exposure.public import public_events  # noqa: PLC0415
+
     run = owned_run(store, key, slug, run_id)
-    events = [
-        event
-        for event in store.events.get(run_id, [])
-        if isinstance(event, dict) and event.get("run_id") in {str(run_id), run_id}
-    ]
+    events = public_events(
+        [
+            event
+            for event in store.events.get(run_id, [])
+            if isinstance(event, dict) and event.get("run_id") in {str(run_id), run_id}
+        ],
+        show_reasoning=show_reasoning,
+    )
     calls = [
         {
             "id": str(row.get("id")),

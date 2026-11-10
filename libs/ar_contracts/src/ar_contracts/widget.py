@@ -18,3 +18,5 @@ class WidgetConversationBody(ApiModel):
 
 class WidgetMessageBody(ApiModel):
     text: str = Field(min_length=1, max_length=32000)
+    attachment_ids: list[uuid.UUID] = Field(default_factory=list)
+    suggest_followups: bool = False

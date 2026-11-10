@@ -104,6 +104,8 @@ class MessageBody(ApiModel):
     text: str
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
     research_mode: bool = False
+    suggest_followups: bool = False
+    response_format: dict[str, object] | None = None
 
 
 class EditBody(ApiModel):
@@ -616,6 +618,9 @@ async def post_message(
     principal = _principal(request)
     service = _chat(request)
     await_runs = bool(getattr(request.app.state, "await_runs", False))
+    from ar_domain.tools.structured import check_response_format  # noqa: PLC0415
+
+    schema = check_response_format(body.response_format)
     posted = service.post_message(
         _tenant(principal),
         uuid.UUID(principal.id),
@@ -624,6 +629,8 @@ async def post_message(
         attachment_ids=body.attachment_ids,
         schedule=not await_runs,
         research=body.research_mode,
+        suggest_followups=body.suggest_followups,
+        response_format=schema,
     )
     run = posted["run"]
     message = posted["message"]

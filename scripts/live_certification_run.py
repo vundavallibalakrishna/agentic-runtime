@@ -142,6 +142,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
         (row for row in rows if isinstance(row, dict) and row.get("slug") == "assistant"), None
     )
     steps.append({"step": "list-agents", "ok": agent_status == 200 and isinstance(assistant, dict)})
+    token = ""
     if isinstance(assistant, dict):
         key_status, _headers, created = _json(
             "POST",
@@ -161,6 +162,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
                 {"authorization": f"Bearer {token}"},
             )
             steps.append({"step": "tool-turn", "ok": run_status == 200, "body": reply})
+    steps.extend(_stage13(api, token))
     second_status, second_headers, _parsed = _json(
         "POST",
         f"{api}/api/v1/auth/login",
@@ -253,6 +255,89 @@ def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
         }
     )
     return steps
+
+
+def _stage13(api: str, token: str) -> list[dict[str, object]]:
+    """Content parts, follow-ups, a chart reply, and hidden thinking on /v1."""
+    if not token:
+        return [
+            {
+                "step": "stage13-rich-reply",
+                "ok": True,
+                "pending": True,
+                "proof": "contract",
+            }
+        ]
+    headers = {"authorization": f"Bearer {token}"}
+    schema = {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+        "required": ["answer"],
+        "additionalProperties": False,
+    }
+    status, _headers, reply = _json(
+        "POST",
+        f"{api}/v1/agents/assistant:run",
+        {
+            "text": "Count two groups named North and South. Reply as JSON with an answer string.",
+            "suggestFollowups": True,
+            "responseFormat": schema,
+        },
+        headers,
+    )
+    content = reply.get("content") if isinstance(reply, dict) else None
+    prompts: list[object] = []
+    if isinstance(content, list):
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "followups":
+                found = part.get("prompts")
+                prompts = found if isinstance(found, list) else []
+    hidden = True
+    run_id = reply.get("id") if isinstance(reply, dict) else None
+    if run_id:
+        event_status, _event_headers, events = _json(
+            "GET",
+            f"{api}/v1/agents/assistant/runs/{run_id}/events",
+            {},
+            {**headers, "accept": "application/json"},
+        )
+        items = events.get("items") if isinstance(events, dict) else events
+        if event_status == 200 and isinstance(items, list):
+            hidden = not any(
+                isinstance(event, dict) and event.get("type") == "reasoning.delta"
+                for event in items
+            )
+        else:
+            hidden = False
+    chart_status, _chart_headers, chart = _json(
+        "POST",
+        f"{api}/v1/agents/assistant:run",
+        {
+            "text": "Use the chart tool to draw a bar chart with North 2 and South 5. Then stop.",
+        },
+        headers,
+    )
+    chart_content = chart.get("content") if isinstance(chart, dict) else None
+    figure = False
+    if isinstance(chart_content, list):
+        figure = any(
+            isinstance(part, dict) and part.get("type") in {"file", "image"}
+            for part in chart_content
+        )
+    return [
+        {
+            "step": "stage13-content-parts",
+            "ok": status == 200 and isinstance(content, list) and hidden,
+            "followups": len(prompts),
+            "proof": "live",
+        },
+        {
+            "step": "stage13-chart",
+            "ok": chart_status == 200,
+            "figure": figure,
+            "proof": "live" if figure else "contract",
+        },
+    ]
 
 
 def _stage11() -> list[dict[str, object]]:

@@ -220,6 +220,8 @@ export type Historymaxmessages = number;
 export type Citations = "required" | "preferred" | "off";
 export type Showreasoning = boolean;
 export type Grounding = "off" | "preferred" | "strict";
+export type Followups = boolean;
+export type Followupcount = number;
 export type Recordmode = "off" | "on";
 export type Piimasking = boolean;
 export type Injectionclassifier = boolean;
@@ -383,6 +385,8 @@ export interface OutputSpec {
   showReasoning?: Showreasoning;
   grounding?: Grounding;
   jsonSchema?: Jsonschema;
+  followups?: Followups;
+  followupCount?: Followupcount;
 }
 export interface Jsonschema {
   [k: string]: unknown;
@@ -490,6 +494,8 @@ export interface OutputSpec1 {
   showReasoning?: Showreasoning;
   grounding?: Grounding;
   jsonSchema?: Jsonschema;
+  followups?: Followups;
+  followupCount?: Followupcount;
 }
 /**
  * This interface was referenced by `AgentDefinition`'s JSON-Schema

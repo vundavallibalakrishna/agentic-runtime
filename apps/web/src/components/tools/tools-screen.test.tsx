@@ -48,7 +48,8 @@ describe("tool screens", () => {
         />,
       ),
     );
-    expect(screen.getByText("tickets.create_ticket")).toBeTruthy();
+    expect(screen.getByText("Create Ticket")).toBeTruthy();
+    expect(screen.getByText("Done")).toBeTruthy();
     expect(screen.getByText("TCK-1001")).toBeTruthy();
     render(
       wrap(

@@ -37,7 +37,15 @@ export function AttachmentList({
             className="flex items-center gap-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2 py-1 text-xs"
             key={file.id}
           >
-            <Paperclip aria-hidden="true" size={12} />
+            {file.mimeType.startsWith("image/") ? (
+              <img
+                alt=""
+                className="h-10 w-10 rounded-md border border-[var(--border)] object-cover"
+                src={`/api/v1/files/${file.id}/content`}
+              />
+            ) : (
+              <Paperclip aria-hidden="true" size={12} />
+            )}
             <a
               className="underline-offset-2 hover:underline"
               download={file.name}

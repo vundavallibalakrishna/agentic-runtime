@@ -145,6 +145,7 @@ class MessageCompletedData(_Data):
     tokens_in: int
     tokens_out: int
     finish_reason: str
+    answered_model: str | None = None
 
 
 class MessageCompleted(_Event):
@@ -265,6 +266,7 @@ class ToolCallFailedData(_Data):
     error: dict[str, str]
     policy_reasons: list[str] | None = None
     connect_url: str | None = None
+    attempt: int | None = None
 
 
 class ToolCallFailed(_Event):

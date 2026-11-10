@@ -22,8 +22,11 @@ import { AppShell } from "@/components/app-shell";
 import { type Attached, AttachmentList, attachedOf } from "@/components/chat/attachment-list";
 import { CitationList, citationsOf } from "@/components/chat/citations";
 import { FailedReply } from "@/components/chat/failed-reply";
+import { FeedbackButtons } from "@/components/chat/feedback-buttons";
 import { MarkdownView } from "@/components/chat/markdown-view";
 import { MemoryIndicator } from "@/components/chat/memory-indicator";
+import { MessageBody } from "@/components/chat/message-body";
+import { PlanChecklist, planItems } from "@/components/chat/plan-checklist";
 import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
@@ -36,7 +39,7 @@ import {
   streamHeaders,
   waitForResume,
 } from "@/lib/stream/reconnect";
-import { emptyStream, reduceStream, type StreamState } from "@/lib/stream/reducer";
+import { emptyStream, type PlanStep, reduceStream, type StreamState } from "@/lib/stream/reducer";
 import { cn } from "@/lib/utils";
 
 type Item = Record<string, unknown>;
@@ -52,17 +55,8 @@ type Session = {
   permissions?: string[];
 };
 
-function planTitles(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => {
-      if (typeof item === "string") return item;
-      if (item && typeof item === "object" && "title" in item) {
-        return String((item as { title?: string }).title ?? "");
-      }
-      return "";
-    })
-    .filter(Boolean);
+function planFrom(value: unknown): PlanStep[] {
+  return planItems(value);
 }
 
 function conversationBody(agentId: string, modelAlias: string): string {
@@ -97,7 +91,7 @@ export function ChatScreen() {
   const [aliases, setAliases] = useState<string[]>([]);
   const [agentId, setAgentId] = useState("");
   const [modelAlias, setModelAlias] = useState("");
-  const [plan, setPlan] = useState<string[]>([]);
+  const [plan, setPlan] = useState<PlanStep[]>([]);
   const draft = useComposer((state) => state.draft);
   const setDraft = useComposer((state) => state.setDraft);
   const [stream, setStream] = useState<StreamState>(emptyStream);
@@ -178,6 +172,7 @@ export function ChatScreen() {
               setActiveId(conversationId);
               setMessages(body.messages ?? []);
               setJobs(body.jobs ?? []);
+              setPlan(planFrom(body.plan));
               lateRunRef.current = "";
               setStream(emptyStream);
             }
@@ -286,7 +281,7 @@ export function ChatScreen() {
     if (request.signal.aborted) return;
     setMessages(body.messages ?? []);
     setJobs(body.jobs ?? []);
-    setPlan(planTitles(body.plan));
+    setPlan(planFrom(body.plan));
     if (typeof body.modelAlias === "string") setModelAlias(body.modelAlias);
     setStream(
       keep
@@ -362,12 +357,15 @@ export function ChatScreen() {
             seq: number;
             data?: {
               text?: string;
-              items?: { title?: string }[];
+              items?: { id?: string; title?: string; status?: string }[];
+              plan?: { id?: string; title?: string; status?: string }[] | string[];
               error?: { message?: string };
             };
           };
           if (payload.type === "plan.updated") {
-            setPlan(planTitles(payload.data?.items));
+            const items = payload.data?.items ?? payload.data?.plan;
+            const nextPlan = planFrom(items);
+            if (nextPlan.length) setPlan(nextPlan);
           }
           state = reduceStream(state, payload);
           setStream(state);
@@ -479,6 +477,7 @@ export function ChatScreen() {
             text,
             attachmentIds: attachments.map((file) => file.id),
             researchMode: researchOn,
+            suggestFollowups: true,
           }),
         },
       );
@@ -646,6 +645,9 @@ export function ChatScreen() {
   }
 
   const visible = messages.filter((message) => message.isActiveBranch !== false);
+  const latestAssistantId = [...visible]
+    .reverse()
+    .find((message) => message.role === "assistant")?.id;
   const virtualizer = useVirtualizer({
     count: visible.length,
     getScrollElement: () => parentRef.current,
@@ -715,7 +717,7 @@ export function ChatScreen() {
             })}
           </nav>
         </aside>
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col md:flex-row">
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--border)] px-4 py-2 md:hidden">
             <span className="text-xs font-medium">{t("title")}</span>
             <button
@@ -728,513 +730,572 @@ export function ChatScreen() {
               {historyOpen ? t("hideHistory") : t("historyToggle")}
             </button>
           </div>
-          <h1 className="sr-only">{t("title")}</h1>
-          <p className="sr-only">{session?.tenant?.name ?? t("tenant")}</p>
-          <div className="sr-only" aria-atomic="false" aria-live="polite">
-            {live ? `${t("streaming")}. ${live}` : ""}
-          </div>
-          {loading ? (
-            <div aria-busy="true" className="mx-auto w-full max-w-2xl space-y-3 px-6 py-8">
-              <p className="sr-only">{t("loading")}</p>
-              <Skeleton className="h-4 w-2/3" />
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-5/6" />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <h1 className="sr-only">{t("title")}</h1>
+            <p className="sr-only">{session?.tenant?.name ?? t("tenant")}</p>
+            <div className="sr-only" aria-atomic="false" aria-live="polite">
+              {live ? `${t("streaming")}. ${live}` : ""}
             </div>
-          ) : null}
-          {loadError ? (
-            <div
-              className="m-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-              role="alert"
-            >
-              <p>{loadError}</p>
-              <Button
-                className="mt-3"
-                onClick={() => void reload()}
-                type="button"
-                variant="outline"
+            {loading ? (
+              <div aria-busy="true" className="mx-auto w-full max-w-2xl space-y-3 px-6 py-8">
+                <p className="sr-only">{t("loading")}</p>
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-16 w-full" />
+                <Skeleton className="h-16 w-5/6" />
+              </div>
+            ) : null}
+            {loadError ? (
+              <div
+                className="m-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
+                role="alert"
               >
-                {t("retry")}
-              </Button>
-            </div>
-          ) : null}
-          {!loading && !loadError && visible.length === 0 ? (
-            <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto px-5 py-6 md:px-10">
-              <div className="mb-5 flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-xs)]">
-                <Sparkles size={24} strokeWidth={1.4} aria-hidden="true" />
+                <p>{loadError}</p>
+                <Button
+                  className="mt-3"
+                  onClick={() => void reload()}
+                  type="button"
+                  variant="outline"
+                >
+                  {t("retry")}
+                </Button>
               </div>
-              <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                {t("eyebrow")}
-              </p>
-              <h2 className="font-serif text-[clamp(1.8rem,3.2vw,2.75rem)] leading-[1.15] tracking-tight">
-                {t("welcomeTitle")}
-              </h2>
-              <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[var(--muted-foreground)]">
-                {t("empty")}
-              </p>
-              <p className="sr-only">{greeting}</p>
-              <div className="mt-7 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {[
-                  { prompt: t("starter1"), label: t("starterLabel1"), icon: PenLine },
-                  { prompt: t("starter2"), label: t("starterLabel2"), icon: Lightbulb },
-                  { prompt: t("starter3"), label: t("starterLabel3"), icon: FileText },
-                ].map(({ prompt, label, icon: Icon }) => (
-                  <button
-                    className="group flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-left shadow-[var(--shadow-xs)] hover:border-[var(--muted-foreground)] sm:block sm:p-4"
-                    key={prompt}
-                    onClick={() => void send(prompt)}
-                    type="button"
-                  >
-                    <Icon
-                      size={18}
-                      strokeWidth={1.5}
-                      className="shrink-0 text-[var(--muted-foreground)]"
-                      aria-hidden="true"
-                    />
-                    <span className="block sm:mt-4">
-                      <span className="block text-xs font-semibold">{label}</span>
-                      <span className="mt-1 block text-xs leading-relaxed text-[var(--muted-foreground)]">
-                        {prompt}
+            ) : null}
+            {!loading && !loadError && visible.length === 0 ? (
+              <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center overflow-y-auto px-5 py-6 md:px-10">
+                <div className="mb-5 flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-xs)]">
+                  <Sparkles size={24} strokeWidth={1.4} aria-hidden="true" />
+                </div>
+                <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  {t("eyebrow")}
+                </p>
+                <h2 className="font-serif text-[clamp(1.8rem,3.2vw,2.75rem)] leading-[1.15] tracking-tight">
+                  {t("welcomeTitle")}
+                </h2>
+                <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[var(--muted-foreground)]">
+                  {t("empty")}
+                </p>
+                <p className="sr-only">{greeting}</p>
+                <div className="mt-7 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {[
+                    { prompt: t("starter1"), label: t("starterLabel1"), icon: PenLine },
+                    { prompt: t("starter2"), label: t("starterLabel2"), icon: Lightbulb },
+                    { prompt: t("starter3"), label: t("starterLabel3"), icon: FileText },
+                  ].map(({ prompt, label, icon: Icon }) => (
+                    <button
+                      className="group flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 text-left shadow-[var(--shadow-xs)] hover:border-[var(--muted-foreground)] sm:block sm:p-4"
+                      key={prompt}
+                      onClick={() => void send(prompt)}
+                      type="button"
+                    >
+                      <Icon
+                        size={18}
+                        strokeWidth={1.5}
+                        className="shrink-0 text-[var(--muted-foreground)]"
+                        aria-hidden="true"
+                      />
+                      <span className="block sm:mt-4">
+                        <span className="block text-xs font-semibold">{label}</span>
+                        <span className="mt-1 block text-xs leading-relaxed text-[var(--muted-foreground)]">
+                          {prompt}
+                        </span>
                       </span>
-                    </span>
-                    <ArrowUpRight
-                      size={14}
-                      className="ml-auto shrink-0 text-[var(--muted-foreground)] sm:hidden"
-                      aria-hidden="true"
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <div
-            className={cn(
-              "min-h-0 overflow-auto px-5 md:px-10",
-              visible.length ? "flex-1 py-5" : "h-0",
-            )}
-            onScroll={onScroll}
-            ref={parentRef}
-          >
-            {jobs.length > 0 ? (
-              <div className="mx-auto max-w-2xl px-5 pt-4">
-                <JobList jobs={jobs} />
+                      <ArrowUpRight
+                        size={14}
+                        className="ml-auto shrink-0 text-[var(--muted-foreground)] sm:hidden"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : null}
             <div
-              className="relative mx-auto max-w-2xl"
-              style={{ height: virtualizer.getTotalSize() }}
+              className={cn(
+                "min-h-0 overflow-auto px-5 md:px-10",
+                visible.length ? "flex-1 py-5" : "h-0",
+              )}
+              data-testid="message-scroll"
+              onScroll={onScroll}
+              ref={parentRef}
             >
-              {virtualizer.getVirtualItems().map((row) => {
-                const message = visible[row.index];
-                if (!message) {
-                  return null;
-                }
-                const streamingHere =
-                  row.index === visible.length - 1 &&
-                  message.role === "assistant" &&
-                  stream.status === "streaming";
-                const body = streamingHere ? stream.text || textOf(message) : textOf(message);
-                const failedHere = message.role === "assistant" && message.status === "failed";
-                const reason = failedHere
-                  ? String((message.error as { message?: string } | undefined)?.message ?? "")
-                  : "";
-                const id = String(message.id ?? row.index);
-                const mine = message.role === "user";
-                return (
-                  <article
-                    className="absolute left-0 top-0 w-full py-3"
-                    data-index={row.index}
-                    key={id}
-                    ref={virtualizer.measureElement}
-                    style={{ transform: `translateY(${row.start}px)` }}
-                  >
-                    <div className={mine ? "flex justify-end" : ""}>
-                      <div
-                        className={
-                          mine
-                            ? "max-w-[85%] rounded-2xl bg-[var(--muted)] px-4 py-2.5"
-                            : "max-w-none"
-                        }
-                      >
-                        <p className="sr-only">{String(message.role)}</p>
-                        {editing?.id === id ? (
-                          <form
-                            className="space-y-2"
-                            onSubmit={(event) => {
-                              event.preventDefault();
-                              void editMessage(id, editing.text);
-                            }}
-                          >
-                            <textarea
-                              className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
-                              onChange={(event) => setEditing({ id, text: event.target.value })}
-                              value={editing.text}
-                            />
-                            <Button type="submit">{t("saveEdit")}</Button>
-                          </form>
-                        ) : failedHere ? (
-                          <FailedReply
-                            busy={stream.status === "streaming"}
-                            onRetry={
-                              id.startsWith("local-") ? undefined : () => void regenerate(id)
-                            }
-                            reason={reason}
-                            said={body === reason ? "" : body}
-                          />
-                        ) : (
-                          <MarkdownView text={body} />
-                        )}
-                        {mine && editing?.id !== id && !id.startsWith("local-") ? (
-                          <button
-                            className="mt-1 text-xs underline"
-                            onClick={() => setEditing({ id, text: body })}
-                            type="button"
-                          >
-                            {t("edit")}
-                          </button>
-                        ) : null}
-                        {failedHere ? (
-                          <button
-                            className="mt-2 text-xs underline"
-                            onClick={() => {
-                              const target = String(
-                                (message as { runId?: string; run_id?: string }).runId ??
-                                  (message as { run_id?: string }).run_id ??
-                                  runId,
-                              );
-                              if (target) void resume(target);
-                            }}
-                            type="button"
-                          >
-                            {t("resume")}
-                          </button>
-                        ) : null}
-                        {!streamingHere ? <AttachmentList files={attachedOf(message)} /> : null}
-                        {streamingHere && stream.tools.length > 0 ? (
-                          <div>
-                            <p className="text-xs font-medium text-[var(--muted-foreground)]">
-                              {t("working")}
-                            </p>
-                            {stream.tools.map((tool) => (
-                              <ToolCallCard
-                                call={{
-                                  qualifiedName: tool.name,
-                                  status: tool.status,
-                                  resultPreview: tool.preview,
-                                  arguments: tool.arguments,
-                                  presentation: tool.presentation,
-                                }}
-                                key={`${id}-${tool.name}-${tool.status}-${tool.preview}`}
-                                label={t("toolCall")}
-                              />
-                            ))}
-                          </div>
-                        ) : null}
-                        {Array.isArray(message.toolCalls)
-                          ? message.toolCalls.map((call) => {
-                              const row =
-                                call && typeof call === "object"
-                                  ? (call as Record<string, unknown>)
-                                  : {};
-                              const toolKey = `${id}-${String(row.qualifiedName ?? "tool")}-${String(row.resultPreview ?? row.status ?? "")}`;
-                              return (
-                                <ToolCallCard call={row} key={toolKey} label={t("toolCall")} />
-                              );
-                            })
-                          : null}
-                        {message.loadedSkill && typeof message.loadedSkill === "object" ? (
-                          <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                            {t("loadedSkill", {
-                              name: String(
-                                (message.loadedSkill as { name?: string }).name || "skill",
-                              ),
-                              reason: String(
-                                (message.loadedSkill as { reason?: string }).reason || "",
-                              ),
-                            })}
-                          </p>
-                        ) : null}
-                        {message.retrieval &&
-                        typeof message.retrieval === "object" &&
-                        Array.isArray((message.retrieval as { hits?: unknown[] }).hits) ? (
-                          <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                            {t("retrievalTrace", {
-                              count: (message.retrieval as { hits: unknown[] }).hits.length,
-                              chars: Number(
-                                (message.retrieval as { usedChars?: number }).usedChars || 0,
-                              ),
-                            })}
-                          </p>
-                        ) : null}
-                        <CitationList
-                          citations={
-                            streamingHere && stream.citations.length
-                              ? stream.citations
-                              : citationsOf(message)
+              {jobs.length > 0 ? (
+                <div className="mx-auto max-w-2xl px-5 pt-4">
+                  <JobList jobs={jobs} />
+                </div>
+              ) : null}
+              <div
+                className={visible.length < 30 ? "mx-auto max-w-2xl" : "relative mx-auto max-w-2xl"}
+                style={visible.length < 30 ? undefined : { height: virtualizer.getTotalSize() }}
+              >
+                {(visible.length < 30
+                  ? visible.map((message, index) => ({ index, start: 0, message }))
+                  : virtualizer.getVirtualItems().map((row) => ({
+                      index: row.index,
+                      start: row.start,
+                      message: visible[row.index],
+                    }))
+                ).map((row) => {
+                  const message = row.message;
+                  if (!message) {
+                    return null;
+                  }
+                  const streamingHere =
+                    row.index === visible.length - 1 &&
+                    message.role === "assistant" &&
+                    stream.status === "streaming";
+                  const body = streamingHere ? stream.text || textOf(message) : textOf(message);
+                  const failedHere = message.role === "assistant" && message.status === "failed";
+                  const reason = failedHere
+                    ? String((message.error as { message?: string } | undefined)?.message ?? "")
+                    : "";
+                  const id = String(message.id ?? row.index);
+                  const mine = message.role === "user";
+                  return (
+                    <article
+                      className={
+                        visible.length < 30 ? "w-full py-3" : "absolute left-0 top-0 w-full py-3"
+                      }
+                      data-index={row.index}
+                      key={id}
+                      ref={visible.length < 30 ? undefined : virtualizer.measureElement}
+                      style={
+                        visible.length < 30
+                          ? undefined
+                          : { transform: `translateY(${row.start}px)` }
+                      }
+                    >
+                      <div className={mine ? "flex justify-end" : ""}>
+                        <div
+                          className={
+                            mine
+                              ? "max-w-[85%] rounded-2xl bg-[var(--muted)] px-4 py-2.5"
+                              : "max-w-none"
                           }
-                          conversationId={activeId}
-                          messageId={id}
-                        />
-                        {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
+                        >
+                          <p className="sr-only">{String(message.role)}</p>
+                          {editing?.id === id ? (
+                            <form
+                              className="space-y-2"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                void editMessage(id, editing.text);
+                              }}
+                            >
+                              <textarea
+                                className="w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
+                                onChange={(event) => setEditing({ id, text: event.target.value })}
+                                value={editing.text}
+                              />
+                              <Button type="submit">{t("saveEdit")}</Button>
+                            </form>
+                          ) : failedHere ? (
+                            <FailedReply
+                              busy={stream.status === "streaming"}
+                              onRetry={
+                                id.startsWith("local-") ? undefined : () => void regenerate(id)
+                              }
+                              reason={reason}
+                              said={body === reason ? "" : body}
+                            />
+                          ) : mine ? (
+                            <MarkdownView text={body} />
+                          ) : (
+                            <>
+                              {id === latestAssistantId ? (
+                                <PlanChecklist items={stream.plan.length ? stream.plan : plan} />
+                              ) : null}
+                              <MessageBody
+                                message={message}
+                                onFollowup={(prompt) => setDraft(prompt)}
+                                prompts={streamingHere ? stream.followups : undefined}
+                                reasoning={streamingHere ? stream.reasoning : undefined}
+                                reasoningMs={streamingHere ? stream.reasoningMs : undefined}
+                                text={body}
+                              />
+                            </>
+                          )}
+                          {mine && editing?.id !== id && !id.startsWith("local-") ? (
+                            <button
+                              className="mt-1 text-xs underline"
+                              onClick={() => setEditing({ id, text: body })}
+                              type="button"
+                            >
+                              {t("edit")}
+                            </button>
+                          ) : null}
+                          {failedHere ? (
+                            <button
+                              className="mt-2 text-xs underline"
+                              onClick={() => {
+                                const target = String(
+                                  (message as { runId?: string; run_id?: string }).runId ??
+                                    (message as { run_id?: string }).run_id ??
+                                    runId,
+                                );
+                                if (target) void resume(target);
+                              }}
+                              type="button"
+                            >
+                              {t("resume")}
+                            </button>
+                          ) : null}
+                          {!streamingHere ? <AttachmentList files={attachedOf(message)} /> : null}
+                          {streamingHere && stream.tools.length > 0 ? (
+                            <div>
+                              <p className="text-xs font-medium text-[var(--muted-foreground)]">
+                                {t("working")}
+                              </p>
+                              {stream.tools.map((tool) => (
+                                <ToolCallCard
+                                  call={{
+                                    qualifiedName: tool.name,
+                                    status: tool.status,
+                                    resultPreview: tool.preview,
+                                    arguments: tool.arguments,
+                                    presentation: tool.presentation,
+                                    timeline: tool.timeline,
+                                  }}
+                                  key={`${id}-${tool.name}-${tool.status}-${tool.preview}`}
+                                  label={t("toolCall")}
+                                />
+                              ))}
+                            </div>
+                          ) : null}
+                          {Array.isArray(message.toolCalls)
+                            ? message.toolCalls.map((call) => {
+                                const row =
+                                  call && typeof call === "object"
+                                    ? (call as Record<string, unknown>)
+                                    : {};
+                                const toolKey = `${id}-${String(row.qualifiedName ?? "tool")}-${String(row.resultPreview ?? row.status ?? "")}`;
+                                return (
+                                  <ToolCallCard call={row} key={toolKey} label={t("toolCall")} />
+                                );
+                              })
+                            : null}
+                          {message.loadedSkill && typeof message.loadedSkill === "object" ? (
+                            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                              {t("loadedSkill", {
+                                name: String(
+                                  (message.loadedSkill as { name?: string }).name || "skill",
+                                ),
+                                reason: String(
+                                  (message.loadedSkill as { reason?: string }).reason || "",
+                                ),
+                              })}
+                            </p>
+                          ) : null}
+                          {message.retrieval &&
+                          typeof message.retrieval === "object" &&
+                          Array.isArray((message.retrieval as { hits?: unknown[] }).hits) ? (
+                            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                              {t("retrievalTrace", {
+                                count: (message.retrieval as { hits: unknown[] }).hits.length,
+                                chars: Number(
+                                  (message.retrieval as { usedChars?: number }).usedChars || 0,
+                                ),
+                              })}
+                            </p>
+                          ) : null}
+                          <CitationList
+                            citations={
+                              streamingHere && stream.citations.length
+                                ? stream.citations
+                                : citationsOf(message)
+                            }
+                            conversationId={activeId}
+                            messageId={id}
+                          />
+                          {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
+                          {!mine &&
+                          (streamingHere ? stream.answeredModel : message.answeredModel) ? (
+                            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                              {t("answeredBy", {
+                                model: String(
+                                  streamingHere ? stream.answeredModel : message.answeredModel,
+                                ),
+                              })}
+                            </p>
+                          ) : null}
+                          {streamingHere &&
+                          stream.warnings.some((item) => item.code === "model_fallback_used") ? (
+                            <p
+                              className="mt-1 text-xs text-[var(--muted-foreground)]"
+                              role="status"
+                            >
+                              {t("fallbackUsed")}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                    <div className={`mt-1 flex gap-1 ${mine ? "justify-end" : ""}`}>
-                      <Button
-                        className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
-                        onClick={() => void copyMessage(id, body)}
-                        type="button"
-                        variant="ghost"
-                      >
-                        {copiedId === id ? t("copied") : t("copy")}
-                      </Button>
-                      {message.role === "assistant" &&
-                      !failedHere &&
-                      id &&
-                      !id.startsWith("local-") ? (
+                      <div className={`mt-1 flex gap-1 ${mine ? "justify-end" : ""}`}>
                         <Button
                           className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
-                          onClick={() => void regenerate(id)}
+                          onClick={() => void copyMessage(id, body)}
                           type="button"
                           variant="ghost"
                         >
-                          {t("regenerate")}
+                          {copiedId === id ? t("copied") : t("copy")}
                         </Button>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })}
+                        {message.role === "assistant" &&
+                        !failedHere &&
+                        id &&
+                        !id.startsWith("local-") ? (
+                          <Button
+                            className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                            onClick={() => void regenerate(id)}
+                            type="button"
+                            variant="ghost"
+                          >
+                            {t("regenerate")}
+                          </Button>
+                        ) : null}
+                        {message.role === "assistant" && !failedHere ? (
+                          <FeedbackButtons
+                            initial={String(
+                              (message.feedback as { rating?: string } | undefined)?.rating ?? "",
+                            )}
+                            messageId={id}
+                          />
+                        ) : null}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-          {stuck ? (
-            <div className="flex justify-center">
-              <Button
-                onClick={() => {
-                  stickRef.current = true;
-                  setStuck(false);
-                  if (parentRef.current) {
-                    parentRef.current.scrollTop = parentRef.current.scrollHeight;
-                  }
-                }}
-                type="button"
-                variant="outline"
-              >
-                {t("jump")}
-              </Button>
-            </div>
-          ) : null}
-          {offline ? (
-            <p className="px-6 text-sm" role="status">
-              {t("offline")}
-            </p>
-          ) : null}
-          {banner ? (
-            <p className="px-6 text-sm" role="alert">
-              {banner}
-            </p>
-          ) : null}
-          <div className="mx-auto w-full max-w-2xl px-4 md:px-8">
-            <MemoryIndicator
-              compacted={stream.compacted}
-              memories={stream.memories}
-              onUndo={(factId) => void undoMemory(factId)}
-              recalled={stream.recalled}
-            />
-          </div>
-          {activeId ? (
-            <WorkspacePanel conversationId={activeId} revision={messages.length} />
-          ) : null}
-          <form
-            className="shrink-0 px-4 pb-4 md:px-8 md:pb-6"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const text = draft.trim();
-              if (!text || stream.status === "streaming") {
-                return;
-              }
-              setDraft("");
-              if (composerRef.current) {
-                composerRef.current.style.height = "auto";
-              }
-              void send(text);
-            }}
-          >
-            {stream.toolFailure ? (
-              <p
-                className="mx-auto mb-3 max-w-2xl text-sm text-[var(--muted-foreground)]"
-                role="status"
-              >
-                {stream.toolFailure}
-              </p>
-            ) : null}
-            {stream.researchQueries.length > 0 || stream.sourceCount > 0 ? (
-              <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
-                <h2 className="font-medium">{t("sources")}</h2>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {t("researchPhase")} · {stream.researchPhase || "working"} · {stream.sourceCount}
-                </p>
-                <ol className="mt-2 list-decimal pl-5">
-                  {stream.researchQueries.map((query) => (
-                    <li key={query.id}>{query.text}</li>
-                  ))}
-                </ol>
-              </section>
-            ) : null}
-            {plan.length > 0 ? (
-              <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
-                <h2 className="font-medium">{t("plan")}</h2>
-                <ul>
-                  {plan.map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-            {runId ? (
-              <p className="mx-auto mb-2 max-w-2xl text-sm">
-                <a className="underline" href={`/runs/${runId}`}>
-                  {t("viewTrace")}
-                </a>
-              </p>
-            ) : null}
-            <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow-composer)] focus-within:border-[var(--muted-foreground)] md:p-4">
-              <label className="sr-only" htmlFor="agent-picker">
-                {t("agent")}
-              </label>
-              <div className="mb-2 flex flex-wrap gap-2">
-                <select
-                  className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
-                  id="agent-picker"
-                  onChange={(event) => setAgentId(event.target.value)}
-                  value={agentId}
-                >
-                  <option value="">{t("defaultAgent")}</option>
-                  {agents.map((agent) => (
-                    <option key={String(agent.id)} value={String(agent.id)}>
-                      {String(agent.name ?? agent.slug)}
-                    </option>
-                  ))}
-                </select>
-                <label className="sr-only" htmlFor="model-picker">
-                  {t("model")}
-                </label>
-                <select
-                  className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
-                  id="model-picker"
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setModelAlias(next);
-                    if (activeId) {
-                      void api(`/api/v1/conversations/${activeId}`, {
-                        method: "PATCH",
-                        body: JSON.stringify({ modelAlias: next }),
-                      }).catch((error: unknown) => {
-                        setBanner(error instanceof Error ? error.message : t("error"));
-                      });
+            {stuck ? (
+              <div className="flex justify-center">
+                <Button
+                  onClick={() => {
+                    stickRef.current = true;
+                    setStuck(false);
+                    if (parentRef.current) {
+                      parentRef.current.scrollTop = parentRef.current.scrollHeight;
                     }
                   }}
-                  value={modelAlias}
+                  type="button"
+                  variant="outline"
                 >
-                  <option value="">{t("modelDefault")}</option>
-                  {aliases.map((alias) => (
-                    <option key={alias} value={alias}>
-                      {alias}
-                    </option>
-                  ))}
-                </select>
+                  {t("jump")}
+                </Button>
               </div>
-              <AttachmentList
-                busy={stream.status === "streaming"}
-                files={attachments}
-                onRemove={(id) =>
-                  setAttachments((current) => current.filter((item) => item.id !== id))
-                }
+            ) : null}
+            {offline ? (
+              <p className="px-6 text-sm" role="status">
+                {t("offline")}
+              </p>
+            ) : null}
+            {banner ? (
+              <p className="px-6 text-sm" role="alert">
+                {banner}
+              </p>
+            ) : null}
+            <div className="mx-auto w-full max-w-2xl px-4 md:px-8">
+              <MemoryIndicator
+                compacted={stream.compacted}
+                memories={stream.memories}
+                onUndo={(factId) => void undoMemory(factId)}
+                recalled={stream.recalled}
               />
-              <label className="sr-only" htmlFor="composer">
-                {t("composer")}
-              </label>
-              <textarea
-                className="max-h-44 min-h-12 w-full resize-none border-0 bg-transparent px-1 py-1 text-[15px]"
-                disabled={loading}
-                id="composer"
-                onChange={(event) => {
-                  setDraft(event.target.value);
-                  grow(event.currentTarget);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    event.currentTarget.form?.requestSubmit();
-                  }
-                }}
-                placeholder={t("placeholder")}
-                ref={composerRef}
-                rows={2}
-                value={draft}
-              />
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <input
-                    accept={accept}
-                    aria-label={t("attach")}
-                    className="sr-only"
-                    multiple
-                    onChange={(event) => {
-                      if (event.target.files?.length) {
-                        void onUpload(event.target.files);
-                      }
-                      event.target.value = "";
-                    }}
-                    ref={fileRef}
-                    type="file"
-                  />
-                  <Button
-                    className="h-8 px-2 text-xs font-normal text-[var(--muted-foreground)]"
-                    onClick={() => fileRef.current?.click()}
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Paperclip size={15} aria-hidden="true" />
-                    <span className="ml-1.5">{t("attach")}</span>
-                  </Button>
-                  <Button
-                    aria-pressed={researchOn}
-                    className="h-8 px-2 text-xs font-normal text-[var(--muted-foreground)]"
-                    onClick={() => setResearchOn((current) => !current)}
-                    type="button"
-                    variant={researchOn ? "outline" : "ghost"}
-                  >
-                    {t("research")}
-                  </Button>
-                  <p className="hidden text-xs text-[var(--muted-foreground)] sm:block">
-                    {t("hint")}
-                  </p>
-                </div>
-                {stream.status === "streaming" ? (
-                  <Button
-                    className="h-8 px-3 text-xs"
-                    disabled={!runId}
-                    onClick={() => void stop()}
-                    type="button"
-                    variant="outline"
-                  >
-                    {t("stop")}
-                  </Button>
-                ) : (
-                  <Button
-                    aria-label={t("send")}
-                    className="size-9 rounded-xl p-0"
-                    disabled={!draft.trim() || loading || Boolean(loadError)}
-                    type="submit"
-                  >
-                    <ArrowUp size={18} aria-hidden="true" />
-                  </Button>
-                )}
-              </div>
             </div>
-            <p className="mt-3 text-center text-[10px] text-[var(--muted-foreground)]">
-              {t("privateNote")}
-            </p>
-          </form>
+            <form
+              className="shrink-0 px-4 pb-4 md:px-8 md:pb-6"
+              onDragOver={(event) => {
+                event.preventDefault();
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (event.dataTransfer.files?.length) void onUpload(event.dataTransfer.files);
+              }}
+              onSubmit={(event) => {
+                event.preventDefault();
+                const text = draft.trim();
+                if (!text || stream.status === "streaming") {
+                  return;
+                }
+                setDraft("");
+                if (composerRef.current) {
+                  composerRef.current.style.height = "auto";
+                }
+                void send(text);
+              }}
+            >
+              {stream.toolFailure ? (
+                <p
+                  className="mx-auto mb-3 max-w-2xl text-sm text-[var(--muted-foreground)]"
+                  role="status"
+                >
+                  {stream.toolFailure}
+                </p>
+              ) : null}
+              {stream.researchQueries.length > 0 || stream.sourceCount > 0 ? (
+                <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
+                  <h2 className="font-medium">{t("sources")}</h2>
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    {t("researchPhase")} · {stream.researchPhase || "working"} ·{" "}
+                    {stream.sourceCount}
+                    {stream.verified ? ` · ${t("verified")} ${stream.verified}` : ""}
+                  </p>
+                  <ol className="mt-2 list-decimal pl-5">
+                    {stream.researchQueries.map((query) => (
+                      <li key={query.id}>{query.text}</li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
+              {runId ? (
+                <p className="mx-auto mb-2 max-w-2xl text-sm">
+                  <a className="underline" href={`/runs/${runId}`}>
+                    {t("viewTrace")}
+                  </a>
+                </p>
+              ) : null}
+              <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow-composer)] focus-within:border-[var(--muted-foreground)] md:p-4">
+                <label className="sr-only" htmlFor="agent-picker">
+                  {t("agent")}
+                </label>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  <select
+                    className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
+                    id="agent-picker"
+                    onChange={(event) => setAgentId(event.target.value)}
+                    value={agentId}
+                  >
+                    <option value="">{t("defaultAgent")}</option>
+                    {agents.map((agent) => (
+                      <option key={String(agent.id)} value={String(agent.id)}>
+                        {String(agent.name ?? agent.slug)}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="sr-only" htmlFor="model-picker">
+                    {t("model")}
+                  </label>
+                  <select
+                    className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
+                    id="model-picker"
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setModelAlias(next);
+                      if (activeId) {
+                        void api(`/api/v1/conversations/${activeId}`, {
+                          method: "PATCH",
+                          body: JSON.stringify({ modelAlias: next }),
+                        }).catch((error: unknown) => {
+                          setBanner(error instanceof Error ? error.message : t("error"));
+                        });
+                      }
+                    }}
+                    value={modelAlias}
+                  >
+                    <option value="">{t("modelDefault")}</option>
+                    {aliases.map((alias) => (
+                      <option key={alias} value={alias}>
+                        {alias}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <AttachmentList
+                  busy={stream.status === "streaming"}
+                  files={attachments}
+                  onRemove={(id) =>
+                    setAttachments((current) => current.filter((item) => item.id !== id))
+                  }
+                />
+                <label className="sr-only" htmlFor="composer">
+                  {t("composer")}
+                </label>
+                <textarea
+                  className="max-h-44 min-h-12 w-full resize-none border-0 bg-transparent px-1 py-1 text-[15px]"
+                  disabled={loading}
+                  id="composer"
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    grow(event.currentTarget);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      event.currentTarget.form?.requestSubmit();
+                    }
+                  }}
+                  placeholder={t("placeholder")}
+                  ref={composerRef}
+                  rows={2}
+                  value={draft}
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <input
+                      accept={accept}
+                      aria-label={t("attach")}
+                      className="sr-only"
+                      multiple
+                      onChange={(event) => {
+                        if (event.target.files?.length) {
+                          void onUpload(event.target.files);
+                        }
+                        event.target.value = "";
+                      }}
+                      ref={fileRef}
+                      type="file"
+                    />
+                    <Button
+                      className="h-8 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                      onClick={() => fileRef.current?.click()}
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Paperclip size={15} aria-hidden="true" />
+                      <span className="ml-1.5">{t("attach")}</span>
+                    </Button>
+                    <Button
+                      aria-pressed={researchOn}
+                      className="h-8 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                      onClick={() => setResearchOn((current) => !current)}
+                      type="button"
+                      variant={researchOn ? "outline" : "ghost"}
+                    >
+                      {t("research")}
+                    </Button>
+                    <p className="hidden text-xs text-[var(--muted-foreground)] sm:block">
+                      {t("hint")}
+                    </p>
+                  </div>
+                  {stream.status === "streaming" ? (
+                    <Button
+                      className="h-8 px-3 text-xs"
+                      disabled={!runId}
+                      onClick={() => void stop()}
+                      type="button"
+                      variant="outline"
+                    >
+                      {t("stop")}
+                    </Button>
+                  ) : (
+                    <Button
+                      aria-label={t("send")}
+                      className="size-9 rounded-xl p-0"
+                      disabled={!draft.trim() || loading || Boolean(loadError)}
+                      type="submit"
+                    >
+                      <ArrowUp size={18} aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-center text-[10px] text-[var(--muted-foreground)]">
+                {t("privateNote")}
+              </p>
+            </form>
+          </div>
+          {activeId ? (
+            <div className="hidden h-full w-80 shrink-0 md:block">
+              <WorkspacePanel conversationId={activeId} revision={messages.length} />
+            </div>
+          ) : null}
         </section>
       </div>
     </AppShell>

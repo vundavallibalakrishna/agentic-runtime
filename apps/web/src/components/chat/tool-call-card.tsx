@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 
+import { ChartView } from "@/components/chat/interactive-chart";
+
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
 
@@ -62,6 +64,47 @@ export function JobList({ jobs }: { jobs: Record<string, unknown>[] }) {
   );
 }
 
+function ToolTimeline({ call }: { call: Record<string, unknown> }) {
+  const t = useTranslations("chat");
+  const raw = call.timeline;
+  const entries = Array.isArray(raw)
+    ? raw.filter(
+        (item): item is { kind?: string; text?: string } => !!item && typeof item === "object",
+      )
+    : [];
+  if (entries.length === 0) return null;
+  const seen = new Map<string, number>();
+  return (
+    <ol
+      aria-label={t("toolTimeline")}
+      className="mt-2 space-y-1 border-l border-[var(--border)] pl-3 text-xs"
+    >
+      {entries.map((entry) => {
+        const mark = `${entry.kind ?? "step"}-${entry.text ?? ""}`;
+        const count = seen.get(mark) ?? 0;
+        seen.set(mark, count + 1);
+        return (
+          <li key={`${mark}-${count}`}>
+            <span className="text-[var(--muted-foreground)]">{timelineLabel(entry.kind, t)}</span>
+            {entry.text ? <p className="whitespace-pre-wrap">{entry.text}</p> : null}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function timelineLabel(
+  kind: string | undefined,
+  t: (key: "timelineArguments" | "timelineResult" | "timelineRetry" | "timelineRepair") => string,
+): string {
+  if (kind === "arguments") return t("timelineArguments");
+  if (kind === "result") return t("timelineResult");
+  if (kind === "retry") return t("timelineRetry");
+  if (kind === "repair") return t("timelineRepair");
+  return kind || "step";
+}
+
 function text(value: unknown) {
   return value == null ? "" : String(value);
 }
@@ -102,9 +145,42 @@ function isImageName(name: string): boolean {
   return IMAGE_EXTENSIONS.some((extension) => lower.endsWith(extension));
 }
 
+const TOOL_LABELS: Record<string, "toolChart"> = {
+  "general.chart": "toolChart",
+  chart: "toolChart",
+};
+
+const STATUS_LABELS: Record<
+  string,
+  "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting"
+> = {
+  succeeded: "statusDone",
+  completed: "statusDone",
+  running: "statusWorking",
+  failed: "statusFailed",
+  awaiting_approval: "statusWaiting",
+};
+
+function friendlyName(qualified: string, t: (key: "toolChart") => string): string {
+  const known = TOOL_LABELS[qualified];
+  if (known) return t(known);
+  const leaf = qualified.split(".").pop() || qualified;
+  return leaf.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function friendlyStatus(
+  status: string,
+  t: (key: "statusDone" | "statusWorking" | "statusFailed" | "statusWaiting") => string,
+): string {
+  const known = STATUS_LABELS[status];
+  return known ? t(known) : status.replaceAll("_", " ");
+}
+
 export function ToolCallCard({ call, label }: { call: Record<string, unknown>; label: string }) {
   const t = useTranslations("chat");
-  const name = text(call.qualifiedName ?? call.qualified_name ?? "tool");
+  const qualified = text(call.qualifiedName ?? call.qualified_name ?? "tool");
+  const name = friendlyName(qualified, t);
+  const status = friendlyStatus(text(call.status ?? ""), t);
   const preview = text(call.resultPreview ?? call.result_preview ?? "");
   const approvalId = text(call.approvalId ?? call.approval_id ?? "");
   const waiting = text(call.status ?? "") === "awaiting_approval";
@@ -123,10 +199,13 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
   const hits = Array.isArray(presentation.results) ? (presentation.results as Hit[]) : [];
   const progress = progressOf(presentation);
   return (
-    <section className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm">
+    <section
+      className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+      data-testid="tool-call"
+    >
       <p className="sr-only">{label}</p>
       <p className="font-medium">{name}</p>
-      <p className="text-[var(--muted-foreground)]">{text(call.status ?? "")}</p>
+      <p className="text-[var(--muted-foreground)]">{status}</p>
       {text(call.arguments) ? (
         <details className="mt-2">
           <summary className="cursor-pointer text-[var(--muted-foreground)]">
@@ -137,6 +216,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           </pre>
         </details>
       ) : null}
+      <ToolTimeline call={call} />
       {progress ? <JobMeter progress={progress} /> : null}
       {kind === "code" || kind === "shell" ? (
         <div className="mt-2 space-y-2">
@@ -320,19 +400,31 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           })}
         </ul>
       ) : null}
-      {files
-        .filter((file) => isImageName(text(file.name)))
-        .map((file) => {
-          const id = text(file.fileId ?? file.file_id);
-          return id ? (
-            <img
-              alt={text(file.name) || text(presentation.title) || "image"}
-              className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
-              key={id}
-              src={`/api/v1/files/${id}/content`}
-            />
-          ) : null;
-        })}
+      {kind === "chart" ? (
+        <ChartView
+          files={files
+            .map((file) => ({
+              id: text(file.fileId ?? file.file_id),
+              name: text(file.name),
+            }))
+            .filter((file) => file.id)}
+          presentation={presentation}
+        />
+      ) : null}
+      {kind !== "chart" &&
+        files
+          .filter((file) => isImageName(text(file.name)))
+          .map((file) => {
+            const id = text(file.fileId ?? file.file_id);
+            return id ? (
+              <img
+                alt={text(file.name) || text(presentation.title) || "image"}
+                className="mt-2 max-w-full rounded-lg border border-[var(--border)]"
+                key={id}
+                src={`/api/v1/files/${id}/content`}
+              />
+            ) : null;
+          })}
       {files.filter((file) => !isImageName(text(file.name))).length > 0 ? (
         <ul className="mt-2 space-y-1">
           {files

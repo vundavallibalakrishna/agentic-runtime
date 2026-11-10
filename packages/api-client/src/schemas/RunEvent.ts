@@ -206,19 +206,22 @@ export type Tools = {
 export type Approvals = {
   [k: string]: unknown;
 }[];
+export type Type19 = "followups";
+export type Prompts = string[];
 export type Content = (
-  TextPart | FilePart | ImagePart | ToolUsePart | CitationRefPart | ToolResultPart | GroundingPart
+  TextPart | FilePart | ImagePart | ToolUsePart | CitationRefPart | ToolResultPart | GroundingPart | FollowupsPart
 )[];
 export type Tokensin1 = number;
 export type Tokensout1 = number;
 export type Finishreason = string;
+export type Answeredmodel = string | null;
 export type Id12 = string;
 export type Seq12 = number;
 export type Runid12 = string;
 export type Rootrunid12 = string;
 export type Conversationid12 = string | null;
 export type Ts12 = string;
-export type Type19 = "citation.added";
+export type Type20 = "citation.added";
 export type Messageid3 = string;
 export type Id13 = string;
 export type Seq13 = number;
@@ -226,7 +229,7 @@ export type Runid13 = string;
 export type Rootrunid13 = string;
 export type Conversationid13 = string | null;
 export type Ts13 = string;
-export type Type20 = "message.grounding_checked";
+export type Type21 = "message.grounding_checked";
 export type Messageid4 = string;
 export type Mode1 = "off" | "preferred" | "strict";
 export type Id14 = string;
@@ -235,7 +238,7 @@ export type Runid14 = string;
 export type Rootrunid14 = string;
 export type Conversationid14 = string | null;
 export type Ts14 = string;
-export type Type21 = "tool_call.started";
+export type Type22 = "tool_call.started";
 export type Toolcallid2 = string;
 export type Modelcallid = string;
 export type Qualifiedname1 = string;
@@ -248,7 +251,7 @@ export type Runid15 = string;
 export type Rootrunid15 = string;
 export type Conversationid15 = string | null;
 export type Ts15 = string;
-export type Type22 = "tool_call.progress";
+export type Type23 = "tool_call.progress";
 export type Toolcallid3 = string;
 export type Message1 = string;
 export type Progress = number | null;
@@ -258,7 +261,7 @@ export type Runid16 = string;
 export type Rootrunid16 = string;
 export type Conversationid16 = string | null;
 export type Ts16 = string;
-export type Type23 = "tool_call.approval_required";
+export type Type24 = "tool_call.approval_required";
 export type Toolcallid4 = string;
 export type Approvalid = string;
 export type Expiresat = string;
@@ -269,7 +272,7 @@ export type Runid17 = string;
 export type Rootrunid17 = string;
 export type Conversationid17 = string | null;
 export type Ts17 = string;
-export type Type24 = "tool_call.approval_resolved";
+export type Type25 = "tool_call.approval_resolved";
 export type Toolcallid5 = string;
 export type Approvalid1 = string;
 export type Decision = "approved" | "rejected" | "expired" | "cancelled";
@@ -280,7 +283,7 @@ export type Runid18 = string;
 export type Rootrunid18 = string;
 export type Conversationid18 = string | null;
 export type Ts18 = string;
-export type Type25 = "input.required";
+export type Type26 = "input.required";
 export type Requestid = string;
 export type Toolcallid6 = string;
 export type Message2 = string;
@@ -291,7 +294,7 @@ export type Runid19 = string;
 export type Rootrunid19 = string;
 export type Conversationid19 = string | null;
 export type Ts19 = string;
-export type Type26 = "input.resolved";
+export type Type27 = "input.resolved";
 export type Requestid1 = string;
 export type Action = "accept" | "decline" | "cancel" | "expired";
 export type Id20 = string;
@@ -300,7 +303,7 @@ export type Runid20 = string;
 export type Rootrunid20 = string;
 export type Conversationid20 = string | null;
 export type Ts20 = string;
-export type Type27 = "tool_call.completed";
+export type Type28 = "tool_call.completed";
 export type Toolcallid7 = string;
 export type Status2 = "succeeded";
 export type Resultpreview = string;
@@ -312,18 +315,19 @@ export type Runid21 = string;
 export type Rootrunid21 = string;
 export type Conversationid21 = string | null;
 export type Ts21 = string;
-export type Type28 = "tool_call.failed";
+export type Type29 = "tool_call.failed";
 export type Toolcallid8 = string;
 export type Status3 = "failed" | "denied" | "rejected" | "expired" | "cancelled";
 export type Policyreasons = string[] | null;
 export type Connecturl = string | null;
+export type Attempt = number | null;
 export type Id22 = string;
 export type Seq22 = number;
 export type Runid22 = string;
 export type Rootrunid22 = string;
 export type Conversationid22 = string | null;
 export type Ts22 = string;
-export type Type29 = "artifact.created";
+export type Type30 = "artifact.created";
 export type Fileid2 = string;
 export type Name1 = string;
 export type Mimetype1 = string;
@@ -335,7 +339,7 @@ export type Runid23 = string;
 export type Rootrunid23 = string;
 export type Conversationid23 = string | null;
 export type Ts23 = string;
-export type Type30 = "sandbox.status";
+export type Type31 = "sandbox.status";
 export type Sandboxid1 = string;
 export type Status4 = string;
 export type Id24 = string;
@@ -344,7 +348,7 @@ export type Runid24 = string;
 export type Rootrunid24 = string;
 export type Conversationid24 = string | null;
 export type Ts24 = string;
-export type Type31 = "sandbox.output";
+export type Type32 = "sandbox.output";
 export type Toolcallid9 = string;
 export type Stream = "stdout" | "stderr";
 export type Text4 = string;
@@ -354,7 +358,7 @@ export type Runid25 = string;
 export type Rootrunid25 = string;
 export type Conversationid25 = string | null;
 export type Ts25 = string;
-export type Type32 = "browser.screenshot";
+export type Type33 = "browser.screenshot";
 export type Toolcallid10 = string;
 export type Fileid3 = string;
 export type Url = string;
@@ -365,7 +369,7 @@ export type Runid26 = string;
 export type Rootrunid26 = string;
 export type Conversationid26 = string | null;
 export type Ts26 = string;
-export type Type33 = "plan.updated";
+export type Type34 = "plan.updated";
 export type Id27 = string;
 export type Title3 = string;
 export type Status5 = "pending" | "in_progress" | "done" | "cancelled";
@@ -376,7 +380,7 @@ export type Runid27 = string;
 export type Rootrunid27 = string;
 export type Conversationid27 = string | null;
 export type Ts27 = string;
-export type Type34 = "subagent.started";
+export type Type35 = "subagent.started";
 export type Childrunid = string;
 export type Agentid1 = string;
 export type Agentname = string;
@@ -387,7 +391,7 @@ export type Runid28 = string;
 export type Rootrunid28 = string;
 export type Conversationid28 = string | null;
 export type Ts28 = string;
-export type Type35 = "subagent.completed";
+export type Type36 = "subagent.completed";
 export type Childrunid1 = string;
 export type Status6 = string;
 export type Resultsummary = string;
@@ -397,7 +401,7 @@ export type Runid29 = string;
 export type Rootrunid29 = string;
 export type Conversationid29 = string | null;
 export type Ts29 = string;
-export type Type36 = "memory.recalled";
+export type Type37 = "memory.recalled";
 export type Factids = string[];
 export type Count = number;
 export type Id31 = string;
@@ -406,7 +410,7 @@ export type Runid30 = string;
 export type Rootrunid30 = string;
 export type Conversationid30 = string | null;
 export type Ts30 = string;
-export type Type37 = "memory.saved";
+export type Type38 = "memory.saved";
 export type Factid = string;
 export type Content1 = string;
 export type Scope = string;
@@ -416,7 +420,7 @@ export type Runid31 = string;
 export type Rootrunid31 = string;
 export type Conversationid31 = string | null;
 export type Ts31 = string;
-export type Type38 = "context.compacted";
+export type Type39 = "context.compacted";
 export type Tokensbefore = number;
 export type Tokensafter = number;
 export type Id33 = string;
@@ -425,7 +429,7 @@ export type Runid32 = string;
 export type Rootrunid32 = string;
 export type Conversationid32 = string | null;
 export type Ts32 = string;
-export type Type39 = "research.progress";
+export type Type40 = "research.progress";
 export type Phase = string;
 export type Depth = number;
 export type Sourcecount = number;
@@ -435,7 +439,7 @@ export type Runid33 = string;
 export type Rootrunid33 = string;
 export type Conversationid33 = string | null;
 export type Ts33 = string;
-export type Type40 = "warning";
+export type Type41 = "warning";
 export type Code1 = string;
 export type Message3 = string;
 export type Id35 = string;
@@ -444,7 +448,7 @@ export type Runid34 = string;
 export type Rootrunid34 = string;
 export type Conversationid34 = string | null;
 export type Ts34 = string;
-export type Type41 = "heartbeat";
+export type Type42 = "heartbeat";
 
 export interface RunQueued {
   id: Id;
@@ -642,6 +646,7 @@ export interface MessageCompletedData {
   tokensIn: Tokensin1;
   tokensOut: Tokensout1;
   finishReason: Finishreason;
+  answeredModel?: Answeredmodel;
 }
 export interface TextPart {
   type: Type12;
@@ -711,6 +716,13 @@ export interface GroundingClaim {
   citationIndexes?: Citationindexes;
   status: Status1;
 }
+/**
+ * Short prompts the person can send next. Additive on assistant messages.
+ */
+export interface FollowupsPart {
+  type: Type19;
+  prompts?: Prompts;
+}
 export interface CitationAdded {
   id: Id12;
   seq: Seq12;
@@ -718,7 +730,7 @@ export interface CitationAdded {
   rootRunId: Rootrunid12;
   conversationId: Conversationid12;
   ts: Ts12;
-  type: Type19;
+  type: Type20;
   data: CitationAddedData;
 }
 export interface CitationAddedData {
@@ -732,7 +744,7 @@ export interface GroundingChecked {
   rootRunId: Rootrunid13;
   conversationId: Conversationid13;
   ts: Ts13;
-  type: Type20;
+  type: Type21;
   data: GroundingCheckedData;
 }
 export interface GroundingCheckedData {
@@ -747,7 +759,7 @@ export interface ToolCallStarted {
   rootRunId: Rootrunid14;
   conversationId: Conversationid14;
   ts: Ts14;
-  type: Type21;
+  type: Type22;
   data: ToolCallStartedData;
 }
 export interface ToolCallStartedData {
@@ -765,7 +777,7 @@ export interface ToolCallProgress {
   rootRunId: Rootrunid15;
   conversationId: Conversationid15;
   ts: Ts15;
-  type: Type22;
+  type: Type23;
   data: ToolCallProgressData;
 }
 export interface ToolCallProgressData {
@@ -780,7 +792,7 @@ export interface ToolCallApprovalRequired {
   rootRunId: Rootrunid16;
   conversationId: Conversationid16;
   ts: Ts16;
-  type: Type23;
+  type: Type24;
   data: ToolCallApprovalRequiredData;
 }
 export interface ToolCallApprovalRequiredData {
@@ -800,7 +812,7 @@ export interface ToolCallApprovalResolved {
   rootRunId: Rootrunid17;
   conversationId: Conversationid17;
   ts: Ts17;
-  type: Type24;
+  type: Type25;
   data: ToolCallApprovalResolvedData;
 }
 export interface ToolCallApprovalResolvedData {
@@ -816,7 +828,7 @@ export interface InputRequired {
   rootRunId: Rootrunid18;
   conversationId: Conversationid18;
   ts: Ts18;
-  type: Type25;
+  type: Type26;
   data: InputRequiredData;
 }
 export interface InputRequiredData {
@@ -836,7 +848,7 @@ export interface InputResolved {
   rootRunId: Rootrunid19;
   conversationId: Conversationid19;
   ts: Ts19;
-  type: Type26;
+  type: Type27;
   data: InputResolvedData;
 }
 export interface InputResolvedData {
@@ -850,7 +862,7 @@ export interface ToolCallCompleted {
   rootRunId: Rootrunid20;
   conversationId: Conversationid20;
   ts: Ts20;
-  type: Type27;
+  type: Type28;
   data: ToolCallCompletedData;
 }
 export interface ToolCallCompletedData {
@@ -867,7 +879,7 @@ export interface ToolCallFailed {
   rootRunId: Rootrunid21;
   conversationId: Conversationid21;
   ts: Ts21;
-  type: Type28;
+  type: Type29;
   data: ToolCallFailedData;
 }
 export interface ToolCallFailedData {
@@ -876,6 +888,7 @@ export interface ToolCallFailedData {
   error: Error;
   policyReasons?: Policyreasons;
   connectUrl?: Connecturl;
+  attempt?: Attempt;
 }
 export interface Error {
   [k: string]: string;
@@ -887,7 +900,7 @@ export interface ArtifactCreated {
   rootRunId: Rootrunid22;
   conversationId: Conversationid22;
   ts: Ts22;
-  type: Type29;
+  type: Type30;
   data: ArtifactCreatedData;
 }
 export interface ArtifactCreatedData {
@@ -904,7 +917,7 @@ export interface SandboxStatus {
   rootRunId: Rootrunid23;
   conversationId: Conversationid23;
   ts: Ts23;
-  type: Type30;
+  type: Type31;
   data: SandboxStatusData;
 }
 export interface SandboxStatusData {
@@ -918,7 +931,7 @@ export interface SandboxOutput {
   rootRunId: Rootrunid24;
   conversationId: Conversationid24;
   ts: Ts24;
-  type: Type31;
+  type: Type32;
   data: SandboxOutputData;
 }
 export interface SandboxOutputData {
@@ -933,7 +946,7 @@ export interface BrowserScreenshot {
   rootRunId: Rootrunid25;
   conversationId: Conversationid25;
   ts: Ts25;
-  type: Type32;
+  type: Type33;
   data: BrowserScreenshotData;
 }
 export interface BrowserScreenshotData {
@@ -949,7 +962,7 @@ export interface PlanUpdated {
   rootRunId: Rootrunid26;
   conversationId: Conversationid26;
   ts: Ts26;
-  type: Type33;
+  type: Type34;
   data: PlanUpdatedData;
 }
 export interface PlanUpdatedData {
@@ -967,7 +980,7 @@ export interface SubagentStarted {
   rootRunId: Rootrunid27;
   conversationId: Conversationid27;
   ts: Ts27;
-  type: Type34;
+  type: Type35;
   data: SubagentStartedData;
 }
 export interface SubagentStartedData {
@@ -983,7 +996,7 @@ export interface SubagentCompleted {
   rootRunId: Rootrunid28;
   conversationId: Conversationid28;
   ts: Ts28;
-  type: Type35;
+  type: Type36;
   data: SubagentCompletedData;
 }
 export interface SubagentCompletedData {
@@ -999,7 +1012,7 @@ export interface MemoryRecalled {
   rootRunId: Rootrunid29;
   conversationId: Conversationid29;
   ts: Ts29;
-  type: Type36;
+  type: Type37;
   data: MemoryRecalledData;
 }
 export interface MemoryRecalledData {
@@ -1013,7 +1026,7 @@ export interface MemorySaved {
   rootRunId: Rootrunid30;
   conversationId: Conversationid30;
   ts: Ts30;
-  type: Type37;
+  type: Type38;
   data: MemorySavedData;
 }
 export interface MemorySavedData {
@@ -1028,7 +1041,7 @@ export interface ContextCompacted {
   rootRunId: Rootrunid31;
   conversationId: Conversationid31;
   ts: Ts31;
-  type: Type38;
+  type: Type39;
   data: ContextCompactedData;
 }
 export interface ContextCompactedData {
@@ -1042,7 +1055,7 @@ export interface ResearchProgress {
   rootRunId: Rootrunid32;
   conversationId: Conversationid32;
   ts: Ts32;
-  type: Type39;
+  type: Type40;
   data: ResearchProgressData;
 }
 export interface ResearchProgressData {
@@ -1057,7 +1070,7 @@ export interface WarningEvent {
   rootRunId: Rootrunid33;
   conversationId: Conversationid33;
   ts: Ts33;
-  type: Type40;
+  type: Type41;
   data: WarningData;
 }
 export interface WarningData {
@@ -1071,7 +1084,7 @@ export interface Heartbeat {
   rootRunId: Rootrunid34;
   conversationId: Conversationid34;
   ts: Ts34;
-  type: Type41;
+  type: Type42;
   data: _Data;
 }
 export interface _Data {}

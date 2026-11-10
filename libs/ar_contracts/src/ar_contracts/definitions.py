@@ -132,6 +132,8 @@ class OutputSpec(_Model):
     show_reasoning: bool = False
     grounding: Literal["off", "preferred", "strict"] = "off"
     json_schema: dict[str, object] = Field(default_factory=dict)
+    followups: bool = False
+    followup_count: int = Field(default=3, ge=1, le=6)
 
 
 class AssuranceSpec(_Model):

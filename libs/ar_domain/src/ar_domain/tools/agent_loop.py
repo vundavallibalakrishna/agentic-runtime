@@ -156,9 +156,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         openai_tools = [_openai_tool(row) for row in core]
         openai_tools.extend(extra_tools)
         offered = {_spec_name(spec) for spec in openai_tools}
-    from ar_domain.tools.structured import output_schema, validate_output  # noqa: PLC0415
+    from ar_domain.tools.structured import schema_for, validate_output  # noqa: PLC0415
 
-    schema = output_schema(definition)
+    schema = schema_for(definition, run.get("response_format"))
     from ar_domain.tools.worker_loop import (  # noqa: PLC0415
         apply_worker_loop,
         consume_one_tool,
@@ -284,6 +284,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         )
         if isinstance(turn, dict):
             _note_endpoint(store, run, turn, steps)
+            _emit_reasoning(store, run, assistant, definition, turn)
         if isinstance(turn, dict) and turn.get("parse_error"):
             if repairs < repair_cap:
                 repairs += 1
@@ -301,6 +302,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     {"reason": "parse"},
                     outcome="failure",
                 )
+                _emit_repair(store, run, "parse")
                 continue
             _stop_error(store, run, assistant, _terminal_text(), code="repair_exhausted")
             return True
@@ -316,6 +318,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     {"reason": "provider"},
                     outcome="failure",
                 )
+                _emit_repair(store, run, "provider")
                 continue
             _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
             _stop_error(store, run, assistant, "The model provider did not answer.")
@@ -361,10 +364,12 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                         {"reason": "structured_output"},
                         outcome="failure",
                     )
+                    _emit_repair(store, run, "structured_output")
                     continue
             answer = _checked(store, run, answer, failed_open=failed_open, tool_calls=used_calls)
             _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
-            _finish(store, run, assistant, answer, previews)
+            followups = await _followups(store, run, definition, user_text, answer)
+            _finish(store, run, assistant, answer, previews, followups=followups)
             return True
         if not planned:
             _plan(store, run, calls)
@@ -788,6 +793,20 @@ def _fit_context(
 def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], step: int) -> None:
     endpoint = turn.get("endpoint_id")
     model = turn.get("answered_model")
+    if isinstance(model, str) and model:
+        run["answered_model"] = model
+        assistant = store.messages.get(run.get("assistant_message_id"))
+        if isinstance(assistant, dict):
+            assistant["answered_model"] = model
+    if turn.get("fallback") is True:
+        store._emit(
+            run,
+            "warning",
+            {
+                "code": "model_fallback_used",
+                "message": "A fallback model answered this step.",
+            },
+        )
     if not isinstance(endpoint, str) or not endpoint:
         return
     trace = run.get("model_trace")
@@ -865,7 +884,7 @@ async def _take_plan(
         error = error or "plan was not JSON"
     conversation = store.conversations.get(run.get("conversation_id"))
     if isinstance(conversation, dict):
-        conversation["plan"] = [item["title"] for item in items]
+        conversation["plan"] = items
     store._emit(run, "plan.updated", {"items": items})
     _audit(
         store,
@@ -888,7 +907,7 @@ def _plan(store: Any, run: dict[str, object], calls: list[object]) -> None:
         return
     conversation = store.conversations.get(run.get("conversation_id"))
     if isinstance(conversation, dict):
-        conversation["plan"] = [str(item["title"]) for item in items]
+        conversation["plan"] = items
     store._emit(run, "plan.updated", {"items": items})
     _audit(store, run, "run.planned", str(run.get("id")), {"count": len(items)})
 
@@ -1101,15 +1120,68 @@ def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> Non
         )
 
 
+def _emit_repair(store: Any, run: dict[str, object], reason: str) -> None:
+    store._emit(
+        run,
+        "warning",
+        {"code": "repair", "message": f"The step was sent back for another try ({reason})."},
+    )
+
+
+def _show_reasoning(definition: dict[str, object] | None) -> bool:
+    output = definition.get("output") if isinstance(definition, dict) else None
+    if not isinstance(output, dict):
+        return False
+    return output.get("show_reasoning") is True or output.get("showReasoning") is True
+
+
+def _emit_reasoning(
+    store: Any,
+    run: dict[str, object],
+    assistant: dict[str, object],
+    definition: dict[str, object] | None,
+    turn: dict[str, object],
+) -> None:
+    if not _show_reasoning(definition):
+        return
+    text = turn.get("reasoning")
+    if not isinstance(text, str) or not text.strip():
+        return
+    assistant["reasoning"] = text.strip()
+    store._emit(
+        run,
+        "reasoning.delta",
+        {"message_id": str(assistant.get("id") or ""), "text": text.strip()},
+    )
+
+
+async def _followups(
+    store: Any,
+    run: dict[str, object],
+    definition: dict[str, object] | None,
+    user_text: str,
+    answer: str,
+) -> list[str]:
+    from ar_domain.loop.followups import suggest_followups  # noqa: PLC0415
+
+    return await suggest_followups(store, run, definition, user_text, answer)
+
+
 def _finish(
     store: Any,
     run: dict[str, object],
     assistant: dict[str, object],
     answer: str,
     previews: list[dict[str, object]],
+    *,
+    followups: list[str] | None = None,
 ) -> None:
     assistant["text"] = answer
-    assistant["content"] = _with_trace(answer, run)
+    content = _with_trace(answer, run)
+    prompts = [item for item in (followups or []) if item.strip()]
+    if prompts:
+        content.append({"type": "followups", "prompts": prompts})
+    assistant["content"] = content
     assistant["retrieval"] = run.get("retrieval")
     assistant["loaded_skill"] = run.get("loaded_skill")
     assistant["tool_calls"] = previews
@@ -1133,7 +1205,11 @@ def _finish(
     _emit_trace(store, run, assistant_id)
     stored = run.get("usage")
     emitted = stored if isinstance(stored, dict) else {"tokens_in": 1, "tokens_out": 1}
-    store._emit(run, "message.completed", {"message_id": str(assistant_id), "text": answer})
+    completed: dict[str, object] = {"message_id": str(assistant_id), "text": answer}
+    answered = assistant.get("answered_model") or run.get("answered_model")
+    if isinstance(answered, str) and answered:
+        completed["answered_model"] = answered
+    store._emit(run, "message.completed", completed)
     store._emit(run, "run.completed", {"final_message_id": str(assistant_id), "usage": emitted})
     callback = run.get("callback_url")
     callbacks = getattr(store, "callbacks", None)

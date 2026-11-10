@@ -1,11 +1,13 @@
 "use client";
 
 import { createParser } from "eventsource-parser";
-import { ArrowUp, MessageSquare, RotateCcw, Square } from "lucide-react";
+import { ArrowUp, MessageSquare, Paperclip, RotateCcw, Square } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { MarkdownView } from "@/components/chat/markdown-view";
+import { type Attached, AttachmentList } from "@/components/chat/attachment-list";
+import { MessageBody } from "@/components/chat/message-body";
+import { PlanChecklist } from "@/components/chat/plan-checklist";
 import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api";
 import { shouldResumeStatus, streamHeaders, waitForResume } from "@/lib/stream/reconnect";
@@ -17,7 +19,7 @@ import {
 } from "@/lib/stream/reducer";
 import { exactOrigins } from "@/lib/widget-origins";
 
-type Message = { id: string; role: string; text: string };
+type Message = Record<string, unknown> & { id: string; role: string; text: string };
 type Session = {
   integrationId: string;
   name: string;
@@ -34,6 +36,8 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
   const [conversationId, setConversationId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<Attached[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [stream, setStream] = useState<StreamState>(emptyStream);
   const [attempt, setAttempt] = useState(0);
@@ -253,6 +257,40 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
     }
   }
 
+  async function onUpload(files: FileList) {
+    for (const file of Array.from(files)) {
+      const body = new FormData();
+      body.set("upload", file);
+      body.set("mime_type", file.type);
+      try {
+        const response = await fetch("/api/v1/widget/files", {
+          method: "POST",
+          credentials: "include",
+          headers: csrfToken.current ? { "x-csrf-token": csrfToken.current } : {},
+          body,
+        });
+        if (!response.ok) throw new Error(t("requestFailed"));
+        const saved = (await response.json()) as {
+          id?: string;
+          name?: string;
+          mimeType?: string;
+          mime_type?: string;
+          status?: string;
+        };
+        const id = saved.id;
+        if (!id || (saved.status && saved.status !== "ready")) continue;
+        const attached: Attached = {
+          id,
+          name: saved.name || file.name,
+          mimeType: saved.mimeType || saved.mime_type || file.type,
+        };
+        setAttachments((current) => [...current.filter((item) => item.id !== id), attached]);
+      } catch (failure) {
+        setError(failure instanceof Error ? failure.message : t("requestFailed"));
+      }
+    }
+  }
+
   async function send() {
     const text = draft.trim();
     if (!text || busy || !agentId) return;
@@ -277,12 +315,17 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
         `/conversations/${id}/messages`,
         {
           method: "POST",
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({
+            text,
+            attachmentIds: attachments.map((file) => file.id),
+            suggestFollowups: true,
+          }),
           signal: controller.signal,
         },
       );
       accepted = true;
       setDraft("");
+      setAttachments([]);
       setMessages((current) => [...current, posted.message]);
       await followRun(posted.run.id, id, controller);
     } catch (failure) {
@@ -382,15 +425,27 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                 <p className="mb-1 text-xs font-medium text-muted-foreground">
                   {message.role === "user" ? t("you") : t("assistant")}
                 </p>
-                <MarkdownView text={message.text || ""} />
+                {message.role === "assistant" ? (
+                  <MessageBody message={message} onFollowup={setDraft} text={message.text || ""} />
+                ) : (
+                  <MessageBody message={message} text={message.text || ""} />
+                )}
               </article>
             ))}
-            {stream.text && (
+            {stream.text || stream.reasoning || stream.plan.length ? (
               <article className="mb-6 break-words">
                 <p className="mb-1 text-xs font-medium text-muted-foreground">{t("assistant")}</p>
-                <MarkdownView text={stream.text} />
+                <PlanChecklist items={stream.plan} />
+                <MessageBody
+                  message={{}}
+                  onFollowup={setDraft}
+                  prompts={stream.followups}
+                  reasoning={stream.reasoning}
+                  reasoningMs={stream.reasoningMs}
+                  text={stream.text}
+                />
               </article>
-            )}
+            ) : null}
             {busy && !stream.text && (
               <p role="status" className="text-sm text-muted-foreground">
                 {t("thinking")}
@@ -408,6 +463,11 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
           )}
           <form
             className="shrink-0 border-t border-border bg-card p-4"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (event.dataTransfer.files?.length) void onUpload(event.dataTransfer.files);
+            }}
             onSubmit={(event) => {
               event.preventDefault();
               void send();
@@ -430,6 +490,24 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
                 </select>
               </label>
             )}
+            <AttachmentList
+              busy={busy}
+              files={attachments}
+              onRemove={(id) =>
+                setAttachments((current) => current.filter((item) => item.id !== id))
+              }
+            />
+            <input
+              aria-label={t("attach")}
+              className="sr-only"
+              multiple
+              onChange={(event) => {
+                if (event.target.files?.length) void onUpload(event.target.files);
+                event.target.value = "";
+              }}
+              ref={fileRef}
+              type="file"
+            />
             <label htmlFor="widget-message" className="sr-only">
               {t("message")}
             </label>
@@ -449,7 +527,17 @@ export function WidgetChat({ integrationId }: { integrationId: string }) {
               }}
             />
             <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">{t("hint")}</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  aria-label={t("attach")}
+                  onClick={() => fileRef.current?.click()}
+                  type="button"
+                  variant="ghost"
+                >
+                  <Paperclip size={15} />
+                </Button>
+                <p className="text-xs text-muted-foreground">{t("hint")}</p>
+              </div>
               {busy ? (
                 <Button type="button" onClick={() => void stop()} aria-label={t("stop")}>
                   <Square size={15} />

@@ -323,6 +323,20 @@ export type BodyUploadLibraryDocumentApiV1LibraryDocumentsPost = {
 };
 
 /**
+ * Body_widget_upload_api_v1_widget_files_post
+ */
+export type BodyWidgetUploadApiV1WidgetFilesPost = {
+    /**
+     * Upload
+     */
+    upload: Blob | File;
+    /**
+     * Mime Type
+     */
+    mime_type?: string;
+};
+
+/**
  * BulkBody
  */
 export type BulkBody = {
@@ -1857,6 +1871,16 @@ export type MessageBody = {
      * Researchmode
      */
     researchMode?: boolean;
+    /**
+     * Suggestfollowups
+     */
+    suggestFollowups?: boolean;
+    /**
+     * Responseformat
+     */
+    responseFormat?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**
@@ -2728,6 +2752,16 @@ export type SendBody = {
      * Attachmentids
      */
     attachmentIds?: Array<string>;
+    /**
+     * Responseformat
+     */
+    responseFormat?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Suggestfollowups
+     */
+    suggestFollowups?: boolean;
 };
 
 /**
@@ -3727,6 +3761,14 @@ export type WidgetMessageBody = {
      * Text
      */
     text: string;
+    /**
+     * Attachmentids
+     */
+    attachmentIds?: Array<string>;
+    /**
+     * Suggestfollowups
+     */
+    suggestFollowups?: boolean;
 };
 
 /**
@@ -18710,6 +18752,35 @@ export type WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponse
 };
 
 export type WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponse = WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponses[keyof WidgetSendApiV1WidgetConversationsConversationIdMessagesPostResponses];
+
+export type WidgetUploadApiV1WidgetFilesPostData = {
+    body: BodyWidgetUploadApiV1WidgetFilesPost;
+    path?: never;
+    query?: never;
+    url: '/api/v1/widget/files';
+};
+
+export type WidgetUploadApiV1WidgetFilesPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WidgetUploadApiV1WidgetFilesPostError = WidgetUploadApiV1WidgetFilesPostErrors[keyof WidgetUploadApiV1WidgetFilesPostErrors];
+
+export type WidgetUploadApiV1WidgetFilesPostResponses = {
+    /**
+     * Response Widget Upload Api V1 Widget Files Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type WidgetUploadApiV1WidgetFilesPostResponse = WidgetUploadApiV1WidgetFilesPostResponses[keyof WidgetUploadApiV1WidgetFilesPostResponses];
 
 export type WidgetEventsApiV1WidgetRunsRunIdEventsGetData = {
     body?: never;

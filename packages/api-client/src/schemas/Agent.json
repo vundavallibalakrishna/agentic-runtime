@@ -332,6 +332,18 @@
           "additionalProperties": true,
           "title": "Jsonschema",
           "type": "object"
+        },
+        "followups": {
+          "default": false,
+          "title": "Followups",
+          "type": "boolean"
+        },
+        "followupCount": {
+          "default": 3,
+          "maximum": 6,
+          "minimum": 1,
+          "title": "Followupcount",
+          "type": "integer"
         }
       },
       "title": "OutputSpec",
@@ -800,7 +812,9 @@
         "citations": "preferred",
         "showReasoning": false,
         "grounding": "off",
-        "jsonSchema": {}
+        "jsonSchema": {},
+        "followups": false,
+        "followupCount": 3
       }
     },
     "assurance": {

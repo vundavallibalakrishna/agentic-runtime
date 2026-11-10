@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, File, Form, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse
 
 from ar_api.auth.session import SessionData, new_session
@@ -139,7 +139,35 @@ async def widget_send(
     conversation_id: uuid.UUID, body: WidgetMessageBody, request: Request, data: WidgetData
 ) -> dict[str, object]:
     check_conversation(request, data, conversation_id)
-    return await m2.post_message(conversation_id, m2.MessageBody(text=body.text), request)
+    return await m2.post_message(
+        conversation_id,
+        m2.MessageBody(
+            text=body.text,
+            attachment_ids=body.attachment_ids,
+            suggest_followups=body.suggest_followups,
+        ),
+        request,
+    )
+
+
+@router.post("/api/v1/widget/files", dependencies=_CHAT)
+@expose(public=False, permission="chat:use")
+async def widget_upload(
+    request: Request,
+    data: WidgetData,
+    upload: Annotated[UploadFile, File()],
+    mime_type: Annotated[str, Form()] = "",
+) -> dict[str, object]:
+    """The same upload the signed-in chat uses, under the widget session."""
+    raw = await upload.read()
+    mime = mime_type or upload.content_type or "application/octet-stream"
+    return chat(request).upload(
+        data.tenant_id,
+        data.user_id,
+        upload.filename or "upload",
+        mime,
+        raw,
+    )
 
 
 def _check_run(request: Request, data: SessionData, run_id: uuid.UUID) -> None:

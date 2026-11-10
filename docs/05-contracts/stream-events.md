@@ -66,7 +66,7 @@ data: {"id":"0192f0c4-...:17","seq":17,"type":"tool_call.completed",...}
 |---|---|---|
 | `message.started` | `{messageId, role: "assistant", modelAlias, reset?: bool}` (`reset: true` when a retried model step restarts the same message: the client clears the text accumulated so far) | yes |
 | `message.delta` | `{messageId, text}` (append) | **no** |
-| `reasoning.delta` | `{messageId, text}` (only when the agent definition sets `showReasoning: true`) | **no** |
+| `reasoning.delta` | `{messageId, text}` (only when the agent definition sets `showReasoning: true`). `/v1`, MCP and A2A omit this event unless the caller passes `includeReasoning=true` and the agent allows it. | **no** |
 | `message.completed` | `{messageId, content: ContentPart[], tokensIn, tokensOut, finishReason}` | yes |
 | `citation.added` | `{messageId, citation: Citation}` | yes |
 
@@ -122,7 +122,8 @@ data: {"id":"0192f0c4-...:17","seq":17,"type":"tool_call.completed",...}
   {"type": "image", "fileId": "0192...", "alt": "uploaded screenshot"},
   {"type": "tool_use", "toolCallId": "0192...", "qualifiedName": "jira.search_issues"},
   {"type": "citation_ref", "index": 1, "citation": { }},
-  {"type": "tool_result", "toolCallId": "0192...", "text": "<tool_result ...>...</tool_result>", "isError": false}
+  {"type": "tool_result", "toolCallId": "0192...", "text": "<tool_result ...>...</tool_result>", "isError": false},
+  {"type": "followups", "prompts": ["What should we look at next?"]}
 ]
 ```
 
