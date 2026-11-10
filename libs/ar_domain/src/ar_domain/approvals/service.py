@@ -70,6 +70,7 @@ class ApprovalBook:
         body: dict[str, object],
         *,
         stepped_up: bool,
+        channel: str = "web",
     ) -> dict[str, object]:
         row = self._require(actor, approval_id)
         if not can_decide(self.store, actor, row):
@@ -89,14 +90,16 @@ class ApprovalBook:
             raise ValidationFailedError("decision must be approve or reject")
         edited = body.get("arguments")
         if isinstance(edited, dict) and choice == "approve":
-            return self._edit(actor, row, edited, str(body.get("comment") or ""))
-        self._record_decision(actor, row, choice, str(body.get("comment") or ""), stepped_up)
+            return self._edit(actor, row, edited, str(body.get("comment") or ""), channel)
+        self._record_decision(
+            actor, row, choice, str(body.get("comment") or ""), stepped_up, channel=channel
+        )
         if choice == "reject":
-            self._terminal(row, "rejected", actor, "web")
+            self._terminal(row, "rejected", actor, channel)
         else:
             received = self._received(row)
             if received >= as_int(row.get("required_approvals"), 1):
-                self._terminal(row, "approved", actor, "web")
+                self._terminal(row, "approved", actor, channel)
         if row["status"] in {"approved", "rejected"}:
             from ar_domain.tools.resume import settle_approval  # noqa: PLC0415
 
@@ -399,12 +402,17 @@ class ApprovalBook:
         return body
 
     def _edit(
-        self, actor: Actor, row: dict[str, object], arguments: dict[str, object], comment: str
+        self,
+        actor: Actor,
+        row: dict[str, object],
+        arguments: dict[str, object],
+        comment: str,
+        channel: str,
     ) -> dict[str, object]:
         from ar_domain.tools.logic import call_args_hash  # noqa: PLC0415
 
-        self._record_decision(actor, row, "reject", comment or "edited", True)
-        self._terminal(row, "rejected", actor, "web")
+        self._record_decision(actor, row, "reject", comment or "edited", True, channel=channel)
+        self._terminal(row, "rejected", actor, channel)
         version = _version_for(self.store, str(row.get("qualified_name")))
         version_id = "" if version is None else str(version.get("id"))
         digest = call_args_hash(version_id, arguments)
@@ -454,6 +462,8 @@ class ApprovalBook:
         choice: str,
         comment: str,
         stepped_up: bool,  # noqa: FBT001
+        *,
+        channel: str = "web",
     ) -> None:
         for existing in self.store.approval_decisions.values():
             if (
@@ -471,7 +481,7 @@ class ApprovalBook:
             "args_hash": row["args_hash"],
             "comment": comment,
             "step_up_verified": stepped_up,
-            "channel": "web",
+            "channel": channel,
             "created_at": utcnow(),
         }
 

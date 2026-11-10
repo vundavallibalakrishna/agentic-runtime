@@ -73,6 +73,7 @@ def prepare_prompt(
         {
             "definition": definition,
             "user_text": text,
+            "channel": str(conversation.get("channel") or ""),
             "files": attachment_lines(attached.get(run.get("input_message_id"), [])),
             "history": prompt_history,
             "memory": block,

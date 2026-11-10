@@ -224,7 +224,7 @@ Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` 
 | Failure | Behaviour |
 |---|---|
 | Upstream MCP server down | `failed` code `upstream_error`, retried per idempotency rules (runtime); circuit breaker per server (same parameters as model gateway) → fast-fail `tool_server_unavailable` while open. |
-| OPA unreachable | **Fail closed**: `denied` with reason `policy_unavailable` (except R0 built-ins `knowledge.*`, `memory.search`, `files.list/read`, `plan.update`, which are allowed by the in-process fallback evaluator). Alert. |
+| OPA unreachable | **Fail closed**: matching deny rules win, then only the exact names `knowledge.search`, `knowledge.get_document`, `knowledge.list_collections`, `memory.search`, `files.list`, `files.read` and `plan.update` are allowed. A prefix match is `denied` with reason `policy_unavailable`. Alert. |
 | Approval row conflict (double execute) | Second execution sees `consumed_at` set → returns stored result of the first (idempotency on `tool_calls.idempotency_key`). |
 | Result > 20 MiB | Truncated; `warning tool_result_truncated`. |
 | A handler raises | The call is `failed`. A typed refusal (`ArError`) keeps its code and message so the model can correct the call. Any other exception is `internal_error` with a fixed message. The log has the exception type and the file and line, and no message text. |

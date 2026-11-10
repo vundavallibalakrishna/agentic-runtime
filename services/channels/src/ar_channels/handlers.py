@@ -1,8 +1,13 @@
 """Normalise provider payloads and record the replies a fake adapter captures."""
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import orjson
+
+if TYPE_CHECKING:
+    from typing import Any
 
 from ar_channels.email_channel import accept_email
 from ar_channels.render import approval_blocks
@@ -16,9 +21,6 @@ from ar_channels.slack import (
     signature_ok,
 )
 from ar_channels.teams import decode_bot_token, welcome_or_message
-
-if TYPE_CHECKING:
-    from typing import Any
 
 
 def _mapping(value: object) -> dict[str, object]:
@@ -143,16 +145,37 @@ def handle_slack_interaction(
     if not isinstance(actions, list) or not actions:
         return {"ok": True}
     value = action_value(str(actions[0].get("value") or ""))
+    user = payload.get("user") if isinstance(payload, dict) else None
+    external_user_id = str(user.get("id") or "") if isinstance(user, dict) else ""
     decided = app.state.bridge.approval(
         {
             "approval_id": value.get("approval_id", ""),
             "decision": value.get("decision", ""),
             "args_hash": value.get("args_hash", ""),
             "integration_id": row.get("id"),
+            "external_user_id": external_user_id,
+            "kind": "slack",
         }
     )
     _record(app, {"kind": "slack", "approval": decided})
     return {"ok": True, "result": decided.get("result")}
+
+
+def approval_from_invoke(
+    body: dict[str, Any], *, external_user_id: str, integration_id: object
+) -> dict[str, object] | None:
+    """A Teams card submit that names an approval, or None for any other invoke."""
+    value = body.get("value")
+    if not isinstance(value, dict) or not value.get("approval_id"):
+        return None
+    return {
+        "approval_id": value.get("approval_id"),
+        "decision": str(value.get("decision") or ""),
+        "args_hash": str(value.get("args_hash") or ""),
+        "external_user_id": external_user_id,
+        "integration_id": integration_id,
+        "kind": "teams",
+    }
 
 
 def slack_approval_message(approval_id: str, args_hash: str, *, step_up: bool) -> dict[str, object]:
@@ -182,6 +205,15 @@ def handle_teams(
         return {"ok": True, "action": "welcome"}
     if parsed.get("action") != "message":
         if parsed.get("action") == "invoke":
+            decision = approval_from_invoke(
+                body,
+                external_user_id=str(parsed.get("external_user_id") or ""),
+                integration_id=row.get("id"),
+            )
+            if decision is not None:
+                decided = app.state.bridge.approval(decision)
+                _record(app, {"kind": "teams", "approval": decided})
+                return {"ok": True, "result": decided.get("result")}
             _record(app, {"kind": "teams", "card": parsed.get("card")})
         return {"ok": True, "action": parsed.get("action")}
     result = app.state.bridge.inbound(

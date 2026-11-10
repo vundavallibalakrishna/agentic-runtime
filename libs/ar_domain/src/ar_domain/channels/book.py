@@ -212,6 +212,12 @@ class ChannelBook:
         if decision == "require_approval" and body.get("approved") is not True:
             return {"result": "waiting"}
         text = str(body.get("text_markdown") or body.get("text") or "")
+        from ar_domain.security.guardrails import mask_leaving  # noqa: PLC0415
+
+        tenant_id = integration.get("tenant_id")
+        text = mask_leaving(
+            self.store, tenant_id if isinstance(tenant_id, uuid.UUID) else None, text
+        )
         row = record_channel_post(
             self.store,
             tenant_id=integration.get("tenant_id"),

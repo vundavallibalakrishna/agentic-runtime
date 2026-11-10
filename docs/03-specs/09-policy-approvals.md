@@ -51,7 +51,7 @@ Policy rules are compiled into bundle data; argument predicates (`args[]`) are e
 
 ### 3.3 Fallback evaluator
 
-If OPA is unreachable: `deny` with reason `policy_unavailable` for everything except the R0 built-ins listed in [spec 08 §13](08-tool-registry-mcp.md#13-failure-modes). Metric `ar_policy_fallback_total`.
+If OPA is unreachable: matching `deny` rules win. Otherwise only the exact qualified names in `READ_ONLY_FALLBACK_TOOLS` are allowed (`knowledge.search`, `knowledge.get_document`, `knowledge.list_collections`, `memory.search`, `files.list`, `files.read`, `plan.update`). A name that only shares a prefix with one of those is `deny` with reason `policy_unavailable`, as is every other tool. Metric `ar_policy_fallback_total`.
 
 ## 4. Policy API
 

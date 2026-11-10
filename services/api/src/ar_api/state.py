@@ -14,17 +14,34 @@ from typing import cast
 class AuditApi:
     events: list[dict[str, object]] = field(default_factory=list)
 
-    async def list_events(self) -> list[dict[str, object]]:
-        return list(self.events)
+    async def list_events(self, *, tenant_id: uuid.UUID | None = None) -> list[dict[str, object]]:
+        """Chained rows only. An unhashed in-memory append is not part of the log."""
+        from ar_domain.audit.read import chained_only  # noqa: PLC0415
 
-    async def get(self, event_id: int) -> dict[str, object] | None:
-        for item in self.events:
+        rows = chained_only(self.events)
+        if tenant_id is None:
+            return rows
+        return [row for row in rows if str(row.get("tenant_id")) == str(tenant_id)]
+
+    async def get(
+        self, event_id: int, *, tenant_id: uuid.UUID | None = None
+    ) -> dict[str, object] | None:
+        for item in await self.list_events(tenant_id=tenant_id):
             if item.get("id") == event_id:
                 return item
         return None
 
-    async def verify(self) -> dict[str, object]:
-        return {"ok": True, "checked": len(self.events), "broken_id": None}
+    async def verify(
+        self,
+        *,
+        tenant_id: uuid.UUID | None = None,
+        from_seq: int | None = None,
+        to_seq: int | None = None,
+    ) -> dict[str, object]:
+        from ar_domain.audit.read import verify_public_chain  # noqa: PLC0415
+
+        rows = await self.list_events(tenant_id=tenant_id)
+        return verify_public_chain(rows, from_seq=from_seq, to_seq=to_seq)
 
 
 @dataclass

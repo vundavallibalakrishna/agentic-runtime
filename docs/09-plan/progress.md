@@ -378,5 +378,6 @@ Shas from `git log` on `main` (`2424f3a`):
 
 Stage 0 | done | 2424f3a | agnostic-core decisions and the production plan
 Stage 7 | done | 5617a4a | honest proof labels, capability matrix, signup removed, progress and status docs
+Stage 4 | done | this change | Slack and Teams approvals resolve the linked person and call `ApprovalBook.decide` (separation of duties, args hash, audit). The audit API and `scripts/verify_audit_chain.py` serve and check only the hash chain; unchained process-log rows are not merged. Prior turns, tool output in history, and channel turns enter the prompt as untrusted data. The OPA fallback allow-list is the exact set `READ_ONLY_FALLBACK_TOOLS`, and a matching deny rule wins. Delivery that leaves the tenant masks at least the default personal-data kinds and cannot raise the score bar. Proof label: unit. Deferred to Stage 8: every in-memory state change calling `audit.service.record` inside the same database transaction (OQ-123). The current web composer message stays the instruction for the turn (OQ-123).
 
 The capability matrix is [capability-matrix.md](capability-matrix.md). It is generated from code. CI fails when the file drifts.

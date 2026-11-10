@@ -956,6 +956,11 @@
             "title": "Externaluserid",
             "default": ""
           },
+          "externalUserEmail": {
+            "type": "string",
+            "title": "Externaluseremail",
+            "default": ""
+          },
           "integrationId": {
             "anyOf": [
               {
@@ -967,6 +972,11 @@
               }
             ],
             "title": "Integrationid"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "default": ""
           }
         },
         "additionalProperties": false,

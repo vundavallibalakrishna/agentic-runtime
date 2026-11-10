@@ -279,6 +279,7 @@ def test_slack_cycle_link_prompt_and_approval() -> None:
         {
             "type": "block_actions",
             "team": {"id": "T1"},
+            "user": {"id": "U-ADMIN"},
             "actions": [{"action_id": "approve", "value": f"{uuid.uuid4()}|abc|approve"}],
         }
     )
@@ -289,6 +290,9 @@ def test_slack_cycle_link_prompt_and_approval() -> None:
         headers=_sign("demo-signing-secret", form),
     )
     assert decision.json()["result"] == "approved"
+    forwarded = client.app.state.bridge.approvals[-1]
+    assert forwarded["external_user_id"] == "U-ADMIN"
+    assert forwarded["kind"] == "slack"
 
 
 def test_teams_jwt_and_email_round_trip() -> None:
@@ -326,6 +330,22 @@ def test_teams_jwt_and_email_round_trip() -> None:
     )
     assert ok.status_code == 200
     assert ok.json()["run_id"] == "r"
+    invoked = client.post(
+        "/channels/teams/messages",
+        json={
+            "type": "invoke",
+            "from": {"id": "user-1"},
+            "conversation": {"id": "conv-1"},
+            "value": {"approval_id": "a1", "decision": "approve", "args_hash": "abc"},
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert invoked.status_code == 200
+    assert invoked.json()["result"] == "approved"
+    teams_click = app.state.bridge.approvals[-1]
+    assert teams_click["kind"] == "teams"
+    assert teams_click["external_user_id"] == "user-1"
+    assert teams_click["approval_id"] == "a1"
     denied = client.post(
         "/channels/teams/messages", json=activity, headers={"Authorization": "Bearer nope"}
     )

@@ -71,28 +71,133 @@ def handle_inbound(
 
 
 def decide_approval(store: Any, body: dict[str, object]) -> dict[str, object]:
-    """Record a Slack or Teams approval button."""
+    """Decide a Slack or Teams approval on the same path as the web inbox.
+
+    The button names an external user. That user is mapped to a person in the
+    tenant, and ``ApprovalBook.decide`` applies eligibility, separation of duties,
+    the args hash and the audit row. A click that is not linked to a person is
+    refused.
+    """
     approval_id = _uuid(body.get("approval_id"))
     approvals = getattr(store, "approvals", {})
     row = approvals.get(approval_id) if isinstance(approvals, dict) and approval_id else None
-    if not isinstance(row, dict):
+    if not isinstance(row, dict) or approval_id is None:
         raise NotFoundError()
     decision = str(body.get("decision") or "")
     if decision not in {"approve", "reject"}:
         return {"result": "ignored"}
-    given = str(body.get("args_hash") or "")
-    stored_hash = str(row.get("args_hash") or "")
-    if given and stored_hash and given != stored_hash:
-        stored = str(row.get("args_hash") or "")
-        if stored and stored != str(body.get("args_hash")):
-            return {"result": "args_mismatch"}
-    row["status"] = "approved" if decision == "approve" else "rejected"
-    row["decided_at"] = utcnow()
-    if decision == "approve" and approval_id is not None:
+    actor = _approval_actor(store, body, row)
+    if actor is None:
+        return {"result": "unlinked", "approval_id": str(approval_id)}
+    from ar_common.errors import ConflictError, ForbiddenError, ValidationFailedError  # noqa: PLC0415
+    from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
+
+    channel = str(body.get("kind") or body.get("channel") or "slack")
+    try:
+        detail = ApprovalBook(store).decide(
+            actor,
+            approval_id,
+            {
+                "decision": decision,
+                "args_hash": str(body.get("args_hash") or ""),
+                "comment": str(body.get("comment") or ""),
+            },
+            stepped_up=bool(body.get("stepped_up")),
+            channel=channel,
+        )
+    except (ConflictError, ForbiddenError, ValidationFailedError) as exc:
+        return _approval_error(exc, approval_id)
+    status = str(detail.get("status") or "")
+    if status == "approved":
         from ar_domain.routines.engine import release_delivery  # noqa: PLC0415
 
         release_delivery(store, approval_id)
-    return {"result": row["status"], "approval_id": str(approval_id)}
+    return {"result": status, "approval_id": str(approval_id)}
+
+
+def _approval_error(exc: Exception, approval_id: uuid.UUID) -> dict[str, object]:
+    """Map a decide failure onto the channel result the button handler returns."""
+    from ar_common.errors import ConflictError, ForbiddenError, ValidationFailedError  # noqa: PLC0415
+    from ar_domain.approvals.errors import StepUpRequiredError  # noqa: PLC0415
+
+    ref = str(approval_id)
+    if isinstance(exc, ConflictError):
+        if "args" in exc.detail:
+            return {"result": "args_mismatch", "approval_id": ref}
+        return {"result": "conflict", "approval_id": ref, "detail": exc.detail}
+    if isinstance(exc, StepUpRequiredError):
+        return {"result": "step_up_required", "approval_id": ref}
+    if isinstance(exc, ForbiddenError):
+        return {"result": "forbidden", "approval_id": ref}
+    if isinstance(exc, ValidationFailedError) and exc.detail == "sod_violation":
+        return {"result": "sod_violation", "approval_id": ref}
+    detail = exc.detail if isinstance(exc, ValidationFailedError) else ""
+    return {"result": "invalid", "approval_id": ref, "detail": detail}
+
+
+def _approval_actor(store: Any, body: dict[str, object], row: dict[str, object]) -> Any:
+    """The person who pressed the button, or None when they are not linked."""
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.identity.permissions import SYSTEM_ROLE_PERMISSIONS  # noqa: PLC0415
+
+    user_id = _linked_user(store, body, row)
+    tenant_id = _uuid(row.get("tenant_id"))
+    if user_id is None or tenant_id is None:
+        return None
+    roles = _roles_for(store, user_id)
+    permissions: set[str] = set()
+    for role in roles:
+        permissions.update(SYSTEM_ROLE_PERMISSIONS.get(role, ()))
+    names = getattr(store, "display_names", {})
+    display = "User"
+    if isinstance(names, dict):
+        display = str(names.get(user_id) or names.get(str(user_id)) or "User")
+    return Actor(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        permissions=frozenset(permissions),
+        roles=frozenset(roles),
+        display_name=display,
+        auth_method="bearer",
+    )
+
+
+def _linked_user(store: Any, body: dict[str, object], row: dict[str, object]) -> uuid.UUID | None:
+    """Map the channel user onto a person in the approval's tenant."""
+    tenant_id = row.get("tenant_id")
+    integration_id = _uuid(body.get("integration_id"))
+    external = str(body.get("external_user_id") or "")
+    if integration_id is not None and external:
+        for identity in ChannelBook(store)._identities().values():
+            if identity.get("integration_id") != integration_id:
+                continue
+            if identity.get("external_user_id") != external:
+                continue
+            if identity.get("tenant_id") != tenant_id:
+                continue
+            return _uuid(identity.get("user_id"))
+    email = str(body.get("external_user_email") or "").lower()
+    if not email:
+        return None
+    user_id = _user_for_email(store, email)
+    if user_id is None:
+        return None
+    emails = getattr(store, "user_tenants", {})
+    if isinstance(emails, dict) and emails.get(user_id) not in {None, tenant_id}:
+        return None
+    return user_id
+
+
+def _roles_for(store: Any, user_id: uuid.UUID) -> set[str]:
+    raw = getattr(store, "user_roles", {})
+    if not isinstance(raw, dict):
+        return set()
+    held = raw.get(user_id)
+    if held is None:
+        held = raw.get(str(user_id))
+    if isinstance(held, (set, frozenset, list, tuple)):
+        return {str(item) for item in held}
+    return set()
 
 
 def _integration(store: Any, raw: object) -> dict[str, object]:

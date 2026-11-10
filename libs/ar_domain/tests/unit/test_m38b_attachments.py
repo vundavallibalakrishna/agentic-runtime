@@ -101,7 +101,12 @@ def test_a_later_turn_still_has_the_file() -> None:
     _finish(store, first)
     second = _send(store, conversation_id, "Now only the north", [])
     messages = _prompt(store, second, "Now only the north")
-    earlier = next(item for item in messages if item["content"].startswith("Total this"))
+    earlier = next(
+        item
+        for item in messages
+        if "Total this by region" in item["content"] and item["role"] == "user"
+    )
+    assert "untrusted_content" in earlier["content"]
     assert f"id={file_id} path=inputs/orders.csv" in earlier["content"]
     assert messages[-1]["content"] == "Now only the north"
     read = dispatch_general(
