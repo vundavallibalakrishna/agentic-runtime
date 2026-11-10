@@ -39,11 +39,44 @@ for repo in ar-api ar-runtime ar-mcp-gateway ar-sandbox-manager ar-model-gateway
   kind load docker-image "${repo}:dev" --name "$name"
 done
 
+# The migrate Job is a pre-install hook, so it would run before Postgres exists.
+# Install the workloads first, migrate once Postgres answers, then bootstrap.
 helm upgrade --install agentic-runtime deploy/helm/agentic-runtime \
   --namespace "$namespace" --create-namespace \
   -f deploy/helm/agentic-runtime/values-dev.yaml \
   -f deploy/helm/agentic-runtime/values-stage9-contract.yaml \
-  --timeout 20m
+  --timeout 15m --no-hooks --wait=false
+
+echo "waiting for Postgres and Valkey"
+kubectl -n "$namespace" rollout status statefulset/agentic-runtime-postgres --timeout=10m
+kubectl -n "$namespace" rollout status statefulset/agentic-runtime-valkey --timeout=5m
+
+echo "migrating and bootstrapping"
+helm template agentic-runtime deploy/helm/agentic-runtime \
+  --namespace "$namespace" \
+  -f deploy/helm/agentic-runtime/values-dev.yaml \
+  -f deploy/helm/agentic-runtime/values-stage9-contract.yaml \
+  -s templates/jobs.yaml > /tmp/stage9-jobs.yaml
+python3 - << 'PY'
+from pathlib import Path
+text = Path("/tmp/stage9-jobs.yaml").read_text(encoding="utf-8")
+docs = [item for item in text.split("---\n") if item.strip()]
+for doc in docs:
+    if "name: agentic-runtime-migrate" in doc:
+        Path("/tmp/stage9-migrate.yaml").write_text("---\n" + doc, encoding="utf-8")
+    if "name: agentic-runtime-bootstrap" in doc:
+        Path("/tmp/stage9-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
+PY
+kubectl apply -n "$namespace" -f /tmp/stage9-migrate.yaml
+if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
+  kubectl -n "$namespace" logs job/agentic-runtime-migrate --tail=200 || true
+  exit 1
+fi
+kubectl apply -n "$namespace" -f /tmp/stage9-bootstrap.yaml
+if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
+  kubectl -n "$namespace" logs job/agentic-runtime-bootstrap --tail=200 || true
+  exit 1
+fi
 
 echo "waiting for api and worker deployments"
 kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=15m
