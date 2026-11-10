@@ -26,7 +26,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: "pnpm dev",
+      command: process.env.AR_E2E_PROD === "1" ? "pnpm start" : "pnpm dev",
       ...(process.env.AR_E2E_WEB_CWD ? { cwd: process.env.AR_E2E_WEB_CWD } : {}),
       url: `http://localhost:${webPort}/healthz`,
       reuseExistingServer: true,
