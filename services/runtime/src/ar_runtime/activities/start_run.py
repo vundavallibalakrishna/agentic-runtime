@@ -8,8 +8,9 @@ from typing import Any  # noqa: TC003
 from temporalio import activity
 
 from ar_common.errors import QuotaExceededError
+from ar_domain.readmodel.activity import repository_activity
 from ar_domain.usage.service import UsageBook
-from ar_runtime.activities.expire_approval import current_store
+from ar_runtime.activities.expire_approval import current_store, process_store
 
 
 def assert_start(store: Any, run_id: uuid.UUID) -> None:
@@ -26,6 +27,7 @@ def assert_start(store: Any, run_id: uuid.UUID) -> None:
 
 
 @activity.defn(name="start_run")
+@repository_activity(process_store)
 async def start_run(payload: dict[str, Any]) -> dict[str, str]:
     """Activity form of :func:`assert_start` for the runtime worker."""
     store = current_store()

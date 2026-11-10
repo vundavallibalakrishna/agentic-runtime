@@ -125,7 +125,7 @@ def _denied(message: str) -> dict[str, object]:
 def _audit(
     store: Any, request: dict[str, object], result: dict[str, object], *, timeout_s: int | None
 ) -> None:
-    """One gateway audit row per call. The hash chain is Stage 8; this is the process log."""
+    """One gateway audit row per call, chained with the security audit log."""
     status = str(result.get("status") or "failed")
     error = result.get("error")
     code = error.get("code") if isinstance(error, dict) else ""
@@ -147,3 +147,6 @@ def _audit(
         },
         outcome="failure" if status not in {"succeeded", "awaiting_approval"} else "success",
     )
+    from ar_domain.readmodel.audit import seal_latest  # noqa: PLC0415
+
+    seal_latest(store)

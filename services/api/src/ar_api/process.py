@@ -13,6 +13,7 @@ from ar_api.auth.lockout import MemoryLoginLockout, ValkeyLoginLockout
 from ar_api.auth.oidc import MemoryOidcState, ValkeyOidcState
 from ar_api.auth.session import MemorySessionStore, ValkeySessionStore
 from ar_api.middleware.idempotency import MemoryIdempotencyStore
+from ar_api.sse_gate import ValkeySseGate
 from ar_common.settings import BaseServiceSettings, uses_shared_process_state
 from ar_domain.events.idempotency_pg import PostgresIdempotencyStore
 from ar_domain.runs.event_bus import ValkeyRunBus
@@ -31,6 +32,8 @@ def install_process_state(app: FastAPI, settings: BaseServiceSettings, key: byte
             settings.valkey_url, max_attempts=attempts, lockout_s=lock_s
         )
         app.state.oidc_states = ValkeyOidcState(settings.valkey_url)
+        app.state.sse_gate = ValkeySseGate(settings.valkey_url)
+        app.state.chat.sse_gate = app.state.sse_gate
     else:
         app.state.sessions = MemorySessionStore(key)
         app.state.widget_sessions = MemorySessionStore(key)

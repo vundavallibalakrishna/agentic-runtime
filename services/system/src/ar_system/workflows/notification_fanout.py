@@ -8,7 +8,8 @@ from temporalio import activity, workflow
 
 with workflow.unsafe.imports_passed_through():
     from ar_domain.channels.book import ChannelBook
-    from ar_system.routines_store import current_store
+    from ar_domain.readmodel.activity import repository_activity
+    from ar_system.routines_store import current_store, process_store
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +68,7 @@ async def resolve_activity(payload: dict[str, Any]) -> list[dict[str, str]]:
 
 
 @activity.defn(name="deliver_channel_notifications")
+@repository_activity(process_store)
 async def deliver_activity(payload: dict[str, Any]) -> dict[str, Any]:
     """Slack or Teams DM, then email when no identity is linked."""
     try:

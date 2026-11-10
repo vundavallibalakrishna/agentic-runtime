@@ -4,6 +4,8 @@ import uuid
 
 from temporalio import activity
 
+from ar_domain.readmodel.activity import repository_activity
+
 _STORE: object | None = None
 
 
@@ -13,15 +15,26 @@ def bind_store(store: object) -> None:
     _STORE = store
 
 
+def process_store() -> object | None:
+    """The object boot bound. Ignores a request-scoped unit."""
+    return _STORE
+
+
 def current_store() -> object | None:
-    """The store bound for this process, or None."""
+    """The unit for this activity, or the process store."""
+    from ar_domain.readmodel.activity import active_unit  # noqa: PLC0415
+
+    unit = active_unit()
+    if unit is not None:
+        return unit
     return _STORE
 
 
 @activity.defn(name="expire_approval")
+@repository_activity(process_store)
 async def expire_approval(approval_id: str) -> dict[str, str]:
     """Expire a pending approval. Repeating the call leaves a terminal row alone."""
-    store = _STORE
+    store = current_store()
     if store is not None and approval_id:
         from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
 
@@ -30,9 +43,10 @@ async def expire_approval(approval_id: str) -> dict[str, str]:
 
 
 @activity.defn(name="cancel_approval")
+@repository_activity(process_store)
 async def cancel_approval(approval_id: str) -> dict[str, str]:
     """Cancel a pending approval. Repeating the call leaves a terminal row alone."""
-    store = _STORE
+    store = current_store()
     if store is not None and approval_id:
         from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
 

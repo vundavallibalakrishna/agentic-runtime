@@ -72,5 +72,7 @@ async def patch_tenant(
     body: TenantPatch, identity: TenantWriterDep, request: Request
 ) -> dict[str, object]:
     tenant = await identity.update_tenant(name=body.name, settings_patch=body.settings)
-    request.app.state.chat.tenant_settings[tenant.id] = tenant.settings
+    from ar_api.actors import chat_of  # noqa: PLC0415
+
+    chat_of(request).tenant_settings[tenant.id] = tenant.settings
     return {"id": str(tenant.id), "name": tenant.name, "settings": tenant.settings}

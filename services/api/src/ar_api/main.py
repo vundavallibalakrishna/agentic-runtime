@@ -3,6 +3,7 @@
 import os
 import uuid
 from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING
 
 import orjson
 from fastapi import FastAPI
@@ -12,6 +13,7 @@ from ar_api.auth.routes import router as auth_router
 from ar_api.auth.session import session_key_bytes
 from ar_api.middleware.durable import DurableMiddleware
 from ar_api.middleware.idempotency import IdempotencyMiddleware
+from ar_api.middleware.read_model import ReadModelMiddleware
 from ar_api.middleware.security_headers import SecurityHeadersMiddleware
 from ar_api.middleware.stack import AuthenticateMiddleware, CsrfMiddleware, RateLimitMiddleware
 from ar_api.ratelimit import MemoryTokenBucket, ValkeyTokenBucket
@@ -87,9 +89,14 @@ from ar_common.settings import (
 )
 from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
-from ar_domain.chat.service import ChatService
+from ar_domain.chat.service import ChatBehaviour
 from ar_domain.db.context import Principal
 from ar_domain.files.logic import UPLOAD_BODY_LIMIT
+from ar_domain.readmodel.boot import build_product_store
+from ar_domain.readmodel.model import RepositoryReadModel
+
+if TYPE_CHECKING:
+    from typing import Any
 
 LISTEN_PORT = 8000
 
@@ -160,7 +167,10 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
         if kind == "guest":
             from ar_domain.identity.guests import GuestBook  # noqa: PLC0415
 
-            guest = GuestBook(app.state.chat).principal_for(value)
+            guest_store = app.state.chat
+            if isinstance(guest_store, RepositoryReadModel):
+                return None
+            guest = GuestBook(guest_store).principal_for(value)
             tenant_id = guest.get("tenant_id") if isinstance(guest, dict) else None
             if not isinstance(guest, dict) or not isinstance(tenant_id, uuid.UUID):
                 return None
@@ -187,10 +197,11 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
         roles = frozenset(data.roles)
         from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
 
-        permissions = permissions | permissions_for(app.state.chat, data.tenant_id, roles)
+        product = await _product_view(app, data.tenant_id)
+        permissions = permissions | permissions_for(product, data.tenant_id, roles)
         from ar_domain.identity.tenant_settings import permissions_for_features  # noqa: PLC0415
 
-        permissions = permissions_for_features(app.state.chat, data.tenant_id, permissions)
+        permissions = permissions_for_features(product, data.tenant_id, permissions)
         return Principal(
             kind="user",
             id=str(data.user_id),
@@ -208,7 +219,20 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
     return load
 
 
-def _configure_chat(chat: ChatService, settings: Settings) -> None:
+async def _product_view(app: FastAPI, tenant_id: uuid.UUID) -> ChatBehaviour:
+    """The store a session is read from. Production loads that tenant and drops it."""
+    chat = app.state.chat
+    if isinstance(chat, RepositoryReadModel):
+        async with chat.open(tenant_id) as unit:
+            if isinstance(unit, ChatBehaviour):
+                return unit
+            raise RuntimeError("read model did not open a unit")
+    if isinstance(chat, ChatBehaviour):
+        return chat
+    raise RuntimeError("api has no product store")
+
+
+def _configure_chat(chat: Any, settings: Settings) -> None:
     """Pack trust follows the environment. Dev and CI accept unsigned packs and fake models."""
     chat.fake_models_allowed = fake_models_allowed(settings.env)
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
@@ -227,7 +251,7 @@ def _configure_chat(chat: ChatService, settings: Settings) -> None:
         chat.pack_trusted_keys = {str(key): str(value) for key, value in loaded.items()}
 
 
-def _configure_sandbox(chat: ChatService, settings: Settings) -> None:
+def _configure_sandbox(chat: Any, settings: Settings) -> None:
     """Register the docker launcher so a tool call starts a container in this process.
 
     Opt-in: ``AR_SANDBOX_IMAGE`` names the local ``ar-sandbox`` image. The in-process docker
@@ -244,7 +268,7 @@ def _configure_sandbox(chat: ChatService, settings: Settings) -> None:
     chat.sandbox_launcher = DockerSandboxLauncher(image, network=network)
 
 
-def _configure_policy(chat: ChatService, settings: Settings) -> None:
+def _configure_policy(chat: Any, settings: Settings) -> None:
     """An empty OPA URL keeps decisions in process (OQ-36).
 
     Pytest loads ``.env``. A developer ``AR_OPA_URL`` in that file points unit
@@ -270,6 +294,7 @@ def create_application() -> FastAPI:
     inner: list[tuple[type, dict[str, object]]] = [
         (DurableMiddleware, {}),
         (AuthenticateMiddleware, {}),
+        (ReadModelMiddleware, {}),
         (CsrfMiddleware, {}),
         (RateLimitMiddleware, {}),
         (IdempotencyMiddleware, {}),
@@ -360,7 +385,8 @@ def create_application() -> FastAPI:
     from ar_api.auth.credentials import credential_loader  # noqa: PLC0415
 
     app.state.credential_loader = credential_loader(_session_loader(app), app)
-    app.state.chat = ChatService(
+    app.state.chat = build_product_store(
+        settings,
         allow_loopback=loopback_allowed(settings),
         scanner=files_scanner_name(settings),
         # Read when the store seeds itself, so it is passed here and not set afterwards.

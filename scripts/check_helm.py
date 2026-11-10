@@ -118,6 +118,7 @@ def main() -> None:
     assert_fails(["--set", "global.env=prod", "--set", "sandboxes.driver=host"], "must be one of")
     assert_fails(["--set", "process.shared=false"], "stay at 1")
     assert_stage6(default)
+    assert_stage8(default)
     sys.stdout.write("helm render checks ok\n")
 
 
@@ -154,6 +155,32 @@ def assert_stage6(rendered: str) -> None:
     text = rendered
     if "ar.io/purpose: sandboxes" not in text:
         raise SystemExit("sandbox namespace purpose label missing")
+
+
+def assert_stage8(rendered: str) -> None:
+    """Two API replicas, production env, and no memory-only durable flag."""
+    if 'AR_DURABLE_STATE: "memory"' in rendered or "AR_DURABLE_STATE: memory" in rendered:
+        raise SystemExit("chart must not pin the read model to process memory")
+    if 'AR_ENV: "prod"' not in rendered and "AR_ENV: prod" not in rendered:
+        raise SystemExit("default chart must set AR_ENV to prod")
+    for short, minimum in (("api", 2), ("runtime-worker", 2)):
+        found = _replicas(rendered, short)
+        if found < minimum:
+            raise SystemExit(f"{short} replicas are {found}; a second replica must be able to read")
+
+
+def _replicas(rendered: str, short: str) -> int:
+    for doc in docs(rendered):
+        if doc.get("kind") != "Deployment":
+            continue
+        meta = doc.get("metadata")
+        name = str(meta.get("name") or "") if isinstance(meta, dict) else ""
+        if name != f"agentic-runtime-{short}":
+            continue
+        spec = doc.get("spec")
+        if isinstance(spec, dict) and isinstance(spec.get("replicas"), int):
+            return int(spec["replicas"])
+    return 0
 
 
 if __name__ == "__main__":

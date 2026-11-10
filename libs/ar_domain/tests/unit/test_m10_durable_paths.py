@@ -119,6 +119,13 @@ class _Session:
             raise RuntimeError("row rejected")
         return _Rows(_rows_for(str(statement)))
 
+    def add(self, _row: object) -> None:
+        """The audit chain writer adds a row. This double keeps it."""
+        return
+
+    async def flush(self) -> None:
+        return None
+
     async def scalar(self, *_args: object, **_kwargs: object) -> uuid.UUID:
         return _TENANT
 
@@ -999,12 +1006,17 @@ async def test_deletion_retry_keeps_tombstone_and_commits_tenant_filter(
         await flush_store(store)
     assert key in store.channel_integrations.dirty
     assert key in store.channel_integrations.deleted
-    session.execute = AsyncMock()
+    seen: list[tuple[object, object]] = []
+
+    async def _execute(statement: object, params: object = None) -> _Rows:
+        seen.append((statement, params))
+        return _Rows([])
+
+    session.execute = _execute  # type: ignore[method-assign]
     await flush_store(store)
     assert key not in store.channel_integrations.dirty
     assert key not in store.channel_integrations.deleted
-    sql, params = session.execute.call_args.args
-    assert "DELETE FROM channel_integrations" in str(sql)
+    sql, params = next(item for item in seen if "DELETE FROM channel_integrations" in str(item[0]))
     assert "tenant_id = :tenant_id" in str(sql)
     assert params == {"id": key, "tenant_id": _TENANT}
 

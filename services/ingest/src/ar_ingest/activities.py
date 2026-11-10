@@ -10,6 +10,7 @@ from temporalio.exceptions import ApplicationError
 from ar_domain.knowledge.pipeline import embedding_error, ingest_document_async, needs_admin
 from ar_domain.knowledge.syncing import acl_sync, delete_document, reindex, sync_source
 from ar_domain.models.embedding import EmbeddingFailedError, EmbeddingUnconfiguredError
+from ar_domain.readmodel.activity import repository_activity
 
 _STORE: Any = None
 _NON_RETRYABLE = frozenset({"unsupported_format", "too_large", "access_denied"})
@@ -20,13 +21,23 @@ def bind_store(store: Any) -> None:
     _STORE = store
 
 
-def _store() -> Any:
+def process_store() -> Any:
     if _STORE is None:
         raise ApplicationError("ingest store is not bound", non_retryable=True)
     return _STORE
 
 
+def _store() -> Any:
+    from ar_domain.readmodel.activity import active_unit  # noqa: PLC0415
+
+    unit = active_unit()
+    if unit is not None:
+        return unit
+    return process_store()
+
+
 @activity.defn(name="ingest_document")
+@repository_activity(process_store)
 async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     document_id = uuid.UUID(str(payload["document_id"]))
@@ -57,6 +68,7 @@ async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="sync_source")
+@repository_activity(process_store)
 async def sync_source_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     source = store.knowledge_sources[uuid.UUID(str(payload["source_id"]))]
@@ -70,6 +82,7 @@ async def sync_source_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="acl_sync")
+@repository_activity(process_store)
 async def acl_sync_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     source = store.knowledge_sources[uuid.UUID(str(payload["source_id"]))]
@@ -78,6 +91,7 @@ async def acl_sync_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="delete_document")
+@repository_activity(process_store)
 async def delete_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     document = store.knowledge_documents[uuid.UUID(str(payload["document_id"]))]
@@ -86,6 +100,7 @@ async def delete_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="reindex_collection")
+@repository_activity(process_store)
 async def reindex_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     collection = store.knowledge_collections[uuid.UUID(str(payload["collection_id"]))]
@@ -98,6 +113,7 @@ async def reindex_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="migrate_store")
+@repository_activity(process_store)
 async def migrate_activity(payload: dict[str, Any]) -> dict[str, Any]:
     """Copy mode records the target and keeps serving the source until parity."""
     store = _store()
@@ -145,6 +161,7 @@ async def migrate_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="audit_store")
+@repository_activity(process_store)
 async def audit_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = _store()
     collection_id = str(payload.get("collection_id") or "")

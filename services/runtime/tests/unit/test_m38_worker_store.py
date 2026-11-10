@@ -49,6 +49,15 @@ async def test_a_worker_with_a_database_holds_no_demo_tenant(
     await worker._prepare_store()
 
     store = built[0]
+    if env is EnvName.PROD:
+        from ar_domain.chat.service import ChatService
+        from ar_domain.readmodel.model import RepositoryReadModel
+
+        assert isinstance(store, RepositoryReadModel)
+        assert not isinstance(store, ChatService)
+        assert store.holds_tenant_state() is False
+        assert store.allow_loopback is False
+        return
     assert store.fake_models_allowed is (env is EnvName.DEV)
     # A tool call runs in this process. Whether it may reach a loopback address is the
     # install's setting, off unless set, whatever the environment is called.
@@ -96,4 +105,12 @@ async def test_loopback_follows_the_installs_setting_not_the_environments_name(
 
     await worker._prepare_store()
 
-    assert built[0].allow_loopback is True
+    store = built[0]
+    if env is EnvName.PROD:
+        from ar_domain.readmodel.model import RepositoryReadModel
+
+        assert isinstance(store, RepositoryReadModel)
+        assert store.allow_loopback is True
+        assert store.holds_tenant_state() is False
+        return
+    assert store.allow_loopback is True

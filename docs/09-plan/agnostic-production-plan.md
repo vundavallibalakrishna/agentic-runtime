@@ -1,5 +1,7 @@
 # Agnostic production plan
 
+Status: complete. Stage 8 is the exit. The single Alembic head is revision `0038`.
+
 Stage 0 records the decisions. Later stages change the product. Core stays domain-agnostic: no industry in code, schemas, seeds, tools, prompts, tests, UI, or product docs. Industry solutions ship only as optional signed packs. The security audit log and four-eyes approvals stay in core.
 
 Decisions: [ADR-0028](../02-architecture/adr/ADR-0028-agnostic-core.md) through [ADR-0034](../02-architecture/adr/ADR-0034-signed-pack-model.md).
@@ -215,7 +217,7 @@ Closes F11, F22, F29, F30.
 
 ### Stage 8: One read model (L)
 
-Last, after Stages 1 through 7.
+Status: done. Last, after Stages 1 through 7.
 
 - Repositories per request.
 - `ChatService` leaves the production path.

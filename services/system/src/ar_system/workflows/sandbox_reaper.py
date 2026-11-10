@@ -28,9 +28,19 @@ async def reap_sandboxes() -> dict[str, int]:
     """Idle suspend, max-lifetime destroy, and a no-op when nothing is due."""
     if _STORE is None:
         return {"suspended": 0, "terminated": 0}
+    from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
     from ar_domain.sandboxes.runtime import reap  # noqa: PLC0415
 
-    return reap(_STORE)
+    if not isinstance(_STORE, RepositoryReadModel):
+        return reap(_STORE)
+    suspended = 0
+    terminated = 0
+    for tenant_id in await _STORE.tenant_ids():
+        async with _STORE.open(tenant_id) as unit:
+            part = reap(unit)
+        suspended += int(part.get("suspended", 0))
+        terminated += int(part.get("terminated", 0))
+    return {"suspended": suspended, "terminated": terminated}
 
 
 @workflow.defn

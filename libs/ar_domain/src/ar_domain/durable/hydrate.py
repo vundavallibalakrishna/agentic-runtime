@@ -103,58 +103,75 @@ def _load(store: object, bucket: dict[object, object], key: object, value: objec
         store.reloading = was_reloading  # type: ignore[attr-defined]
 
 
-async def hydrate_tenant(store: object, engine: AsyncEngine, tenant_id: uuid.UUID) -> None:
-    """Merge one tenant's durable rows into the cache. Memory-only fields stay."""
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        await _settings(session, store, tenant_id)
-        await _people(session, store, tenant_id)
-        await _agents(session, store, tenant_id)
-        await _versions(session, store, tenant_id)
-        await _skills(session, store, tenant_id)
-        await _skill_versions(session, store, tenant_id)
-        await _collections(session, store, tenant_id)
-        await _sources(session, store, tenant_id)
-        await _documents(session, store, tenant_id)
-        await _chunks(session, store, tenant_id)
-        await _facts(session, store, tenant_id)
-        await _tools(session, store, tenant_id)
-        from ar_domain.durable.m23 import (  # noqa: PLC0415
-            load_data_connections,
-            load_model_catalog,
-            load_service_connections,
-        )
+async def hydrate_tenant(
+    store: object,
+    engine: AsyncEngine,
+    tenant_id: uuid.UUID,
+    *,
+    session: AsyncSession | None = None,
+) -> None:
+    """Merge one tenant's durable rows. Memory-only fields stay.
 
-        await load_service_connections(session, store, tenant_id)
-        await load_data_connections(session, store, tenant_id)
-        from ar_domain.durable.m26 import load_connector_rows  # noqa: PLC0415
+    A request passes its own session so the read runs with ``app.tenant_id`` set.
+    """
+    if session is not None:
+        await _hydrate_all(session, store, tenant_id)
+        return
+    async with AsyncSession(engine, expire_on_commit=False) as opened:
+        await _hydrate_all(opened, store, tenant_id)
 
-        await load_connector_rows(session, store, tenant_id)
-        await load_model_catalog(session, store, tenant_id)
-        from ar_domain.durable.m24 import load_library  # noqa: PLC0415
 
-        await load_library(session, store, tenant_id)
-        await _routines(session, store, tenant_id)
-        await _conversations(session, store, tenant_id)
-        await _runs(session, store, tenant_id)
-        await _messages(session, store, tenant_id)
-        from ar_domain.durable.m28 import load_runtime_rows  # noqa: PLC0415
+async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    """Load every bucket for one tenant on ``session``."""
+    await _settings(session, store, tenant_id)
+    await _people(session, store, tenant_id)
+    await _agents(session, store, tenant_id)
+    await _versions(session, store, tenant_id)
+    await _skills(session, store, tenant_id)
+    await _skill_versions(session, store, tenant_id)
+    await _collections(session, store, tenant_id)
+    await _sources(session, store, tenant_id)
+    await _documents(session, store, tenant_id)
+    await _chunks(session, store, tenant_id)
+    await _facts(session, store, tenant_id)
+    await _tools(session, store, tenant_id)
+    from ar_domain.durable.m23 import (  # noqa: PLC0415
+        load_data_connections,
+        load_model_catalog,
+        load_service_connections,
+    )
 
-        await load_runtime_rows(session, store, tenant_id)
-        from ar_domain.durable.m29 import load_exposure  # noqa: PLC0415
+    await load_service_connections(session, store, tenant_id)
+    await load_data_connections(session, store, tenant_id)
+    from ar_domain.durable.m26 import load_connector_rows  # noqa: PLC0415
 
-        await load_exposure(session, store, tenant_id)
-        from ar_domain.durable.m35 import load_durability  # noqa: PLC0415
+    await load_connector_rows(session, store, tenant_id)
+    await load_model_catalog(session, store, tenant_id)
+    from ar_domain.durable.m24 import load_library  # noqa: PLC0415
 
-        await load_durability(session, store, tenant_id)
-        await _events(session, store, tenant_id)
-        await _channel_integrations(session, store, tenant_id)
-        await _channel_identities(session, store, tenant_id)
-        await _channel_threads(session, store, tenant_id)
-        await _channel_posts(session, store, tenant_id)
-        await _usage_events(session, store, tenant_id)
-        from ar_domain.tools.seed_tools import ensure_m33b  # noqa: PLC0415
+    await load_library(session, store, tenant_id)
+    await _routines(session, store, tenant_id)
+    await _conversations(session, store, tenant_id)
+    await _runs(session, store, tenant_id)
+    await _messages(session, store, tenant_id)
+    from ar_domain.durable.m28 import load_runtime_rows  # noqa: PLC0415
 
-        ensure_m33b(store)
+    await load_runtime_rows(session, store, tenant_id)
+    from ar_domain.durable.m29 import load_exposure  # noqa: PLC0415
+
+    await load_exposure(session, store, tenant_id)
+    from ar_domain.durable.m35 import load_durability  # noqa: PLC0415
+
+    await load_durability(session, store, tenant_id)
+    await _events(session, store, tenant_id)
+    await _channel_integrations(session, store, tenant_id)
+    await _channel_identities(session, store, tenant_id)
+    await _channel_threads(session, store, tenant_id)
+    await _channel_posts(session, store, tenant_id)
+    await _usage_events(session, store, tenant_id)
+    from ar_domain.tools.seed_tools import ensure_m33b  # noqa: PLC0415
+
+    ensure_m33b(store)
 
 
 async def reload_run(store: object, run_id: uuid.UUID) -> None:
