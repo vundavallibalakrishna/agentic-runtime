@@ -17,6 +17,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import budget_exceeded
+from ar_domain.tools.gateway_client import execute_tool
 from ar_domain.tools.images import build_image_message, collect_images
 from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
@@ -71,7 +72,12 @@ def read_budget(
 
 
 async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
-    store: Any, run: dict[str, object], assistant: dict[str, object], user_text: str
+    store: Any,
+    run: dict[str, object],
+    assistant: dict[str, object],
+    user_text: str,
+    *,
+    one_step: bool = False,
 ) -> bool:
     """Run the model loop. Return false when a fake provider should answer alone."""
     definition = _definition(store, run)
@@ -153,10 +159,40 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     from ar_domain.tools.structured import output_schema, validate_output  # noqa: PLC0415
 
     schema = output_schema(definition)
-    restored = restore_checkpoint(run)
+    from ar_domain.tools.worker_loop import (  # noqa: PLC0415
+        apply_worker_loop,
+        consume_one_tool,
+        read_worker_loop,
+        snapshot,
+        write_worker_loop,
+    )
+
+    saved_loop = read_worker_loop(run)
+    resumed_loop = (
+        apply_worker_loop(saved_loop)
+        if isinstance(saved_loop, dict) and isinstance(saved_loop.get("messages"), list)
+        else None
+    )
+    restored = None if resumed_loop is not None else restore_checkpoint(run)
     messages: list[dict[str, object]]
     previews: list[dict[str, object]]
-    if restored is None:
+    if resumed_loop is not None:
+        messages = resumed_loop["messages"]
+        steps = resumed_loop["steps"]
+        used_calls = resumed_loop["used_calls"]
+        tokens = resumed_loop["tokens"]
+        tokens_in_total = resumed_loop["tokens_in_total"]
+        tokens_out_total = resumed_loop["tokens_out_total"]
+        prompt_seen = resumed_loop["prompt_seen"]
+        cost = resumed_loop["cost"]
+        previews = resumed_loop["previews"]
+        user_text = str(resumed_loop["user_text"] or user_text)
+        started = resumed_loop["started"]
+        repairs = resumed_loop["repairs"]
+        consecutive_errors = resumed_loop["consecutive_errors"]
+        planned = resumed_loop["planned"]
+        failed_open = resumed_loop["failed_open"]
+    elif restored is None:
         messages = opening_messages(run, definition, user_text)
         steps = 0
         used_calls = 0
@@ -167,6 +203,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         cost = 0
         previews = []
         started = time.monotonic()
+        repairs = 0
+        consecutive_errors = 0
+        planned = False
+        failed_open = False
     else:
         messages = restored["messages"]
         steps = restored["steps"]
@@ -179,12 +219,45 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         previews = restored["previews"]
         user_text = str(restored["user_text"] or user_text)
         started = time.monotonic() - restored["elapsed_s"]
-    repairs = 0
+        repairs = 0
+        consecutive_errors = 0
+        planned = False
+        failed_open = False
     provider_retries = 0
-    consecutive_errors = 0
-    planned = False
-    failed_open = False
     while True:
+        if isinstance(saved_loop, dict) and saved_loop.get("phase") == "tools":
+            kind = await consume_one_tool(
+                store,
+                run,
+                assistant,
+                saved_loop,
+                by_name=by_name,
+                limits=limits,
+                alias=alias,
+                deferred=deferred,
+                openai_tools=openai_tools,
+                offered=offered,
+            )
+            write_worker_loop(run, saved_loop)
+            applied = apply_worker_loop(saved_loop)
+            messages = applied["messages"]
+            steps = applied["steps"]
+            used_calls = applied["used_calls"]
+            tokens = applied["tokens"]
+            tokens_in_total = applied["tokens_in_total"]
+            tokens_out_total = applied["tokens_out_total"]
+            prompt_seen = applied["prompt_seen"]
+            cost = applied["cost"]
+            previews = applied["previews"]
+            consecutive_errors = applied["consecutive_errors"]
+            failed_open = applied["failed_open"]
+            started = applied["started"]
+            run["step_kind"] = kind
+            saved_loop = read_worker_loop(run)
+            if one_step or kind in {"paused", "final"}:
+                return True
+            if kind == "tools":
+                continue
         steps += 1
         limit = _over(limits, steps, tokens, cost, started, used_calls)
         if limit is not None:
@@ -264,6 +337,31 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             _plan(store, run, calls)
             planned = True
         messages.append({"role": "assistant", "content": None, "tool_calls": _wire_calls(calls)})
+        if one_step:
+            write_worker_loop(
+                run,
+                snapshot(
+                    messages=messages,
+                    steps=steps,
+                    used_calls=used_calls,
+                    tokens=tokens,
+                    tokens_in=tokens_in_total,
+                    tokens_out=tokens_out_total,
+                    prompt_seen=prompt_seen,
+                    cost=cost,
+                    previews=previews,
+                    elapsed_s=time.monotonic() - started,
+                    user_text=user_text,
+                    repairs=repairs,
+                    consecutive_errors=consecutive_errors,
+                    planned=planned,
+                    failed_open=failed_open,
+                    phase="tools",
+                    pending_calls=calls,
+                ),
+            )
+            run["step_kind"] = "tools"
+            return True
         batch_images: list[dict[str, object]] = []
         for call in calls:
             if not isinstance(call, dict):
@@ -688,7 +786,8 @@ def _act(  # noqa: PLR0917
             "attempt": attempt,
         },
     )
-    result = ToolPipeline(store).execute(
+    result = execute_tool(
+        store,
         {
             "tenant_id": run.get("tenant_id"),
             "user_id": run.get("user_id"),
@@ -699,7 +798,7 @@ def _act(  # noqa: PLR0917
             "arguments": payload,
             "args_hash": digest,
             "model_call_id": model_call_id,
-        }
+        },
     )
     if result.get("status") == "awaiting_approval":
         from ar_domain.tools.chat_loop import _pause  # noqa: PLC0415

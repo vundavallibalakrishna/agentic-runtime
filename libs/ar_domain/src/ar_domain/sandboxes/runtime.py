@@ -184,12 +184,17 @@ class SandboxStartError(RuntimeError):
 
 
 def _launch(store: Any, row: dict[str, object], token: str) -> None:
-    """Start a container for the row and stamp its endpoint, when a launcher is registered.
+    """Start a container or a pod for the row and stamp its endpoint.
 
-    With no launcher (the default install, or a test), ``endpoint_url`` stays ``None`` and
-    the tools run on the dev host. When a launcher is registered the install has opted into
-    isolation, so a failure to start is surfaced, not silently downgraded to the host.
+    With no launcher and no pod creator (the default install, or a test), ``endpoint_url``
+    stays ``None`` and the tools run on the dev host. A registered launcher or the sandbox
+    manager's pod creator has opted into isolation, so a failure to start is surfaced.
+    Only the sandbox manager holds a pod creator.
     """
+    creator = getattr(store, "pod_creator", None)
+    if creator is not None:
+        _launch_pod(store, row, token, creator)
+        return
     launcher = getattr(store, "sandbox_launcher", None)
     if launcher is None or row.get("driver") != "docker":
         return
@@ -209,9 +214,61 @@ def _launch(store: Any, row: dict[str, object], token: str) -> None:
     row["updated_at"] = utcnow()
 
 
+def _launch_pod(store: Any, row: dict[str, object], token: str, creator: Any) -> None:
+    """Ask the sandbox manager's pod creator for one Kubernetes pod."""
+    del store
+    template = row.get("template_slug") or "default"
+    limits = _pod_limits(row)
+    try:
+        info = creator.start(
+            sandbox_id=str(row.get("id") or ""),
+            tenant_id=str(row.get("tenant_id") or ""),
+            template=str(template),
+            token=token,
+            cpu_millis=limits[0],
+            memory_mb=limits[1],
+            disk_gb=limits[2],
+            lifetime_s=limits[3],
+            runtime_class=str(row.get("runtime_class") or "gvisor"),
+        )
+    except Exception as exc:  # a missing cluster fails the sandbox; it does not run on the host
+        row["status"] = "failed"
+        row["error"] = str(exc)
+        row["endpoint_url"] = None
+        row["updated_at"] = utcnow()
+        raise SandboxStartError(str(exc)) from exc
+    row["driver"] = "kubernetes"
+    row["container_id"] = info.get("pod_name")
+    row["endpoint_url"] = str(info.get("endpoint_url") or "") or None
+    row["agent_token"] = token
+    row["driver_ref"] = str(info.get("driver_ref") or "")
+    row["updated_at"] = utcnow()
+
+
+def _pod_limits(row: dict[str, object]) -> tuple[int, int, int, int]:
+    cpu = row.get("cpu_millis")
+    memory = row.get("memory_mb")
+    disk = row.get("disk_gb")
+    life = row.get("max_lifetime_s")
+    return (
+        int(cpu) if isinstance(cpu, int) and cpu > 0 else 500,
+        int(memory) if isinstance(memory, int) and memory > 0 else 512,
+        int(disk) if isinstance(disk, int) and disk > 0 else 1,
+        int(life) if isinstance(life, int) and life > 0 else 3600,
+    )
+
+
 def _stop_container(store: Any, row: dict[str, object]) -> None:
     """Remove the sandbox's container when one was started. Absent launcher is a no-op."""
     container_id = row.get("container_id")
+    creator = getattr(store, "pod_creator", None)
+    pod_name = row.get("container_id")
+    if creator is not None and pod_name and row.get("driver") == "kubernetes":
+        with contextlib.suppress(Exception):
+            creator.stop(str(pod_name))
+        row["container_id"] = None
+        row["endpoint_url"] = None
+        return
     launcher = getattr(store, "sandbox_launcher", None)
     if launcher is None or not container_id:
         return
@@ -219,6 +276,81 @@ def _stop_container(store: Any, row: dict[str, object]) -> None:
         launcher.stop(str(container_id))
     row["container_id"] = None
     row["endpoint_url"] = None
+
+
+def _delegate_ensure(
+    store: Any,
+    *,
+    tenant_id: uuid.UUID,
+    template_slug: str,
+    scope: str,
+    scope_key: str,
+    conversation_id: uuid.UUID | None,
+    agent_id: uuid.UUID | None,
+    user_id: uuid.UUID | None,
+) -> dict[str, object]:
+    """Ask the sandbox manager to create the pod. This process does not."""
+    url = os.environ.get("AR_SANDBOX_MANAGER_URL", "").strip().rstrip("/")
+    if not url:
+        raise SandboxStartError("the sandbox manager is not configured")
+    template = _template(store, tenant_id, template_slug)
+    if template is None:
+        raise LookupError(template_slug)
+    body = {
+        "tenantId": str(tenant_id),
+        "scope": scope,
+        "scopeKey": scope_key,
+        "templateId": str(template["id"]),
+        "conversationId": str(conversation_id) if conversation_id else None,
+        "agentId": str(agent_id) if agent_id else None,
+        "userId": str(user_id) if user_id else None,
+    }
+
+    def _post() -> dict[str, object]:
+        import httpx  # noqa: PLC0415
+
+        response = blocking(
+            lambda: httpx.post(f"{url}/internal/v1/sandboxes:ensure", json=body, timeout=60.0)
+        )
+        try:
+            response.raise_for_status()
+            payload = response.json()
+        finally:
+            response.close()
+        return payload if isinstance(payload, dict) else {}
+
+    from ar_common.offload import blocking  # noqa: PLC0415
+
+    try:
+        payload = blocking(_post)
+    except Exception as exc:  # the manager is the only pod creator; do not fall back to the host
+        raise SandboxStartError("the sandbox manager could not start a pod") from exc
+    sandbox_id = uuid.UUID(str(payload.get("id") or payload.get("sandboxId") or new_id()))
+    row: dict[str, object] = {
+        "id": sandbox_id,
+        "tenant_id": tenant_id,
+        "template_id": template["id"],
+        "template_slug": template_slug,
+        "scope": scope,
+        "scope_key": scope_key,
+        "conversation_id": conversation_id,
+        "agent_id": agent_id,
+        "user_id": user_id,
+        "status": str(payload.get("status") or "ready"),
+        "driver": "kubernetes",
+        "endpoint_url": payload.get("endpoint_url") or payload.get("endpointUrl"),
+        "token": payload.get("token"),
+        "driver_ref": payload.get("driver_ref") or payload.get("driverRef"),
+    }
+    store.sandboxes[sandbox_id] = row
+    return row
+
+
+def _delegate_to_manager(store: Any) -> bool:
+    """The kubernetes driver creates pods only inside the sandbox manager."""
+    if getattr(store, "pod_creator", None) is not None:
+        return False
+    return os.environ.get("AR_SANDBOX_DRIVER", "").strip().lower() == "kubernetes"
 
 
 def ensure_scope(
@@ -233,6 +365,17 @@ def ensure_scope(
     user_id: uuid.UUID | None,
 ) -> dict[str, object]:
     """Create or resume the one live computer for a scope."""
+    if _delegate_to_manager(store):
+        return _delegate_ensure(
+            store,
+            tenant_id=tenant_id,
+            template_slug=template_slug,
+            scope=scope,
+            scope_key=scope_key,
+            conversation_id=conversation_id,
+            agent_id=agent_id,
+            user_id=user_id,
+        )
     lock = store.sandbox_locks.setdefault(f"{tenant_id}:{scope_key}", threading.Lock())
     with lock:
         live = _live(store, tenant_id, scope_key)
@@ -277,6 +420,11 @@ def ensure_scope(
             "browser": {"url": "", "html": "", "elements": []},
             "created_at": now,
             "updated_at": now,
+            "cpu_millis": template.get("cpu_millis"),
+            "memory_mb": template.get("memory_mb"),
+            "disk_gb": template.get("disk_gb"),
+            "max_lifetime_s": template.get("max_lifetime_s"),
+            "runtime_class": template.get("runtime_class"),
         }
         store.sandboxes[sandbox_id] = row
         root = workspace_root(sandbox_id)
@@ -598,6 +746,11 @@ def _browser(
     # applies before a navigation. Otherwise the in-process engine answers (M40-T04c).
     if bool(sandbox.get("endpoint_url")):
         return _browser_remote(store, sandbox, name, arguments)
+    if name == "screenshot" and not getattr(store, "fake_models_allowed", True):
+        return _error(
+            "sandbox_unavailable",
+            "a screenshot needs the Chromium sandbox",
+        )
     if name == "screenshot":
         from ar_domain.sandboxes.browser import open_context  # noqa: PLC0415
 

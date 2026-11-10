@@ -9,6 +9,7 @@ from ar_domain.agents.access import Actor
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.routines.book import RoutineBook
 from ar_domain.routines.clock import build_schedule
+from ar_runtime.activities.advance_chat_step import advance_chat_step
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn
 from ar_runtime.activities.expire_approval import bind_store as bind_runtime
 from ar_runtime.workflows.turn import TurnWorkflow
@@ -56,7 +57,14 @@ def _ready() -> tuple[ChatService, str]:
         self.runs[run_id]["status"] = "completed"
         self.runs[run_id]["result_summary"] = "Done."
 
-    store.generate = generate.__get__(store, ChatService)  # type: ignore[method-assign]
+    async def advance_turn(
+        self: ChatService, run_id: uuid.UUID, text: str, names: list[str]
+    ) -> str:
+        await generate(self, run_id, text, names)
+        return "final"
+
+    store.generate = generate.__get__(store, ChatService)
+    store.advance_turn = advance_turn.__get__(store, ChatService)
     bind_store(store)
     bind_runtime(store)
     return store, str(created["id"])
@@ -76,6 +84,7 @@ async def test_routine_run_poll_and_reconcile(temporal_env: object) -> None:
             poll_activity,
             reconcile_activity,
             execute_chat_turn,
+            advance_chat_step,
         ],
     ):
         result = await client.execute_workflow(

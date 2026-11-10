@@ -30,7 +30,7 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
 
 
 def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> None:
-    from ar_domain.tools.pipeline import ToolPipeline  # noqa: PLC0415
+    from ar_domain.tools.gateway_client import execute_tool  # noqa: PLC0415
 
     pending = run.get("pending_approval")
     if not isinstance(pending, dict):
@@ -44,7 +44,8 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
             "status": "approved",
         },
     )
-    result = ToolPipeline(store).execute(
+    result = execute_tool(
+        store,
         {
             "tenant_id": run.get("tenant_id"),
             "user_id": run.get("user_id"),
@@ -57,7 +58,7 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
             "model_call_id": pending.get("model_call_id"),
             "approval_id": approval.get("id"),
             "tool_call_id": approval.get("tool_call_id"),
-        }
+        },
     )
     text = str(result.get("result_preview") or "")
     _finish(store, run, text, result, status="completed")

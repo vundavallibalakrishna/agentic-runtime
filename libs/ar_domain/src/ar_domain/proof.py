@@ -27,7 +27,8 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "chat",
         UNIT,
         "no",
-        "The turn loop runs in process. No stored report names a model id and a date.",
+        "The worker runs one step per activity and calls the tool gateway over HTTP. "
+        "No stored report names a model id and a date.",
     ),
     ("agents", UNIT, "no", "Definitions and publish run in process."),
     (

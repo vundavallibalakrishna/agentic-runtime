@@ -56,3 +56,38 @@ async def test_turn_finishes_or_cancels(temporal_env: WorkflowEnvironment, outco
         result = await handle.result()
     assert result["status"] == outcome
     assert finished == ([] if outcome == "completed" else [outcome])
+
+
+async def test_step_workflow_runs_one_activity_per_step(temporal_env: WorkflowEnvironment) -> None:
+    """A stepped turn calls the step activity once per model or tool step. Proof: unit."""
+    seen: list[int] = []
+
+    @activity.defn(name="advance_chat_step")
+    async def step(payload: dict[str, str]) -> dict[str, str]:
+        seen.append(1)
+        kind = "tools" if len(seen) == 1 else "final"
+        return {
+            "run_id": str(payload["run_id"]),
+            "status": "running" if kind == "tools" else "completed",
+            "kind": kind,
+        }
+
+    @activity.defn(name="finish_chat_turn")
+    async def finish(payload: dict[str, str]) -> dict[str, str]:
+        return payload
+
+    queue = f"test-steps-{uuid.uuid4()}"
+    async with Worker(
+        temporal_env.client,
+        task_queue=queue,
+        workflows=[TurnWorkflow],
+        activities=[step, finish],
+    ):
+        result = await temporal_env.client.execute_workflow(
+            TurnWorkflow.run,
+            {"run_id": str(uuid.uuid4()), "steps": True},
+            id=queue,
+            task_queue=queue,
+        )
+    assert result["status"] == "completed"
+    assert len(seen) == 2

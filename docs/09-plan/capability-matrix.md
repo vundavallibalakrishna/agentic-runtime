@@ -9,7 +9,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 
 | Kind | Name | Proof | Offered | Note |
 |---|---|---|---|---|
-| capability | `chat` | `unit` | no | The turn loop runs in process. No stored report names a model id and a date. |
+| capability | `chat` | `unit` | no | The worker runs one step per activity and calls the tool gateway over HTTP. No stored report names a model id and a date. |
 | capability | `agents` | `unit` | no | Definitions and publish run in process. |
 | capability | `builder` | `unit` | no | A draft uses the tenant model when one is set. No stored live report. |
 | capability | `password-sign-in` | `contract` | no | Login is HTTP against Postgres. Production OIDC is Stage 3 and is not this build. |

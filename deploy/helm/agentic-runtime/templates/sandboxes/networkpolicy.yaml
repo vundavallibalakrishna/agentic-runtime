@@ -14,10 +14,16 @@ spec:
     - Egress
   ingress:
     - from:
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: mcp-gateway
-        - podSelector:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
             matchLabels:
               app.kubernetes.io/name: sandbox-manager
       ports:

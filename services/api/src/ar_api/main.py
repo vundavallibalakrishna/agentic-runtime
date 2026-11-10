@@ -196,6 +196,9 @@ def _session_loader(app: FastAPI) -> Callable[[str, str], Awaitable[Principal | 
 def _configure_chat(chat: ChatService, settings: Settings) -> None:
     """Pack trust follows the environment. Dev and CI accept unsigned packs and fake models."""
     chat.fake_models_allowed = fake_models_allowed(settings.env)
+    from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
+
+    configure_gateway(chat, env=str(settings.env.value))
     raw = os.environ.get("AR_PACK_SIGNATURE_REQUIRED")
     if raw is None:
         chat.pack_signature_required = settings.env not in {EnvName.DEV, EnvName.CI}

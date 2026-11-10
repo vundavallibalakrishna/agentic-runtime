@@ -370,6 +370,7 @@ async def test_routine_runs_across_api_system_and_runtime_process_stores(
     from ar_domain.durable.hydrate import reload_routines, reload_run
     from ar_domain.routines.book import RoutineBook
     from ar_domain.routines.dispatch import start_run
+    from ar_runtime.activities.advance_chat_step import advance_chat_step
     from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
     from ar_runtime.activities.expire_approval import bind_store as bind_runtime
     from ar_runtime.workflows.turn import TurnWorkflow
@@ -429,7 +430,7 @@ async def test_routine_runs_across_api_system_and_runtime_process_stores(
             temporal_env.client,
             task_queue="ar-runtime",
             workflows=[TurnWorkflow],
-            activities=[execute_chat_turn, finish_chat_turn],
+            activities=[execute_chat_turn, advance_chat_step, finish_chat_turn],
         ),
     ):
         await start_run(api, run_id)
