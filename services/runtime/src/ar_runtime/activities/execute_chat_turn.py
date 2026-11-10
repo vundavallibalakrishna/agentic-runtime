@@ -7,10 +7,12 @@ from typing import Any  # noqa: TC003
 
 from temporalio import activity
 
-from ar_runtime.activities.expire_approval import current_store
+from ar_domain.readmodel.activity import repository_activity
+from ar_runtime.activities.expire_approval import current_store, process_store
 
 
 @activity.defn(name="execute_chat_turn")
+@repository_activity(process_store)
 async def execute_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     """Reload the queued run, generate the answer, and flush it."""
     store = current_store()
@@ -33,11 +35,11 @@ async def execute_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     try:
         assert_start(store, run_id)
     except QuotaExceededError as exc:
-        from ar_domain.chat.service import ChatService  # noqa: PLC0415
+        from ar_domain.chat.service import ChatBehaviour  # noqa: PLC0415
 
         runs = getattr(store, "runs", None)
         run = runs.get(run_id) if isinstance(runs, dict) else None
-        if isinstance(store, ChatService) and isinstance(run, dict):
+        if isinstance(store, ChatBehaviour) and isinstance(run, dict):
             store._fail_quota(
                 run,
                 store.conversations[run["conversation_id"]],
@@ -85,15 +87,16 @@ async def _heartbeat() -> None:
 
 
 @activity.defn(name="finish_chat_turn")
+@repository_activity(process_store)
 async def finish_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
     """Persist cancellation or exhausted retries so clients never wait indefinitely."""
     from ar_common.time import utcnow  # noqa: PLC0415
-    from ar_domain.chat.service import ChatService  # noqa: PLC0415
+    from ar_domain.chat.service import ChatBehaviour  # noqa: PLC0415
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
     from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
     store = current_store()
-    if not isinstance(store, ChatService):
+    if not isinstance(store, ChatBehaviour):
         raise TypeError("runtime store is not bound")
     run_id = uuid.UUID(str(payload["run_id"]))
     await flush_store(store)

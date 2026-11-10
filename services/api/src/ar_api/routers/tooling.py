@@ -9,10 +9,10 @@ from ar_api.actors import actor_from, chat_of, principal_of
 if TYPE_CHECKING:
     from ar_contracts.api_model import ApiModel
     from ar_domain.agents.access import Actor
-    from ar_domain.chat.service import ChatService
+    from ar_domain.chat.service import ChatBehaviour
 
 
-def chat(request: Request) -> ChatService:
+def chat(request: Request) -> ChatBehaviour:
     return chat_of(request)
 
 

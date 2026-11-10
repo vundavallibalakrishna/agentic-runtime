@@ -4,11 +4,13 @@ from typing import Any  # noqa: TC003
 
 from temporalio import activity
 
+from ar_domain.readmodel.activity import repository_activity
 from ar_domain.skills.delegate import plan_child
-from ar_runtime.activities.expire_approval import current_store
+from ar_runtime.activities.expire_approval import current_store, process_store
 
 
 @activity.defn(name="create_child_run")
+@repository_activity(process_store)
 async def create_child_run(payload: dict[str, Any]) -> dict[str, Any]:
     """Plan a child. A repeated call with the same index returns the same id."""
     planned = plan_child(payload)

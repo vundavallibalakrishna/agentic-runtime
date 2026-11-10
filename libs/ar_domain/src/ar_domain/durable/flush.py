@@ -71,21 +71,19 @@ def schedule_flush(store: object) -> None:
 
 async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0915
     pending = _snapshot(store)
+    from ar_domain.readmodel.audit import chain_candidates  # noqa: PLC0415
+
     audit_log = getattr(store, "audit_log", [])
     audit_end = len(audit_log)
     audit_start = getattr(store, "_durable_audit_index", 0)
-    run_actions = {"run.planned", "tool.called", "run.retried", "run.checked"}
-    audits = [
-        row
-        for row in audit_log[audit_start:audit_end]
-        if row.get("target_type") == "routine" or row.get("action") in run_actions
-    ]
+    audits = chain_candidates(list(audit_log[audit_start:audit_end]))
     usage_pending = _usage_pending(store)
     if not any(pending.values()) and not audits and not usage_pending:
         return
     original = {name: list(rows) for name, rows in pending.items()}
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+            await _set_tenant_context(session, store)
             await _deletions(session, pending)
             await _agents(session, pending["agents"])
             await _versions(session, pending["versions"])
@@ -1409,13 +1407,35 @@ def event_tenant(store: object, run_id: uuid.UUID) -> None:
             event["tenant_id"] = tenant_id
 
 
+async def _set_tenant_context(session: AsyncSession, store: object) -> None:
+    """Set ``app.tenant_id`` on the flush transaction when the unit names a tenant."""
+    tenant = getattr(store, "context_tenant_id", None)
+    if not isinstance(tenant, uuid.UUID):
+        binding = getattr(store, "tenant_binding", None)
+        tenant = getattr(binding, "tenant_id", None)
+    if not isinstance(tenant, uuid.UUID):
+        return
+    await session.execute(
+        text(
+            "SELECT set_config('app.tenant_id', :tenant_id, true), "
+            "set_config('app.user_id', :user_id, true), "
+            "set_config('app.request_id', :request_id, true)"
+        ),
+        {
+            "tenant_id": str(tenant),
+            "user_id": str(getattr(store, "context_user_id", "") or ""),
+            "request_id": str(getattr(store, "context_request_id", "") or ""),
+        },
+    )
+
+
 async def _routine_audits(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     from typing import cast  # noqa: PLC0415
 
     from ar_domain.audit.service import record  # noqa: PLC0415
 
     for row in rows:
-        tenant_id = as_uuid(row.get("tenant_id"))
+        tenant_id = as_uuid(row.get("tenant_uuid")) or as_uuid(row.get("tenant_id"))
         if tenant_id is None:
             continue
         outcome = str(row.get("outcome") or "success")

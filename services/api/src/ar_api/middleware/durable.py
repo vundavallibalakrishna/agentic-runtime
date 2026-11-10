@@ -46,6 +46,14 @@ async def _ensure(scope: Scope) -> None:
     if str(scope.get("path", "")) in _PROBE_PATHS:
         return
     chat = scope["app"].state.chat
+    from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
+
+    if isinstance(chat, RepositoryReadModel):
+        if getattr(chat, "_bind_attempted", False):
+            return
+        await _attach_temporal(chat, scope["app"].state.settings)
+        chat._bind_attempted = True
+        return
     if getattr(chat, "_bind_attempted", False):
         return
     lock = getattr(chat, "_bind_lock", None)

@@ -9,12 +9,14 @@ with workflow.unsafe.imports_passed_through():
     import uuid
 
     from ar_domain.evals.runner import execute_eval_run
-    from ar_system.routines_store import current_store
+    from ar_domain.readmodel.activity import repository_activity
+    from ar_system.routines_store import current_store, process_store
 
 EVAL_QUEUE = "ar-eval"
 
 
 @activity.defn(name="execute_eval_run")
+@repository_activity(process_store)
 async def execute_eval_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = current_store()
     summary = await execute_eval_run(store, uuid.UUID(str(payload["eval_run_id"])))

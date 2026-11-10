@@ -4,10 +4,12 @@ from typing import Any  # noqa: TC003
 
 from temporalio import activity
 
-from ar_runtime.activities.expire_approval import current_store
+from ar_domain.readmodel.activity import repository_activity
+from ar_runtime.activities.expire_approval import current_store, process_store
 
 
 @activity.defn(name="evaluate_control_tool")
+@repository_activity(process_store)
 async def evaluate_control_tool(payload: dict[str, Any]) -> dict[str, Any]:
     """Note that the approved call may run. The activity does not log arguments."""
     approval_id = str(payload.get("approval_id") or "")
@@ -17,6 +19,7 @@ async def evaluate_control_tool(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="record_user_input")
+@repository_activity(process_store)
 async def record_user_input(payload: dict[str, Any]) -> dict[str, Any]:
     """Store the length of a user answer. The text stays out of telemetry."""
     text = str(payload.get("text") or "")

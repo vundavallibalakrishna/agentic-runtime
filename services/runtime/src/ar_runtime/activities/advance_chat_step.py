@@ -7,10 +7,12 @@ from typing import Any  # noqa: TC003
 
 from temporalio import activity
 
-from ar_runtime.activities.expire_approval import current_store
+from ar_domain.readmodel.activity import repository_activity
+from ar_runtime.activities.expire_approval import current_store, process_store
 
 
 @activity.defn(name="advance_chat_step")
+@repository_activity(process_store)
 async def advance_chat_step(payload: dict[str, Any]) -> dict[str, str]:
     """Reload the run and advance it by one step. A finished run is not run again."""
     store = current_store()
@@ -34,13 +36,13 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, str]:
         return {"status": status, "kind": "final", "run_id": str(run_id)}
     if status == "queued":
         from ar_common.errors import QuotaExceededError  # noqa: PLC0415
-        from ar_domain.chat.service import ChatService  # noqa: PLC0415
+        from ar_domain.chat.service import ChatBehaviour  # noqa: PLC0415
         from ar_runtime.activities.start_run import assert_start  # noqa: PLC0415
 
         try:
             assert_start(store, run_id)
         except QuotaExceededError as exc:
-            if isinstance(store, ChatService):
+            if isinstance(store, ChatBehaviour):
                 store._fail_quota(
                     run,
                     store.conversations[run["conversation_id"]],

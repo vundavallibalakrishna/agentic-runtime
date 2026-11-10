@@ -248,7 +248,12 @@ async def _tenant_summary(request: Request, principal: Principal) -> dict[str, s
     if override is not None:
         return await _summary(override.store)
     ctx = TenantContext.from_principal(principal, str(request.state.request_id))
-    engine = getattr(request.app.state.chat, "durable_engine", None)
+    chat = request.app.state.chat
+    engine = getattr(chat, "durable_engine", None)
+    from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
+
+    if isinstance(chat, RepositoryReadModel):
+        engine = await chat.engine_for()
     async with identity_store(request, ctx, engine=engine) as identity:
         return await _summary(identity)
 
@@ -271,11 +276,12 @@ async def session(request: Request) -> dict[str, object]:
     principal: Principal | None = getattr(request.state, "principal", None)
     if principal is None:
         raise UnauthenticatedError()
+    from ar_api.actors import chat_of  # noqa: PLC0415
     from ar_contracts.tenants import TenantSettings  # noqa: PLC0415
     from ar_domain.identity.tenant_settings import section, settings_for  # noqa: PLC0415
 
     defaults = TenantSettings()
-    tenant_settings = settings_for(request.app.state.chat, principal.tenant_id)
+    tenant_settings = settings_for(chat_of(request), principal.tenant_id)
     features = {
         **defaults.features.model_dump(by_alias=False),
         **section(tenant_settings, "features"),

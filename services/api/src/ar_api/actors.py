@@ -6,15 +6,18 @@ from fastapi import Request
 
 from ar_common.errors import NotFoundError
 from ar_domain.agents.access import Actor
-from ar_domain.chat.service import ChatService
+from ar_domain.chat.service import ChatBehaviour
 from ar_domain.db.context import Principal
 
 
-def chat_of(request: Request) -> ChatService:
+def chat_of(request: Request) -> ChatBehaviour:
+    unit = getattr(request.state, "read_unit", None)
+    if isinstance(unit, ChatBehaviour):
+        return unit
     service = request.app.state.chat
-    if not isinstance(service, ChatService):
-        raise NotFoundError()
-    return service
+    if isinstance(service, ChatBehaviour):
+        return service
+    raise NotFoundError()
 
 
 def principal_of(request: Request) -> Principal:

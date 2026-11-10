@@ -9,7 +9,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 
 | Kind | Name | Proof | Offered | Note |
 |---|---|---|---|---|
-| capability | `chat` | `unit` | no | The worker runs one step per activity and calls the tool gateway over HTTP. No stored report names a model id and a date. |
+| capability | `chat` | `unit` | no | The API reads and writes Postgres per request. The worker runs one step per activity and calls the tool gateway over HTTP. No stored report names a model id and a date. |
 | capability | `agents` | `unit` | no | Definitions and publish run in process. |
 | capability | `builder` | `unit` | no | A draft uses the tenant model when one is set. No stored live report. |
 | capability | `password-sign-in` | `contract` | no | Password login is the dev and single-tenant door. It is not the Helm default. |

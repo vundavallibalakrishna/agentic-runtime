@@ -16,17 +16,17 @@ from ar_domain.routines.clock import build_schedule
 if TYPE_CHECKING:
     import uuid
 
-    from ar_domain.chat.service import ChatService
+    from ar_domain.chat.service import ChatBehaviour
 
 
-def client_for(store: ChatService) -> Client:
+def client_for(store: ChatBehaviour) -> Client:
     client = store.temporal_client
     if not isinstance(client, Client):
         raise UnavailableError("Routine execution is unavailable. Please try again.")
     return client
 
 
-async def start_run(store: ChatService, run_id: uuid.UUID) -> None:
+async def start_run(store: ChatBehaviour, run_id: uuid.UUID) -> None:
     """The accepted event and complete message skeleton commit before dispatch."""
     client = client_for(store)
     run = store.runs[run_id]
@@ -48,7 +48,7 @@ async def start_run(store: ChatService, run_id: uuid.UUID) -> None:
 
 
 async def sync_schedule(
-    store: ChatService, routine_id: uuid.UUID, *, deleted: bool = False
+    store: ChatBehaviour, routine_id: uuid.UUID, *, deleted: bool = False
 ) -> None:
     """Apply creation, edits and pause/resume to the actual Temporal schedule."""
     if store.durable_engine is None:

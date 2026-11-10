@@ -8,11 +8,13 @@ from temporalio import activity, workflow
 with workflow.unsafe.imports_passed_through():
     import uuid
 
+    from ar_domain.readmodel.activity import repository_activity
     from ar_domain.routines.engine import poll_routine_source
-    from ar_system.routines_store import current_store
+    from ar_system.routines_store import current_store, process_store
 
 
 @activity.defn(name="poll_routine_source")
+@repository_activity(process_store)
 async def poll_activity(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return poll_routine_source(current_store(), uuid.UUID(str(payload["routine_id"])))
 

@@ -11,13 +11,14 @@ with workflow.unsafe.imports_passed_through():
     from ar_domain.durable.bind import binding_from
     from ar_domain.durable.flush import flush_store
     from ar_domain.durable.hydrate import hydrate_tenant, reload_run
+    from ar_domain.readmodel.activity import repository_activity
     from ar_domain.routines.engine import (
         accept_routine_event,
         complete_routine_event,
         prepare_routine_run,
         reconcile_schedules,
     )
-    from ar_system.routines_store import current_store
+    from ar_system.routines_store import current_store, process_store
 
 
 def _envelope(value: object) -> dict[str, object]:
@@ -28,6 +29,8 @@ def _envelope(value: object) -> dict[str, object]:
 
 async def _refresh() -> Any:
     store: Any = current_store()
+    if getattr(store, "request_scoped", False):
+        return store
     binding = binding_from(store)
     if binding is not None and store.durable_engine is not None:
         await hydrate_tenant(store, store.durable_engine, binding.tenant_id)
@@ -35,6 +38,7 @@ async def _refresh() -> Any:
 
 
 @activity.defn(name="accept_routine_event")
+@repository_activity(process_store)
 async def accept_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = await _refresh()
     result = accept_routine_event(
@@ -57,6 +61,7 @@ def workflow_key() -> str:
 
 
 @activity.defn(name="prepare_routine_run")
+@repository_activity(process_store)
 async def prepare_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = await _refresh()
     result = prepare_routine_run(
@@ -67,6 +72,7 @@ async def prepare_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 @activity.defn(name="complete_routine_event")
+@repository_activity(process_store)
 async def complete_activity(payload: dict[str, Any]) -> dict[str, Any]:
     store = await _refresh()
     event_id = uuid.UUID(str(payload["event_id"]))
@@ -87,7 +93,21 @@ async def complete_activity(payload: dict[str, Any]) -> dict[str, Any]:
 
 @activity.defn(name="reconcile_routine_schedules")
 async def reconcile_activity() -> dict[str, int]:
-    return reconcile_schedules(current_store())
+    from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
+
+    store = current_store()
+    if not isinstance(store, RepositoryReadModel):
+        found = reconcile_schedules(store)
+        return found if isinstance(found, dict) else {"registered": 0}
+    totals: dict[str, int] = {}
+    for tenant_id in await store.tenant_ids():
+        async with store.open(tenant_id) as unit:
+            part = reconcile_schedules(unit)
+        if isinstance(part, dict):
+            for key, value in part.items():
+                if isinstance(value, int):
+                    totals[str(key)] = totals.get(str(key), 0) + value
+    return totals
 
 
 @workflow.defn(name="RoutineRunWorkflow")

@@ -36,9 +36,11 @@ async def _prepare_store() -> None:
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
     from ar_domain.durable.bind import attach_store  # noqa: PLC0415
     from ar_domain.pii.analyzer import warm_up  # noqa: PLC0415
+    from ar_domain.readmodel.boot import build_product_store  # noqa: PLC0415
 
     settings = get_settings()
-    store = ChatService(
+    store = build_product_store(
+        settings,
         allow_loopback=loopback_allowed(settings),
         fake_models_allowed=fake_models_allowed(settings.env),
     )
@@ -49,7 +51,8 @@ async def _prepare_store() -> None:
     # Tool calls run here. The engine that masks their results is built now, not in the
     # first call.
     warm_up()
-    await attach_store(store, settings.database_url)
+    if isinstance(store, ChatService):
+        await attach_store(store, settings.database_url)
     bind_store(store)
 
 

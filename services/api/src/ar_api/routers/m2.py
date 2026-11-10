@@ -15,12 +15,13 @@ from ar_common.sandboxkit import download_headers
 from ar_contracts.api_model import ApiModel
 from ar_domain.agents.access import can_edit
 from ar_domain.agents.service import AgentLifecycle
-from ar_domain.chat.service import ChatService
 from ar_domain.db.context import Principal
 from ar_domain.events.sign import public_json_bytes
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from ar_domain.chat.service import ChatBehaviour
 
 router = APIRouter()
 
@@ -127,11 +128,10 @@ class RunBody(ApiModel):
     wait: bool = False
 
 
-def _chat(request: Request) -> ChatService:
-    service = request.app.state.chat
-    if not isinstance(service, ChatService):
-        raise NotFoundError()
-    return service
+def _chat(request: Request) -> ChatBehaviour:
+    from ar_api.actors import chat_of  # noqa: PLC0415
+
+    return chat_of(request)
 
 
 def _principal(request: Request) -> Principal:
@@ -172,14 +172,14 @@ def _platform(principal: Principal) -> None:
 
 
 async def _finish(
-    request: Request, service: ChatService, run_id: str, text: str, names: list[str]
+    request: Request, service: ChatBehaviour, run_id: str, text: str, names: list[str]
 ) -> None:
     if getattr(request.app.state, "await_runs", False):
         await service.generate(uuid.UUID(run_id), text, names)
 
 
 async def _persist_provider(
-    service: ChatService,
+    service: ChatBehaviour,
     created: dict[str, object],
     api_key: str | None,
     principal: Principal,
@@ -200,7 +200,7 @@ async def _persist_provider(
 
 
 async def _persist_model(
-    service: ChatService, created: dict[str, object], principal: Principal
+    service: ChatBehaviour, created: dict[str, object], principal: Principal
 ) -> None:
     from ar_domain.models.registry import save_model  # noqa: PLC0415
 
@@ -216,7 +216,7 @@ async def _persist_model(
 
 
 async def _persist_alias(
-    service: ChatService, created: dict[str, object], principal: Principal
+    service: ChatBehaviour, created: dict[str, object], principal: Principal
 ) -> None:
     from ar_domain.models.registry import save_alias  # noqa: PLC0415
 
@@ -998,7 +998,11 @@ async def run_events(run_id: uuid.UUID, request: Request) -> StreamingResponse:
 
     await reload_run(service, run_id)
     service.get_run(_tenant(principal), run_id)
-    if not service.acquire_sse(principal.id, 20):
+    gate = getattr(request.app.state, "sse_gate", None)
+    if gate is not None:
+        if not await gate.acquire(principal.id, 20):
+            raise ArError(ErrorCode.RATE_LIMITED, "too many streams")
+    elif not service.acquire_sse(principal.id, 20):
         raise ArError(ErrorCode.RATE_LIMITED, "too many streams")
     from ar_domain.runs.event_bus import last_event_seq  # noqa: PLC0415
 
@@ -1011,7 +1015,10 @@ async def run_events(run_id: uuid.UUID, request: Request) -> StreamingResponse:
             async for event in service.iter_events(_tenant(principal), run_id, after):
                 yield sse_frame(event)
         finally:
-            service.release_sse(principal.id)
+            if gate is not None:
+                await gate.release(principal.id)
+            else:
+                service.release_sse(principal.id)
 
     return StreamingResponse(
         frames(),

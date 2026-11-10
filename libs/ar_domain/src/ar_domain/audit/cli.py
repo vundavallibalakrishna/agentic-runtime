@@ -4,8 +4,9 @@
     python -m ar_domain.audit.cli --tenant <uuid>
 
 The database path reads ``audit_events`` through ``audit.service`` verification.
-It does not read the process-local log. Exit status is 0 when the chain holds
-and 1 when a row was tampered with.
+It does not read the process-local log. Gateway ``tool.called`` and
+``tool.denied`` rows are part of that chain. Exit status is 0 when the chain
+holds and 1 when a row was tampered with.
 """
 
 from __future__ import annotations

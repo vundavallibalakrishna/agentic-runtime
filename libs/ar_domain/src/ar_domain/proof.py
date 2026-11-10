@@ -27,8 +27,9 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "chat",
         UNIT,
         "no",
-        "The worker runs one step per activity and calls the tool gateway over HTTP. "
-        "No stored report names a model id and a date.",
+        "The API reads and writes Postgres per request. The worker runs one step "
+        "per activity and calls the tool gateway over HTTP. No stored report "
+        "names a model id and a date.",
     ),
     ("agents", UNIT, "no", "Definitions and publish run in process."),
     (

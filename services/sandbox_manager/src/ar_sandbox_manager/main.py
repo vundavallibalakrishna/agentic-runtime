@@ -11,7 +11,7 @@ from ar_common.settings import (
     unisolated_sandbox_allowed,
 )
 from ar_common.web import create_app
-from ar_domain.chat.service import ChatService
+from ar_domain.readmodel.boot import build_product_store
 from ar_sandbox_manager.drivers.base import assert_driver_allowed, selected_driver
 from ar_sandbox_manager.routes import router as sandbox_router
 
@@ -30,7 +30,8 @@ def create_application() -> FastAPI:
     assert_driver_allowed(driver, allow_unisolated=allow_unisolated)
     app = create_app("sandbox-manager", settings)
     app.include_router(sandbox_router)
-    chat = ChatService(
+    chat = build_product_store(
+        settings,
         allow_loopback=loopback_allowed(settings),
         fake_models_allowed=fake_models_allowed(settings.env),
     )

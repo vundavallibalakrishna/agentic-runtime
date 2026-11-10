@@ -1,9 +1,10 @@
-"""Product chat service. Specs 04-07 and 13.
+"""Product chat behaviour. Specs 04-07 and 13.
 
-HTTP uses Postgres when the database is up. Unit tests and a process with no
-database keep this cache in memory. Model calls use the model gateway when
-``model_gateway_url`` is set, and fake-llm otherwise. A connected Temporal
-client runs each turn on the runtime worker.
+``ChatService`` is the in-memory test double. Staging and production serve API
+reads and writes from Postgres repositories, one transaction per request
+(ADR-0033). Model calls use the model gateway when ``model_gateway_url`` is
+set, and fake-llm otherwise. A connected Temporal client runs each turn on the
+runtime worker.
 """
 
 import asyncio
@@ -170,8 +171,12 @@ _log = get_logger(__name__)
 
 
 @dataclass
-class ChatService:
-    """Tenant-scoped product behaviour. Postgres backs this cache when bound."""
+class ChatBehaviour:
+    """Product behaviour over dict buckets.
+
+    ``ChatService`` is the in-memory test double. A production request uses
+    ``RequestUnit``, loaded from Postgres for that request and discarded on commit.
+    """
 
     # Denied unless the process that builds the store says otherwise (dev and CI do).
     allow_loopback: bool = False
@@ -333,6 +338,7 @@ class ChatService:
     tool_search_vectors: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     cache_limits: dict[str, int] = field(default_factory=dict)
     evicted_conversations: set[uuid.UUID] = field(default_factory=set)
+    _ingest_worker: bool = False
 
     def __post_init__(self) -> None:
         if self.fake_llm_url == "http://127.0.0.1:8099/v1":
@@ -1674,7 +1680,12 @@ class ChatService:
             provider["has_api_key"] = True
 
     def flush_soon(self) -> None:
-        """Persist dirty rows without blocking the caller."""
+        """Persist dirty rows without blocking the caller.
+
+        A request unit commits once, with the repository transaction.
+        """
+        if getattr(self, "request_scoped", False):
+            return
         from ar_domain.durable.flush import schedule_flush  # noqa: PLC0415
 
         schedule_flush(self)
@@ -2973,3 +2984,23 @@ class ChatService:
         from ar_domain.chat.eviction import evict_chat_cache  # noqa: PLC0415
 
         evict_chat_cache(self)
+
+
+@dataclass
+class ChatService(ChatBehaviour):
+    """In-memory test double. Staging and production boot must not construct this."""
+
+    def __post_init__(self) -> None:
+        from ar_domain.readmodel.boot import refuse_memory_double  # noqa: PLC0415
+
+        refuse_memory_double()
+        super().__post_init__()
+
+
+@dataclass
+class RequestUnit(ChatBehaviour):
+    """Identity map for one repository transaction. It is not kept on the process."""
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        self.request_scoped = True

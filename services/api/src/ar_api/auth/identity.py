@@ -8,11 +8,12 @@ the tenant's rows. A missing person and a wrong password are the same error.
 import base64
 
 from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from ar_api.auth.complete import LoginError
 from ar_api.deps import identity_store
 from ar_domain.db.context import Principal, TenantContext
-from ar_domain.durable.bind import binding_from
+from ar_domain.durable.bind import TenantBinding, binding_from
 from ar_domain.identity.guests import totp_matches
 from ar_domain.identity.passwords import verify_password
 from ar_domain.identity.service import IdentityService
@@ -26,13 +27,12 @@ async def resolve_password_login(request: Request, email: str, password: str) ->
     ``invalid_credentials`` error, so the response never reveals whether an address exists.
     Roles and permissions come from the tenant's rows, exactly as the former IdP path did.
     """
-    store = request.app.state.chat
-    binding = binding_from(store)
+    store, binding, engine = await _login_binding(request)
     if binding is None:
         raise LoginError("invalid_credentials")
     principal = Principal(kind="system", id="login", tenant_id=binding.tenant_id)
     ctx = TenantContext.from_principal(principal, str(request.state.request_id))
-    async with identity_store(request, ctx, engine=store.durable_engine) as identity:
+    async with identity_store(request, ctx, engine=engine) as identity:
         tenant = await identity.get_tenant()
         if tenant is None:
             raise LoginError("invalid_credentials")
@@ -46,10 +46,7 @@ async def resolve_password_login(request: Request, email: str, password: str) ->
             raise LoginError("user_suspended")
         permissions, roles = await IdentityService(identity).effective_for(user.id)
         await identity.audit_login(user)
-        store.user_roles[user.id] = set(roles)
-        store.display_names[user.id] = user.display_name
-        store.user_emails[user.id] = str(user.email).lower()
-        store.user_statuses[user.id] = user.status
+        _remember_person(store, user, roles)
         return {
             "tenant_id": str(tenant.id),
             "user_id": str(user.id),
@@ -78,13 +75,12 @@ async def resolve_oidc_claims(request: Request, claims: dict[str, object]) -> di
     """Map a verified OIDC token onto a person of the tenant this process serves."""
     email = str(claims.get("email") or "").strip().lower()
     subject = str(claims.get("sub") or "").strip()
-    store = request.app.state.chat
-    binding = binding_from(store)
+    store, binding, engine = await _login_binding(request)
     if binding is None:
         raise LoginError("invalid_credentials")
     principal = Principal(kind="system", id="oidc", tenant_id=binding.tenant_id)
     ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "oidc")))
-    async with identity_store(request, ctx, engine=store.durable_engine) as identity:
+    async with identity_store(request, ctx, engine=engine) as identity:
         tenant = await identity.get_tenant()
         if tenant is None:
             raise LoginError("invalid_credentials")
@@ -103,10 +99,7 @@ async def resolve_oidc_claims(request: Request, claims: dict[str, object]) -> di
             raise LoginError("user_suspended")
         permissions, roles = await IdentityService(identity).effective_for(user.id)
         await identity.audit_login(user)
-        store.user_roles[user.id] = set(roles)
-        store.display_names[user.id] = user.display_name
-        store.user_emails[user.id] = str(user.email).lower()
-        store.user_statuses[user.id] = user.status
+        _remember_person(store, user, roles)
         return {
             "tenant_id": str(tenant.id),
             "user_id": str(user.id),
@@ -118,15 +111,65 @@ async def resolve_oidc_claims(request: Request, claims: dict[str, object]) -> di
 
 
 async def _user_for_email(request: Request, email: str) -> object | None:
-    store = request.app.state.chat
-    binding = binding_from(store)
+    _store, binding, engine = await _login_binding(request)
     if binding is None:
         return None
     principal = Principal(kind="system", id="login", tenant_id=binding.tenant_id)
     request_id = str(getattr(request.state, "request_id", "login"))
     ctx = TenantContext.from_principal(principal, request_id)
-    async with identity_store(request, ctx, engine=store.durable_engine) as identity:
+    async with identity_store(request, ctx, engine=engine) as identity:
         return await identity.get_user_by_email(email.strip().lower())
+
+
+async def _login_binding(
+    request: Request,
+) -> tuple[object, TenantBinding | None, AsyncEngine | None]:
+    """The tenant this install serves, and the engine its identity rows live on.
+
+    The read model looks the tenant up in Postgres on each sign-in. The test
+    double still uses the binding attached to the process.
+    """
+    from ar_common.settings import get_settings  # noqa: PLC0415
+    from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
+
+    store = request.app.state.chat
+    if isinstance(store, RepositoryReadModel):
+        slug = get_settings().bootstrap_tenant_slug
+        try:
+            binding = await store.lookup_tenant(slug)
+        except Exception as exc:
+            from ar_domain.durable.bind import SchemaNotReadyError, TenantNotReadyError  # noqa: PLC0415
+
+            if not isinstance(exc, SchemaNotReadyError | TenantNotReadyError):
+                raise
+            return store, None, None
+        if not isinstance(binding, TenantBinding):
+            return store, None, None
+        return store, binding, await store.engine_for()
+    binding = binding_from(store)
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        engine = None
+    return store, binding, engine
+
+
+def _remember_person(store: object, user: object, roles: object) -> None:
+    """Keep the signed-in person on the test double. Postgres is re-read next request."""
+    roles_bucket = getattr(store, "user_roles", None)
+    if not isinstance(roles_bucket, dict):
+        return
+    user_id = getattr(user, "id", None)
+    remembered = set(roles) if isinstance(roles, set | list | tuple | frozenset) else set()
+    roles_bucket[user_id] = remembered
+    names = getattr(store, "display_names", None)
+    emails = getattr(store, "user_emails", None)
+    statuses = getattr(store, "user_statuses", None)
+    if isinstance(names, dict):
+        names[user_id] = getattr(user, "display_name", "")
+    if isinstance(emails, dict):
+        emails[user_id] = str(getattr(user, "email", "")).lower()
+    if isinstance(statuses, dict):
+        statuses[user_id] = getattr(user, "status", "active")
 
 
 def _totp_secret(user: object | None) -> str:
