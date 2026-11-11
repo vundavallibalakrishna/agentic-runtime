@@ -203,10 +203,28 @@ async def routed_completion(  # noqa: PLR0915
         from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
 
         url = chat_completions_url(route["base_url"])
-        body: dict[str, object] = {"model": route["model"], "messages": messages}
-        if tools:
-            body["tools"] = tools
-            body["tool_choice"] = "auto"
+        from ar_domain.models.options import request_options_of  # noqa: PLC0415
+        from ar_domain.models.request import chat_completion_body, model_output_limit  # noqa: PLC0415
+
+        limit = None
+        registry = None
+        options: dict[str, object] = {}
+        models = getattr(store, "models", {})
+        if isinstance(models, dict):
+            for row in models.values():
+                if isinstance(row, dict) and str(row.get("upstream_model") or "") == route["model"]:
+                    limit = model_output_limit(row)
+                    registry = row.get("id")
+                    options = request_options_of(row)
+                    break
+        body = chat_completion_body(
+            model=route["model"],
+            messages=messages,
+            tools=tools,
+            max_tokens=1500 if tools else 800,
+            model_limit=limit,
+            options=options,
+        )
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(url, json=body, headers=headers)
@@ -245,6 +263,8 @@ async def routed_completion(  # noqa: PLR0915
 
         parsed["resolved_model_id"] = route["model"]
         parsed["answered_model"] = resolved_model_label(route["model"])
+        if registry is not None:
+            parsed["model_id"] = str(registry)
         parsed["fallback"] = fell_back
         return parsed
     return {

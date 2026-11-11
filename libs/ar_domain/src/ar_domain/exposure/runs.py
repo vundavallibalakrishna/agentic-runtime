@@ -166,11 +166,15 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
     assistant_id = run.get("assistant_message_id")
     text = ""
     content: list[dict[str, Any]] = []
+    answered = ""
+    message: dict[str, Any] | None = None
     if isinstance(assistant_id, uuid.UUID):
-        message = messages.get(assistant_id)
-        if isinstance(message, dict):
+        found = messages.get(assistant_id)
+        if isinstance(found, dict):
+            message = found
             text = str(message.get("text") or "")
             content = public_content(message)
+            answered = str(message.get("answered_model") or "")
     approval_id = None
     finish = "stop"
     if status == "waiting_approval":
@@ -190,6 +194,7 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
         "status": "approval_required" if finish == "approval_required" else status,
         "output": text,
         "content": content,
+        "answered_model": answered,
         "finish_reason": finish,
         "usage": {
             "tokens_in": int(usage.get("tokens_in") or 0),

@@ -708,9 +708,23 @@ class DocumentLibrary:
 
     def _own(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         row = self.store.library_documents.get(document_id)
-        if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
-            raise NotFoundError()
-        return row
+        if isinstance(row, dict) and row.get("tenant_id") == actor.tenant_id:
+            return row
+        # A chat attachment's id is a file id. The library row is the same bytes.
+        matched = self._by_attached_file(actor, document_id)
+        if matched is not None:
+            return matched
+        raise NotFoundError()
+
+    def _by_attached_file(self, actor: Actor, file_id: uuid.UUID) -> dict[str, object] | None:
+        files = getattr(self.store, "files", None)
+        meta = files.get(file_id) if isinstance(files, dict) else None
+        if not isinstance(meta, dict) or meta.get("tenant_id") != actor.tenant_id:
+            return None
+        digest = str(meta.get("sha256") or "")
+        if not digest:
+            return None
+        return self._by_hash(actor.tenant_id, digest)
 
     def _rewrite(self, actor: Actor, rewrite_id: uuid.UUID) -> dict[str, object]:
         row = self.store.document_rewrites.get(rewrite_id)

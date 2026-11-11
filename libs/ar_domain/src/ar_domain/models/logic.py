@@ -133,10 +133,17 @@ def completion_message(payload: object) -> dict[str, object]:
     if isinstance(message, dict):
         raw_calls = message.get("tool_calls")
         if isinstance(raw_calls, list):
+            seen: set[str] = set()
             for index, call in enumerate(raw_calls):
                 parsed = _tool_call(index, call)
-                if parsed is not None:
-                    calls.append(parsed)
+                if parsed is None:
+                    continue
+                # A provider that repeats an id would store two rows under one key.
+                ident = str(parsed["id"])
+                if ident in seen:
+                    parsed["id"] = f"{ident}:{index}"
+                seen.add(str(parsed["id"]))
+                calls.append(parsed)
         visible = str(message.get("content") or "").strip()
         reasoning = _reasoning_trace(message, used_as_answer=not visible)
     return {"text": text, "tool_calls": calls, "usage": usage, "reasoning": reasoning}

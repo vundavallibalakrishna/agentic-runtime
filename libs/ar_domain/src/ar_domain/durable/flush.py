@@ -83,6 +83,7 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
     original = {name: list(rows) for name, rows in pending.items()}
     usage_keys: list[tuple[str, str]] = []
     adopted: dict[uuid.UUID, uuid.UUID] = {}
+    adopted_calls: dict[uuid.UUID, uuid.UUID] = {}
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
             await _set_tenant_context(session, store)
@@ -144,7 +145,7 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             await _events(session, store, pending["events"])
             from ar_domain.durable.m28 import save_runtime_rows  # noqa: PLC0415
 
-            await save_runtime_rows(session, store, pending)
+            adopted_calls = await save_runtime_rows(session, store, pending)
             from ar_domain.durable.stage9 import save_shared_rows  # noqa: PLC0415
 
             await save_shared_rows(session, pending)
@@ -167,6 +168,7 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
         raise
     commit_snapshot(store, original)
     _adopt_library_rows(store, adopted)
+    _adopt_rows(store, "tool_calls", adopted_calls)
     flushed: set[tuple[str, str]] = getattr(store, "_usage_flushed", set())
     flushed.update(usage_keys)
     store._durable_audit_index = audit_end  # type: ignore[attr-defined]
@@ -1136,15 +1138,19 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     sql = """
         INSERT INTO messages (
             id, tenant_id, conversation_id, run_id, parent_message_id, role, content, status,
-            is_active_branch, author_user_id, created_at, updated_at
+            is_active_branch, author_user_id, model_id, model_alias, answered_model,
+            created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :conversation_id, :run_id, :parent_message_id, :role,
-            CAST(:content AS jsonb), :status, :is_active_branch, :author_user_id, :created_at,
-                :updated_at
+            CAST(:content AS jsonb), :status, :is_active_branch, :author_user_id, :model_id,
+            :model_alias, :answered_model, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             content = EXCLUDED.content,
             status = EXCLUDED.status,
+            model_id = COALESCE(EXCLUDED.model_id, messages.model_id),
+            model_alias = COALESCE(EXCLUDED.model_alias, messages.model_alias),
+            answered_model = COALESCE(EXCLUDED.answered_model, messages.answered_model),
             updated_at = EXCLUDED.updated_at
     """
     for row in _parents_first(rows, "parent_message_id"):
@@ -1181,6 +1187,9 @@ async def _messages(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "status": as_text(row.get("status"), "completed"),
                 "is_active_branch": as_bool(row.get("is_active_branch", True)),
                 "author_user_id": as_uuid(row.get("author_user_id")),
+                "model_id": as_uuid(row.get("model_id")),
+                "model_alias": as_text(row.get("model_alias")) or None,
+                "answered_model": as_text(row.get("answered_model")) or None,
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
             },
@@ -1419,11 +1428,20 @@ async def _channel_posts(session: AsyncSession, rows: list[dict[str, Any]]) -> N
         )
 
 
+def _adopt_rows(store: object, bucket_name: str, adopted: dict[uuid.UUID, uuid.UUID]) -> None:
+    """Point the cache at the row a retry found already stored."""
+    _adopt_bucket(store, bucket_name, adopted)
+
+
 def _adopt_library_rows(store: object, adopted: dict[uuid.UUID, uuid.UUID]) -> None:
     """Point the cache at the document that already held these bytes."""
+    _adopt_bucket(store, "library_documents", adopted)
+
+
+def _adopt_bucket(store: object, bucket_name: str, adopted: dict[uuid.UUID, uuid.UUID]) -> None:
     if not adopted:
         return
-    bucket = getattr(store, "library_documents", None)
+    bucket = getattr(store, bucket_name, None)
     if not isinstance(bucket, dict):
         return
     was = getattr(store, "reloading", False)

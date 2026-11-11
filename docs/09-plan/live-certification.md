@@ -31,7 +31,8 @@ export AR_VALKEY_URL=redis://127.0.0.1:6380/0
 export AR_TEMPORAL_ADDRESS=127.0.0.1:7234
 export AR_API_PORT=18010          # omit to use AR_PORT (8000). Do not use 8010 (mcp-sql).
 export AR_API_URL=http://127.0.0.1:${AR_API_PORT}
-export AR_WEB_URL=http://127.0.0.1:3000
+export AR_PUBLIC_URL=http://127.0.0.1:3000   # the browser opens this origin
+export AR_WEB_URL=http://127.0.0.1:3000       # used only when AR_PUBLIC_URL is unset
 export AR_LLM_BASE_URL=https://api.deepinfra.com/v1/openai
 export AR_LLM_MODEL=Qwen/Qwen3-32B
 export AR_EMBED_MODEL=Qwen/Qwen3-Embedding-8B   # DeepInfra also serves BAAI/bge-m3
@@ -66,9 +67,9 @@ uv run python scripts/seed_tenant.py --slug cert --name Cert \
 
 The run registers the chat model and an embedding model. The embedding default is `Qwen/Qwen3-Embedding-8B` (`AR_EMBED_MODEL`), which DeepInfra serves at `{AR_LLM_BASE_URL}/embeddings`, with `embeddingDimensions` 1024. `BAAI/bge-m3` is the other model DeepInfra serves for the same API. Aliases `chat`, `reasoning`, `fast` and `vision` point at the chat model. `embed` points at the embedding model. Retrieval fails with `embedding_unconfigured` when `embed` is missing; it does not pretend the library was empty.
 
-There is no `/audit` page. Screenshots cover `/login`, home, `/agents/new`, `/documents` and `/approvals`. The audit proof is `GET /api/v1/audit-events` and `scripts/verify_audit_chain.py --tenant <uuid>`.
+There is no `/audit` page. Screenshots cover `/login`, home, `/agents/new`, `/documents` and `/approvals`. The audit proof is `GET /api/v1/audit-events` and `scripts/verify_audit_chain.py --tenant <uuid>`. The browser opens `AR_PUBLIC_URL` (falling back to `AR_WEB_URL`). After sign-in, a shot that is still `/login` fails the screenshots step. Dev and CI treat `localhost`, `127.0.0.1` and `::1` as the same CSRF origin; production does not. Extra origins go in `AR_CSRF_ALLOWED_ORIGINS`.
 
-Each step has `result`: `pass`, `fail`, `skipped-no-token` or `unverified`. A connector, OCR or mail step with no token is `skipped-no-token` and does not block `live`. `unverified` and `fail` do. `label` is `live` only when every other step passed. The live eval uses `chat_completions_url` (the same join as the model gateway): `https://api.deepinfra.com/v1/openai` becomes `.../v1/openai/chat/completions`, not `.../v1/openai/v1/chat/completions`. It fails when `pass_rate` is below `AR_EVAL_MIN_PASS_RATE` or every case errored.
+Each step has `result`: `pass`, `fail`, `skipped-no-token` or `unverified`. A connector, OCR or mail step with no token is `skipped-no-token` and does not block `live`. `unverified` and `fail` do. `label` is `live` only when every other step passed. The live eval uses `chat_completions_url` (the same join as the model gateway) and the shared chat-completion body, which always sends a bounded `max_tokens` (`AR_LLM_MAX_TOKENS`, default 1024, or the case's own cap, never above the model limit). A provider error records the HTTP status, a redacted body and the latency. The step fails when `pass_rate` is below `AR_EVAL_MIN_PASS_RATE` or every case errored. Research polls until a terminal status (`AR_RESEARCH_POLL_TIMEOUT_S`, default 180 seconds). `outcome` is `pass`, `failed` or `timeout`. A tool call's idempotency key is the run, step, query and provider call, and a retry adopts the stored row instead of failing the flush. The assistant message stores `answeredModel`, so a reload still shows which model answered. A chart reply includes the image part, and the Computer pane lists each artifact once.
 
 ## What the run does
 
@@ -79,8 +80,8 @@ Each step has `result`: `pass`, `fail`, `skipped-no-token` or `unverified`. A co
 5. Send a chat turn that calls a tool through mcp-gateway.
 6. Approve a four-eyes request as the second user.
 7. Read the audit chain and run `scripts/verify_audit_chain.py --tenant <uuid>`. There is no audit page to screenshot.
-8. Start a research run and read it back. The report cites stored pages. Each source has `sha256` and `fetchedAt`. This step uses the fixture provider unless a search secret is configured. It does not invent a search-provider result.
-9. Run `scripts/eval_run.py --live` against `AR_LLM_BASE_URL` joined with `chat_completions_url`. The scorecard records the model id, the date and the summary. The step fails when `pass_rate` is below `AR_EVAL_MIN_PASS_RATE` or every case errored. A missing key leaves the live run pending and the label stays off `live`.
+8. Start a research run and poll it until it completes, fails or the timeout (`AR_RESEARCH_POLL_TIMEOUT_S`, default 180s, every `AR_RESEARCH_POLL_INTERVAL_S` seconds, default 2). The report cites stored pages. Each source has `sha256` and `fetchedAt`. A failed run and a run still going at the timeout are recorded separately. This step uses the fixture provider unless a search secret is configured. It does not invent a search-provider result.
+9. Run `scripts/eval_run.py --live` against `AR_LLM_BASE_URL` joined with `chat_completions_url`. Each request sends `max_tokens`. The scorecard records the model id, the date, the summary, and per case the status, redacted provider error and latency. The step fails when `pass_rate` is below `AR_EVAL_MIN_PASS_RATE` or every case errored. A missing key leaves the live run pending and the label stays off `live`.
 10. Send a chat turn with `researchMode` false and confirm the run trace can include `endpointId` when model routes are configured. No API key is written into the scorecard.
 11. Probe each connector whose token is set. A missing token is `skipped-no-token` and does not invent a provider result. A provided token that fails is `fail` and keeps the label off `live`.
     - `AR_CERT_SLACK_TOKEN`, `AR_CERT_GOOGLE_TOKEN`, `AR_CERT_MICROSOFT_TOKEN`, `AR_CERT_ATLASSIAN_TOKEN`, `AR_CERT_GITHUB_TOKEN`

@@ -168,6 +168,20 @@ def _same_conversation(store: object, row: dict[str, object], conversation_id: u
     return str(owned or "") == str(conversation_id)
 
 
+def _unique_by_hash(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """One row per content hash. The Computer pane was listing the same file twice."""
+    seen: set[str] = set()
+    unique: list[dict[str, object]] = []
+    for row in rows:
+        digest = str(row.get("sha256") or "")
+        ident = digest or str(row.get("id") or "")
+        if ident in seen:
+            continue
+        seen.add(ident)
+        unique.append(row)
+    return unique
+
+
 def _preview(mime_type: str, data: bytes) -> dict[str, object]:
     if mime_type in {"text/csv", "application/csv"}:
         return {"kind": "csv", "rows": csv_rows(data)}
@@ -721,6 +735,25 @@ class ChatBehaviour:
         )
         self.models[model_id] = row
         return self._public(row)
+
+    def _output_limit(self, upstream: str) -> int | None:
+        from ar_domain.models.request import model_output_limit  # noqa: PLC0415
+
+        for row in self.models.values():
+            if isinstance(row, dict) and str(row.get("upstream_model") or "") == upstream:
+                return model_output_limit(row)
+        return None
+
+    def _registry_id(self, tenant_id: uuid.UUID, upstream: str) -> str | None:
+        for row in self.models.values():
+            if not isinstance(row, dict) or str(row.get("upstream_model") or "") != upstream:
+                continue
+            owner = row.get("tenant_id")
+            if owner not in {None, tenant_id}:
+                continue
+            raw = row.get("id")
+            return str(raw) if raw is not None else None
+        return None
 
     def request_options(self, tenant_id: uuid.UUID, alias: str) -> dict[str, object]:
         """Provider parameters stored on the model ``alias`` resolves to."""
@@ -1483,6 +1516,8 @@ class ChatBehaviour:
         content: list[dict[str, object]] = [{"type": "text", "text": text}]
         for file_id in attachment_ids or []:
             file = self.files[file_id]
+            if file.get("conversation_id") is None:
+                file["conversation_id"] = conversation_id
             content.append(
                 {
                     "type": "file",
@@ -2161,16 +2196,22 @@ class ChatBehaviour:
         options: dict[str, object] | None = None,
         url: str | None = None,
     ) -> str | None:
-        from ar_domain.models.options import apply_request_options  # noqa: PLC0415
+        from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
 
         messages: list[dict[str, str]] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": text})
-        body: dict[str, object] = {"model": model, "messages": messages}
         if real:
-            body["max_tokens"] = 700
-            apply_request_options(body, options or {})
+            body: dict[str, object] = chat_completion_body(
+                model=model,
+                messages=messages,
+                max_tokens=700,
+                model_limit=self._output_limit(model),
+                options=options or {},
+            )
+        else:
+            body = {"model": model, "messages": messages}
         try:
             async with httpx.AsyncClient(timeout=timeout_s) as client:
                 response = await client.post(
@@ -2198,7 +2239,7 @@ class ChatBehaviour:
         else:
             return "The model provider returned an empty answer." if real else None
 
-    async def complete_turn(  # noqa: PLR0911
+    async def complete_turn(  # noqa: PLR0911, PLR0912
         self,
         messages: list[dict[str, object]],
         tools: list[dict[str, object]],
@@ -2219,15 +2260,22 @@ class ChatBehaviour:
         if real:
             await self._ensure_provider_key(tenant_id, model_alias)
             model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
-        body: dict[str, object] = {"model": model, "messages": messages}
-        if tools:
-            body["tools"] = tools
-            body["tool_choice"] = "auto"
         if real:
-            from ar_domain.models.options import apply_request_options  # noqa: PLC0415
+            from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
 
-            body["max_tokens"] = 1500 if tools else 800
-            apply_request_options(body, self.request_options(tenant_id, model_alias))
+            body = chat_completion_body(
+                model=model,
+                messages=messages,
+                tools=tools,
+                max_tokens=1500 if tools else 800,
+                model_limit=self._output_limit(model),
+                options=self.request_options(tenant_id, model_alias),
+            )
+        else:
+            body = {"model": model, "messages": messages}
+            if tools:
+                body["tools"] = tools
+                body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
         try:
             async with httpx.AsyncClient(timeout=timeout_s) as client:
@@ -2269,6 +2317,9 @@ class ChatBehaviour:
 
             parsed["resolved_model_id"] = model
             parsed["answered_model"] = resolved_model_label(model)
+            registry = self._registry_id(tenant_id, model)
+            if registry is not None:
+                parsed["model_id"] = registry
         return parsed
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
@@ -3046,7 +3097,9 @@ class ChatBehaviour:
                 continue
             found.append(self._public(row))
         found.sort(key=lambda item: str(item.get("created_at")))
-        return found
+        if conversation_id is None:
+            return found
+        return _unique_by_hash(found)
 
     def get_file(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, file_id: uuid.UUID

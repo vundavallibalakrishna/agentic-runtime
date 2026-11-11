@@ -107,6 +107,8 @@ class Settings(BaseServiceSettings):
 
     service_name: str = "api"
     public_url: str = "http://localhost:3000"
+    # Comma-separated origins that may send a session cookie, besides public_url.
+    csrf_allowed_origins: str = ""
     # Empty follows the environment: password in dev and ci, OIDC everywhere else.
     auth_mode: str = ""
     password_login: bool = False

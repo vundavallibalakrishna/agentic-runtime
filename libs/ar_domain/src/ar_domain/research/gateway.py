@@ -22,17 +22,31 @@ def subtask_via_gateway(
         return run_subtask(store, run.get("tenant_id"), query)
     found = execute_tool(
         store,
-        _request(run, search_id, {"query": query["text"], "limit": 3}),
+        _request(
+            run,
+            search_id,
+            {"query": query["text"], "limit": 3},
+            query_id=query["id"],
+            call_index=0,
+            label="search",
+        ),
     )
     hits = _hits(found)
     sources: list[dict[str, object]] = []
-    for hit in hits[:2]:
+    for index, hit in enumerate(hits[:2], start=1):
         url = str(hit.get("url") or "")
         if not url:
             continue
         page = execute_tool(
             store,
-            _request(run, fetch_id, {"url": url, "query": query["text"]}),
+            _request(
+                run,
+                fetch_id,
+                {"url": url, "query": query["text"]},
+                query_id=query["id"],
+                call_index=index,
+                label=url,
+            ),
         )
         text = str(page.get("result_preview") or "")
         structured = page.get("structured")
@@ -71,8 +85,15 @@ def _version_id(store: Any, qualified: str) -> uuid.UUID | None:
 
 
 def _request(
-    run: dict[str, object], version_id: uuid.UUID, arguments: dict[str, object]
+    run: dict[str, object],
+    version_id: uuid.UUID,
+    arguments: dict[str, object],
+    *,
+    query_id: str,
+    call_index: int,
+    label: str,
 ) -> dict[str, object]:
+    """One search or fetch. The key is the run, the query and this call, not the tool version."""
     return {
         "tenant_id": run.get("tenant_id"),
         "user_id": run.get("user_id"),
@@ -81,7 +102,10 @@ def _request(
         "agent_version_id": run.get("agent_version_id"),
         "tool_version_id": version_id,
         "arguments": arguments,
-        "model_call_id": f"research-{version_id}",
+        "step": "research",
+        "query_id": query_id,
+        "call_index": call_index,
+        "model_call_id": f"research:{query_id}:{call_index}:{label}",
     }
 
 

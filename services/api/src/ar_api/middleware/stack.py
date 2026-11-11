@@ -119,11 +119,13 @@ class CsrfMiddleware:
             return
         header = _header(scope, b"x-csrf-token")
         origin = _header(scope, b"origin")
-        public_url = str(
-            getattr(scope["app"].state.settings, "public_url", "http://localhost:3000")
-        )
+        settings = scope["app"].state.settings
+        public_url = str(getattr(settings, "public_url", "http://localhost:3000"))
+        env = str(getattr(getattr(settings, "env", ""), "value", getattr(settings, "env", "")))
+        extra = str(getattr(settings, "csrf_allowed_origins", "") or "")
+        allowed = [item.strip() for item in extra.split(",") if item.strip()]
         if not csrf_ok(header, getattr(principal, "csrf_token", None)) or not origin_ok(
-            origin, public_url
+            origin, public_url, allowed=allowed, dev=env in {"dev", "ci"}
         ):
             response = problem_response(
                 ArError(ErrorCode.CSRF_FAILED, "CSRF check failed"),

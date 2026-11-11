@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from ar_common.time import utcnow
 from ar_domain.durable.codec import as_bool, as_dt, as_int, as_json, as_text, as_uuid
@@ -26,19 +27,21 @@ _TOOL_STATUSES = {
     "cancelled",
 }
 _DECISIONS = {"allow", "deny", "require_approval"}
+_TERMINAL_CALLS = frozenset({"succeeded", "failed", "denied", "rejected", "expired", "cancelled"})
 
 
 async def save_runtime_rows(
     session: AsyncSession, store: object, pending: dict[str, list[dict[str, Any]]]
-) -> None:
+) -> dict[uuid.UUID, uuid.UUID]:
     await save_policies(session, pending.get("policies", []), pending.get("policy_versions", []))
     await save_sandbox_templates(session, store, pending.get("sandboxes", []))
     await save_sandboxes(session, pending.get("sandboxes", []))
-    await save_tool_calls(session, pending.get("tool_calls", []))
+    adopted = await save_tool_calls(session, pending.get("tool_calls", []))
     await save_approvals(session, pending.get("approvals", []))
     await save_approval_links(session, pending.get("tool_calls", []))
     await save_approval_decisions(session, pending.get("approval_decisions", []))
     await save_human_questions(session, pending.get("human_questions", []))
+    return adopted
 
 
 async def load_runtime_rows(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
@@ -90,30 +93,52 @@ async def load_runtime_rows(session: AsyncSession, store: object, tenant_id: uui
     await _load_templates(session, store)
 
 
-async def save_tool_calls(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
-    sql = """
-        INSERT INTO tool_calls (
-            id, tenant_id, run_id, tool_id, tool_version_id, qualified_name, model_call_id,
-            arguments_redacted, args_hash, risk_class, policy_decision, status, idempotency_key,
-            result_preview, is_error, error, latency_ms, created_at
-        ) VALUES (
-            :id, :tenant_id, :run_id, :tool_id, :tool_version_id, :qualified_name, :model_call_id,
-            CAST(:arguments_redacted AS jsonb), :args_hash, :risk_class, :policy_decision, :status,
-            :idempotency_key, :result_preview, :is_error, CAST(:error AS jsonb), :latency_ms,
-            :created_at
-        )
-        ON CONFLICT (id) DO UPDATE SET
-            status = EXCLUDED.status,
-            result_preview = EXCLUDED.result_preview,
-            is_error = EXCLUDED.is_error,
-            error = EXCLUDED.error,
-            latency_ms = EXCLUDED.latency_ms
+_TOOL_UPSERT = """
+    INSERT INTO tool_calls (
+        id, tenant_id, run_id, tool_id, tool_version_id, qualified_name, model_call_id,
+        arguments_redacted, args_hash, risk_class, policy_decision, status, idempotency_key,
+        result_preview, is_error, error, latency_ms, created_at
+    ) VALUES (
+        :id, :tenant_id, :run_id, :tool_id, :tool_version_id, :qualified_name, :model_call_id,
+        CAST(:arguments_redacted AS jsonb), :args_hash, :risk_class, :policy_decision, :status,
+        :idempotency_key, :result_preview, :is_error, CAST(:error AS jsonb), :latency_ms,
+        :created_at
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        status = EXCLUDED.status,
+        result_preview = EXCLUDED.result_preview,
+        is_error = EXCLUDED.is_error,
+        error = EXCLUDED.error,
+        latency_ms = EXCLUDED.latency_ms,
+        idempotency_key = EXCLUDED.idempotency_key
+"""
+
+_TOOL_UPDATE = """
+    UPDATE tool_calls SET
+        status = :status,
+        result_preview = :result_preview,
+        is_error = :is_error,
+        error = CAST(:error AS jsonb),
+        latency_ms = :latency_ms
+    WHERE id = :id AND tenant_id = :tenant_id
+"""
+
+
+async def save_tool_calls(
+    session: AsyncSession, rows: list[dict[str, Any]]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """Insert tool calls. A retry with the same idempotency key adopts the stored row.
+
+    The primary key is the row id. The logical identity is ``(tenant_id,
+    idempotency_key)``. A second attempt mints a new id for the same call; that
+    must not abort the transaction. A finished call keeps the result it stored.
     """
+    adopted: dict[uuid.UUID, uuid.UUID] = {}
     for row in rows:
         call_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
         run_id = as_uuid(row.get("run_id"))
-        if None in {call_id, tenant_id, run_id}:
+        if call_id is None or tenant_id is None or run_id is None:
             continue
         present = await session.execute(
             text("SELECT 1 FROM runs WHERE id = :id"),
@@ -123,40 +148,104 @@ async def save_tool_calls(session: AsyncSession, rows: list[dict[str, Any]]) -> 
             # The console used to keep a run that flush cannot store. Inserting
             # the call anyway aborts the transaction and then every later save.
             continue
-        decision = as_text(row.get("policy_decision"), "allow")
-        if decision not in _DECISIONS:
-            decision = "allow"
-        status = as_text(row.get("status"), "pending")
-        if status not in _TOOL_STATUSES:
-            status = "failed"
-        error = row.get("error") if isinstance(row.get("error"), dict) else None
-        await session.execute(
-            text(sql),
-            {
-                "id": call_id,
-                "tenant_id": tenant_id,
-                "run_id": run_id,
-                "tool_id": as_uuid(row.get("tool_id")),
-                "tool_version_id": as_uuid(row.get("tool_version_id")),
-                "qualified_name": as_text(row.get("qualified_name"), "tool"),
-                "model_call_id": as_text(row.get("model_call_id"), str(call_id)),
-                "arguments_redacted": as_json(row.get("arguments_redacted"), {}),
-                "args_hash": as_text(row.get("args_hash"), "0"),
-                "risk_class": as_text(row.get("risk_class"), "R0"),
-                "policy_decision": decision,
-                "status": status,
-                "idempotency_key": as_text(row.get("idempotency_key"), f"{run_id}:{call_id}"),
-                "result_preview": row.get("result_preview")
-                if isinstance(row.get("result_preview"), str)
-                else None,
-                "is_error": as_bool(row.get("is_error")),
-                "error": as_json(error, {}) if error is not None else None,
-                "latency_ms": row.get("latency_ms")
-                if isinstance(row.get("latency_ms"), int)
-                else None,
-                "created_at": as_dt(row.get("created_at")) or utcnow(),
-            },
-        )
+        params = _tool_params(row, call_id, tenant_id, run_id)
+        existing = await _tool_by_key(session, tenant_id, str(params["idempotency_key"]))
+        if existing is not None and existing != call_id:
+            adopted[call_id] = existing[0]
+            if existing[1] not in _TERMINAL_CALLS:
+                params["id"] = existing[0]
+                await session.execute(text(_TOOL_UPDATE), params)
+            continue
+        await _insert_tool_call(session, params, adopted)
+    return adopted
+
+
+def _tool_params(
+    row: dict[str, Any], call_id: uuid.UUID, tenant_id: uuid.UUID, run_id: uuid.UUID
+) -> dict[str, Any]:
+    decision = as_text(row.get("policy_decision"), "allow")
+    if decision not in _DECISIONS:
+        decision = "allow"
+    status = as_text(row.get("status"), "pending")
+    if status not in _TOOL_STATUSES:
+        status = "failed"
+    error = row.get("error") if isinstance(row.get("error"), dict) else None
+    return {
+        "id": call_id,
+        "tenant_id": tenant_id,
+        "run_id": run_id,
+        "tool_id": as_uuid(row.get("tool_id")),
+        "tool_version_id": as_uuid(row.get("tool_version_id")),
+        "qualified_name": as_text(row.get("qualified_name"), "tool"),
+        "model_call_id": as_text(row.get("model_call_id"), str(call_id)),
+        "arguments_redacted": as_json(row.get("arguments_redacted"), {}),
+        "args_hash": as_text(row.get("args_hash"), "0"),
+        "risk_class": as_text(row.get("risk_class"), "R0"),
+        "policy_decision": decision,
+        "status": status,
+        "idempotency_key": as_text(row.get("idempotency_key"), f"{run_id}:{call_id}"),
+        "result_preview": row.get("result_preview")
+        if isinstance(row.get("result_preview"), str)
+        else None,
+        "is_error": as_bool(row.get("is_error")),
+        "error": as_json(error, {}) if error is not None else None,
+        "latency_ms": row.get("latency_ms") if isinstance(row.get("latency_ms"), int) else None,
+        "created_at": as_dt(row.get("created_at")) or utcnow(),
+    }
+
+
+async def _tool_by_key(
+    session: AsyncSession, tenant_id: uuid.UUID, key: str
+) -> tuple[uuid.UUID, str] | None:
+    found = await session.execute(
+        text(
+            "SELECT id, status FROM tool_calls "
+            "WHERE tenant_id = :tenant_id AND idempotency_key = :key"
+        ),
+        {"tenant_id": tenant_id, "key": key},
+    )
+    row = _first_mapping(found)
+    if row is None or row.get("id") is None:
+        return None
+    call_id = as_uuid(row.get("id"))
+    if call_id is None:
+        return None
+    return call_id, as_text(row.get("status"), "")
+
+
+async def _insert_tool_call(
+    session: AsyncSession, params: dict[str, Any], adopted: dict[uuid.UUID, uuid.UUID]
+) -> None:
+    nested = getattr(session, "begin_nested", None)
+
+    async def _write() -> None:
+        await session.execute(text(_TOOL_UPSERT), params)
+
+    if not callable(nested):
+        await _write()
+        return
+    try:
+        async with nested():
+            await _write()
+    except IntegrityError:
+        existing = await _tool_by_key(session, params["tenant_id"], str(params["idempotency_key"]))
+        if existing is None:
+            raise
+        adopted[params["id"]] = existing[0]
+
+
+def _first_mapping(result: object) -> dict[str, Any] | None:
+    """The first row from a SQLAlchemy result or a test double that returns a list."""
+    mappings = getattr(result, "mappings", None)
+    if not callable(mappings):
+        return None
+    rows = mappings()
+    if isinstance(rows, list):
+        return dict(rows[0]) if rows else None
+    first = rows.first() if hasattr(rows, "first") else None
+    if first is None:
+        return None
+    return dict(first)
 
 
 async def save_approval_links(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
@@ -191,7 +280,7 @@ async def save_approvals(session: AsyncSession, rows: list[dict[str, Any]]) -> N
             :required_approvals, :step_up_required, :expires_at, :decided_at, :consumed_at,
             :created_at, :updated_at
         )
-        ON CONFLICT (id) DO UPDATE SET
+        ON CONFLICT (tool_call_id) DO UPDATE SET
             status = EXCLUDED.status,
             decided_at = EXCLUDED.decided_at,
             consumed_at = EXCLUDED.consumed_at,
@@ -246,7 +335,7 @@ async def save_approval_decisions(session: AsyncSession, rows: list[dict[str, An
             :id, :tenant_id, :approval_id, :approver_user_id, :decision, :args_hash, :comment,
             :step_up_verified, :channel, :created_at
         )
-        ON CONFLICT (id) DO NOTHING
+        ON CONFLICT (approval_id, approver_user_id) DO NOTHING
     """
     for row in rows:
         if None in {

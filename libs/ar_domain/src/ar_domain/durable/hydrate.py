@@ -4,7 +4,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 import orjson
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from ar_domain.durable.codec import as_uuid, vector_values
@@ -222,7 +222,54 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
         from ar_domain.durable.m35 import load_conversation_files  # noqa: PLC0415
 
         await load_conversation_files(session, store, tenant_id, run["conversation_id"], attached)
+        await _tool_calls_for(session, store, tenant_id, run_id)
+        await _library_for_files(session, store, tenant_id)
         await _events_for(session, store, run_id, run.get("conversation_id"), run.get("tenant_id"))
+
+
+async def _tool_calls_for(
+    session: AsyncSession, store: object, tenant_id: uuid.UUID, run_id: uuid.UUID
+) -> None:
+    """A retried activity must see the calls the first attempt already stored."""
+    result = await session.execute(
+        text("SELECT * FROM tool_calls WHERE tenant_id = :tenant_id AND run_id = :run_id"),
+        {"tenant_id": tenant_id, "run_id": run_id},
+    )
+    for mapping in result.mappings():
+        row = dict(mapping)
+        _merge(store, "tool_calls", row["id"], row)
+
+
+async def _library_for_files(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    """Load library documents whose bytes match files this turn can already see.
+
+    The upload commits the document on the API. The worker used to start the turn
+    without that row, so the first read said the document was not found.
+    """
+    files = getattr(store, "files", None)
+    if not isinstance(files, dict):
+        return
+    hashes = [
+        str(row.get("sha256"))
+        for row in files.values()
+        if isinstance(row, dict) and row.get("tenant_id") == tenant_id and row.get("sha256")
+    ]
+    if not hashes:
+        return
+    found = await session.execute(
+        text(
+            "SELECT * FROM library_documents "
+            "WHERE tenant_id = :tenant_id AND content_hash IN :hashes"
+        ).bindparams(bindparam("hashes", expanding=True)),
+        {"tenant_id": tenant_id, "hashes": hashes},
+    )
+    for mapping in found.mappings():
+        row = dict(mapping)
+        for key in ("metadata", "passages", "tables"):
+            value = row.get(key)
+            if isinstance(value, str):
+                row[key] = orjson.loads(value)
+        _merge(store, "library_documents", row["id"], row)
 
 
 def _file_ids(content: object) -> list[uuid.UUID]:
