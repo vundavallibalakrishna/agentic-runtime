@@ -1097,10 +1097,14 @@ def _publish_new(
 def _store_file(
     store: Any, arguments: dict[str, object], *, name: str, data: bytes
 ) -> dict[str, str]:
-    file_id = new_id()
-    now = utcnow()
     tenant = arguments.get("_tenant_id")
     label = sanitise_name(name)
+    digest = hashlib.sha256(data).hexdigest()
+    existing = _same_artifact(store, arguments, label, digest)
+    if existing is not None:
+        return {"file_id": str(existing["id"]), "name": label}
+    file_id = new_id()
+    now = utcnow()
     row: dict[str, object] = {
         "id": file_id,
         "tenant_id": tenant,
@@ -1111,7 +1115,7 @@ def _store_file(
         "name": label,
         "mime_type": _mime(label),
         "size_bytes": len(data),
-        "sha256": hashlib.sha256(data).hexdigest(),
+        "sha256": digest,
         "object_key": object_key(str(tenant), "artifact", f"{now:%Y}", f"{now:%m}", str(file_id)),
         "status": "ready",
         "scan_status": "skipped",
@@ -1129,6 +1133,28 @@ def _store_file(
         store, run_id if isinstance(run_id, uuid.UUID) else None, arguments.get("_tenant_id")
     )
     return {"file_id": str(file_id), "name": label}
+
+
+def _same_artifact(
+    store: Any, arguments: dict[str, object], name: str, digest: str
+) -> dict[str, object] | None:
+    """The artifact this conversation already stored for these bytes."""
+    files = getattr(store, "files", None)
+    if not isinstance(files, dict) or not digest:
+        return None
+    conversation = arguments.get("_conversation_id")
+    tenant = arguments.get("_tenant_id")
+    for row in files.values():
+        if not isinstance(row, dict) or row.get("deleted_at") or row.get("status") == "deleted":
+            continue
+        if row.get("tenant_id") != tenant or row.get("sha256") != digest:
+            continue
+        if row.get("name") != name:
+            continue
+        if conversation is not None and row.get("conversation_id") not in {None, conversation}:
+            continue
+        return row
+    return None
 
 
 def _mime(name: str) -> str:

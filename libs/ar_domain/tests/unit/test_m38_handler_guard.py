@@ -18,7 +18,9 @@ if TYPE_CHECKING:
 PRIVATE = "card 4111 1111 1111 1111"
 
 
-def _call(store: ChatService, name: str = "petstore.list_pets") -> dict[str, object]:
+def _call(
+    store: ChatService, name: str = "petstore.list_pets", model_call_id: str = "guard"
+) -> dict[str, object]:
     version = next(row for row in store.tool_versions.values() if row["qualified_name"] == name)
     return ToolPipeline(store).execute(
         {
@@ -27,7 +29,7 @@ def _call(store: ChatService, name: str = "petstore.list_pets") -> dict[str, obj
             "synthetic": True,
             "tool_version_id": version["id"],
             "arguments": {},
-            "model_call_id": "guard",
+            "model_call_id": model_call_id,
         }
     )
 
@@ -51,7 +53,7 @@ def test_a_handler_bug_is_a_failed_call_without_its_message(
         raise RuntimeError(PRIVATE)
 
     monkeypatch.setattr("ar_domain.tools.pipeline.dispatch", boom)
-    result = _call(store)
+    result = _call(store, model_call_id="guard-bug")
     assert result["status"] == "failed"
     error = result["error"]
     assert isinstance(error, dict)

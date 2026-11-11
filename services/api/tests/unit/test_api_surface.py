@@ -116,6 +116,16 @@ def test_public_helpers_and_session_round_trip() -> None:
     assert not csrf_ok(None, "a")
     assert origin_ok(None, "http://localhost:3000")
     assert not origin_ok("http://evil.example", "http://localhost:3000")
+    assert origin_ok("http://127.0.0.1:3000", "http://localhost:3000", dev=True)
+    assert not origin_ok("http://127.0.0.1:3000", "http://localhost:3000", dev=False)
+    assert origin_ok(
+        "https://agents.example.com",
+        "https://app.example.com",
+        allowed=["https://agents.example.com"],
+    )
+    assert origin_ok("http://[::1]:3000", "http://localhost:3000", dev=True)
+    assert not origin_ok("http://", "http://localhost:3000")
+    assert not origin_ok("not a url", "http://localhost:3000", dev=True)
     now = utcnow()
     assert not step_up_fresh(None, now=now, ttl_s=60)
     assert step_up_fresh(now, now=now, ttl_s=60)

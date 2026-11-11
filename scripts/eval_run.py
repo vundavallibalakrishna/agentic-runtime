@@ -20,6 +20,11 @@ import orjson
 import yaml
 
 from ar_domain.evals.harness import case_passed, regressed, stub_reply, summarise
+from ar_domain.models.request import (
+    bound_max_tokens,
+    chat_completion_body,
+    redact_provider_error,
+)
 from ar_domain.models.urls import chat_completions_url
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,13 +95,19 @@ def _serve(cases: list[dict[str, object]]) -> tuple[ThreadingHTTPServer, str]:
     return server, f"http://127.0.0.1:{port}/v1/chat/completions"
 
 
+def _case_max_tokens(case: dict[str, object]) -> int:
+    raw = case.get("max_tokens", case.get("maxTokens"))
+    return bound_max_tokens(raw)
+
+
 def _post(url: str, case: dict[str, object], *, live: bool) -> dict[str, object]:
     prompt = str(case.get("prompt") or "")
     content = f"{case.get('id')}\n{prompt}" if not live else prompt
-    body = {
-        "model": os.environ.get("AR_LLM_MODEL", "stub"),
-        "messages": [{"role": "user", "content": content}],
-    }
+    body = chat_completion_body(
+        model=os.environ.get("AR_LLM_MODEL", "stub"),
+        messages=[{"role": "user", "content": content}],
+        max_tokens=_case_max_tokens(case),
+    )
     data = orjson.dumps(body)
     headers = {"Content-Type": "application/json"}
     key = os.environ.get("AR_LLM_API_KEY", "").strip()
@@ -106,9 +117,38 @@ def _post(url: str, case: dict[str, object], *, live: bool) -> dict[str, object]
     started = time.perf_counter()
     try:
         with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
-            payload = orjson.loads(response.read())
+            raw = response.read()
+            status = getattr(response, "status", 200)
+            payload = orjson.loads(raw)
+    except urllib.error.HTTPError as exc:
+        latency = (time.perf_counter() - started) * 1000
+        detail = b""
+        reader = getattr(exc, "read", None)
+        if callable(reader):
+            try:
+                detail = reader()
+            except Exception:  # noqa: BLE001 - the status is the record that matters
+                detail = b""
+        return {
+            "text": "",
+            "tool": "",
+            "tokens": 0,
+            "latency_ms": latency,
+            "error": "HTTPError",
+            "status": exc.code,
+            "provider_error": redact_provider_error(detail or str(exc.reason or "").encode()),
+        }
     except urllib.error.URLError as exc:
-        return {"text": "", "tool": "", "tokens": 0, "latency_ms": 0, "error": type(exc).__name__}
+        latency = (time.perf_counter() - started) * 1000
+        return {
+            "text": "",
+            "tool": "",
+            "tokens": 0,
+            "latency_ms": latency,
+            "error": type(exc).__name__,
+            "status": None,
+            "provider_error": redact_provider_error(str(getattr(exc, "reason", exc))),
+        }
     latency = (time.perf_counter() - started) * 1000
     message = {}
     choices = payload.get("choices") if isinstance(payload, dict) else None
@@ -131,6 +171,9 @@ def _post(url: str, case: dict[str, object], *, live: bool) -> dict[str, object]
         "tokens": tokens,
         "latency_ms": latency,
         "cost_micros": 0,
+        "status": status,
+        "error": "",
+        "provider_error": "",
     }
 
 
@@ -153,6 +196,8 @@ def run(*, live: bool) -> dict[str, object]:
             scored["tokens"] = reply.get("tokens")
             scored["cost_micros"] = reply.get("cost_micros")
             scored["error"] = bool(reply.get("error"))
+            scored["status"] = reply.get("status")
+            scored["provider_error"] = reply.get("provider_error") or ""
             scored["id"] = case.get("id")
             results.append(scored)
     finally:
@@ -171,6 +216,17 @@ def run(*, live: bool) -> dict[str, object]:
         "date": time.strftime("%Y-%m-%d", time.gmtime()),
         "cases": len(results),
         "summary": summary,
+        "results": [
+            {
+                "id": row.get("id"),
+                "pass": row.get("pass"),
+                "latency_ms": row.get("latency_ms"),
+                "status": row.get("status"),
+                "error": row.get("error"),
+                "provider_error": row.get("provider_error") or "",
+            }
+            for row in results
+        ],
     }
 
 

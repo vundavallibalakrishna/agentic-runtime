@@ -16,6 +16,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.tools.credentials import CredentialBook
 from ar_domain.tools.handlers import dispatch
+from ar_domain.tools.identity import tool_call_idempotency_key
 from ar_domain.tools.logic import (
     as_int,
     as_mapping,
@@ -127,6 +128,9 @@ class ToolPipeline:
         version = self.store.tool_versions.get(request.get("tool_version_id"))
         if not isinstance(version, dict):
             return self._fail(request, "not_found", "tool version was not found", started)
+        replay = self._replay(request, version) if _explicit_identity(request) else None
+        if replay is not None:
+            return replay
         tool = self.store.tool_defs.get(version.get("tool_id"))
         server_version = self.store.tool_server_versions.get(version.get("tool_server_version_id"))
         server = (
@@ -921,6 +925,26 @@ class ToolPipeline:
             error,
         )
 
+    def _replay(
+        self, request: dict[str, object], version: dict[str, object]
+    ) -> dict[str, object] | None:
+        """Return the stored result of this logical call, or keep its row id for a retry.
+
+        A Temporal retry loads the first attempt's row and must not insert another.
+        A call that has not finished yet keeps that row's id so the writer updates it.
+        """
+        key = _call_key(request, str(version.get("qualified_name") or ""))
+        prior = _call_for_key(self.store, request.get("tenant_id"), key)
+        if prior is None:
+            return None
+        status = str(prior.get("status") or "")
+        if status in _TERMINAL or prior.get("result_preview"):
+            return _from_stored(prior, version)
+        existing = _uuid_of(prior.get("id"))
+        if existing is not None:
+            request["tool_call_id"] = existing
+        return None
+
     def _stored(  # noqa: PLR0917
         self,
         request: dict[str, object],
@@ -938,8 +962,9 @@ class ToolPipeline:
         arguments = _scrub_arguments(
             str(version.get("qualified_name") or ""), as_mapping(request.get("arguments"))
         )
-        existing = request.get("tool_call_id")
-        call_id = existing if isinstance(existing, uuid.UUID) else new_id()
+        existing = _uuid_of(request.get("tool_call_id"))
+        call_id = existing if existing is not None else new_id()
+        qualified = str(version.get("qualified_name") or "")
         row = {
             "id": call_id,
             "tenant_id": request.get("tenant_id"),
@@ -956,7 +981,7 @@ class ToolPipeline:
             if decision == "allow"
             else [str((error or {}).get("message") or "")],
             "status": status,
-            "idempotency_key": f"{request.get('run_id')}:{request.get('model_call_id')}",
+            "idempotency_key": _call_key(request, qualified, call_id),
             "result_preview": preview(text),
             "is_error": is_error,
             "error": error,
@@ -1016,6 +1041,81 @@ class ToolPipeline:
             "risk_class": risk,
             "arguments_redacted": row["arguments_redacted"],
         }
+
+
+_TERMINAL = frozenset({"succeeded", "failed", "denied", "rejected", "expired", "cancelled"})
+
+
+def _explicit_identity(request: dict[str, object]) -> bool:
+    """True when the caller named the logical call, so a retry can find it."""
+    if str(request.get("model_call_id") or "").strip():
+        return True
+    if request.get("call_index") is not None:
+        return True
+    return request.get("query_id") not in (None, "")
+
+
+def _call_key(request: dict[str, object], qualified: str, call_id: object = None) -> str:
+    model_call_id = request.get("model_call_id")
+    if not _explicit_identity(request):
+        # No caller identity: each execution is its own call. The row id keeps it unique.
+        model_call_id = call_id or request.get("tool_call_id") or "call"
+    return tool_call_idempotency_key(
+        run_id=request.get("run_id"),
+        model_call_id=model_call_id,
+        step=request.get("step"),
+        query_id=request.get("query_id"),
+        call_index=request.get("call_index"),
+        qualified_name=qualified or request.get("qualified_name"),
+    )
+
+
+def _uuid_of(value: object) -> uuid.UUID | None:
+    if isinstance(value, uuid.UUID):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            return uuid.UUID(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _call_for_key(store: Any, tenant_id: object, key: str) -> dict[str, object] | None:
+    calls = getattr(store, "tool_calls", None)
+    if not isinstance(calls, dict) or not key:
+        return None
+    for row in calls.values():
+        if (
+            isinstance(row, dict)
+            and row.get("idempotency_key") == key
+            and row.get("tenant_id") == tenant_id
+        ):
+            return row
+    return None
+
+
+def _from_stored(row: dict[str, object], version: dict[str, object]) -> dict[str, object]:
+    """The pipeline shape of a tool call that was already stored."""
+    error = row.get("error") if isinstance(row.get("error"), dict) else None
+    text = str(row.get("result_preview") or "")
+    return {
+        "status": str(row.get("status") or "failed"),
+        "is_error": bool(row.get("is_error")),
+        "result_preview": text,
+        "wrapped": text,
+        "structured": {},
+        "error": error,
+        "latency_ms": row.get("latency_ms") if isinstance(row.get("latency_ms"), int) else 0,
+        "policy": {"decision": row.get("policy_decision"), "message": ""},
+        "tool_call_id": str(row.get("id") or ""),
+        "qualified_name": row.get("qualified_name") or version.get("qualified_name"),
+        "risk_class": str(row.get("risk_class") or version.get("risk_class") or ""),
+        "arguments_redacted": row.get("arguments_redacted")
+        if isinstance(row.get("arguments_redacted"), dict)
+        else {},
+        "replayed": True,
+    }
 
 
 def _remote_name(version: dict[str, object]) -> str:

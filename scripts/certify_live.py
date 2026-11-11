@@ -120,7 +120,9 @@ def main() -> int:
         print("live certification pending: " + ", ".join(missing))
         return 2
     api = _api_url()
-    web = os.environ.get("AR_WEB_URL", "").rstrip("/")
+    web = os.environ.get("AR_PUBLIC_URL", "").rstrip("/") or os.environ.get(
+        "AR_WEB_URL", ""
+    ).rstrip("/")
     if not api or not web:
         write(
             out / "scorecard.json",

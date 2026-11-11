@@ -62,6 +62,18 @@ def _json(
     return response.status_code, dict(response.headers), parsed
 
 
+def _still_login(page: object) -> bool:
+    url = str(getattr(page, "url", "") or "")
+    return "/login" in url
+
+
+def _shot(page: object, path: Path, *, signed_in: bool) -> str | None:
+    page.screenshot(path=str(path), full_page=True)  # type: ignore[attr-defined]
+    if signed_in and _still_login(page):
+        return f"{path.name} is still the sign-in page"
+    return None
+
+
 def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, object]:
     try:
         from playwright.sync_api import sync_playwright  # noqa: PLC0415
@@ -69,6 +81,7 @@ def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, ob
         return {"ok": False, "error": "playwright is not installed"}
     shots = out / "screenshots"
     shots.mkdir(parents=True, exist_ok=True)
+    problems: list[str] = []
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(base_url=web)
@@ -77,19 +90,30 @@ def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, ob
         page.fill("#email", email)
         page.fill("#password", password)
         page.locator("form button[type=submit]").click()
-        page.wait_for_timeout(1500)
-        page.screenshot(path=str(shots / "02-home.png"), full_page=True)
-        page.goto("/agents/new")
-        page.wait_for_timeout(800)
-        page.screenshot(path=str(shots / "03-builder.png"), full_page=True)
-        page.goto("/documents")
-        page.wait_for_timeout(800)
-        page.screenshot(path=str(shots / "04-documents.png"), full_page=True)
-        page.goto("/approvals")
-        page.wait_for_timeout(800)
-        page.screenshot(path=str(shots / "05-approvals.png"), full_page=True)
+        try:
+            page.wait_for_url(lambda url: "/login" not in url, timeout=20000)
+        except Exception as exc:  # noqa: BLE001 - a stuck login is a failed screenshot
+            problems.append(f"login did not leave /login ({type(exc).__name__})")
+        home = _shot(page, shots / "02-home.png", signed_in=True)
+        if home:
+            problems.append(home)
+        for name, path in (
+            ("03-builder.png", "/agents/new"),
+            ("04-documents.png", "/documents"),
+            ("05-approvals.png", "/approvals"),
+        ):
+            page.goto(path)
+            try:
+                page.wait_for_url(lambda url: "/login" not in url, timeout=10000)
+            except Exception as exc:  # noqa: BLE001
+                problems.append(f"{name} returned to /login ({type(exc).__name__})")
+            failed = _shot(page, shots / name, signed_in=True)
+            if failed:
+                problems.append(failed)
         # There is no /audit page. The audit proof is the API plus verify_audit_chain.py.
         browser.close()
+    if problems:
+        return {"ok": False, "error": "; ".join(problems), "dir": str(shots)}
     return {"ok": True, "dir": str(shots)}
 
 
@@ -239,6 +263,76 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
     }
 
 
+def _poll_research(
+    api: str, auth: dict[str, str], research_status: int, research: object
+) -> dict[str, object]:
+    """Wait until the run is terminal. Failed, timed out and still running stay distinct."""
+    timeout = _seconds("AR_RESEARCH_POLL_TIMEOUT_S", 180.0)
+    interval = _seconds("AR_RESEARCH_POLL_INTERVAL_S", 2.0)
+    outcome = "running"
+    if research_status not in {200, 202} or not isinstance(research, dict):
+        return {
+            "step": "research",
+            "ok": False,
+            "result": "fail",
+            "outcome": "failed",
+            "body": research,
+        }
+    run_raw = research.get("runId") or research.get("run_id")
+    if not run_raw:
+        return {
+            "step": "research",
+            "ok": False,
+            "result": "fail",
+            "outcome": "failed",
+            "body": research,
+        }
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        got, _headers, body = _json("GET", f"{api}/api/v1/research/runs/{run_raw}", {}, auth)
+        if got == 200 and isinstance(body, dict):
+            research = body
+            status = str(body.get("status") or "")
+            if status in {"completed", "budget_exceeded"}:
+                sources = body.get("sources")
+                outcome = (
+                    "pass"
+                    if isinstance(sources, list)
+                    and sources
+                    and all(
+                        isinstance(row, dict) and row.get("sha256") and row.get("fetchedAt")
+                        for row in sources
+                    )
+                    else "failed"
+                )
+                break
+            if status in {"failed", "cancelled"}:
+                outcome = "failed"
+                break
+        time.sleep(interval)
+    else:
+        outcome = "timeout"
+    passed = outcome == "pass"
+    return {
+        "step": "research",
+        "ok": passed,
+        "result": "pass" if passed else "fail",
+        "outcome": outcome,
+        "body": research,
+    }
+
+
+def _seconds(name: str, default: float) -> float:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
+
+
 def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
     """Research, the live eval sample, and the model-route read. No key is stored."""
     steps: list[dict[str, object]] = []
@@ -248,32 +342,8 @@ def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
         {"question": "What do the stored notes say about a kite?"},
         auth,
     )
-    research_ok = False
-    if research_status in {200, 202} and isinstance(research, dict):
-        run_raw = research.get("runId") or research.get("run_id")
-        if run_raw:
-            for _wait in range(15):
-                got, _headers, body = _json(
-                    "GET", f"{api}/api/v1/research/runs/{run_raw}", {}, auth
-                )
-                if (
-                    got == 200
-                    and isinstance(body, dict)
-                    and body.get("status")
-                    in {
-                        "completed",
-                        "budget_exceeded",
-                    }
-                ):
-                    sources = body.get("sources")
-                    research_ok = isinstance(sources, list) and all(
-                        isinstance(row, dict) and row.get("sha256") and row.get("fetchedAt")
-                        for row in sources
-                    )
-                    research = body
-                    break
-                time.sleep(1)
-    steps.append({"step": "research", "ok": research_ok, "body": research})
+    research_step = _poll_research(api, auth, research_status, research)
+    steps.append(research_step)
     eval_run = subprocess.run(
         ["uv", "run", "python", "scripts/eval_run.py", "--live"],  # noqa: S607
         check=False,

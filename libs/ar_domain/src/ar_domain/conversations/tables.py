@@ -263,6 +263,7 @@ class Message(Base):
     model_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("models.id", ondelete="SET NULL")
     )
+    answered_model: Mapped[str | None] = mapped_column(Text)
     tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     author_user_id: Mapped[uuid.UUID | None] = mapped_column(

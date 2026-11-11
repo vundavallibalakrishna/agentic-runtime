@@ -97,6 +97,9 @@ def _body(request: dict[str, object]) -> dict[str, object]:
         "approval_id",
         "args_hash",
         "agent_id",
+        "step",
+        "query_id",
+        "call_index",
     )
     body: dict[str, object] = {}
     for key in keys:

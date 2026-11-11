@@ -47,9 +47,22 @@ def check_response_format(schema: object) -> dict[str, object] | None:
     return schema
 
 
+def accept_output(text: str, schema: dict[str, object]) -> tuple[str | None, str | None]:
+    """The raw JSON to store, or an error. A markdown fence is not part of the answer."""
+    raw = _strip_fence(text)
+    problem = _schema_error(raw, schema)
+    if problem is not None:
+        return None, problem
+    parsed = orjson.loads(raw)
+    return orjson.dumps(parsed).decode(), None
+
+
 def validate_output(text: str, schema: dict[str, object]) -> str | None:
     """Return an error string when ``text`` is not JSON matching ``schema``."""
-    raw = _strip_fence(text)
+    return _schema_error(_strip_fence(text), schema)
+
+
+def _schema_error(raw: str, schema: dict[str, object]) -> str | None:
     try:
         parsed = orjson.loads(raw)
     except orjson.JSONDecodeError as exc:
