@@ -93,3 +93,43 @@ def test_a_written_file_is_typed_by_its_name() -> None:
     assert _mime("chart.PNG") == "image/png"
     assert _mime("unknown") == "text/plain"
     assert mime_of_name("blob.bin", "application/octet-stream") == "application/octet-stream"
+
+
+def test_an_assistant_asked_for_a_chart_is_offered_the_chart_tool() -> None:
+    import asyncio
+    import uuid
+
+    from ar_domain.chat.service import demo_id
+
+    store = demo_store()
+    store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)
+    captured: list[list[str]] = []
+
+    async def complete(
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        *,
+        tenant_id: uuid.UUID,
+        model_alias: str,
+    ) -> dict[str, object]:
+        del messages, tenant_id, model_alias
+        captured.append([str(tool["function"]["name"]) for tool in tools])  # type: ignore[index]
+        return {
+            "text": "Done.",
+            "tool_calls": [],
+            "usage": {"tokens_in": 2, "tokens_out": 2},
+            "real": True,
+        }
+
+    store.complete_turn = complete  # type: ignore[method-assign]
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    request = "Draw a bar chart with North 2 and South 5."
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), request, schedule=False
+    )
+    asyncio.run(store.generate(uuid.UUID(str(posted["run"]["id"])), request, []))
+    # The assistant has more tools than the threshold, so the model is not sent them all.
+    assert "session__search" in captured[0]
+    assert "general__chart" in captured[0]
+    assert len(captured[0]) < 20

@@ -141,12 +141,14 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             by_name["skills.load"] = load_row
     openai_tools = [_openai_tool(row) for row in tools]
     openai_tools.extend(extra_tools)
-    # Above the threshold, offer the core tools and the search tool; the full catalogue
-    # stays in by_name so a searched tool resolves, and its schema joins the next call.
+    # Above the threshold, offer the core tools, the tools closest to what the person asked
+    # and the search tool; the full catalogue stays in by_name so a searched tool resolves,
+    # and its schema joins the next call.
     deferred = bool(catalog.get("tool_search_active"))
     offered: set[str] = {_spec_name(spec) for spec in openai_tools}
     if deferred:
         core = [row for row in tools if str(row.get("qualified_name")) in _CORE_WHEN_SEARCHING]
+        core.extend(_closest(store, version_id, user_id, user_text, core))
         if not any(str(row.get("qualified_name")) == "session.search" for row in core):
             search_row = _search_tool_row(store)
             if search_row is not None:
@@ -672,6 +674,32 @@ _CORE_WHEN_SEARCHING = frozenset(
     {"files.read", "files.list", "session.plan_update", "session.search", "skills.load"}
 )
 _SEARCH_TOOL_NAMES = frozenset({"session__search", "tools__search"})
+
+
+def _closest(
+    store: Any,
+    version_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: str,
+    held: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """The agent's tools ranked closest to the request, up to its ``tool_search.top_k``.
+
+    The same ranking ``session.search`` uses. A turn with no text adds nothing.
+    """
+    if not request.strip():
+        return []
+    ranked = (
+        ToolPipeline(store)
+        .resolve_catalog(agent_version_id=version_id, user_id=user_id, query=request)
+        .get("tools")
+    )
+    have = {str(row.get("qualified_name")) for row in held}
+    return [
+        row
+        for row in (ranked if isinstance(ranked, list) else [])
+        if isinstance(row, dict) and str(row.get("qualified_name")) not in have
+    ]
 
 
 def _spec_name(spec: dict[str, object]) -> str:

@@ -399,7 +399,7 @@ def _live_eval(api: str, auth: dict[str, str]) -> dict[str, object]:
         if case_status not in {200, 201}:
             return {"step": "eval-live", "ok": False, "result": "fail", "body": saved}
     run_status, _run_headers, started = _json(
-        "POST", f"{api}/api/v1/eval-suites/{suite_id}:run", {"tags": ["certification"]}, auth
+        "POST", f"{api}/api/v1/eval-suites/{suite_id}:run", {}, auth
     )
     run_id = started.get("id") if isinstance(started, dict) else None
     if run_status not in {200, 202} or not run_id:
@@ -434,7 +434,7 @@ def _live_eval(api: str, auth: dict[str, str]) -> dict[str, object]:
         "summary": summary,
         "cases": [
             {
-                "caseId": item.get("caseId"),
+                "case": _case_name(item.get("case")),
                 "passed": item.get("passed"),
                 "scores": item.get("scores"),
             }
@@ -442,6 +442,10 @@ def _live_eval(api: str, auth: dict[str, str]) -> dict[str, object]:
             if isinstance(item, dict)
         ],
     }
+
+
+def _case_name(case: object) -> str:
+    return str(case.get("name") or "") if isinstance(case, dict) else str(case or "")
 
 
 def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
@@ -465,6 +469,15 @@ def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
         }
     )
     return steps
+
+
+def _drew_chart(event: object) -> bool:
+    """A finished ``general.chart`` call in a run's events."""
+    if not isinstance(event, dict) or event.get("type") != "tool_call.completed":
+        return False
+    data = event.get("data") if isinstance(event.get("data"), dict) else event
+    name = data.get("qualifiedName") or data.get("qualified_name")
+    return name == "general.chart" and data.get("status") == "succeeded"
 
 
 def _stage13(api: str, token: str) -> list[dict[str, object]]:
@@ -523,18 +536,29 @@ def _stage13(api: str, token: str) -> list[dict[str, object]]:
     chart_status, _chart_headers, chart = _json(
         "POST",
         f"{api}/v1/agents/assistant:run",
-        {
-            "text": "Use the chart tool to draw a bar chart with North 2 and South 5. Then stop.",
-        },
+        {"text": "Draw a bar chart with North 2 and South 5."},
         headers,
     )
     chart_content = chart.get("content") if isinstance(chart, dict) else None
-    figure = False
-    if isinstance(chart_content, list):
-        figure = any(
-            isinstance(part, dict) and part.get("type") in {"file", "image"}
-            for part in chart_content
+    # A chart is a PNG image part, drawn by general.chart. Any other file is not a chart.
+    figure = isinstance(chart_content, list) and any(
+        isinstance(part, dict)
+        and part.get("type") == "image"
+        and part.get("mimeType") == "image/png"
+        for part in chart_content
+    )
+    drawn = False
+    chart_run = chart.get("id") if isinstance(chart, dict) else None
+    if chart_run:
+        _events_status, _events_headers, chart_events = _json(
+            "GET",
+            f"{api}/v1/agents/assistant/runs/{chart_run}/events",
+            {},
+            {**headers, "accept": "application/json"},
         )
+        rows = chart_events.get("items") if isinstance(chart_events, dict) else chart_events
+        drawn = isinstance(rows, list) and any(_drew_chart(event) for event in rows)
+    figure = figure and drawn
     return [
         {
             "step": "stage13-content-parts",
