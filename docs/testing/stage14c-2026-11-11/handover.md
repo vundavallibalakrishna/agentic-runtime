@@ -24,7 +24,7 @@ Live means the local stack on this branch, Postgres on 5433, Temporal on 7234, m
 | Certification eval suite | 8 of 8 cases, gate passed | live |
 | Screenshots step, `/documents` lists uploads | passed | live |
 | Text and HTML previews, file types | content shown, `text/plain` and `text/html` | live |
-| Python unit suite | 1,351 pass, 4 fail | unit |
+| Python unit suite | 1,358 pass, 4 fail | unit |
 | Web unit suite | 84 pass | unit |
 
 The 4 unit failures were not caused by this change: two Qdrant conformance tests need a Qdrant container, `test_fixtures_agree_with_opa` fails on this machine, and `test_m38b_e2e_harness` reads a port from the local environment. None was checked against main.

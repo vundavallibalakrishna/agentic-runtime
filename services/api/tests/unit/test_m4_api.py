@@ -132,3 +132,58 @@ def test_oauth_invalid_grant() -> None:
     )
     assert bad.status_code == 400
     assert "invalid_grant" in bad.text
+
+
+def _tool_id(client: TestClient, qualified: str) -> str:
+    tools = client.get("/api/v1/tools", params={"limit": 500})
+    return next(row["toolId"] for row in tools.json()["items"] if row["qualifiedName"] == qualified)
+
+
+def test_console_tests_share_a_conversations_folder() -> None:
+    client = _client()
+    conversation = client.post("/api/v1/conversations", json={}).json()["id"]
+    wrote = client.post(
+        f"/api/v1/tools/{_tool_id(client, 'general.write_file')}:test",
+        json={
+            "arguments": {"path": "notes/kept.txt", "content": "kept"},
+            "conversationId": conversation,
+        },
+    )
+    assert wrote.status_code == 200, wrote.text
+    read = client.post(
+        f"/api/v1/tools/{_tool_id(client, 'general.read_file')}:test",
+        json={"arguments": {"path": "notes/kept.txt"}, "conversationId": conversation},
+    )
+    assert read.status_code == 200, read.text
+    assert "kept" in str(read.json().get("resultPreview"))
+
+
+def test_a_console_test_cannot_use_another_persons_conversation() -> None:
+    owner = _client()
+    conversation = owner.post("/api/v1/conversations", json={}).json()["id"]
+    tool_id = _tool_id(owner, "general.list_files")
+    missing = owner.post(
+        f"/api/v1/tools/{tool_id}:test",
+        json={"arguments": {}, "conversationId": str(uuid.uuid4())},
+    )
+    assert missing.status_code == 404
+    other = Principal(
+        kind="user",
+        id=str(demo_id("builder")),
+        tenant_id=demo_id("tenant"),
+        permissions=PERMISSION_KEYS,
+        team_permissions=frozenset(),
+        auth_method="bearer",
+        email="builder@dev.local",
+        display_name="Builder",
+    )
+
+    async def resolve(scope: object) -> Principal:
+        del scope
+        return other
+
+    owner.app.state.resolve_principal = resolve  # type: ignore[attr-defined]
+    refused = owner.post(
+        f"/api/v1/tools/{tool_id}:test", json={"arguments": {}, "conversationId": conversation}
+    )
+    assert refused.status_code == 404
