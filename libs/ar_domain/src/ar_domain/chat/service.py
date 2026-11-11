@@ -1539,10 +1539,12 @@ class ChatBehaviour:
             message_id=message_id,
             trigger="research" if research else "chat",
         )
+        from ar_domain.runs.request import ask  # noqa: PLC0415
+
         if suggest_followups:
-            run["suggest_followups"] = True
+            ask(run, "suggest_followups", True)
         if response_format:
-            run["response_format"] = response_format
+            ask(run, "response_format", response_format)
         if research:
             from ar_domain.research.engine import initial_state  # noqa: PLC0415
 

@@ -62,11 +62,15 @@ def _staging() -> BaseServiceSettings:
 
 def test_staging_refuses_a_process_local_book(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AR_SANDBOX_MANAGER_URL", raising=False)
+    monkeypatch.setattr("redis.Redis.from_url", lambda *_a, **_k: _Valkey())
     previous = get_settings()
     settings = _staging()
     set_settings(settings)
     try:
         store = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        # Building the store attaches the Valkey books, so no entry point can forget them.
+        require_shared_request_state(store, settings)
+        store.builder_sessions = {}
         with pytest.raises(ProcessLocalStateRefusedError):
             require_shared_request_state(store, settings)
         with pytest.raises(ProcessLocalStateRefusedError):
@@ -127,9 +131,8 @@ def test_a_down_valkey_refuses_boot(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = _staging()
     set_settings(settings)
     try:
-        store = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
         with pytest.raises(ProcessLocalStateRefusedError):
-            install_shared_state(store, settings)
+            build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
     finally:
         set_settings(previous)
 

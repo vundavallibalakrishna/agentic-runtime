@@ -184,6 +184,17 @@ class TrackedDict(dict[object, object]):
         self.deleted.pop(key, None)
 
 
+def keep(bucket: Any, key: object, row: dict[str, object]) -> dict[str, object]:
+    """Store a new row and return the stored object.
+
+    A tracked bucket stores its own copy, so a caller that keeps writing to the dict it
+    built would lose those writes. Code that stores a row and then fills it in uses this.
+    """
+    bucket[key] = row
+    found = bucket[key]
+    return found if isinstance(found, dict) else row
+
+
 def _wrap(bucket: Any, key: object, value: object) -> object:
     if isinstance(value, dict) and not isinstance(value, TrackedRow):
         nested = TrackedRow(bucket, key, {})

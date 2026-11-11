@@ -1057,14 +1057,14 @@ async def _runs(session: AsyncSession, store: object, rows: list[dict[str, Any]]
             id, tenant_id, conversation_id, agent_id, agent_version_id, parent_run_id,
             root_run_id, depth, trigger, routine_id, user_id, initiator_type, initiator_id,
             input_message_id, status, temporal_workflow_id, budget, callback_url, usage,
-            result_summary, error, checkpoint, workspace_ref, started_at, ended_at, created_at,
-            updated_at
+            result_summary, error, checkpoint, request, workspace_ref, started_at, ended_at,
+            created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :conversation_id, :agent_id, :agent_version_id, :parent_run_id,
             :root_run_id, :depth, :trigger, :routine_id, :user_id, :initiator_type, :initiator_id,
             NULL, :status, :temporal_workflow_id, CAST(:budget AS jsonb), :callback_url,
             CAST(:usage AS jsonb), :result_summary, CAST(:error AS jsonb),
-            CAST(:checkpoint AS jsonb),
+            CAST(:checkpoint AS jsonb), CAST(:request AS jsonb),
             :workspace_ref, :started_at, :ended_at, :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
@@ -1073,6 +1073,7 @@ async def _runs(session: AsyncSession, store: object, rows: list[dict[str, Any]]
             result_summary = EXCLUDED.result_summary,
             error = EXCLUDED.error,
             checkpoint = EXCLUDED.checkpoint,
+            request = EXCLUDED.request,
             workspace_ref = EXCLUDED.workspace_ref,
             started_at = EXCLUDED.started_at,
             ended_at = EXCLUDED.ended_at,
@@ -1122,6 +1123,9 @@ async def _runs(session: AsyncSession, store: object, rows: list[dict[str, Any]]
                 else None,
                 "checkpoint": as_json(row.get("checkpoint"), {})
                 if isinstance(row.get("checkpoint"), dict)
+                else None,
+                "request": as_json(row.get("request"), {})
+                if isinstance(row.get("request"), dict)
                 else None,
                 "workspace_ref": row.get("workspace_ref")
                 if isinstance(row.get("workspace_ref"), str)

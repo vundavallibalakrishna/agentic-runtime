@@ -17,6 +17,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import budget_exceeded
+from ar_domain.runs.request import asked
 from ar_domain.tools.gateway_client import execute_tool
 from ar_domain.tools.images import build_image_message, collect_images
 from ar_domain.tools.logic import call_args_hash
@@ -84,7 +85,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     if definition is None:
         return False
     limits = read_budget(definition, run)
-    if limits["max_tool_calls"] <= 0 and not run.get("orchestration_child"):
+    if limits["max_tool_calls"] <= 0 and not asked(run, "orchestration_child"):
         return False
     alias = model_alias_for(store, run)
     _model, _headers, _timeout, real = store._completion_call(
@@ -126,7 +127,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         not tools
         and not extra_tools
         and not has_grounding(definition)
-        and not run.get("orchestration_child")
+        and not asked(run, "orchestration_child")
     ):
         return False
     by_name = _index(tools)
@@ -164,7 +165,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     get_logger(__name__).info("tools_offered", run_id=str(run.get("id")), names=sorted(offered))
     from ar_domain.tools.structured import schema_for  # noqa: PLC0415
 
-    schema = schema_for(definition, run.get("response_format"))
+    schema = schema_for(definition, asked(run, "response_format"))
     from ar_domain.tools.worker_loop import (  # noqa: PLC0415
         apply_worker_loop,
         consume_one_tool,

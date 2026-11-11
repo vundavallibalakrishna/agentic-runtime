@@ -46,6 +46,7 @@ from ar_common.sandboxkit import (
 from ar_common.settings import host_exec_allowed, loopback_allowed, wildcard_egress_allowed
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
+from ar_domain.durable.tracking import keep
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
 from ar_domain.usage.logic import UsageRecord
@@ -342,8 +343,7 @@ def _delegate_ensure(
         "token": payload.get("token"),
         "driver_ref": payload.get("driver_ref") or payload.get("driverRef"),
     }
-    store.sandboxes[sandbox_id] = row
-    return row
+    return keep(store.sandboxes, sandbox_id, row)
 
 
 def _delegate_to_manager(store: Any) -> bool:

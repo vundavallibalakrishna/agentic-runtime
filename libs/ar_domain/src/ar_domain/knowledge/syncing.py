@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
+from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.access import as_uuid
 from ar_domain.knowledge.fetchers import fetch_bytes, list_acl_changes, list_changes, map_item_acl
 from ar_domain.knowledge.pipeline import embedding_error, ingest_document
@@ -45,8 +46,7 @@ def open_job(
         "finished_at": None,
         "created_at": now,
     }
-    store.ingestion_jobs[job_id] = row
-    return row  # type: ignore[return-value]
+    return keep(store.ingestion_jobs, job_id, row)  # type: ignore[arg-type]
 
 
 def finish_job(job: dict[str, object], *, status: str, error: str | None = None) -> None:
@@ -332,8 +332,7 @@ def _stub(
         "created_at": now,
         "updated_at": now,
     }
-    store.knowledge_documents[document_id] = row
-    return row
+    return keep(store.knowledge_documents, document_id, row)
 
 
 def _collection_default(store: Any, source: dict[str, object]) -> list[str]:

@@ -13,6 +13,7 @@ from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, V
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
+from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.access import can_manage, can_read_document, can_see
 from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.embedding import choose_model, collection_dims
@@ -651,8 +652,7 @@ class KnowledgeBook:
             "created_at": now,
             "updated_at": now,
         }
-        self.store.knowledge_documents[document_id] = row
-        return row
+        return keep(self.store.knowledge_documents, document_id, row)
 
     def _visible(self, actor: Actor, collection_id: uuid.UUID) -> dict[str, object]:
         row = self.store.knowledge_collections.get(collection_id)

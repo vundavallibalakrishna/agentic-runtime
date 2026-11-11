@@ -80,14 +80,7 @@ def _query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     sql = str(arguments.get("sql") or "")
     if not sql.strip():
         return _error("validation_failed", "sql is required")
-    checked = check_sql(
-        sql,
-        allow_tables=set(),
-        deny_columns=set(),
-        row_limit=_MAX_ROWS,
-        dialect="duckdb",
-        allow_any=True,
-    )
+    checked = _checked(store, arguments, sql)
     columns, rows, truncated = query_loaded(
         _load_requested(store, arguments), checked, row_limit=_MAX_ROWS
     )
@@ -116,14 +109,7 @@ def _export(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         sql = str(arguments.get("sql") or "")
         if not sql.strip():
             return _error("validation_failed", "pass rows or a sql query over a workspace file")
-        checked = check_sql(
-            sql,
-            allow_tables=set(),
-            deny_columns=set(),
-            row_limit=_MAX_ROWS,
-            dialect="duckdb",
-            allow_any=True,
-        )
+        checked = _checked(store, arguments, sql)
         columns, rows, _truncated = query_loaded(
             _load_requested(store, arguments), checked, row_limit=_MAX_ROWS
         )
@@ -162,14 +148,7 @@ def _pivot(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         f"SELECT * FROM (PIVOT {table} ON {on_column} USING {agg}({value}) "  # noqa: S608
         f"GROUP BY {index}) AS pivot_result"
     )
-    checked = check_sql(
-        sql,
-        allow_tables=set(),
-        deny_columns=set(),
-        row_limit=_MAX_ROWS,
-        dialect="duckdb",
-        allow_any=True,
-    )
+    checked = _checked(store, arguments, sql)
     columns, rows, truncated = query_loaded(sheets, checked, row_limit=_MAX_ROWS)
     result = _query_result(checked, columns, rows, truncated=truncated)
     structured = result["structured"]
@@ -190,6 +169,33 @@ def table_rows(store: Store, arguments: dict[str, object]) -> list[dict[str, obj
         if wanted is None or name == wanted:
             return [dict(zip(columns, row, strict=False)) for row in rows[:_MAX_ROWS]]
     return []
+
+
+def _checked(store: Store, arguments: dict[str, object], sql: str) -> str:
+    """The statement, checked. A statement that does not parse is told the table names.
+
+    A model often writes the file's path after FROM. The table is named after the file
+    or its sheet, so the refusal says which names exist.
+    """
+    try:
+        return check_sql(
+            sql,
+            allow_tables=set(),
+            deny_columns=set(),
+            row_limit=_MAX_ROWS,
+            dialect="duckdb",
+            allow_any=True,
+        )
+    except SqlRejected as exc:
+        names = [name for name, _columns, _rows in _load_requested(store, arguments)]
+        if not names:
+            raise
+        listed = ", ".join(names)
+        hint = (
+            f"{exc.reason}. A table is named after its file or sheet, not its path. "
+            f"The tables are: {listed}. Put one of those names after FROM."
+        )
+        raise SqlRejected(hint) from exc
 
 
 def _query_result(

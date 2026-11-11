@@ -16,6 +16,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
 from ar_domain.documents.chunk import RETRIEVAL_BUDGET
+from ar_domain.durable.tracking import keep
 from ar_domain.knowledge.acl import collection_acl
 from ar_domain.knowledge.book import KnowledgeBook
 from ar_domain.knowledge.chunker import ChunkDraft, chunk_markdown, token_count
@@ -396,8 +397,7 @@ def _create_document(
         "created_at": now,
         "updated_at": now,
     }
-    store.knowledge_documents[document_id] = row
-    return row
+    return keep(store.knowledge_documents, document_id, row)
 
 
 async def _write_chunks(

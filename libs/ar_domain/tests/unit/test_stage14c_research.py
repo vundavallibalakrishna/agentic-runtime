@@ -155,3 +155,51 @@ def test_a_production_store_gets_shared_state_where_it_is_built(monkeypatch) -> 
     attached.clear()
     boot.build_product_store(BaseServiceSettings(env=EnvName.DEV, service_name="mcp-gateway"))
     assert attached == []
+
+
+def test_what_a_turn_was_asked_is_stored_on_the_run() -> None:
+    from ar_domain.runs.request import ask, asked
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    schema = {"type": "object", "properties": {"capital": {"type": "string"}}}
+    posted = store.post_message(
+        tenant,
+        user,
+        uuid.UUID(str(conversation["id"])),
+        "What is the capital of France?",
+        schedule=False,
+        response_format=schema,
+        suggest_followups=True,
+    )
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    assert run["request"] == {"suggest_followups": True, "response_format": schema}
+    assert "response_format" not in run
+    # A worker sees only what the database row holds.
+    reloaded: dict[str, object] = {"id": run["id"], "request": dict(run["request"])}
+    assert asked(reloaded, "response_format") == schema
+    assert asked(reloaded, "suggest_followups") is True
+    assert asked({"id": run["id"]}, "response_format") is None
+    try:
+        ask(reloaded, "mode", "research")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an unknown option was accepted")
+
+
+def test_a_row_filled_in_after_it_is_stored_keeps_those_writes() -> None:
+    from ar_domain.durable.tracking import keep
+
+    _store, documents = _runs()
+    document_id = uuid.uuid4()
+    built = {"id": document_id, "status": "pending", "size_bytes": 0}
+    row = keep(documents, document_id, built)
+    documents.dirty.clear()
+    row["status"] = "indexed"
+    assert documents[document_id]["status"] == "indexed"
+    assert document_id in documents.dirty
+    # A plain bucket hands back the same dict it was given.
+    plain: dict[object, object] = {}
+    assert keep(plain, document_id, built) is built

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import orjson
 
 from ar_domain.prompts.budget import read_prompt
+from ar_domain.runs.request import asked
 
 if TYPE_CHECKING:
     from typing import Any
@@ -18,7 +19,7 @@ _MAX_COUNT = 6
 
 def wants_followups(definition: dict[str, object] | None, run: dict[str, object]) -> bool:
     """True when this turn should ask for follow-up prompts."""
-    if run.get("suggest_followups") is True:
+    if asked(run, "suggest_followups") is True:
         return True
     output = definition.get("output") if isinstance(definition, dict) else None
     if not isinstance(output, dict):

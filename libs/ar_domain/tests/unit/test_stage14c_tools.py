@@ -258,3 +258,29 @@ def test_markdown_text_added_to_knowledge_keeps_its_sections() -> None:
     assert [row["heading"] for row in passages] == ["Policy / Access", "Policy / Retention"]
     assert "duty manager" in passages[0]["text"]
     assert _plain("<p>Hello   <b>world</b></p>", "Note")[0]["text"] == "Hello world"
+
+
+def test_a_query_that_names_the_path_is_told_the_table_names() -> None:
+    from ar_domain.tools.analysis import dispatch_analysis
+    from ar_domain.tools.general import _prepare
+
+    store = demo_store()
+    arguments = _run_arguments(store)
+    root = _prepare(store, arguments)
+    target = root / "workspace" / "data" / "regions.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("region,count\nNorth,12\nSouth,19\n", encoding="utf-8")
+    wrong = dispatch_analysis(
+        store,
+        "query_table",
+        {**arguments, "path": "data/regions.csv", "sql": "SELECT SUM(count) FROM data/regions.csv"},
+    )
+    assert wrong is not None and wrong["is_error"] is True
+    assert "The tables are: regions" in str(wrong["text"])
+    right = dispatch_analysis(
+        store,
+        "query_table",
+        {**arguments, "path": "data/regions.csv", "sql": "SELECT SUM(count) AS total FROM regions"},
+    )
+    assert right is not None and right["is_error"] is False
+    assert "31" in str(right["text"])
