@@ -40,6 +40,18 @@ export function rootEnv(name: string): string | undefined {
   return undefined;
 }
 
-export const apiPort = rootEnv("AR_PORT") ?? "8000";
+export const apiPort = rootEnv("AR_API_PORT") ?? rootEnv("AR_PORT") ?? "8000";
 export const webPort = rootEnv("AR_WEB_HOST_PORT") ?? "3000";
-export const apiProxyUrl = rootEnv("API_PROXY_URL") ?? `http://127.0.0.1:${apiPort}`;
+
+function apiOrigin(): string {
+  const explicit = rootEnv("AR_API_URL");
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
+  }
+  if (rootEnv("AR_API_PORT")) {
+    return `http://127.0.0.1:${apiPort}`;
+  }
+  return rootEnv("API_PROXY_URL") ?? `http://127.0.0.1:${apiPort}`;
+}
+
+export const apiProxyUrl = apiOrigin();

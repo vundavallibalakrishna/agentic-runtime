@@ -1,3 +1,4 @@
+# api binds AR_API_PORT when set, otherwise AR_PORT. The web proxy uses the same port.
 api: uv run ar-api
 runtime-worker: uv run ar-runtime
 system-worker: uv run ar-system

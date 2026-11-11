@@ -413,7 +413,8 @@ async def test_flush_writes_each_bucket(monkeypatch: pytest.MonkeyPatch) -> None
     service.durable_engine = engine
     with pytest.raises(RuntimeError, match="row rejected"):
         await flush_store(service)
-    assert service.agents.dirty
+    # A rejected unit is discarded. It is not left dirty for the next request.
+    assert not service.agents.dirty
     await flush_store(service)
     assert not service.agents.dirty
     await flush_store(SimpleNamespace())
@@ -984,7 +985,7 @@ def test_pgvector_text_and_parent_rows_are_decoded_for_workers() -> None:
         flush_mod._parents_first([{"id": "a", "parent": "b"}, {"id": "b", "parent": "a"}], "parent")
 
 
-async def test_deletion_retry_keeps_tombstone_and_commits_tenant_filter(
+async def test_failed_delete_is_restored_and_does_not_poison_the_next_flush(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from unittest.mock import AsyncMock
@@ -998,14 +999,17 @@ async def test_deletion_retry_keeps_tombstone_and_commits_tenant_filter(
     key = uuid.uuid4()
     store.channel_integrations[key] = {"id": key, "tenant_id": _TENANT}
     store.channel_integrations.dirty.clear()
+    store.channel_integrations.baseline.clear()
     store.channel_integrations.pop(key)
     session = _Session()
     session.execute = AsyncMock(side_effect=RuntimeError("database unavailable"))
     monkeypatch.setattr(flush_mod, "AsyncSession", lambda *a, **k: session)
     with pytest.raises(RuntimeError, match="database unavailable"):
         await flush_store(store)
-    assert key in store.channel_integrations.dirty
-    assert key in store.channel_integrations.deleted
+    # The delete did not commit, so the row is back and the next flush is not stuck on it.
+    assert key not in store.channel_integrations.dirty
+    assert key not in store.channel_integrations.deleted
+    assert key in store.channel_integrations
     seen: list[tuple[object, object]] = []
 
     async def _execute(statement: object, params: object = None) -> _Rows:
@@ -1015,10 +1019,7 @@ async def test_deletion_retry_keeps_tombstone_and_commits_tenant_filter(
     session.execute = _execute  # type: ignore[method-assign]
     await flush_store(store)
     assert key not in store.channel_integrations.dirty
-    assert key not in store.channel_integrations.deleted
-    sql, params = next(item for item in seen if "DELETE FROM channel_integrations" in str(item[0]))
-    assert "tenant_id = :tenant_id" in str(sql)
-    assert params == {"id": key, "tenant_id": _TENANT}
+    assert not any("DELETE FROM channel_integrations" in str(item[0]) for item in seen)
 
 
 async def test_cancelled_partial_text_preserves_non_text_content() -> None:

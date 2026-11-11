@@ -793,11 +793,16 @@ def _fit_context(
 def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], step: int) -> None:
     endpoint = turn.get("endpoint_id")
     model = turn.get("answered_model")
+    resolved = turn.get("resolved_model_id")
+    if isinstance(resolved, str) and resolved:
+        run["resolved_model_id"] = resolved
     if isinstance(model, str) and model:
         run["answered_model"] = model
         assistant = store.messages.get(run.get("assistant_message_id"))
         if isinstance(assistant, dict):
             assistant["answered_model"] = model
+            if isinstance(resolved, str) and resolved:
+                assistant["resolved_model_id"] = resolved
     if turn.get("fallback") is True:
         store._emit(
             run,

@@ -28,7 +28,7 @@ from starlette.responses import JSONResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ar_api.main import LISTEN_PORT, create_application
-from ar_common.host_ports import listen_port
+from ar_common.host_ports import api_listen_port
 from ar_testing.demo import serve_demo_tenant, start_session
 from ar_testing.demo_people import catalogue
 
@@ -82,7 +82,7 @@ def build() -> ASGIApp:
 
 def main() -> None:
     """Listen on ``AR_PORT``."""
-    uvicorn.run(build(), host="127.0.0.1", port=listen_port("AR_PORT", LISTEN_PORT))
+    uvicorn.run(build(), host="127.0.0.1", port=api_listen_port(LISTEN_PORT))
 
 
 if __name__ == "__main__":

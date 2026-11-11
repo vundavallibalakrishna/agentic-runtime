@@ -156,6 +156,18 @@ def _vector_length(kind: str, value: int | None) -> int | None:
     return int(value)
 
 
+def _same_conversation(store: object, row: dict[str, object], conversation_id: uuid.UUID) -> bool:
+    """True when the file belongs to this conversation, including one saved by its run."""
+    owned = row.get("conversation_id")
+    if owned is None:
+        run_id = row.get("run_id")
+        runs = getattr(store, "runs", None)
+        run = runs.get(run_id) if isinstance(runs, dict) else None
+        if isinstance(run, dict):
+            owned = run.get("conversation_id")
+    return str(owned or "") == str(conversation_id)
+
+
 def _preview(mime_type: str, data: bytes) -> dict[str, object]:
     if mime_type in {"text/csv", "application/csv"}:
         return {"kind": "csv", "rows": csv_rows(data)}
@@ -1061,6 +1073,7 @@ class ChatBehaviour:
             default_request_options,
             request_options_of,
         )
+        from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
 
         started = time.perf_counter()
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
@@ -1084,7 +1097,7 @@ class ChatBehaviour:
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
-                    base_url.rstrip("/") + "/chat/completions", json=body, headers=headers
+                    chat_completions_url(base_url), json=body, headers=headers
                 )
             if response.status_code < 300:
                 text = completion_text(response.json())
@@ -1546,7 +1559,11 @@ class ChatBehaviour:
         callback_url: str | None = None,
         on_behalf_of: uuid.UUID | None = None,
     ) -> dict[str, object]:
+        from ar_domain.conversations.triggers import RUN_TRIGGERS  # noqa: PLC0415
         from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
+
+        if trigger not in RUN_TRIGGERS:
+            raise ArError(ErrorCode.VALIDATION_FAILED, "That run trigger is not allowed.")
 
         active = sum(
             1
@@ -1617,14 +1634,18 @@ class ChatBehaviour:
         key = provider.get("api_key")
         if isinstance(key, str) and key:
             headers["Authorization"] = f"Bearer {key}"
-        return base.rstrip("/") + "/chat/completions"
+        from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
+
+        return chat_completions_url(base)
 
     def completion_url(self) -> str:
         """Chat completions. The gateway wins when it is configured."""
         base = (self.model_gateway_url or self.fake_llm_url).rstrip("/")
         if self.model_gateway_url and not base.endswith("/v1"):
             base += "/v1"
-        return base + "/chat/completions"
+        from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
+
+        return chat_completions_url(base)
 
     async def refresh_models(self) -> None:
         """Make the model registry equal the database for the tenant this process serves.
@@ -2243,6 +2264,11 @@ class ChatBehaviour:
             }
         parsed = completion_message(payload)
         parsed["real"] = real
+        if real and model and model != "reasoning":
+            from ar_domain.models.logic import resolved_model_label  # noqa: PLC0415
+
+            parsed["resolved_model_id"] = model
+            parsed["answered_model"] = resolved_model_label(model)
         return parsed
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
@@ -3013,7 +3039,7 @@ class ChatBehaviour:
                 continue
             if row.get("status") == "deleted":
                 continue
-            if conversation_id is not None and row.get("conversation_id") != conversation_id:
+            if conversation_id is not None and not _same_conversation(self, row, conversation_id):
                 continue
             owner = row.get("owner_user_id")
             if owner not in {None, user_id} and conversation_id is None:

@@ -250,6 +250,7 @@ async def ensure_admin(
     email: str,
     display_name: str | None = None,
     password: str | None = None,
+    role_key: str = "tenant_admin",
 ) -> str:
     """Create a tenant on plan ``self_hosted`` and its tenant-admin user when they are missing.
 
@@ -291,11 +292,11 @@ async def ensure_admin(
     elif password:
         user.password_hash = hash_password(password)
         user.password_set_at = utcnow()
-    role = await session.scalar(
-        select(Role).where(Role.key == "tenant_admin", Role.tenant_id.is_(None))
-    )
+    role = await session.scalar(select(Role).where(Role.key == role_key, Role.tenant_id.is_(None)))
     if role is None:
-        raise RuntimeError("role tenant_admin is missing; apply the catalogue first")
+        if role_key == "tenant_admin":
+            raise RuntimeError("role tenant_admin is missing; apply the catalogue first")
+        raise RuntimeError(f"role {role_key} is missing; apply the catalogue first")
     existing = await session.scalar(
         select(RoleAssignment).where(
             RoleAssignment.tenant_id == tenant.id,

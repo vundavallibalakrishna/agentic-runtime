@@ -20,6 +20,7 @@ import orjson
 import yaml
 
 from ar_domain.evals.harness import case_passed, regressed, stub_reply, summarise
+from ar_domain.models.urls import chat_completions_url
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSISTANT = ROOT / "evals" / "gym" / "assistant" / "cases.yaml"
@@ -138,7 +139,7 @@ def run(*, live: bool) -> dict[str, object]:
     server: ThreadingHTTPServer | None = None
     if live:
         base = os.environ.get("AR_LLM_BASE_URL", "").rstrip("/")
-        url = base + "/chat/completions" if base.endswith("/v1") else base + "/v1/chat/completions"
+        url = chat_completions_url(base)
         if not os.environ.get("AR_LLM_API_KEY", "").strip():
             raise SystemExit("AR_LLM_API_KEY is not set")
     else:
@@ -151,13 +152,19 @@ def run(*, live: bool) -> dict[str, object]:
             scored["latency_ms"] = reply.get("latency_ms")
             scored["tokens"] = reply.get("tokens")
             scored["cost_micros"] = reply.get("cost_micros")
+            scored["error"] = bool(reply.get("error"))
             scored["id"] = case.get("id")
             results.append(scored)
     finally:
         if server is not None:
             server.shutdown()
     summary = summarise(results)
-    label = "live" if live else "contract"
+    summary["errors"] = float(sum(1 for row in results if row.get("error")))
+    label = (
+        "live"
+        if live and _live_passed(summary, len(results))
+        else ("contract" if not live else "failed")
+    )
     return {
         "label": label,
         "modelId": os.environ.get("AR_LLM_MODEL", "") if live else "",
@@ -165,6 +172,22 @@ def run(*, live: bool) -> dict[str, object]:
         "cases": len(results),
         "summary": summary,
     }
+
+
+def _live_passed(summary: dict[str, object], cases: int) -> bool:
+    """A live eval fails when every case errored or the pass rate misses the bar.
+
+    ``AR_EVAL_MIN_PASS_RATE`` is the bar, default 1. A rate of 0 is not a pass.
+    """
+    errors = int(float(summary.get("errors") or 0))
+    if cases == 0 or errors >= cases:
+        return False
+    raw = os.environ.get("AR_EVAL_MIN_PASS_RATE", "1").strip()
+    try:
+        threshold = float(raw)
+    except ValueError:
+        threshold = 1.0
+    return float(summary.get("pass_rate") or 0) + 1e-9 >= threshold
 
 
 def main() -> int:
@@ -176,6 +199,14 @@ def main() -> int:
     report = run(live=live)
     text = json.dumps(report, indent=2)
     print(text)
+    if live and report.get("label") != "live":
+        print(
+            "live eval failed: pass_rate "
+            f"{(report.get('summary') or {}).get('pass_rate')} "
+            f"errors {(report.get('summary') or {}).get('errors')}",
+            file=sys.stderr,
+        )
+        return 1
     if not check:
         return 0
     baseline = orjson.loads(BASELINE.read_bytes())
