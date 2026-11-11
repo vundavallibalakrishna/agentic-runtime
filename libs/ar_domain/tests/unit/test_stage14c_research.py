@@ -136,3 +136,22 @@ def test_a_replayed_search_is_not_recorded_as_a_finished_subtask(monkeypatch) ->
     run: dict[str, object] = {"checkpoint": {"research": state}}
     store_results(run, {"1": result})
     assert pending_subtasks(state_of(run, "kites"))
+
+
+def test_a_production_store_gets_shared_state_where_it_is_built(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """Every process builds its store the same way, so none can forget the Valkey books."""
+    from ar_common.settings import BaseServiceSettings, EnvName
+    from ar_domain import process_state
+    from ar_domain.readmodel import boot
+
+    attached: list[object] = []
+    monkeypatch.setattr(
+        process_state, "install_shared_state", lambda store, _s: attached.append(store)
+    )
+    monkeypatch.setenv("AR_CURSOR_SECRET", "not-the-dev-default")
+    settings = BaseServiceSettings(env=EnvName.STAGING, service_name="mcp-gateway")
+    store = boot.build_product_store(settings)
+    assert attached == [store]
+    attached.clear()
+    boot.build_product_store(BaseServiceSettings(env=EnvName.DEV, service_name="mcp-gateway"))
+    assert attached == []

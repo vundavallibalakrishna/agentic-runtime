@@ -1116,6 +1116,9 @@ def _store_file(
     digest = hashlib.sha256(data).hexdigest()
     existing = _same_artifact(store, arguments, label, digest)
     if existing is not None:
+        # The bytes are already stored, but this run's folder still has to be saved, or
+        # the next step on another worker would not find the file.
+        _snapshot_after(store, arguments)
         return {"file_id": str(existing["id"]), "name": label}
     file_id = new_id()
     now = utcnow()
@@ -1158,6 +1161,7 @@ def _same_artifact(
         return None
     conversation = arguments.get("_conversation_id")
     tenant = arguments.get("_tenant_id")
+    owner = arguments.get("_user_id")
     for row in files.values():
         if not isinstance(row, dict) or row.get("deleted_at") or row.get("status") == "deleted":
             continue
@@ -1166,6 +1170,10 @@ def _same_artifact(
         if row.get("name") != name:
             continue
         if conversation is not None and row.get("conversation_id") not in {None, conversation}:
+            continue
+        # A file in no conversation is its owner's alone. Another person's upload of the
+        # same bytes is not this run's artifact.
+        if row.get("conversation_id") is None and row.get("owner_user_id") != owner:
             continue
         return row
     return None

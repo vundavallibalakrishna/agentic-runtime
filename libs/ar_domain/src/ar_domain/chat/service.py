@@ -2482,7 +2482,8 @@ class ChatBehaviour:
             "seq": seq,
             "type": event_type,
             "run_id": str(run_id),
-            "conversation_id": str(run["conversation_id"]),
+            # A console tool test runs with no conversation.
+            "conversation_id": str(run.get("conversation_id") or ""),
             "data": data,
             "ts": utcnow().isoformat(),
             "tenant_id": str(run.get("tenant_id") or ""),

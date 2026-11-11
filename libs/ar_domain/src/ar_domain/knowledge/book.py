@@ -469,7 +469,9 @@ class KnowledgeBook:
                 or file_row.get("status") != "ready"
             ):
                 raise ValidationFailedError("files must be ready and owned by you")
-            raw = bytes(self.store.blobs.get(file_id, b""))
+            from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+            raw = read_blob(self.store, file_id) or b""
             self._byte_limit(actor, len(raw))
             document = self._new_document(
                 actor, collection, source, file_row, principals, external_id=str(file_id)

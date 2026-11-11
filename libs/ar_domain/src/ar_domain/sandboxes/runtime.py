@@ -878,7 +878,9 @@ def _screenshot(
 
 def _attach(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     file_id = _uuid(arguments.get("file_id"))
-    blob = store.blobs.get(file_id) if file_id else None
+    from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+    blob = read_blob(store, file_id) if file_id else None
     row = store.files.get(file_id) if file_id else None
     if file_id is None or blob is None or not isinstance(row, dict):
         return _error("not_found", "file was not found")

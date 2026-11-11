@@ -275,7 +275,10 @@ def _fetch(store: Any, url: str, headers: dict[str, str] | None) -> str:
 
 
 def _plain(text: str, title: str) -> list[dict[str, str]]:
-    cleaned = _SPACE.sub(" ", _TAG.sub(" ", text)).strip()
+    # Lines are kept: a heading is a line of its own, and joining it to the text under it
+    # leaves a document that is all heading and no passage.
+    lines = [_SPACE.sub(" ", line).strip() for line in _TAG.sub(" ", text).splitlines()]
+    cleaned = "\n".join(lines).strip()
     if not cleaned:
         return []
     markdown = cleaned if cleaned.startswith("#") else f"# {title}\n\n{cleaned}"

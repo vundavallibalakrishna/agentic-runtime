@@ -188,3 +188,73 @@ def test_a_script_missing_a_package_is_told_to_use_the_chart_tool() -> None:
         from dataclasses import replace
 
         general.replace = replace  # type: ignore[attr-defined]
+
+
+def _run_arguments(store: object) -> dict[str, object]:
+    import uuid
+
+    from ar_domain.chat.service import demo_id
+
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)  # type: ignore[attr-defined]
+    posted = store.post_message(  # type: ignore[attr-defined]
+        tenant, user, uuid.UUID(str(conversation["id"])), "write", schedule=False
+    )
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]  # type: ignore[attr-defined]
+    return {
+        "_tenant_id": tenant,
+        "_user_id": user,
+        "_run_id": run["id"],
+        "_conversation_id": run["conversation_id"],
+    }
+
+
+def test_writing_bytes_that_are_already_stored_still_saves_the_folder() -> None:
+    from ar_domain.tools.general import _prepare, _store_file
+
+    store = demo_store()
+    first = _run_arguments(store)
+    root = _prepare(store, first)
+    (root / "workspace" / "data").mkdir(parents=True, exist_ok=True)
+    (root / "workspace" / "data" / "same.csv").write_text("a,b\\n1,2\\n", encoding="utf-8")
+    _store_file(store, first, name="same.csv", data=b"a,b\\n1,2\\n")
+    # A second run in the same conversation writes the same bytes under the same name.
+    second = {**first, "_run_id": _run_arguments(store)["_run_id"]}
+    root = _prepare(store, second)
+    (root / "workspace" / "again").mkdir(parents=True, exist_ok=True)
+    (root / "workspace" / "again" / "same.csv").write_text("a,b\\n1,2\\n", encoding="utf-8")
+    _store_file(store, second, name="same.csv", data=b"a,b\\n1,2\\n")
+    saved = {
+        str(row.get("path"))
+        for row in store.workspace_files.values()
+        if row.get("run_id") == second["_run_id"]
+    }
+    assert "again/same.csv" in saved
+
+
+def test_another_persons_detached_file_is_not_this_runs_artifact() -> None:
+    import hashlib
+
+    from ar_domain.chat.service import demo_id
+    from ar_domain.tools.general import _same_artifact
+
+    store = demo_store()
+    arguments = _run_arguments(store)
+    digest = hashlib.sha256(b"shared bytes").hexdigest()
+    other = store.upload(  # type: ignore[attr-defined]
+        demo_id("tenant"), demo_id("builder"), "same.txt", "text/plain", b"shared bytes"
+    )
+    assert other["id"]
+    assert _same_artifact(store, arguments, "same.txt", digest) is None
+
+
+def test_markdown_text_added_to_knowledge_keeps_its_sections() -> None:
+    from ar_domain.knowledge.members import _plain
+
+    text = (
+        "# Policy\n\n## Access\n\nApproved by the duty manager.\n\n## Retention\n\nKept 7 years.\n"
+    )
+    passages = _plain(text, "Policy")
+    assert [row["heading"] for row in passages] == ["Policy / Access", "Policy / Retention"]
+    assert "duty manager" in passages[0]["text"]
+    assert _plain("<p>Hello   <b>world</b></p>", "Note")[0]["text"] == "Hello world"

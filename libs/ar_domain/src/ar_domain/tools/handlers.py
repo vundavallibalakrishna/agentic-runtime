@@ -277,7 +277,9 @@ def _files(store: Any, name: str, arguments: dict[str, object]) -> dict[str, obj
         key = uuid.UUID(file_id)
     except ValueError:
         return _error("not_found", "file was not found")
-    blob = store.blobs.get(key)
+    from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+    blob = read_blob(store, key)
     if blob is None or not _may_read_file(store.files.get(key), tenant, user, own):
         return _error("not_found", "file was not found")
     offset = as_int(arguments.get("offset"), 0)

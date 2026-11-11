@@ -39,9 +39,14 @@ def build_product_store(
 ) -> ChatService | RepositoryReadModel:
     """The store this process boots with. Production is the repository read model."""
     if uses_shared_process_state(settings.env):
+        from ar_domain.process_state import install_shared_state  # noqa: PLC0415
         from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
 
-        return RepositoryReadModel.from_settings(settings, **options)
+        model = RepositoryReadModel.from_settings(settings, **options)
+        # Every process that serves or runs tools counts against the shared windows, so
+        # the Valkey books are attached here and not left to each entry point.
+        install_shared_state(model, settings)
+        return model
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
 
     return ChatService(**options)

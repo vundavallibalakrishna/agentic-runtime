@@ -353,7 +353,9 @@ class SkillBook:
         row = self.store.files.get(file_id)
         if not isinstance(row, dict) or row.get("tenant_id") != actor.tenant_id:
             raise NotFoundError("asset file was not found")
-        blob = self.store.blobs.get(file_id)
+        from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+        blob = read_blob(self.store, file_id)
         if not isinstance(blob, bytes):
             raise NotFoundError("asset file was not found")
         return blob, row

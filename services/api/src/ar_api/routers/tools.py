@@ -24,6 +24,8 @@ class ToolReasonBody(ApiModel):
 class TestBody(ApiModel):
     arguments: dict[str, object] = Field(default_factory=dict)
     dry_run: bool = False
+    # Run in this conversation's working folder, so one test can read what another wrote.
+    conversation_id: uuid.UUID | None = None
 
 
 @router.get("/api/v1/tools", dependencies=[Depends(require_permission("tools:read"))])
@@ -82,10 +84,14 @@ async def test_tool(tool_id: uuid.UUID, body: TestBody, request: Request) -> dic
     # agent is skipped on flush, and the tool-call row then violates the run
     # foreign key and fails every later save in this process.
     agent = _console_agent(store, who.tenant_id)
+    if body.conversation_id is not None:
+        # Another tenant's or another person's conversation is not found.
+        store._conversation(who.tenant_id, who.user_id, body.conversation_id, read_all=False)
     store.runs[run_id] = {
         "id": run_id,
         "tenant_id": who.tenant_id,
         "user_id": who.user_id,
+        "conversation_id": body.conversation_id,
         "agent_id": None if agent is None else agent.get("id"),
         "trigger": "api",
         "depth": 0,

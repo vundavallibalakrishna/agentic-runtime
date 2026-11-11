@@ -183,7 +183,9 @@ class EvalBook:
             raise NotFoundError()
         if file_row.get("kind") != "eval_dataset":
             raise ValidationFailedError("file must be an eval dataset")
-        blob = self.store.blobs.get(file_id, b"")
+        from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+        blob = read_blob(self.store, file_id) or b""
         text = blob.decode("utf-8", errors="replace") if isinstance(blob, bytes) else str(blob)
         return self._import_text(actor, suite_id, text)
 
