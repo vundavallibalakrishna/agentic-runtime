@@ -14,6 +14,7 @@
   "AR_VECTOR_BACKEND" .Values.retrieval.backend
   "AR_VECTOR_PG_EF_SEARCH" (printf "%v" .Values.retrieval.efSearch)
   "AR_SANDBOX_DRIVER" .Values.sandboxes.driver
+  "AR_SANDBOX_IMAGE" (.Values.sandboxes.image | default (include "ar.thirdPartyImage" (list . "ar-sandbox" .Values.global.imageTag)))
   "AR_SANDBOX_DEFAULT_RUNTIME_CLASS" .Values.sandboxes.runtimeClass
   "AR_SANDBOX_NAMESPACE" .Values.sandboxes.namespace
   "AR_SANDBOX_WARM_POOL" .Values.sandboxes.warmPool

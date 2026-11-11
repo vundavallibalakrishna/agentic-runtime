@@ -25,8 +25,13 @@ def pod_spec(
     disk_gb: int,
     lifetime_s: int,
     token: str,
+    image: str,
 ) -> dict[str, Any]:
-    """The pod the controller submits. No service-account token, no privilege."""
+    """The pod the controller submits. No service-account token, no privilege.
+
+    ``image`` is the install's sandbox image (``AR_SANDBOX_IMAGE``), the same setting the
+    docker driver starts a container from.
+    """
     short = sandbox_id.replace("-", "")[:12]
     quantity = f"{cpu_millis}m"
     memory = f"{memory_mb}Mi"
@@ -53,7 +58,7 @@ def pod_spec(
             "containers": [
                 {
                     "name": "sandbox",
-                    "image": "registry.local/ar/ar-sandbox@sha256:" + ("ab" * 32),
+                    "image": image,
                     "securityContext": {
                         "runAsNonRoot": True,
                         "runAsUser": 10001,
@@ -206,7 +211,15 @@ class KubernetesPods:
             raise RuntimeError("sandbox pods are created only in the sandbox namespace")
         if cpu_millis <= 0 or memory_mb <= 0 or disk_gb <= 0:
             raise RuntimeError("a sandbox pod needs a cpu, memory and disk limit")
+        from ar_domain.sandboxes.manager_launch import sandbox_image  # noqa: PLC0415
+
+        image = sandbox_image()
+        if not image:
+            raise RuntimeError(
+                "no sandbox image is configured: set AR_SANDBOX_IMAGE to the ar-sandbox image"
+            )
         body = pod_spec(
+            image=image,
             sandbox_id=sandbox_id,
             tenant_id=tenant_id,
             template=template,

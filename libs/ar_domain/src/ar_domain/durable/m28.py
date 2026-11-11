@@ -485,7 +485,7 @@ async def save_sandbox_templates(
                 "tenant_id": as_uuid(row.get("tenant_id")),
                 "slug": as_text(row.get("slug"), "default"),
                 "name": as_text(row.get("name"), "Default"),
-                "image_ref": as_text(row.get("image_ref"), "ar-sandbox:local"),
+                "image_ref": as_text(row.get("image_ref"), ""),
                 "runtime_class": runtime,
                 "allow_browser": as_bool(row.get("allow_browser")),
                 "allow_packages": as_bool(row.get("allow_packages")),

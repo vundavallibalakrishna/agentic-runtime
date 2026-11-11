@@ -7,6 +7,7 @@ run against a customer cluster, and it does not call a model.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -34,6 +35,9 @@ def documents() -> list[dict[str, object]]:
         disk_gb=1,
         lifetime_s=600,
         token="contract",  # noqa: S106 - not a credential; the pod is a contract fixture
+        # The install's image when one is named. The contract checks that the cluster
+        # admits the pod, not that the image runs, so a name is enough without one.
+        image=os.environ.get("AR_SANDBOX_IMAGE", "").strip() or "ar-sandbox:contract",
     )
     meta = pod.get("metadata")
     if isinstance(meta, dict):

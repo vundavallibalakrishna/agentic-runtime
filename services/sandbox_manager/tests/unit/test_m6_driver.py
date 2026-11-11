@@ -24,8 +24,10 @@ def test_pod_and_policy() -> None:
         disk_gb=2,
         lifetime_s=3600,
         token="abc123",  # noqa: S106 - fixture credential, not a secret
+        image="registry.example/ar-sandbox:1.2.3",
     )
     spec = pod["spec"]
+    assert spec["containers"][0]["image"] == "registry.example/ar-sandbox:1.2.3"
     assert spec["runtimeClassName"] == "gvisor"
     assert spec["automountServiceAccountToken"] is False
     container = spec["containers"][0]
@@ -108,3 +110,48 @@ def test_egress_helper_reads_the_auth_note() -> None:
     )
     assert login == "12345678-aaaa-bbbb-cccc-ddddeeeeffff:deadbeef"
     assert host == "example.com"
+
+
+class _Api:
+    def __init__(self) -> None:
+        self.pods: list[dict[str, object]] = []
+
+    async def create_pod(self, namespace: str, body: dict[str, object]) -> None:
+        del namespace
+        self.pods.append(body)
+
+    async def apply_policy(self, namespace: str, body: dict[str, object]) -> None:
+        del namespace, body
+
+    async def delete_pod(self, namespace: str, name: str) -> None:
+        del namespace, name
+
+
+def _start(pods: object) -> dict[str, object]:
+    return pods.start(  # type: ignore[attr-defined, no-any-return]
+        sandbox_id="12345678-aaaa-bbbb-cccc-ddddeeeeffff",
+        tenant_id="tenant",
+        template="default",
+        token="abc123",  # noqa: S106 - fixture credential, not a secret
+        cpu_millis=500,
+        memory_mb=512,
+        disk_gb=1,
+        lifetime_s=3600,
+        runtime_class="gvisor",
+    )
+
+
+def test_a_pod_starts_from_the_installs_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_sandbox_manager.drivers.kubernetes import KubernetesPods
+
+    api = _Api()
+    pods = KubernetesPods(api, namespace="ar-sandboxes")
+    # No image named: the start fails and says which setting to change.
+    monkeypatch.delenv("AR_SANDBOX_IMAGE", raising=False)
+    with pytest.raises(RuntimeError, match="AR_SANDBOX_IMAGE"):
+        _start(pods)
+    assert api.pods == []
+    monkeypatch.setenv("AR_SANDBOX_IMAGE", "registry.example/ar-sandbox:1.2.3")
+    _start(pods)
+    container = api.pods[0]["spec"]["containers"][0]  # type: ignore[index]
+    assert container["image"] == "registry.example/ar-sandbox:1.2.3"

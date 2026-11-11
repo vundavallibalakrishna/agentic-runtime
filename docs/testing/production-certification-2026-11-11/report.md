@@ -67,7 +67,7 @@ The image `ar-sandbox:dev` was built from `images/sandbox/Dockerfile` (4.5 GB, w
 
 The browser cases run as an agent whose computer uses the browser template, because the default template has no browser. A console test in a conversation now runs as that conversation's agent.
 
-Building the image was not enough. Six defects kept a computer from working in production mode, and all are fixed (see the table below). What is still open for a computer is in [OQ-132](../../open-questions.md): the Kubernetes driver's image, suspend, and network confinement of the docker driver.
+Building the image was not enough. Six defects kept a computer from working in production mode, and all are fixed (see the table below). What is still open for a computer is in [OQ-132](../../open-questions.md): a run on a cluster, suspend, and network confinement of the docker driver.
 
 Research was a fixture when this pass began: search returned two canned pages and fetch a canned sentence. It now searches the tenant's document library and, when a provider is configured, the web. Both research tools pass on library passages. Web results were not exercised, because no provider is configured here.
 
@@ -139,7 +139,7 @@ Notes on the failures:
 Ordered by how much they block production.
 
 1. **Research matches by words, not meaning.** A passage counts when it shares a distinctive word with the question. The report quotes the first sentence of each source and is not written by the model. A question phrased differently from the document can miss it.
-2. **A computer is proven on one machine only.** The docker driver works in production mode. The Kubernetes driver starts pods from an image digest written in code, suspend does not stop a container, and the docker driver does not confine the network ([OQ-132](../../open-questions.md)).
+2. **A computer is proven on one machine only.** The docker driver works in production mode. No computer has run on a cluster: the Kubernetes driver now takes its image from `AR_SANDBOX_IMAGE`, the same setting as the docker driver, but that is covered by unit tests only and the chart change was not rendered here. Suspend does not stop a container, and the docker driver does not confine the network ([OQ-132](../../open-questions.md)).
 3. **An answer from an attachment is cited only when the model calls a document tool.** A small attachment is in the prompt, and the model usually answers from it with no passage anchor and no citation part.
 4. **A Valkey timeout on the session read returns HTTP 500.** It should be a retry or 503 with words.
 5. **Structured output is not enforced.** A reply that does not match the schema is stored as the answer.
@@ -161,7 +161,6 @@ Ordered by how much they block production.
 | Need | Unblocks |
 |---|---|
 | A page with a form on an allowed host, and a stored browser sign-in | 5 browser tools |
-| An owner decision on where the Kubernetes sandbox image comes from | Computers on a cluster |
 | A web search provider and key | Web results in research, `general.search` |
 | Hosts for web access on the allowed list | `general.fetch`, `general.http` |
 | A vision model on the `vision` alias | `image.ask` |
