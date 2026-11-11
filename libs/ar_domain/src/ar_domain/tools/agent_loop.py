@@ -156,7 +156,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         openai_tools = [_openai_tool(row) for row in core]
         openai_tools.extend(extra_tools)
         offered = {_spec_name(spec) for spec in openai_tools}
-    from ar_domain.tools.structured import schema_for, validate_output  # noqa: PLC0415
+    from ar_domain.tools.structured import schema_for  # noqa: PLC0415
 
     schema = schema_for(definition, run.get("response_format"))
     from ar_domain.tools.worker_loop import (  # noqa: PLC0415
@@ -343,7 +343,11 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         if not isinstance(calls, list) or not calls:
             answer = str(turn.get("text") or "").strip() or "The model returned an empty answer."
             if schema:
-                problem = validate_output(answer, schema)
+                from ar_domain.tools.structured import accept_output  # noqa: PLC0415
+
+                canonical, problem = accept_output(answer, schema)
+                if canonical is not None:
+                    answer = canonical
                 if problem and repairs < repair_cap:
                     repairs += 1
                     messages.append({"role": "assistant", "content": answer})
@@ -793,11 +797,21 @@ def _fit_context(
 def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], step: int) -> None:
     endpoint = turn.get("endpoint_id")
     model = turn.get("answered_model")
+    resolved = turn.get("resolved_model_id")
+    if isinstance(resolved, str) and resolved:
+        run["resolved_model_id"] = resolved
     if isinstance(model, str) and model:
         run["answered_model"] = model
         assistant = store.messages.get(run.get("assistant_message_id"))
         if isinstance(assistant, dict):
             assistant["answered_model"] = model
+            assistant["model_alias"] = model_alias_for(store, run)
+            registry = turn.get("model_id")
+            if registry:
+                assistant["model_id"] = registry
+                run["model_id"] = registry
+            if isinstance(resolved, str) and resolved:
+                assistant["resolved_model_id"] = resolved
     if turn.get("fallback") is True:
         store._emit(
             run,
@@ -989,6 +1003,9 @@ def _act(  # noqa: PLR0917
             "arguments": payload,
             "args_hash": digest,
             "model_call_id": model_call_id,
+            "step": attempt,
+            "call_index": attempt,
+            "query_id": run.get("query_id"),
         },
     )
     if result.get("status") == "awaiting_approval":
@@ -1089,6 +1106,43 @@ def _checked(
     return answer
 
 
+def _artifact_parts(store: Any, previews: list[dict[str, object]]) -> list[dict[str, object]]:
+    """File and image parts a tool stored, once each, so :run can return the chart."""
+    parts: list[dict[str, object]] = []
+    seen: set[str] = set()
+    files = getattr(store, "files", {})
+    for preview in previews:
+        presentation = preview.get("presentation") if isinstance(preview, dict) else None
+        listed = presentation.get("files") if isinstance(presentation, dict) else None
+        if not isinstance(listed, list):
+            continue
+        for item in listed:
+            if not isinstance(item, dict):
+                continue
+            file_id = str(item.get("file_id") or item.get("fileId") or "")
+            if not file_id or file_id in seen:
+                continue
+            seen.add(file_id)
+            meta = files.get(file_id) if isinstance(files, dict) else None
+            if not isinstance(meta, dict):
+                try:
+                    meta = files.get(uuid.UUID(file_id)) if isinstance(files, dict) else None
+                except ValueError:
+                    meta = None
+            name = str((meta or {}).get("name") or item.get("name") or "")
+            mime = str((meta or {}).get("mime_type") or item.get("mime_type") or "")
+            kind = "image" if mime.startswith("image/") or name.lower().endswith(".png") else "file"
+            parts.append(
+                {
+                    "type": kind,
+                    "file_id": file_id,
+                    "name": name,
+                    "mime_type": mime or "application/octet-stream",
+                }
+            )
+    return parts
+
+
 def _with_trace(answer: str, run: dict[str, object]) -> list[dict[str, object]]:
     from ar_domain.workspace.turn import citation_parts  # noqa: PLC0415
 
@@ -1177,7 +1231,7 @@ def _finish(
     followups: list[str] | None = None,
 ) -> None:
     assistant["text"] = answer
-    content = _with_trace(answer, run)
+    content = [*_with_trace(answer, run), *_artifact_parts(store, previews)]
     prompts = [item for item in (followups or []) if item.strip()]
     if prompts:
         content.append({"type": "followups", "prompts": prompts})

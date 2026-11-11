@@ -76,7 +76,7 @@ def test_bar_chart_draws_title_categories_and_values() -> None:
     # Title band near the top carries ink text.
     assert _band_has(pixels, 8, 26, _INK), "no title text drawn"
     # Category labels sit below the plot baseline.
-    assert _band_has(pixels, _HEIGHT - 40, _HEIGHT - 8, _INK), "no category labels drawn"
+    assert _band_has(pixels, _HEIGHT - _BOTTOM, _HEIGHT - 4, _INK), "no category labels drawn"
     # Value labels and y-axis ticks put ink inside the plot/left margin.
     assert sum(row.count(_INK) for row in pixels) > 200, "too little text for labelled axes"
 
@@ -143,7 +143,7 @@ def test_grouped_chart_draws_a_legend_and_categories() -> None:
     # Legend band sits between the title and the plot.
     assert _band_has(pixels, 38, 50, _INK), "no legend text drawn"
     # Category labels below the plot.
-    assert _band_has(pixels, _HEIGHT - 40, _HEIGHT - 8, _INK), "no category labels"
+    assert _band_has(pixels, _HEIGHT - _BOTTOM, _HEIGHT - _BOTTOM + 24, _INK), "no category labels"
     # Both series' accent colours appear.
     accents = THEMES["ink"].accents
     assert any(accents[0] in row for row in pixels)
@@ -175,7 +175,7 @@ def test_multiline_draws_one_line_per_series_with_a_legend() -> None:
     series = [("Sales", [10.0, 14.0, 9.0]), ("Costs", [4.0, 6.0, 12.0])]
     pixels = _decode(render_multi("multiline", cats, series, theme="ink", title="Trend"))
     assert _band_has(pixels, 38, 50, _INK), "no legend text drawn"
-    assert _band_has(pixels, _HEIGHT - 40, _HEIGHT - 8, _INK), "no category labels"
+    assert _band_has(pixels, _HEIGHT - _BOTTOM, _HEIGHT - _BOTTOM + 24, _INK), "no category labels"
     accents = THEMES["ink"].accents
     assert any(accents[0] in row for row in pixels)
     assert any(accents[1] in row for row in pixels)

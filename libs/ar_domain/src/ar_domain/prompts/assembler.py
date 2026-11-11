@@ -96,7 +96,7 @@ def with_attachments(text: str, lines: str) -> str:
         return text
     note = (
         "Files attached to this message. Each is in the working folder at its path. "
-        "Give a tool the id or the path."
+        "Give a document tool the documentId when one is shown, otherwise the file id or the path."
     )
     block = f"{note}\n{wrap_untrusted(source='file:attached', content=lines)}"
     return f"{text}\n\n{block}" if text else block

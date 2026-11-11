@@ -21,6 +21,18 @@ from pathlib import Path
 FORBIDDEN_PORTS = {5432, 6379, 7233, 8000, 8013}
 DEFAULT_BASE = "https://api.deepinfra.com/v1/openai"
 DEFAULT_MODEL = "Qwen/Qwen3-32B"
+DEFAULT_EMBED = "Qwen/Qwen3-Embedding-8B"
+
+
+def _api_url() -> str:
+    """``AR_API_URL`` when set, otherwise ``http://127.0.0.1:$AR_API_PORT`` or ``AR_PORT``."""
+    explicit = os.environ.get("AR_API_URL", "").strip().rstrip("/")
+    if explicit:
+        return explicit
+    port = (
+        os.environ.get("AR_API_PORT", "").strip() or os.environ.get("AR_PORT", "").strip() or "8000"
+    )
+    return f"http://127.0.0.1:{port}"
 
 
 def _port(url: str) -> int | None:
@@ -107,8 +119,10 @@ def main() -> int:
         )
         print("live certification pending: " + ", ".join(missing))
         return 2
-    api = os.environ.get("AR_API_URL", "").rstrip("/")
-    web = os.environ.get("AR_WEB_URL", "").rstrip("/")
+    api = _api_url()
+    web = os.environ.get("AR_PUBLIC_URL", "").rstrip("/") or os.environ.get(
+        "AR_WEB_URL", ""
+    ).rstrip("/")
     if not api or not web:
         write(
             out / "scorecard.json",

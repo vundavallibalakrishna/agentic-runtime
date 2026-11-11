@@ -1,10 +1,18 @@
-"""Dicts that remember which rows a request changed."""
+"""Dicts that remember which rows a request changed.
+
+A change keeps a baseline until a flush commits it. A failed flush restores
+that baseline and drops the change, so one bad write cannot stay dirty and
+fail every later request on the process.
+"""
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from typing import Any, SupportsIndex
+    from typing import SupportsIndex
+
+_ABSENT = object()
+_MISSING = object()
 
 
 class TrackedList(list[object]):
@@ -19,14 +27,17 @@ class TrackedList(list[object]):
         self._bucket.touch(self._key)
 
     def append(self, item: object) -> None:
+        self._bucket.capture(self._key)
         super().append(item)
         self._touch()
 
     def extend(self, items: object) -> None:
+        self._bucket.capture(self._key)
         super().extend(items)  # type: ignore[arg-type]
         self._touch()
 
     def __setitem__(self, index: SupportsIndex | slice[Any, Any, Any], value: Any) -> None:
+        self._bucket.capture(self._key)
         if isinstance(index, slice):
             items = list(value) if isinstance(value, Iterable) else []
             super().__setitem__(index, items)
@@ -35,6 +46,7 @@ class TrackedList(list[object]):
         self._touch()
 
     def pop(self, index: SupportsIndex = -1) -> object:
+        self._bucket.capture(self._key)
         found = super().pop(index)
         self._touch()
         return found
@@ -52,6 +64,7 @@ class TrackedRow(dict[str, object]):
         bucket.touch(key)
 
     def __setitem__(self, key: str, value: object) -> None:
+        self._bucket.capture(self._key)
         super().__setitem__(key, _wrap(self._bucket, self._key, value))
         self._bucket.touch(self._key)
 
@@ -65,6 +78,43 @@ class TrackedDict(dict[object, object]):
         self.kind = kind
         self.dirty: set[object] = set()
         self.deleted: dict[object, object] = {}
+        # key -> value before the uncommitted change, or ``_ABSENT`` when the key is new.
+        self.baseline: dict[object, object] = {}
+
+    def capture(self, key: object) -> None:
+        """Remember the committed value the first time a unit changes ``key``."""
+        if getattr(self.store, "reloading", False):
+            return
+        if key in self.baseline or key in self.dirty:
+            return
+        if key in self:
+            self.baseline[key] = _detach(self[key])
+        else:
+            self.baseline[key] = _ABSENT
+
+    def commit_keys(self, keys: Iterable[object]) -> None:
+        """A flush committed these keys. The next change baselines from here."""
+        for key in keys:
+            self.baseline.pop(key, None)
+
+    def rollback_keys(self, keys: Iterable[object]) -> None:
+        """Drop an uncommitted change. A key touched again during the flush stays."""
+        was = getattr(self.store, "reloading", False)
+        for key in keys:
+            if key in self.dirty:
+                continue
+            previous = self.baseline.pop(key, _MISSING)
+            self.deleted.pop(key, None)
+            self.store.reloading = True
+            try:
+                if previous is _ABSENT:
+                    self.evict(key)
+                elif previous is not _MISSING:
+                    self[key] = previous
+            finally:
+                self.store.reloading = was
+            self.dirty.discard(key)
+            self.baseline.pop(key, None)
 
     def touch(self, key: object) -> None:
         if not getattr(self.store, "reloading", False):
@@ -72,6 +122,7 @@ class TrackedDict(dict[object, object]):
 
     def __setitem__(self, key: object, value: object) -> None:
         self.deleted.pop(key, None)
+        self.capture(key)
         if isinstance(value, list):
             stored: object = (
                 value if isinstance(value, TrackedList) else TrackedList(self, key, value)
@@ -85,11 +136,13 @@ class TrackedDict(dict[object, object]):
         self.touch(key)
 
     def __delitem__(self, key: object) -> None:
+        self.capture(key)
         self.deleted[key] = self[key]
         super().__delitem__(key)
         self.touch(key)
 
     def pop(self, key: object, default: object = None) -> object:
+        self.capture(key)
         if key in self:
             self.deleted[key] = self[key]
         found = super().pop(key, default)
@@ -193,4 +246,34 @@ def install_tracking(store: Any) -> None:
         finally:
             store.reloading = False
         tracked.dirty.clear()
+        tracked.baseline.clear()
         setattr(store, name, tracked)
+
+
+def snapshot_keys(rows: list[dict[str, Any]]) -> list[object]:
+    """The bucket keys a flush snapshot copied."""
+    return [row.get("id", row.get("_key")) for row in rows]
+
+
+def commit_snapshot(store: Any, pending: dict[str, list[dict[str, Any]]]) -> None:
+    """The transaction committed. Baselines for those keys are no longer needed."""
+    for name, rows in pending.items():
+        bucket = getattr(store, name, None)
+        if isinstance(bucket, TrackedDict):
+            bucket.commit_keys(snapshot_keys(rows))
+
+
+def rollback_snapshot(store: Any, pending: dict[str, list[dict[str, Any]]]) -> None:
+    """The transaction rolled back. Discard that unit so the next request is clean."""
+    for name, rows in pending.items():
+        bucket = getattr(store, name, None)
+        if isinstance(bucket, TrackedDict):
+            bucket.rollback_keys(snapshot_keys(rows))
+
+
+def _detach(value: object) -> object:
+    if isinstance(value, dict):
+        return {str(key): _detach(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_detach(item) for item in value]
+    return value

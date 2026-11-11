@@ -1009,12 +1009,25 @@ export function ChatScreen() {
                           {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
                           {!mine &&
                           (streamingHere ? stream.answeredModel : message.answeredModel) ? (
-                            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                            <p
+                              className="mt-2 text-xs text-[var(--muted-foreground)]"
+                              data-testid="answered-by"
+                            >
                               {t("answeredBy", {
                                 model: String(
                                   streamingHere ? stream.answeredModel : message.answeredModel,
                                 ),
                               })}
+                            </p>
+                          ) : null}
+                          {streamingHere &&
+                          stream.warnings.some((item) => item.code === "embedding_unconfigured") ? (
+                            <p className="mt-1 text-xs text-[var(--destructive)]" role="alert">
+                              {
+                                stream.warnings.find(
+                                  (item) => item.code === "embedding_unconfigured",
+                                )?.message
+                              }
                             </p>
                           ) : null}
                           {streamingHere &&
@@ -1293,7 +1306,12 @@ export function ChatScreen() {
           </div>
           {activeId ? (
             <div className="hidden h-full w-80 shrink-0 md:block">
-              <WorkspacePanel conversationId={activeId} revision={messages.length} />
+              <WorkspacePanel
+                conversationId={activeId}
+                revision={
+                  messages.length + stream.tools.length + (stream.status === "completed" ? 1 : 0)
+                }
+              />
             </div>
           ) : null}
         </section>

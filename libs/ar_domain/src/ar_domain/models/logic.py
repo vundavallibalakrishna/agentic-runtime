@@ -100,6 +100,18 @@ def think_trace(text: str) -> str:
     return "\n".join(chunk.strip() for chunk in _THINK_INNER.findall(text) if chunk.strip())
 
 
+def resolved_model_label(upstream_model: str) -> str:
+    """The model a person should see, taken from the resolved upstream id.
+
+    ``Qwen/Qwen3-32B`` is shown as ``Qwen3-32B``. An id with no slash is already
+    that label.
+    """
+    name = upstream_model.strip()
+    if "/" in name:
+        return name.rsplit("/", 1)[-1]
+    return name
+
+
 def completion_message(payload: object) -> dict[str, object]:
     """Assistant text, tool calls and token counts from one chat completion."""
     text = completion_text(payload)
@@ -121,10 +133,17 @@ def completion_message(payload: object) -> dict[str, object]:
     if isinstance(message, dict):
         raw_calls = message.get("tool_calls")
         if isinstance(raw_calls, list):
+            seen: set[str] = set()
             for index, call in enumerate(raw_calls):
                 parsed = _tool_call(index, call)
-                if parsed is not None:
-                    calls.append(parsed)
+                if parsed is None:
+                    continue
+                # A provider that repeats an id would store two rows under one key.
+                ident = str(parsed["id"])
+                if ident in seen:
+                    parsed["id"] = f"{ident}:{index}"
+                seen.add(str(parsed["id"]))
+                calls.append(parsed)
         visible = str(message.get("content") or "").strip()
         reasoning = _reasoning_trace(message, used_as_answer=not visible)
     return {"text": text, "tool_calls": calls, "usage": usage, "reasoning": reasoning}

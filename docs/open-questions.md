@@ -270,3 +270,4 @@ Recorded by M14-T07 after the security campaign (each with owner, rationale, rev
 | 2026-11-10 | OQ-120 | The docs job runs `scripts/check_api_catalogue.py`. |
 | 2026-11-10 | OQ-123 | Renumbered the audit-chain decision to OQ-127 so the proof-label decision keeps OQ-123. |
 | 2026-11-10 | OQ-125 | Renumbered the signed-pack decision to OQ-128 so the gateway decision keeps OQ-125. |
+| 2026-11-11 | OQ-59 | Stage 14. A failed durable flush restores the unit's baseline and drops those rows. It does not leave them dirty for the next request. Usage keys are marked flushed only after the transaction commits. `runs.trigger` allows `research` from `ar_domain.conversations.triggers`. A repeated library content hash keeps the existing document. The API binds `AR_API_PORT` when set. There is no audit UI route. |

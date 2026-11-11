@@ -72,6 +72,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_INTERNAL_JWT_JWKS` | `http://api:8000/internal/v1/.well-known/jwks.json` | JWKS URL or inline JSON for verifying internal JWTs | [internal-apis](../05-contracts/internal-apis.md) |
 | `AR_INTERNAL_JWT_PRIVATE_KEY` | (required) | Ed25519 PEM for signing internal service JWTs; mounted Secret | [authn-authz §8](../06-security/authn-authz.md) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates passed to the reranker | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_LLM_MAX_TOKENS` | `1024` | Default `max_tokens` for an OpenAI-compatible chat call when the model row sets no output limit. A case or a caller may ask for less. The model limit is the ceiling | [spec 04](../03-specs/04-model-gateway.md), [live-certification](../09-plan/live-certification.md) |
 | `AR_LOG_HASH_USER_IDS` | `false` (`true` in saas) | Hash user ids in logs and Langfuse | [data-protection](../06-security/data-protection.md) |
 | `AR_MAX_DEPTH` | `3` | Platform cap for subagents | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_MAX_JSON_BODY_BYTES` | `1048576` | Maximum JSON request body | [spec 01](../03-specs/01-api-bff.md) |
@@ -97,6 +98,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint of the collector | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_OUTBOX_BATCH_SIZE` | `500` | Rows per outbox relay batch | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_PGVECTOR_DIMENSIONS` | `1024` (memory and tool-search embeddings only; knowledge supports 384/768/1024/1536/3072, [spec 10 §7.1](../03-specs/10-knowledge.md#71-storage); fixed; changing requires a migration and re-embed job `scripts/reembed_memory.py`) |  | [spec 11](../03-specs/11-memory.md) |
+| `AR_CSRF_ALLOWED_ORIGINS` | empty | Comma-separated origins that may send the session cookie, besides `AR_PUBLIC_URL`. Loopback names match each other only when `AR_ENV` is `dev` or `ci` | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_PUBLIC_URL` | `http://localhost:3000` | Origin of the web app (cookies, CSRF origin check, redirects) | [spec 01](../03-specs/01-api-bff.md), [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 16](../03-specs/16-channels.md), [spec 19](../03-specs/19-web-app.md) |
 | `AR_QDRANT_API_KEY` | (secret, unset) | Qdrant API key; only with the optional qdrant adapter | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_QDRANT_URL` | (unset) | Qdrant URL; required only when `AR_VECTOR_BACKEND=qdrant` or a collection uses the qdrant adapter (local `qdrant` profile: `http://localhost:6333`) | [spec 10](../03-specs/10-knowledge.md) |
@@ -241,6 +243,14 @@ These are laptop publish ports. They are not set in Helm. `make ports-check` cop
 | `AR_OTEL_HTTP_HOST_PORT` | `4318` | Host port for OTLP HTTP | [local-dev](local-dev.md#5-host-ports) |
 | `AR_PG_HOST_PORT` | `5432` | Host port for Postgres. Updates `AR_DATABASE_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_PORT` | `8000` | API listen port and host port. Updates `AR_API_INTERNAL_URL` and `API_PROXY_URL` | [local-dev](local-dev.md#5-host-ports) |
+| `AR_API_PORT` | | When set, the API listens here instead of `AR_PORT`. The web dev proxy follows it unless `AR_API_URL` is set. | [live-certification](../09-plan/live-certification.md) |
+| `AR_API_URL` | | Full API origin for live certification and the web proxy. Wins over `AR_API_PORT`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_EMBED_MODEL` | `Qwen/Qwen3-Embedding-8B` | Embedding model the live certification registers on the `embed` alias. DeepInfra also serves `BAAI/bge-m3`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_EVAL_MIN_PASS_RATE` | `1` | Live eval fails when `pass_rate` is below this, or when every case errored. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_EMAIL` | | Optional second seeded person. Requires `AR_SECOND_PASSWORD`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_PASSWORD` | | Password for `AR_SECOND_EMAIL`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_NAME` | | Display name for the second person. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_ROLE` | `approver` | Role key for the second person. | [live-certification](../09-plan/live-certification.md) |
 | `AR_PROMETHEUS_HOST_PORT` | `9090` | Host port for Prometheus | [local-dev](local-dev.md#5-host-ports) |
 | `AR_QDRANT_GRPC_HOST_PORT` | `6334` | Host port for Qdrant gRPC | [local-dev](local-dev.md#5-host-ports) |
 | `AR_QDRANT_HTTP_HOST_PORT` | `6333` | Host port for Qdrant HTTP. Updates `AR_QDRANT_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |

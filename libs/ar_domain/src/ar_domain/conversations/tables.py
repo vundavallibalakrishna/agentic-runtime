@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ar_domain.conversations.triggers import trigger_check_sql
 from ar_domain.db.base import Base
 from ar_domain.db.types import created_at_col, jsonb_col, text_array, updated_at_col, uuid_pk
 
@@ -145,10 +146,7 @@ class Run(Base):
     __tablename__ = "runs"
     __table_args__ = (
         CheckConstraint("depth BETWEEN 0 AND 3", name="depth"),
-        CheckConstraint(
-            "trigger IN ('chat','api','channel','routine','subagent','eval')",
-            name="trigger",
-        ),
+        CheckConstraint(trigger_check_sql(), name="trigger"),
         CheckConstraint(
             "initiator_type IN ('user','service_account','routine','system')",
             name="initiator_type",
@@ -265,6 +263,7 @@ class Message(Base):
     model_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("models.id", ondelete="SET NULL")
     )
+    answered_model: Mapped[str | None] = mapped_column(Text)
     tokens_in: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     tokens_out: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     author_user_id: Mapped[uuid.UUID | None] = mapped_column(

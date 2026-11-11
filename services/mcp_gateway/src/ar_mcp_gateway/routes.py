@@ -36,6 +36,9 @@ class ExecuteBody(ApiModel):
     approval_id: uuid.UUID | None = None
     args_hash: str = ""
     agent_id: uuid.UUID | None = None
+    step: str | int | None = None
+    query_id: str | None = None
+    call_index: int | None = None
 
 
 class DiscoverBody(ApiModel):

@@ -73,7 +73,7 @@ Public JWKS for `internal_jwt`-mode tool servers outside the cluster ([mcp-integ
 3. `body_limit`.
 4. `authenticate` → `Principal | None` (no principal on public routes).
 5. `tenant_guard`: tenant `status='active'` (else 403 `tenant_suspended`; platform admins exempt on `/api/v1/platform/*`).
-6. `csrf`: for session-authenticated unsafe methods, `X-CSRF-Token` must equal the session's csrf token (constant-time compare); also `Origin` header must equal `AR_PUBLIC_URL` origin.
+6. `csrf`: for session-authenticated unsafe methods, `X-CSRF-Token` must equal the session's csrf token (constant-time compare). `Origin`, when present, must be `AR_PUBLIC_URL` or a host listed in `AR_CSRF_ALLOWED_ORIGINS`. In dev and CI only, localhost, 127.0.0.1 and ::1 are the same host. Production does not treat those names as equivalent.
 7. `ratelimit`.
 8. Router → dependency `require(...)` → service.
 9. `errors` maps `ArError` subclasses to problem+json; unknown exceptions → 500 `internal_error` with request id.

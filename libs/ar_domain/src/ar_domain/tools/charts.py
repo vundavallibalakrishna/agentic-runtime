@@ -23,10 +23,11 @@ if TYPE_CHECKING:
 
 _WIDTH = 640
 _HEIGHT = 360
-_LEFT = 58  # room for y-axis tick labels
+_LABEL_SCALE = 2  # axis text is two bitmap pixels per glyph so labels stay readable
+_LEFT = 84  # room for y-axis tick labels at _LABEL_SCALE
 _RIGHT = 20
 _TOP = 54  # room for the title and, for multi-series charts, the legend beneath it
-_BOTTOM = 46  # room for category labels
+_BOTTOM = 64  # room for category labels at _LABEL_SCALE
 _TICKS = 4  # gridlines/ticks above the baseline
 _MAX_POINT_LABELS = 12  # beyond this, labelling every point clutters
 _MAX_CATEGORIES = 20
@@ -432,8 +433,17 @@ def _grid(
         for x in range(area.x0, area.x1):
             _dot(pixels, width, x, yy, theme.grid)
         label = f"{_fmt(value)}%" if percent else _fmt(value)
-        label_w = pixfont.text_width(label)
-        pixfont.draw_text(pixels, width, height, area.x0 - 6 - label_w, yy - 3, label, theme.ink)
+        label_w = pixfont.text_width(label, scale=_LABEL_SCALE)
+        pixfont.draw_text(
+            pixels,
+            width,
+            height,
+            area.x0 - 8 - label_w,
+            yy - 7,
+            label,
+            theme.ink,
+            scale=_LABEL_SCALE,
+        )
     for y in range(area.y0, area.y1 + 1):
         _dot(pixels, width, area.x0, y, theme.ink)
     if scale.lo < 0 < scale.hi:  # emphasise the zero baseline when values cross it
@@ -661,12 +671,14 @@ def _x_labels(  # noqa: PLR0917
     theme: ChartTheme,
 ) -> None:
     slot = area.w / max(1, len(rows))
-    max_chars = max(1, int(slot) // (pixfont.GLYPH_W + 1))
+    max_chars = max(1, int(slot) // ((pixfont.GLYPH_W + 1) * _LABEL_SCALE))
     for index, (label, _value) in enumerate(rows):
         text = str(label).upper()[:max_chars]
         center = area.x0 + int(slot * (index + 0.5))
-        start = center - pixfont.text_width(text) // 2
-        pixfont.draw_text(pixels, width, height, start, area.y1 + 6, text, theme.ink)
+        start = center - pixfont.text_width(text, scale=_LABEL_SCALE) // 2
+        pixfont.draw_text(
+            pixels, width, height, start, area.y1 + 8, text, theme.ink, scale=_LABEL_SCALE
+        )
 
 
 def _points(scale: Scale, rows: list[tuple[str, float]]) -> list[tuple[int, int]]:

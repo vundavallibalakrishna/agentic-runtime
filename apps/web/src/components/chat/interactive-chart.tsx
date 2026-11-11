@@ -66,19 +66,31 @@ function chartData(presentation: Record<string, unknown>): {
 
 type ChartFile = { id: string; name: string };
 
+function pageIsDark(): boolean {
+  if (typeof document === "undefined") return false;
+  if (document.documentElement.classList.contains("dark")) return true;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+}
+
 export function ChartView({
   presentation,
   files,
+  alt,
 }: {
   presentation: Record<string, unknown>;
   files: ChartFile[];
+  alt?: string;
 }) {
   const t = useTranslations("chat");
   const { data, keys } = chartData(presentation);
   const image = files.find((file) => /\.(png|jpe?g|gif|webp)$/i.test(file.name));
-  const [mode, setMode] = useState<"image" | "interactive">(image ? "image" : "interactive");
+  // A rendered PNG is drawn on white paper. Dark mode uses the interactive chart,
+  // whose marks follow the foreground colour, so the figure stays readable.
+  const [mode, setMode] = useState<"image" | "interactive">(
+    image && !pageIsDark() ? "image" : "interactive",
+  );
   const frame = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(520);
+  const [width, setWidth] = useState(640);
 
   useEffect(() => {
     const node = frame.current;
@@ -115,7 +127,7 @@ export function ChartView({
       ) : null}
       {mode === "image" && image ? (
         <img
-          alt={textTitle(presentation) || image.name}
+          alt={textTitle(presentation) || alt || image.name}
           className="max-h-80 w-full rounded-lg border border-[var(--border)] object-contain"
           src={`/api/v1/files/${image.id}/content`}
         />
@@ -128,16 +140,16 @@ export function ChartView({
         >
           <BarChart
             data={data}
-            height={260}
-            margin={{ bottom: 8, left: 0, right: 8, top: 8 }}
+            height={Math.max(280, Math.round(width * 0.56))}
+            margin={{ bottom: 24, left: 8, right: 16, top: 16 }}
             width={width}
           >
             <XAxis
               dataKey="label"
               stroke="currentColor"
-              tick={{ fill: "currentColor", fontSize: 12 }}
+              tick={{ fill: "currentColor", fontSize: 16 }}
             />
-            <YAxis stroke="currentColor" tick={{ fill: "currentColor", fontSize: 12 }} width={36} />
+            <YAxis stroke="currentColor" tick={{ fill: "currentColor", fontSize: 16 }} width={56} />
             <Tooltip />
             {keys.map((key, index) => (
               <Bar

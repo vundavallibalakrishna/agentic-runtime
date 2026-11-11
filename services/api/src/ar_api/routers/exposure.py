@@ -458,7 +458,34 @@ async def upload_external_file(
     key = _require_key(request, response)
     data = await upload.read()
     mime = mime_type or upload.content_type or "application/octet-stream"
-    return runs.upload_file(_store(request), key, slug, upload.filename or "upload", mime, data)
+    name = upload.filename or "upload"
+    store = _store(request)
+    try:
+        saved = runs.upload_file(store, key, slug, name, mime, data)
+    except ArError:
+        raise
+    except Exception as exc:
+        from ar_common.logging import get_logger  # noqa: PLC0415
+
+        get_logger(__name__).info("agent_file_upload_failed", error=type(exc).__name__)
+        raise ArError(ErrorCode.UPSTREAM_ERROR, "The file could not be stored.") from exc
+    from ar_api.routers.m2 import _library_document  # noqa: PLC0415
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.exposure.runs import _user_id  # noqa: PLC0415
+
+    tenant_id = key.get("tenant_id")
+    if not isinstance(tenant_id, uuid.UUID):
+        raise NotFoundError("agent not found")
+    document_id = await _library_document(
+        store,
+        Actor(tenant_id=tenant_id, user_id=_user_id(key), permissions=frozenset()),
+        data,
+        name,
+        mime,
+    )
+    if document_id:
+        saved["document_id"] = document_id
+    return saved
 
 
 @router.get("/v1/agents/{slug}/runs/{run_id}")

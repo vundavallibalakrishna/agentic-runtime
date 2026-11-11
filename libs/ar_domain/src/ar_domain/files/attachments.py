@@ -31,13 +31,19 @@ class Attachment:
     mime_type: str
     size_bytes: int
     path: str
+    document_id: uuid.UUID | None = None
+    excerpt: str = ""
 
     def line(self) -> str:
         """How the prompt names the file: what it is, its id and its path."""
-        return (
+        document = f" documentId={self.document_id}" if self.document_id else ""
+        text = (
             f"[file: {self.name} ({self.mime_type}, {_size(self.size_bytes)}) "
-            f"id={self.file_id} path={self.path}]"
+            f"id={self.file_id}{document} path={self.path}]"
         )
+        if self.excerpt:
+            return f"{text}\n{self.excerpt}"
+        return text
 
 
 def conversation_attachments(store: Any, conversation_id: object) -> list[Attachment]:
@@ -72,6 +78,7 @@ def conversation_attachments(store: Any, conversation_id: object) -> list[Attach
             path = _path(str(meta.get("name") or "upload"), file_id, taken)
             taken.add(path)
             message_id = message.get("id")
+            document_id, excerpt = _library_excerpt(store, meta)
             found.append(
                 Attachment(
                     file_id=file_id,
@@ -80,6 +87,8 @@ def conversation_attachments(store: Any, conversation_id: object) -> list[Attach
                     mime_type=str(meta.get("mime_type") or "application/octet-stream"),
                     size_bytes=int(meta.get("size_bytes") or 0),
                     path=path,
+                    document_id=document_id,
+                    excerpt=excerpt,
                 )
             )
     return found
@@ -111,6 +120,32 @@ def _path(name: str, file_id: uuid.UUID, taken: set[str]) -> str:
         return path
     pure = PurePosixPath(clean)
     return f"{INPUTS}/{pure.stem}-{file_id.hex[:8]}{pure.suffix}"
+
+
+def _library_excerpt(store: Any, meta: dict[str, object]) -> tuple[uuid.UUID | None, str]:
+    """The library document for these bytes, and a short passage the turn can read."""
+    digest = str(meta.get("sha256") or "")
+    documents = getattr(store, "library_documents", None)
+    if not digest or not isinstance(documents, dict):
+        return None, ""
+    for row in documents.values():
+        if not isinstance(row, dict):
+            continue
+        if row.get("tenant_id") != meta.get("tenant_id") or row.get("content_hash") != digest:
+            continue
+        raw = row.get("id")
+        document_id = raw if isinstance(raw, uuid.UUID) else None
+        passages = row.get("passages")
+        text = ""
+        if isinstance(passages, list):
+            chunks = [
+                str(item.get("text") or "")
+                for item in passages
+                if isinstance(item, dict) and item.get("text")
+            ]
+            text = "\n".join(chunks)[:1500]
+        return document_id, text
+    return None, ""
 
 
 def _size(size: int) -> str:

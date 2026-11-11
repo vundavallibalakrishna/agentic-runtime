@@ -9,7 +9,7 @@ from pydantic import Field
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, page
 from ar_contracts.api_model import ApiModel
-from ar_domain.documents.library import DocumentLibrary
+from ar_domain.documents.library import DocumentLibrary, ingest_bytes
 
 router = APIRouter()
 
@@ -90,7 +90,8 @@ async def upload_library_document(
     upload: Annotated[UploadFile, File()],
 ) -> dict[str, object]:
     data = await upload.read()
-    return _library(request).ingest(
+    return await ingest_bytes(
+        chat(request),
         actor(request),
         data=data,
         filename=upload.filename or "upload",

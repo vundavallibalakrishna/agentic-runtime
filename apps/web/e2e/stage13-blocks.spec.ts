@@ -28,7 +28,8 @@ const conversation = {
       text: "The notes list two gaps.\n\n| Area | Count |\n| --- | --- |\n| North | 2 |\n| South | 5 |",
       isActiveBranch: true,
       status: "completed",
-      answeredModel: "tenant-model",
+      answeredModel: "Qwen3-32B",
+      resolvedModelId: "Qwen/Qwen3-32B",
       reasoning: "Comparing the two files.",
       content: [
         {
@@ -94,7 +95,16 @@ test("each answer block renders on the chat screen", async ({ page }) => {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ items: [] }),
+      body: JSON.stringify({
+        items: [
+          {
+            id: "file-chart",
+            name: "chart.png",
+            mimeType: "image/png",
+            conversationId,
+          },
+        ],
+      }),
     }),
   );
   await page.route(`**/api/v1/conversations/${conversationId}/sandbox`, (route) =>
@@ -112,7 +122,13 @@ test("each answer block renders on the chat screen", async ({ page }) => {
   await expect(page.getByTestId("tool-call")).toContainText("Chart");
   await expect(page.getByTestId("tool-call")).toContainText("Done");
   await expect(page.getByTestId("tool-call")).not.toContainText("general.chart");
-  await expect(page.getByRole("img", { name: "Counts" })).toHaveCount(2);
+  await expect(page.getByTestId("chart-view")).toHaveCount(1);
+  await expect(page.getByTestId("tool-call").getByTestId("chart-view")).toHaveCount(0);
+  await expect(page.getByTestId("chart-reference")).toContainText("chart.png");
+  await expect(page.getByRole("img", { name: "Counts" })).toHaveCount(1);
+  await expect(page.getByTestId("answered-by")).toContainText("Qwen3-32B");
+  await expect(page.getByText("No artifacts yet.")).toHaveCount(0);
+  await expect(page.getByText("chart.png").first()).toBeVisible();
   await expect(page.getByTestId("followups")).toBeVisible();
   await expect(page.getByText("Verified")).toBeVisible();
   await expect(page.getByText("Request validation failed")).toHaveCount(0);
@@ -124,6 +140,8 @@ test("each answer block renders on the chat screen", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.reload();
   await expect(page.getByTestId("plan-checklist")).toBeVisible();
+  await expect(page.getByTestId("interactive-chart")).toBeVisible();
+  await expect(page.getByRole("img", { name: "Counts" })).toHaveCount(0);
   await showWholeTurn(page);
   await page.screenshot({ path: `${shots}/stage13-dark.png`, fullPage: true });
 });
