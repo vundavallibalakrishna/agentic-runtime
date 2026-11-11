@@ -27,7 +27,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | capability | `model-routing` | `unit` | no | Fallback and the circuit breaker run in process. Valkey holds circuit state outside dev. |
 | capability | `context` | `contract` | no | A worker activity folds older messages into the Postgres summary. The fold does not call a model. |
 | capability | `eval-harness` | `contract` | no | scripts/eval_run.py scores a stubbed model over HTTP. The report has no model id. A live label is written only when AR_LLM_API_KEY is set. |
-| capability | `research` | `unit` | no | Search, fetch, citation checks and the Temporal workflow run in process with a fixture provider. No stored live report. |
+| capability | `research` | `unit` | no | Research searches the tenant's document library and, when one is configured, the web provider general.search uses. Unit tests add library notes. No stored live report. |
 | connector | `email` | `live` | yes | Catalogue verification is live. |
 | connector-tool | `email_send` | `live` | yes | Same proof as its connector. Hidden from the model unless live. |
 | connector-tool | `email_list` | `live` | yes | Same proof as its connector. Hidden from the model unless live. |

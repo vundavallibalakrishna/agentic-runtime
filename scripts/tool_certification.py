@@ -502,17 +502,15 @@ def state_cases() -> list[Case]:
         ),
         Case(
             "research.search",
-            "research search",
-            fixed(query="python programming language"),
-            _not_fixture,
-            needs="search",
+            "research finds a library passage",
+            fixed(query="break-glass approval duty manager"),
+            _library_hit,
         ),
         Case(
             "research.fetch",
-            "research fetch",
-            fixed(url="https://example.com"),
-            has("example domain"),
-            needs="egress",
+            "research reads that passage",
+            lambda ctx: {"url": ctx["research_hit"]},
+            has("duty manager"),
         ),
         Case(
             "session.a2a_call",
@@ -528,10 +526,16 @@ def state_cases() -> list[Case]:
     ]
 
 
-def _not_fixture(result: Result, _ctx: Ctx) -> str | None:
-    if "fixture://" in text_of(result):
-        return "the result is the built-in fixture, not a search"
-    return None
+def _library_hit(result: Result, ctx: Ctx) -> str | None:
+    """Research found a passage of the tenant's own library. Its address is kept."""
+    structured = result.get("structured")
+    hits = structured.get("hits") if isinstance(structured, dict) else None
+    for hit in hits if isinstance(hits, list) else []:
+        address = str(hit.get("url") or "") if isinstance(hit, dict) else ""
+        if address.startswith("library://"):
+            ctx.values["research_hit"] = address
+            return None
+    return "no library passage among the results"
 
 
 def data_cases() -> list[Case]:
@@ -1114,9 +1118,16 @@ def flow_approval_waits(chat: Chat) -> str | None:
 
 
 def flow_research(chat: Chat) -> str | None:
+    # Research reads the document library, so the policy is uploaded there first.
+    chat.stack.upload(
+        "/api/v1/library-documents",
+        f"research-policy-{int(time.time())}.md",
+        POLICY.encode(),
+        "text/markdown",
+    )
     status, started = chat.stack.post(
         "/api/v1/research/runs",
-        question="What does the access policy say about break-glass access?",
+        question="Who approves break-glass access?",
     )
     run_id = started.get("runId") if isinstance(started, dict) else None
     if status not in {200, 202} or not run_id:
@@ -1136,9 +1147,11 @@ def flow_research(chat: Chat) -> str | None:
         if isinstance(sources, list)
         else []
     )
-    if any(url.startswith("fixture://") for url in urls):
-        return "the sources are the built-in fixture pages, not the tenant's documents or the web"
-    return None if urls else "the report has no sources"
+    real = [url for url in urls if url.startswith(("library://", "https://", "http://"))]
+    if not real or len(real) != len(urls):
+        return f"the sources are not library passages or web pages: {urls[:3]}"
+    report = str(seen.get("report") or "").lower()
+    return None if "duty manager" in report else f"the report lacks the answer: {report[:120]}"
 
 
 def flow_external_api(chat: Chat) -> str | None:

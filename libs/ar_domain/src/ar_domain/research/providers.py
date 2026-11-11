@@ -1,224 +1,180 @@
-"""Pluggable search providers. API keys come from named secrets.
+"""Where research looks: the tenant's own documents, and the web when it is configured.
 
-Hosts below are the providers' public API addresses. A deployment overrides
-``base_url``. Nothing here is a credential.
+Web search is the provider the tenant set for ``general.search`` (``tools/searching.py``).
+There is one web search in the product. With no provider set, research searches the
+document library alone and says so. It never answers from a built-in page.
 """
 
 from __future__ import annotations
 
+import re
+import uuid
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
 
-from ar_domain.tools.http_tools import fetch_text
-from ar_domain.tools.named_secrets import read_named_secret
+import httpx
+
+from ar_domain.tools.searching import SearchRejectedError, SearchUnavailableError, provider_for
 
 if TYPE_CHECKING:
     from typing import Any
 
-PROVIDERS = ("fixture", "searxng", "brave", "tavily", "bing")
-
-_DEFAULT_HOSTS = {
-    "brave": "https://api.search.brave.com/res/v1/web/search",
-    "tavily": "https://api.tavily.com/search",
-    "bing": "https://api.bing.microsoft.com/v7.0/search",
-}
+LIBRARY = "library://"
+_WORD = re.compile(r"[^\W_]+")
+_STEM = 5
+_LONG = 4
+_ENOUGH = 8
 
 
-def provider_config(store: Any, tenant_id: object) -> dict[str, str]:
-    """Which provider is on, and the secret name. The secret value stays out."""
-    from ar_domain.identity.tenant_settings import settings_for  # noqa: PLC0415
-
-    settings = settings_for(store, tenant_id)
-    raw = settings.get("search")
-    if not isinstance(raw, dict):
-        return {"provider": "fixture", "secret_name": "", "base_url": ""}
-    name = str(raw.get("provider") or "fixture").strip().lower()
-    if name not in PROVIDERS:
-        name = "fixture"
-    return {
-        "provider": name,
-        "secret_name": str(raw.get("secret_name") or raw.get("secretName") or ""),
-        "base_url": str(raw.get("base_url") or raw.get("baseUrl") or "").rstrip("/"),
-    }
+def search(store: Any, tenant_id: object, query: str, *, limit: int = 4) -> list[dict[str, str]]:
+    """Library passages first, then web results. Both are real or absent."""
+    count = max(1, limit)
+    found = library_hits(store, tenant_id, query, limit=count)
+    seen = {row["url"] for row in found}
+    for row in web_hits(store, tenant_id, query, limit=count):
+        if row["url"] not in seen:
+            found.append(row)
+            seen.add(row["url"])
+    return found
 
 
-def search(  # noqa: PLR0911
-    store: Any, tenant_id: object, query: str, *, limit: int = 4
-) -> list[dict[str, str]]:
-    """One search. Fixture results need no network and no key."""
-    config = provider_config(store, tenant_id)
-    name = config["provider"]
-    if name == "fixture" or (name != "searxng" and not config["secret_name"]):
-        return fixture_hits(query, limit=limit)
-    token = ""
-    if config["secret_name"]:
-        token = read_named_secret(store, tenant_id, config["secret_name"]) or ""
-        if not token and name != "searxng":
-            return fixture_hits(query, limit=limit)
+def web_configured(store: Any, tenant_id: object) -> bool:
     try:
-        if name == "searxng":
-            return _searxng(store, config["base_url"], query, limit)
-        if name == "brave":
-            return _brave(store, config["base_url"], token, query, limit)
-        if name == "tavily":
-            return _tavily(store, config["base_url"], token, query, limit)
-        if name == "bing":
-            return _bing(store, config["base_url"], token, query, limit)
-    except Exception:  # noqa: BLE001 - a provider failure is an empty result, not a crash
+        provider_for(store, tenant_id)
+    except SearchUnavailableError:
+        return False
+    return True
+
+
+def web_hits(store: Any, tenant_id: object, query: str, *, limit: int) -> list[dict[str, str]]:
+    """Results from the tenant's web search provider. None is configured: no results."""
+    try:
+        rows = provider_for(store, tenant_id).search(query, limit=limit)
+    except SearchUnavailableError, SearchRejectedError, httpx.HTTPError:
         return []
-    return fixture_hits(query, limit=limit)
-
-
-def fixture_hits(query: str, *, limit: int = 4) -> list[dict[str, str]]:
-    """Two stable pages. The text is generic and contains the query."""
-    topic = " ".join(query.split())[:180] or "the question"
-    rows = [
+    return [
         {
-            "url": "fixture://notes/overview",
-            "title": "Overview",
-            "snippet": f"Overview: {topic} is described in the stored notes.",
-        },
-        {
-            "url": "fixture://notes/detail",
-            "title": "Detail",
-            "snippet": f"Detail: a second source agrees that {topic} can be checked.",
-        },
+            "url": str(row.get("url") or ""),
+            "title": str(row.get("title") or row.get("url") or ""),
+            "snippet": str(row.get("snippet") or ""),
+        }
+        for row in rows
+        if isinstance(row, dict) and row.get("url")
     ]
-    return rows[: max(1, limit)]
 
 
-def fixture_page(url: str, query: str = "") -> str | None:
-    """Full text for a fixture URL, or None when the URL is not a fixture."""
-    if not url.startswith("fixture://"):
-        return None
-    topic = query or "the question"
-    if url.endswith("/detail"):
-        return (
-            f"Detail: a second source agrees that {topic} can be checked. "
-            "The stored sentence is the only claim this page supports."
-        )
-    return (
-        f"Overview: {topic} is described in the stored notes. "
-        "Readers can quote this sentence because it is on the page."
-    )
+def library_hits(store: Any, tenant_id: object, query: str, *, limit: int) -> list[dict[str, str]]:
+    """The tenant's library passages that answer the query, one address per passage.
 
-
-def _searxng(store: Any, base: str, query: str, limit: int) -> list[dict[str, str]]:
-    if not base:
+    The library scores a passage by the share of query words it holds, so "is", "the" and
+    "of" alone make a match. Research needs the passage to be about the question, so it
+    must share distinctive words with it: words of four letters or more, without those
+    most of the tenant's passages hold. How many is the tenant's
+    ``research.minMatchedWords`` (default 1; 0 keeps every library match). The match is by
+    words, not meaning.
+    """
+    if not isinstance(tenant_id, uuid.UUID):
         return []
-    url = f"{base}/search?{urlencode({'q': query, 'format': 'json'})}"
-    status, text = fetch_text(store, "GET", url, timeout=20)
-    if status >= 300:
-        return []
-    return _hits_from_json(text, limit, title_key="title", url_key="url", snippet_key="content")
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
 
-
-def _brave(store: Any, base: str, token: str, query: str, limit: int) -> list[dict[str, str]]:
-    url = base or _DEFAULT_HOSTS["brave"]
-    status, text = fetch_text(
-        store,
-        "GET",
-        f"{url}?{urlencode({'q': query, 'count': str(limit)})}",
-        headers={"Accept": "application/json", "X-Subscription-Token": token},
-        timeout=20,
-    )
-    if status >= 300:
-        return []
-    import orjson  # noqa: PLC0415
-
-    try:
-        payload = orjson.loads(text)
-    except orjson.JSONDecodeError:
-        return []
-    web = payload.get("web") if isinstance(payload, dict) else None
-    results = web.get("results") if isinstance(web, dict) else None
-    return _rows(results, limit)
-
-
-def _tavily(store: Any, base: str, token: str, query: str, limit: int) -> list[dict[str, str]]:
-    url = base or _DEFAULT_HOSTS["tavily"]
-    status, text = fetch_text(
-        store,
-        "POST",
-        url,
-        headers={"Authorization": f"Bearer {token}"},
-        json_body={"query": query, "max_results": limit, "api_key": token},
-        timeout=20,
-    )
-    if status >= 300:
-        return []
-    return _hits_from_json(text, limit, title_key="title", url_key="url", snippet_key="content")
-
-
-def _bing(store: Any, base: str, token: str, query: str, limit: int) -> list[dict[str, str]]:
-    url = base or _DEFAULT_HOSTS["bing"]
-    status, text = fetch_text(
-        store,
-        "GET",
-        f"{url}?{urlencode({'q': query, 'count': str(limit)})}",
-        headers={"Ocp-Apim-Subscription-Key": token},
-        timeout=20,
-    )
-    if status >= 300:
-        return []
-    import orjson  # noqa: PLC0415
-
-    try:
-        payload = orjson.loads(text)
-    except orjson.JSONDecodeError:
-        return []
-    web = payload.get("webPages") if isinstance(payload, dict) else None
-    values = web.get("value") if isinstance(web, dict) else None
+    reader = Actor(tenant_id=tenant_id, user_id=tenant_id, permissions=frozenset())
+    distinctive = _distinctive(store, tenant_id, query)
+    needed = _needed(store, tenant_id)
     rows: list[dict[str, str]] = []
-    if not isinstance(values, list):
-        return rows
-    for item in values[:limit]:
-        if not isinstance(item, dict):
+    for hit in DocumentLibrary(store).search(reader, query):
+        anchor = str(hit.get("anchor") or "")
+        address = f"{LIBRARY}{hit.get('document_id')}#{anchor}"
+        have = _words(library_page(store, tenant_id, address) or "")
+        if sum(1 for word in distinctive if _holds(word, have)) < needed:
             continue
+        title = str(hit.get("title") or "Document")
         rows.append(
             {
-                "url": str(item.get("url") or ""),
-                "title": str(item.get("name") or ""),
-                "snippet": str(item.get("snippet") or ""),
+                "url": address,
+                "title": f"{title} ({anchor})" if anchor else title,
+                "snippet": str(hit.get("snippet") or ""),
             }
         )
-    return [row for row in rows if row["url"]]
-
-
-def _hits_from_json(
-    text: str, limit: int, *, title_key: str, url_key: str, snippet_key: str
-) -> list[dict[str, str]]:
-    import orjson  # noqa: PLC0415
-
-    try:
-        payload = orjson.loads(text)
-    except orjson.JSONDecodeError:
-        return []
-    results = payload.get("results") if isinstance(payload, dict) else None
-    return _named(results, limit, title_key, url_key, snippet_key)
-
-
-def _named(
-    results: object, limit: int, title_key: str, url_key: str, snippet_key: str
-) -> list[dict[str, str]]:
-    if not isinstance(results, list):
-        return []
-    rows: list[dict[str, str]] = []
-    for item in results[:limit]:
-        if not isinstance(item, dict):
-            continue
-        url = str(item.get(url_key) or "")
-        if not url:
-            continue
-        rows.append(
-            {
-                "url": url,
-                "title": str(item.get(title_key) or url),
-                "snippet": str(item.get(snippet_key) or ""),
-            }
-        )
+        if len(rows) >= limit:
+            break
     return rows
 
 
-def _rows(results: object, limit: int) -> list[dict[str, str]]:
-    return _named(results, limit, "title", "url", "description")
+def _words(text: str) -> set[str]:
+    return set(_WORD.findall(text.lower()))
+
+
+def _holds(word: str, have: set[str]) -> bool:
+    """The passage has the word, or one with the same first letters (approves, approved)."""
+    if word in have:
+        return True
+    return any(other.startswith(word[:_STEM]) for other in have if len(other) >= _STEM)
+
+
+def _distinctive(store: Any, tenant_id: uuid.UUID, query: str) -> set[str]:
+    """The query's longer words, without those most of the tenant's passages hold.
+
+    A library of a few passages is all about one subject, so its common words are the
+    subject. The "most passages" rule applies from ``_ENOUGH`` passages up.
+    """
+    passages: list[set[str]] = []
+    for row in getattr(store, "library_documents", {}).values():
+        if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
+            continue
+        listed = row.get("passages")
+        passages.extend(
+            _words(str(passage.get("text") or ""))
+            for passage in (listed if isinstance(listed, list) else [])
+            if isinstance(passage, dict)
+        )
+    longer = {word for word in _words(query) if len(word) >= _LONG}
+    if len(passages) < _ENOUGH:
+        return longer
+    most = len(passages) // 2
+    return {word for word in longer if sum(1 for have in passages if _holds(word, have)) <= most}
+
+
+def _needed(store: Any, tenant_id: object) -> int:
+    settings = getattr(store, "tenant_settings", {}).get(tenant_id)
+    research = settings.get("research") if isinstance(settings, dict) else None
+    raw = None
+    if isinstance(research, dict):
+        raw = research.get("min_matched_words", research.get("minMatchedWords"))
+    if isinstance(raw, int) and not isinstance(raw, bool) and raw >= 0:
+        return raw
+    return 1
+
+
+def library_page(store: Any, tenant_id: object, url: str) -> str | None:
+    """The text of one library passage, or None when this tenant has no such passage."""
+    if not url.startswith(LIBRARY) or not isinstance(tenant_id, uuid.UUID):
+        return None
+    document, _mark, anchor = url[len(LIBRARY) :].partition("#")
+    try:
+        document_id = uuid.UUID(document)
+    except ValueError:
+        return None
+    row = getattr(store, "library_documents", {}).get(document_id)
+    if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
+        return None
+    passages = row.get("passages")
+    for passage in passages if isinstance(passages, list) else []:
+        if isinstance(passage, dict) and str(passage.get("anchor") or "") == anchor:
+            return str(passage.get("text") or "")
+    return None
+
+
+def scope(store: Any, tenant_id: object) -> str:
+    """What research searched, in words a person can act on."""
+    documents = sum(
+        1
+        for row in getattr(store, "library_documents", {}).values()
+        if isinstance(row, dict) and row.get("tenant_id") == tenant_id
+    )
+    library = f"the document library ({documents} documents)"
+    if web_configured(store, tenant_id):
+        return f"Research searched {library} and the web."
+    return (
+        f"Research searched {library}. Web search is not configured: an administrator sets "
+        "a search provider and its key to add the web."
+    )

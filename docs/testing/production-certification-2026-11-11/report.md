@@ -4,7 +4,7 @@ Date: 11 November 2026. Branch `fix/stage14c-live-cert-blockers`. Model `Qwen/Qw
 
 ## Verdict
 
-**Not certified for production.** The platform now runs tools and agent turns in production mode, which it could not do when this pass started. Three tools still fail, 27 could not be exercised because this install lacks what they need, four flows fail, and the 100 connector tools were not run against real accounts.
+**Not certified for production.** The platform now runs tools and agent turns in production mode, which it could not do when this pass started. One tool still fails, 27 could not be exercised because this install lacks what they need, three flows fail, and the 100 connector tools were not run against real accounts.
 
 ## How it was run
 
@@ -23,11 +23,11 @@ A first pass on the dev stack is not counted. Dev mode serves chat from an in-pr
 
 | Result | Tools | Meaning |
 |---|---|---|
-| pass | 47 | Ran and returned what the case expects |
+| pass | 49 | Ran and returned what the case expects |
 | blocked | 27 | Refused in words because this install lacks something |
 | gated | 2 | Asked for approval, as designed |
 | absent | 2 | Dev-only fixtures, not in the staging catalogue |
-| fail | 3 | Defect |
+| fail | 1 | Defect |
 
 | Area | Pass | Blocked | Gated | Absent | Fail |
 |---|---|---|---|---|---|
@@ -43,7 +43,7 @@ A first pass on the dev stack is not counted. Dev mode serves chat from an in-pr
 | image, context (2) | | 2 | | | |
 | sandbox (5) | | 4 | | | 1 |
 | browser (17) | | 15 | 2 | | |
-| research (2) | | | | | 2 |
+| research (2) | 2 | | | | |
 
 What the 27 blocked tools need:
 
@@ -56,10 +56,9 @@ What the 27 blocked tools need:
 | 1 | A reachable peer agent (`session.a2a_call`) |
 | 1 | A tool output kept during an agent run (`context.retrieve`) |
 
-The three failures:
+The one failure: `sandbox.export_file` answers "file was not found" when there is no sandbox. The other sandbox tools say the computer is not ready.
 
-- `research.search` and `research.fetch` answer from a built-in fixture. Search returns two canned pages and fetch returns a canned sentence for any address.
-- `sandbox.export_file` answers "file was not found" when there is no sandbox. The other sandbox tools say the computer is not ready.
+Research was a fixture when this pass began: search returned two canned pages and fetch a canned sentence. It now searches the tenant's document library and, when a provider is configured, the web. Both research tools pass on library passages. Web results were not exercised, because no provider is configured here.
 
 ## Connector tools
 
@@ -83,7 +82,7 @@ Each ran twice on staging.
 | Compute a total, then save it to a file | 1 of 2 |
 | Structured output (`responseFormat`) | 0 of 2 |
 | A change that needs approval pauses the run | 0 of 2 |
-| Research cites real sources | 0 of 2 |
+| Research cites real sources | 3 of 3 |
 | External API run, and a bad key is refused | 0 of 2 |
 
 Notes on the failures:
@@ -91,7 +90,7 @@ Notes on the failures:
 - **Compute then save.** Without a sandbox the model has no way to run code. One of two runs found the table tools and `write_file`; the other stopped.
 - **Structured output.** The schema now reaches the worker, but the reply was a tool-call-shaped object that does not match the schema, and it was stored as the answer.
 - **Approval.** The default assistant has no tool that needs approval, so this flow did not test the approval path. It needs an agent with such a tool and a second person to decide.
-- **Research.** The run completes but its sources are the fixture pages.
+- **Research.** Fixed after the first run: three of three runs cite passages of the tenant's library, and a question nothing matches gets a report that says where research looked.
 - **External API.** The run itself works. A request with a bad key gets 404, not 401. The spec does not say which is intended.
 
 ## Defects fixed in this pass
@@ -106,6 +105,7 @@ Notes on the failures:
 | A row stored and then filled in lost the later writes | A knowledge document stayed "pending" with size 0 | One helper returns the stored row; nine sites use it |
 | Markdown text added to knowledge was flattened to one line | "the document has no text to index" | Lines are kept |
 | A table query naming a file path failed with "could not parse" | The model could not recover | The refusal names the tables |
+| Research answered from a built-in fixture | Canned sources and a report built from them | Research searches the document library and the web provider `general.search` uses; the fixture is gone |
 | A console tool test with no conversation crashed | HTTP 500 for `sandbox.exec` | The event carries an empty conversation id |
 | Console tool tests could not share a folder | Each test ran in an empty folder | The test body takes `conversationId` |
 
@@ -113,7 +113,7 @@ Notes on the failures:
 
 Ordered by how much they block production.
 
-1. **Research is a fixture.** Search and fetch return canned content, and the report is built from it. This breaks strict rules 1 to 3. It needs an owner decision on what research searches (OQ-130).
+1. **Research matches by words, not meaning.** A passage counts when it shares a distinctive word with the question. The report quotes the first sentence of each source and is not written by the model. A question phrased differently from the document can miss it.
 2. **No sandbox on this install.** 21 tools and every code-running flow depend on an image that is not built here. Nothing about code execution, the browser or file export is proven.
 3. **Structured output is not enforced.** A reply that does not match the schema is stored as the answer.
 4. **Stored rows that are filled in after assignment.** Nine sites are fixed. The tracked store copies a row on assignment, so any other code that keeps writing to its own dict loses those writes in production. The tree has not been swept for every case.
@@ -134,9 +134,8 @@ Ordered by how much they block production.
 | Need | Unblocks |
 |---|---|
 | A built sandbox image and a manager driver allowed to start it | 21 tools, the code-running flows |
-| A decision and a provider for research search | 2 tools, the research flow |
+| A web search provider and key | Web results in research, `general.search` |
 | Hosts for web access on the allowed list | `general.fetch`, `general.http` |
-| A web search key | `general.search` |
 | A vision model on the `vision` alias | `image.ask` |
 | A second person's sign-in and an agent with an approval-gated tool | The approval flow |
 | Real accounts or tokens per connector | 100 connector tools |

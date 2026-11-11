@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
-from ar_testing.demo import demo_application
+from ar_testing.demo import add_library_notes, demo_application
 
 
 def _client() -> tuple[TestClient, dict[str, uuid.UUID]]:
@@ -33,6 +33,7 @@ def _client() -> tuple[TestClient, dict[str, uuid.UUID]]:
 
 def test_research_round_trip_and_cross_tenant_404() -> None:
     client, holder = _client()
+    add_library_notes(client.app.state.chat)  # type: ignore[attr-defined]
     created = client.post(
         "/api/v1/research/runs",
         json={"question": "What do the stored notes say about a kite?"},

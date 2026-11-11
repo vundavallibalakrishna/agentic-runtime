@@ -11,7 +11,7 @@ from ar_domain.models.request import chat_completion_body, redact_provider_error
 from ar_domain.tools.identity import tool_call_idempotency_key
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.structured import accept_output
-from ar_testing.demo import demo_store
+from ar_testing.demo import add_library_notes, demo_store
 
 SCHEMA = {
     "type": "object",
@@ -97,6 +97,7 @@ def test_two_research_queries_and_a_retry_keep_their_sources() -> None:
     from ar_runtime.activities.research_step import research_step, research_subtask
 
     store = demo_store()
+    add_library_notes(store)
     bind_store(store)
     tenant = demo_id("tenant")
     user = demo_id("admin")

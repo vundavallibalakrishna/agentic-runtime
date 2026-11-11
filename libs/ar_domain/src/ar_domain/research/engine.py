@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 from ar_common.time import utcnow
 from ar_domain.research.citations import source_record, verify_report
 from ar_domain.research.fetch import fetch_page
-from ar_domain.research.providers import search
+from ar_domain.research.providers import scope, search
 
 if TYPE_CHECKING:
     from typing import Any
@@ -124,7 +124,7 @@ def run_subtask(store: Any, tenant_id: object, query: dict[str, str]) -> dict[st
         url = str(hit.get("url") or "")
         if not url:
             continue
-        page = fetch_page(store, url, query=query["text"])
+        page = fetch_page(store, url, tenant_id=tenant_id)
         text = str(page.get("text") or "")
         if not text:
             continue
@@ -162,7 +162,7 @@ def synthesise(question: str, sources: list[dict[str, object]]) -> str:
     return "\n".join(lines)
 
 
-def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: ARG001, PLR0911
+def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: PLR0911
     """Move one phase. Return ``fanout``, ``model``, ``final`` or ``paused``."""
     if str(run.get("status") or "") == "cancelled":
         return "final"
@@ -180,6 +180,9 @@ def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: 
         return _collect(state, run)
     if phase == "synthesize":
         report = synthesise(str(state.get("question") or question), _sources(state))
+        if not _sources(state):
+            # Nothing matched. The report says where it looked, so the person can act.
+            report = f"{report} {scope(store, run.get('tenant_id'))}"
         state["report"] = report
         state["phase"] = "verify"
         save_state(run, state)
@@ -238,6 +241,11 @@ def _collect(state: dict[str, object], run: dict[str, object]) -> str:
             rows = result.get("sources")
             if isinstance(rows, list):
                 sources.extend(row for row in rows if isinstance(row, dict))
+    # Two queries often find the same passage. A source is listed once.
+    listed: dict[str, dict[str, object]] = {}
+    for row in sources:
+        listed.setdefault(str(row.get("url")), row)
+    sources = list(listed.values())
     state["sources"] = sources
     state["phase"] = "synthesize"
     save_state(run, state)

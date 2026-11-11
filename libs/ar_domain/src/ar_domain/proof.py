@@ -115,8 +115,8 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "research",
         UNIT,
         "no",
-        "Search, fetch, citation checks and the Temporal workflow run in process with a "
-        "fixture provider. No stored live report.",
+        "Research searches the tenant's document library and, when one is configured, the "
+        "web provider general.search uses. Unit tests add library notes. No stored live report.",
     ),
 )
 

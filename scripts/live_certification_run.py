@@ -454,7 +454,11 @@ def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
     research_status, _headers, research = _json(
         "POST",
         f"{api}/api/v1/research/runs",
-        {"question": "What do the stored notes say about a kite?"},
+        {
+            "question": os.environ.get(
+                "AR_CERT_RESEARCH_QUESTION", "What does the uploaded document say?"
+            )
+        },
         auth,
     )
     research_step = _poll_research(api, auth, research_status, research)
