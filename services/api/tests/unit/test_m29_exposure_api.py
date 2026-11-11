@@ -1,6 +1,9 @@
 """HTTP surface for the external agent API."""
 
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
 
 from fastapi.testclient import TestClient
 
@@ -8,6 +11,9 @@ from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_testing.demo import demo_application
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _principal(tenant: uuid.UUID | None = None) -> Principal:
@@ -286,3 +292,26 @@ def test_rotate_upload_events_and_unimplemented_a2a() -> None:
     assert a2a_stream.status_code == 200
     assert "event: task" in a2a_stream.text
     del secret
+
+
+def test_a_bad_key_is_401_when_no_tenant_was_opened(monkeypatch: pytest.MonkeyPatch) -> None:
+    """In production mode a request opens a tenant's rows only for a key that names one.
+
+    A caller with no key, or a key that names no tenant, has no rows open. That is a caller
+    without credentials, so the external routes answer 401 and not 404.
+    """
+    from ar_api.routers import exposure
+    from ar_common.errors import NotFoundError
+
+    def no_rows(request: object) -> object:
+        del request
+        raise NotFoundError
+
+    client, holder = _client()
+    holder["principal"] = None
+    # What a route sees when the read model opened nothing for this request.
+    monkeypatch.setattr(exposure, "_store", no_rows)
+    for headers in ({}, {"authorization": "Bearer not-a-key"}):
+        refused = client.post("/v1/agents/assistant:run", json={"text": "hello"}, headers=headers)
+        assert refused.status_code == 401, refused.text
+        assert refused.json()["code"] == "unauthenticated"

@@ -2643,8 +2643,10 @@ class ChatBehaviour:
             raise ArError(ErrorCode.INVALID_STATE, "run is not active")
         status = str(run["status"])
         if status == "waiting_approval":
-            pending = run.get("pending_approval")
-            approval_id = pending.get("approval_id") if isinstance(pending, dict) else None
+            from ar_domain.approvals.pending import held  # noqa: PLC0415
+
+            pending = held(run)
+            approval_id = pending.get("approval_id") if pending is not None else None
             if isinstance(approval_id, uuid.UUID):
                 from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
 

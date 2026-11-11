@@ -1194,33 +1194,171 @@ def flow_structured_output(chat: Chat) -> str | None:
     return None if str(parsed.get("capital", "")).lower() == "paris" else f"wrong object: {parsed}"
 
 
+def _approver() -> Stack | None:
+    """The second person, signed in. The owner of an agent may not approve its actions."""
+    email = os.environ.get("AR_CERT_APPROVER_EMAIL", "").strip()
+    password = os.environ.get("AR_CERT_APPROVER_PASSWORD", "")
+    if not email or not password:
+        return None
+    api = os.environ.get("AR_API_URL", "http://127.0.0.1:18010").rstrip("/")
+    return Stack(api, email, password)
+
+
+def _approval_agent(stack: Stack, approver_id: str) -> tuple[str, str]:
+    """An agent whose file writes wait for the second person's approval.
+
+    The default assistant has no tool that needs approval, so the flow makes one: an agent
+    with the file tools, and a tenant policy that asks for approval before it writes.
+    """
+    stamp = int(time.time())
+    slug = f"cert-approval-{stamp}"
+    _status, made = stack.post(
+        "/api/v1/agents", slug=slug, name="Certification approval", template="blank"
+    )
+    agent = str(made.get("id") or "") if isinstance(made, dict) else ""
+    if not agent:
+        return "", "the approval agent was not created"
+    stack.put(
+        f"/api/v1/agents/{agent}/versions/draft",
+        definition={
+            "instructions": "Do what the person asks with the file tools. Keep answers short.",
+            "tools": [{"server": "general", "include": ["write_file", "read_file", "list_files"]}],
+        },
+        changeNote="certification",
+    )
+    stack.post(f"/api/v1/agents/{agent}:publish", changeNote="certification")
+    status, policy = stack.post(
+        "/api/v1/policies",
+        name=f"Certification write approval {stamp}",
+        kind="rules",
+        priority=10,
+        document={
+            "rules": [
+                {
+                    "id": f"cert-approval-{stamp}",
+                    "effect": "require_approval",
+                    "message": "A person approves this write.",
+                    "match": {"tools": ["general.write_file"], "agents": [slug]},
+                    "approval": {
+                        "approvers": {"mode": "users", "users": [approver_id]},
+                        "required_approvals": 1,
+                        "four_eyes": False,
+                        "step_up": False,
+                        "ttl_s": 3600,
+                    },
+                }
+            ]
+        },
+    )
+    policy_id = str(policy.get("id") or "") if isinstance(policy, dict) else ""
+    if not policy_id:
+        return "", f"the approval policy was not created (http {status})"
+    version = (
+        policy.get("version") or policy.get("draftVersion") or 1 if isinstance(policy, dict) else 1
+    )
+    # Activating a policy is a sensitive action: the product asks the signed-in person to
+    # confirm it first, as the Policies screen does.
+    stack.post("/api/v1/auth/step-up", confirmed=True)
+    status, _active = stack.post(f"/api/v1/policies/{policy_id}:activate", version=version)
+    if status not in {200, 201}:
+        return "", f"the approval policy was not activated (http {status})"
+    return agent, ""
+
+
+def _pending(stack: Stack, conversation: str) -> dict[str, object] | None:
+    listed = stack.get("/api/v1/approvals")
+    items = listed.get("items") if isinstance(listed, dict) else []
+    for row in items if isinstance(items, list) else []:
+        waiting = isinstance(row, dict) and row.get("status") == "pending"
+        if waiting and str(row.get("conversationId") or "") == conversation:
+            return row
+    return None
+
+
+def _has_file(stack: Stack, conversation: str, name: str) -> bool:
+    files = stack.get("/api/v1/files", conversationId=conversation)
+    held = files.get("data") if isinstance(files, dict) else []
+    return any(isinstance(row, dict) and row.get("name") == name for row in held or [])
+
+
+def _idle(stack: Stack, conversation: str) -> bool:
+    seen = stack.get(f"/api/v1/conversations/{conversation}")
+    return isinstance(seen, dict) and not seen.get("activeRunId")
+
+
+def _request_for(
+    owner: Stack, approver: Stack, conversation: str
+) -> tuple[dict[str, object] | None, str]:
+    """Wait for the conversation's approval request. A run that ends first never asked."""
+    deadline = time.monotonic() + 180
+    while time.monotonic() < deadline:
+        waiting = _pending(approver, conversation)
+        if waiting is not None:
+            return waiting, ""
+        if _idle(owner, conversation):
+            return None, "the run ended without asking for approval"
+        time.sleep(2)
+    return None, "no approval request appeared"
+
+
 def flow_approval_waits(chat: Chat) -> str | None:
-    """A change that needs approval pauses the run. Nothing runs until someone decides."""
-    conversation = chat.open()
+    """A write that needs approval pauses the run, and runs once a second person approves it.
+
+    The person who owns the agent asks. They may not approve their own agent's action, so
+    their attempt is refused, and the second person's decision lets the write run.
+    """
+    second = _approver()
+    if second is None:
+        return (
+            "needs a second person's sign-in: set AR_CERT_APPROVER_EMAIL and "
+            "AR_CERT_APPROVER_PASSWORD"
+        )
+    me = second.get("/api/v1/me")
+    agent, problem = _approval_agent(chat.stack, str(me.get("id") if isinstance(me, dict) else ""))
+    if problem:
+        return problem
+    asker = Chat(chat.stack, agent)
+    conversation = asker.open()
     status, _posted = chat.stack.post(
         f"/api/v1/conversations/{conversation}/messages",
-        text="Propose this change for approval: raise the retention period to 10 years.",
+        text="Save a file named decision.txt that holds only the word APPROVED.",
     )
-    if status not in {200, 201, 202}:
-        return f"http {status}"
-    deadline = time.monotonic() + 120
-    while time.monotonic() < deadline:
-        listed = chat.stack.get("/api/v1/approvals")
-        items = listed.get("items") if isinstance(listed, dict) else []
-        waiting = [
-            row
-            for row in items
-            if isinstance(row, dict)
-            and row.get("status") == "pending"
-            and str(row.get("conversationId") or "") == conversation
-        ]
-        if waiting:
-            return None
-        seen = chat.stack.get(f"/api/v1/conversations/{conversation}")
-        if isinstance(seen, dict) and not seen.get("activeRunId"):
-            return "the run ended without asking for approval"
+    # The request shows in the list of the person who may decide it.
+    waiting, problem = (
+        _request_for(chat.stack, second, conversation)
+        if status in {200, 201, 202}
+        else (None, f"http {status}")
+    )
+    if waiting is None:
+        return problem
+    # Nothing was written while the request waits.
+    if _has_file(chat.stack, conversation, "decision.txt"):
+        return "the file was written before anyone approved"
+    problem = _decide(chat.stack, second, waiting)
+    if problem:
+        return problem
+    deadline = time.monotonic() + asker.timeout
+    while time.monotonic() < deadline and not _idle(chat.stack, conversation):
         time.sleep(2)
-    return "no approval request appeared"
+    written = _has_file(chat.stack, conversation, "decision.txt")
+    return None if written else "the approved write did not run"
+
+
+def _decide(owner: Stack, second: Stack, waiting: dict[str, object]) -> str:
+    """The owner's approval is refused, then the second person approves. Empty when both hold."""
+    decision: dict[str, object] = {
+        "decision": "approve",
+        "comment": "certification",
+        "argsHash": str(waiting.get("argsHash") or ""),
+    }
+    address = f"/api/v1/approvals/{waiting['id']}:decide"
+    own, _refused = owner.post(address, **decision)
+    if own in {200, 201}:
+        return "the agent's owner approved their own agent's action"
+    status, decided = second.post(address, **decision)
+    if status not in {200, 201}:
+        return f"the approval could not be decided (http {status}): {str(decided)[:120]}"
+    return ""
 
 
 def flow_research(chat: Chat) -> str | None:
@@ -1325,7 +1463,7 @@ FLOWS: dict[str, Callable[[Chat], str | None]] = {
 }
 
 
-def run_flows(stack: Stack, repeat: int) -> dict[str, object]:
+def run_flows(stack: Stack, repeat: int, only: list[str] | None = None) -> dict[str, object]:
     agents = stack.get("/api/v1/agents")
     listed = agents.get("items") if isinstance(agents, dict) else agents
     assistant = next(
@@ -1334,6 +1472,8 @@ def run_flows(stack: Stack, repeat: int) -> dict[str, object]:
     chat = Chat(stack, str(assistant["id"]))
     rows: list[dict[str, object]] = []
     for name, flow in FLOWS.items():
+        if only and name not in only:
+            continue
         problems: list[str] = []
         started = time.monotonic()
         for _attempt in range(repeat):
@@ -1369,6 +1509,7 @@ def main() -> int:
     parser.add_argument("--out", default="var/tool-certification")
     parser.add_argument("--only", choices=("tools", "flows"), help="run one half")
     parser.add_argument("--repeat", type=int, default=1, help="times to run each flow")
+    parser.add_argument("--flow", action="append", default=[], help="run only this flow")
     options = parser.parse_args()
     api = os.environ.get("AR_API_URL", "http://127.0.0.1:18010").rstrip("/")
     stack = Stack(api, os.environ["AR_ADMIN_EMAIL"], os.environ["AR_ADMIN_PASSWORD"])
@@ -1382,7 +1523,7 @@ def main() -> int:
         counts = report["counts"] if isinstance(report["counts"], dict) else {}
         bad = bool(counts.get("fail", 0) or report["uncovered"])
     if options.only != "tools":
-        flows = run_flows(stack, max(options.repeat, 1))
+        flows = run_flows(stack, max(options.repeat, 1), options.flow)
         (out / "flows.json").write_bytes(orjson.dumps(flows, option=orjson.OPT_INDENT_2))
         print(orjson.dumps(flows["counts"]).decode())
         counts = flows["counts"] if isinstance(flows["counts"], dict) else {}

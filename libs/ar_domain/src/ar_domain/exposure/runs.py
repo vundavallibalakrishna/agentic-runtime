@@ -10,6 +10,7 @@ import orjson
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
+from ar_domain.approvals.pending import held, hold
 from ar_domain.events.idempotency import StoredResponse
 from ar_domain.exposure.keys import (
     _book,
@@ -179,8 +180,8 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
     finish = "stop"
     if status == "waiting_approval":
         finish = "approval_required"
-        pending = run.get("pending_approval")
-        if isinstance(pending, dict) and pending.get("approval_id") is not None:
+        pending = held(run)
+        if pending is not None and pending.get("approval_id") is not None:
             approval_id = str(pending.get("approval_id"))
         if not text:
             text = "Approval required"
@@ -665,7 +666,7 @@ def execute_write(
         if isinstance(live, dict):
             live["status"] = "waiting_approval"
             if approval_id:
-                live["pending_approval"] = {"approval_id": uuid.UUID(approval_id)}
+                hold(live, {"approval_id": uuid.UUID(approval_id)})
         audit_key(
             store,
             tenant_id=key["tenant_id"],

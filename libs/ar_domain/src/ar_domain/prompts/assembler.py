@@ -82,6 +82,11 @@ def output_block(definition: dict[str, object]) -> str:
     schema = output_schema(definition)
     if not schema:
         return ""
+    return schema_block(schema)
+
+
+def schema_block(schema: dict[str, object]) -> str:
+    """The instruction to answer in a schema: the agent's own, or one the caller asked for."""
     return f"Return only JSON matching this schema:\n{orjson.dumps(schema).decode()}"
 
 
@@ -96,7 +101,9 @@ def with_attachments(text: str, lines: str) -> str:
         return text
     note = (
         "Files attached to this message. Each is in the working folder at its path. "
-        "Give a document tool the documentId when one is shown, otherwise the file id or the path."
+        "Give a document tool the documentId when one is shown, otherwise the file id or the path. "
+        "A passage shown under a file starts with its anchor in square brackets. When you state "
+        "something from a passage, put that anchor after the statement, as it is written."
     )
     block = f"{note}\n{wrap_untrusted(source='file:attached', content=lines)}"
     return f"{text}\n\n{block}" if text else block

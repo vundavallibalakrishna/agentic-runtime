@@ -235,6 +235,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     from ar_domain.loop.repair import output_repair_limit, tool_failure_limit  # noqa: PLC0415
 
     repair_cap = output_repair_limit(definition)
+    _tell_schema(messages, schema)
     failure_cap = tool_failure_limit(definition)
     while True:
         if isinstance(saved_loop, dict) and saved_loop.get("phase") == "tools":
@@ -355,18 +356,22 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 canonical, problem = accept_output(answer, schema)
                 if canonical is not None:
                     answer = canonical
-                if problem and repairs < repair_cap:
+                if problem and repairs >= repair_cap:
+                    # The caller asked for an object in this schema. Text that is not one
+                    # is not an answer, so it is not stored as one.
+                    _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
+                    _stop_error(
+                        store,
+                        run,
+                        assistant,
+                        f"The answer did not match the required JSON schema ({problem}).",
+                        code="repair_exhausted",
+                    )
+                    return True
+                if problem:
                     repairs += 1
                     messages.append({"role": "assistant", "content": answer})
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                "That was not valid JSON for the required schema: "
-                                f"{problem}. Reply with only the JSON object."
-                            ),
-                        }
-                    )
+                    messages.append({"role": "user", "content": _schema_retry(problem, schema)})
                     _audit(
                         store,
                         run,
@@ -1176,10 +1181,18 @@ def _artifact_parts(store: Any, previews: list[dict[str, object]]) -> list[dict[
     return parts
 
 
-def _with_trace(answer: str, run: dict[str, object]) -> list[dict[str, object]]:
+def _with_trace(store: Any, answer: str, run: dict[str, object]) -> list[dict[str, object]]:
+    """The answer, then a citation part for each source it rests on.
+
+    Knowledge passages placed in the prompt come first. A passage of an attached document
+    follows when the answer repeats its anchor.
+    """
+    from ar_domain.documents.cited import cited_parts  # noqa: PLC0415
     from ar_domain.workspace.turn import citation_parts  # noqa: PLC0415
 
-    return [{"type": "text", "text": answer}, *citation_parts(run.get("retrieval"))]
+    retrieved = citation_parts(run.get("retrieval"))
+    cited = cited_parts(store, run, answer, start=len(retrieved) + 1)
+    return [{"type": "text", "text": answer}, *retrieved, *cited]
 
 
 def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> None:
@@ -1264,7 +1277,7 @@ def _finish(
     followups: list[str] | None = None,
 ) -> None:
     assistant["text"] = answer
-    content = [*_with_trace(answer, run), *_artifact_parts(store, previews)]
+    content = [*_with_trace(store, answer, run), *_artifact_parts(store, previews)]
     prompts = [item for item in (followups or []) if item.strip()]
     if prompts:
         content.append({"type": "followups", "prompts": prompts})
@@ -1290,6 +1303,10 @@ def _finish(
         conversation["active_run_id"] = None
     assistant_id = assistant.get("id")
     _emit_trace(store, run, assistant_id)
+    for part in content:
+        cited = part.get("citation") if part.get("type") == "citation_ref" else None
+        if isinstance(cited, dict) and cited.get("source_kind") == "document":
+            store._emit(run, "citation.added", {"message_id": str(assistant_id), "citation": cited})
     stored = run.get("usage")
     emitted = stored if isinstance(stored, dict) else {"tokens_in": 1, "tokens_out": 1}
     completed: dict[str, object] = {"message_id": str(assistant_id), "text": answer}
@@ -1322,6 +1339,33 @@ def _stop_budget(
     store._emit(run, "run.budget_exceeded", {"limit": limit})
     _audit(
         store, run, "run.budget_exceeded", str(run.get("id")), {"limit": limit}, outcome="failure"
+    )
+
+
+def _tell_schema(messages: list[dict[str, object]], schema: dict[str, object] | None) -> None:
+    """Make sure the model has been told the schema its final answer must match.
+
+    The prompt carries the agent's own output schema. A schema the caller asked for on
+    this turn is not in it, so it is added here, once.
+    """
+    if not schema:
+        return
+    from ar_domain.prompts.assembler import schema_block  # noqa: PLC0415
+
+    block = schema_block(schema)
+    if any(block in str(message.get("content") or "") for message in messages):
+        return
+    messages.append({"role": "system", "content": block})
+
+
+def _schema_retry(problem: str, schema: dict[str, object]) -> str:
+    """What the model is told when its final answer does not match the schema."""
+    from ar_domain.prompts.assembler import schema_block  # noqa: PLC0415
+
+    return (
+        f"That was not valid JSON for the required schema: {problem}. "
+        "Your final answer is one JSON object and nothing else: no prose, no code fence, "
+        f"and not a tool call written as text. {schema_block(schema)}"
     )
 
 

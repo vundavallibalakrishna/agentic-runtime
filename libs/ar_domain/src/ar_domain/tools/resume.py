@@ -4,6 +4,7 @@ import uuid
 from typing import TYPE_CHECKING
 
 from ar_common.time import utcnow
+from ar_domain.approvals.pending import held, release
 from ar_domain.conversations.logic import run_is_active
 
 if TYPE_CHECKING:
@@ -18,8 +19,8 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
     run = store.runs.get(run_id)
     if not isinstance(run, dict):
         return
-    pending = run.get("pending_approval")
-    if isinstance(pending, dict) and str(pending.get("approval_id")) != str(approval.get("id")):
+    pending = held(run)
+    if pending is not None and str(pending.get("approval_id")) != str(approval.get("id")):
         return
     status = str(approval.get("status"))
     if status == "approved":
@@ -32,8 +33,8 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
 def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> None:
     from ar_domain.tools.gateway_client import execute_tool  # noqa: PLC0415
 
-    pending = run.get("pending_approval")
-    if not isinstance(pending, dict):
+    pending = held(run)
+    if pending is None:
         return
     store._emit(
         run,
@@ -70,8 +71,7 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
 def _stop(store: Any, run: dict[str, object], approval: dict[str, object], status: str) -> None:
     if not run_is_active(str(run.get("status"))):
         return
-    raw_pending = run.get("pending_approval")
-    pending = raw_pending if isinstance(raw_pending, dict) else {}
+    pending = held(run) or {}
     store._emit(
         run,
         "tool_call.approval_resolved",
@@ -115,7 +115,7 @@ def _finish(
         ]
     run["status"] = status
     run["ended_at"] = utcnow()
-    run["pending_approval"] = None
+    release(run)
     run["result_summary"] = text[:8000]
     conversation = store.conversations.get(run.get("conversation_id"))
     if isinstance(conversation, dict):
