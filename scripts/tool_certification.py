@@ -72,7 +72,13 @@ MESSAGES = {
     "not marked as able to read images": "a vision model on the vision alias",
     "output_id is required": "a tool output kept during an agent run (the flows cover it)",
     "remote agent returned": "a reachable peer agent (set AR_CERT_A2A_URL)",
+    "no browser connection named": "a stored browser sign-in (a browser connection)",
+    "sign in with a connection": "a stored browser sign-in (a browser connection)",
+    "this connection has no database": "a database connection (set AR_CERT_DATA_DSN)",
 }
+# Typing, uploading and downloading need a page that has a field, a file input and a
+# download link, on a host the browser may open. The owner names one.
+FORM_NEED = "a page with a form on an allowed host (set AR_CERT_FORM_URL)"
 
 Result = dict[str, object]
 Check = "Callable[[Result, Ctx], str | None]"
@@ -94,7 +100,7 @@ class Case:
     name: str
     args: Callable[[Ctx], dict[str, object]]
     check: Callable[[Result, Ctx], str | None]
-    expect: str = "pass"  # pass or gated
+    expect: str = "pass"  # pass, gated, or refused: the tool must refuse in these words
     needs: str = ""  # set when this install may lack what the tool needs
 
 
@@ -122,7 +128,9 @@ def wrote(suffix: str, keep: str = "") -> Callable[[Result, Ctx], str | None]:
     """The call stored a file with this suffix. ``keep`` remembers its id."""
 
     def check(result: Result, ctx: Ctx) -> str | None:
-        for row in files_of(result):
+        structured = result.get("structured")
+        direct = [structured] if isinstance(structured, dict) else []
+        for row in [*files_of(result), *direct]:
             if str(row.get("name") or "").lower().endswith(suffix):
                 if keep:
                     ctx.values[keep] = str(row.get("fileId") or row.get("file_id") or "")
@@ -130,6 +138,24 @@ def wrote(suffix: str, keep: str = "") -> Callable[[Result, Ctx], str | None]:
         return f"no {suffix} file in the result"
 
     return check
+
+
+def refused(phrase: str) -> Callable[[Result, Ctx], str | None]:
+    """The tool refused, at once and in these words."""
+
+    def check(result: Result, _ctx: Ctx) -> str | None:
+        return None if phrase in text_of(result) else f"the refusal lacks {phrase!r}"
+
+    return check
+
+
+def form(element: str, **arguments: object) -> Callable[[Ctx], dict[str, object]]:
+    """Arguments for a case on the owner's form page: ``ref`` is that page's element."""
+
+    def build(ctx: Ctx) -> dict[str, object]:
+        return {"ref": ctx[f"form_{element}"], **arguments}
+
+    return build
 
 
 def fixed(**arguments: object) -> Callable[[Ctx], dict[str, object]]:
@@ -180,10 +206,29 @@ def general_cases() -> list[Case]:
             needs="sandbox",
         ),
         Case(
+            "general.code",
+            "the data libraries are installed",
+            fixed(
+                source=(
+                    "import pandas, numpy, matplotlib\n"
+                    "print('sum', pandas.DataFrame({'n': [40, 2]})['n'].sum())"
+                )
+            ),
+            has("sum 42"),
+            needs="sandbox",
+        ),
+        Case(
             "general.shell",
             "run a command",
             fixed(command="echo cert-$((40 + 2))"),
             has("cert-42"),
+            needs="sandbox",
+        ),
+        Case(
+            "general.shell",
+            "python3 in a command has the data libraries",
+            fixed(command="python3 -c 'import pandas, duckdb; print(\"libs-ok\")'"),
+            has("libs-ok"),
             needs="sandbox",
         ),
         Case(
@@ -600,46 +645,39 @@ def computer_cases() -> list[Case]:
     ]
     page = "https://example.com"
     browser = [
-        # A public host that is not on the allowed list waits for approval, by design.
-        Case(
-            "browser.navigate",
-            "open a page",
-            fixed(url=page),
-            any_result,
-            expect="gated",
-            needs="browser",
-        ),
+        Case("browser.navigate", "open a page", fixed(url=page), has("example"), needs="browser"),
         Case("browser.snapshot", "read the page", fixed(), has("example domain"), needs="browser"),
         Case("browser.screenshot", "take a screenshot", fixed(), wrote(".png"), needs="browser"),
         Case("browser.scroll", "scroll", fixed(), any_result, needs="browser"),
-        Case(
-            "browser.click",
-            "click a link",
-            fixed(text="More information"),
-            any_result,
-            needs="browser",
-        ),
         Case("browser.tabs", "list tabs", fixed(), any_result, needs="browser"),
         Case("browser.new_tab", "open a tab", fixed(), any_result, needs="browser"),
         Case("browser.switch_tab", "switch tab", fixed(index=0), any_result, needs="browser"),
         Case("browser.close_tab", "close a tab", fixed(index=1), any_result, needs="browser"),
-        Case("browser.type", "type into a field", fixed(text="cert"), any_result, needs="browser"),
-        Case("browser.press", "press a key", fixed(text="Enter"), any_result, needs="browser"),
+        Case("browser.press", "press a key", fixed(key="End"), any_result, needs="browser"),
         Case("browser.save_pdf", "save the page as PDF", fixed(), wrote(".pdf"), needs="browser"),
         Case(
-            "browser.download",
-            "download a file",
-            fixed(text="More information"),
-            any_result,
+            "browser.click",
+            "a click with no element is refused at once",
+            fixed(),
+            refused("ref is required"),
+            expect="refused",
             needs="browser",
+        ),
+        Case(
+            "browser.type",
+            "type into a field",
+            form("field", text="cert"),
+            any_result,
+            needs="form",
         ),
         Case(
             "browser.upload",
             "upload a file",
-            fixed(ref="e1", path="data/regions.csv"),
+            form("file", path="/workspace/cert.txt"),
             any_result,
-            needs="browser",
+            needs="form",
         ),
+        Case("browser.download", "download a file", form("download"), wrote(""), needs="form"),
         Case(
             "browser.submit_form",
             "submit a form",
@@ -656,6 +694,8 @@ def computer_cases() -> list[Case]:
             any_result,
             needs="browser",
         ),
+        # Last: the link leaves the page the cases above read.
+        Case("browser.click", "click a link", fixed(ref="e1"), any_result, needs="browser"),
     ]
     return sandbox + browser
 
@@ -695,10 +735,30 @@ class Stack:
         except ValueError:
             return response.status_code, {"raw": response.text[:300]}
 
+    def put(self, path: str, **body: object) -> tuple[int, object]:
+        response = self.client.put(path, json=body)
+        try:
+            return response.status_code, response.json()
+        except ValueError:
+            return response.status_code, {"raw": response.text[:300]}
+
     def upload(self, path: str, name: str, data: bytes, mime: str) -> str:
         response = self.client.post(path, files={"upload": (name, data, mime)})
         body = response.json() if response.status_code in {200, 201} else {}
         return str(body.get("id") or "") if isinstance(body, dict) else ""
+
+    def lost_file(self, result: Result) -> str:
+        """Download every file a result names. A file whose bytes are gone is a failure."""
+        structured = result.get("structured")
+        direct = [structured] if isinstance(structured, dict) else []
+        for row in [*files_of(result), *direct]:
+            file_id = str(row.get("fileId") or row.get("file_id") or "")
+            if not file_id:
+                continue
+            response = self.client.get(f"/api/v1/files/{file_id}/content")
+            if response.status_code != 200 or not response.content:
+                return f"the stored file {row.get('name') or file_id} cannot be downloaded"
+        return ""
 
     def call(
         self, tool: str, arguments: dict[str, object], conversation: str
@@ -744,6 +804,40 @@ def prepare(stack: Stack, ctx: Ctx) -> None:
         POLICY_V2.encode(),
         "text/markdown",
     )
+
+
+def prepare_browser(stack: Stack, ctx: Ctx) -> None:
+    """An agent whose computer has a browser, and a conversation with it.
+
+    A console test in a conversation runs as that conversation's agent, so the browser
+    cases run on a computer started from the browser template.
+    """
+    stamp = int(time.time())
+    _status, made = stack.post(
+        "/api/v1/agents",
+        slug=f"cert-browser-{stamp}",
+        name="Certification browser",
+        template="blank",
+    )
+    agent = str(made.get("id") or "") if isinstance(made, dict) else ""
+    if not agent:
+        return
+    stack.put(
+        f"/api/v1/agents/{agent}/versions/draft",
+        definition={
+            "instructions": "Open pages in the browser and report what they say.",
+            "tools": [{"server": "browser", "include": ["*"]}],
+            "sandbox": {"template": "browser"},
+        },
+        changeNote="certification",
+    )
+    stack.post(f"/api/v1/agents/{agent}:publish", changeNote="certification")
+    _status, conversation = stack.post("/api/v1/conversations", agentId=agent)
+    if isinstance(conversation, dict) and conversation.get("id"):
+        ctx.values["browser_conversation"] = str(conversation["id"])
+    ctx.values["form_url"] = os.environ.get("AR_CERT_FORM_URL", "").strip()
+    for element in ("field", "file", "download"):
+        ctx.values[f"form_{element}"] = os.environ.get(f"AR_CERT_FORM_{element.upper()}_REF", "")
 
 
 def prepare_knowledge(stack: Stack, ctx: Ctx) -> None:
@@ -794,14 +888,11 @@ def outcome(case: Case, status: int, result: Result, ctx: Ctx) -> tuple[str, str
     if status != 200:
         return "fail", f"HTTP {status} {code}".strip()
     if state == "awaiting_approval":
-        return (
-            ("gated", "asked for approval")
-            if case.expect == "gated"
-            else ("fail", "asked for approval where none is expected")
-        )
-    if state == "succeeded":
-        if case.expect == "gated":
-            return "fail", "ran without the approval it needs"
+        asked = case.expect == "gated"
+        return ("gated", "asked for approval") if asked else ("fail", "asked for approval")
+    if state == "succeeded" and case.expect != "pass":
+        return "fail", f"ran where the case expects {case.expect}"
+    if state == "succeeded" or case.expect == "refused":
         problem = case.check(result, ctx)
         return ("fail", problem) if problem else ("pass", "")
     message = str(error.get("message") or result.get("resultPreview") or "")[:200]
@@ -822,11 +913,26 @@ def run(stack: Stack) -> dict[str, object]:
     ctx = Ctx()
     prepare(stack, ctx)
     prepare_knowledge(stack, ctx)
+    prepare_browser(stack, ctx)
     rows: list[dict[str, object]] = []
     for case in all_cases():
         started = time.monotonic()
-        status, result = stack.call(case.tool, case.args(ctx), ctx["conversation"])
-        verdict, note = outcome(case, status, result, ctx)
+        where = ctx["conversation"]
+        if case.needs in {"browser", "form"}:
+            where = ctx.values.get("browser_conversation") or where
+        if case.needs == "form" and not ctx["form_url"]:
+            # Nothing is called: there is no page to type into.
+            status, result = 0, Result()
+            verdict, note = "blocked", f"needs {FORM_NEED}"
+        else:
+            if case.needs == "form":
+                stack.call("browser.navigate", {"url": ctx["form_url"]}, where)
+            status, result = stack.call(case.tool, case.args(ctx), where)
+            verdict, note = outcome(case, status, result, ctx)
+            if verdict == "pass":
+                lost = stack.lost_file(result)
+                if lost:
+                    verdict, note = "fail", lost
         rows.append(
             {
                 "tool": case.tool,

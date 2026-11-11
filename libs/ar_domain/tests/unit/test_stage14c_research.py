@@ -139,6 +139,7 @@ def test_a_replayed_search_is_not_recorded_as_a_finished_subtask(monkeypatch) ->
 
 
 def test_a_production_store_gets_shared_state_where_it_is_built(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
     """Every process builds its store the same way, so none can forget the Valkey books."""
     from ar_common.settings import BaseServiceSettings, EnvName
     from ar_domain import process_state

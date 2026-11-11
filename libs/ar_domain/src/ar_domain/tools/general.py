@@ -95,8 +95,6 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     source = str(arguments.get("source") or "")
     if not source.strip():
         return _error("validation_failed", "source is required")
-    if not host_exec_allowed():
-        return _error("sandbox_unavailable", "the computer is not ready")
     limits = _limits(store, arguments, "code")
     if limits["network"] and not _command_hosts_ok(store, arguments, source):
         return _egress_block(store, arguments, source)
@@ -104,14 +102,16 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     path = root / "workspace" / "_agent.py"
     path.write_text(showing_last_value(source), encoding="utf-8")
     before = _stamp(root)
-    result = blocking(
-        run_isolated,
+    result = _run_script(
+        store,
+        arguments,
         root,
-        [sys.executable, "-I", _guest_path(root, "_agent.py")],
-        timeout=_as_limit(limits["timeout_s"]),
-        network=bool(limits["network"]),
-        max_file_bytes=_as_limit(limits["max_file_bytes"]),
+        "_agent.py",
+        interpreters=([sys.executable, "-I"], ["python3", "-I"]),
+        limits=limits,
     )
+    if isinstance(result, dict):
+        return result
     files = _publish_new(store, arguments, root, before)
     return _command_result("code", "python", _missing_package(_told(root, result, source)), files)
 
@@ -120,8 +120,6 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     command = str(arguments.get("command") or "")
     if not command.strip():
         return _error("validation_failed", "command is required")
-    if not host_exec_allowed():
-        return _error("sandbox_unavailable", "the computer is not ready")
     limits = _limits(store, arguments, "shell")
     if not limits["network"] and _URL.search(command):
         return _error(
@@ -134,16 +132,47 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     (root / "workspace" / "_agent.sh").write_text(command, encoding="utf-8")
     before = _stamp(root)
     shell = "/bin/bash" if Path("/bin/bash").exists() else "/usr/bin/bash"
-    result = blocking(
+    result = _run_script(
+        store, arguments, root, "_agent.sh", interpreters=([shell], ["/bin/bash"]), limits=limits
+    )
+    if isinstance(result, dict):
+        return result
+    files = _publish_new(store, arguments, root, before)
+    return _command_result("shell", command, _told(root, result, command), files)
+
+
+def _run_script(
+    store: Any,
+    arguments: dict[str, object],
+    root: Path,
+    name: str,
+    *,
+    interpreters: tuple[list[str], list[str]],
+    limits: dict[str, int | bool],
+) -> IsolatedRun | dict[str, object]:
+    """Run the script a tool wrote in this run's folder, and return the finished run.
+
+    Where this process has computers, the script runs in the conversation's computer.
+    A dev host with none runs it in the host's own isolation. Anywhere else the tool says
+    the computer is not ready: code never runs on a host that does not allow it.
+    ``interpreters`` is the command on the host and the command in the computer.
+    """
+    from ar_domain.sandboxes.folder_run import run_in_computer, runs_in_computer  # noqa: PLC0415
+
+    on_host, in_computer = interpreters
+    timeout = _as_limit(limits["timeout_s"])
+    if runs_in_computer(store):
+        return run_in_computer(store, arguments, root, [*in_computer, name], timeout=timeout)
+    if not host_exec_allowed():
+        return _error("sandbox_unavailable", "the computer is not ready")
+    return blocking(
         run_isolated,
         root,
-        [shell, _guest_path(root, "_agent.sh")],
-        timeout=_as_limit(limits["timeout_s"]),
+        [*on_host, _guest_path(root, name)],
+        timeout=timeout,
         network=bool(limits["network"]),
         max_file_bytes=_as_limit(limits["max_file_bytes"]),
     )
-    files = _publish_new(store, arguments, root, before)
-    return _command_result("shell", command, _told(root, result, command), files)
 
 
 def _read(store: Any, arguments: dict[str, object]) -> dict[str, object]:

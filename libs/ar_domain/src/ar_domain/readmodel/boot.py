@@ -35,18 +35,28 @@ def refuse_memory_double() -> None:
 
 
 def build_product_store(
-    settings: BaseServiceSettings, **options: Any
+    settings: BaseServiceSettings, *, starts_sandboxes: bool = False, **options: Any
 ) -> ChatService | RepositoryReadModel:
-    """The store this process boots with. Production is the repository read model."""
+    """The store this process boots with. Production is the repository read model.
+
+    ``starts_sandboxes`` is set by the sandbox manager only. Every other process is told
+    here where computers come from, so no entry point can forget it.
+    """
+    store: ChatService | RepositoryReadModel
     if uses_shared_process_state(settings.env):
         from ar_domain.process_state import install_shared_state  # noqa: PLC0415
         from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
 
-        model = RepositoryReadModel.from_settings(settings, **options)
+        store = RepositoryReadModel.from_settings(settings, **options)
         # Every process that serves or runs tools counts against the shared windows, so
         # the Valkey books are attached here and not left to each entry point.
-        install_shared_state(model, settings)
-        return model
-    from ar_domain.chat.service import ChatService  # noqa: PLC0415
+        install_shared_state(store, settings)
+    else:
+        from ar_domain.chat.service import ChatService  # noqa: PLC0415
 
-    return ChatService(**options)
+        store = ChatService(**options)
+    if not starts_sandboxes:
+        from ar_domain.sandboxes.manager_launch import register_sandbox_client  # noqa: PLC0415
+
+        register_sandbox_client(store, settings)
+    return store

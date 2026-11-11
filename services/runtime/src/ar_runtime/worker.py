@@ -55,9 +55,6 @@ async def _prepare_store() -> None:
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
 
     configure_gateway(store, env=str(getattr(settings, "env", "dev")))
-    from ar_domain.sandboxes.manager_launch import register_worker_sandbox  # noqa: PLC0415
-
-    register_worker_sandbox(store, settings)
     # Tool calls run here. The engine that masks their results is built now, not in the
     # first call.
     warm_up()

@@ -50,6 +50,7 @@ _TENANT_SQL = {
     "agent_versions": "SELECT tenant_id FROM agent_versions WHERE id = :id",
     "users": "SELECT tenant_id FROM users WHERE id = :id",
     "eval_runs": "SELECT tenant_id FROM eval_runs WHERE id = :id",
+    "sandboxes": "SELECT tenant_id FROM sandboxes WHERE id = :id",
 }
 
 
@@ -184,6 +185,7 @@ class RepositoryReadModel:
             ("agent_version_id", "agent_versions"),
             ("user_id", "users"),
             ("eval_run_id", "eval_runs"),
+            ("sandbox_id", "sandboxes"),
         ):
             found = _as_uuid(payload.get(key))
             if found is None:

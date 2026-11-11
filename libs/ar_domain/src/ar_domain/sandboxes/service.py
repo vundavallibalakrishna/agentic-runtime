@@ -17,6 +17,7 @@ from ar_contracts.tenants import PlanLimits
 from ar_domain.audit.memory import remember
 from ar_domain.sandboxes.metrics import SANDBOXES
 from ar_domain.sandboxes.runtime import (
+    agent_token,
     ensure_scope,
     list_workspace,
     read_workspace,
@@ -321,7 +322,7 @@ class SandboxBook:
         except RuntimeError as exc:
             raise ValidationFailedError(str(exc)) from exc
         view = self._sandbox_out(row)
-        view["token"] = row.get("token")
+        view["token"] = agent_token(self.store, row)
         view["endpoint_url"] = row.get("endpoint_url")
         return view
 

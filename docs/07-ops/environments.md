@@ -121,8 +121,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SANDBOX_DEFAULT_RUNTIME_CLASS` | `gvisor` | Kubernetes RuntimeClass for sandboxes | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal docker network the in-process launcher attaches a sandbox container to; empty publishes the agent port to loopback (dev) | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_RUNTIME` | `runc` | `runsc` if installed | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_DRIVER` | `docker` (dev) / `kubernetes` | `docker` (dev only) or `kubernetes` | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_IMAGE` | empty | Local `ar-sandbox` image the in-process docker launcher starts a container from (e.g. `ar-sandbox:dev`); empty runs the computer tools on the dev host | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_DRIVER` | `kubernetes`; `docker` when `AR_SANDBOX_ALLOW_UNISOLATED` is on and none is named | `kubernetes`, or `docker` for one machine. The docker driver shares the host kernel and does not confine the network, so it needs `AR_SANDBOX_ALLOW_UNISOLATED` | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_IMAGE` | empty | The `ar-sandbox` image the docker driver starts a computer from (for example `ar-sandbox:dev`). The sandbox manager reads it when `AR_SANDBOX_DRIVER=docker`; a dev API or worker reads it when it starts containers itself. With the docker driver and no image, starting a computer fails and names this setting | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_ENSURE_TIMEOUT_S` | `30` | Max time to obtain a ready sandbox | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | Internal URL of `sandbox-manager` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_SANDBOX_MAX_PER_TENANT` | plan `max_concurrent_sandboxes` (default 50) | Hard cap of concurrent sandboxes per tenant | [spec 12](../03-specs/12-sandbox-manager.md) |

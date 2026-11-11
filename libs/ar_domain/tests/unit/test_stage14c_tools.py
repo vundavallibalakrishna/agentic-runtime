@@ -277,6 +277,14 @@ def test_a_query_that_names_the_path_is_told_the_table_names() -> None:
     )
     assert wrong is not None and wrong["is_error"] is True
     assert "The tables are: regions" in str(wrong["text"])
+    # A quoted path parses, and the engine then refuses to open the file. Same answer.
+    quoted = dispatch_analysis(
+        store,
+        "query_table",
+        {**arguments, "path": "data/regions.csv", "sql": "SELECT SUM(count) FROM 'regions.csv'"},
+    )
+    assert quoted is not None and quoted["code"] == "sql_rejected"
+    assert "The tables are: regions" in str(quoted["text"])
     right = dispatch_analysis(
         store,
         "query_table",

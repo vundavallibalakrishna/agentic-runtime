@@ -41,7 +41,8 @@ def _prod_settings() -> BaseServiceSettings:
     )
 
 
-def test_production_boot_refuses_the_memory_double() -> None:
+def test_production_boot_refuses_the_memory_double(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
     previous = get_settings()
     set_settings(_prod_settings())
     try:

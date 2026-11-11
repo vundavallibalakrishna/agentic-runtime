@@ -231,6 +231,8 @@ async def run_browser(name: str, arguments: dict[str, object]) -> dict[str, obje
         try:
             page = await _SESSION.page()
             return await handler(page, arguments)
+        except NoElementError as exc:
+            return {"text": str(exc), "is_error": True, "code": "validation_failed"}
         except Exception as exc:  # noqa: BLE001 - any page error is reported, never raised
             return {
                 "text": f"{type(exc).__name__}: {exc}",
@@ -271,13 +273,13 @@ async def _snapshot(page: Any, arguments: dict[str, object]) -> dict[str, object
 
 
 async def _click(page: Any, arguments: dict[str, object]) -> dict[str, object]:
-    await _locator(page, arguments).click(timeout=_NAV_TIMEOUT_MS)
+    await (await _locator(page, arguments)).click(timeout=_NAV_TIMEOUT_MS)
     return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
 
 
 async def _type(page: Any, arguments: dict[str, object]) -> dict[str, object]:
     text = str(arguments.get("text") or "")
-    await _locator(page, arguments).fill(text, timeout=_NAV_TIMEOUT_MS)
+    await (await _locator(page, arguments)).fill(text, timeout=_NAV_TIMEOUT_MS)
     return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
 
 
@@ -289,12 +291,12 @@ async def _press(page: Any, arguments: dict[str, object]) -> dict[str, object]:
 
 async def _select(page: Any, arguments: dict[str, object]) -> dict[str, object]:
     value = str(arguments.get("value") or "")
-    await _locator(page, arguments).select_option(value, timeout=_NAV_TIMEOUT_MS)
+    await (await _locator(page, arguments)).select_option(value, timeout=_NAV_TIMEOUT_MS)
     return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
 
 
 async def _hover(page: Any, arguments: dict[str, object]) -> dict[str, object]:
-    await _locator(page, arguments).hover(timeout=_NAV_TIMEOUT_MS)
+    await (await _locator(page, arguments)).hover(timeout=_NAV_TIMEOUT_MS)
     return await _snapshot_result(page, _SMALL_SNAPSHOT_CHARS)
 
 
@@ -359,7 +361,7 @@ async def _save_pdf(page: Any, arguments: dict[str, object]) -> dict[str, object
 
 async def _download(page: Any, arguments: dict[str, object]) -> dict[str, object]:
     async with page.expect_download(timeout=_NAV_TIMEOUT_MS) as info:
-        await _locator(page, arguments).click(timeout=_NAV_TIMEOUT_MS)
+        await (await _locator(page, arguments)).click(timeout=_NAV_TIMEOUT_MS)
     download = await info.value
     path = await download.path()
     data = await asyncio.to_thread(Path(str(path)).read_bytes) if path else b""
@@ -391,7 +393,7 @@ async def _upload(page: Any, arguments: dict[str, object]) -> dict[str, object]:
             "is_error": True,
             "code": "not_found",
         }
-    await _locator(page, arguments).set_input_files(str(target), timeout=_NAV_TIMEOUT_MS)
+    await (await _locator(page, arguments)).set_input_files(str(target), timeout=_NAV_TIMEOUT_MS)
     return {
         "text": f"attached {target.name} to the page",
         "structured": {"path": str(arguments.get("path") or ""), "name": target.name},
@@ -460,9 +462,19 @@ def _safe_name(name: str) -> str:
     return cleaned or "download"
 
 
-def _locator(page: Any, arguments: dict[str, object]) -> Any:
+class NoElementError(Exception):
+    """A tool named no element, or one that is not on the page."""
+
+
+async def _locator(page: Any, arguments: dict[str, object]) -> Any:
+    """The element a tool names by ``ref``. A missing one is refused at once, in words."""
     ref = str(arguments.get("ref") or "").strip()
-    return page.locator(f'[data-ar-ref="{ref}"]')
+    if not ref:
+        raise NoElementError("ref is required: take it from the last browser.snapshot")
+    found = page.locator(f'[data-ar-ref="{ref}"]')
+    if await found.count() == 0:
+        raise NoElementError(f"no element {ref} is on this page: take a new browser.snapshot")
+    return found
 
 
 def _snapshot_chars(arguments: dict[str, object], default: int = _SMALL_SNAPSHOT_CHARS) -> int:

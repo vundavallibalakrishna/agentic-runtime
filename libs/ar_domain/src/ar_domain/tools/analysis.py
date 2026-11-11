@@ -47,8 +47,10 @@ def dispatch_analysis(
     except SqlRejected as exc:
         return _error("sql_rejected", exc.reason)
     except SheetQueryError as exc:
-        code = "sql_rejected" if exc.rejected else "validation_failed"
-        return _error(code, exc.reason)
+        if exc.rejected:
+            # The engine refuses to open a file. The statement named a path, not a table.
+            return _error("sql_rejected", _naming_tables(store, arguments, exc.reason))
+        return _error("validation_failed", exc.reason)
     except (OSError, ValueError, ET.ParseError, zipfile.BadZipFile) as exc:
         return _error("validation_failed", str(exc)[:300])
 
@@ -187,15 +189,21 @@ def _checked(store: Store, arguments: dict[str, object], sql: str) -> str:
             allow_any=True,
         )
     except SqlRejected as exc:
+        raise SqlRejected(_naming_tables(store, arguments, exc.reason)) from exc
+
+
+def _naming_tables(store: Store, arguments: dict[str, object], reason: str) -> str:
+    """A refusal, followed by the table names the statement can use."""
+    try:
         names = [name for name, _columns, _rows in _load_requested(store, arguments)]
-        if not names:
-            raise
-        listed = ", ".join(names)
-        hint = (
-            f"{exc.reason}. A table is named after its file or sheet, not its path. "
-            f"The tables are: {listed}. Put one of those names after FROM."
-        )
-        raise SqlRejected(hint) from exc
+    except OSError, ValueError, ET.ParseError, zipfile.BadZipFile:
+        names = []
+    if not names:
+        return reason
+    return (
+        f"{reason.rstrip('.')}. A table is named after its file or sheet, not its path. "
+        f"The tables are: {', '.join(names)}. Put one of those names after FROM."
+    )
 
 
 def _query_result(

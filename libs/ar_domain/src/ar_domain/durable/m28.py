@@ -504,18 +504,28 @@ async def save_sandboxes(session: AsyncSession, rows: list[dict[str, Any]]) -> N
     sql = """
         INSERT INTO sandboxes (
             id, tenant_id, template_id, scope, scope_key, conversation_id, agent_id, user_id,
-            status, driver, driver_ref, workspace_volume, cpu_seconds, last_active_at,
-            started_at, terminated_at, error, created_at, updated_at
+            status, driver, driver_ref, endpoint_url, auth_token_hash, workspace_volume,
+            cpu_seconds, last_active_at, started_at, terminated_at, error, created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :template_id, :scope, :scope_key, :conversation_id, :agent_id,
             :user_id,
-            :status, :driver, :driver_ref, :workspace_volume, :cpu_seconds, :last_active_at,
-            :started_at, :terminated_at, :error, :created_at, :updated_at
+            :status, :driver, :driver_ref, :endpoint_url, :auth_token_hash, :workspace_volume,
+            :cpu_seconds, :last_active_at, :started_at, :terminated_at, :error, :created_at,
+            :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
             status = EXCLUDED.status,
+            driver = EXCLUDED.driver,
+            driver_ref = COALESCE(EXCLUDED.driver_ref, sandboxes.driver_ref),
+            endpoint_url = CASE
+                WHEN EXCLUDED.status IN ('terminated', 'failed') THEN NULL
+                ELSE COALESCE(EXCLUDED.endpoint_url, sandboxes.endpoint_url)
+            END,
+            auth_token_hash = COALESCE(EXCLUDED.auth_token_hash, sandboxes.auth_token_hash),
             workspace_volume = EXCLUDED.workspace_volume,
+            cpu_seconds = GREATEST(EXCLUDED.cpu_seconds, sandboxes.cpu_seconds),
             last_active_at = EXCLUDED.last_active_at,
+            terminated_at = EXCLUDED.terminated_at,
             error = EXCLUDED.error,
             updated_at = EXCLUDED.updated_at
     """
@@ -548,6 +558,12 @@ async def save_sandboxes(session: AsyncSession, rows: list[dict[str, Any]]) -> N
                 "driver": driver,
                 "driver_ref": row.get("driver_ref")
                 if isinstance(row.get("driver_ref"), str)
+                else None,
+                "endpoint_url": row.get("endpoint_url")
+                if isinstance(row.get("endpoint_url"), str)
+                else None,
+                "auth_token_hash": row.get("auth_token_hash")
+                if isinstance(row.get("auth_token_hash"), str)
                 else None,
                 "workspace_volume": row.get("workspace_volume")
                 if isinstance(row.get("workspace_volume"), str)

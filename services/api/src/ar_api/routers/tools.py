@@ -86,7 +86,12 @@ async def test_tool(tool_id: uuid.UUID, body: TestBody, request: Request) -> dic
     agent = _console_agent(store, who.tenant_id)
     if body.conversation_id is not None:
         # Another tenant's or another person's conversation is not found.
-        store._conversation(who.tenant_id, who.user_id, body.conversation_id, read_all=False)
+        talk = store._conversation(who.tenant_id, who.user_id, body.conversation_id, read_all=False)
+        # A test in a conversation runs as that conversation's agent: its computer
+        # template and its tool settings, as a turn there would.
+        owner = talk.get("agent_id")
+        agent = (store.agents.get(owner) if isinstance(owner, uuid.UUID) else None) or agent
+    version_id = None if agent is None else agent.get("published_version_id")
     store.runs[run_id] = {
         "id": run_id,
         "tenant_id": who.tenant_id,
@@ -105,6 +110,7 @@ async def test_tool(tool_id: uuid.UUID, body: TestBody, request: Request) -> dic
             "user_id": who.user_id,
             "run_id": run_id,
             "agent_id": None if agent is None else agent.get("id"),
+            "agent_version_id": version_id if isinstance(version_id, uuid.UUID) else None,
             "synthetic": True,
             "tool_version_id": uuid.UUID(str(detail["tool_version_id"])),
             "arguments": body.arguments,

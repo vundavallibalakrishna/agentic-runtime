@@ -180,6 +180,37 @@ def run_tool(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     return _error("unknown_tool", f"unknown tool {name}")
 
 
+def _token_name(sandbox_id: object) -> str:
+    return f"sandbox-agent:{sandbox_id}"
+
+
+def agent_token(store: Any, row: dict[str, object]) -> str:
+    """The token the computer's agent accepts. It is kept sealed, never in the row's table.
+
+    The process that started the computer holds it on the row. Any other process, or a
+    later request, reads the sealed copy.
+    """
+    held = str(row.get("agent_token") or row.get("token") or "")
+    if held:
+        return held
+    from ar_domain.tools.named_secrets import read_named_secret  # noqa: PLC0415
+
+    found = read_named_secret(store, row.get("tenant_id"), _token_name(row.get("id"))) or ""
+    if found:
+        row["token"] = found
+    return found
+
+
+def _container_of(row: dict[str, object]) -> str:
+    """The container or pod behind a row: held in memory, or read from ``driver_ref``."""
+    held = str(row.get("container_id") or "")
+    if held:
+        return held
+    ref = str(row.get("driver_ref") or "")
+    kind, _, name = ref.partition(":")
+    return name if kind in {"docker", "kubernetes"} and name else ""
+
+
 class SandboxStartError(RuntimeError):
     """The configured driver could not start a container for a new sandbox."""
 
@@ -260,23 +291,59 @@ def _pod_limits(row: dict[str, object]) -> tuple[int, int, int, int]:
 
 
 def _stop_container(store: Any, row: dict[str, object]) -> None:
-    """Remove the sandbox's container when one was started. Absent launcher is a no-op."""
-    container_id = row.get("container_id")
-    creator = getattr(store, "pod_creator", None)
-    pod_name = row.get("container_id")
-    if creator is not None and pod_name and row.get("driver") == "kubernetes":
-        with contextlib.suppress(Exception):
-            creator.stop(str(pod_name))
-        row["container_id"] = None
+    """Remove the sandbox's container or pod when one was started. No driver is a no-op.
+
+    A process that does not start computers asks the sandbox manager to do it.
+    """
+    from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher  # noqa: PLC0415
+
+    launcher = getattr(store, "sandbox_launcher", None)
+    if isinstance(launcher, SandboxManagerLauncher):
+        with contextlib.suppress(Exception):  # an unreachable manager must not block teardown
+            launcher.release(row.get("id"))
         row["endpoint_url"] = None
         return
-    launcher = getattr(store, "sandbox_launcher", None)
-    if launcher is None or not container_id:
+    name = _container_of(row)
+    creator = getattr(store, "pod_creator", None)
+    stopper = creator if row.get("driver") == "kubernetes" else launcher
+    if not name or stopper is None or not hasattr(stopper, "stop"):
         return
     with contextlib.suppress(Exception):  # a container already gone must not block teardown
-        launcher.stop(str(container_id))
+        stopper.stop(name)
     row["container_id"] = None
     row["endpoint_url"] = None
+
+
+def release_container(store: Any, row: dict[str, object]) -> None:
+    """Stop the container or pod behind a row. The row's status is the caller's to set."""
+    _stop_container(store, row)
+
+
+def _answers(row: dict[str, object]) -> bool:
+    """Whether the agent in a row's container still answers."""
+    endpoint = str(row.get("endpoint_url") or "").rstrip("/")
+    if not endpoint:
+        return False
+    try:
+        return blocking(httpx.get, f"{endpoint}/healthz", timeout=3.0).status_code == 200
+    except httpx.HTTPError:
+        return False
+
+
+def _revive(store: Any, row: dict[str, object]) -> None:
+    """Start a new container for a live row whose container is gone.
+
+    Only a process that starts computers does this. The files that were only in the lost
+    container are gone; the row's error says so until the next start succeeds.
+    """
+    starts = getattr(store, "pod_creator", None) or getattr(store, "sandbox_launcher", None)
+    if starts is None or not hasattr(starts, "start") or _answers(row):
+        return
+    token = agent_token(store, row)
+    if not token:
+        return
+    row["endpoint_url"] = None
+    _launch(store, row, token)
 
 
 def _delegate_ensure(
@@ -326,24 +393,41 @@ def _delegate_ensure(
         payload = blocking(_post)
     except Exception as exc:  # the manager is the only pod creator; do not fall back to the host
         raise SandboxStartError("the sandbox manager could not start a pod") from exc
-    sandbox_id = uuid.UUID(str(payload.get("id") or payload.get("sandboxId") or new_id()))
-    row: dict[str, object] = {
-        "id": sandbox_id,
-        "tenant_id": tenant_id,
-        "template_id": template["id"],
-        "template_slug": template_slug,
-        "scope": scope,
-        "scope_key": scope_key,
-        "conversation_id": conversation_id,
-        "agent_id": agent_id,
-        "user_id": user_id,
-        "status": str(payload.get("status") or "ready"),
-        "driver": "kubernetes",
-        "endpoint_url": payload.get("endpoint_url") or payload.get("endpointUrl"),
-        "token": payload.get("token"),
-        "driver_ref": payload.get("driver_ref") or payload.get("driverRef"),
-    }
-    return keep(store.sandboxes, sandbox_id, row)
+    if payload.get("status") == "quota_exceeded":
+        raise RuntimeError(str(payload.get("detail") or "the sandbox quota is used up"))
+    try:
+        sandbox_id = uuid.UUID(str(payload.get("id") or ""))
+    except ValueError as exc:
+        raise SandboxStartError("the sandbox manager returned no computer") from exc
+    endpoint = str(payload.get("endpoint_url") or payload.get("endpointUrl") or "")
+    if not endpoint:
+        raise SandboxStartError("the sandbox manager returned a computer with no address")
+    # The manager wrote the row. This process holds it for the call and adds nothing the
+    # manager did not send, so a later save cannot blank a column the manager set.
+    row = store.sandboxes.get(sandbox_id)
+    if not isinstance(row, dict):
+        row = keep(
+            store.sandboxes,
+            sandbox_id,
+            {
+                "id": sandbox_id,
+                "tenant_id": tenant_id,
+                "template_id": template["id"],
+                "template_slug": template_slug,
+                "scope": scope,
+                "scope_key": scope_key,
+                "conversation_id": conversation_id,
+                "agent_id": agent_id,
+                "user_id": user_id,
+                "driver": str(payload.get("driver") or "kubernetes"),
+                "driver_ref": payload.get("driver_ref") or payload.get("driverRef"),
+                "workspace_volume": payload.get("workspace_volume"),
+            },
+        )
+    row["status"] = str(payload.get("status") or "ready")
+    row["endpoint_url"] = endpoint
+    row["token"] = payload.get("token")
+    return cast("dict[str, object]", row)
 
 
 def _delegate_to_manager(store: Any) -> bool:
@@ -385,6 +469,7 @@ def ensure_scope(
         if live is not None and live["status"] == "suspended":
             return _resume(store, live)
         if live is not None and live["status"] in {"ready", "starting", "pending", "resuming"}:
+            _revive(store, live)
             live["last_active_at"] = utcnow()
             live["status"] = "ready"
             return live
@@ -429,7 +514,10 @@ def ensure_scope(
             "max_lifetime_s": template.get("max_lifetime_s"),
             "runtime_class": template.get("runtime_class"),
         }
-        store.sandboxes[sandbox_id] = row
+        row = keep(store.sandboxes, sandbox_id, row)
+        from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
+
+        write_named_secret(store, tenant_id, _token_name(sandbox_id), token)
         root = workspace_root(sandbox_id)
         row["workspace_volume"] = str(root)
         _note_workspace(store, conversation_id, f"sandbox:{sandbox_id}")
@@ -478,12 +566,19 @@ def resume_row(store: Any, row: dict[str, object]) -> dict[str, object]:
     return _resume(store, row)
 
 
-def reap(store: Any, *, now: object | None = None) -> dict[str, int]:
-    """Suspend idle computers and terminate those past their lifetime."""
+def reap(
+    store: Any, *, now: object | None = None, tenant_id: uuid.UUID | None = None
+) -> dict[str, int]:
+    """Suspend idle computers and terminate those past their lifetime.
+
+    ``tenant_id`` keeps the pass to one tenant's computers.
+    """
     moment = now if hasattr(now, "timestamp") else utcnow()
     suspended = 0
     terminated = 0
     for row in list(store.sandboxes.values()):
+        if tenant_id is not None and row.get("tenant_id") != tenant_id:
+            continue
         template = _by_id(store, row.get("template_id"))
         idle = as_int(template.get("idle_suspend_s") if template else None, 900)
         life = as_int(template.get("max_lifetime_s") if template else None, 86400)
@@ -562,7 +657,9 @@ def _resume(store: Any, row: dict[str, object]) -> dict[str, object]:
     root = workspace_root(uuid.UUID(str(row["id"])))
     snapshot = row.get("snapshot_file_id")
     if isinstance(snapshot, uuid.UUID):
-        blob = store.blobs.get(snapshot, b"")
+        from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+        blob = read_blob(store, snapshot) or b""
         if blob:
             _untar(root / "workspace", blob)
     (root / "workspace").mkdir(parents=True, exist_ok=True)
@@ -639,6 +736,45 @@ def _exec_remote(
     }
 
 
+def computer_for_call(store: Any, arguments: dict[str, object]) -> dict[str, object]:
+    """The computer a tool call runs on, started when the scope has none."""
+    return _ensure_for_call(store, arguments)
+
+
+def call_computer(
+    sandbox: dict[str, object], tool: str, arguments: dict[str, object], *, timeout: float = 60.0
+) -> dict[str, object]:
+    """One call to the agent inside a computer."""
+    return _agent_post(sandbox, tool, arguments, timeout=timeout)
+
+
+_READ_WINDOW = 65536
+_MAX_EXPORT = 100 * 1024 * 1024
+
+
+def read_computer_file(sandbox: dict[str, object], path: str) -> bytes | None:
+    """The whole of one file in the computer, read window by window. ``None`` when absent."""
+    data = bytearray()
+    while len(data) <= _MAX_EXPORT:
+        read = _agent_post(
+            sandbox,
+            "read_file",
+            {"path": path, "encoding": "base64", "offset": len(data), "limit": _READ_WINDOW},
+        )
+        structured = read.get("structured")
+        content = structured.get("content") if isinstance(structured, dict) else None
+        if read.get("is_error") or not isinstance(content, str) or not isinstance(structured, dict):
+            return None
+        try:
+            window = base64.b64decode(content)
+        except ValueError, binascii.Error:
+            return None
+        data.extend(window)
+        if structured.get("eof") or not window:
+            return bytes(data)
+    return None
+
+
 def _export_from_agent(
     store: Any, sandbox: dict[str, object], paths: list[object]
 ) -> list[dict[str, str]]:
@@ -646,16 +782,8 @@ def _export_from_agent(
     exported: list[dict[str, str]] = []
     for raw in paths[:20]:
         path = str(raw)
-        read = _agent_post(sandbox, "read_file", {"path": path, "encoding": "base64"})
-        structured = read.get("structured")
-        content = structured.get("content") if isinstance(structured, dict) else None
-        if read.get("is_error") or not isinstance(content, str):
-            continue
-        try:
-            data = base64.b64decode(content)
-        except ValueError, binascii.Error:
-            continue
-        if not data or len(data) > 100 * 1024 * 1024:
+        data = read_computer_file(sandbox, path)
+        if not data:
             continue
         name = sanitise_name(path.rsplit("/", 1)[-1])
         file_id = _store_blob(
@@ -932,6 +1060,30 @@ def _export_named(store: Any, arguments: dict[str, object]) -> dict[str, object]
     if not isinstance(sandbox, dict):
         return _error("sandbox_unavailable", "the computer is not ready")
     path = str(arguments.get("path") or "")
+    read = _file_to_export(sandbox, path)
+    if isinstance(read, dict):
+        return read
+    name = sanitise_name(str(arguments.get("name") or path.rsplit("/", 1)[-1]))
+    file_id = _store_blob(store, sandbox, name=name, mime=_mime(name), data=read, kind="artifact")
+    _emit_artifact(store, sandbox, file_id=file_id, name=name, mime=_mime(name), size=len(read))
+    return {
+        "text": name,
+        "structured": {"file_id": str(file_id), "name": name},
+        "is_error": False,
+    }
+
+
+def _file_to_export(sandbox: dict[str, object], path: str) -> bytes | dict[str, object]:
+    """The bytes of one file on the computer, or the error to return.
+
+    A container is read through its agent. With no container the file is on the dev
+    host, and anywhere else there is no computer to read from.
+    """
+    if bool(sandbox.get("endpoint_url")):
+        data = read_computer_file(sandbox, path)
+        return _error("not_found", "file was not found") if data is None else data
+    if not host_exec_allowed():
+        return _error("sandbox_unavailable", "the computer is not ready")
     root = workspace_root(uuid.UUID(str(sandbox["id"])))
     try:
         target = confine(root, path)
@@ -939,15 +1091,7 @@ def _export_named(store: Any, arguments: dict[str, object]) -> dict[str, object]
         return _error("validation_failed", str(exc))
     if not target.is_file():
         return _error("not_found", "file was not found")
-    name = sanitise_name(str(arguments.get("name") or target.name))
-    data = target.read_bytes()
-    file_id = _store_blob(store, sandbox, name=name, mime=_mime(name), data=data, kind="artifact")
-    _emit_artifact(store, sandbox, file_id=file_id, name=name, mime=_mime(name), size=len(data))
-    return {
-        "text": name,
-        "structured": {"file_id": str(file_id), "name": name},
-        "is_error": False,
-    }
+    return target.read_bytes()
 
 
 def _ensure_for_call(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -1148,7 +1292,7 @@ def _store_blob(
         stem, dot, ext = name.rpartition(".")
         unique = f"{stem or name} ({index}){dot}{ext}" if dot else f"{name} ({index})"
         index += 1
-    store.files[file_id] = {
+    row = {
         "id": file_id,
         "tenant_id": tenant,
         "owner_user_id": sandbox.get("user_id"),
@@ -1166,7 +1310,12 @@ def _store_blob(
         "created_at": now,
         "deleted_at": None,
     }
-    store.blobs[file_id] = data
+    from ar_domain.files.objects import keep_bytes  # noqa: PLC0415
+
+    # The bytes go to the object store first, so a row never points at nothing and any
+    # process can read the file.
+    keep_bytes(store, row, data)
+    store.files[file_id] = row
     return file_id
 
 

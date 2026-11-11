@@ -19,19 +19,19 @@ A first pass on the dev stack is not counted. Dev mode serves chat from an in-pr
 
 ## Built-in tools
 
-81 tools, 86 cases.
+81 tools, 87 cases. The last run was after the sandbox image was built.
 
 | Result | Tools | Meaning |
 |---|---|---|
-| pass | 49 | Ran and returned what the case expects |
-| blocked | 27 | Refused in words because this install lacks something |
-| gated | 2 | Asked for approval, as designed |
+| pass | 67 | Ran and returned what the case expects |
+| blocked | 11 | Refused in words because this install lacks something |
+| gated | 1 | Asked for approval, as designed |
 | absent | 2 | Dev-only fixtures, not in the staging catalogue |
-| fail | 1 | Defect |
+| fail | 0 | |
 
 | Area | Pass | Blocked | Gated | Absent | Fail |
 |---|---|---|---|---|---|
-| general (18) | 13 | 5 | | | |
+| general (18) | 15 | 3 | | | |
 | documents (15) | 15 | | | | |
 | data (4) | 4 | | | | |
 | files (3) | 3 | | | | |
@@ -41,22 +41,33 @@ A first pass on the dev stack is not counted. Dev mode serves chat from an in-pr
 | skills, conversations (2) | 2 | | | | |
 | session (5) | 2 | 1 | | 2 | |
 | image, context (2) | | 2 | | | |
-| sandbox (5) | | 4 | | | 1 |
-| browser (17) | | 15 | 2 | | |
+| sandbox (5) | 5 | | | | |
+| browser (17) | 11 | 5 | 1 | | |
 | research (2) | 2 | | | | |
 
-What the 27 blocked tools need:
+What the 11 blocked tools need:
 
 | Tools | Need |
 |---|---|
-| 21 | A sandbox image and a sandbox manager that can start it. This covers `general.code`, `general.shell`, `sandbox.*` and `browser.*`. Staging correctly refuses to run code on the host. |
+| 3 | A page with a field, a file input and a download link on a host the browser may open (`browser.type`, `browser.upload`, `browser.download`). Set `AR_CERT_FORM_URL` and the element references. |
+| 2 | A stored browser sign-in (`browser.save_session`, `browser.use_connection`) |
 | 2 | The target host on the organisation's allowed list (`general.fetch`, `general.http`) |
 | 1 | A web search provider key (`general.search`) |
 | 1 | A vision model on the `vision` alias (`image.ask`) |
 | 1 | A reachable peer agent (`session.a2a_call`) |
 | 1 | A tool output kept during an agent run (`context.retrieve`) |
 
-The one failure: `sandbox.export_file` answers "file was not found" when there is no sandbox. The other sandbox tools say the computer is not ready.
+### The sandbox
+
+The image `ar-sandbox:dev` was built from `images/sandbox/Dockerfile` (4.5 GB, with Chromium, LibreOffice and the data libraries). The sandbox manager ran with the docker driver and started one container per conversation. Inside real containers:
+
+- `general.code` and `general.shell` ran, and the files they wrote came back as artifacts.
+- `sandbox.exec`, `write_file`, `read_file`, `list_files` and `export_file` ran, and a file attached with `files.attach_to_sandbox` was readable.
+- The browser opened `https://example.com` in Chromium and read it, took a screenshot, saved a PDF, scrolled, pressed a key, opened, switched and closed tabs, and followed a link. A click that names no element is refused at once in words.
+
+The browser cases run as an agent whose computer uses the browser template, because the default template has no browser. A console test in a conversation now runs as that conversation's agent.
+
+Building the image was not enough. Six defects kept a computer from working in production mode, and all are fixed (see the table below). What is still open for a computer is in [OQ-132](../../open-questions.md): the Kubernetes driver's image, suspend, and network confinement of the docker driver.
 
 Research was a fixture when this pass began: search returned two canned pages and fetch a canned sentence. It now searches the tenant's document library and, when a provider is configured, the web. Both research tools pass on library passages. Web results were not exercised, because no provider is configured here.
 
@@ -106,6 +117,13 @@ Notes on the failures:
 | Markdown text added to knowledge was flattened to one line | "the document has no text to index" | Lines are kept |
 | A table query naming a file path failed with "could not parse" | The model could not recover | The refusal names the tables |
 | Research answered from a built-in fixture | Canned sources and a report built from them | Research searches the document library and the web provider `general.search` uses; the fixture is gone |
+| The sandbox manager registered no docker driver | With the image built, no container was ever started | The manager starts containers from `AR_SANDBOX_IMAGE`; with no image a start fails and names the setting |
+| The sandbox manager's routes used the read model without loading a tenant | Every `ensure` in production mode failed with HTTP 500 | Each route loads one tenant and saves what it changed |
+| Only the worker was told to ask the manager for a computer | The tool gateway, which runs the tools, started nothing and said "the computer is not ready" | Every process but the manager is told where computers come from when its store is built |
+| A computer's address and token were not saved | A second call could not reach the container | The address and token hash are saved; the token is sealed as a named secret and returned on each `ensure` |
+| `general.code` and `general.shell` had no path into a computer | They were refused everywhere outside dev | They run in the conversation's computer; the run's folder is copied in and new files are copied back |
+| `sandbox.export_file` read a host folder | "file was not found" when the computer is a container | It reads the file through the computer's agent, whole, window by window |
+| A browser click with no element waited 30 seconds | The model got a timeout it could not act on | It is refused at once: "ref is required: take it from the last browser.snapshot" |
 | A console tool test with no conversation crashed | HTTP 500 for `sandbox.exec` | The event carries an empty conversation id |
 | Console tool tests could not share a folder | Each test ran in an empty folder | The test body takes `conversationId` |
 
@@ -114,7 +132,7 @@ Notes on the failures:
 Ordered by how much they block production.
 
 1. **Research matches by words, not meaning.** A passage counts when it shares a distinctive word with the question. The report quotes the first sentence of each source and is not written by the model. A question phrased differently from the document can miss it.
-2. **No sandbox on this install.** 21 tools and every code-running flow depend on an image that is not built here. Nothing about code execution, the browser or file export is proven.
+2. **A computer is proven on one machine only.** The docker driver works in production mode. The Kubernetes driver starts pods from an image digest written in code, suspend does not stop a container, and the docker driver does not confine the network ([OQ-132](../../open-questions.md)).
 3. **Structured output is not enforced.** A reply that does not match the schema is stored as the answer.
 4. **Stored rows that are filled in after assignment.** Nine sites are fixed. The tracked store copies a row on assignment, so any other code that keeps writing to its own dict loses those writes in production. The tree has not been swept for every case.
 5. **Process-memory writes of file bytes.** `sandboxes/service.py`, `sandboxes/runtime.py` and `identity/data_rights.py` write bytes into process memory. In production those bytes are gone after the request.
@@ -133,7 +151,8 @@ Ordered by how much they block production.
 
 | Need | Unblocks |
 |---|---|
-| A built sandbox image and a manager driver allowed to start it | 21 tools, the code-running flows |
+| A page with a form on an allowed host, and a stored browser sign-in | 5 browser tools |
+| An owner decision on where the Kubernetes sandbox image comes from | Computers on a cluster |
 | A web search provider and key | Web results in research, `general.search` |
 | Hosts for web access on the allowed list | `general.fetch`, `general.http` |
 | A vision model on the `vision` alias | `image.ask` |
@@ -148,7 +167,9 @@ set -a; . ./.env; set +a
 uv run --no-sync alembic -c libs/ar_domain/alembic.ini upgrade head
 # Start the stack with AR_ENV=staging, a cursor secret, AR_AUTH_MODE=password,
 # AR_DEPLOYMENT_MODE=single_tenant, AR_PASSWORD_LOGIN=true, AR_TEMPORAL_REQUIRED=true,
-# AR_SANDBOX_MANAGER_URL and AR_MCP_GATEWAY_URL, and no fake model process.
+# AR_SANDBOX_MANAGER_URL and AR_MCP_GATEWAY_URL, and no fake model process. For computers on
+# one machine also set AR_SANDBOX_DRIVER=docker, AR_SANDBOX_IMAGE=ar-sandbox:dev and
+# AR_SANDBOX_ALLOW_UNISOLATED=true, after docker build -f images/sandbox/Dockerfile -t ar-sandbox:dev .
 AR_ADMIN_EMAIL=admin@dev.local AR_ADMIN_PASSWORD=... AR_CERT_DATA_DSN=postgresql://... \
   uv run --no-sync python scripts/tool_certification.py --repeat 2 --out var/tool-certification
 ```
