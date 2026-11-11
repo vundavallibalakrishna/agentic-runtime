@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING
 
 import orjson
@@ -11,7 +12,6 @@ from ar_common.time import utcnow
 from ar_domain.durable.codec import as_dt, as_int, as_json, as_text, as_uuid
 
 if TYPE_CHECKING:
-    import uuid
     from typing import Any
 
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +39,33 @@ async def _one(session: AsyncSession, sql: str, params: dict[str, object]) -> No
     await session.execute(text(sql), params)
 
 
-async def save_library_documents(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+async def library_id_for_hash(
+    session: AsyncSession, tenant_id: uuid.UUID, content_hash: str
+) -> uuid.UUID | None:
+    """The document this tenant already stored for these bytes, if any."""
+    if not content_hash:
+        return None
+    found = await session.execute(
+        text(
+            "SELECT id FROM library_documents "
+            "WHERE tenant_id = :tenant_id AND content_hash = :content_hash"
+        ),
+        {"tenant_id": tenant_id, "content_hash": content_hash},
+    )
+    row = found.first()
+    if row is None or row[0] is None:
+        return None
+    return row[0] if isinstance(row[0], uuid.UUID) else uuid.UUID(str(row[0]))
+
+
+async def save_library_documents(
+    session: AsyncSession, rows: list[dict[str, Any]]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """Insert or update documents. A repeated hash keeps the existing row.
+
+    The returned map is ``new id -> existing id`` for rows that were not inserted
+    because this tenant already has those bytes.
+    """
     sql = """
         INSERT INTO library_documents (
             id, tenant_id, owner_user_id, title, filename, media_type, source, source_ref,
@@ -63,11 +89,17 @@ async def save_library_documents(session: AsyncSession, rows: list[dict[str, Any
             tables = EXCLUDED.tables,
             updated_at = EXCLUDED.updated_at
     """
+    adopted: dict[uuid.UUID, uuid.UUID] = {}
     for row in rows:
         document_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
         owner_id = as_uuid(row.get("owner_user_id"))
         if document_id is None or tenant_id is None or owner_id is None:
+            continue
+        digest = as_text(row.get("content_hash"))
+        existing = await library_id_for_hash(session, tenant_id, digest)
+        if existing is not None and existing != document_id:
+            adopted[document_id] = existing
             continue
         now = utcnow()
         await _one(
@@ -96,6 +128,7 @@ async def save_library_documents(session: AsyncSession, rows: list[dict[str, Any
                 "updated_at": as_dt(row.get("updated_at")) or now,
             },
         )
+    return adopted
 
 
 async def save_document_checks(session: AsyncSession, rows: list[dict[str, Any]]) -> None:

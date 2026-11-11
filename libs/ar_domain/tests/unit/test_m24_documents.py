@@ -7,6 +7,7 @@ import io
 import time
 import uuid
 import zipfile
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -655,8 +656,11 @@ def test_durable_document_sql() -> None:
         def __init__(self) -> None:
             self.calls: list[tuple[str, dict[str, object]]] = []
 
-        async def execute(self, statement: object, params: dict[str, object] | None = None) -> None:
+        async def execute(
+            self, statement: object, params: dict[str, object] | None = None
+        ) -> object:
             self.calls.append((str(statement), params or {}))
+            return SimpleNamespace(first=lambda: None)
 
     tenant = uuid.uuid4()
     owner = uuid.uuid4()

@@ -79,7 +79,7 @@ from ar_api.routers.webhooks import router as webhooks_router
 from ar_api.routers.widget import router as widget_router
 from ar_api.secrets_runtime import MemorySecretApi
 from ar_api.state import AuditApi, NotificationApi, PlatformApi, WebhookApi
-from ar_common.host_ports import listen_port
+from ar_common.host_ports import api_listen_port
 from ar_common.settings import (
     BaseServiceSettings,
     EnvName,
@@ -455,13 +455,13 @@ def create_application() -> FastAPI:
 
 
 def main() -> None:
-    """Listen on ``AR_PORT`` (default 8000)."""
+    """Listen on ``AR_API_PORT`` when set, otherwise ``AR_PORT`` (default 8000)."""
     import uvicorn  # noqa: PLC0415
 
     uvicorn.run(
         create_application(),
         host="0.0.0.0",  # noqa: S104
-        port=listen_port("AR_PORT", LISTEN_PORT),
+        port=api_listen_port(LISTEN_PORT),
     )
 
 

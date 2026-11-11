@@ -241,6 +241,14 @@ These are laptop publish ports. They are not set in Helm. `make ports-check` cop
 | `AR_OTEL_HTTP_HOST_PORT` | `4318` | Host port for OTLP HTTP | [local-dev](local-dev.md#5-host-ports) |
 | `AR_PG_HOST_PORT` | `5432` | Host port for Postgres. Updates `AR_DATABASE_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_PORT` | `8000` | API listen port and host port. Updates `AR_API_INTERNAL_URL` and `API_PROXY_URL` | [local-dev](local-dev.md#5-host-ports) |
+| `AR_API_PORT` | | When set, the API listens here instead of `AR_PORT`. The web dev proxy follows it unless `AR_API_URL` is set. | [live-certification](../09-plan/live-certification.md) |
+| `AR_API_URL` | | Full API origin for live certification and the web proxy. Wins over `AR_API_PORT`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_EMBED_MODEL` | `Qwen/Qwen3-Embedding-8B` | Embedding model the live certification registers on the `embed` alias. DeepInfra also serves `BAAI/bge-m3`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_EVAL_MIN_PASS_RATE` | `1` | Live eval fails when `pass_rate` is below this, or when every case errored. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_EMAIL` | | Optional second seeded person. Requires `AR_SECOND_PASSWORD`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_PASSWORD` | | Password for `AR_SECOND_EMAIL`. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_NAME` | | Display name for the second person. | [live-certification](../09-plan/live-certification.md) |
+| `AR_SECOND_ROLE` | `approver` | Role key for the second person. | [live-certification](../09-plan/live-certification.md) |
 | `AR_PROMETHEUS_HOST_PORT` | `9090` | Host port for Prometheus | [local-dev](local-dev.md#5-host-ports) |
 | `AR_QDRANT_GRPC_HOST_PORT` | `6334` | Host port for Qdrant gRPC | [local-dev](local-dev.md#5-host-ports) |
 | `AR_QDRANT_HTTP_HOST_PORT` | `6333` | Host port for Qdrant HTTP. Updates `AR_QDRANT_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |

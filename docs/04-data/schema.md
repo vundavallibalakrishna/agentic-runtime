@@ -482,7 +482,7 @@ CREATE TABLE runs (
   parent_run_id        uuid REFERENCES runs(id) ON DELETE CASCADE,
   root_run_id          uuid NOT NULL,                 -- = id for top-level runs
   depth                int NOT NULL DEFAULT 0 CHECK (depth BETWEEN 0 AND 3),
-  trigger              text NOT NULL CHECK (trigger IN ('chat','api','channel','routine','subagent','eval')),
+  trigger              text NOT NULL CHECK (trigger IN ('chat','api','channel','routine','subagent','eval','research')),
   routine_id           uuid,                          -- FK added in section 13
   user_id              uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,   -- on-behalf-of identity
   initiator_type       text NOT NULL CHECK (initiator_type IN ('user','service_account','routine','system')),

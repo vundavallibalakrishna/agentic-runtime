@@ -47,6 +47,83 @@ MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
 _READ_CHARS = 12_000
 
 
+async def ingest_bytes(
+    store: Any,
+    actor: Actor,
+    *,
+    data: bytes,
+    filename: str,
+    media_type: str = "",
+    source: str = "upload",
+) -> dict[str, object]:
+    """Store ``data`` once per tenant. A second upload of the same bytes returns the first."""
+    library = DocumentLibrary(store)
+    digest = hashlib.sha256(data).hexdigest()
+    existing = library._by_hash(actor.tenant_id, digest)
+    if existing is None:
+        loaded = await _load_library_hash(store, actor.tenant_id, digest)
+        if loaded is not None:
+            _install_library_row(store, loaded)
+            existing = library._by_hash(actor.tenant_id, digest)
+    if existing is not None:
+        if not existing.get("object_key"):
+            existing["object_key"] = store_original(
+                store,
+                tenant_id=actor.tenant_id,
+                document_id=_as_uuid(existing.get("id")) or new_id(),
+                data=data,
+                media_type=str(existing.get("media_type") or media_type),
+            )
+        view = library._view(existing)
+        view["deduped"] = True
+        return view
+    return library.ingest(actor, data=data, filename=filename, media_type=media_type, source=source)
+
+
+async def _load_library_hash(
+    store: Any, tenant_id: uuid.UUID, digest: str
+) -> dict[str, object] | None:
+    """The durable row for this hash, when this process has a database and no copy yet."""
+    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession  # noqa: PLC0415
+
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine) or not digest:
+        return None
+    from sqlalchemy import text  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant_id)},
+        )
+        found = await session.execute(
+            text(
+                "SELECT * FROM library_documents "
+                "WHERE tenant_id = :tenant_id AND content_hash = :content_hash"
+            ),
+            {"tenant_id": tenant_id, "content_hash": digest},
+        )
+        row = found.mappings().first()
+    if row is None:
+        return None
+    return {str(key): row[key] for key in row}
+
+
+def _install_library_row(store: Any, row: dict[str, object]) -> None:
+    documents = getattr(store, "library_documents", None)
+    if not isinstance(documents, dict):
+        return
+    was = getattr(store, "reloading", False)
+    store.reloading = True
+    try:
+        documents[row["id"]] = row
+    finally:
+        store.reloading = was
+    dirty = getattr(documents, "dirty", None)
+    if isinstance(dirty, set):
+        dirty.discard(row["id"])
+
+
 class DocumentLibrary:
     """Ingest and read documents for one process. Postgres is updated on flush."""
 

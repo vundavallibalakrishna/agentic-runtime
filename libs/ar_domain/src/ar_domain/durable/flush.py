@@ -11,7 +11,7 @@ from ar_common.time import utcnow
 from ar_domain.agents.logic import definition_hash
 from ar_domain.durable.codec import as_bool, as_dt, as_int, as_json, as_text, as_uuid, as_vector
 from ar_domain.durable.routines import save_events, save_routines
-from ar_domain.durable.tracking import BUCKETS, TrackedDict
+from ar_domain.durable.tracking import BUCKETS, TrackedDict, commit_snapshot, rollback_snapshot
 
 if TYPE_CHECKING:
     from typing import Any
@@ -81,6 +81,8 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
     if not any(pending.values()) and not audits and not usage_pending:
         return
     original = {name: list(rows) for name, rows in pending.items()}
+    usage_keys: list[tuple[str, str]] = []
+    adopted: dict[uuid.UUID, uuid.UUID] = {}
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
             await _set_tenant_context(session, store)
@@ -127,7 +129,7 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
                 save_rule_sets,
             )
 
-            await save_library_documents(session, pending["library_documents"])
+            adopted = await save_library_documents(session, pending["library_documents"])
             await save_document_checks(session, pending["document_checks"])
             await save_document_comparisons(session, pending["document_comparisons"])
             await save_document_rewrites(session, pending["document_rewrites"])
@@ -157,14 +159,16 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             await _channel_threads(session, pending["channel_threads"])
             await _channel_posts(session, pending["channel_posts"])
             await _routine_audits(session, audits)
-            await _usage_events(session, store, usage_pending)
+            usage_keys = await _usage_events(session, usage_pending)
     except BaseException:
-        # The transaction rolled back; a retry must include every original row.
-        for name, rows in original.items():
-            bucket = getattr(store, name, None)
-            if isinstance(bucket, TrackedDict):
-                bucket.dirty.update(row.get("id", row.get("_key")) for row in rows)
+        # The database rolled this unit back. Discard it. Leaving the rows dirty
+        # makes every later request on this process flush the same failure.
+        rollback_snapshot(store, original)
         raise
+    commit_snapshot(store, original)
+    _adopt_library_rows(store, adopted)
+    flushed: set[tuple[str, str]] = getattr(store, "_usage_flushed", set())
+    flushed.update(usage_keys)
     store._durable_audit_index = audit_end  # type: ignore[attr-defined]
     for name, rows in original.items():
         bucket = getattr(store, name, None)
@@ -206,12 +210,12 @@ _USAGE_INSERT = text(
 
 
 async def _usage_events(
-    session: AsyncSession, store: object, rows: list[tuple[tuple[str, str], Any]]
-) -> None:
-    """Append usage events. The dedupe key keeps a retried flush idempotent."""
+    session: AsyncSession, rows: list[tuple[tuple[str, str], Any]]
+) -> list[tuple[str, str]]:
+    """Append usage events. Keys are recorded only after the transaction commits."""
     if not rows:
-        return
-    flushed: set[tuple[str, str]] = getattr(store, "_usage_flushed", set())
+        return []
+    written: list[tuple[str, str]] = []
     for key, item in rows:
         await session.execute(
             _USAGE_INSERT,
@@ -235,7 +239,8 @@ async def _usage_events(
                 "api_key_id": as_uuid(getattr(item, "api_key_id", None)),
             },
         )
-        flushed.add(key)
+        written.append(key)
+    return written
 
 
 async def _deletions(session: AsyncSession, pending: dict[str, list[dict[str, Any]]]) -> None:
@@ -1412,6 +1417,32 @@ async def _channel_posts(session: AsyncSession, rows: list[dict[str, Any]]) -> N
                 "created_at": as_dt(row.get("created_at")) or utcnow(),
             },
         )
+
+
+def _adopt_library_rows(store: object, adopted: dict[uuid.UUID, uuid.UUID]) -> None:
+    """Point the cache at the document that already held these bytes."""
+    if not adopted:
+        return
+    bucket = getattr(store, "library_documents", None)
+    if not isinstance(bucket, dict):
+        return
+    was = getattr(store, "reloading", False)
+    store.reloading = True  # type: ignore[attr-defined]
+    try:
+        for new_id, existing_id in adopted.items():
+            row = bucket.get(new_id)
+            if isinstance(bucket, TrackedDict):
+                bucket.evict(new_id)
+            else:
+                bucket.pop(new_id, None)
+            if isinstance(row, dict):
+                row["id"] = existing_id
+                bucket[existing_id] = row
+            if isinstance(bucket, TrackedDict):
+                bucket.dirty.discard(existing_id)
+                bucket.baseline.pop(existing_id, None)
+    finally:
+        store.reloading = was  # type: ignore[attr-defined]
 
 
 def mark_all_dirty(store: object) -> None:

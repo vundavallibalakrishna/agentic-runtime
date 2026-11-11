@@ -16,6 +16,7 @@ from ar_contracts.api_model import ApiModel
 from ar_domain.agents.access import can_edit
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.db.context import Principal
+from ar_domain.documents.library import ingest_bytes
 from ar_domain.events.sign import public_json_bytes
 
 if TYPE_CHECKING:
@@ -149,6 +150,24 @@ def _tenant(principal: Principal) -> uuid.UUID:
     if tenant_id is None:
         raise NotFoundError()
     return tenant_id
+
+
+async def _library_document(
+    store: object, who: object, data: bytes, filename: str, media_type: str
+) -> str | None:
+    """The library row for these bytes. A file the library cannot read stays a file."""
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+
+    if not isinstance(who, Actor):
+        return None
+    try:
+        view = await ingest_bytes(
+            store, who, data=data, filename=filename, media_type=media_type, source="upload"
+        )
+    except ArError:
+        return None
+    found = view.get("id")
+    return str(found) if found else None
 
 
 def _page(items: list[dict[str, object]]) -> dict[str, object]:
@@ -831,13 +850,20 @@ async def upload_file(
     principal = _principal(request)
     data = await upload.read()
     mime = mime_type or upload.content_type or "application/octet-stream"
-    return _chat(request).upload(
+    service = _chat(request)
+    saved = service.upload(
         _tenant(principal),
         uuid.UUID(principal.id),
         upload.filename or "upload",
         mime,
         data,
     )
+    document_id = await _library_document(
+        service, actor_from(principal), data, upload.filename or "upload", mime
+    )
+    if document_id:
+        saved["document_id"] = document_id
+    return saved
 
 
 @router.get("/api/v1/files/{file_id}", dependencies=[Depends(require_permission("chat:use"))])

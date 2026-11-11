@@ -24,6 +24,10 @@ async def bootstrap(
     admin_email: str | None = None,
     admin_name: str | None = None,
     admin_password: str | None = None,
+    second_email: str | None = None,
+    second_name: str | None = None,
+    second_password: str | None = None,
+    second_role: str | None = None,
 ) -> str:
     """Ensure a tenant and its admin user exist. Returns the tenant slug.
 
@@ -48,6 +52,15 @@ async def bootstrap(
             email=email,
             display_name=admin_name,
             password=admin_password,
+        )
+        await _second_user(
+            session,
+            slug=tenant_slug,
+            name=tenant_name,
+            email=second_email,
+            display_name=second_name,
+            password=second_password,
+            role_key=second_role,
         )
     await provision_defaults(tenant_slug, email)
     return tenant_slug
@@ -75,6 +88,36 @@ async def provision_defaults(tenant_slug: str, owner_email: str) -> None:
     finally:
         if store.durable_engine is not None:
             await store.durable_engine.dispose()
+
+
+async def _second_user(
+    session: AsyncSession,
+    *,
+    slug: str,
+    name: str,
+    email: str | None,
+    display_name: str | None,
+    password: str | None,
+    role_key: str | None,
+) -> None:
+    """Optional second person. ``AR_SECOND_EMAIL`` turns it on. The role defaults to approver."""
+    address = (email if email is not None else os.environ.get("AR_SECOND_EMAIL") or "").strip()
+    if not address:
+        return
+    secret = password if password is not None else os.environ.get("AR_SECOND_PASSWORD") or None
+    if not secret:
+        raise SystemExit("AR_SECOND_PASSWORD is required when a second user is configured")
+    role = (role_key or os.environ.get("AR_SECOND_ROLE") or "approver").strip()
+    label = display_name if display_name is not None else os.environ.get("AR_SECOND_NAME") or None
+    await ensure_admin(
+        session,
+        slug=slug,
+        name=name,
+        email=address,
+        display_name=label,
+        password=secret,
+        role_key=role,
+    )
 
 
 def main() -> None:

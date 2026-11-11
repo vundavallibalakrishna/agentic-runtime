@@ -2,8 +2,6 @@
 
 import { useTranslations } from "next-intl";
 
-import { ChartView } from "@/components/chat/interactive-chart";
-
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
 
@@ -401,15 +399,22 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
         </ul>
       ) : null}
       {kind === "chart" ? (
-        <ChartView
-          files={files
-            .map((file) => ({
-              id: text(file.fileId ?? file.file_id),
-              name: text(file.name),
-            }))
-            .filter((file) => file.id)}
-          presentation={presentation}
-        />
+        <p className="mt-2 text-xs text-[var(--muted-foreground)]" data-testid="chart-reference">
+          {text(presentation.title) || t("toolChart")}
+          {files.map((file) => {
+            const id = text(file.fileId ?? file.file_id);
+            const name = text(file.name) || id;
+            return id ? (
+              <a className="ml-2 underline" href={`/api/v1/files/${id}/content`} key={id}>
+                {name}
+              </a>
+            ) : (
+              <span className="ml-2" key={name}>
+                {name}
+              </span>
+            );
+          })}
+        </p>
       ) : null}
       {kind !== "chart" &&
         files

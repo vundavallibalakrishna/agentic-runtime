@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from ar_domain.models.logic import completion_text
 from ar_domain.models.options import apply_request_options
 from ar_domain.models.registry import UpstreamTarget, lookup_upstream
+from ar_domain.models.urls import chat_completions_url
 
 _UNAVAILABLE = {
     "error": {"code": "no_healthy_upstream", "message": "the model provider did not answer"}
@@ -33,7 +34,7 @@ async def complete_upstream(body: dict[str, object], target: UpstreamTarget) -> 
     headers: dict[str, str] = {}
     if target.api_key:
         headers["Authorization"] = f"Bearer {target.api_key}"
-    url = target.base_url.rstrip("/") + "/chat/completions"
+    url = chat_completions_url(target.base_url)
     async with httpx.AsyncClient(timeout=float(target.timeout_s)) as client:
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()

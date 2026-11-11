@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import mimetypes
 import os
 import subprocess
@@ -16,6 +17,31 @@ import orjson
 
 if TYPE_CHECKING:
     from typing import Any
+
+
+def _sign_in():
+    path = Path(__file__).with_name("sign_in.py")
+    spec = importlib.util.spec_from_file_location("cert_sign_in", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("scripts/sign_in.py is missing")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_SIGN_IN = _sign_in()
+_EMBED_MODEL = "Qwen/Qwen3-Embedding-8B"
+_CHAT_ALIASES = ("chat", "reasoning", "fast", "vision")
+
+
+def _session_headers(cookies: dict[str, str]) -> dict[str, str]:
+    """Cookie plus ``X-CSRF-Token``. Mutating session calls need both."""
+    pairs = [f"{name}={value}" for name, value in cookies.items() if value]
+    headers = {"cookie": "; ".join(pairs)}
+    token = cookies.get("ar_csrf", "")
+    if token:
+        headers["x-csrf-token"] = token
+    return headers
 
 
 def _json(
@@ -34,11 +60,6 @@ def _json(
     except orjson.JSONDecodeError:
         parsed = {"raw": raw[:200].decode(errors="replace")}
     return response.status_code, dict(response.headers), parsed
-
-
-def _cookie(headers: dict[str, str]) -> str:
-    raw = headers.get("Set-Cookie") or headers.get("set-cookie") or ""
-    return raw.split(";", 1)[0]
 
 
 def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, object]:
@@ -61,20 +82,18 @@ def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, ob
         page.goto("/agents/new")
         page.wait_for_timeout(800)
         page.screenshot(path=str(shots / "03-builder.png"), full_page=True)
-        page.goto("/library")
+        page.goto("/documents")
         page.wait_for_timeout(800)
-        page.screenshot(path=str(shots / "04-library.png"), full_page=True)
+        page.screenshot(path=str(shots / "04-documents.png"), full_page=True)
         page.goto("/approvals")
         page.wait_for_timeout(800)
         page.screenshot(path=str(shots / "05-approvals.png"), full_page=True)
-        page.goto("/audit")
-        page.wait_for_timeout(800)
-        page.screenshot(path=str(shots / "06-audit.png"), full_page=True)
+        # There is no /audit page. The audit proof is the API plus verify_audit_chain.py.
         browser.close()
     return {"ok": True, "dir": str(shots)}
 
 
-def _upload(api: str, cookie: str, path: Path) -> tuple[int, object]:
+def _upload(api: str, headers: dict[str, str], path: Path) -> tuple[int, object]:
     data = path.read_bytes()
     boundary = uuid.uuid4().hex
     mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
@@ -90,7 +109,10 @@ def _upload(api: str, cookie: str, path: Path) -> tuple[int, object]:
     response = httpx.post(
         f"{api}/api/v1/library-documents",
         content=body,
-        headers={"cookie": cookie, "content-type": f"multipart/form-data; boundary={boundary}"},
+        headers={
+            **headers,
+            "content-type": f"multipart/form-data; boundary={boundary}",
+        },
         timeout=180,
     )
     try:
@@ -111,14 +133,17 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
     steps: list[dict[str, object]] = []
     shots = _screenshots(web, email, password, out)
     steps.append({"step": "screenshots", "ok": shots.get("ok") is True})
-    status, headers, _parsed = _json(
-        "POST", f"{api}/api/v1/auth/login", {"email": email, "password": password}, {}
+    try:
+        cookies = _SIGN_IN.sign_in(api, email, password)
+    except _SIGN_IN.SignInError:
+        cookies = {}
+    steps.append(
+        {"step": "login", "ok": bool(cookies.get("ar_session")) and bool(cookies.get("ar_csrf"))}
     )
-    cookie = _cookie(headers)
-    steps.append({"step": "login", "ok": status == 200 and cookie.startswith("ar_session=")})
-    auth = {"cookie": cookie}
-    if document.is_file() and cookie:
-        upload_status, uploaded = _upload(api, cookie, document)
+    auth = _session_headers(cookies)
+    _register_models(api, auth)
+    if document.is_file() and cookies.get("ar_session"):
+        upload_status, uploaded = _upload(api, auth, document)
         document_id = uploaded.get("id") if isinstance(uploaded, dict) else None
         steps.append({"step": "upload", "ok": upload_status in {200, 201} and bool(document_id)})
         if document_id:
@@ -163,35 +188,54 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
             )
             steps.append({"step": "tool-turn", "ok": run_status == 200, "body": reply})
     steps.extend(_stage13(api, token))
-    second_status, second_headers, _parsed = _json(
-        "POST",
-        f"{api}/api/v1/auth/login",
-        {"email": second_email, "password": second_password},
-        {},
+    try:
+        second_cookies = _SIGN_IN.sign_in(api, second_email, second_password)
+    except _SIGN_IN.SignInError:
+        second_cookies = {}
+    steps.append(
+        {
+            "step": "second-user",
+            "ok": bool(second_cookies.get("ar_session")) and bool(second_cookies.get("ar_csrf")),
+        }
     )
-    second_cookie = _cookie(second_headers)
-    steps.append({"step": "second-user", "ok": second_status == 200 and bool(second_cookie)})
     audit_status, _headers, audit = _json("GET", f"{api}/api/v1/audit-events", {}, auth)
     steps.append({"step": "audit-api", "ok": audit_status == 200})
-    verify = subprocess.run(
-        ["uv", "run", "python", "scripts/verify_audit_chain.py"],  # noqa: S607
+    tenant_id = _tenant_id(api, auth, audit)
+    verify_cmd = ["uv", "run", "python", "scripts/verify_audit_chain.py"]
+    if tenant_id:
+        verify_cmd.extend(["--tenant", tenant_id])
+    verify = subprocess.run(  # noqa: S603 - argv is the fixed verifier plus one tenant id
+        verify_cmd,
         check=False,
         capture_output=True,
         text=True,
     )
-    steps.append({"step": "audit-chain", "ok": verify.returncode == 0})
+    steps.append(
+        {
+            "step": "audit-chain",
+            "ok": bool(tenant_id) and verify.returncode == 0,
+            "tenantId": tenant_id,
+        }
+    )
     steps.extend(_stage10(api, auth))
     steps.extend(_stage11())
-    ok = all(item.get("ok") is True for item in steps)
+    _seal(steps)
+    counts = _counts(steps)
+    ok = counts["fail"] == 0 and counts["unverified"] == 0 and counts["pass"] > 0
     return {
         "label": "live" if ok else "contract",
         "ok": ok,
         "live": "passed" if ok else "failed",
         "modelId": model,
         "date": datetime.now(UTC).date().isoformat(),
+        "counts": counts,
         "steps": steps,
         "screenshots": shots.get("dir", ""),
         "audit": audit if isinstance(audit, dict) else {},
+        "notes": [
+            "There is no /audit page. The audit proof is GET /api/v1/audit-events "
+            "and scripts/verify_audit_chain.py --tenant.",
+        ],
     }
 
 
@@ -238,14 +282,38 @@ def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
     )
     eval_ok = False
     eval_body: object = {"stderr": eval_run.stderr[-400:]}
-    if eval_run.returncode == 0 and eval_run.stdout.strip():
+    if eval_run.stdout.strip():
         try:
             eval_body = orjson.loads(eval_run.stdout)
         except orjson.JSONDecodeError:
             eval_body = {"raw": eval_run.stdout[-400:]}
-        if isinstance(eval_body, dict):
-            eval_ok = eval_body.get("label") == "live" and bool(eval_body.get("modelId"))
-    steps.append({"step": "eval-live", "ok": eval_ok, "body": eval_body})
+    if isinstance(eval_body, dict):
+        summary = eval_body.get("summary")
+        rate = summary.get("pass_rate") if isinstance(summary, dict) else None
+        errors = summary.get("errors") if isinstance(summary, dict) else None
+        cases = eval_body.get("cases")
+        every_errored = (
+            isinstance(cases, int)
+            and cases > 0
+            and isinstance(errors, (int, float))
+            and errors >= cases
+        )
+        eval_ok = (
+            eval_run.returncode == 0
+            and eval_body.get("label") == "live"
+            and bool(eval_body.get("modelId"))
+            and not every_errored
+            and isinstance(rate, (int, float))
+            and float(rate) > 0
+        )
+    steps.append(
+        {
+            "step": "eval-live",
+            "ok": eval_ok,
+            "result": "pass" if eval_ok else "fail",
+            "body": eval_body,
+        }
+    )
     routes_status, _headers, routes = _json("GET", f"{api}/api/v1/model-routes", {}, auth)
     steps.append(
         {
@@ -265,6 +333,7 @@ def _stage13(api: str, token: str) -> list[dict[str, object]]:
                 "step": "stage13-rich-reply",
                 "ok": True,
                 "pending": True,
+                "result": "skipped-no-token",
                 "proof": "contract",
             }
         ]
@@ -333,9 +402,10 @@ def _stage13(api: str, token: str) -> list[dict[str, object]]:
         },
         {
             "step": "stage13-chart",
-            "ok": chart_status == 200,
+            "ok": chart_status == 200 and figure,
+            "result": "pass" if chart_status == 200 and figure else "unverified",
             "figure": figure,
-            "proof": "live" if figure else "contract",
+            "proof": "live" if figure else "unverified",
         },
     ]
 
@@ -399,13 +469,29 @@ def _stage11() -> list[dict[str, object]]:
         ),
     ):
         if not url:
-            steps.append({"step": name, "ok": True, "pending": True, "proof": "contract"})
+            steps.append(
+                {
+                    "step": name,
+                    "ok": True,
+                    "pending": True,
+                    "result": "skipped-no-token",
+                    "proof": "contract",
+                }
+            )
             continue
         steps.append(_probe(name, os.environ.get(env_name, ""), url))
     rest = os.environ.get("AR_CERT_REST_TOKEN", "")
     rest_url = os.environ.get("AR_CERT_REST_URL", "")
     if not rest or not rest_url:
-        steps.append({"step": "connector-rest", "ok": True, "pending": True, "proof": "contract"})
+        steps.append(
+            {
+                "step": "connector-rest",
+                "ok": True,
+                "pending": True,
+                "result": "skipped-no-token",
+                "proof": "contract",
+            }
+        )
     else:
         steps.append(_probe("connector-rest", rest, rest_url))
     for name, env_name in (
@@ -415,7 +501,15 @@ def _stage11() -> list[dict[str, object]]:
     ):
         endpoint = os.environ.get(env_name, "").strip()
         if not endpoint:
-            steps.append({"step": name, "ok": True, "pending": True, "proof": "contract"})
+            steps.append(
+                {
+                    "step": name,
+                    "ok": True,
+                    "pending": True,
+                    "result": "skipped-no-token",
+                    "proof": "contract",
+                }
+            )
             continue
         try:
             response = httpx.post(endpoint, content=b"", timeout=20)
@@ -431,7 +525,15 @@ def _stage11() -> list[dict[str, object]]:
             steps.append({"step": name, "ok": False, "error": type(exc).__name__})
     smtp = os.environ.get("AR_GREENMAIL_SMTP", "").strip()
     if not smtp or ":" not in smtp:
-        steps.append({"step": "greenmail", "ok": True, "pending": True, "proof": "contract"})
+        steps.append(
+            {
+                "step": "greenmail",
+                "ok": True,
+                "pending": True,
+                "result": "skipped-no-token",
+                "proof": "contract",
+            }
+        )
     else:
         host, _, port_text = smtp.partition(":")
         try:
@@ -453,9 +555,132 @@ def _stage11() -> list[dict[str, object]]:
     return steps
 
 
+def _seal(steps: list[dict[str, object]]) -> None:
+    """Give every step one of pass, fail, skipped-no-token or unverified."""
+    for step in steps:
+        if step.get("result") in {"pass", "fail", "skipped-no-token", "unverified"}:
+            step["ok"] = step["result"] == "pass"
+            continue
+        if step.get("pending") is True:
+            step["result"] = "skipped-no-token"
+        elif step.get("ok") is True:
+            step["result"] = "pass"
+        else:
+            step["result"] = "fail"
+        step["ok"] = step["result"] == "pass"
+
+
+def _counts(steps: list[dict[str, object]]) -> dict[str, int]:
+    names = ("pass", "fail", "skipped-no-token", "unverified")
+    return {name: sum(1 for step in steps if step.get("result") == name) for name in names}
+
+
+def _tenant_id(api: str, auth: dict[str, str], audit: object) -> str:
+    status, _headers, session = _json("GET", f"{api}/api/v1/auth/session", {}, auth)
+    if status == 200 and isinstance(session, dict):
+        tenant = session.get("tenant")
+        if isinstance(tenant, dict) and tenant.get("id"):
+            return str(tenant["id"])
+    if isinstance(audit, dict):
+        items = audit.get("items")
+        if (
+            isinstance(items, list)
+            and items
+            and isinstance(items[0], dict)
+            and items[0].get("tenantId")
+        ):
+            return str(items[0]["tenantId"])
+    return ""
+
+
+def _items(body: object) -> list[dict[str, object]]:
+    if isinstance(body, list):
+        return [row for row in body if isinstance(row, dict)]
+    if isinstance(body, dict):
+        found = body.get("items") or body.get("data") or []
+        if isinstance(found, list):
+            return [row for row in found if isinstance(row, dict)]
+    return []
+
+
+def _register_models(api: str, auth: dict[str, str]) -> None:
+    """Register the chat model and a real embedding alias. Missing embed is a failed retrieval."""
+    if not auth.get("cookie"):
+        return
+    base = os.environ.get("AR_LLM_BASE_URL", "https://api.deepinfra.com/v1/openai").rstrip("/")
+    chat_model = os.environ.get("AR_LLM_MODEL", "Qwen/Qwen3-32B")
+    embed_model = os.environ.get("AR_EMBED_MODEL", _EMBED_MODEL)
+    key = os.environ.get("AR_LLM_API_KEY", "").strip()
+    _status, _headers, providers = _json("GET", f"{api}/api/v1/model-providers", {}, auth)
+    provider = next((row for row in _items(providers) if row.get("name") == "cert-provider"), None)
+    if provider is None:
+        _status, _headers, created = _json(
+            "POST",
+            f"{api}/api/v1/model-providers",
+            {
+                "name": "cert-provider",
+                "kind": "openai_compatible",
+                "baseUrl": base,
+                "apiKey": key,
+            },
+            auth,
+        )
+        provider = created if isinstance(created, dict) else None
+    if not isinstance(provider, dict) or not provider.get("id"):
+        return
+    _status, _headers, models = _json("GET", f"{api}/api/v1/models", {}, auth)
+    rows = _items(models)
+
+    def ensure(name: str, upstream: str, kind: str, dimensions: int | None) -> str:
+        found = next((row for row in rows if row.get("upstreamModel") == upstream), None)
+        if found is None:
+            body: dict[str, object] = {
+                "providerId": provider["id"],
+                "name": name,
+                "upstreamModel": upstream,
+                "kind": kind,
+            }
+            if dimensions is not None:
+                body["embeddingDimensions"] = dimensions
+            _made, _headers, created = _json("POST", f"{api}/api/v1/models", body, auth)
+            if isinstance(created, dict) and created.get("id"):
+                rows.append(created)
+                return str(created["id"])
+            return ""
+        return str(found.get("id") or "")
+
+    chat_id = ensure("Qwen3-32B", chat_model, "chat", None)
+    embed_id = ensure("Qwen3-Embedding-8B", embed_model, "embedding", 1024)
+    _status, _headers, aliases = _json("GET", f"{api}/api/v1/model-aliases", {}, auth)
+    known = {str(row.get("alias")) for row in _items(aliases)}
+    if chat_id:
+        for alias in _CHAT_ALIASES:
+            if alias in known:
+                continue
+            _json(
+                "POST",
+                f"{api}/api/v1/model-aliases",
+                {"alias": alias, "kind": "chat", "primaryModelId": chat_id},
+                auth,
+            )
+    if embed_id and "embed" not in known:
+        _json(
+            "POST",
+            f"{api}/api/v1/model-aliases",
+            {"alias": "embed", "kind": "embedding", "primaryModelId": embed_id},
+            auth,
+        )
+
+
 def _probe(name: str, token: str, url: str) -> dict[str, object]:
     if not token.strip():
-        return {"step": name, "ok": True, "pending": True, "proof": "contract"}
+        return {
+            "step": name,
+            "ok": True,
+            "pending": True,
+            "result": "skipped-no-token",
+            "proof": "contract",
+        }
     try:
         response = httpx.get(
             url,

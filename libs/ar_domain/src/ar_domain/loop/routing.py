@@ -200,9 +200,9 @@ async def routed_completion(  # noqa: PLR0915
             fell_back = True
             continue
         headers = authorization_for(store, tenant_id, route)
-        url = route["base_url"]
-        if not url.endswith("/chat/completions"):
-            url = url + "/chat/completions"
+        from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
+
+        url = chat_completions_url(route["base_url"])
         body: dict[str, object] = {"model": route["model"], "messages": messages}
         if tools:
             body["tools"] = tools
@@ -241,7 +241,10 @@ async def routed_completion(  # noqa: PLR0915
         parsed = completion_message(payload)
         parsed["real"] = True
         parsed["endpoint_id"] = route["id"]
-        parsed["answered_model"] = route["model"]
+        from ar_domain.models.logic import resolved_model_label  # noqa: PLC0415
+
+        parsed["resolved_model_id"] = route["model"]
+        parsed["answered_model"] = resolved_model_label(route["model"])
         parsed["fallback"] = fell_back
         return parsed
     return {

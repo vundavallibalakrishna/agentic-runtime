@@ -100,6 +100,18 @@ def think_trace(text: str) -> str:
     return "\n".join(chunk.strip() for chunk in _THINK_INNER.findall(text) if chunk.strip())
 
 
+def resolved_model_label(upstream_model: str) -> str:
+    """The model a person should see, taken from the resolved upstream id.
+
+    ``Qwen/Qwen3-32B`` is shown as ``Qwen3-32B``. An id with no slash is already
+    that label.
+    """
+    name = upstream_model.strip()
+    if "/" in name:
+        return name.rsplit("/", 1)[-1]
+    return name
+
+
 def completion_message(payload: object) -> dict[str, object]:
     """Assistant text, tool calls and token counts from one chat completion."""
     text = completion_text(payload)

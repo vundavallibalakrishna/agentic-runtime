@@ -127,13 +127,22 @@ async def _retrieve(
     try:
         return await retrieve(store, actor, ids, user_text)
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
+        detail = str(exc.detail or exc)
+        emit = getattr(store, "_emit", None)
+        if callable(emit):
+            emit(
+                run,
+                "warning",
+                {"code": "embedding_unconfigured", "message": detail},
+            )
         return {
             "hits": [],
             "trace": {
                 "query": user_text[:500],
                 "hits": [],
                 "used_chars": 0,
-                "warning": str(exc),
+                "error": detail,
+                "code": "embedding_unconfigured",
             },
         }
 
@@ -159,7 +168,15 @@ def _append_system(
             "Load it with skills.load to follow its instructions."
         )
     hits = retrieval.get("hits") if isinstance(retrieval, dict) else None
-    if isinstance(hits, list) and hits:
+    trace = retrieval.get("trace") if isinstance(retrieval, dict) else None
+    retrieval_error = trace.get("error") if isinstance(trace, dict) else None
+    if retrieval_error:
+        extra.append(
+            "Knowledge retrieval failed: "
+            + str(retrieval_error)
+            + " Do not invent passages, citations, or page numbers."
+        )
+    elif isinstance(hits, list) and hits:
         blocks = []
         for index, hit in enumerate(hits, start=1):
             if not isinstance(hit, dict):

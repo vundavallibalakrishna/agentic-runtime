@@ -252,6 +252,26 @@ def apply_host_ports(target: object, env: Mapping[str, str] | None = None) -> No
         setattr(target, binding.attr, updated)
 
 
+def api_listen_port(default: int = 8000) -> int:
+    """The API bind port. ``AR_API_PORT`` wins over ``AR_PORT`` when both are set.
+
+    Live certification uses ``AR_API_PORT`` when the catalogue default is already
+    taken on the machine. The web proxy and ``AR_API_URL`` follow the same value.
+    """
+    env = merged_env()
+    override = env.get("AR_API_PORT", "").strip()
+    if override:
+        if not override.isdigit():
+            message = f"AR_API_PORT must be an integer, got {override}"
+            raise ValueError(message)
+        port = int(override)
+        if port < 1 or port > 65535:
+            message = "AR_API_PORT must be between 1 and 65535"
+            raise ValueError(message)
+        return port
+    return listen_port("AR_PORT", default)
+
+
 def listen_port(name: str, default: int) -> int:
     """Port a honcho process should bind."""
     spec = PORT_BY_NAME.get(name)
