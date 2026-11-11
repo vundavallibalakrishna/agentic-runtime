@@ -77,6 +77,28 @@ class Scale(NamedTuple):
         return self.y(0.0)
 
 
+def _from_file(
+    store: Any, arguments: dict[str, object]
+) -> list[dict[str, object]] | dict[str, object]:
+    """Rows from the table file ``path`` names, when the call gave no rows of its own."""
+    if isinstance(arguments.get("rows"), list) and arguments["rows"]:
+        return []
+    if not str(arguments.get("path") or "").strip():
+        return []
+    from ar_domain.tools.analysis import table_rows  # noqa: PLC0415
+    from ar_domain.tools.sql_guard import SqlRejected  # noqa: PLC0415
+
+    try:
+        rows = table_rows(store, arguments)
+    except SqlRejected as exc:
+        return _error("validation_failed", exc.reason)
+    except (OSError, ValueError) as exc:
+        return _error("validation_failed", str(exc)[:300])
+    if not rows:
+        return _error("validation_failed", "that file has no rows to plot")
+    return rows
+
+
 def _scale_for(rows: list[tuple[str, float]], area: Area) -> Scale:
     values = [value for _label, value in rows] or [0.0]
     hi = max(*values, 0.0) if len(values) > 1 else max(values[0], 0.0)
@@ -89,6 +111,13 @@ def _scale_for(rows: list[tuple[str, float]], area: Area) -> Scale:
 def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object] | None:
     if name != "chart":
         return None
+    loaded = _from_file(store, arguments)
+    if isinstance(loaded, dict):
+        return loaded
+    return _draw(store, {**arguments, "rows": loaded} if loaded else arguments)
+
+
+def _draw(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     kind = str(arguments.get("kind") or "bar").lower()
     if kind not in _KINDS:
         return _error(
@@ -122,7 +151,8 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
         rows = _rows(arguments)
         if not rows:
             return _error(
-                "validation_failed", "chart needs rows, or xKey and yKey over a list of objects"
+                "validation_failed",
+                "chart needs rows, or path to a table file, with xKey and yKey naming its columns",
             )
         png = render_chart(kind, rows, theme=theme.name, title=title)
         count = len(rows)

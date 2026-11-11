@@ -158,6 +158,10 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         openai_tools = [_openai_tool(row) for row in core]
         openai_tools.extend(extra_tools)
         offered = {_spec_name(spec) for spec in openai_tools}
+    from ar_common.logging import get_logger  # noqa: PLC0415
+
+    # Tool names are not content. This is how a turn's choice of tool is explained later.
+    get_logger(__name__).info("tools_offered", run_id=str(run.get("id")), names=sorted(offered))
     from ar_domain.tools.structured import schema_for  # noqa: PLC0415
 
     schema = schema_for(definition, run.get("response_format"))

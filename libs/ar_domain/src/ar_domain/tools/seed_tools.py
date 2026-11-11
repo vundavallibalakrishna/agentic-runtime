@@ -4,7 +4,7 @@ import hashlib
 from typing import TYPE_CHECKING, Any
 
 from ar_common.time import utcnow
-from ar_domain.agents.logic import assistant_definition, definition_hash
+from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import demo_id
 from ar_domain.tools.logic import description_hash, manifest_hash
 from ar_domain.tools.openapi_import import operations_from
@@ -929,35 +929,41 @@ def _general_server(store: Any) -> None:
     _builtin(store, "general", "General", "builtin://general", _general_tools())
 
 
+def _code_tool() -> dict[str, object]:
+    return _tool(
+        "code",
+        "Run Python",
+        "Run Python. It starts in the conversation's working folder, so a relative path "
+        "such as inputs/data.csv is the file the file tools name. Only the standard "
+        "library is sure to be installed. Do not script a chart with a plotting package: "
+        "call general.chart, which also reads a table file. Network is off unless "
+        "enabled. The value of the last expression is shown, as in a notebook. Returns "
+        "stdout, stderr, the exit code "
+        "and the files it wrote.",
+        {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string",
+                    "description": "The Python source to run. The value of the last "
+                    "expression is shown, as in a notebook.",
+                },
+                "timeout_s": {
+                    "type": "integer",
+                    "description": "How long to let it run before it is stopped, in "
+                    "seconds. Defaults to the run's limit.",
+                },
+            },
+            "required": ["source"],
+        },
+        "W1",
+    )
+
+
 def _general_tools() -> list[dict[str, object]]:
     """Platform tools an agent can use without a dedicated connector."""
     return [
-        _tool(
-            "code",
-            "Run Python",
-            "Run Python. It starts in the conversation's working folder, so a relative path "
-            "such as inputs/data.csv is the file the file tools name. Only the standard "
-            "library is installed. Network is off unless enabled. The value of the last "
-            "expression is shown, as in a notebook. Returns stdout, stderr, the exit code "
-            "and the files it wrote.",
-            {
-                "type": "object",
-                "properties": {
-                    "source": {
-                        "type": "string",
-                        "description": "The Python source to run. The value of the last "
-                        "expression is shown, as in a notebook.",
-                    },
-                    "timeout_s": {
-                        "type": "integer",
-                        "description": "How long to let it run before it is stopped, in "
-                        "seconds. Defaults to the run's limit.",
-                    },
-                },
-                "required": ["source"],
-            },
-            "W1",
-        ),
+        _code_tool(),
         _tool(
             "shell",
             "Run a shell command",
@@ -1930,7 +1936,6 @@ def ensure_m33b(store: Any) -> None:
     _image_server(store)
     _append_tools(store, "documents", [_ocr_tool()])
     _append_tools(store, "image", [_image_ask_tool()])
-    _grant_template(store)
     # Hydrated catalogues call this hook. M34b rides along so the durability
     # loader does not need a second call site.
     ensure_m34b(store)
@@ -1943,6 +1948,7 @@ def ensure_m34b(store: Any) -> None:
     _append_tools(store, "general", [_pivot_tool()])
     _refresh_tool(store, "general.query_table", _query_table_tool())
     _refresh_tool(store, "general.chart", _chart_tool())
+    _refresh_tool(store, "general.code", _code_tool())
 
 
 def _query_table_tool() -> dict[str, object]:
@@ -2041,7 +2047,10 @@ def _chart_tool() -> dict[str, object]:
         "chart",
         "Draw a chart",
         "Draw a bar, line, area, scatter, pie, grouped, stacked, stacked100, multiline or "
-        "dual chart and save a PNG. theme is ink, slate, forest, ember or midnight. "
+        "dual chart and save a PNG. Use this for every chart, not plotting code. "
+        "Give rows, or path to a CSV or sheet in the working folder, with xKey and yKey "
+        "naming the columns. "
+        "theme is ink, slate, forest, ember or midnight. "
         "grouped, stacked, stacked100, multiline and dual draw several series per category: "
         "give each row a category key and one numeric column per series, and name them in "
         "seriesKeys. stacked100 shows each category's series as a share of 100%. dual puts "
@@ -2121,10 +2130,20 @@ def _chart_tool() -> dict[str, object]:
                         "description": "One data point as a key-to-value object, holding at "
                         "least the x and y keys (and one column per series for grouped/stacked).",
                     },
-                    "description": "The data to plot, each row an object keyed by column name.",
+                    "description": "The data to plot, each row an object keyed by column name. "
+                    "Give this or path.",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "A CSV, TSV, XLSX or JSON table file in the working folder to "
+                    "plot, such as inputs/data.csv. Give this or rows.",
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "The sheet to plot when the file has several, as "
+                    "inspect_table names it.",
                 },
             },
-            "required": ["rows"],
         },
         "W1",
     )
@@ -2140,10 +2159,17 @@ def _refresh_tool(store: Any, qualified: str, item: dict[str, object]) -> None:
             continue
         if row.get("description") == text and row.get("input_schema") == item["input_schema"]:
             return
-        row["title"] = item["title"]
-        row["description"] = text
-        row["description_hash"] = description_hash(text)
-        row["input_schema"] = item["input_schema"]
+        # The stored row of an approved version cannot change, so the built-in text this
+        # release ships is applied to the loaded row and is not written back.
+        was = getattr(store, "reloading", False)
+        store.reloading = True
+        try:
+            row["title"] = item["title"]
+            row["description"] = text
+            row["description_hash"] = description_hash(text)
+            row["input_schema"] = item["input_schema"]
+        finally:
+            store.reloading = was
         return
 
 
@@ -2237,66 +2263,6 @@ def _add_tool(
         "approval_preview": {},
         "created_at": now,
     }
-
-
-def _grant_template(store: Any) -> None:
-    """Give a seeded assistant every tool the current template grants.
-
-    Only the seed version changes. A version an administrator published is theirs.
-    """
-    agents = getattr(store, "agents", None)
-    versions = getattr(store, "versions", None)
-    if not isinstance(agents, dict) or not isinstance(versions, dict):
-        return
-    template = assistant_definition().get("tools")
-    wanted = (
-        [item for item in template if isinstance(item, dict)] if isinstance(template, list) else []
-    )
-    for agent in agents.values():
-        if not isinstance(agent, dict) or agent.get("slug") != "assistant":
-            continue
-        version = versions.get(agent.get("published_version_id"))
-        if not isinstance(version, dict) or version.get("change_note") != "seed":
-            continue
-        definition = version.get("definition")
-        tools = definition.get("tools") if isinstance(definition, dict) else None
-        if not isinstance(tools, list) or not _add_grants(tools, wanted):
-            continue
-        plain = _plain_json(definition)
-        if isinstance(plain, dict):
-            version["definition_hash"] = definition_hash(plain)
-
-
-def _add_grants(tools: list[object], wanted: list[dict[str, object]]) -> bool:
-    """Add the servers and tool names ``tools`` lacks. True when something was added."""
-    changed = False
-    held = {str(item.get("server")): item for item in tools if isinstance(item, dict)}
-    for grant in wanted:
-        server = str(grant.get("server") or "")
-        names = grant.get("include")
-        if server == "session" or not isinstance(names, list):
-            continue
-        current = held.get(server)
-        if current is None:
-            tools.append({"server": server, "version": "*", "include": list(names)})
-            changed = True
-            continue
-        include = current.get("include")
-        if not isinstance(include, list) or "*" in include:
-            continue
-        for name in names:
-            if name not in include:
-                include.append(name)
-                changed = True
-    return changed
-
-
-def _plain_json(value: object) -> object:
-    if isinstance(value, dict):
-        return {str(key): _plain_json(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_plain_json(item) for item in value]
-    return value
 
 
 def _sandbox_tools() -> list[dict[str, object]]:

@@ -180,6 +180,18 @@ def _pivot(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     return result
 
 
+def table_rows(store: Store, arguments: dict[str, object]) -> list[dict[str, object]]:
+    """The rows of the table file ``path`` names, keyed by column. Other tools read it this way."""
+    if not _requested_paths(arguments):
+        return []
+    sheets = _load_requested(store, arguments)
+    wanted = _ident_arg(arguments.get("sheet"))
+    for name, columns, rows in sheets:
+        if wanted is None or name == wanted:
+            return [dict(zip(columns, row, strict=False)) for row in rows[:_MAX_ROWS]]
+    return []
+
+
 def _query_result(
     sql: str, columns: list[str], rows: list[list[object]], *, truncated: bool
 ) -> dict[str, object]:

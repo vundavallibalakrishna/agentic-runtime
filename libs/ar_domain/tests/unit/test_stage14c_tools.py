@@ -5,7 +5,6 @@ import copy
 from ar_domain.agents.logic import assistant_definition, definition_hash
 from ar_domain.files.logic import mime_of_name
 from ar_domain.tools.general import _mime
-from ar_domain.tools.seed_tools import _add_grants, _grant_template
 from ar_testing.demo import demo_store
 
 _TABLE_TOOLS = {"inspect_table", "query_table", "pivot_table", "export_table", "chart"}
@@ -39,50 +38,40 @@ def test_every_granted_general_tool_is_in_the_catalogue() -> None:
         assert f"general.{name}" in known
 
 
-def _seeded(store: object) -> tuple[dict[str, object], dict[str, object]]:
-    for agent in store.agents.values():  # type: ignore[attr-defined]
-        if agent.get("slug") == "assistant":
-            return agent, store.versions[agent["published_version_id"]]  # type: ignore[attr-defined]
-    raise AssertionError("no assistant")
+def _migration() -> object:
+    import importlib
+
+    return importlib.import_module(
+        "ar_domain.migrations.versions.20261111_0044_assistant_table_tools"
+    )
 
 
-def test_a_seeded_assistant_gains_the_template_grants() -> None:
-    store = demo_store()
-    _agent, version = _seeded(store)
-    definition = version["definition"]
-    assert isinstance(definition, dict)
-    for grant in definition["tools"]:
+def test_the_migration_adds_the_grants_a_seeded_assistant_lacks() -> None:
+    migration = _migration()
+    old = assistant_definition()
+    for grant in old["tools"]:  # type: ignore[union-attr]
         if grant.get("server") == "general":
             grant["include"] = ["code", "shell"]
-    version["change_note"] = "seed"
-    _grant_template(store)
-    assert _TABLE_TOOLS <= set(_general(definition))
-    assert version["definition_hash"] == definition_hash(copy.deepcopy(dict(definition)))
+    old["tools"] = [g for g in old["tools"] if g.get("server") != "image"]  # type: ignore[union-attr]
+    before = copy.deepcopy(old)
+    fresh = migration.with_grants(old)  # type: ignore[attr-defined]
+    assert old == before
+    assert fresh is not None
+    assert _TABLE_TOOLS <= set(_general(fresh))
+    assert any(g.get("server") == "image" for g in fresh["tools"])
+    assert migration._hash(fresh) == definition_hash(fresh)  # type: ignore[attr-defined]
 
 
-def test_a_version_an_administrator_published_is_left_alone() -> None:
-    store = demo_store()
-    _agent, version = _seeded(store)
-    definition = version["definition"]
-    assert isinstance(definition, dict)
-    for grant in definition["tools"]:
-        if grant.get("server") == "general":
-            grant["include"] = ["code"]
-    version["change_note"] = "tightened by the administrator"
-    _grant_template(store)
-    assert _general(definition) == ["code"]
-
-
-def test_grants_are_added_once_and_a_wildcard_is_kept() -> None:
-    tools: list[object] = [{"server": "documents", "version": "*", "include": ["*"]}]
-    wanted = [
-        {"server": "documents", "version": "*", "include": ["read"]},
-        {"server": "image", "version": "*", "include": ["ask"]},
-    ]
-    assert _add_grants(tools, wanted) is True
-    assert tools[0] == {"server": "documents", "version": "*", "include": ["*"]}
-    assert tools[1] == {"server": "image", "version": "*", "include": ["ask"]}
-    assert _add_grants(tools, wanted) is False
+def test_the_migration_leaves_a_complete_or_wildcard_grant_alone() -> None:
+    migration = _migration()
+    assert migration.with_grants(assistant_definition()) is None  # type: ignore[attr-defined]
+    wide = {
+        "tools": [
+            {"server": "general", "version": "*", "include": ["*"]},
+            {"server": "image", "version": "*", "include": ["*"]},
+        ]
+    }
+    assert migration.with_grants(wide) is None  # type: ignore[attr-defined]
 
 
 def test_a_written_file_is_typed_by_its_name() -> None:
@@ -133,3 +122,69 @@ def test_an_assistant_asked_for_a_chart_is_offered_the_chart_tool() -> None:
     assert "session__search" in captured[0]
     assert "general__chart" in captured[0]
     assert len(captured[0]) < 20
+
+
+def test_the_chart_tool_plots_a_table_file_in_the_working_folder() -> None:
+    import uuid
+
+    from ar_domain.chat.service import demo_id
+    from ar_domain.tools.charts import dispatch_chart
+    from ar_domain.tools.general import _prepare
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "chart it", schedule=False
+    )
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    arguments: dict[str, object] = {
+        "_tenant_id": tenant,
+        "_user_id": user,
+        "_run_id": run["id"],
+        "_conversation_id": run["conversation_id"],
+        "kind": "bar",
+        "path": "inputs/regions.csv",
+        "xKey": "region",
+        "yKey": "count",
+    }
+    root = _prepare(store, arguments)
+    target = root / "workspace" / "inputs" / "regions.csv"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("region,count\nNorth,12\nSouth,19\n", encoding="utf-8")
+    drawn = dispatch_chart(store, "chart", arguments)
+    assert drawn is not None and drawn["is_error"] is False
+    shown = drawn["structured"]["presentation"]  # type: ignore[index]
+    assert shown["rows"] == [{"label": "North", "value": 12.0}, {"label": "South", "value": 19.0}]
+    missing = dispatch_chart(store, "chart", {**arguments, "path": "inputs/none.csv"})
+    assert missing is not None and missing["is_error"] is True
+
+
+def test_the_code_tool_points_at_the_chart_tool() -> None:
+    store = demo_store()
+    code = next(
+        row for row in store.tool_versions.values() if row.get("qualified_name") == "general.code"
+    )
+    chart = next(
+        row for row in store.tool_versions.values() if row.get("qualified_name") == "general.chart"
+    )
+    assert "general.chart" in str(code["description"])
+    assert "path" in chart["input_schema"]["properties"]
+    assert "required" not in chart["input_schema"]
+
+
+def test_a_script_missing_a_package_is_told_to_use_the_chart_tool() -> None:
+    from types import SimpleNamespace
+
+    from ar_domain.tools import general
+
+    failed = SimpleNamespace(exit_code=1, stderr="ModuleNotFoundError: No module named 'x'")
+    kept = SimpleNamespace(exit_code=1, stderr="ValueError: bad")
+    general.replace = lambda result, **changes: SimpleNamespace(**{**vars(result), **changes})  # type: ignore[attr-defined]
+    try:
+        assert "general.chart" in general._missing_package(failed).stderr  # type: ignore[arg-type]
+        assert general._missing_package(kept) is kept  # type: ignore[arg-type]
+    finally:
+        from dataclasses import replace
+
+        general.replace = replace  # type: ignore[attr-defined]

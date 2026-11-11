@@ -113,7 +113,7 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         max_file_bytes=_as_limit(limits["max_file_bytes"]),
     )
     files = _publish_new(store, arguments, root, before)
-    return _command_result("code", "python", _told(root, result, source), files)
+    return _command_result("code", "python", _missing_package(_told(root, result, source)), files)
 
 
 def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -536,6 +536,20 @@ def _told(root: Path, result: IsolatedRun, script: str) -> IsolatedRun:
     if result.exit_code != 0 and "/workspace" in script:
         stderr = f"{stderr.rstrip()}\n{_NO_WORKSPACE}".lstrip()
     return replace(result, stdout=stdout, stderr=stderr)
+
+
+_NO_PACKAGE = (
+    "That package is not installed here, and no other plotting package is either. "
+    "To draw a chart call general.chart: give it path (a CSV or sheet in this folder) "
+    "with xKey and yKey, or rows. To read a table call general.query_table."
+)
+
+
+def _missing_package(result: IsolatedRun) -> IsolatedRun:
+    """A script that imported a package this computer lacks is told what to call instead."""
+    if result.exit_code == 0 or "ModuleNotFoundError" not in result.stderr:
+        return result
+    return replace(result, stderr=f"{result.stderr.rstrip()}\n{_NO_PACKAGE}")
 
 
 def _command_result(
