@@ -5,8 +5,8 @@ A step reads the checkpoint and writes it back. Repeating a finished step is a n
 
 from __future__ import annotations
 
-import time
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from ar_common.time import utcnow
@@ -22,6 +22,7 @@ _DEFAULTS = {
     "max_breadth": 4,
     "max_wall_clock_s": 120,
     "max_cost_micros": 1_000_000,
+    "max_steps": 16,
 }
 
 
@@ -41,7 +42,6 @@ def initial_state(question: str, bounds: dict[str, object] | None = None) -> dic
         "subtasks": {},
         "report": "",
         "citations": [],
-        "started_monotonic": time.monotonic(),
         "started_at": utcnow().isoformat(),
         "cost_micros": 0,
         **limits,
@@ -77,12 +77,7 @@ def _whole(value: object, default: int = 0) -> int:
 
 
 def over_budget(state: dict[str, object]) -> str | None:
-    started = state.get("started_monotonic")
-    if isinstance(started, int | float) and not isinstance(started, bool):
-        origin = float(started)
-    else:
-        origin = time.monotonic()
-    elapsed = time.monotonic() - origin
+    elapsed = _elapsed_s(state.get("started_at"))
     if elapsed > _whole(state.get("max_wall_clock_s"), 120):
         return "max_wall_clock_s"
     if _whole(state.get("cost_micros")) > _whole(state.get("max_cost_micros")):
@@ -90,6 +85,19 @@ def over_budget(state: dict[str, object]) -> str | None:
     if _whole(state.get("depth")) > _whole(state.get("max_depth"), 1):
         return "max_depth"
     return None
+
+
+def _elapsed_s(started_at: object) -> float:
+    """Seconds since the stored start. Any replica reads the same clock time."""
+    try:
+        started = datetime.fromisoformat(str(started_at))
+    except ValueError:
+        return 0.0
+    return (utcnow() - started).total_seconds()
+
+
+def max_steps(state: dict[str, object]) -> int:
+    return _whole(state.get("max_steps"), _DEFAULTS["max_steps"])
 
 
 def plan_queries(question: str, *, breadth: int) -> list[dict[str, str]]:

@@ -296,7 +296,11 @@
     "loading": "Loading the computer",
     "empty": "No artifacts yet.",
     "emptyWorkspace": "The workspace is empty.",
-    "error": "The computer could not be loaded."
+    "error": "The computer could not be loaded.",
+    "noRows": "No rows.",
+    "previewLoading": "Loading the preview",
+    "previewEmpty": "This file is empty.",
+    "previewError": "The preview could not be loaded. Open the file to see it."
   },
   "computers": {
     "title": "Computers",

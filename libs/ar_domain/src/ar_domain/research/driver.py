@@ -56,7 +56,7 @@ async def run_inline(store: Any, run: dict[str, object], question: str) -> str:
 async def execute_subtask(
     store: Any, run: dict[str, object], query: dict[str, str]
 ) -> dict[str, object]:
-    """One query through the same functions the tool handlers use."""
+    """One query through the tool gateway. A repeat returns the stored result."""
     state = state_of(run, str(state_question(run)))
     subtasks = state.get("subtasks")
     if isinstance(subtasks, dict) and query["id"] in subtasks:
@@ -65,9 +65,36 @@ async def execute_subtask(
     from ar_domain.research.gateway import subtask_via_gateway  # noqa: PLC0415
 
     result = subtask_via_gateway(store, run, query)
-    store_subtask(run, query["id"], result)
+    store_results(run, {query["id"]: result})
     _emit_progress(store, run, "reading")
     return result
+
+
+def store_results(run: dict[str, object], results: object) -> None:
+    """Keep each finished sub-task. The step stores every result it is handed, so a
+    result one parallel sub-task overwrote on another worker is put back."""
+    if not isinstance(results, dict):
+        return
+    for query_id, result in results.items():
+        if isinstance(result, dict) and result.get("status") == "done":
+            store_subtask(run, str(query_id), result)
+
+
+def exhaust(store: Any, run: dict[str, object]) -> None:
+    """The step limit ran out before a report. The run ends failed, not left working."""
+    if str(run.get("status") or "") in {"completed", "failed", "cancelled", "budget_exceeded"}:
+        return
+    from ar_domain.runs.failure import fail_run  # noqa: PLC0415
+
+    fail_run(
+        store,
+        run,
+        code="budget_exceeded",
+        reason="max_steps",
+        message="Research used all of its steps before it had a report. Nothing was lost; "
+        "ask again with a narrower question or a higher step limit.",
+    )
+    _audit(store, run, "research.failed", "failure")
 
 
 def state_question(run: dict[str, object]) -> str:
@@ -205,7 +232,7 @@ def _emit_progress(store: Any, run: dict[str, object], phase: str) -> None:
     )
 
 
-def _audit(store: Any, run: dict[str, object], action: str) -> None:
+def _audit(store: Any, run: dict[str, object], action: str, outcome: str = "success") -> None:
     log = getattr(store, "audit_log", None)
     if not isinstance(log, list):
         return
@@ -219,7 +246,7 @@ def _audit(store: Any, run: dict[str, object], action: str) -> None:
             "target_type": "run",
             "target_id": str(run.get("id")),
             "detail": {"mode": "research"},
-            "outcome": "success",
+            "outcome": outcome,
             "at": utcnow().isoformat(),
         }
     )

@@ -1158,21 +1158,9 @@ def _same_artifact(
 
 
 def _mime(name: str) -> str:
-    media = {
-        ".svg": "image/svg+xml",
-        ".png": "image/png",
-        ".csv": "text/csv",
-        ".tsv": "text/csv",
-        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        ".pdf": "application/pdf",
-        ".json": "application/json",
-    }
-    for suffix, kind in media.items():
-        if name.endswith(suffix):
-            return kind
-    return "text/plain"
+    from ar_domain.files.logic import mime_of_name  # noqa: PLC0415
+
+    return mime_of_name(name, "text/plain")
 
 
 class _Page(HTMLParser):

@@ -89,16 +89,17 @@ def _load(store: object, bucket: dict[object, object], key: object, value: objec
         if key in bucket.dirty:
             return
     current = bucket.get(key)
-    if isinstance(current, dict) and isinstance(value, dict):
-        if bucket is getattr(store, "runs", None):
-            _merge_live(current, value)
-        else:
-            current.update(value)
-        return
     was_reloading = getattr(store, "reloading", False)
     store.reloading = True  # type: ignore[attr-defined]
     try:
-        bucket[key] = value
+        # A row read from the database is not a change, so it is merged without marking.
+        if isinstance(current, dict) and isinstance(value, dict):
+            if bucket is getattr(store, "runs", None):
+                _merge_live(current, value)
+            else:
+                current.update(value)
+        else:
+            bucket[key] = value
     finally:
         store.reloading = was_reloading  # type: ignore[attr-defined]
 

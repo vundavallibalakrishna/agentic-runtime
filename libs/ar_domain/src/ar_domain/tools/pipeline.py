@@ -720,7 +720,7 @@ class ToolPipeline:
             return True
         if qualified.startswith("research."):
             run = self._request_run(request)
-            if isinstance(run, dict) and run.get("mode") == "research":
+            if isinstance(run, dict) and run.get("trigger") == "research":
                 return True
         agent_version_id = request.get("agent_version_id")
         version_row = (

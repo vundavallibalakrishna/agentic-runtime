@@ -69,6 +69,9 @@ def assistant_definition(*, fixtures: bool = True) -> dict[str, object]:
             "Do not write a one-off script for those formats. "
             "Use documents.ocr for a scanned PDF or a photo of text. "
             "Use image.ask for a question about a screenshot, chart or diagram. "
+            "For a CSV or a sheet, call general.inspect_table first, then general.query_table "
+            "or general.pivot_table. To draw a chart, call general.chart with the rows. "
+            "Do not write plotting code. "
             "If a tool says the passage was not found, say that and do not invent it. "
             "Anything that sends, deletes, spends or changes stored data must wait for approval."
         ),
@@ -108,6 +111,11 @@ def assistant_definition(*, fixtures: bool = True) -> dict[str, object]:
                     "fetch",
                     "search",
                     "http",
+                    "inspect_table",
+                    "query_table",
+                    "pivot_table",
+                    "export_table",
+                    "chart",
                 ],
                 "overrides": {
                     "code": {"timeout_s": 30, "network": False},

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-"""Eval gym. Contract uses a local OpenAI-compatible stub. Live needs AR_LLM_API_KEY.
+"""Eval gym contract check against a local OpenAI-compatible stub.
 
-The contract report has an empty model id. It is not a live run.
+The report has an empty model id. It is not a live run. A live eval is an eval run in
+the product: ``scripts/certify_live.sh`` starts one from ``evals/live/certification.yaml``.
 """
 
 from __future__ import annotations
@@ -25,7 +26,6 @@ from ar_domain.models.request import (
     chat_completion_body,
     redact_provider_error,
 )
-from ar_domain.models.urls import chat_completions_url
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSISTANT = ROOT / "evals" / "gym" / "assistant" / "cases.yaml"
@@ -100,9 +100,9 @@ def _case_max_tokens(case: dict[str, object]) -> int:
     return bound_max_tokens(raw)
 
 
-def _post(url: str, case: dict[str, object], *, live: bool) -> dict[str, object]:
+def _post(url: str, case: dict[str, object]) -> dict[str, object]:
     prompt = str(case.get("prompt") or "")
-    content = f"{case.get('id')}\n{prompt}" if not live else prompt
+    content = f"{case.get('id')}\n{prompt}"
     body = chat_completion_body(
         model=os.environ.get("AR_LLM_MODEL", "stub"),
         messages=[{"role": "user", "content": content}],
@@ -110,9 +110,6 @@ def _post(url: str, case: dict[str, object], *, live: bool) -> dict[str, object]
     )
     data = orjson.dumps(body)
     headers = {"Content-Type": "application/json"}
-    key = os.environ.get("AR_LLM_API_KEY", "").strip()
-    if live and key:
-        headers["Authorization"] = f"Bearer {key}"
     request = urllib.request.Request(url, data=data, headers=headers, method="POST")  # noqa: S310
     started = time.perf_counter()
     try:
@@ -177,20 +174,13 @@ def _post(url: str, case: dict[str, object], *, live: bool) -> dict[str, object]
     }
 
 
-def run(*, live: bool) -> dict[str, object]:
+def run() -> dict[str, object]:
     cases = load_cases()
-    server: ThreadingHTTPServer | None = None
-    if live:
-        base = os.environ.get("AR_LLM_BASE_URL", "").rstrip("/")
-        url = chat_completions_url(base)
-        if not os.environ.get("AR_LLM_API_KEY", "").strip():
-            raise SystemExit("AR_LLM_API_KEY is not set")
-    else:
-        server, url = _serve(cases)
+    server, url = _serve(cases)
     results: list[dict[str, object]] = []
     try:
         for case in cases:
-            reply = _post(url, case, live=live)
+            reply = _post(url, case)
             scored = case_passed(case, reply)
             scored["latency_ms"] = reply.get("latency_ms")
             scored["tokens"] = reply.get("tokens")
@@ -201,18 +191,12 @@ def run(*, live: bool) -> dict[str, object]:
             scored["id"] = case.get("id")
             results.append(scored)
     finally:
-        if server is not None:
-            server.shutdown()
+        server.shutdown()
     summary = summarise(results)
     summary["errors"] = float(sum(1 for row in results if row.get("error")))
-    label = (
-        "live"
-        if live and _live_passed(summary, len(results))
-        else ("contract" if not live else "failed")
-    )
     return {
-        "label": label,
-        "modelId": os.environ.get("AR_LLM_MODEL", "") if live else "",
+        "label": "contract",
+        "modelId": "",
         "date": time.strftime("%Y-%m-%d", time.gmtime()),
         "cases": len(results),
         "summary": summary,
@@ -230,39 +214,10 @@ def run(*, live: bool) -> dict[str, object]:
     }
 
 
-def _live_passed(summary: dict[str, object], cases: int) -> bool:
-    """A live eval fails when every case errored or the pass rate misses the bar.
-
-    ``AR_EVAL_MIN_PASS_RATE`` is the bar, default 1. A rate of 0 is not a pass.
-    """
-    errors = int(float(summary.get("errors") or 0))
-    if cases == 0 or errors >= cases:
-        return False
-    raw = os.environ.get("AR_EVAL_MIN_PASS_RATE", "1").strip()
-    try:
-        threshold = float(raw)
-    except ValueError:
-        threshold = 1.0
-    return float(summary.get("pass_rate") or 0) + 1e-9 >= threshold
-
-
 def main() -> int:
-    live = "--live" in sys.argv
     check = "--check" in sys.argv
-    if live and not os.environ.get("AR_LLM_API_KEY", "").strip():
-        print("live eval pending: AR_LLM_API_KEY is not set")
-        return 0
-    report = run(live=live)
-    text = json.dumps(report, indent=2)
-    print(text)
-    if live and report.get("label") != "live":
-        print(
-            "live eval failed: pass_rate "
-            f"{(report.get('summary') or {}).get('pass_rate')} "
-            f"errors {(report.get('summary') or {}).get('errors')}",
-            file=sys.stderr,
-        )
-        return 1
+    report = run()
+    print(json.dumps(report, indent=2))
     if not check:
         return 0
     baseline = orjson.loads(BASELINE.read_bytes())

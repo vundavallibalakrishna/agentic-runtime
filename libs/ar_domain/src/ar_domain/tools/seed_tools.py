@@ -1930,7 +1930,7 @@ def ensure_m33b(store: Any) -> None:
     _image_server(store)
     _append_tools(store, "documents", [_ocr_tool()])
     _append_tools(store, "image", [_image_ask_tool()])
-    _grant_image(store)
+    _grant_template(store)
     # Hydrated catalogues call this hook. M34b rides along so the durability
     # loader does not need a second call site.
     ensure_m34b(store)
@@ -2239,35 +2239,56 @@ def _add_tool(
     }
 
 
-def _grant_image(store: Any) -> None:
-    """Give the seeded assistant image.ask without a republish."""
+def _grant_template(store: Any) -> None:
+    """Give a seeded assistant every tool the current template grants.
+
+    Only the seed version changes. A version an administrator published is theirs.
+    """
     agents = getattr(store, "agents", None)
     versions = getattr(store, "versions", None)
     if not isinstance(agents, dict) or not isinstance(versions, dict):
         return
+    template = assistant_definition().get("tools")
+    wanted = (
+        [item for item in template if isinstance(item, dict)] if isinstance(template, list) else []
+    )
     for agent in agents.values():
         if not isinstance(agent, dict) or agent.get("slug") != "assistant":
             continue
         version = versions.get(agent.get("published_version_id"))
-        if not isinstance(version, dict):
+        if not isinstance(version, dict) or version.get("change_note") != "seed":
             continue
         definition = version.get("definition")
-        if not isinstance(definition, dict):
+        tools = definition.get("tools") if isinstance(definition, dict) else None
+        if not isinstance(tools, list) or not _add_grants(tools, wanted):
             continue
-        tools = definition.get("tools")
-        if not isinstance(tools, list):
-            continue
-        if any(isinstance(item, dict) and item.get("server") == "image" for item in tools):
-            continue
-        has_documents = any(
-            isinstance(item, dict) and item.get("server") == "documents" for item in tools
-        )
-        if not has_documents and version.get("change_note") != "seed":
-            continue
-        tools.append({"server": "image", "version": "*", "include": ["ask"]})
         plain = _plain_json(definition)
         if isinstance(plain, dict):
             version["definition_hash"] = definition_hash(plain)
+
+
+def _add_grants(tools: list[object], wanted: list[dict[str, object]]) -> bool:
+    """Add the servers and tool names ``tools`` lacks. True when something was added."""
+    changed = False
+    held = {str(item.get("server")): item for item in tools if isinstance(item, dict)}
+    for grant in wanted:
+        server = str(grant.get("server") or "")
+        names = grant.get("include")
+        if server == "session" or not isinstance(names, list):
+            continue
+        current = held.get(server)
+        if current is None:
+            tools.append({"server": server, "version": "*", "include": list(names)})
+            changed = True
+            continue
+        include = current.get("include")
+        if not isinstance(include, list) or "*" in include:
+            continue
+        for name in names:
+            if name not in include:
+                include.append(name)
+                changed = True
+    return changed
 
 
 def _plain_json(value: object) -> object:

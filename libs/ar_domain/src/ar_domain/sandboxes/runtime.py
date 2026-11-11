@@ -1474,24 +1474,10 @@ def _uuid(value: object) -> uuid.UUID | None:
     return None
 
 
-def _mime(name: str) -> str:  # noqa: PLR0911
-    if name.endswith(".png"):
-        return "image/png"
-    if name.endswith(".csv"):
-        return "text/csv"
-    if name.endswith(".html"):
-        return "text/html"
-    if name.endswith(".svg"):
-        return "image/svg+xml"
-    if name.endswith(".md"):
-        return "text/markdown"
-    if name.endswith(".pdf"):
-        return "application/pdf"
-    if name.endswith(".docx"):
-        return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    if name.endswith(".xlsx"):
-        return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    return "application/octet-stream"
+def _mime(name: str) -> str:
+    from ar_domain.files.logic import mime_of_name  # noqa: PLC0415
+
+    return mime_of_name(name, "application/octet-stream")
 
 
 def _b64(data: bytes) -> str:
