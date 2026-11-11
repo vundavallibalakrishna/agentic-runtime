@@ -40,7 +40,7 @@ flowchart TB
   pod[Sandbox pod]
   agent[sandbox-agent on 8080]
   display[Virtual display in the pod]
-  chrome[Headed Chromium and optional desktop apps]
+  chrome[Headed Chromium]
   user -->|chat and Take over| api
   api -->|SSE run events| user
   api -->|authenticated view socket| agent
@@ -49,12 +49,9 @@ flowchart TB
   agent --> display --> chrome
 ```
 
-Two template modes, one stream:
+Stage 15 has one display mode. The pod runs the existing Playwright Chromium, headed on a virtual display. Today's browser tools drive it, plus pointer actions when the page has no stable ref.
 
-| Template field | What the pod runs | Who drives it |
-|---|---|---|
-| `display: browser` (default) | The existing Playwright Chromium, headed on a virtual display | Today's browser tools, plus pointer actions when the page has no stable ref |
-| `display: desktop` | Same display, plus a window manager and the apps the template lists (LibreOffice is already in the image) | The same pointer and keyboard tools, still through the gateway |
+A desktop template (window manager, LibreOffice, and the other GUI apps already in the image) is a later option on this same pod and the same view socket. It is not a Stage 15 story and not part of the live proof.
 
 The view socket terminates on `sandbox-agent` port 8080, which the network policy already allows from the gateway and the manager. The API proxies it with the user's session. The pod does not gain a public 5900 or 6080.
 
@@ -64,7 +61,7 @@ The view socket terminates on `sandbox-agent` port 8080, which the network polic
 
 Retire, in the same change, the in-process HTML browser on any path where `AR_SANDBOX_DRIVER` is kubernetes. An empty `endpoint_url` returns `sandbox_unavailable`. Dev machines that are allowed an unisolated sandbox keep the Docker launcher already in `ar_common.sandbox_docker`. They do not keep a third browser.
 
-Wire `warm_pool.claim` into `ensure_scope` for the browser and desktop templates so a long task does not wait on a cold image pull. The helper already exists. A second pool implementation is not part of this work.
+Wire `warm_pool.claim` into `ensure_scope` for the browser template so a long task does not wait on a cold image pull. The helper already exists. A second pool implementation is not part of this work.
 
 `/admin/snapshot` and `/admin/restore` gain a real workspace archive in the object store (hash and pointer in Postgres, bytes in the object store). The byte-count stub is removed in that change.
 
@@ -96,7 +93,7 @@ Additive only. Existing browser tool names and `browser.screenshot` stay.
 
 | Addition | Shape |
 |---|---|
-| Sandbox template | Optional `display`: `browser` or `desktop`. Default `browser`. Optional `apps`: list of image packages the template already allows. |
+| Sandbox template | `display` stays `browser` for this stage. A `desktop` value is reserved and rejected until a later stage implements it. |
 | Stream | `computer.view` with `{sandboxId, state: "live"\|"paused"\|"closed"}`. No pixels on the SSE bus. |
 | Stream | `computer.takeover` with `{sandboxId, by, state: "requested"\|"active"\|"returned"}`. |
 | API | `POST /api/v1/sandboxes/{id}:view` returns a short-lived grant for the signed-in user who can read the conversation. |
@@ -110,14 +107,14 @@ Pixels, cookies and storage state stay off SSE, audit detail, logs and traces. `
 
 | Setting | Where | Default |
 |---|---|---|
-| `display`, `apps` | Sandbox template row | `browser`, empty app list |
+| `display` | Sandbox template row | `browser`. `desktop` is rejected in this stage |
 | `AR_SANDBOX_DISPLAY_SIZE` | Env catalogue, pod env | `1280x800` |
 | View grant TTL | Tenant setting `computer.viewGrantSeconds` | 60 |
 | Takeover required on `needs_human` | Tenant setting `computer.takeoverOnHuman` | true |
 | Idle suspend | Existing sandbox lifetime | unchanged |
 | Egress hosts | Existing template allow list and Squid | unchanged |
 
-No vendor desktop image is hard-coded. Apps come from the template. The image build already chooses Chromium with `WITH_BROWSER`.
+No vendor desktop image is hard-coded. The image build already chooses Chromium with `WITH_BROWSER`.
 
 ## Security and observability
 
@@ -151,18 +148,23 @@ No vendor desktop image is hard-coded. Apps come from the template. The image bu
 **Acceptance:** Take over pauses the run, stops model screenshots, and sends input only to `/admin/input`. Return resumes the same run and the same pod. `needs_human` from scripted login raises `computer.takeover` when the tenant setting is on. Audit rows exist for start and end. Keystrokes are absent from the audit payload.
 **Proof:** contract. Live in S15-06 for a login the script cannot finish.
 
-### S15-05 Desktop template and a real suspend
+### S15-05 A real suspend
 
-**Acceptance:** Template `display: desktop` adds the window manager and the apps named on the template, using packages already in the sandbox image. `/admin/snapshot` writes an archive to the object store and `/admin/restore` brings those bytes back into a new pod for the same conversation. The byte-count response is gone.
+**Acceptance:** `/admin/snapshot` writes a workspace archive to the object store and `/admin/restore` brings those bytes back into a new pod for the same conversation. The byte-count response is gone. A template value `display: desktop` is rejected. This stage does not install a window manager or launch LibreOffice.
 **Proof:** contract.
 
 ### S15-06 Live proof from an empty database
 
-**Acceptance:** A seeded tenant, a real model, and a fresh conversation. The agent opens a page, fills a form, and the person watches it. The person takes over, types, and hands back. The run finishes with the filed result visible in chat. The report names the model id and the date. Without `AR_LLM_API_KEY` the step stays pending and is not labelled live.
+**Decided:** the live proof is a watched Chromium form fill. A desktop app is out of scope.
+
+**Acceptance:** A seeded tenant, a real model, and a fresh conversation. The agent opens a page in the pod's Chromium, fills a form, and the person watches the live view. The person takes over, types, and hands back. The run finishes with the filed result visible in chat. The report names the model id and the date. Without `AR_LLM_API_KEY` the step stays pending and is not labelled live. The script does not open LibreOffice or any other desktop application.
 **Proof:** live, via the existing `scripts/certify_live.sh` pattern.
+
+## Later
+
+A `display: desktop` template on the same pod, virtual display, and view socket, for a window manager and the GUI apps already baked into the sandbox image (LibreOffice is in that image). It waits until the Chromium path is the one customers use.
 
 ## Risks and questions for Bala
 
-1. **Browser first, desktop in the same stage.** The browser template is the path that reuses Playwright. The desktop template is the same pod and the same stream, for GUI apps. Question: must the first live proof include a LibreOffice window, or is a Chromium form enough for this stage?
-2. **Cold start.** A desktop image is large. Wiring the existing warm pool is the scaling path. Question: is a per-tenant pool size a setting you want in this stage, or is on-demand create acceptable until measurement says otherwise?
-3. **Clipboard and downloads during takeover.** Downloads already become artifacts (`download` in `browser.py:40`). Clipboard text is a secret risk. Question: should takeover clipboard be an artifact the user saves, with the model seeing only the file id after hand-back?
+1. **Cold start.** Wiring the existing warm pool avoids a cold image pull for the browser template. Question: is a per-tenant pool size a setting you want in this stage, or is on-demand create acceptable until measurement says otherwise?
+2. **Clipboard and downloads during takeover.** Downloads already become artifacts (`download` in `browser.py:40`). Clipboard text is a secret risk. Question: should takeover clipboard be an artifact the user saves, with the model seeing only the file id after hand-back?

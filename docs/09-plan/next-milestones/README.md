@@ -81,19 +81,21 @@ From the [production plan](../agnostic-production-plan.md):
 3. `sandbox-manager` (`KubernetesPods`) is the only pod creator.
 4. The API process does not run the model loop, a shell, or a browser.
 5. Packs are out of process. Core does not import a pack. Industry content is a pack.
-6. Public contracts change by addition. Clients come from `make gen`.
+6. We are pre-production. Public contracts stay additive where that is the long-term shape. A breaking change is allowed when the plan lists the migration and the old shape is not kept as a second path. Clients come from `make gen`.
 7. Shared state lives in Postgres, Valkey or the object store.
 8. A feature is live only from an empty database with a real model. A unit test is not that proof.
 
-## Questions for Bala
+## Decisions
 
-The area files have the full list. These five change the shape of a stage:
+Bala, 11 Nov 2026. These are closed. The stories and the launch prompts below use them.
 
-1. **Computer proof.** Is a Chromium form, watched and taken over, enough for Stage 15, or does the live proof also need a LibreOffice window on the desktop template? [01](01-agent-computer.md).
-2. **SAML.** Ship per-tenant SAML in Stage 16 with OIDC, or OIDC only and SAML next? The `identity_providers.kind` check already allows both. [09](09-enterprise-trust.md).
-3. **Eval drafts.** Automatic cases from thumbs-down stay drafts until a person promotes them. Confirm that, and confirm failed-run cases stay off until a tenant opts in. [05](05-quality-loop.md).
-4. **Residency.** Enforce one region per deployment ([OQ-16](../../open-questions.md)) and refuse a mismatched tag. Confirm you do not want multi-region routing in Stage 16. [09](09-enterprise-trust.md).
-5. **A2A version.** Keep `protocol_version` `0.3.0` and add 1.0 fields, or advertise `1.0.0`? [04](04-multi-agent.md). The card today is `0.3.0` at `libs/ar_domain/src/ar_domain/exposure/a2a.py:59`.
+1. **Stage 15 live proof** is a watched Chromium form fill. A desktop app such as LibreOffice is a later option on the same pod, not this stage. [01](01-agent-computer.md).
+2. **SAML** ships in Stage 16 next to OIDC. It is optional per tenant, uses `identity_providers.kind`, and does not add an identity system. [09](09-enterprise-trust.md).
+3. **Eval cases** from thumbs-down and from failed runs are drafts until a person promotes them. Failed-run capture is the tenant flag `evals.caseFromFailedRun`. [05](05-quality-loop.md).
+4. **Residency** is one region per deployment (`AR_DEPLOYMENT_REGION`). A tenant or a payload whose tag differs is refused. There is no multi-region routing. [09](09-enterprise-trust.md).
+5. **A2A** moves to protocol `1.0`. The card, JSON-RPC, gRPC, and the contract tests change in Stage 18. The migration is in [04](04-multi-agent.md). A 0.3 shim is not kept.
+
+Other questions in the area files are still open. They do not block these five.
 
 ## Launch prompts
 
@@ -106,17 +108,17 @@ You are implementing Stage 15 of Agentic Runtime: a computer for the agent, and 
 
 Read first: AGENTS.md, docs/00-overview/principles.md, docs/09-plan/agnostic-production-plan.md, docs/09-plan/next-milestones/01-agent-computer.md, docs/09-plan/next-milestones/02-long-running-agents.md, docs/03-specs/12-sandbox-manager.md, docs/03-specs/07-agent-runtime.md.
 
-Strict rules (AGENTS.md): no mocks in the product; no fake services; no static customer data; live proof is an empty database and a real model; fix the architecture in place and delete the old path; no bypass; no industry in core; settings instead of literals; reuse what exists; status claims need file evidence; research when unsure; no process-local production state; one pull request for this whole stage; additive contracts; security and observability on every new path.
+Strict rules (AGENTS.md): no mocks in the product; no fake services; no static customer data; live proof is an empty database and a real model; fix the architecture in place and delete the old path; no bypass; no industry in core; settings instead of literals; reuse what exists; status claims need file evidence; research when unsure; no process-local production state; one pull request for this whole stage; security and observability on every new path. We are pre-production: prefer the long-term shape, and do not keep a compatibility shim. A breaking change must be listed in the plan.
 
 Invariants: mcp-gateway is the only tool path. One Temporal activity is one model or tool step. sandbox-manager KubernetesPods is the only pod creator. The API does not run the model loop.
 
-Do: every story S15-01 through S15-11 in those two files. Reuse the sandbox pod, Playwright tools, trusted /admin/login, TurnWorkflow, worker_loop checkpoints, ApprovalWaitWorkflow, RoutineRunWorkflow and notify_user. Remove the step cap of 32, the resume that only flips a status, the in-process browser on the kubernetes driver, and the snapshot stub that returns a byte count.
+Do: every story S15-01 through S15-11 in those two files. Reuse the sandbox pod, Playwright tools, trusted /admin/login, TurnWorkflow, worker_loop checkpoints, ApprovalWaitWorkflow, RoutineRunWorkflow and notify_user. Remove the step cap of 32, the resume that only flips a status, the in-process browser on the kubernetes driver, and the snapshot stub that returns a byte count. Do not build a desktop template or launch LibreOffice. Reject display=desktop.
 
 File fence: you may edit the runtime turn and approval workflows, sandbox-manager, sandbox-agent, the sandbox image, ar_domain sandboxes, tools/resume.py, tools/worker_loop.py, chat/service.py, and the computer UI. Do not edit packs, the connector catalog, identity, SCIM, evals, memory, or loop/routing.py. Another agent owns those.
 
 Delivery: one branch, one PR, all stories. Run the full local CI suite, including the web end-to-end job on a production Next build and the kind jobs, before the first push. Push once. If CI is red, one fix commit. Update progress.md and the production plan in that PR. PR body includes a reuse report and How to test visually. Do not merge.
 
-Proof: contract for the pod, the view grant, takeover, continue-as-new, resume and the approval signal. Live only from scripts/certify_live.sh when AR_LLM_API_KEY is set: a fresh tenant, the agent fills a form, the person takes over and hands back. Without a key, leave the live step pending. Do not label a dry run live.
+Proof: contract for the pod, the view grant, takeover, continue-as-new, resume and the approval signal. Live only from scripts/certify_live.sh when AR_LLM_API_KEY is set: a fresh tenant, the agent fills a form in Chromium, the person watches, takes over, and hands back. No desktop app. Without a key, leave the live step pending. Do not label a dry run live.
 ```
 
 ### Stage 16 — Budgets, routing, and enterprise trust
@@ -126,11 +128,11 @@ You are implementing Stage 16 of Agentic Runtime: tenant budgets, model routing,
 
 Read first: AGENTS.md, docs/00-overview/principles.md, docs/09-plan/next-milestones/06-admin-cost.md, docs/09-plan/next-milestones/09-enterprise-trust.md, story S17-09 in docs/09-plan/next-milestones/05-quality-loop.md, docs/03-specs/17-audit-usage-metering.md, docs/03-specs/02-identity-tenancy.md, docs/06-security/audit.md, docs/02-architecture/adr/ADR-0031-oidc-production-identity.md, OQ-16 and OQ-122 in docs/open-questions.md.
 
-Strict rules: the same fifteen rules as AGENTS.md. In particular: reuse UsageBook, routes_for, the audit chain, analyzer.redact, and auth/oidc.py. Delete the Keycloak broker call on identity provider create in the same change. Do not add LiteLLM, a second redactor, or a response cache in Valkey. Do not hard-code model prices.
+Strict rules: the same fifteen rules as AGENTS.md. We are pre-production: prefer the long-term shape, and do not keep a compatibility shim. Reuse UsageBook, routes_for, the audit chain, analyzer.redact, auth/oidc.py, and the identity_providers row (kind oidc or saml). Delete the Keycloak broker call on identity provider create in the same change. Do not add a second identity store, LiteLLM, a second redactor, or a response cache in Valkey. Do not hard-code model prices.
 
-Invariants: the model call stays on the existing route path. Secrets stay in SecretStore. SCIM deprovision uses the existing user suspend. Public JSON is camelCase and additive.
+Invariants: the model call stays on the existing route path. Secrets stay in SecretStore. SCIM deprovision uses the existing user suspend. Public JSON stays camelCase. Drop keycloak_alias from the IdP create response and record that break in spec 02.
 
-Do: stories S16-01 through S16-11, and S17-09 (GenAI span attributes on the model call). Per-tenant OIDC reuses the identity_providers row. SAML is in this stage unless the PR description records that Bala deferred it. Residency refuses a tag that differs from AR_DEPLOYMENT_REGION. Masking stays the one analyzer. The audit export includes the existing chain verify result.
+Do: stories S16-01 through S16-11, and S17-09 (GenAI span attributes on the model call). Per-tenant OIDC and optional per-tenant SAML both use identity_providers.kind. A tenant with no row keeps the deployment issuer. Residency is AR_DEPLOYMENT_REGION. Refuse a tenant or a payload whose dataResidency differs. Do not route to another region. Masking stays the one analyzer. The audit export includes the existing chain verify result. Rewrite spec 02 section 3.2 so it describes this federation.
 
 File fence: you may edit usage, loop/routing.py, quotas and usage UI, identity, auth/oidc.py, routers/domains.py, routers/scim.py, audit export, and masking settings. Do not edit chat/service.py, turn.py, sandboxes, packs, or apps/web/public/sw.js.
 
@@ -146,9 +148,9 @@ You are implementing Stage 17 of Agentic Runtime: memory, learned skills, and th
 
 Read first: AGENTS.md, docs/09-plan/next-milestones/03-memory-personalisation.md, docs/09-plan/next-milestones/05-quality-loop.md, docs/03-specs/11-memory.md, docs/03-specs/14-skills.md, docs/03-specs/18-observability-eval.md.
 
-Strict rules: the fifteen rules in AGENTS.md. Reuse MemoryBook, MemoryQdrant, SkillBook, skills.load, EvalBook.case_from_conversation, and note_feedback. Delete maybe_compose in libs/ar_domain/src/ar_domain/skills/turn.py in this change. Do not add Mem0, Letta, or a second recall merge. Postgres remains the source of a fact. Qdrant is the index.
+Strict rules: the fifteen rules in AGENTS.md. We are pre-production: prefer the long-term shape, and do not keep a compatibility shim. Reuse MemoryBook, MemoryQdrant, SkillBook, skills.load, EvalBook.case_from_conversation, and note_feedback. Delete maybe_compose in libs/ar_domain/src/ar_domain/skills/turn.py in this change. Do not add Mem0, Letta, or a second recall merge. Postgres remains the source of a fact. Qdrant is the index.
 
-Do: S17-01 through S17-08 and S17-10. Automatic eval cases are drafts until promoted. Failed-run cases are off unless the tenant opts in. Fact caps and the skill-match threshold become tenant settings with the current numbers as defaults. A repeated tool sequence becomes a draft skill the user publishes.
+Do: S17-01 through S17-08 and S17-10. Thumbs-down and failed-run eval cases are drafts until a person promotes them. Failed-run capture is the tenant flag evals.caseFromFailedRun (default false). Thumbs-down capture is evals.caseFromFeedback (default true). Fact caps and the skill-match threshold become tenant settings with the current numbers as defaults. A repeated tool sequence becomes a draft skill the user publishes.
 
 File fence: memory, skills, evals, the evals UI, the agent quality UI. Extend note_feedback. Do not edit chat/service.py, turn.py, sandboxes, or loop/routing.py.
 
@@ -164,9 +166,9 @@ You are implementing Stage 18 of Agentic Runtime: agent handoff, A2A, a shared p
 
 Read first: AGENTS.md, docs/09-plan/next-milestones/04-multi-agent.md, docs/agent-api/a2a.md, the A2A 1.0 spec at https://a2a-protocol.org/latest/specification/.
 
-Strict rules: the fifteen rules in AGENTS.md. Reuse orchestration tools, delegate, DelegationWorkflow, exposure/a2a.py, and grpc_server.py. External message/send must start AgentRunWorkflow. The API must not call generate. Do not build a second plan store or a second trail table.
+Strict rules: the fifteen rules in AGENTS.md. We are pre-production: move A2A to protocol 1.0 and delete the 0.3 surface in the same change. Do not keep a 0.3 method alias. Reuse orchestration tools, delegate, DelegationWorkflow, exposure/a2a.py, and grpc_server.py. External SendMessage must start AgentRunWorkflow. The API must not call generate. Do not build a second plan store or a second trail table.
 
-Do: S18-01 through S18-06. Keep protocol_version 0.3.0 and add fields, unless Bala has answered otherwise in the questions list. gRPC is mounted on the API with the agent API key and TLS. The insecure loopback serve() stays a test helper. Plan items gain optional owners. GET /api/v1/runs/{id}/trail reads existing rows.
+Do: S18-01 through S18-06. Follow the migration table in 04-multi-agent.md. Card protocolVersion is 1.0 inside supportedInterfaces. JSON-RPC methods are SendMessage, SendStreamingMessage, GetTask, ListTasks, CancelTask, SubscribeToTask, and the Create/Get/List/Delete push-config methods. Task states are TASK_STATE_*. Replace contracts/a2a/a2a.proto with the published 1.0 proto and regenerate stubs. Missing or non-1.0 A2A-Version returns -32009. Update test_stage11.py, test_stage12_grpc.py, and docs/agent-api/a2a.md. gRPC is mounted on the API with the agent API key and TLS. The insecure loopback serve() stays a test helper. Plan items gain optional owners. GET /api/v1/runs/{id}/trail reads existing rows.
 
 File fence: exposure/a2a.py, grpc_server.py, the proto and generated stubs via make gen, orchestration, skills/delegate.py, workflows/delegation.py, trail UI. Do not fork TurnWorkflow.
 
@@ -182,7 +184,7 @@ You are implementing Stage 19 of Agentic Runtime: a browsable catalog of signed 
 
 Read first: AGENTS.md, docs/00-overview/principles.md, docs/09-plan/next-milestones/07-marketplace.md, docs/05-contracts/extension-framework.md, docs/09-plan/agnostic-production-plan.md pack section.
 
-Strict rules: the fifteen rules in AGENTS.md. No industry in core. Reuse the pack loader, content-packs install, the connector install API, and service-connection OAuth. Do not add a public internet store. Do not add a new connector by editing the CONNECTORS tuple. A new connector arrives as a signed pack.
+Strict rules: the fifteen rules in AGENTS.md. We are pre-production: prefer the long-term shape, and do not keep a compatibility shim. No industry in core. Reuse the pack loader, content-packs install, the connector install API, and service-connection OAuth. Do not add a public internet store. Do not add a new connector by editing the CONNECTORS tuple. A new connector arrives as a signed pack.
 
 Do: S19-01 through S19-04. GET /api/v1/catalog unions packs and connectors. The screen has empty, loading and error states, light and dark, 375 and 1280, and an axe-clean pass. Install uses the existing endpoints. OAuth uses the existing authorize route. An untrusted signature is refused and audited.
 
@@ -200,7 +202,7 @@ You are implementing Stage 20 of Agentic Runtime: speech to text, spoken answers
 
 Read first: AGENTS.md, docs/09-plan/next-milestones/08-voice-mobile.md, docs/09-plan/M41-documents-media.md section M41-T07, the existing web push path in libs/ar_domain/src/ar_domain/notifications/dispatch.py and apps/web/public/sw.js.
 
-Strict rules: the fifteen rules in AGENTS.md. Follow the vision alias pattern: the tool is hidden until the tenant sets the alias. No browser speech API. No hard-coded vendor host. Audio is a file under the existing file ACL.
+Strict rules: the fifteen rules in AGENTS.md. We are pre-production: prefer the long-term shape, and do not keep a compatibility shim. Follow the vision alias pattern: the tool is hidden until the tenant sets the alias. No browser speech API. No hard-coded vendor host. Audio is a file under the existing file ACL.
 
 Do: S20-01 through S20-04. Add capabilities transcription and speech. Tools audio.transcribe and audio.speak. An additive audio content part. The client subscribes to web push with the existing endpoint. Notification click opens the conversation. A manifest makes the app installable. The service worker caches the shell and does not cache /api/.
 

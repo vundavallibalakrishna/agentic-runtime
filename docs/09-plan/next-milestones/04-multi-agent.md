@@ -2,7 +2,7 @@
 
 Status: **partial**. In-tenant handoff, parallel calls, child runs and an external A2A HTTP API are in the product. A gRPC servicer exists and is not mounted by the API. The plan is one conversation's list. There is no single who-did-what document across agents.
 
-The card we publish says protocol `0.3.0`. The published spec is now `1.0.0`. This stage stays compatible with `0.3.0` and adds fields. It does not swap the protocol in secret.
+**Decided.** Stage 18 speaks A2A protocol `1.0` only. The card we publish today says `0.3.0` (`libs/ar_domain/src/ar_domain/exposure/a2a.py:59`). We are pre-production, so the 0.3 method names and the private proto are replaced, not wrapped. The migration is below.
 
 ## What already exists
 
@@ -53,7 +53,24 @@ The conversation plan stores the stream's `PlanItem`, plus optional `ownerAgentI
 
 The trail endpoint reads children, `subagent.*`, plan items and audit rows for those run ids. It does not copy them into a new table.
 
-A2A `1.0` fields (`supportedInterfaces`, task states `input-required` and `auth-required`) are added beside the `0.3.0` card. Clients that read `url`, `version` and `protocol_version` keep working. `protocol_version` stays `0.3.0` until Bala accepts a bump (question below).
+## Migration to A2A 1.0
+
+Normative source, read 11 Nov 2026: [A2A specification](https://a2a-protocol.org/latest/specification/) (released version 1.0.0). The protocol id on the wire is `1.0` (`Major.Minor`). Patch numbers are not negotiated (§3.6).
+
+Stage 18 serves that version only. A request with a missing `A2A-Version`, or any value other than `1.0`, returns `VersionNotSupportedError` (JSON-RPC `-32009`). The spec says an empty version means 0.3 (§3.6.2). We do not implement that reading. A 0.3 parser next to the 1.0 parser would be a second protocol.
+
+| Today | 1.0 in this stage |
+|---|---|
+| Card `protocol_version: "0.3.0"` and a top-level `url` (`a2a.py:54-62`) | `supportedInterfaces` with `protocolBinding` `JSONRPC` and `GRPC`. Each entry has `protocolVersion: "1.0"` and its own `url` (§4.4.1, §4.4.6). The top-level transport URL is removed. |
+| Snake-case card fields: `default_input_modes`, `default_output_modes`, `security_schemes`, `security`, `capabilities.push_notifications` (`a2a.py:60-78`) | camelCase: `defaultInputModes`, `defaultOutputModes`, `securitySchemes`, `securityRequirements`, `capabilities.pushNotifications` (§5.5). |
+| JSON-RPC names in `_IMPLEMENTED` (`a2a.py:30-43`): `message/send`, `tasks/send`, `message/stream`, `tasks/sendSubscribe`, `tasks/get`, `tasks/cancel`, `tasks/list`, `tasks/resubscribe`, `tasks/pushNotificationConfig/set\|get\|list\|delete` | `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`, `SubscribeToTask`, `CreateTaskPushNotificationConfig`, `GetTaskPushNotificationConfig`, `ListTaskPushNotificationConfigs`, `DeleteTaskPushNotificationConfig` (§5.3). |
+| States such as `input-required` (`docs/agent-api/a2a.md`) | ProtoJSON names: `TASK_STATE_SUBMITTED`, `TASK_STATE_WORKING`, `TASK_STATE_COMPLETED`, `TASK_STATE_FAILED`, `TASK_STATE_CANCELED`, `TASK_STATE_INPUT_REQUIRED`, `TASK_STATE_REJECTED`, `TASK_STATE_AUTH_REQUIRED` (§4.1.3, §5.5). `waiting_approval` and `waiting_input` map to `TASK_STATE_INPUT_REQUIRED`. Takeover and `needs_human` map to `TASK_STATE_AUTH_REQUIRED`. |
+| Private proto `contracts/a2a/a2a.proto`: `tenant_id`, `text`, `state`, and both `TaskSubscription` and `ResubscribeToTask` | The published 1.0 proto. `make gen` regenerates the stubs. The private messages are deleted in the same change. gRPC and JSON-RPC call one task implementation (§5.1). |
+| A hard-coded skill `research` on every card (`a2a.py:70-75`) | Skills come from the agent definition. When the definition lists none, the card has one skill whose id is the agent slug. |
+
+`HTTP+JSON` (`POST /message:send` and the rest of the REST column in §5.3) is not a third stack in this stage. The card lists the two bindings we implement.
+
+Contract tests updated in the same pull request: `libs/ar_domain/tests/unit/test_stage11.py`, `libs/ar_domain/tests/unit/test_stage12_grpc.py`, and every assertion of `protocol_version` `0.3.0` or of a 0.3 method name. `docs/agent-api/a2a.md` is rewritten to this table. `a2a_call` sends `A2A-Version: 1.0` and the 1.0 method names.
 
 ## Gaps
 
@@ -61,11 +78,11 @@ A2A `1.0` fields (`supportedInterfaces`, task states `input-required` and `auth-
 2. gRPC is unmounted and insecure (`grpc_server.py:153-160`).
 3. The plan has no owner (`handlers.py:337-345`).
 4. Who-did-what is spread across three APIs and not returned together.
-5. Card and proto lag the 1.0 spec.
+5. The card, the JSON-RPC names, and the private proto are the 0.3 surface. The 1.0 spec has moved the transport URL into `supportedInterfaces` and renamed the methods (§5.3).
 
 ## Research
 
-- A2A separates discovery (the agent card), a stateful task, messages, artifacts, streaming and push. Agents do not share memory or tools. [Specification 1.0.0](https://a2a-protocol.org/latest/specification/), [task lifecycle](https://a2a-protocol.org/latest/topics/life-of-a-task/), [concepts](https://a2a-protocol.org/latest/topics/key-concepts/). Our `0.3.0` card is an older published version of that spec. [Repository](https://github.com/google/A2A).
+- A2A 1.0 separates discovery (the agent card), a stateful task, messages, artifacts, streaming and push. Agents do not share memory or tools. Protocol version on the wire is `1.0`. [Specification](https://a2a-protocol.org/latest/specification/), [task lifecycle](https://a2a-protocol.org/latest/topics/life-of-a-task/), [concepts](https://a2a-protocol.org/latest/topics/key-concepts/). [Repository](https://github.com/google/A2A).
 - Push config on the task is how a caller hears about a long task after disconnect. We already accept push config methods (`a2a.py:30-43`). They should notify through area 02's `notify_user` and the existing webhook signature, not a new sender.
 - Opaque agents are the point of A2A. A shared plan inside one tenant is our extension, carried as an artifact or a message part, not as access to the other agent's memory.
 
@@ -75,10 +92,10 @@ A2A `1.0` fields (`supportedInterfaces`, task states `input-required` and `auth-
 |---|---|
 | Plan item | Additive `ownerAgentId`, `ownerRunId` on `plan.updated` items. Old items without them remain valid. |
 | API | `GET /api/v1/runs/{id}/trail` returns `{plan, children, events}` assembled from current stores. Permission `runs:read`. Cross-tenant 404. |
-| A2A card | Additive `supportedInterfaces` and `capabilities`. `protocol_version` unchanged until the question below is decided. |
-| A2A task | Map `waiting_approval` and `waiting_input` to `input-required`. Map `needs_human` / takeover to `auth-required`. |
-| gRPC | Same methods as today, served by the API. Proto gains fields by addition. Regenerated with `make gen`. |
-| External run | `schedule` follows the chat path. Response stays the current task object. |
+| A2A card | Replaced by the 1.0 card in the migration table. camelCase. `supportedInterfaces[].protocolVersion` is `1.0`. |
+| A2A task | States use the `TASK_STATE_*` names in the migration table. |
+| gRPC | Official 1.0 methods, served by the API, same tasks as JSON-RPC. Stubs from `make gen`. |
+| External run | `SendMessage` starts `AgentRunWorkflow`. The response is a 1.0 Task. |
 
 `agents_handoff` keeps its name and its "you stop" behaviour.
 
@@ -107,12 +124,12 @@ No hard-coded remote agent URL.
 
 ### S18-01 External tasks use the worker
 
-**Acceptance:** `message/send` creates the run and starts `AgentRunWorkflow`. The API process returns the task and does not call `generate`. Streaming and `tasks/resubscribe` follow the run events. Push config sends the existing signed webhook on terminal states and on `input-required`.
+**Acceptance:** `SendMessage` with header `A2A-Version: 1.0` creates the run and starts `AgentRunWorkflow`. The API process returns the task and does not call `generate`. `SendStreamingMessage` and `SubscribeToTask` follow the run events. Push config sends the existing signed webhook on terminal states and on `TASK_STATE_INPUT_REQUIRED`. A call that uses `message/send` or omits `A2A-Version` returns `-32009`.
 **Proof:** contract.
 
 ### S18-02 gRPC on the API
 
-**Acceptance:** The API serves `A2AService` with the agent API key over TLS. `SendMessage`, `GetTask`, `ListTasks`, `CancelTask` and `ResubscribeToTask` call `a2a.rpc`. A key from another tenant is not found. `serve()` on loopback remains for unit tests and is not the process the chart runs.
+**Acceptance:** The API serves the 1.0 `A2AService` with the agent API key over TLS. `SendMessage`, `GetTask`, `ListTasks`, `CancelTask` and `SubscribeToTask` call the same task code as JSON-RPC. A key from another tenant is not found. The private proto messages are gone. `serve()` on loopback remains for unit tests and is not the process the chart runs. `test_stage11.py` and `test_stage12_grpc.py` assert the 1.0 method names and a `TASK_STATE_*` state.
 **Proof:** contract.
 
 ### S18-03 A plan with owners
@@ -125,9 +142,11 @@ No hard-coded remote agent URL.
 **Acceptance:** `GET /api/v1/runs/{id}/trail` returns the plan, child runs and the subagent events in order. A handoff shows the agent that stopped and the agent that continued. Cross-tenant is 404. The UI run inspector renders that list, with empty, loading and error states.
 **Proof:** contract, plus the stage's visual pass.
 
-### S18-05 Card compatibility
+### S18-05 A2A 1.0 card and contract tests
 
-**Acceptance:** The card still contains `protocol_version: "0.3.0"`, `url` and `version`. It also contains `supportedInterfaces`. Task states include `input-required` and `auth-required` when the run is waiting. A `0.3.0` client that ignores unknown fields still completes `message/send`.
+**Decided:** the protocol id is `1.0`. Breaking changes are listed in the migration table. There is no 0.3 shim.
+
+**Acceptance:** The card has `supportedInterfaces` for `JSONRPC` and `GRPC`, each with `protocolVersion: "1.0"`, camelCase fields, and no top-level transport `url`. It has no `protocol_version: "0.3.0"` and no hard-coded `research` skill. `docs/agent-api/a2a.md` matches the card and the method table. A test loads the card and calls `SendMessage`, `GetTask` and `SubscribeToTask`.
 **Proof:** contract.
 
 ### S18-06 Live handoff
@@ -137,6 +156,5 @@ No hard-coded remote agent URL.
 
 ## Risks and questions for Bala
 
-1. **Protocol version.** Staying on `0.3.0` keeps current clients. Advertising `1.0.0` matches the spec and may break a client that switches on the version string. Question: keep `0.3.0` and add fields, or set `protocol_version` to `1.0.0` in this stage?
-2. **Shared plan across tenants.** A2A says agents do not share internal state. This plan shares a plan only inside one tenant. A remote agent receives a task message, not our plan table. Question: confirm that is the boundary you want.
-3. **Handoff and the computer.** A handoff should keep the conversation's sandbox (area 01), not start a second pod. Question: confirm the child reuses the parent sandbox when both agents are allowed that template.
+1. **Shared plan across tenants.** A2A says agents do not share internal state. This plan shares a plan only inside one tenant. A remote agent receives a task message, not our plan table. Question: confirm that is the boundary you want.
+2. **Handoff and the computer.** A handoff should keep the conversation's sandbox (area 01), not start a second pod. Question: confirm the child reuses the parent sandbox when both agents are allowed that template.

@@ -26,7 +26,7 @@ Status: **partial**. Thumbs up and down are stored. A builder can turn a convers
 
 ## Target architecture
 
-Feedback and failed runs create **draft** cases on the suite the agent's publish gate already uses. A person promotes a draft before it can fail a publish. The gym and the product runner are the same graders. A model or prompt change runs the gated suite, which already happens on publish and on alias update. A prompt change uses that same function.
+**Decided.** A thumbs-down and a failed run both create a **draft** case on the suite the agent's publish gate already uses. A person promotes a draft before it can fail a publish. Failed-run capture is the tenant flag `evals.caseFromFailedRun` (default false). Thumbs-down capture is `evals.caseFromFeedback` (default true). The gym and the product runner are the same graders. A model or prompt change runs the gated suite, which already happens on publish and on alias update. A prompt change uses that same function.
 
 ```mermaid
 flowchart LR
@@ -78,7 +78,7 @@ The gym stays the offline accuracy run. Product suites stay the tenant's cases. 
 | Setting | Where | Default |
 |---|---|---|
 | Auto case from thumbs-down | Tenant `evals.caseFromFeedback` | true, status draft |
-| Auto case from failed run | Tenant `evals.caseFromFailedRun` | false, until a tenant opts in. A failed run is often an outage, not a bad answer |
+| Auto case from failed run | Tenant `evals.caseFromFailedRun` | false. When true, the case is still a draft |
 | Window for the score | Tenant `evals.scoreWindowDays` | 7 |
 | Which suite is gated | Existing gate config on the agent | unchanged |
 | Judge model | Tenant model alias `judge` | unset means lexical graders only, labelled `not_judged` where the strategy says so |
@@ -95,12 +95,14 @@ The gym stays the offline accuracy run. Product suites stay the tenant's cases. 
 
 ### S17-05 Draft cases from feedback
 
-**Acceptance:** A thumbs-down creates one draft case on the agent's gated suite when the tenant setting is on, using `case_from_conversation`. A second thumbs-down on the same message does not create a duplicate. Promote makes it part of the next gate. With the setting off, feedback is stored and no case is created.
+**Acceptance:** A thumbs-down creates one draft case on the agent's gated suite when `evals.caseFromFeedback` is on, using `case_from_conversation`. The case status is `draft`. It does not change the publish gate until `POST /api/v1/eval-cases/{id}:promote`. A second thumbs-down on the same message does not create a duplicate. With the setting off, feedback is stored and no case is created.
 **Proof:** contract.
 
-### S17-06 Opt-in cases from failed runs
+### S17-06 Failed runs are drafts behind a tenant flag
 
-**Acceptance:** When `evals.caseFromFailedRun` is true, a run that ends `failed` after a model error creates a draft case. Quota, cancel and `not_resumed` do not. The default is off.
+**Decided:** failed-run capture is per tenant, and every case it creates is a draft.
+
+**Acceptance:** `evals.caseFromFailedRun` defaults to false. When it is true, a run that ends `failed` after a model error creates one draft case. Quota, cancel and `not_resumed` do not. The draft is excluded from the publish gate until a person promotes it. When the flag is false, a failed run creates no case.
 **Proof:** contract.
 
 ### S17-07 Rerun on prompt change
@@ -127,6 +129,4 @@ Scheduled in Stage 16. `loop/routing.py` has one writer, and that stage owns it.
 
 ## Risks and questions for Bala
 
-1. **Drafts versus automatic gates.** This plan never lets an automatic case fail a publish until a person promotes it. Question: is that the bar you want, or should a thumbs-down from an admin count immediately?
-2. **Failed runs default off.** Outages would flood the suite. Question: confirm the default stays off.
-3. **One score.** Pass rate, thumbs-down and failures are shown separately. A single blended number hides the cause. Question: confirm the screen shows the three numbers and not one blended grade.
+1. **One score.** Pass rate, thumbs-down and failures are shown separately. A single blended number hides the cause. Question: confirm the screen shows the three numbers and not one blended grade.
