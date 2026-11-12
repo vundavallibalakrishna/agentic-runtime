@@ -157,7 +157,7 @@ Ordered by how much they block production.
 10. **The tool detail API shows parameter names in camelCase.** The tools require snake_case names such as `file_id`. The Tools screen shows names that do not work.
 11. **Built-in tool text is not updated for stored tenants.** Approved tool versions cannot change, so a release that changes a built-in tool's description or schema reaches a stored tenant only in memory.
 12. **A refused boot is logged as "temporal_unavailable"** with no message, and retried for ever.
-13. **The data connection body defaults its address to `memory://warehouse`.**
+13. **The data connection body defaults its address to `memory://warehouse`.** *(Fixed 2026-11-12: `DataConnections.create` no longer defaults the dsn — a connection without one is refused with "a dsn is required: the address of the warehouse" instead of silently becoming the fake in-memory warehouse. An explicit `memory://` dsn is still accepted for the dev and test fixture.)*
 14. **A knowledge document created through the collection reads back as "pending"** in listings even after it is indexed, where the code path was not one of the nine fixed.
 15. **Every request loads every message of the tenant.** `hydrate_tenant` reads all messages, runs and events per request. This will not hold at production size.
 16. **In dev mode a turn longer than about a minute shows as stuck.** The API's watcher stops polling and the message stays "streaming". Dev only, but it is the mode the team uses.
