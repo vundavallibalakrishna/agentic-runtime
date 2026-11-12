@@ -276,3 +276,27 @@ def test_a_search_provider_keeps_its_key_out_of_results(monkeypatch) -> None:  #
     with pytest.raises(httpx.HTTPError):
         provider.search("kites", limit=1)
     assert provider.search("kites", limit=1) == []
+
+
+def test_a_rate_window_is_the_minute_of_the_time_given() -> None:
+    """Two hits in one minute share a count; the next minute starts again."""
+    from ar_domain.process_state import take_window
+
+    class Counter:
+        def __init__(self) -> None:
+            self.counts: dict[str, int] = {}
+
+        def incr(self, key: str) -> int:
+            self.counts[key] = self.counts.get(key, 0) + 1
+            return self.counts[key]
+
+        def expire(self, key: str, seconds: int) -> None:
+            del key, seconds
+
+    class Store:
+        valkey_client = Counter()
+
+    store = Store()
+    assert take_window(store, "k", 3, now=120.0) == (True, 2)
+    assert take_window(store, "k", 3, now=179.9) == (True, 1)
+    assert take_window(store, "k", 3, now=180.0) == (True, 2)

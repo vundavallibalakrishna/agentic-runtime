@@ -125,8 +125,12 @@ def remember_builder_session(store: object, session_id: object) -> None:
         persist(session_id)
 
 
-def take_window(store: object, key: str, limit: int) -> tuple[bool, int] | None:
+def take_window(
+    store: object, key: str, limit: int, *, now: float | None = None
+) -> tuple[bool, int] | None:
     """Consume one hit from the shared window.
+
+    The window is the wall-clock minute of ``now``, which is the current time unless given.
 
     ``None`` means this process is dev or CI and the caller keeps its own bucket.
     A Valkey error denies the hit. It does not fall back to process memory.
@@ -140,7 +144,7 @@ def take_window(store: object, key: str, limit: int) -> tuple[bool, int] | None:
         return None
     import time as time_mod  # noqa: PLC0415
 
-    minute = int(time_mod.time() // 60)
+    minute = int((time_mod.time() if now is None else now) // 60)
     redis_key = f"ar:rate:{key}:{minute}"
     try:
         count = int(client.incr(redis_key))
