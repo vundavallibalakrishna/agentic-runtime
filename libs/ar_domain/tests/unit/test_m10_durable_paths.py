@@ -469,6 +469,46 @@ async def test_hydrate_and_reload_merge_rows(monkeypatch: pytest.MonkeyPatch) ->
     await reload_run(SimpleNamespace(), _RUN)
 
 
+@pytest.mark.asyncio
+async def test_hydrate_does_not_eager_load_usage(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15: usage is no longer loaded for every request.
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    calls: list[uuid.UUID] = []
+
+    async def _recorder(_session: object, _store: object, tenant_id: uuid.UUID) -> None:
+        calls.append(tenant_id)
+
+    monkeypatch.setattr(hydrate_mod, "_usage_events", _recorder)
+    service = demo_store()
+    install_tracking(service)
+    service.durable_engine = engine  # type: ignore[assignment]
+    await hydrate_tenant(service, engine, _TENANT)  # type: ignore[arg-type]
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_load_usage_events_loads_on_demand(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.durable.hydrate import load_usage_events
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    calls: list[uuid.UUID] = []
+
+    async def _recorder(_session: object, store: object, tenant_id: uuid.UUID) -> None:
+        calls.append(tenant_id)
+        store.usage[("t", "k")] = object()  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(hydrate_mod, "_usage_events", _recorder)
+    service = demo_store()
+    service.durable_engine = None  # type: ignore[assignment]
+    await load_usage_events(service, _TENANT)
+    assert calls == []  # no database -> no load
+    service.durable_engine = engine  # type: ignore[assignment]
+    await load_usage_events(service, _TENANT)
+    assert calls == [_TENANT] and service.usage
+
+
 def test_should_bind_and_the_binding_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_DURABLE_STATE", "memory")
     assert should_bind() is False
