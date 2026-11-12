@@ -194,7 +194,11 @@
     "research": "Research",
     "researchOn": "Research mode is on. The reply will cite sources.",
     "researchPhase": "Research",
-    "sources": "Sources",
+    "researchRunning": "Searching",
+    "researchDone": "Finished",
+    "researchQuestions": "Questions searched",
+    "sourcesFound": "{count, plural, =0 {No sources yet} one {1 source} other {# sources}}",
+    "workingOnIt": "Working on it…",
     "toolFailure": "A tool call failed and was not recovered."
   },
   "memory": {

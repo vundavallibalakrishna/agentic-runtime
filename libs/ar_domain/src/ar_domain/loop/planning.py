@@ -64,3 +64,31 @@ def replan_instruction(reason: str) -> str:
         f"{detail}. Reply with only a revised JSON plan "
         '{"steps":[{"id":"1","title":"..."}]}.'
     )
+
+
+def end_tool_plan(store: object, run: dict[str, object], status: str) -> None:
+    """Settle the plan the runtime wrote for a turn's tool calls when the run ends.
+
+    The runtime lists each tool call as a step in progress. Nothing else moves those
+    steps, so they are marked ``done`` when the run completes and ``cancelled`` when it
+    fails. A plan the model wrote is its own to update and is left as it is.
+    """
+    conversations = getattr(store, "conversations", None)
+    conversation = (
+        conversations.get(run.get("conversation_id")) if isinstance(conversations, dict) else None
+    )
+    plan = conversation.get("plan") if isinstance(conversation, dict) else None
+    if not isinstance(plan, list):
+        return
+    settled = [
+        {**item, "status": status}
+        if isinstance(item, dict) and item.get("auto") and item.get("status") == "in_progress"
+        else item
+        for item in plan
+    ]
+    if settled == plan:
+        return
+    conversation["plan"] = settled  # type: ignore[index]
+    emit = getattr(store, "_emit", None)
+    if callable(emit):
+        emit(run, "plan.updated", {"items": settled})

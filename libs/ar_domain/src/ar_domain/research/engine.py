@@ -158,8 +158,21 @@ def synthesise(question: str, sources: list[dict[str, object]]) -> str:
     lines.append("")
     lines.append("Sources")
     for index, source in enumerate(sources, start=1):
-        lines.append(f"[{index}] {source.get('title')} {source.get('url')}")
+        lines.append(f"[{index}] {_named(source)}")
     return "\n".join(lines)
+
+
+def _named(source: dict[str, object]) -> str:
+    """How a report names a source: a web page by title and address, a document by title.
+
+    A library address is for the product, not a reader. The citation under the report
+    opens the document.
+    """
+    title = str(source.get("title") or "").strip()
+    address = str(source.get("url") or "")
+    if address.startswith(("http://", "https://")):
+        return f"{title} {address}".strip()
+    return title or "Document"
 
 
 def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: PLR0911
@@ -241,10 +254,17 @@ def _collect(state: dict[str, object], run: dict[str, object]) -> str:
             rows = result.get("sources")
             if isinstance(rows, list):
                 sources.extend(row for row in rows if isinstance(row, dict))
-    # Two queries often find the same passage. A source is listed once.
+    # Two queries often find the same passage, and two documents can hold the same text.
+    # A source is listed once per address and once per text.
     listed: dict[str, dict[str, object]] = {}
+    texts: set[str] = set()
     for row in sources:
-        listed.setdefault(str(row.get("url")), row)
+        address = str(row.get("url"))
+        text = str(row.get("sha256") or row.get("text") or "")
+        if address in listed or (text and text in texts):
+            continue
+        listed[address] = row
+        texts.add(text)
     sources = list(listed.values())
     state["sources"] = sources
     state["phase"] = "synthesize"

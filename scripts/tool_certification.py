@@ -709,6 +709,7 @@ class Stack:
 
     def __init__(self, api: str, email: str, password: str) -> None:
         self.client = httpx.Client(base_url=api, timeout=300)
+        self.made: list[tuple[str, str]] = []
         login = self.client.post("/api/v1/auth/login", json={"email": email, "password": password})
         login.raise_for_status()
         # Staging and production mark the cookies Secure. Over a local http address the
@@ -734,6 +735,23 @@ class Stack:
             return response.status_code, response.json()
         except ValueError:
             return response.status_code, {"raw": response.text[:300]}
+
+    def remember(self, kind: str, row_id: str) -> None:
+        """Note an agent or a policy this run created, so it is put away at the end."""
+        self.made.append((kind, row_id))
+
+    def put_away(self) -> None:
+        """Archive the agents and disable the policies this run created.
+
+        They exist only for the run. Left in place they fill the agent picker and the
+        policy list of whoever uses the tenant next. Both steps can be undone.
+        """
+        for kind, row_id in self.made:
+            if kind == "agent":
+                self.post(f"/api/v1/agents/{row_id}:archive")
+            elif kind == "policy":
+                self.post(f"/api/v1/policies/{row_id}:disable")
+        self.made.clear()
 
     def put(self, path: str, **body: object) -> tuple[int, object]:
         response = self.client.put(path, json=body)
@@ -822,6 +840,7 @@ def prepare_browser(stack: Stack, ctx: Ctx) -> None:
     agent = str(made.get("id") or "") if isinstance(made, dict) else ""
     if not agent:
         return
+    stack.remember("agent", agent)
     stack.put(
         f"/api/v1/agents/{agent}/versions/draft",
         definition={
@@ -1218,6 +1237,7 @@ def _approval_agent(stack: Stack, approver_id: str) -> tuple[str, str]:
     agent = str(made.get("id") or "") if isinstance(made, dict) else ""
     if not agent:
         return "", "the approval agent was not created"
+    stack.remember("agent", agent)
     stack.put(
         f"/api/v1/agents/{agent}/versions/draft",
         definition={
@@ -1253,6 +1273,7 @@ def _approval_agent(stack: Stack, approver_id: str) -> tuple[str, str]:
     policy_id = str(policy.get("id") or "") if isinstance(policy, dict) else ""
     if not policy_id:
         return "", f"the approval policy was not created (http {status})"
+    stack.remember("policy", policy_id)
     version = (
         policy.get("version") or policy.get("draftVersion") or 1 if isinstance(policy, dict) else 1
     )
@@ -1516,18 +1537,21 @@ def main() -> int:
     out = Path(options.out)
     out.mkdir(parents=True, exist_ok=True)
     bad = False
-    if options.only != "flows":
-        report = run(stack)
-        (out / "tools.json").write_bytes(orjson.dumps(report, option=orjson.OPT_INDENT_2))
-        print(orjson.dumps({k: report[k] for k in ("counts", "uncovered")}).decode())
-        counts = report["counts"] if isinstance(report["counts"], dict) else {}
-        bad = bool(counts.get("fail", 0) or report["uncovered"])
-    if options.only != "tools":
-        flows = run_flows(stack, max(options.repeat, 1), options.flow)
-        (out / "flows.json").write_bytes(orjson.dumps(flows, option=orjson.OPT_INDENT_2))
-        print(orjson.dumps(flows["counts"]).decode())
-        counts = flows["counts"] if isinstance(flows["counts"], dict) else {}
-        bad = bad or bool(counts.get("fail", 0) or counts.get("flaky", 0))
+    try:
+        if options.only != "flows":
+            report = run(stack)
+            (out / "tools.json").write_bytes(orjson.dumps(report, option=orjson.OPT_INDENT_2))
+            print(orjson.dumps({k: report[k] for k in ("counts", "uncovered")}).decode())
+            counts = report["counts"] if isinstance(report["counts"], dict) else {}
+            bad = bool(counts.get("fail", 0) or report["uncovered"])
+        if options.only != "tools":
+            flows = run_flows(stack, max(options.repeat, 1), options.flow)
+            (out / "flows.json").write_bytes(orjson.dumps(flows, option=orjson.OPT_INDENT_2))
+            print(orjson.dumps(flows["counts"]).decode())
+            counts = flows["counts"] if isinstance(flows["counts"], dict) else {}
+            bad = bad or bool(counts.get("fail", 0) or counts.get("flaky", 0))
+    finally:
+        stack.put_away()
     return 1 if bad else 0
 
 

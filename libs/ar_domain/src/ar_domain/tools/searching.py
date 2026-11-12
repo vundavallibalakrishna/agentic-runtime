@@ -63,6 +63,15 @@ def provider_for(store: Any, tenant_id: object) -> SearchProvider:
     raise SearchUnavailableError
 
 
+def search_configured(store: Any, tenant_id: object) -> bool:
+    """Whether this tenant has a web search provider it can call."""
+    try:
+        provider_for(store, tenant_id)
+    except SearchUnavailableError:
+        return False
+    return True
+
+
 def _configured(store: Any, tenant_id: object) -> tuple[str, str]:
     """Provider name and key. The key is never logged or returned to the model."""
     settings = _tenant_search(store, tenant_id)

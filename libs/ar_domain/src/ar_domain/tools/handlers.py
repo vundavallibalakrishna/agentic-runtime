@@ -430,8 +430,17 @@ def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
     if row.get("tool_server_version_id") != server.get("current_version_id"):
         return False
     from ar_domain.proof import offered_to_model  # noqa: PLC0415
+    from ar_domain.tools.readiness import ready_for  # noqa: PLC0415
 
-    return offered_to_model(str(row.get("qualified_name") or ""))
+    name = str(row.get("qualified_name") or "")
+    return offered_to_model(name) and ready_for(store, _tenant_uuid(tenant), name)
+
+
+def _tenant_uuid(tenant: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(tenant)
+    except ValueError:
+        return None
 
 
 def _granted_names(store: Any, arguments: dict[str, object]) -> set[str] | None:

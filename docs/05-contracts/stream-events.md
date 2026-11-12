@@ -93,7 +93,7 @@ data: {"id":"0192f0c4-...:17","seq":17,"type":"tool_call.completed",...}
 | `sandbox.status` | `{sandboxId, status}` | yes |
 | `sandbox.output` | `{toolCallId, stream: "stdout"\|"stderr", text}` (chunked ≤ 4 KiB) | no |
 | `browser.screenshot` | `{toolCallId, fileId, url, title}` (live view of the agent's browser) | yes |
-| `plan.updated` | `{items: PlanItem[]}` where `PlanItem = {id, title, status: "pending"\|"in_progress"\|"done"\|"cancelled"}` | yes |
+| `plan.updated` | `{items: PlanItem[]}` where `PlanItem = {id, title, status: "pending"\|"in_progress"\|"done"\|"cancelled", auto?}`. `auto: true` marks a step the runtime wrote for a tool call; the runtime marks it `done` when the run completes and `cancelled` when it fails, and sends the event again | yes |
 
 ### Subagents and memory
 

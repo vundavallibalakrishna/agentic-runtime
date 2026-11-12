@@ -316,3 +316,134 @@ def test_a_rejected_approval_ends_the_run_and_says_so() -> None:
     resume.settle_approval(store, {"id": approval_id, "run_id": run["id"], "status": "expired"})
     assert "rejected" in str(run["result_summary"])
     resume.settle_approval(store, {"id": approval_id, "run_id": "not-a-run", "status": "approved"})
+
+
+def test_a_chart_row_written_as_name_to_number_keeps_its_name() -> None:
+    from ar_domain.tools.charts import _rows
+
+    # What a model sent for "North 12, South 19": the key is the label.
+    named = _rows(
+        {"rows": [{"North": 12}, {"South": 19}], "xKey": "region", "yKey": "count", "kind": "bar"}
+    )
+    assert named == [("North", 12.0), ("South", 19.0)]
+    # The usual shapes are unchanged.
+    assert _rows({"rows": [{"region": "East", "count": 7}], "xKey": "region", "yKey": "count"}) == [
+        ("East", 7.0)
+    ]
+    assert _rows({"rows": [{"label": "West", "value": 15}]}) == [("West", 15.0)]
+    assert _rows({"rows": [["A", 1], 5]}) == [("A", 1.0), ("1", 5.0)]
+
+
+def test_the_runtimes_plan_is_settled_when_the_run_ends() -> None:
+    from ar_domain.loop.planning import end_tool_plan
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    row = store.conversations[uuid.UUID(str(conversation["id"]))]
+    posted = store.post_message(tenant, user, row["id"], "chart it", schedule=False)
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    row["plan"] = [
+        {"id": "1", "title": "general.chart", "status": "in_progress", "auto": True},
+        {"id": "2", "title": "Write the summary", "status": "in_progress"},
+    ]
+    end_tool_plan(store, run, "done")
+    # The step the runtime wrote is finished. A step the model wrote is the model's to move.
+    assert [item["status"] for item in row["plan"]] == ["done", "in_progress"]
+    updates = [event for event in store.events[run["id"]] if event["type"] == "plan.updated"]
+    assert updates[-1]["data"]["items"][0]["status"] == "done"
+    # Nothing left to settle: no second event.
+    end_tool_plan(store, run, "done")
+    assert len([e for e in store.events[run["id"]] if e["type"] == "plan.updated"]) == len(updates)
+
+
+def test_a_failed_run_does_not_leave_its_plan_in_progress() -> None:
+    from ar_domain.runs.failure import fail_run
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    row = store.conversations[uuid.UUID(str(conversation["id"]))]
+    posted = store.post_message(tenant, user, row["id"], "delete it", schedule=False)
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    row["plan"] = [
+        {"id": "1", "title": "petstore.delete_pet", "status": "in_progress", "auto": True}
+    ]
+    fail_run(store, run, code="tool_failed", message="A tool call failed.")
+    assert row["plan"][0]["status"] == "cancelled"
+
+
+def test_a_report_lists_a_text_once_and_names_documents_without_addresses() -> None:
+    from ar_domain.research.engine import _collect, synthesise
+
+    same = "Break-glass access is allowed for 4 hours and must be approved by the duty manager."
+    state: dict[str, object] = {
+        "question": "Who approves break-glass access?",
+        "queries": [],
+        "subtasks": {
+            "1": {
+                "status": "done",
+                "sources": [
+                    {"url": "library://a#p1-s0", "title": "Break-glass access", "text": same},
+                    {"url": "library://b#p1-s0", "title": "Break-glass access", "text": same},
+                    {
+                        "url": "https://example.com/policy",
+                        "title": "Policy",
+                        "text": "Logs are kept for 7 years.",
+                    },
+                ],
+            }
+        },
+    }
+    _collect(state, {"checkpoint": {"research": state}})
+    sources = state["sources"]
+    assert isinstance(sources, list)
+    # Two copies of one document are one source.
+    assert [row["url"] for row in sources] == ["library://a#p1-s0", "https://example.com/policy"]
+    report = synthesise("Who approves break-glass access?", sources)
+    assert "library://" not in report
+    assert "[1] Break-glass access" in report
+    assert "[2] Policy https://example.com/policy" in report
+
+
+def test_web_search_is_offered_only_when_the_tenant_has_a_provider() -> None:
+    from ar_domain.agents.access import Actor
+    from ar_domain.agents.service import AgentLifecycle
+    from ar_domain.identity.permissions import PERMISSION_KEYS
+    from ar_domain.tools.pipeline import ToolPipeline
+    from ar_domain.tools.readiness import ready_for
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    actor = Actor(tenant, user, PERMISSION_KEYS, display_name="Dev Admin")
+    life = AgentLifecycle(store)
+    made = life.create(actor, slug="searcher", name="Searcher", template="blank")
+    agent_id = uuid.UUID(str(made["id"]))
+    life.save_draft(
+        actor,
+        agent_id,
+        {"instructions": "work", "tools": [{"server": "general", "include": ["search", "chart"]}]},
+    )
+    version_id = uuid.UUID(
+        str(life.publish(actor, agent_id, change_note="x")["published_version_id"])
+    )
+
+    def offered() -> set[str]:
+        rows = ToolPipeline(store).resolve_catalog(agent_version_id=version_id, user_id=user)[
+            "tools"
+        ]
+        return {str(row["qualified_name"]) for row in rows}
+
+    # No provider: the model is not offered a tool that can only refuse.
+    assert not ready_for(store, tenant, "general.search")
+    assert offered() == {"general.chart"}
+
+    class _Provider:
+        def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
+            del query, limit
+            return []
+
+    store.search_provider = _Provider()
+    assert ready_for(store, tenant, "general.search")
+    assert offered() == {"general.chart", "general.search"}
+    assert ready_for(store, tenant, "general.chart")

@@ -353,14 +353,19 @@ def _rows(arguments: dict[str, object]) -> list[tuple[str, float]]:
     found: list[tuple[str, float]] = []
     for index, item in enumerate(raw):
         if isinstance(item, dict):
-            label = str(item.get(x_key) or item.get("label") or item.get("x") or index)
+            named = item.get(x_key) or item.get("label") or item.get("x")
             value = item.get(y_key) if y_key else None
             if value is None:
-                value = item.get("value") or item.get("y") or _first_number(item)
+                value = item.get("value") or item.get("y")
+            if named is None and value is None and len(item) == 1:
+                # A row written as {"North": 12}: the key is the label, not a column name.
+                ((named, value),) = item.items()
+            if value is None:
+                value = _first_number(item)
             number = _number(value)
             if number is None:
                 continue
-            found.append((label, number))
+            found.append((str(index if named is None else named), number))
         elif isinstance(item, (list, tuple)) and len(item) >= 2:
             number = _number(item[1])
             if number is None:
@@ -504,8 +509,14 @@ def _bars(  # noqa: PLR0917
                 _dot(pixels, width, x, y, colour)
         label = _fmt(value)
         label_x = center - pixfont.text_width(label) // 2
-        label_y = top - 9 if value >= 0 and top - 9 >= area.y0 else bottom + 2
-        pixfont.draw_text(pixels, width, height, label_x, label_y, label, theme.ink)
+        if value >= 0 and top - 9 >= area.y0:
+            pixfont.draw_text(pixels, width, height, label_x, top - 9, label, theme.ink)
+        elif value >= 0:
+            # The tallest bar reaches the top of the plot. Its value goes just inside the
+            # bar, in the paper colour, so it does not land on the category label below.
+            pixfont.draw_text(pixels, width, height, label_x, top + 3, label, theme.paper)
+        else:
+            pixfont.draw_text(pixels, width, height, label_x, bottom + 2, label, theme.ink)
 
 
 def _fill(  # noqa: PLR0917

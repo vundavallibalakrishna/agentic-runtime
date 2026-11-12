@@ -954,7 +954,8 @@ def _plan(store: Any, run: dict[str, object], calls: list[object]) -> None:
         if not isinstance(call, dict):
             continue
         name = str(call.get("name") or "tool").replace("__", ".")
-        items.append({"id": str(index + 1), "title": name, "status": "in_progress"})
+        # ``auto`` marks a step the runtime wrote, so the runtime settles it when the run ends.
+        items.append({"id": str(index + 1), "title": name, "status": "in_progress", "auto": True})
     if not items:
         return
     conversation = store.conversations.get(run.get("conversation_id"))
@@ -1302,6 +1303,9 @@ def _finish(
     if isinstance(conversation, dict):
         conversation["active_run_id"] = None
     assistant_id = assistant.get("id")
+    from ar_domain.loop.planning import end_tool_plan  # noqa: PLC0415
+
+    end_tool_plan(store, run, "done")
     _emit_trace(store, run, assistant_id)
     for part in content:
         cited = part.get("citation") if part.get("type") == "citation_ref" else None
