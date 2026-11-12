@@ -8,7 +8,7 @@ from temporalio.worker import Worker
 from ar_common.host_ports import local_endpoint
 from ar_common.logging import get_logger
 from ar_common.settings import fake_models_allowed, get_settings, loopback_allowed
-from ar_common.temporal_worker import temporal_worker_kwargs
+from ar_common.temporal_worker import temporal_unavailable_fields, temporal_worker_kwargs
 from ar_runtime.activities.advance_chat_step import advance_chat_step
 from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
@@ -109,5 +109,5 @@ async def run_worker() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - keep the health server up
-            _log.warning("temporal_unavailable", error=type(exc).__name__)
+            _log.warning("temporal_unavailable", **temporal_unavailable_fields(_address(), exc))
             await asyncio.sleep(5)
