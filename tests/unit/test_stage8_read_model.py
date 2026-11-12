@@ -41,8 +41,16 @@ def _prod_settings() -> BaseServiceSettings:
     )
 
 
+class _Answers:
+    """A Valkey that answers a ping. Building the store attaches Valkey; no server runs here."""
+
+    def ping(self) -> bool:
+        return True
+
+
 def test_production_boot_refuses_the_memory_double(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
+    monkeypatch.setattr("redis.Redis.from_url", lambda *_a, **_k: _Answers())
     previous = get_settings()
     set_settings(_prod_settings())
     try:

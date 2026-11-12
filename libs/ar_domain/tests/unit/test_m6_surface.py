@@ -22,6 +22,7 @@ from ar_domain.sandboxes.runtime import (
 )
 from ar_domain.sandboxes.service import SandboxBook
 from ar_testing.demo import demo_store
+from ar_testing.objects import MemoryObjectStore
 
 _IMAGE = "registry.local/ar/ar-sandbox@sha256:" + ("ab" * 32)
 
@@ -245,6 +246,8 @@ def test_manager_routes_and_docker_probe() -> None:
     assert claim("default=4,browser=2", "browser", {"browser": 0}) is None
     client = TestClient(create_application())
     store = client.app.state.chat
+    # A suspended computer stores a snapshot. No object store runs in a unit test.
+    store.objects = MemoryObjectStore()
     template = next(row for row in store.sandbox_templates.values() if row["slug"] == "browser")
     body = {
         "tenant_id": str(demo_id("tenant")),
