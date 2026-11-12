@@ -1277,7 +1277,7 @@ def _pending(stack: Stack, conversation: str) -> dict[str, object] | None:
 
 def _has_file(stack: Stack, conversation: str, name: str) -> bool:
     files = stack.get("/api/v1/files", conversationId=conversation)
-    held = files.get("data") if isinstance(files, dict) else []
+    held = files.get("items") if isinstance(files, dict) else []
     return any(isinstance(row, dict) and row.get("name") == name for row in held or [])
 
 

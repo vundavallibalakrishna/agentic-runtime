@@ -2122,7 +2122,7 @@ class ChatBehaviour:
         )
         from ar_domain.tools.agent_loop import _with_trace  # noqa: PLC0415
 
-        assistant["content"] = _with_trace(answer, run)
+        assistant["content"] = _with_trace(self, answer, run)
         assistant["retrieval"] = run.get("retrieval")
         assistant["loaded_skill"] = run.get("loaded_skill")
         assistant["status"] = "completed"

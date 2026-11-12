@@ -225,13 +225,22 @@ class RepositoryReadModel:
         engine = await self.engine_for()
         unit.durable_engine = engine
         unit.durable = True
+        # Steps that make another process act on this request's rows wait here until the
+        # rows are committed (``ar_domain.durable.after``).
+        unit.after_commit = []
         await _load(unit, engine, tenant_id)
         try:
             yield unit
         finally:
+            from ar_domain.durable.after import run_after_commit  # noqa: PLC0415
             from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
             await flush_store(unit)
+            try:
+                run_after_commit(unit)
+            finally:
+                # What those steps changed is committed too, even when one of them raised.
+                await flush_store(unit)
 
     def _new_unit(self) -> Any:
         from ar_domain.chat.service import RequestUnit  # noqa: PLC0415

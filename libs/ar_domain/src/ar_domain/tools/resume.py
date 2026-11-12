@@ -1,4 +1,4 @@
-"""Resume a run after an approval decision. The dev API does this in process."""
+"""Continue a run after an approval decision: run the approved call, then finish the run."""
 
 import uuid
 from typing import TYPE_CHECKING
@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 from ar_common.time import utcnow
 from ar_domain.approvals.pending import held, release
 from ar_domain.conversations.logic import run_is_active
+from ar_domain.durable.after import after_commit
 
 if TYPE_CHECKING:
     from typing import Any
@@ -24,7 +25,9 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
         return
     status = str(approval.get("status"))
     if status == "approved":
-        _resume(store, run, approval)
+        # The approved call runs in the tool gateway, which reads the approval from the
+        # database. It must see the decision, so the call waits for this request's commit.
+        after_commit(store, lambda: _resume(store, run, approval))
         return
     if status in {"rejected", "expired", "cancelled"}:
         _stop(store, run, approval, status)
@@ -65,6 +68,10 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
         },
     )
     text = str(result.get("result_preview") or "")
+    if result.get("status") != "succeeded":
+        error = result.get("error")
+        detail = str(error.get("message") or "") if isinstance(error, dict) else ""
+        text = f"The approved tool call did not run: {detail or text or 'no reason was given'}"
     _finish(store, run, text, result, status="completed")
 
 

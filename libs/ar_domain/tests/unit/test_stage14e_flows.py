@@ -184,3 +184,46 @@ def test_an_anchor_no_attached_document_holds_is_not_a_citation() -> None:
     store, run, _seen = _attached_turn("It is allowed for 4 hours [p9-s9 p.9].")
     parts = _assistant(store, run)["content"]
     assert [part["type"] for part in parts] == ["text"]
+
+
+def test_what_a_run_waits_on_survives_being_stored_and_read_by_another_process() -> None:
+    import orjson
+
+    from ar_domain.approvals.pending import amend, held, hold, release
+
+    approval, version = uuid.uuid4(), uuid.uuid4()
+    run: dict[str, object] = {"id": uuid.uuid4(), "checkpoint": {"worker_loop": {"steps": 2}}}
+    hold(run, {"approval_id": approval, "tool_version_id": version, "arguments": {"path": "a.txt"}})
+    # The checkpoint is stored as JSON. Another process reads it back with no object ids.
+    other = {"checkpoint": orjson.loads(orjson.dumps(run["checkpoint"]))}
+    pending = held(other)
+    assert pending is not None
+    assert pending["approval_id"] == approval
+    assert pending["tool_version_id"] == version
+    assert pending["arguments"] == {"path": "a.txt"}
+    amend(other, args_hash="h2")
+    assert (held(other) or {})["args_hash"] == "h2"
+    release(other)
+    assert held(other) is None
+    # The rest of the checkpoint is untouched.
+    assert other["checkpoint"] == {"worker_loop": {"steps": 2}}
+    assert held({"status": "running"}) is None
+
+
+def test_a_step_for_another_process_waits_for_the_commit() -> None:
+    from types import SimpleNamespace
+
+    from ar_domain.durable.after import after_commit, run_after_commit
+
+    ran: list[str] = []
+    # A store with nothing to commit runs the step at once.
+    after_commit(SimpleNamespace(), lambda: ran.append("now"))
+    assert ran == ["now"]
+    # A unit of the read model holds it until its rows are committed.
+    unit = SimpleNamespace(after_commit=[])
+    after_commit(unit, lambda: ran.append("first"))
+    after_commit(unit, lambda: ran.append("second"))
+    assert ran == ["now"]
+    run_after_commit(unit)
+    assert ran == ["now", "first", "second"]
+    assert unit.after_commit == []

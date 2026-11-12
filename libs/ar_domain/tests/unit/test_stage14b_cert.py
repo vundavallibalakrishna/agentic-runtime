@@ -213,7 +213,7 @@ def test_a_file_id_resolves_to_the_library_document() -> None:
         "content_hash": digest,
         "status": "ready",
         "title": "Policy",
-        "passages": [{"text": "Break-glass access is logged."}],
+        "passages": [{"anchor": "p1-s0", "page": 1, "text": "Break-glass access is logged."}],
     }
     store.files[file_id] = {
         "id": file_id,
@@ -420,7 +420,7 @@ def test_attachment_line_includes_the_document_and_an_excerpt() -> None:
         "tenant_id": tenant,
         "content_hash": "digest",
         "status": "ready",
-        "passages": [{"text": "Break-glass access is logged."}],
+        "passages": [{"anchor": "p1-s0", "page": 1, "text": "Break-glass access is logged."}],
     }
     store.files[file_id] = {
         "id": file_id,
@@ -442,7 +442,8 @@ def test_attachment_line_includes_the_document_and_an_excerpt() -> None:
     }
     rows = conversation_attachments(store, conversation_id)
     assert rows[0].document_id == document_id
-    assert "Break-glass" in rows[0].line()
+    # The passage is shown after its anchor, which is what an answer cites.
+    assert "[p1-s0 p.1] Break-glass access is logged." in rows[0].line()
     assert "documentId=" in rows[0].line()
 
 

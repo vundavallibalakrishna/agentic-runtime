@@ -578,7 +578,6 @@ def test_waiting_runs_cancel_and_accept_input() -> None:
         "user_id": user,
         "conversation_id": conversation,
         "status": "waiting_approval",
-        "pending_approval": {},
     }
     assert store.cancel_run(tenant, user, approval)["status"] == "waiting_approval"
     running = uuid.uuid4()
