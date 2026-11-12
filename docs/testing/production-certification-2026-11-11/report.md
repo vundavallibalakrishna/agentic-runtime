@@ -4,7 +4,7 @@ Date: 11 and 12 November 2026. Branch `fix/stage14c-live-cert-blockers`. Model `
 
 ## Verdict
 
-**Not certified for production.** On the last run no built-in tool fails and all 14 agent flows pass, which was true of neither when this pass started. What keeps it uncertified: 11 tools could not be exercised because this install lacks what they need, the sandbox is proven on one machine and not on Kubernetes, the 100 connector tools were not run against real accounts, the open defects below remain, and the full CI suite has not been run on this branch.
+**Not certified for production.** On the last run no built-in tool fails and all 14 agent flows pass, which was true of neither when this pass started. What keeps it uncertified: 11 tools could not be exercised because this install lacks what they need, the sandbox is proven on one machine and not on Kubernetes, the 100 connector tools were not run against real accounts, the open defects below remain, and the Helm, kind, compose and security jobs have not been run on this branch.
 
 ## How it was run
 
@@ -162,6 +162,49 @@ Ordered by how much they block production.
 15. **Every request loads every message of the tenant.** `hydrate_tenant` reads all messages, runs and events per request. This will not hold at production size.
 16. **In dev mode a turn longer than about a minute shows as stuck.** The API's watcher stops polling and the message stays "streaming". Dev only, but it is the mode the team uses.
 
+## Local CI run
+
+The CI jobs were run by hand on this branch on 12 November 2026, on one Mac.
+
+| Job | Result |
+|---|---|
+| Python lint: format, lint, full typecheck, import rules, dependency check | pass |
+| Domain-agnostic check | pass |
+| Unit tests with the coverage gate | pass: 1,402 tests, coverage 85.06% against a required 85% |
+| Contract eval | pass |
+| Integration tests | pass: 38, with 2 skipped |
+| Tool matrices and the document toolchain | pass |
+| Web: lint, typecheck, unit tests, unused-code check, production build | pass |
+| Generated code drift (`make gen`, then no diff) | pass |
+| Policy tests (`opa fmt`, `check`, `test`) | pass, with OPA run from its container image |
+| Migrations: upgrade, check, downgrade to base, upgrade | pass on a fresh Postgres |
+| Qdrant conformance | pass, with a Qdrant container |
+| Docs checks | pass, except the stack pin check: this Mac has `uv` 0.13.4 and the pin is 0.13.3 |
+| Web end to end | see below |
+| Helm, the three kind jobs | not run: Helm and kind are not installed here |
+| Compose smoke, fresh clone | not run |
+| Security: gitleaks, pip-audit | not run: neither tool is installed here |
+
+What the run found and fixed:
+
+- **Coverage was 84.8%.** The container paths of the sandbox tools, the pod launch path, the manager's routes and approval settlement had been proven live only. They now have unit tests.
+- **The research end-to-end test relied on the fixture this branch removed.** It uploads its own notes now.
+- **A scrollable block in the tool card could not be reached by keyboard.** The accessibility check failed on the computer spec. It fails on `main` too.
+- **The standalone web start script never listened on localhost.** It read the listen address from `HOSTNAME`, which the shell sets to the machine's name.
+
+Four unit tests that fail in a plain local run are not defects. Two need a Qdrant server and pass with one. One needs the `opa` program and passes with it. One reads a port from a local `.env` file; CI has none.
+
+**Web end to end could not be made to match CI on this machine.** CI runs it on the dev server with no `.env` file and two retries. Here the dev server times out compiling pages on first visit, and the production build picks up local `.env` values: a shared policy server that learns a new policy late, and an API port the standalone server cannot find. So the same suite was run in the same local mode on both: the production build, with `.env`, two retries.
+
+| | Passed | Failed | Flaky |
+|---|---|---|---|
+| `main` | 61 | 3 | 1 |
+| This branch | 62 | 2 | 1 |
+
+The two that fail on the branch, the policy spec and the widget spec, fail on `main` in this mode too, for the two local causes above. The widget spec passes 5 of 5 on a clean dev server, and both pass when the `.env` file is moved aside. The third failure on `main` is the accessibility defect this branch fixes. CI is the judge for this job.
+
+The Helm chart change for the sandbox image has not been rendered anywhere yet.
+
 ## What is needed to finish
 
 | Need | Unblocks |
@@ -170,7 +213,7 @@ Ordered by how much they block production.
 | A web search provider and key | Web results in research, `general.search` |
 | Hosts for web access on the allowed list | `general.fetch`, `general.http` |
 | A vision model on the `vision` alias | `image.ask` |
-| The full CI suite on this branch (integration, web end to end, kind) | A pull request |
+| The Helm, kind, compose and security CI jobs, which need tools this Mac lacks | A pull request with every job proven |
 | Real accounts or tokens per connector | 100 connector tools |
 | A Kubernetes run | Sandbox isolation, more than one replica |
 
