@@ -1577,6 +1577,9 @@ class ChatBehaviour:
         self.messages[assistant_id] = assistant
         run["assistant_message_id"] = assistant_id
         conversation["active_run_id"] = run_id
+        from ar_domain.loop.planning import clear_tool_plan  # noqa: PLC0415
+
+        clear_tool_plan(conversation)
         conversation["updated_at"] = now
         if schedule:
             self._schedule(run_id, text, names)

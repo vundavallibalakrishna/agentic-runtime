@@ -116,7 +116,9 @@ class ToolPipeline:
         # A tool the tenant has not set up is not offered, so the model does not promise it.
         owner = version.get("tenant_id") if isinstance(version, dict) else None
         tools = [
-            row for row in tools if ready_for(self.store, owner, str(row.get("qualified_name")))
+            row
+            for row in tools
+            if ready_for(self.store, owner, str(row.get("qualified_name")), definition)
         ]
         active = len(tools) > 30 or _search_mode(definition) == "on"
         if active and query:

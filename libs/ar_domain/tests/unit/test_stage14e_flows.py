@@ -447,3 +447,42 @@ def test_web_search_is_offered_only_when_the_tenant_has_a_provider() -> None:
     assert ready_for(store, tenant, "general.search")
     assert offered() == {"general.chart", "general.search"}
     assert ready_for(store, tenant, "general.chart")
+
+
+def test_a_new_turn_starts_without_the_last_turns_finished_tool_steps() -> None:
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    row = store.conversations[uuid.UUID(str(conversation["id"]))]
+    row["plan"] = [
+        {"id": "1", "title": "general.chart", "status": "done", "auto": True},
+        {"id": "2", "title": "Write the summary", "status": "done"},
+    ]
+    row["active_run_id"] = None
+    store.post_message(tenant, user, row["id"], "next question", schedule=False)
+    # The runtime's finished step is gone. The model's own checklist stays.
+    assert row["plan"] == [{"id": "2", "title": "Write the summary", "status": "done"}]
+
+
+def test_image_questions_are_offered_only_with_a_model_that_reads_images() -> None:
+    from ar_domain.tools.readiness import ready_for
+
+    store = demo_store()
+    tenant = demo_id("tenant")
+    answers = {"capabilities": ["chat"]}
+    store._completion_call = lambda _t, alias="vision": ("some-model", {}, 5.0, True)
+    store._alias_target = lambda _t, _alias: ({}, dict(answers))
+    # A chat model that is not marked as reading images: the tool would only refuse.
+    assert not ready_for(store, tenant, "image.ask")
+    answers["capabilities"] = ["chat", "vision"]
+    assert ready_for(store, tenant, "image.ask")
+    # An agent may name its own vision alias.
+    seen: list[str] = []
+
+    def target(_tenant: object, alias: str) -> tuple[dict[str, object], dict[str, object]]:
+        seen.append(alias)
+        return {}, dict(answers)
+
+    store._alias_target = target
+    assert ready_for(store, tenant, "image.ask", {"model": {"vision_alias": "eyes"}})
+    assert seen[-1] == "eyes"

@@ -52,6 +52,12 @@ def vision_capable(capabilities: list[str]) -> bool:
     return "vision" in capabilities
 
 
+def vision_ready(store: Any, tenant_id: Any, alias: str = "vision") -> bool:
+    """Whether this alias points at a registered model the tenant marked as reading images."""
+    _name, _headers, _timeout, real, capabilities = _target(store, tenant_id, alias or "vision")
+    return bool(real) and vision_capable(capabilities)
+
+
 def media_type_for(data: bytes, stated: str = "") -> str:
     """MIME type from the bytes, then the caller's type."""
     if data.startswith(b"\x89PNG"):

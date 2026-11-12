@@ -439,6 +439,10 @@ export function ChatScreen() {
     runRef.current = "";
     setRunId("");
     setStream({ ...emptyStream, status: "streaming" });
+    // A plan whose every step is finished belongs to the turn that ended.
+    setPlan((current) =>
+      current.every((step) => step.status === "done" || step.status === "cancelled") ? [] : current,
+    );
     let conversationReady = Boolean(activeId);
     try {
       let conversationId = activeId;

@@ -92,3 +92,25 @@ def end_tool_plan(store: object, run: dict[str, object], status: str) -> None:
     emit = getattr(store, "_emit", None)
     if callable(emit):
         emit(run, "plan.updated", {"items": settled})
+
+
+def clear_tool_plan(conversation: dict[str, object]) -> None:
+    """Drop the settled steps the runtime wrote, when the next turn starts.
+
+    They describe the turn that just ended. A plan the model wrote stays: it is the
+    conversation's checklist and may span turns.
+    """
+    plan = conversation.get("plan")
+    if not isinstance(plan, list):
+        return
+    kept = [
+        item
+        for item in plan
+        if not (
+            isinstance(item, dict)
+            and item.get("auto")
+            and item.get("status") in {"done", "cancelled"}
+        )
+    ]
+    if kept != plan:
+        conversation["plan"] = kept

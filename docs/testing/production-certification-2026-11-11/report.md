@@ -205,6 +205,38 @@ The two that fail on the branch, the policy spec and the widget spec, fail on `m
 
 The Helm chart change for the sandbox image has not been rendered anywhere yet.
 
+## Using the app as a person
+
+On 12 November 2026 the app was used in a browser on the staging-mode stack, signed in as the tenant admin, with the real model and a real sandbox container.
+
+| Step | Result | Time |
+|---|---|---|
+| Sign in | works | at once |
+| A plain question | a sensible answer with follow-up prompts | about 10 seconds |
+| A bar chart from numbers typed into the message | chart drawn with the right names and values | 50 to 80 seconds |
+| Python with numpy for a mean and standard deviation | right numbers, run in a sandbox container | about 60 seconds |
+| Research on a question the document library answers | right answer with a verified citation | about 30 seconds |
+
+Attaching a file was not tested this way; the scripted flows cover it.
+
+The scripted checks had passed on all of this. Using the screen found what they do not look at, and each is fixed:
+
+| What a person saw | Cause | Now |
+|---|---|---|
+| The chart's axis read 0, 1, 2, 3 | The model wrote rows as `{"North": 12}` and the tool took the key for a column | The key is the label |
+| The tallest bar's value was drawn over its name | No room above a bar that reaches the top | It is drawn inside the bar |
+| The plan stayed "In progress" after the answer | Nothing settled the steps the runtime writes for tool calls | They are marked done, or cancelled on failure, and cleared when the next turn starts |
+| A blank reply for up to a minute | No state was shown before the first text or tool | "Working on it…" |
+| The research report said the same sentence twice and printed internal addresses | Two copies of one document matched; the report printed each source's address | One source per text, named by title |
+| A panel titled "Sources" listed the questions | Wrong heading | Headed "Research", with the source count and the questions searched |
+| The page scrolled into an empty area | Screen-reader labels in the message list were placed against the page | The list contains them |
+| The assistant said it could search the web and answer questions about images | Both tools were offered with no provider and no vision model set | A tool the tenant has not set up is not offered to the model |
+| The agent picker listed archived agents | The picker took every agent | Archived agents are left out |
+
+One effect to know: on this install the assistant now has 30 tools, not 32, which is at the threshold and no longer over it. It is offered all 30 on each turn instead of a searched subset.
+
+Still visible and not fixed: the model sometimes writes sums between dollar signs, which the chat shows as plain text; and at a narrow window width the chat column is squeezed between the conversation list and the computer panel.
+
 ## What is needed to finish
 
 | Need | Unblocks |

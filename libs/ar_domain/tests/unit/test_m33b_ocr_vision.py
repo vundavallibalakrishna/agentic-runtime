@@ -206,7 +206,16 @@ def test_assistant_catalog_includes_ocr_and_image_ask() -> None:
     )
     names = {str(row.get("qualified_name")) for row in catalog["tools"] if isinstance(row, dict)}
     assert "documents.ocr" in names
-    assert "image.ask" in names
+    # No model here reads images, so the tool that needs one is not offered. Text
+    # recognition needs none and stays.
+    assert "image.ask" not in names
+    store._completion_call = lambda _t, alias="vision": ("vision-model", {}, 5.0, True)
+    store._alias_target = lambda _t, _alias: ({}, {"capabilities": ["chat", "vision"]})
+    again = ToolPipeline(store).resolve_catalog(
+        agent_version_id=agent["published_version_id"],  # type: ignore[arg-type]
+        user_id=demo_id("admin"),
+    )
+    assert "image.ask" in {str(row.get("qualified_name")) for row in again["tools"]}
 
 
 def test_image_ask_fails_clearly_without_a_vision_model() -> None:

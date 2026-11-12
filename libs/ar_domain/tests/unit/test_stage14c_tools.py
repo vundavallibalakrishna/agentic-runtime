@@ -92,6 +92,16 @@ def test_an_assistant_asked_for_a_chart_is_offered_the_chart_tool() -> None:
 
     store = demo_store()
     store._completion_call = lambda _t, alias="reasoning": ("Qwen/Qwen3-32B", {}, 5.0, True)
+
+    class _Search:
+        def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
+            del query, limit
+            return []
+
+    # A tenant with web search and a vision model, so the assistant has its whole
+    # catalogue and is over the threshold. A tool the tenant has not set up is not offered.
+    store.search_provider = _Search()
+    store._alias_target = lambda _t, _alias: ({}, {"capabilities": ["chat", "vision"]})
     captured: list[list[str]] = []
 
     async def complete(
