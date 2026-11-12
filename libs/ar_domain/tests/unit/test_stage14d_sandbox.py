@@ -263,3 +263,174 @@ def test_every_process_but_the_manager_is_told_where_computers_come_from(
     assert isinstance(client.sandbox_launcher, SandboxManagerLauncher)
     manager = build_product_store(settings, starts_sandboxes=True)
     assert manager.sandbox_launcher is None
+
+
+def _who() -> dict[str, object]:
+    return {"_tenant_id": demo_id("tenant"), "_user_id": demo_id("admin")}
+
+
+def test_the_sandbox_tools_run_in_the_computer(computer: Path) -> None:
+    store = demo_store()
+    store.sandbox_launcher = _Computer()
+    wrote = runtime.run_tool(
+        store, "write_file", {"path": "/workspace/notes.txt", "content": "alpha", **_who()}
+    )
+    assert wrote["is_error"] is False, wrote
+    assert (computer / "workspace" / "notes.txt").read_text() == "alpha"
+    read = runtime.run_tool(store, "read_file", {"path": "/workspace/notes.txt", **_who()})
+    assert "alpha" in read["text"]
+    listed = runtime.run_tool(store, "list_files", {"path": "/workspace", **_who()})
+    assert "notes.txt" in listed["text"]
+    # A command's new file comes back as a stored artifact, and its streams are kept.
+    ran = runtime.run_tool(
+        store, "exec", {"command": "echo made > outputs.txt && echo done", **_who()}
+    )
+    assert ran["is_error"] is False, ran
+    assert ran["structured"]["exit_code"] == 0
+    assert ran["structured"]["artifacts"]
+    assert any("done" in row["text"] for row in ran["streams"])
+    failed = runtime.run_tool(store, "exec", {"command": "exit 3", **_who()})
+    assert failed["is_error"] is True
+    # The default computer has no browser, and says so.
+    refused = runtime.run_tool(store, "navigate", {"url": "https://example.com", **_who()})
+    assert "does not include a browser" in refused["text"]
+    assert runtime.run_tool(store, "unknown", _who())["code"] == "unknown_tool"
+    missing = runtime.run_tool(store, "export_file", {"path": "/workspace/absent.txt", **_who()})
+    assert missing["code"] == "not_found"
+
+
+def test_a_computer_that_does_not_answer_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(**_kw: object) -> object:
+        raise httpx.ConnectError("no route")
+
+    monkeypatch.setattr(runtime.httpx, "Client", refuse)
+    store = demo_store()
+    store.sandbox_launcher = _Computer()
+    read = runtime.run_tool(store, "read_file", {"path": "/workspace/a.txt", **_who()})
+    assert read["is_error"] is True
+    assert "did not answer" in read["text"]
+    ran = runtime.run_tool(store, "exec", {"command": "true", **_who()})
+    assert ran["code"] == "sandbox_unavailable"
+    # Code that should run in the computer says the same, and does not run here.
+    result = _call(store, "code", source="print(1)")
+    assert result["is_error"] is True
+    assert result["code"] == "sandbox_unavailable"
+
+
+class _Pods:
+    """The sandbox manager's pod creator, as the kubernetes driver presents it."""
+
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.started: list[dict[str, object]] = []
+        self.stopped: list[str] = []
+
+    def start(self, **spec: object) -> dict[str, object]:
+        if self.fail:
+            raise RuntimeError("no sandbox image is configured: set AR_SANDBOX_IMAGE")
+        self.started.append(spec)
+        return {
+            "pod_name": "sbx-test",
+            "endpoint_url": "http://sbx-test.ar-sandboxes:8080",
+            "driver_ref": "kubernetes:sbx-test",
+        }
+
+    def stop(self, pod_name: str) -> None:
+        self.stopped.append(pod_name)
+
+
+def test_the_manager_starts_and_stops_a_pod_for_a_computer() -> None:
+    store = demo_store()
+    pods = _Pods()
+    store.pod_creator = pods
+    row = _ensure(store, "conv:pod")
+    assert row["driver"] == "kubernetes"
+    assert row["endpoint_url"] == "http://sbx-test.ar-sandboxes:8080"
+    assert row["driver_ref"] == "kubernetes:sbx-test"
+    spec = pods.started[0]
+    assert spec["token"] == row["token"]
+    assert (spec["cpu_millis"], spec["memory_mb"]) == (2000, 4096)
+    # Another request has only the stored row: the pod is still found by its reference.
+    row.pop("container_id")
+    terminate_row(store, row, actor=demo_id("admin"))
+    assert pods.stopped == ["sbx-test"]
+    assert row["status"] == "terminated"
+    assert row["endpoint_url"] is None
+
+
+def test_a_pod_that_cannot_start_fails_the_computer_in_words() -> None:
+    store = demo_store()
+    store.pod_creator = _Pods(fail=True)
+    with pytest.raises(SandboxStartError, match="AR_SANDBOX_IMAGE"):
+        _ensure(store, "conv:no-pod")
+    failed = [r for r in store.sandboxes.values() if r.get("scope_key") == "conv:no-pod"]
+    assert failed[0]["status"] == "failed"
+    assert failed[0]["endpoint_url"] is None
+    # The tool says why, and does not fall back to the host.
+    result = runtime.run_tool(store, "exec", {"command": "true", **_who()})
+    assert result["code"] == "sandbox_unavailable"
+    assert "AR_SANDBOX_IMAGE" in result["text"]
+
+
+def test_a_template_with_no_image_records_the_installs_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ar_domain.agents.access import Actor
+    from ar_domain.identity.permissions import PERMISSION_KEYS
+    from ar_domain.sandboxes.service import SandboxBook
+
+    monkeypatch.setenv("AR_SANDBOX_IMAGE", "registry.example/ar-sandbox:1.2.3")
+    store = demo_store()
+    book = SandboxBook(store)
+    actor = Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS)
+    made = book.create_template(actor, {"slug": "plain-box", "name": "Plain"})
+    assert made["image_ref"] == "registry.example/ar-sandbox:1.2.3"
+    changed = book.patch_template(
+        actor,
+        uuid.UUID(str(made["id"])),
+        {
+            "name": "Plain two",
+            "cpu_millis": 1000,
+            "allow_browser": True,
+            "allow_packages": True,
+            "egress_allowlist": ["example.org"],
+        },
+    )
+    assert changed["name"] == "Plain two"
+    assert changed["allow_browser"] is True
+    assert changed["egress_allowlist"] == ["example.org"]
+
+
+def test_a_folder_the_computer_will_not_take_stops_the_run(
+    computer: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ar_domain.sandboxes import folder_run
+
+    del computer
+    store = demo_store()
+    store.sandbox_launcher = _Computer()
+    real = folder_run.call_computer
+
+    def refuse_writes(
+        sandbox: dict[str, object], tool: str, arguments: dict[str, object], **kw: Any
+    ) -> dict[str, object]:
+        if tool == "write_file":
+            return {"text": "the disk is full", "is_error": True}
+        return real(sandbox, tool, arguments, **kw)
+
+    monkeypatch.setattr(folder_run, "call_computer", refuse_writes)
+    result = _call(store, "shell", command="echo hello")
+    assert result["code"] == "sandbox_unavailable"
+    assert "the disk is full" in result["text"]
+
+    def silent(
+        sandbox: dict[str, object], tool: str, arguments: dict[str, object], **kw: Any
+    ) -> dict[str, object]:
+        if tool == "exec":
+            return {"text": "", "structured": {}}
+        return real(sandbox, tool, arguments, **kw)
+
+    monkeypatch.setattr(folder_run, "call_computer", silent)
+    quiet = _call(store, "shell", command="echo hello")
+    assert quiet["code"] == "sandbox_unavailable"
+    assert "did not answer" in quiet["text"]

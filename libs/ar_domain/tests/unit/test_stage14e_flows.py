@@ -227,3 +227,92 @@ def test_a_step_for_another_process_waits_for_the_commit() -> None:
     run_after_commit(unit)
     assert ran == ["now", "first", "second"]
     assert unit.after_commit == []
+
+
+def test_the_image_tool_refuses_in_words_before_it_asks_a_model() -> None:
+    from ar_domain.tools.vision import _vision_alias, dispatch_image
+
+    store = demo_store()
+    who = {"_tenant_id": demo_id("tenant"), "_user_id": demo_id("admin")}
+    assert dispatch_image(store, "describe", who)["code"] == "unknown_tool"
+    assert dispatch_image(store, "ask", {"question": "What is it?"})["code"] == "validation_failed"
+    assert "question is required" in dispatch_image(store, "ask", who)["text"]
+    missing = dispatch_image(
+        store, "ask", {"question": "What?", "file_id": str(uuid.uuid4()), **who}
+    )
+    assert missing["is_error"] is True
+    # The alias comes from the call, then from the agent, then the install's default.
+    assert _vision_alias(store, {"vision_alias": "eyes"}) == "eyes"
+    version_id = uuid.uuid4()
+    store.versions[version_id] = {"definition": {"model": {"vision_alias": "agent-eyes"}}}
+    assert _vision_alias(store, {"_agent_version_id": version_id}) == "agent-eyes"
+    assert _vision_alias(store, {}) == "vision"
+
+
+def test_research_tools_refuse_bad_input_in_words() -> None:
+    from ar_domain.research.handlers import dispatch_context, dispatch_research
+
+    store = demo_store()
+    tenant = demo_id("tenant")
+    assert dispatch_research(store, "fetch", {"_tenant_id": tenant})["code"] == "validation_failed"
+    wrong = dispatch_research(store, "fetch", {"url": "ftp://example.com/a", "_tenant_id": tenant})
+    assert "http or https" in wrong["text"]
+    assert dispatch_context(store, "retrieve", {})["code"] == "validation_failed"
+    no_run = dispatch_context(store, "retrieve", {"output_id": "o1", "_run_id": "not-a-run"})
+    assert no_run["code"] == "not_found"
+    run_id = uuid.uuid4()
+    store.runs[run_id] = {"id": run_id, "tenant_id": tenant}
+    absent = dispatch_context(store, "retrieve", {"output_id": "o1", "_run_id": str(run_id)})
+    assert "not stored on this run" in absent["text"]
+
+
+def test_an_approved_call_that_fails_ends_the_run_with_the_reason(
+    monkeypatch: object,
+) -> None:
+    from ar_domain.approvals.pending import held, hold
+    from ar_domain.tools import resume
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "write it", schedule=False
+    )
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    approval_id = uuid.uuid4()
+    run["status"] = "waiting_approval"
+    hold(run, {"approval_id": approval_id, "tool_version_id": uuid.uuid4(), "arguments": {}})
+    refused = {"status": "failed", "error": {"message": "the folder is read-only"}}
+    monkeypatch.setattr(  # type: ignore[attr-defined]
+        "ar_domain.tools.gateway_client.execute_tool", lambda _store, _request: refused
+    )
+    # An approval for another call leaves the run waiting.
+    resume.settle_approval(store, {"id": uuid.uuid4(), "run_id": run["id"], "status": "approved"})
+    assert run["status"] == "waiting_approval"
+    resume.settle_approval(store, {"id": approval_id, "run_id": run["id"], "status": "approved"})
+    assert run["status"] == "completed"
+    assert "did not run: the folder is read-only" in str(run["result_summary"])
+    assert held(run) is None
+
+
+def test_a_rejected_approval_ends_the_run_and_says_so() -> None:
+    from ar_domain.approvals.pending import hold
+    from ar_domain.tools import resume
+
+    store = demo_store()
+    tenant, user = demo_id("tenant"), demo_id("admin")
+    conversation = store.create_conversation(tenant, user, None)
+    posted = store.post_message(
+        tenant, user, uuid.UUID(str(conversation["id"])), "write it", schedule=False
+    )
+    run = store.runs[uuid.UUID(str(posted["run"]["id"]))]
+    approval_id = uuid.uuid4()
+    run["status"] = "waiting_approval"
+    hold(run, {"approval_id": approval_id, "model_call_id": uuid.uuid4()})
+    resume.settle_approval(store, {"id": approval_id, "run_id": run["id"], "status": "rejected"})
+    assert run["status"] == "completed"
+    assert "rejected" in str(run["result_summary"])
+    # A run that is no longer active is left alone.
+    resume.settle_approval(store, {"id": approval_id, "run_id": run["id"], "status": "expired"})
+    assert "rejected" in str(run["result_summary"])
+    resume.settle_approval(store, {"id": approval_id, "run_id": "not-a-run", "status": "approved"})

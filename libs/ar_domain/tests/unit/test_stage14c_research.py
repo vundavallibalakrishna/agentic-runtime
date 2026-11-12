@@ -204,3 +204,75 @@ def test_a_row_filled_in_after_it_is_stored_keeps_those_writes() -> None:
     # A plain bucket hands back the same dict it was given.
     plain: dict[object, object] = {}
     assert keep(plain, document_id, built) is built
+
+
+def test_research_bounds_and_state_start_from_an_empty_run() -> None:
+    from ar_domain.research.engine import initial_state, save_state, state_of
+
+    limited = initial_state("kites", {"max_steps": 3, "max_sources": True, "unknown": 9})
+    plain = initial_state("kites")
+    # A caller's limit replaces the default. A value that is not a count is ignored.
+    assert limited != plain
+    run: dict[str, object] = {}
+    state = state_of(run, "kites")
+    assert state["question"] == "kites"
+    assert state_of(run, "something else") is state
+    other: dict[str, object] = {"checkpoint": "broken"}
+    save_state(other, {"question": "kept"})
+    assert other["checkpoint"] == {"research": {"question": "kept"}}
+
+
+def test_a_page_that_cannot_be_fetched_says_why() -> None:
+    import httpx
+
+    from ar_domain.research.fetch import fetch_page
+
+    store = demo_store()
+
+    def down(*_a: object, **_k: object) -> object:
+        raise httpx.ConnectError("no route")
+
+    store.http_send = down
+    store.egress_allowlist = ["*"]
+    # A private address is refused before anything is sent.
+    denied = fetch_page(store, "http://127.0.0.1/note")
+    assert denied["error"] == "egress_denied"
+    assert fetch_page(store, "https://example.com/note")["error"] == "upstream_error"
+    store.http_send = lambda *_a, **_k: httpx.Response(503, text="busy")
+    failed = fetch_page(store, "https://example.com/note")
+    assert failed["error"] == "upstream_error"
+    assert failed["message"] == "HTTP 503"
+
+
+def test_a_search_provider_keeps_its_key_out_of_results(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import httpx
+    import pytest
+
+    from ar_domain.tools import searching
+    from ar_domain.tools.searching import SearchRejectedError, TavilySearch
+
+    answers = [
+        httpx.Response(
+            200,
+            json={
+                "results": [
+                    {"title": "Kites", "url": "https://example.com/k?key=sekret", "content": "x"},
+                    "not a row",
+                    {"title": "", "url": ""},
+                ]
+            },
+        ),
+        httpx.Response(401, text="no"),
+        httpx.Response(500, text="down"),
+        httpx.Response(200, json=["not an object"]),
+    ]
+    monkeypatch.setattr(searching.httpx, "post", lambda *_a, **_k: answers.pop(0))
+    provider = TavilySearch("sekret")
+    rows = provider.search("kites", limit=50)
+    assert len(rows) == 1
+    assert "sekret" not in rows[0]["url"]
+    with pytest.raises(SearchRejectedError):
+        provider.search("kites", limit=1)
+    with pytest.raises(httpx.HTTPError):
+        provider.search("kites", limit=1)
+    assert provider.search("kites", limit=1) == []

@@ -51,3 +51,61 @@ def test_an_unknown_browser_tool_is_reported() -> None:
     result = asyncio.run(run_browser("warp", {}))
     assert result["is_error"] is True
     assert result["code"] in {"unknown_tool", "browser_unavailable"}
+
+
+class _Found:
+    """A page locator that matched ``count`` elements and records what was done to it."""
+
+    def __init__(self, count: int) -> None:
+        self._count = count
+        self.done: list[str] = []
+
+    async def count(self) -> int:
+        return self._count
+
+    async def click(self, **_kw: object) -> None:
+        self.done.append("click")
+
+    async def fill(self, text: str, **_kw: object) -> None:
+        self.done.append(f"fill:{text}")
+
+
+class _Page:
+    """A page that knows one element, ``e1``."""
+
+    def __init__(self) -> None:
+        self.asked: list[str] = []
+        self.element = _Found(1)
+
+    def locator(self, selector: str) -> _Found:
+        self.asked.append(selector)
+        return self.element if '"e1"' in selector else _Found(0)
+
+
+def test_a_tool_that_names_no_element_is_refused_at_once() -> None:
+    import pytest
+
+    from ar_sandbox_agent.browser import NoElementError, _locator
+
+    page = _Page()
+    with pytest.raises(NoElementError, match="ref is required"):
+        asyncio.run(_locator(page, {}))
+    # Nothing was looked up, so nothing waited.
+    assert page.asked == []
+    with pytest.raises(NoElementError, match="no element e9 is on this page"):
+        asyncio.run(_locator(page, {"ref": "e9"}))
+    found = asyncio.run(_locator(page, {"ref": "e1"}))
+    assert found is page.element
+
+
+def test_click_and_type_act_on_the_named_element(monkeypatch: object) -> None:
+    from ar_sandbox_agent import browser
+
+    async def snapshot(_page: object, _chars: int) -> dict[str, object]:
+        return {"text": "page", "is_error": False}
+
+    monkeypatch.setattr(browser, "_snapshot_result", snapshot)  # type: ignore[attr-defined]
+    page = _Page()
+    assert asyncio.run(browser._click(page, {"ref": "e1"}))["text"] == "page"
+    assert asyncio.run(browser._type(page, {"ref": "e1", "text": "hello"}))["text"] == "page"
+    assert page.element.done == ["click", "fill:hello"]
