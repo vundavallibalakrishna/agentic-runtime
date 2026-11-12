@@ -10,5 +10,8 @@ rm -rf .next/standalone/apps/web/public
 cp -a public .next/standalone/apps/web/public
 cd .next/standalone/apps/web
 export PORT="${AR_WEB_HOST_PORT:-3000}"
-export HOSTNAME="${HOSTNAME:-0.0.0.0}"
+# Next binds the address in HOSTNAME. The shell sets HOSTNAME to the machine's name, so a
+# default never applied and the server was not reachable on localhost. Listen on every
+# interface, as the web image does.
+export HOSTNAME="0.0.0.0"
 exec node server.js

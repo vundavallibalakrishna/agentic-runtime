@@ -1539,14 +1539,15 @@ class ChatBehaviour:
             message_id=message_id,
             trigger="research" if research else "chat",
         )
+        from ar_domain.runs.request import ask  # noqa: PLC0415
+
         if suggest_followups:
-            run["suggest_followups"] = True
+            ask(run, "suggest_followups", True)
         if response_format:
-            run["response_format"] = response_format
+            ask(run, "response_format", response_format)
         if research:
             from ar_domain.research.engine import initial_state  # noqa: PLC0415
 
-            run["mode"] = "research"
             run["checkpoint"] = {"research": initial_state(text)}
             self.audit_log.append(
                 {
@@ -1576,6 +1577,9 @@ class ChatBehaviour:
         self.messages[assistant_id] = assistant
         run["assistant_message_id"] = assistant_id
         conversation["active_run_id"] = run_id
+        from ar_domain.loop.planning import clear_tool_plan  # noqa: PLC0415
+
+        clear_tool_plan(conversation)
         conversation["updated_at"] = now
         if schedule:
             self._schedule(run_id, text, names)
@@ -1801,14 +1805,14 @@ class ChatBehaviour:
             await self._run_here_or_stop(run_id, text, names)
             return
         run = self.runs.get(run_id)
-        research = isinstance(run, dict) and run.get("mode") == "research"
+        research = isinstance(run, dict) and run.get("trigger") == "research"
         workflow_id = f"run-{run_id}"
         if isinstance(run, dict) and isinstance(run.get("temporal_workflow_id"), str):
             workflow_id = str(run["temporal_workflow_id"])
         try:
             await start(
                 "ResearchWorkflow" if research else "AgentRunWorkflow",
-                {"run_id": str(run_id), "steps": True, "text": text},
+                self._workflow_input(run, run_id, text),
                 id=workflow_id,
                 task_queue="ar-runtime",
             )
@@ -1819,6 +1823,16 @@ class ChatBehaviour:
             await self._run_here_or_stop(run_id, text, names)
             return
         await self._watch(run_id)
+
+    @staticmethod
+    def _workflow_input(run: object, run_id: uuid.UUID, text: str) -> dict[str, object]:
+        """What the worker needs to start. A research run carries its own step limit."""
+        payload: dict[str, object] = {"run_id": str(run_id), "steps": True, "text": text}
+        if isinstance(run, dict) and run.get("trigger") == "research":
+            from ar_domain.research.engine import max_steps, state_of  # noqa: PLC0415
+
+            payload["max_steps"] = max_steps(state_of(run, text))
+        return payload
 
     async def _run_here_or_stop(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         """Dev runs the turn here. A required worker that is missing does not."""
@@ -2003,7 +2017,7 @@ class ChatBehaviour:
     ) -> None:
         """Stream an answer. ``slow`` in the text delays tokens so Stop is visible."""
         run = self.runs[run_id]
-        if str(run.get("mode") or "") == "research":
+        if str(run.get("trigger") or "") == "research":
             from ar_domain.research.driver import advance_research  # noqa: PLC0415
 
             await advance_research(self, run, text, one_step=one_step)
@@ -2111,7 +2125,7 @@ class ChatBehaviour:
         )
         from ar_domain.tools.agent_loop import _with_trace  # noqa: PLC0415
 
-        assistant["content"] = _with_trace(answer, run)
+        assistant["content"] = _with_trace(self, answer, run)
         assistant["retrieval"] = run.get("retrieval")
         assistant["loaded_skill"] = run.get("loaded_skill")
         assistant["status"] = "completed"
@@ -2473,7 +2487,8 @@ class ChatBehaviour:
             "seq": seq,
             "type": event_type,
             "run_id": str(run_id),
-            "conversation_id": str(run["conversation_id"]),
+            # A console tool test runs with no conversation.
+            "conversation_id": str(run.get("conversation_id") or ""),
             "data": data,
             "ts": utcnow().isoformat(),
             "tenant_id": str(run.get("tenant_id") or ""),
@@ -2631,8 +2646,10 @@ class ChatBehaviour:
             raise ArError(ErrorCode.INVALID_STATE, "run is not active")
         status = str(run["status"])
         if status == "waiting_approval":
-            pending = run.get("pending_approval")
-            approval_id = pending.get("approval_id") if isinstance(pending, dict) else None
+            from ar_domain.approvals.pending import held  # noqa: PLC0415
+
+            pending = held(run)
+            approval_id = pending.get("approval_id") if pending is not None else None
             if isinstance(approval_id, uuid.UUID):
                 from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
 

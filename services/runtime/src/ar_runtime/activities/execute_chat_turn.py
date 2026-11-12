@@ -1,7 +1,5 @@
 """Run one chat turn. The activity is safe to retry once the run has finished."""
 
-import asyncio
-import contextlib
 import uuid
 from typing import Any  # noqa: TC003
 
@@ -9,6 +7,7 @@ from temporalio import activity
 
 from ar_domain.readmodel.activity import repository_activity
 from ar_runtime.activities.expire_approval import current_store, process_store
+from ar_runtime.activities.heartbeat import heartbeating
 
 
 @activity.defn(name="execute_chat_turn")
@@ -65,25 +64,13 @@ async def execute_chat_turn(payload: dict[str, Any]) -> dict[str, str]:
         else payload.get("names")
     )
     names = [str(item) for item in raw_names] if isinstance(raw_names, list) else []
-    heartbeat = asyncio.create_task(_heartbeat()) if activity.in_activity() else None
-    try:
+    async with heartbeating():
         await store.generate(run_id, text, names)
-    finally:
-        if heartbeat is not None:
-            heartbeat.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await heartbeat
     await flush_store(store)
     runs = getattr(store, "runs", None)
     run = runs.get(run_id, {}) if isinstance(runs, dict) else {}
     status = str(run.get("status") or "completed") if isinstance(run, dict) else "completed"
     return {"status": status, "run_id": str(run_id)}
-
-
-async def _heartbeat() -> None:
-    while True:
-        activity.heartbeat()
-        await asyncio.sleep(2)
 
 
 @activity.defn(name="finish_chat_turn")

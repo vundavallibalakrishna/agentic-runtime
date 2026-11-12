@@ -200,7 +200,8 @@ class _Pods:
         del namespace, name
 
 
-def test_only_the_sandbox_manager_submits_a_limited_pod() -> None:
+def test_only_the_sandbox_manager_submits_a_limited_pod(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AR_SANDBOX_IMAGE", "registry.example/ar-sandbox:1.2.3")
     fake = _Pods()
     creator = KubernetesPods(fake, namespace="ar-sandboxes")
     created = asyncio.run(
@@ -223,6 +224,8 @@ def test_only_the_sandbox_manager_submits_a_limited_pod() -> None:
     limits = pod["spec"]["containers"][0]["resources"]["limits"]  # type: ignore[index]
     assert limits["cpu"] == "500m"
     assert limits["memory"] == "512Mi"
+    image = pod["spec"]["containers"][0]["image"]  # type: ignore[index]
+    assert image == "registry.example/ar-sandbox:1.2.3"
     assert fake.policies and fake.policies[0][0] == "ar-sandboxes"
     refused = KubernetesPods(fake, namespace="default")
     with pytest.raises(RuntimeError):

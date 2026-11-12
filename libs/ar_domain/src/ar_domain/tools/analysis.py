@@ -47,8 +47,10 @@ def dispatch_analysis(
     except SqlRejected as exc:
         return _error("sql_rejected", exc.reason)
     except SheetQueryError as exc:
-        code = "sql_rejected" if exc.rejected else "validation_failed"
-        return _error(code, exc.reason)
+        if exc.rejected:
+            # The engine refuses to open a file. The statement named a path, not a table.
+            return _error("sql_rejected", _naming_tables(store, arguments, exc.reason))
+        return _error("validation_failed", exc.reason)
     except (OSError, ValueError, ET.ParseError, zipfile.BadZipFile) as exc:
         return _error("validation_failed", str(exc)[:300])
 
@@ -80,14 +82,7 @@ def _query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     sql = str(arguments.get("sql") or "")
     if not sql.strip():
         return _error("validation_failed", "sql is required")
-    checked = check_sql(
-        sql,
-        allow_tables=set(),
-        deny_columns=set(),
-        row_limit=_MAX_ROWS,
-        dialect="duckdb",
-        allow_any=True,
-    )
+    checked = _checked(store, arguments, sql)
     columns, rows, truncated = query_loaded(
         _load_requested(store, arguments), checked, row_limit=_MAX_ROWS
     )
@@ -116,14 +111,7 @@ def _export(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         sql = str(arguments.get("sql") or "")
         if not sql.strip():
             return _error("validation_failed", "pass rows or a sql query over a workspace file")
-        checked = check_sql(
-            sql,
-            allow_tables=set(),
-            deny_columns=set(),
-            row_limit=_MAX_ROWS,
-            dialect="duckdb",
-            allow_any=True,
-        )
+        checked = _checked(store, arguments, sql)
         columns, rows, _truncated = query_loaded(
             _load_requested(store, arguments), checked, row_limit=_MAX_ROWS
         )
@@ -162,14 +150,7 @@ def _pivot(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         f"SELECT * FROM (PIVOT {table} ON {on_column} USING {agg}({value}) "  # noqa: S608
         f"GROUP BY {index}) AS pivot_result"
     )
-    checked = check_sql(
-        sql,
-        allow_tables=set(),
-        deny_columns=set(),
-        row_limit=_MAX_ROWS,
-        dialect="duckdb",
-        allow_any=True,
-    )
+    checked = _checked(store, arguments, sql)
     columns, rows, truncated = query_loaded(sheets, checked, row_limit=_MAX_ROWS)
     result = _query_result(checked, columns, rows, truncated=truncated)
     structured = result["structured"]
@@ -178,6 +159,51 @@ def _pivot(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         if isinstance(presentation, dict):
             presentation["kind"] = "pivot"
     return result
+
+
+def table_rows(store: Store, arguments: dict[str, object]) -> list[dict[str, object]]:
+    """The rows of the table file ``path`` names, keyed by column. Other tools read it this way."""
+    if not _requested_paths(arguments):
+        return []
+    sheets = _load_requested(store, arguments)
+    wanted = _ident_arg(arguments.get("sheet"))
+    for name, columns, rows in sheets:
+        if wanted is None or name == wanted:
+            return [dict(zip(columns, row, strict=False)) for row in rows[:_MAX_ROWS]]
+    return []
+
+
+def _checked(store: Store, arguments: dict[str, object], sql: str) -> str:
+    """The statement, checked. A statement that does not parse is told the table names.
+
+    A model often writes the file's path after FROM. The table is named after the file
+    or its sheet, so the refusal says which names exist.
+    """
+    try:
+        return check_sql(
+            sql,
+            allow_tables=set(),
+            deny_columns=set(),
+            row_limit=_MAX_ROWS,
+            dialect="duckdb",
+            allow_any=True,
+        )
+    except SqlRejected as exc:
+        raise SqlRejected(_naming_tables(store, arguments, exc.reason)) from exc
+
+
+def _naming_tables(store: Store, arguments: dict[str, object], reason: str) -> str:
+    """A refusal, followed by the table names the statement can use."""
+    try:
+        names = [name for name, _columns, _rows in _load_requested(store, arguments)]
+    except OSError, ValueError, ET.ParseError, zipfile.BadZipFile:
+        names = []
+    if not names:
+        return reason
+    return (
+        f"{reason.rstrip('.')}. A table is named after its file or sheet, not its path. "
+        f"The tables are: {', '.join(names)}. Put one of those names after FROM."
+    )
 
 
 def _query_result(

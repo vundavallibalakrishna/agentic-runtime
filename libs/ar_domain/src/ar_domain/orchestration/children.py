@@ -10,6 +10,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.orchestration.spec import chain, depth_blocked, is_cycle, subagent_spec, whole
+from ar_domain.runs.request import ask
 from ar_domain.skills.delegate import _insert_child
 from ar_domain.tools.agent_loop import model_alias_for
 
@@ -158,7 +159,7 @@ async def _drive(
     child = stored if isinstance(stored, dict) else inserted
     child["agent_chain"] = [*chain(parent), slug]
     child["budget_override"] = remaining_budget(budget, state)
-    child["orchestration_child"] = True
+    ask(child, "orchestration_child", True)
     holder = state.get("holder")
     if isinstance(holder, dict):
         holder["child"] = child

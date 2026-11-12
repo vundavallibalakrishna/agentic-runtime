@@ -68,6 +68,34 @@ class TrackedRow(dict[str, object]):
         super().__setitem__(key, _wrap(self._bucket, self._key, value))
         self._bucket.touch(self._key)
 
+    def update(self, *args: Any, **fields: object) -> None:
+        """Every write path wraps and marks, so a merged value stays tracked."""
+        for name, value in dict(*args, **fields).items():
+            self[str(name)] = value
+
+    def setdefault(self, key: str, default: object = None) -> object:
+        if key not in self:
+            self[key] = default
+        return self[key]
+
+    def __delitem__(self, key: str) -> None:
+        self._bucket.capture(self._key)
+        super().__delitem__(key)
+        self._bucket.touch(self._key)
+
+    def pop(self, key: str, *default: object) -> object:
+        if key not in self:
+            return super().pop(key, *default)
+        self._bucket.capture(self._key)
+        found = super().pop(key)
+        self._bucket.touch(self._key)
+        return found
+
+    def clear(self) -> None:
+        self._bucket.capture(self._key)
+        super().clear()
+        self._bucket.touch(self._key)
+
 
 class TrackedDict(dict[object, object]):
     """``store.<bucket>`` replacement. Assignment records the key."""
@@ -154,6 +182,17 @@ class TrackedDict(dict[object, object]):
         super().pop(key, None)
         self.dirty.discard(key)
         self.deleted.pop(key, None)
+
+
+def keep(bucket: Any, key: object, row: dict[str, object]) -> dict[str, object]:
+    """Store a new row and return the stored object.
+
+    A tracked bucket stores its own copy, so a caller that keeps writing to the dict it
+    built would lose those writes. Code that stores a row and then fills it in uses this.
+    """
+    bucket[key] = row
+    found = bucket[key]
+    return found if isinstance(found, dict) else row
 
 
 def _wrap(bucket: Any, key: object, value: object) -> object:

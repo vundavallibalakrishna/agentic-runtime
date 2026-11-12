@@ -53,6 +53,9 @@ def fail_run(
         if not said:
             reply["text"] = message
             reply["content"] = [{"type": "text", "text": message}]
+    from ar_domain.loop.planning import end_tool_plan  # noqa: PLC0415
+
+    end_tool_plan(store, run, "cancelled")
     emit = getattr(store, "_emit", None)
     if callable(emit):
         emit(run, "run.failed", {"error": run["error"]})

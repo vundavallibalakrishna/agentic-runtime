@@ -12,7 +12,7 @@ from collections.abc import Callable
 import orjson
 
 from ar_common.wrapping import wrap_untrusted
-from ar_domain.documents.chunk import retrieve, score
+from ar_domain.documents.chunk import RETRIEVAL_BUDGET, retrieve, score
 from ar_domain.pii.analyzer import Masking, redact
 
 Ask = Callable[[str, str], str | None]
@@ -163,66 +163,102 @@ def extract_fields(
     *,
     aggressive: bool = False,
 ) -> dict[str, object]:
+    """Read named values out of a document. A value is returned only with the words that state it.
+
+    A field the document does not state comes back empty. Nothing is guessed from a
+    passage that merely shares a word with the field name.
+    """
     passages = _prepare_passages(_passages(document), aggressive=aggressive)
-    values: list[dict[str, object]] = []
-    for name in fields:
-        hit = _best(passages, name)
-        value = ""
-        quote = ""
-        anchor = ""
-        page = 0
-        if hit is not None and score(name, str(hit.get("text") or "")) >= 0.2:
-            anchor = str(hit.get("anchor") or "")
-            page = int(str(hit.get("page") or 0))
-            quote = _first_sentence(str(hit.get("text") or ""))
-            value = _field_value(name, str(hit.get("text") or ""))
-        if ask is not None and hit is not None:
-            evidence = _evidence([hit])
-            raw = ask(
-                f'Extract the field "{name}" only if the passage states it. '
-                'Return JSON {"value": "", "quote": ""}. Use an empty value when it is absent.',
-                evidence,
-            )
-            parsed = _object(raw)
-            if parsed is not None:
-                candidate = str(parsed.get("value") or "").strip()
-                snippet = str(parsed.get("quote") or "").strip()
-                text = str(hit.get("text") or "")
-                if candidate and candidate.lower() in text.lower():
-                    value = candidate
-                    if snippet and _contains(text, snippet):
-                        quote = snippet[:_QUOTE]
-        if not value:
-            values.append(
-                {
-                    "field": name,
-                    "value": None,
-                    "reason": _MISSING,
-                    "citation": None,
-                    "confidence": 0,
-                }
-            )
-            continue
-        values.append(
-            {
-                "field": name,
-                "value": value,
-                "reason": "",
-                "citation": {
-                    "document_id": str(document.get("id") or ""),
-                    "anchor": anchor,
-                    "page": page,
-                    "quote": quote[:_QUOTE],
-                },
-                "confidence": 0.6,
-            }
-        )
+    values = [_extract_one(document, passages, name, ask) for name in fields]
     return {
         "kind": "extract",
         "document_id": str(document.get("id") or ""),
         "fields": values,
         "model_used": ask is not None,
     }
+
+
+def _extract_one(
+    document: dict[str, object], passages: list[dict[str, object]], name: str, ask: Ask | None
+) -> dict[str, object]:
+    candidates = _candidates(passages, name)
+    found = _asked_value(candidates, name, ask) or _labelled_value(candidates, name)
+    if found is None:
+        return {"field": name, "value": None, "reason": _MISSING, "citation": None, "confidence": 0}
+    hit, value, quote, confidence = found
+    return {
+        "field": name,
+        "value": value,
+        "reason": "",
+        "citation": {
+            "document_id": str(document.get("id") or ""),
+            "anchor": str(hit.get("anchor") or ""),
+            "page": int(str(hit.get("page") or 0)),
+            "quote": quote[:_QUOTE],
+        },
+        "confidence": confidence,
+    }
+
+
+_Found = tuple[dict[str, object], str, str, float]
+
+
+def _candidates(passages: list[dict[str, object]], name: str) -> list[dict[str, object]]:
+    """Passages to read for a field: those sharing its words first, then the rest, to the budget.
+
+    A field name rarely uses the document's own wording, so a passage is not ruled
+    out for sharing no word with it while there is room to show it.
+    """
+    ranked = sorted(
+        enumerate(passages),
+        key=lambda item: (-score(name, str(item[1].get("text") or "")), item[0]),
+    )
+    chosen: list[dict[str, object]] = []
+    used = 0
+    for _index, row in ranked:
+        size = len(str(row.get("text") or ""))
+        if chosen and used + size > RETRIEVAL_BUDGET:
+            continue
+        chosen.append(row)
+        used += size
+    return chosen
+
+
+def _asked_value(candidates: list[dict[str, object]], name: str, ask: Ask | None) -> _Found | None:
+    """The model's reading, kept only when its quote and value are in a passage word for word."""
+    if ask is None or not candidates:
+        return None
+    raw = ask(
+        f'Extract the field "{name}" only if a passage states it. '
+        'Return JSON {"value": "", "quote": "", "anchor": ""}. The value and the quote are '
+        "copied word for word from one passage; the quote is the sentence that states the "
+        "value and the anchor is that passage's anchor. Use an empty value when it is absent.",
+        _evidence(candidates),
+    )
+    parsed = _object(raw)
+    if parsed is None:
+        return None
+    value = str(parsed.get("value") or "").strip()
+    quote = str(parsed.get("quote") or "").strip()
+    if not value or not quote:
+        return None
+    named = _by_anchor(candidates, str(parsed.get("anchor") or ""))
+    for row in [named, *candidates] if named is not None else candidates:
+        text = str(row.get("text") or "")
+        if _contains(text, quote) and _contains(text, value):
+            return row, value, quote, 0.9
+    return None
+
+
+def _labelled_value(candidates: list[dict[str, object]], name: str) -> _Found | None:
+    """A value the document labels with the field's own name, as in ``Name: value``."""
+    pattern = re.compile(rf"{re.escape(name)}\s*[:\-]\s*(.+)", re.IGNORECASE)
+    for row in candidates:
+        for line in str(row.get("text") or "").splitlines():
+            match = pattern.search(line)
+            if match:
+                return row, match.group(1).strip()[:200], line.strip(), 0.6
+    return None
 
 
 def prepare_analysis_text(text: str, *, aggressive: bool) -> str:
@@ -478,11 +514,6 @@ def _passages(document: dict[str, object]) -> list[dict[str, object]]:
     return [row for row in raw if isinstance(row, dict)]
 
 
-def _best(passages: list[dict[str, object]], query: str) -> dict[str, object] | None:
-    chosen = retrieve(passages, query, budget=3000)
-    return chosen[0] if chosen else None
-
-
 def _by_anchor(passages: list[dict[str, object]], anchor: str) -> dict[str, object] | None:
     for row in passages:
         if str(row.get("anchor") or "") == anchor:
@@ -526,15 +557,6 @@ def _sentences(text: str) -> list[str]:
     if not cleaned:
         return []
     return [part.strip() for part in re.split(r"(?<=[.!?])\s+", cleaned) if part.strip()]
-
-
-def _field_value(name: str, text: str) -> str:
-    pattern = re.compile(rf"{re.escape(name)}\s*[:\-]\s*(.+)", re.IGNORECASE)
-    for line in text.splitlines():
-        match = pattern.search(line)
-        if match:
-            return match.group(1).strip()[:200]
-    return _first_sentence(text)
 
 
 def _local_rewrite(original: str, instruction: str) -> str:

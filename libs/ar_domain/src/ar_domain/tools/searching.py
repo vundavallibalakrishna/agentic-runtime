@@ -15,8 +15,9 @@ if TYPE_CHECKING:
 _INSTRUCTIONS = (
     "Web search is not configured. Set AR_SEARCH_PROVIDER to brave or tavily and "
     "AR_SEARCH_API_KEY to that provider's key, or set the tenant search provider and "
-    "a secret name (secretName) that holds the key. No results were invented. "
-    "Live search stays not_live until that key is set."
+    "a secret name (secretName) that holds the key. A SearXNG server needs the provider "
+    "searxng and its address (baseUrl) and no key. No results were invented. "
+    "Live search stays not_live until that is set."
 )
 _REJECTED = (
     "The search provider rejected the API key. Check AR_SEARCH_API_KEY or the named "
@@ -55,7 +56,20 @@ def provider_for(store: Any, tenant_id: object) -> SearchProvider:
         return BraveSearch(key)
     if name == "tavily" and key:
         return TavilySearch(key)
+    settings = _tenant_search(store, tenant_id)
+    base = str(settings.get("base_url") or settings.get("baseUrl") or "").strip().rstrip("/")
+    if name == "searxng" and base:
+        return SearxngSearch(base)
     raise SearchUnavailableError
+
+
+def search_configured(store: Any, tenant_id: object) -> bool:
+    """Whether this tenant has a web search provider it can call."""
+    try:
+        provider_for(store, tenant_id)
+    except SearchUnavailableError:
+        return False
+    return True
 
 
 def _configured(store: Any, tenant_id: object) -> tuple[str, str]:
@@ -130,6 +144,26 @@ class TavilySearch:
         payload = response.json()
         results = payload.get("results") if isinstance(payload, dict) else None
         return _rows(results, secret=self._key)
+
+
+class SearxngSearch:
+    """A SearXNG server the organisation runs. It has an address and no key."""
+
+    def __init__(self, base_url: str) -> None:
+        self._base = base_url
+
+    def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
+        response = blocking(
+            httpx.get,
+            f"{self._base}/search",
+            params={"q": query, "format": "json"},
+            headers={"Accept": "application/json"},
+            timeout=15.0,
+        )
+        _checked(response)
+        payload = response.json()
+        results = payload.get("results") if isinstance(payload, dict) else None
+        return _rows(results)[: max(1, min(limit, 10))]
 
 
 def _checked(response: httpx.Response) -> None:

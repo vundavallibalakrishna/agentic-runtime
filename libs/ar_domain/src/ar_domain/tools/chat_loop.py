@@ -9,6 +9,7 @@ decides every tool call through the agent loop.
 import uuid
 from typing import TYPE_CHECKING
 
+from ar_domain.approvals.pending import hold
 from ar_domain.tools.logic import call_args_hash
 
 if TYPE_CHECKING:
@@ -31,7 +32,7 @@ def _pause(  # noqa: PLR0917
     arguments: dict[str, object],
 ) -> None:
     run["status"] = "waiting_approval"
-    run["pending_approval"] = {
+    pending: dict[str, object] = {
         "approval_id": uuid.UUID(str(result.get("approval_id"))),
         "tool_version_id": call["tool_version_id"],
         "arguments": arguments,
@@ -44,11 +45,11 @@ def _pause(  # noqa: PLR0917
     if isinstance(approval, dict) and approval.get("id"):
         row = store.approvals.get(uuid.UUID(str(approval["id"])))
         if isinstance(row, dict):
-            pending = run["pending_approval"]
-            if isinstance(pending, dict):
-                pending["args_hash"] = row.get("args_hash")
-                pending["model_call_id"] = row.get("tool_call_id")
-                pending["tool_call_id"] = row.get("tool_call_id")
+            pending["args_hash"] = row.get("args_hash")
+            pending["model_call_id"] = row.get("tool_call_id")
+            pending["tool_call_id"] = row.get("tool_call_id")
+    # Kept with the run, so the request that takes the decision can continue it.
+    hold(run, pending)
     text = "Waiting for approval before this tool runs."
     assistant["text"] = text
     assistant["content"] = [{"type": "text", "text": text}]

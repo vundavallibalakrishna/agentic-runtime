@@ -11,7 +11,7 @@ from ar_domain.models.request import chat_completion_body, redact_provider_error
 from ar_domain.tools.identity import tool_call_idempotency_key
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_domain.tools.structured import accept_output
-from ar_testing.demo import demo_store
+from ar_testing.demo import add_library_notes, demo_store
 
 SCHEMA = {
     "type": "object",
@@ -97,6 +97,7 @@ def test_two_research_queries_and_a_retry_keep_their_sources() -> None:
     from ar_runtime.activities.research_step import research_step, research_subtask
 
     store = demo_store()
+    add_library_notes(store)
     bind_store(store)
     tenant = demo_id("tenant")
     user = demo_id("admin")
@@ -212,7 +213,7 @@ def test_a_file_id_resolves_to_the_library_document() -> None:
         "content_hash": digest,
         "status": "ready",
         "title": "Policy",
-        "passages": [{"text": "Break-glass access is logged."}],
+        "passages": [{"anchor": "p1-s0", "page": 1, "text": "Break-glass access is logged."}],
     }
     store.files[file_id] = {
         "id": file_id,
@@ -419,7 +420,7 @@ def test_attachment_line_includes_the_document_and_an_excerpt() -> None:
         "tenant_id": tenant,
         "content_hash": "digest",
         "status": "ready",
-        "passages": [{"text": "Break-glass access is logged."}],
+        "passages": [{"anchor": "p1-s0", "page": 1, "text": "Break-glass access is logged."}],
     }
     store.files[file_id] = {
         "id": file_id,
@@ -441,7 +442,8 @@ def test_attachment_line_includes_the_document_and_an_excerpt() -> None:
     }
     rows = conversation_attachments(store, conversation_id)
     assert rows[0].document_id == document_id
-    assert "Break-glass" in rows[0].line()
+    # The passage is shown after its anchor, which is what an answer cites.
+    assert "[p1-s0 p.1] Break-glass access is logged." in rows[0].line()
     assert "documentId=" in rows[0].line()
 
 

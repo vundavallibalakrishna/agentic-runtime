@@ -12,6 +12,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_contracts.evals import parse_assertions, parse_gate, parse_input, parse_mocks
 from ar_domain.audit.memory import remember
+from ar_domain.durable.tracking import keep
 from ar_domain.evals.metrics import RUNS
 from ar_domain.evals.runner import execute_eval_run
 
@@ -183,7 +184,9 @@ class EvalBook:
             raise NotFoundError()
         if file_row.get("kind") != "eval_dataset":
             raise ValidationFailedError("file must be an eval dataset")
-        blob = self.store.blobs.get(file_id, b"")
+        from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+        blob = read_blob(self.store, file_id) or b""
         text = blob.decode("utf-8", errors="replace") if isinstance(blob, bytes) else str(blob)
         return self._import_text(actor, suite_id, text)
 
@@ -436,8 +439,7 @@ class EvalBook:
             "created_at": now,
             "updated_at": now,
         }
-        self.store.eval_cases[case_id] = row
-        return row
+        return keep(self.store.eval_cases, case_id, row)
 
     def _suite(self, actor: Actor, suite_id: uuid.UUID) -> dict[str, object]:
         row = self.store.eval_suites.get(suite_id)

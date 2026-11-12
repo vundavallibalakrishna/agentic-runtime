@@ -14,7 +14,12 @@ from ar_runtime.activities.create_child_run import create_child_run
 from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
-from ar_runtime.activities.research_step import research_cancel, research_step, research_subtask
+from ar_runtime.activities.research_step import (
+    research_cancel,
+    research_exhausted,
+    research_step,
+    research_subtask,
+)
 from ar_runtime.activities.start_run import start_run
 from ar_runtime.main import TASK_QUEUE
 from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow
@@ -50,11 +55,6 @@ async def _prepare_store() -> None:
     from ar_domain.tools.gateway_client import configure_gateway  # noqa: PLC0415
 
     configure_gateway(store, env=str(getattr(settings, "env", "dev")))
-    from ar_domain.process_state import install_shared_state  # noqa: PLC0415
-    from ar_domain.sandboxes.manager_launch import register_worker_sandbox  # noqa: PLC0415
-
-    install_shared_state(store, settings)
-    register_worker_sandbox(store, settings)
     # Tool calls run here. The engine that masks their results is built now, not in the
     # first call.
     warm_up()
@@ -94,6 +94,7 @@ async def run_worker() -> None:
                     research_step,
                     research_subtask,
                     research_cancel,
+                    research_exhausted,
                     start_run,
                     create_child_run,
                     expire_approval,

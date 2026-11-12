@@ -137,7 +137,8 @@ export function ChatScreen() {
         items: [] as Item[],
       }));
       setConversations(listed.items ?? []);
-      setAgents(agentPage.items ?? []);
+      // An archived agent is put away: it is not offered for a new conversation.
+      setAgents((agentPage.items ?? []).filter((row) => String(row.status ?? "") !== "archived"));
       setAliases(
         Array.from(
           new Set(
@@ -438,6 +439,10 @@ export function ChatScreen() {
     runRef.current = "";
     setRunId("");
     setStream({ ...emptyStream, status: "streaming" });
+    // A plan whose every step is finished belongs to the turn that ended.
+    setPlan((current) =>
+      current.every((step) => step.status === "done" || step.status === "cancelled") ? [] : current,
+    );
     let conversationReady = Boolean(activeId);
     try {
       let conversationId = activeId;
@@ -811,7 +816,9 @@ export function ChatScreen() {
             ) : null}
             <div
               className={cn(
-                "min-h-0 overflow-auto px-5 md:px-10",
+                // `relative` keeps absolutely placed children, such as screen-reader labels,
+                // inside this scroll area. Without it they stretch the whole page.
+                "relative min-h-0 overflow-auto px-5 md:px-10",
                 visible.length ? "flex-1 py-5" : "h-0",
               )}
               data-testid="message-scroll"
@@ -1006,6 +1013,14 @@ export function ChatScreen() {
                             conversationId={activeId}
                             messageId={id}
                           />
+                          {streamingHere && !body && stream.tools.length === 0 ? (
+                            <p
+                              className="text-sm text-[var(--muted-foreground)]"
+                              data-testid="reply-working"
+                            >
+                              {t("workingOnIt")}
+                            </p>
+                          ) : null}
                           {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
                           {!mine &&
                           (streamingHere ? stream.answeredModel : message.answeredModel) ? (
@@ -1144,13 +1159,16 @@ export function ChatScreen() {
               ) : null}
               {stream.researchQueries.length > 0 || stream.sourceCount > 0 ? (
                 <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
-                  <h2 className="font-medium">{t("sources")}</h2>
+                  <h2 className="font-medium">{t("researchPhase")}</h2>
                   <p className="text-xs text-[var(--muted-foreground)]">
-                    {t("researchPhase")} · {stream.researchPhase || "working"} ·{" "}
-                    {stream.sourceCount}
+                    {t(stream.researchPhase === "done" ? "researchDone" : "researchRunning")} ·{" "}
+                    {t("sourcesFound", { count: stream.sourceCount })}
                     {stream.verified ? ` · ${t("verified")} ${stream.verified}` : ""}
                   </p>
-                  <ol className="mt-2 list-decimal pl-5">
+                  <p className="mt-2 text-xs font-medium text-[var(--muted-foreground)]">
+                    {t("researchQuestions")}
+                  </p>
+                  <ol className="mt-1 list-decimal pl-5">
                     {stream.researchQueries.map((query) => (
                       <li key={query.id}>{query.text}</li>
                     ))}

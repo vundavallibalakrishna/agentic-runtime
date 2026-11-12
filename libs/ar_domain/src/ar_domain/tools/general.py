@@ -95,8 +95,6 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     source = str(arguments.get("source") or "")
     if not source.strip():
         return _error("validation_failed", "source is required")
-    if not host_exec_allowed():
-        return _error("sandbox_unavailable", "the computer is not ready")
     limits = _limits(store, arguments, "code")
     if limits["network"] and not _command_hosts_ok(store, arguments, source):
         return _egress_block(store, arguments, source)
@@ -104,24 +102,24 @@ def _code(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     path = root / "workspace" / "_agent.py"
     path.write_text(showing_last_value(source), encoding="utf-8")
     before = _stamp(root)
-    result = blocking(
-        run_isolated,
+    result = _run_script(
+        store,
+        arguments,
         root,
-        [sys.executable, "-I", _guest_path(root, "_agent.py")],
-        timeout=_as_limit(limits["timeout_s"]),
-        network=bool(limits["network"]),
-        max_file_bytes=_as_limit(limits["max_file_bytes"]),
+        "_agent.py",
+        interpreters=([sys.executable, "-I"], ["python3", "-I"]),
+        limits=limits,
     )
+    if isinstance(result, dict):
+        return result
     files = _publish_new(store, arguments, root, before)
-    return _command_result("code", "python", _told(root, result, source), files)
+    return _command_result("code", "python", _missing_package(_told(root, result, source)), files)
 
 
 def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     command = str(arguments.get("command") or "")
     if not command.strip():
         return _error("validation_failed", "command is required")
-    if not host_exec_allowed():
-        return _error("sandbox_unavailable", "the computer is not ready")
     limits = _limits(store, arguments, "shell")
     if not limits["network"] and _URL.search(command):
         return _error(
@@ -134,16 +132,47 @@ def _shell(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     (root / "workspace" / "_agent.sh").write_text(command, encoding="utf-8")
     before = _stamp(root)
     shell = "/bin/bash" if Path("/bin/bash").exists() else "/usr/bin/bash"
-    result = blocking(
+    result = _run_script(
+        store, arguments, root, "_agent.sh", interpreters=([shell], ["/bin/bash"]), limits=limits
+    )
+    if isinstance(result, dict):
+        return result
+    files = _publish_new(store, arguments, root, before)
+    return _command_result("shell", command, _told(root, result, command), files)
+
+
+def _run_script(
+    store: Any,
+    arguments: dict[str, object],
+    root: Path,
+    name: str,
+    *,
+    interpreters: tuple[list[str], list[str]],
+    limits: dict[str, int | bool],
+) -> IsolatedRun | dict[str, object]:
+    """Run the script a tool wrote in this run's folder, and return the finished run.
+
+    Where this process has computers, the script runs in the conversation's computer.
+    A dev host with none runs it in the host's own isolation. Anywhere else the tool says
+    the computer is not ready: code never runs on a host that does not allow it.
+    ``interpreters`` is the command on the host and the command in the computer.
+    """
+    from ar_domain.sandboxes.folder_run import run_in_computer, runs_in_computer  # noqa: PLC0415
+
+    on_host, in_computer = interpreters
+    timeout = _as_limit(limits["timeout_s"])
+    if runs_in_computer(store):
+        return run_in_computer(store, arguments, root, [*in_computer, name], timeout=timeout)
+    if not host_exec_allowed():
+        return _error("sandbox_unavailable", "the computer is not ready")
+    return blocking(
         run_isolated,
         root,
-        [shell, _guest_path(root, "_agent.sh")],
-        timeout=_as_limit(limits["timeout_s"]),
+        [*on_host, _guest_path(root, name)],
+        timeout=timeout,
         network=bool(limits["network"]),
         max_file_bytes=_as_limit(limits["max_file_bytes"]),
     )
-    files = _publish_new(store, arguments, root, before)
-    return _command_result("shell", command, _told(root, result, command), files)
 
 
 def _read(store: Any, arguments: dict[str, object]) -> dict[str, object]:
@@ -536,6 +565,20 @@ def _told(root: Path, result: IsolatedRun, script: str) -> IsolatedRun:
     if result.exit_code != 0 and "/workspace" in script:
         stderr = f"{stderr.rstrip()}\n{_NO_WORKSPACE}".lstrip()
     return replace(result, stdout=stdout, stderr=stderr)
+
+
+_NO_PACKAGE = (
+    "That package is not installed here, and no other plotting package is either. "
+    "To draw a chart call general.chart: give it path (a CSV or sheet in this folder) "
+    "with xKey and yKey, or rows. To read a table call general.query_table."
+)
+
+
+def _missing_package(result: IsolatedRun) -> IsolatedRun:
+    """A script that imported a package this computer lacks is told what to call instead."""
+    if result.exit_code == 0 or "ModuleNotFoundError" not in result.stderr:
+        return result
+    return replace(result, stderr=f"{result.stderr.rstrip()}\n{_NO_PACKAGE}")
 
 
 def _command_result(
@@ -1102,6 +1145,9 @@ def _store_file(
     digest = hashlib.sha256(data).hexdigest()
     existing = _same_artifact(store, arguments, label, digest)
     if existing is not None:
+        # The bytes are already stored, but this run's folder still has to be saved, or
+        # the next step on another worker would not find the file.
+        _snapshot_after(store, arguments)
         return {"file_id": str(existing["id"]), "name": label}
     file_id = new_id()
     now = utcnow()
@@ -1144,6 +1190,7 @@ def _same_artifact(
         return None
     conversation = arguments.get("_conversation_id")
     tenant = arguments.get("_tenant_id")
+    owner = arguments.get("_user_id")
     for row in files.values():
         if not isinstance(row, dict) or row.get("deleted_at") or row.get("status") == "deleted":
             continue
@@ -1153,26 +1200,18 @@ def _same_artifact(
             continue
         if conversation is not None and row.get("conversation_id") not in {None, conversation}:
             continue
+        # A file in no conversation is its owner's alone. Another person's upload of the
+        # same bytes is not this run's artifact.
+        if row.get("conversation_id") is None and row.get("owner_user_id") != owner:
+            continue
         return row
     return None
 
 
 def _mime(name: str) -> str:
-    media = {
-        ".svg": "image/svg+xml",
-        ".png": "image/png",
-        ".csv": "text/csv",
-        ".tsv": "text/csv",
-        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        ".pdf": "application/pdf",
-        ".json": "application/json",
-    }
-    for suffix, kind in media.items():
-        if name.endswith(suffix):
-            return kind
-    return "text/plain"
+    from ar_domain.files.logic import mime_of_name  # noqa: PLC0415
+
+    return mime_of_name(name, "text/plain")
 
 
 class _Page(HTMLParser):

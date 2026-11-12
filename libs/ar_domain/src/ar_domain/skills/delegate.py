@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_untrusted
+from ar_domain.durable.tracking import keep
+from ar_domain.runs.request import ask
 from ar_domain.skills.logic import budget_exhausted, child_budget, platform_max_depth
 from ar_domain.skills.metrics import SUBAGENTS
 
@@ -285,7 +287,7 @@ async def _run_child(
         _finish_child(store, child, "failed", _NO_MODEL)
         return _NO_MODEL, {"tokens_in": 0, "tokens_out": 0}, "failed"
     assistant = _assistant_message(store, child)
-    child["orchestration_child"] = True
+    ask(child, "orchestration_child", True)
     ran = await run_agent_loop(store, child, assistant, task)
     if not ran:
         _finish_child(store, child, "failed", _NO_MODEL)
@@ -316,8 +318,7 @@ def _assistant_message(store: Any, child: dict[str, object]) -> dict[str, object
         "is_active_branch": False,
         "created_at": utcnow(),
     }
-    store.messages[assistant_id] = row
-    return row
+    return keep(store.messages, assistant_id, row)
 
 
 def _remember_step(

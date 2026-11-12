@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
+from ar_domain.durable.tracking import keep
 from ar_domain.tools.logic import as_sequence
 
 if TYPE_CHECKING:
@@ -253,8 +254,7 @@ class CredentialBook:
             "created_at": utcnow(),
             "updated_at": utcnow(),
         }
-        self.store.credential_grants[grant_id] = row
-        return row
+        return keep(self.store.credential_grants, grant_id, row)
 
     def _provider(self, actor: Actor, provider_id: uuid.UUID) -> dict[str, object]:
         row = self.store.credential_providers.get(provider_id)

@@ -77,6 +77,28 @@ class Scale(NamedTuple):
         return self.y(0.0)
 
 
+def _from_file(
+    store: Any, arguments: dict[str, object]
+) -> list[dict[str, object]] | dict[str, object]:
+    """Rows from the table file ``path`` names, when the call gave no rows of its own."""
+    if isinstance(arguments.get("rows"), list) and arguments["rows"]:
+        return []
+    if not str(arguments.get("path") or "").strip():
+        return []
+    from ar_domain.tools.analysis import table_rows  # noqa: PLC0415
+    from ar_domain.tools.sql_guard import SqlRejected  # noqa: PLC0415
+
+    try:
+        rows = table_rows(store, arguments)
+    except SqlRejected as exc:
+        return _error("validation_failed", exc.reason)
+    except (OSError, ValueError) as exc:
+        return _error("validation_failed", str(exc)[:300])
+    if not rows:
+        return _error("validation_failed", "that file has no rows to plot")
+    return rows
+
+
 def _scale_for(rows: list[tuple[str, float]], area: Area) -> Scale:
     values = [value for _label, value in rows] or [0.0]
     hi = max(*values, 0.0) if len(values) > 1 else max(values[0], 0.0)
@@ -89,6 +111,13 @@ def _scale_for(rows: list[tuple[str, float]], area: Area) -> Scale:
 def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object] | None:
     if name != "chart":
         return None
+    loaded = _from_file(store, arguments)
+    if isinstance(loaded, dict):
+        return loaded
+    return _draw(store, {**arguments, "rows": loaded} if loaded else arguments)
+
+
+def _draw(store: Any, arguments: dict[str, object]) -> dict[str, object]:
     kind = str(arguments.get("kind") or "bar").lower()
     if kind not in _KINDS:
         return _error(
@@ -122,7 +151,8 @@ def dispatch_chart(store: Any, name: str, arguments: dict[str, object]) -> dict[
         rows = _rows(arguments)
         if not rows:
             return _error(
-                "validation_failed", "chart needs rows, or xKey and yKey over a list of objects"
+                "validation_failed",
+                "chart needs rows, or path to a table file, with xKey and yKey naming its columns",
             )
         png = render_chart(kind, rows, theme=theme.name, title=title)
         count = len(rows)
@@ -323,14 +353,19 @@ def _rows(arguments: dict[str, object]) -> list[tuple[str, float]]:
     found: list[tuple[str, float]] = []
     for index, item in enumerate(raw):
         if isinstance(item, dict):
-            label = str(item.get(x_key) or item.get("label") or item.get("x") or index)
+            named = item.get(x_key) or item.get("label") or item.get("x")
             value = item.get(y_key) if y_key else None
             if value is None:
-                value = item.get("value") or item.get("y") or _first_number(item)
+                value = item.get("value") or item.get("y")
+            if named is None and value is None and len(item) == 1:
+                # A row written as {"North": 12}: the key is the label, not a column name.
+                ((named, value),) = item.items()
+            if value is None:
+                value = _first_number(item)
             number = _number(value)
             if number is None:
                 continue
-            found.append((label, number))
+            found.append((str(index if named is None else named), number))
         elif isinstance(item, (list, tuple)) and len(item) >= 2:
             number = _number(item[1])
             if number is None:
@@ -474,8 +509,14 @@ def _bars(  # noqa: PLR0917
                 _dot(pixels, width, x, y, colour)
         label = _fmt(value)
         label_x = center - pixfont.text_width(label) // 2
-        label_y = top - 9 if value >= 0 and top - 9 >= area.y0 else bottom + 2
-        pixfont.draw_text(pixels, width, height, label_x, label_y, label, theme.ink)
+        if value >= 0 and top - 9 >= area.y0:
+            pixfont.draw_text(pixels, width, height, label_x, top - 9, label, theme.ink)
+        elif value >= 0:
+            # The tallest bar reaches the top of the plot. Its value goes just inside the
+            # bar, in the paper colour, so it does not land on the category label below.
+            pixfont.draw_text(pixels, width, height, label_x, top + 3, label, theme.paper)
+        else:
+            pixfont.draw_text(pixels, width, height, label_x, bottom + 2, label, theme.ink)
 
 
 def _fill(  # noqa: PLR0917

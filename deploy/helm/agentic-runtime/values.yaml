@@ -279,6 +279,9 @@ openbao:
     tag: 2.7.1
 sandboxes:
   driver: kubernetes
+  # The image every sandbox pod starts from. Empty means ar-sandbox at global.imageTag,
+  # under global.imageRegistry when one is set.
+  image: ''
   runtimeClass: gvisor
   runtimeClassInstall: true
   namespace: ar-sandboxes

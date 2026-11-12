@@ -69,6 +69,15 @@ def typed_by_name(name: str, mime_type: str) -> str:
     return guessed or stated
 
 
+def mime_of_name(name: str, default: str) -> str:
+    """The type of a file the product wrote, from its name. One table for every writer."""
+    lowered = name.lower()
+    if lowered.endswith(".tsv"):
+        return "text/csv"
+    guessed, _encoding = mimetypes.guess_type(lowered)
+    return guessed or default
+
+
 def mime_allowed(mime_type: str) -> bool:
     """Whether the product can read this type at all."""
     return mime_type.lower() in READABLE_UPLOAD_MIME_TYPES

@@ -14,6 +14,7 @@ from ar_domain.approvals import models as approval_models
 from ar_domain.approvals import repository as approval_repository
 from ar_domain.approvals.errors import StepUpRequiredError
 from ar_domain.approvals.logic import can_decide, consume_standing, render_preview
+from ar_domain.approvals.pending import hold
 from ar_domain.approvals.reviews import ReviewBook
 from ar_domain.approvals.service import ApprovalBook
 from ar_domain.approvals.sod import SodBook
@@ -421,7 +422,6 @@ def test_expire_cancel_edit_and_bulk() -> None:
         "status": "waiting_approval",
         "conversation_id": None,
         "assistant_message_id": None,
-        "pending_approval": {},
     }
     pending = book.create_pending(
         tenant_id=actor.tenant_id,
@@ -437,12 +437,15 @@ def test_expire_cancel_edit_and_bulk() -> None:
         reasons=["ask"],
         preview={"title": "Pet", "summary": "Fido"},
     )
-    store.runs[run_id]["pending_approval"] = {
-        "approval_id": pending["id"],
-        "model_call_id": "m1",
-        "arguments": {"body": {"name": "Fido"}},
-        "args_hash": "hash-1",
-    }
+    hold(
+        store.runs[run_id],
+        {
+            "approval_id": pending["id"],
+            "model_call_id": "m1",
+            "arguments": {"body": {"name": "Fido"}},
+            "args_hash": "hash-1",
+        },
+    )
     edited = book.decide(
         actor,
         pending["id"],
@@ -486,10 +489,7 @@ def test_expire_cancel_edit_and_bulk() -> None:
         preview={"title": "Pet"},
     )
     store.runs[run_id]["status"] = "waiting_approval"
-    store.runs[run_id]["pending_approval"] = {
-        "approval_id": cancelling["id"],
-        "model_call_id": "m2",
-    }
+    hold(store.runs[run_id], {"approval_id": cancelling["id"], "model_call_id": "m2"})
     book.cancel(actor, cancelling["id"])
     reviews = ReviewBook(store)
     queues = reviews.list_queues(actor)

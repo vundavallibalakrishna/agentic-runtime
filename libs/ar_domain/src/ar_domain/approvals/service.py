@@ -9,6 +9,7 @@ from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.approvals.errors import StepUpRequiredError
 from ar_domain.approvals.logic import can_decide, can_view, is_approver, render_preview
+from ar_domain.approvals.pending import amend
 from ar_domain.audit.memory import remember
 from ar_domain.policy.service import _settings
 from ar_domain.rows import as_datetime, as_dict, as_int, as_list, as_uuid
@@ -448,11 +449,8 @@ class ApprovalBook:
         del tool
         run_id = row.get("run_id")
         run = self.store.runs.get(run_id) if isinstance(run_id, uuid.UUID) else None
-        pending = run.get("pending_approval") if isinstance(run, dict) else None
-        if isinstance(pending, dict):
-            pending["approval_id"] = created["id"]
-            pending["arguments"] = arguments
-            pending["args_hash"] = digest
+        if isinstance(run, dict):
+            amend(run, approval_id=created["id"], arguments=arguments, args_hash=digest)
         return self.detail(actor, created, reveal=True)
 
     def _record_decision(

@@ -475,7 +475,13 @@ def _change_text(body: dict[str, object]) -> str:
         for row in changes
         if isinstance(row, dict)
     ]
-    return _OPEN + "\n" + "\n".join(lines[:40])
+    # Without the names a reader cannot tell which document lacks an added or removed passage.
+    left, right = body.get("left_title") or "the first document", body.get("right_title") or ""
+    legend = (
+        f"Left and before are {left}. Right and after are {right or 'the second document'}. "
+        "A removed passage is only in the left document. An added passage is only in the right."
+    )
+    return _OPEN + "\n" + legend + "\n" + "\n".join(lines[:40])
 
 
 def _check_text(body: dict[str, object]) -> str:

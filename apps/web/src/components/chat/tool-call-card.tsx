@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
 type FileRow = { fileId?: string; file_id?: string; name?: string };
 type Hit = { title?: string; url?: string; snippet?: string };
@@ -101,6 +102,16 @@ function timelineLabel(
   if (kind === "retry") return t("timelineRetry");
   if (kind === "repair") return t("timelineRepair");
   return kind || "step";
+}
+
+/** Tool text that may be wider than the card. It scrolls, so the keyboard must reach it. */
+function Block({ className, children }: { className: string; children: ReactNode }) {
+  return (
+    // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
+    <pre className={className} tabIndex={0}>
+      {children}
+    </pre>
+  );
 }
 
 function text(value: unknown) {
@@ -209,30 +220,30 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           <summary className="cursor-pointer text-[var(--muted-foreground)]">
             {t("toolDetails")}
           </summary>
-          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
+          <Block className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
             {text(call.arguments)}
-          </pre>
+          </Block>
         </details>
       ) : null}
       <ToolTimeline call={call} />
       {progress ? <JobMeter progress={progress} /> : null}
       {kind === "code" || kind === "shell" ? (
         <div className="mt-2 space-y-2">
-          <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
+          <Block className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
             {text(presentation.command)}
-          </pre>
+          </Block>
           <p>
             {t("exitCode")} {text(presentation.exitCode ?? presentation.exit_code)}
           </p>
           {text(presentation.stdout) ? (
-            <pre className="overflow-x-auto whitespace-pre-wrap text-xs">
+            <Block className="overflow-x-auto whitespace-pre-wrap text-xs">
               {text(presentation.stdout)}
-            </pre>
+            </Block>
           ) : null}
           {text(presentation.stderr) ? (
-            <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-[var(--destructive)]">
+            <Block className="overflow-x-auto whitespace-pre-wrap text-xs text-[var(--destructive)]">
               {text(presentation.stderr)}
-            </pre>
+            </Block>
           ) : null}
         </div>
       ) : null}
@@ -263,18 +274,18 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
             {t("httpStatus")} {text(presentation.status)}
           </p>
           {text(presentation.snippet) ? (
-            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-xs">
+            <Block className="mt-1 overflow-x-auto whitespace-pre-wrap text-xs">
               {text(presentation.snippet)}
-            </pre>
+            </Block>
           ) : null}
         </div>
       ) : null}
       {kind === "query" || kind === "table" ? (
         <div className="mt-2">
           {text(presentation.sql) ? (
-            <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
+            <Block className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">
               {text(presentation.sql)}
-            </pre>
+            </Block>
           ) : null}
           <table className="mt-2 w-full text-left text-xs">
             <thead>
@@ -382,9 +393,9 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
         </div>
       ) : null}
       {kind === "redact" ? (
-        <pre className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
+        <Block className="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">
           {text(presentation.redacted)}
-        </pre>
+        </Block>
       ) : null}
       {kind === "extract" ? (
         <ul className="mt-2 space-y-1">

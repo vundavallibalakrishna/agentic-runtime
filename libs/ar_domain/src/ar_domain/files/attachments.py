@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 INPUTS = "inputs"
 _KIB = 1024
+# How much of an attached document a prompt shows before the model reads the rest with a tool.
+_EXCERPT = 1500
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,17 +137,28 @@ def _library_excerpt(store: Any, meta: dict[str, object]) -> tuple[uuid.UUID | N
             continue
         raw = row.get("id")
         document_id = raw if isinstance(raw, uuid.UUID) else None
-        passages = row.get("passages")
-        text = ""
-        if isinstance(passages, list):
-            chunks = [
-                str(item.get("text") or "")
-                for item in passages
-                if isinstance(item, dict) and item.get("text")
-            ]
-            text = "\n".join(chunks)[:1500]
-        return document_id, text
+        return document_id, _excerpt(row.get("passages"))
     return None, ""
+
+
+def _excerpt(passages: object) -> str:
+    """The first passages of a document, each after its anchor, whole passages only.
+
+    The anchor is what the model cites, so a passage is never shown without it.
+    """
+    from ar_domain.documents.cited import passage_line  # noqa: PLC0415
+
+    lines: list[str] = []
+    used = 0
+    for item in passages if isinstance(passages, list) else []:
+        if not isinstance(item, dict) or not item.get("text") or not item.get("anchor"):
+            continue
+        line = passage_line(item)
+        if lines and used + len(line) > _EXCERPT:
+            break
+        lines.append(line[:_EXCERPT])
+        used += len(line) + 1
+    return "\n".join(lines)
 
 
 def _size(size: int) -> str:

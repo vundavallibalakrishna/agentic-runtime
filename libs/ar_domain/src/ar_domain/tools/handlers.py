@@ -277,7 +277,9 @@ def _files(store: Any, name: str, arguments: dict[str, object]) -> dict[str, obj
         key = uuid.UUID(file_id)
     except ValueError:
         return _error("not_found", "file was not found")
-    blob = store.blobs.get(key)
+    from ar_domain.durability.store import read_blob  # noqa: PLC0415
+
+    blob = read_blob(store, key)
     if blob is None or not _may_read_file(store.files.get(key), tenant, user, own):
         return _error("not_found", "file was not found")
     offset = as_int(arguments.get("offset"), 0)
@@ -428,8 +430,17 @@ def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
     if row.get("tool_server_version_id") != server.get("current_version_id"):
         return False
     from ar_domain.proof import offered_to_model  # noqa: PLC0415
+    from ar_domain.tools.readiness import ready_for  # noqa: PLC0415
 
-    return offered_to_model(str(row.get("qualified_name") or ""))
+    name = str(row.get("qualified_name") or "")
+    return offered_to_model(name) and ready_for(store, _tenant_uuid(tenant), name)
+
+
+def _tenant_uuid(tenant: str) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(tenant)
+    except ValueError:
+        return None
 
 
 def _granted_names(store: Any, arguments: dict[str, object]) -> set[str] | None:

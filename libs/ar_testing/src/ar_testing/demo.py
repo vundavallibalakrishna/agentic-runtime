@@ -118,3 +118,41 @@ async def start_session(app: Any, email: str) -> dict[str, str]:
     )
     await app.state.sessions.put(session_id, data, int(app.state.settings.session_ttl_s))
     return {"ar_session": session_id, "ar_csrf": data.csrf_token}
+
+
+KITE_NOTES = {
+    "kite-overview.md": (
+        "# Kite overview\n\n"
+        "A kite flies because the wind pushes on its sail and the line holds it at an angle. "
+        "The stored notes say a kite needs steady wind of at least eight knots.\n"
+    ),
+    "kite-string.md": (
+        "# Kite string\n\n"
+        "The string of a kite is called the line. The stored notes say a braided line of "
+        "thirty metres is enough for a first flight.\n"
+    ),
+}
+
+
+def add_library_notes(store: Any) -> list[str]:
+    """Put two short notes in the demo tenant's document library, and return their ids.
+
+    Research and document search read the library. A test that needs something to find
+    adds these, the way a person uploads documents.
+    """
+    import asyncio  # noqa: PLC0415
+
+    from ar_domain.agents.access import Actor  # noqa: PLC0415
+    from ar_domain.chat.service import demo_id  # noqa: PLC0415
+    from ar_domain.documents.library import ingest_bytes  # noqa: PLC0415
+    from ar_domain.identity.permissions import PERMISSION_KEYS  # noqa: PLC0415
+
+    actor = Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS)
+    ids: list[str] = []
+    for name, text in KITE_NOTES.items():
+        note = ingest_bytes(
+            store, actor, data=text.encode(), filename=name, media_type="text/markdown"
+        )
+        row = asyncio.run(note)
+        ids.append(str(row.get("id") or ""))
+    return ids

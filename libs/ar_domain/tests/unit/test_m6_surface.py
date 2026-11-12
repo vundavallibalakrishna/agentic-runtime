@@ -22,6 +22,7 @@ from ar_domain.sandboxes.runtime import (
 )
 from ar_domain.sandboxes.service import SandboxBook
 from ar_testing.demo import demo_store
+from ar_testing.objects import MemoryObjectStore
 
 _IMAGE = "registry.local/ar/ar-sandbox@sha256:" + ("ab" * 32)
 
@@ -245,18 +246,40 @@ def test_manager_routes_and_docker_probe() -> None:
     assert claim("default=4,browser=2", "browser", {"browser": 0}) is None
     client = TestClient(create_application())
     store = client.app.state.chat
+    # A suspended computer stores a snapshot. No object store runs in a unit test.
+    store.objects = MemoryObjectStore()
     template = next(row for row in store.sandbox_templates.values() if row["slug"] == "browser")
-    made = client.post(
-        "/internal/v1/sandboxes:ensure",
-        json={
-            "tenant_id": str(demo_id("tenant")),
-            "scope": "conversation",
-            "scope_key": "conv:manager",
-            "template_id": str(template["id"]),
-            "user_id": str(demo_id("admin")),
-        },
-    )
+    body = {
+        "tenant_id": str(demo_id("tenant")),
+        "scope": "conversation",
+        "scope_key": "conv:manager",
+        "template_id": str(template["id"]),
+        "user_id": str(demo_id("admin")),
+    }
+    # With no image named the manager says what to set. It does not hand out a computer
+    # that has nothing behind it.
+    refused = client.post("/internal/v1/sandboxes:ensure", json=body)
+    assert refused.status_code == 422
+    assert "AR_SANDBOX_IMAGE" in refused.text
+
+    class _Started:
+        def start(self, name: str, token: str) -> dict[str, object]:
+            return {"container_id": name, "endpoint_url": "http://127.0.0.1:1", "token": token}
+
+        def stop(self, container_id: str) -> None:
+            del container_id
+
+    store.sandbox_launcher = _Started()
+    made = client.post("/internal/v1/sandboxes:ensure", json=body)
     assert made.status_code == 200
+    assert made.json()["endpoint_url"] == "http://127.0.0.1:1"
+    # A later request gets the same computer and the same token, read from the sealed copy.
+    row = store.sandboxes[uuid.UUID(made.json()["id"])]
+    row.pop("token", None)
+    row.pop("agent_token", None)
+    again = client.post("/internal/v1/sandboxes:ensure", json=body)
+    assert again.json()["id"] == made.json()["id"]
+    assert again.json()["token"] == made.json()["token"]
     sandbox_id = made.json()["id"]
     token = made.json()["token"]
     assert client.get(f"/internal/v1/sandboxes/{sandbox_id}").status_code == 200

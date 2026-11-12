@@ -86,7 +86,6 @@ from ar_common.settings import (
     fake_models_allowed,
     files_scanner_name,
     loopback_allowed,
-    unisolated_sandbox_allowed,
 )
 from ar_common.web import create_app
 from ar_domain.audit.service import install_platform_hook
@@ -258,23 +257,6 @@ def _configure_chat(chat: Any, settings: Settings) -> None:
         chat.pack_trusted_keys = {str(key): str(value) for key, value in loaded.items()}
 
 
-def _configure_sandbox(chat: Any, settings: Settings) -> None:
-    """Register the docker launcher so a tool call starts a container in this process.
-
-    Opt-in: ``AR_SANDBOX_IMAGE`` names the local ``ar-sandbox`` image. The in-process docker
-    launcher is the development and CI path (spec 12 §4.2) and runs without kernel isolation,
-    so it is registered only when the install allows an unisolated sandbox. With no image set
-    the computer tools run on the dev host, as before.
-    """
-    image = os.environ.get("AR_SANDBOX_IMAGE", "").strip()
-    if not image or not unisolated_sandbox_allowed(settings):
-        return
-    from ar_common.sandbox_docker import DockerSandboxLauncher  # noqa: PLC0415
-
-    network = os.environ.get("AR_SANDBOX_DOCKER_NETWORK", "").strip() or None
-    chat.sandbox_launcher = DockerSandboxLauncher(image, network=network)
-
-
 def _configure_policy(chat: Any, settings: Settings) -> None:
     """An empty OPA URL keeps decisions in process (OQ-36).
 
@@ -402,16 +384,10 @@ def create_application() -> FastAPI:
     )
     _configure_chat(app.state.chat, settings)
     _configure_policy(app.state.chat, settings)
-    _configure_sandbox(app.state.chat, settings)
-    from ar_domain.process_state import (  # noqa: PLC0415
-        ProcessLocalStateRefusedError,
-        install_shared_state,
-    )
-
-    install_shared_state(app.state.chat, settings)
     # Tool calls can run in this process. The engine that masks their results is built
     # now, on its own thread, not in the first call.
     from ar_domain.pii.analyzer import warm_up  # noqa: PLC0415
+    from ar_domain.process_state import ProcessLocalStateRefusedError  # noqa: PLC0415
 
     warm_up()
     app.state.chat.model_gateway_url = settings.model_gateway_url

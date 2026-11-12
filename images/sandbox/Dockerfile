@@ -47,7 +47,8 @@ RUN uv sync --frozen --no-dev --no-editable --package ar-sandbox-agent \
     && chown -R sandbox:sandbox /app /workspace
 
 # Node is pinned. Playwright Chromium is the version locked for ar-sandbox-agent's
-# browser extra. WITH_BROWSER=0 skips that layer for a slim local build.
+# browser extra. WITH_BROWSER=0 skips that layer for a slim local build. The sync is
+# inexact: an exact one removes the toolbox installed above, which the lockfile does not list.
 ARG WITH_BROWSER=1
 ARG NODE_VERSION=24.22.2
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
@@ -63,11 +64,16 @@ RUN if [ "$WITH_BROWSER" = "1" ]; then \
         curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${nodearch}.tar.xz" \
             | tar -xJ -C /usr/local --strip-components=1; \
         corepack enable; \
-        uv sync --frozen --no-dev --no-editable --package ar-sandbox-agent --extra browser; \
+        uv sync --frozen --no-dev --no-editable --inexact --package ar-sandbox-agent --extra browser; \
         mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"; \
         /app/.venv/bin/playwright install --with-deps chromium; \
         chown -R sandbox:sandbox "$PLAYWRIGHT_BROWSERS_PATH"; \
     fi
+
+# The agent runs a command in a login shell, and /etc/profile resets PATH. This keeps the
+# environment that holds the toolbox first, so ``python3`` is the one that has pandas.
+RUN printf 'export PATH="/app/.venv/bin:$PATH"\n' > /etc/profile.d/ar-sandbox.sh \
+    && /app/.venv/bin/python -c "import pandas, numpy, matplotlib, duckdb, openpyxl, docx, pptx"
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \

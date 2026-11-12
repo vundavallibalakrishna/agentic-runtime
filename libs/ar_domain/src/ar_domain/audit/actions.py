@@ -140,6 +140,7 @@ class AuditAction(StrEnum):
     RUN_MODEL_ANSWERED = "run.model_answered"
     RESEARCH_STARTED = "research.started"
     RESEARCH_COMPLETED = "research.completed"
+    RESEARCH_FAILED = "research.failed"
     JOB_PROGRESSED = "job.progressed"
     WORKSPACE_SAVED = "workspace.saved"
     HUMAN_QUESTION_ASKED = "human_question.asked"

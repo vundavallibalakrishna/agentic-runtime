@@ -2,6 +2,7 @@
 
 import asyncio
 import uuid
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -12,8 +13,10 @@ from ar_domain.loop.repair import acknowledges_failure, repair_prompt
 from ar_domain.loop.routing import replace_routes, routed_completion
 from ar_domain.research.driver import advance_research
 from ar_domain.research.providers import search
-from ar_domain.tools.named_secrets import write_named_secret
-from ar_testing.demo import demo_store
+from ar_testing.demo import add_library_notes, demo_store
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_scores_cover_refusal_tool_and_citation() -> None:
@@ -112,56 +115,50 @@ def test_routes_fall_through_on_5xx_and_bad_json() -> None:
     assert result["tool_calls"]
 
 
-def test_search_providers_parse_their_payloads() -> None:
+def test_research_adds_web_results_from_the_shared_provider() -> None:
+    store = demo_store()
+    add_library_notes(store)
+    tenant = demo_id("tenant")
+    assert all(row["url"].startswith("library://") for row in search(store, tenant, "kite"))
+
+    class Web:
+        def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
+            del limit
+            return [{"title": "W", "url": "https://example.com/w", "snippet": query}]
+
+    store.search_provider = Web()
+    hits = search(store, tenant, "kite", limit=2)
+    assert hits[0]["url"].startswith("library://")
+    assert hits[-1]["url"] == "https://example.com/w"
+    assert search(store, tenant, "nothing matches this", limit=2) == [
+        {"title": "W", "url": "https://example.com/w", "snippet": "nothing matches this"}
+    ]
+
+
+def test_a_searxng_server_is_a_web_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.tools.searching import SearxngSearch, provider_for
+
     store = demo_store()
     tenant = demo_id("tenant")
-    write_named_secret(store, tenant, "search", "token")
+    store.tenant_settings.setdefault(tenant, {})["search"] = {
+        "provider": "searxng",
+        "baseUrl": "https://searx.example/",
+    }
+    seen: dict[str, object] = {}
 
-    def send(method: str, url: str, **kwargs: object) -> httpx.Response:
-        del method, kwargs
-        if "searx" in url:
-            return httpx.Response(
-                200,
-                json={"results": [{"title": "S", "url": "https://example.com/s", "content": "c"}]},
-            )
-        if "brave" in url:
-            return httpx.Response(
-                200,
-                json={
-                    "web": {
-                        "results": [
-                            {"title": "B", "url": "https://example.com/b", "description": "d"}
-                        ]
-                    }
-                },
-            )
-        if "tavily" in url:
-            return httpx.Response(
-                200,
-                json={"results": [{"title": "T", "url": "https://example.com/t", "content": "c"}]},
-            )
-        if "bing" in url:
-            return httpx.Response(
-                200,
-                json={
-                    "webPages": {
-                        "value": [{"name": "N", "url": "https://example.com/n", "snippet": "s"}]
-                    }
-                },
-            )
-        return httpx.Response(500, text="no")
+    def fake_get(url: str, **kwargs: object) -> httpx.Response:
+        seen["url"] = url
+        seen["params"] = kwargs.get("params")
+        body = {"results": [{"title": "S", "url": "https://example.com/s", "content": "c"}]}
+        return httpx.Response(200, json=body, request=httpx.Request("GET", url))
 
-    store.http_send = send
-    settings = store.tenant_settings.setdefault(tenant, {})
-    for name, base in (
-        ("searxng", "https://searx.example"),
-        ("brave", ""),
-        ("tavily", ""),
-        ("bing", ""),
-    ):
-        settings["search"] = {"provider": name, "secret_name": "search", "base_url": base}
-        hits = search(store, tenant, "kites", limit=2)
-        assert hits and hits[0]["url"].startswith("https://")
+    monkeypatch.setattr("ar_domain.tools.searching.httpx.get", fake_get)
+    provider = provider_for(store, tenant)
+    assert isinstance(provider, SearxngSearch)
+    assert provider.search("kites", limit=3) == [
+        {"title": "S", "url": "https://example.com/s", "snippet": "c"}
+    ]
+    assert seen["url"] == "https://searx.example/search"
 
 
 def test_research_activity_advances_and_subtask_is_idempotent() -> None:

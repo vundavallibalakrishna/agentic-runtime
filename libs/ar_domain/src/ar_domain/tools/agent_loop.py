@@ -17,6 +17,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import budget_exceeded
+from ar_domain.runs.request import asked
 from ar_domain.tools.gateway_client import execute_tool
 from ar_domain.tools.images import build_image_message, collect_images
 from ar_domain.tools.logic import call_args_hash
@@ -84,7 +85,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     if definition is None:
         return False
     limits = read_budget(definition, run)
-    if limits["max_tool_calls"] <= 0 and not run.get("orchestration_child"):
+    if limits["max_tool_calls"] <= 0 and not asked(run, "orchestration_child"):
         return False
     alias = model_alias_for(store, run)
     _model, _headers, _timeout, real = store._completion_call(
@@ -126,7 +127,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         not tools
         and not extra_tools
         and not has_grounding(definition)
-        and not run.get("orchestration_child")
+        and not asked(run, "orchestration_child")
     ):
         return False
     by_name = _index(tools)
@@ -141,12 +142,14 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             by_name["skills.load"] = load_row
     openai_tools = [_openai_tool(row) for row in tools]
     openai_tools.extend(extra_tools)
-    # Above the threshold, offer the core tools and the search tool; the full catalogue
-    # stays in by_name so a searched tool resolves, and its schema joins the next call.
+    # Above the threshold, offer the core tools, the tools closest to what the person asked
+    # and the search tool; the full catalogue stays in by_name so a searched tool resolves,
+    # and its schema joins the next call.
     deferred = bool(catalog.get("tool_search_active"))
     offered: set[str] = {_spec_name(spec) for spec in openai_tools}
     if deferred:
         core = [row for row in tools if str(row.get("qualified_name")) in _CORE_WHEN_SEARCHING]
+        core.extend(_closest(store, version_id, user_id, user_text, core))
         if not any(str(row.get("qualified_name")) == "session.search" for row in core):
             search_row = _search_tool_row(store)
             if search_row is not None:
@@ -156,9 +159,13 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         openai_tools = [_openai_tool(row) for row in core]
         openai_tools.extend(extra_tools)
         offered = {_spec_name(spec) for spec in openai_tools}
+    from ar_common.logging import get_logger  # noqa: PLC0415
+
+    # Tool names are not content. This is how a turn's choice of tool is explained later.
+    get_logger(__name__).info("tools_offered", run_id=str(run.get("id")), names=sorted(offered))
     from ar_domain.tools.structured import schema_for  # noqa: PLC0415
 
-    schema = schema_for(definition, run.get("response_format"))
+    schema = schema_for(definition, asked(run, "response_format"))
     from ar_domain.tools.worker_loop import (  # noqa: PLC0415
         apply_worker_loop,
         consume_one_tool,
@@ -228,6 +235,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     from ar_domain.loop.repair import output_repair_limit, tool_failure_limit  # noqa: PLC0415
 
     repair_cap = output_repair_limit(definition)
+    _tell_schema(messages, schema)
     failure_cap = tool_failure_limit(definition)
     while True:
         if isinstance(saved_loop, dict) and saved_loop.get("phase") == "tools":
@@ -275,7 +283,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 store, run, messages, alias, repairing=bool(run.get("needs_replan"))
             )
             run["needs_replan"] = False
-        messages = _fit_context(store, run, messages, limits)
+        messages = _fit_context(store, run, messages, limits, definition)
+        _offer_retrieve(store, run, by_name, openai_tools, offered)
         turn = await store.complete_turn(
             messages,
             openai_tools,
@@ -348,18 +357,22 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 canonical, problem = accept_output(answer, schema)
                 if canonical is not None:
                     answer = canonical
-                if problem and repairs < repair_cap:
+                if problem and repairs >= repair_cap:
+                    # The caller asked for an object in this schema. Text that is not one
+                    # is not an answer, so it is not stored as one.
+                    _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
+                    _stop_error(
+                        store,
+                        run,
+                        assistant,
+                        f"The answer did not match the required JSON schema ({problem}).",
+                        code="repair_exhausted",
+                    )
+                    return True
+                if problem:
                     repairs += 1
                     messages.append({"role": "assistant", "content": answer})
-                    messages.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                "That was not valid JSON for the required schema: "
-                                f"{problem}. Reply with only the JSON object."
-                            ),
-                        }
-                    )
+                    messages.append({"role": "user", "content": _schema_retry(problem, schema)})
                     _audit(
                         store,
                         run,
@@ -674,6 +687,32 @@ _CORE_WHEN_SEARCHING = frozenset(
 _SEARCH_TOOL_NAMES = frozenset({"session__search", "tools__search"})
 
 
+def _closest(
+    store: Any,
+    version_id: uuid.UUID,
+    user_id: uuid.UUID,
+    request: str,
+    held: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    """The agent's tools ranked closest to the request, up to its ``tool_search.top_k``.
+
+    The same ranking ``session.search`` uses. A turn with no text adds nothing.
+    """
+    if not request.strip():
+        return []
+    ranked = (
+        ToolPipeline(store)
+        .resolve_catalog(agent_version_id=version_id, user_id=user_id, query=request)
+        .get("tools")
+    )
+    have = {str(row.get("qualified_name")) for row in held}
+    return [
+        row
+        for row in (ranked if isinstance(ranked, list) else [])
+        if isinstance(row, dict) and str(row.get("qualified_name")) not in have
+    ]
+
+
 def _spec_name(spec: dict[str, object]) -> str:
     """The model-facing name of an OpenAI tool spec."""
     function = spec.get("function")
@@ -693,6 +732,44 @@ def _catalogue_row(store: Any, qualified: str, model_name: str) -> dict[str, obj
                 "tool_version_id": str(row.get("id")),
             }
     return None
+
+
+def _model_text(
+    result: dict[str, object], qualified: str, call_id: str, text: str, *, failed: bool
+) -> str:
+    """What the model reads for one tool call: the gateway's whole wrapped result.
+
+    The preview is the short copy kept for the screen and the stored row. Giving the
+    model that copy cut every longer result off with no way to read the rest; fitting
+    the prompt is the context step's job, by the agent's own setting.
+    """
+    whole = result.get("wrapped")
+    if not failed and isinstance(whole, str) and whole:
+        return whole
+    return wrap_tool_result(tool=qualified, call_id=call_id, content=text or "empty")
+
+
+def _offer_retrieve(
+    store: Any,
+    run: dict[str, object],
+    by_name: dict[str, dict[str, object]],
+    openai_tools: list[dict[str, object]],
+    offered: set[str],
+) -> None:
+    """Offer the tool a shortened result points at, whether or not the agent binds it."""
+    from ar_domain.loop.context import RETRIEVE, has_shortened  # noqa: PLC0415
+
+    if not has_shortened(run):
+        return
+    row = by_name.get(RETRIEVE) or _catalogue_row(store, RETRIEVE, RETRIEVE.replace(".", "__"))
+    if row is None:
+        return
+    by_name[RETRIEVE] = row
+    by_name[str(row["model_name"])] = row
+    spec = _openai_tool(row)
+    if _spec_name(spec) not in offered:
+        openai_tools.append(spec)
+        offered.add(_spec_name(spec))
 
 
 def _search_tool_row(store: Any) -> dict[str, object] | None:
@@ -781,12 +858,21 @@ def _terminal_text() -> str:
 
 
 def _fit_context(
-    store: Any, run: dict[str, object], messages: list[dict[str, object]], limits: dict[str, int]
+    store: Any,
+    run: dict[str, object],
+    messages: list[dict[str, object]],
+    limits: dict[str, int],
+    definition: dict[str, object],
 ) -> list[dict[str, object]]:
-    from ar_domain.loop.context import context_book, fit_messages  # noqa: PLC0415
+    from ar_domain.loop.context import context_book, context_limits, fit_messages  # noqa: PLC0415
 
+    settings = context_limits(definition)
     fitted, note = fit_messages(
-        messages, max_tokens=limits["max_tokens"], retained=context_book(run)
+        messages,
+        max_tokens=limits["max_tokens"],
+        retained=context_book(run),
+        tool_result_max_tokens=int(settings["tool_result_max_tokens"]),
+        threshold=settings["compaction_threshold"],
     )
     if note is not None:
         run["compaction"] = note
@@ -916,7 +1002,8 @@ def _plan(store: Any, run: dict[str, object], calls: list[object]) -> None:
         if not isinstance(call, dict):
             continue
         name = str(call.get("name") or "tool").replace("__", ".")
-        items.append({"id": str(index + 1), "title": name, "status": "in_progress"})
+        # ``auto`` marks a step the runtime wrote, so the runtime settles it when the run ends.
+        items.append({"id": str(index + 1), "title": name, "status": "in_progress", "auto": True})
     if not items:
         return
     conversation = store.conversations.get(run.get("conversation_id"))
@@ -1075,7 +1162,7 @@ def _act(  # noqa: PLR0917
     return {
         "failed": failed,
         "preview": preview,
-        "wrapped": wrap_tool_result(tool=qualified, call_id=model_call_id, content=text or "empty"),
+        "wrapped": _model_text(result, qualified, model_call_id, text, failed=failed),
         "images": collect_images(store, structured, run.get("tenant_id")),
         "structured": structured,
     }
@@ -1143,10 +1230,18 @@ def _artifact_parts(store: Any, previews: list[dict[str, object]]) -> list[dict[
     return parts
 
 
-def _with_trace(answer: str, run: dict[str, object]) -> list[dict[str, object]]:
+def _with_trace(store: Any, answer: str, run: dict[str, object]) -> list[dict[str, object]]:
+    """The answer, then a citation part for each source it rests on.
+
+    Knowledge passages placed in the prompt come first. A passage of an attached document
+    follows when the answer repeats its anchor.
+    """
+    from ar_domain.documents.cited import cited_parts  # noqa: PLC0415
     from ar_domain.workspace.turn import citation_parts  # noqa: PLC0415
 
-    return [{"type": "text", "text": answer}, *citation_parts(run.get("retrieval"))]
+    retrieved = citation_parts(run.get("retrieval"))
+    cited = cited_parts(store, run, answer, start=len(retrieved) + 1)
+    return [{"type": "text", "text": answer}, *retrieved, *cited]
 
 
 def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> None:
@@ -1231,7 +1326,7 @@ def _finish(
     followups: list[str] | None = None,
 ) -> None:
     assistant["text"] = answer
-    content = [*_with_trace(answer, run), *_artifact_parts(store, previews)]
+    content = [*_with_trace(store, answer, run), *_artifact_parts(store, previews)]
     prompts = [item for item in (followups or []) if item.strip()]
     if prompts:
         content.append({"type": "followups", "prompts": prompts})
@@ -1256,7 +1351,14 @@ def _finish(
     if isinstance(conversation, dict):
         conversation["active_run_id"] = None
     assistant_id = assistant.get("id")
+    from ar_domain.loop.planning import end_tool_plan  # noqa: PLC0415
+
+    end_tool_plan(store, run, "done")
     _emit_trace(store, run, assistant_id)
+    for part in content:
+        cited = part.get("citation") if part.get("type") == "citation_ref" else None
+        if isinstance(cited, dict) and cited.get("source_kind") == "document":
+            store._emit(run, "citation.added", {"message_id": str(assistant_id), "citation": cited})
     stored = run.get("usage")
     emitted = stored if isinstance(stored, dict) else {"tokens_in": 1, "tokens_out": 1}
     completed: dict[str, object] = {"message_id": str(assistant_id), "text": answer}
@@ -1289,6 +1391,33 @@ def _stop_budget(
     store._emit(run, "run.budget_exceeded", {"limit": limit})
     _audit(
         store, run, "run.budget_exceeded", str(run.get("id")), {"limit": limit}, outcome="failure"
+    )
+
+
+def _tell_schema(messages: list[dict[str, object]], schema: dict[str, object] | None) -> None:
+    """Make sure the model has been told the schema its final answer must match.
+
+    The prompt carries the agent's own output schema. A schema the caller asked for on
+    this turn is not in it, so it is added here, once.
+    """
+    if not schema:
+        return
+    from ar_domain.prompts.assembler import schema_block  # noqa: PLC0415
+
+    block = schema_block(schema)
+    if any(block in str(message.get("content") or "") for message in messages):
+        return
+    messages.append({"role": "system", "content": block})
+
+
+def _schema_retry(problem: str, schema: dict[str, object]) -> str:
+    """What the model is told when its final answer does not match the schema."""
+    from ar_domain.prompts.assembler import schema_block  # noqa: PLC0415
+
+    return (
+        f"That was not valid JSON for the required schema: {problem}. "
+        "Your final answer is one JSON object and nothing else: no prose, no code fence, "
+        f"and not a tool call written as text. {schema_block(schema)}"
     )
 
 

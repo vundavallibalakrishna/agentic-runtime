@@ -8,6 +8,7 @@ from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, V
 from ar_common.ids import new_id
 from ar_common.settings import loopback_allowed
 from ar_common.time import utcnow
+from ar_domain.durable.tracking import keep
 from ar_domain.tools.logic import (
     as_mapping,
     description_hash,
@@ -686,8 +687,7 @@ class ToolRegistry:
             "created_at": now,
             "updated_at": now,
         }
-        self.store.tool_defs[tool_id] = row
-        return row
+        return keep(self.store.tool_defs, tool_id, row)
 
     def _apply_tool_patch(self, row: dict[str, object], body: dict[str, object]) -> None:
         for key in (

@@ -15,7 +15,6 @@ from ar_domain.documents.ocr import engine_catalogue, tesseract_installed
 from ar_domain.tools.documents import dispatch_documents
 from ar_domain.tools.handlers import dispatch
 from ar_domain.tools.pipeline import ToolPipeline
-from ar_domain.tools.seed_tools import ensure_m33b
 from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
@@ -207,41 +206,16 @@ def test_assistant_catalog_includes_ocr_and_image_ask() -> None:
     )
     names = {str(row.get("qualified_name")) for row in catalog["tools"] if isinstance(row, dict)}
     assert "documents.ocr" in names
-    assert "image.ask" in names
-
-
-def test_ensure_grants_image_ask_once() -> None:
-    store = demo_store()
-    tenant = demo_id("tenant")
-    agent = next(
-        row
-        for row in store.agents.values()
-        if row.get("tenant_id") == tenant and row.get("slug") == "assistant"
+    # No model here reads images, so the tool that needs one is not offered. Text
+    # recognition needs none and stays.
+    assert "image.ask" not in names
+    store._completion_call = lambda _t, alias="vision": ("vision-model", {}, 5.0, True)
+    store._alias_target = lambda _t, _alias: ({}, {"capabilities": ["chat", "vision"]})
+    again = ToolPipeline(store).resolve_catalog(
+        agent_version_id=agent["published_version_id"],  # type: ignore[arg-type]
+        user_id=demo_id("admin"),
     )
-    version = store.versions[agent["published_version_id"]]  # type: ignore[index]
-    definition = version["definition"]
-    assert isinstance(definition, dict)
-    tools = definition["tools"]
-    assert isinstance(tools, list)
-    definition["tools"] = [
-        item for item in tools if not (isinstance(item, dict) and item.get("server") == "image")
-    ]
-    ensure_m33b(store)
-    granted = [
-        item
-        for item in definition["tools"]
-        if isinstance(item, dict) and item.get("server") == "image"
-    ]
-    assert granted == [{"server": "image", "version": "*", "include": ["ask"]}]
-    ensure_m33b(store)
-    assert (
-        sum(
-            1
-            for item in definition["tools"]
-            if isinstance(item, dict) and item.get("server") == "image"
-        )
-        == 1
-    )
+    assert "image.ask" in {str(row.get("qualified_name")) for row in again["tools"]}
 
 
 def test_image_ask_fails_clearly_without_a_vision_model() -> None:
@@ -258,6 +232,8 @@ def test_image_ask_fails_clearly_without_a_vision_model() -> None:
         "",
     )
     assert result["code"] == "vision_unavailable"
+    # The agent is told what it can still do: text recognition needs no vision model.
+    assert "documents.ocr" in str(result["text"])
     assert "vision alias" in str(result["text"]).lower() or "Vision is not configured" in str(
         result["text"]
     )

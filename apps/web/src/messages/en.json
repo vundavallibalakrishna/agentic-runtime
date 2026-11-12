@@ -194,7 +194,11 @@
     "research": "Research",
     "researchOn": "Research mode is on. The reply will cite sources.",
     "researchPhase": "Research",
-    "sources": "Sources",
+    "researchRunning": "Searching",
+    "researchDone": "Finished",
+    "researchQuestions": "Questions searched",
+    "sourcesFound": "{count, plural, =0 {No sources yet} one {1 source} other {# sources}}",
+    "workingOnIt": "Working on it…",
     "toolFailure": "A tool call failed and was not recovered."
   },
   "memory": {
@@ -296,7 +300,11 @@
     "loading": "Loading the computer",
     "empty": "No artifacts yet.",
     "emptyWorkspace": "The workspace is empty.",
-    "error": "The computer could not be loaded."
+    "error": "The computer could not be loaded.",
+    "noRows": "No rows.",
+    "previewLoading": "Loading the preview",
+    "previewEmpty": "This file is empty.",
+    "previewError": "The preview could not be loaded. Open the file to see it."
   },
   "computers": {
     "title": "Computers",

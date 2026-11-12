@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 import uuid
 from datetime import timedelta
 
@@ -133,7 +134,9 @@ async def test_two_instances_share_durable_and_valkey_state(
             "instruction": "shared builder",
             "messages": [{"role": "user", "text": "shared builder"}],
         }
-        first_hit = take_window(unit, f"agent-api:{tenant_id}", 3)
+        # Both hits name one minute, so the check does not depend on when the test runs.
+        minute = time.time()
+        first_hit = take_window(unit, f"agent-api:{tenant_id}", 3, now=minute)
         assert first_hit is not None and first_hit[0] is True
 
     async with second.open(tenant_id) as unit:
@@ -147,7 +150,7 @@ async def test_two_instances_share_durable_and_valkey_state(
         loaded = unit.builder_sessions.get(session_id)
         assert isinstance(loaded, dict)
         assert loaded["instruction"] == "shared builder"
-        second_hit = take_window(unit, f"agent-api:{tenant_id}", 3)
+        second_hit = take_window(unit, f"agent-api:{tenant_id}", 3, now=minute)
         assert second_hit is not None
         assert second_hit[1] == 1
 

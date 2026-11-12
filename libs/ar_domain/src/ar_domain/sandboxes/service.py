@@ -15,8 +15,10 @@ from ar_common.sandboxkit import digest_pinned, download_headers, png_chart
 from ar_common.time import utcnow
 from ar_contracts.tenants import PlanLimits
 from ar_domain.audit.memory import remember
+from ar_domain.sandboxes.manager_launch import sandbox_image
 from ar_domain.sandboxes.metrics import SANDBOXES
 from ar_domain.sandboxes.runtime import (
+    agent_token,
     ensure_scope,
     list_workspace,
     read_workspace,
@@ -29,7 +31,6 @@ from ar_domain.sandboxes.runtime import suspend as suspend_row
 _HIDDEN = frozenset(
     {"token", "auth_token_hash", "browser", "browser_sessions", "browser_active", "manifest"}
 )
-_IMAGE = "registry.local/ar/ar-sandbox@sha256:" + ("ab" * 32)
 _PLATFORMS: tuple[tuple[str, str, bool, bool, list[str]], ...] = (
     ("default", "Default", False, False, []),
     ("python-data", "Python data", False, False, []),
@@ -59,7 +60,8 @@ class SandboxBook:
                 "tenant_id": None,
                 "slug": slug,
                 "name": name,
-                "image_ref": _IMAGE,
+                # Every computer starts from the install's image. The template records it.
+                "image_ref": sandbox_image(),
                 "runtime_class": "gvisor",
                 "cpu_millis": 2000,
                 "memory_mb": 4096,
@@ -160,10 +162,15 @@ class SandboxBook:
             raise ValidationFailedError("slug is invalid")
         if any(row.get("slug") == slug for row in self._visible_templates(actor.tenant_id)):
             raise ConflictError("a template with that slug already exists")
-        image = str(body.get("image_ref") or _IMAGE)
-        problem = digest_pinned(image, _registries())
-        if problem:
-            raise ValidationFailedError(problem)
+        # A computer starts from the install's image (``AR_SANDBOX_IMAGE``), whatever a
+        # template names. A reference a tenant does give is still checked and recorded.
+        image = str(body.get("image_ref") or "")
+        if image:
+            problem = digest_pinned(image, _registries())
+            if problem:
+                raise ValidationFailedError(problem)
+        else:
+            image = sandbox_image()
         cpu = _int(body.get("cpu_millis"), 2000)
         memory = _int(body.get("memory_mb"), 4096)
         from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
@@ -321,7 +328,7 @@ class SandboxBook:
         except RuntimeError as exc:
             raise ValidationFailedError(str(exc)) from exc
         view = self._sandbox_out(row)
-        view["token"] = row.get("token")
+        view["token"] = agent_token(self.store, row)
         view["endpoint_url"] = row.get("endpoint_url")
         return view
 

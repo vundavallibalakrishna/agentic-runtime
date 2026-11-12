@@ -111,6 +111,15 @@ class ToolPipeline:
             include = binding.get("include")
             names = include if isinstance(include, list) else ["*"]
             tools.extend(self._bound(server_slug, names, user_id))
+        from ar_domain.tools.readiness import ready_for  # noqa: PLC0415
+
+        # A tool the tenant has not set up is not offered, so the model does not promise it.
+        owner = version.get("tenant_id") if isinstance(version, dict) else None
+        tools = [
+            row
+            for row in tools
+            if ready_for(self.store, owner, str(row.get("qualified_name")), definition)
+        ]
         active = len(tools) > 30 or _search_mode(definition) == "on"
         if active and query:
             from ar_domain.tools.search import rank_tools  # noqa: PLC0415
@@ -720,7 +729,7 @@ class ToolPipeline:
             return True
         if qualified.startswith("research."):
             run = self._request_run(request)
-            if isinstance(run, dict) and run.get("mode") == "research":
+            if isinstance(run, dict) and run.get("trigger") == "research":
                 return True
         agent_version_id = request.get("agent_version_id")
         version_row = (
@@ -1028,6 +1037,7 @@ class ToolPipeline:
             "status": status,
             "is_error": is_error,
             "result_preview": preview(text),
+            "text": text,
             "wrapped": text,
             "structured": structured if isinstance(structured, dict) else {},
             "error": error,

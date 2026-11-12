@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from ar_domain.research.providers import fixture_page
+from ar_domain.research.providers import LIBRARY, library_page
 from ar_domain.tools.http_tools import fetch_text, guard_public
 
 if TYPE_CHECKING:
@@ -24,19 +24,21 @@ def extract_readable(html: str) -> str:
     return _SPACE.sub(" ", text).strip()
 
 
-def fetch_page(store: Any, url: str, *, query: str = "") -> dict[str, str]:  # noqa: PLR0911
+def fetch_page(  # noqa: PLR0911
+    store: Any, url: str, *, query: str = "", tenant_id: object = None
+) -> dict[str, str]:
     """Return text, the extractor name, and an error code when the fetch did not run."""
-    fixture = fixture_page(url, query)
-    if fixture is not None:
-        return {"text": fixture, "extractor": "fixture", "error": ""}
-    if (
-        url.startswith("https://example.com") or url.startswith("http://example.com")
-    ) and not callable(getattr(store, "sandbox_fetch", None)):
-        return {
-            "text": "Example page. The stored sentence is on the page.",
-            "extractor": "fixture",
-            "error": "",
-        }
+    del query
+    if url.startswith(LIBRARY):
+        passage = library_page(store, tenant_id, url)
+        if passage is None:
+            return {
+                "text": "",
+                "extractor": "library",
+                "error": "not_found",
+                "message": "that passage is not in the document library",
+            }
+        return {"text": passage, "extractor": "library", "error": ""}
     allow = _allow(store)
     problem = guard_public(url, allow=allow, loopback=False)
     if problem:

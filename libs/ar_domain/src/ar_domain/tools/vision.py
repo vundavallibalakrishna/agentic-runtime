@@ -38,8 +38,23 @@ def dispatch_image(store: Any, name: str, arguments: dict[str, object]) -> dict[
             media_type=media or filename,
         )
     except VisionError as exc:
-        return _error(exc.code, exc.message)
+        return _error(exc.code, _what_next(exc))
     return _ok(answer, {"kind": "image_ask", "alias": alias or "vision"})
+
+
+_READ_TEXT = (
+    " This turn can still read the text printed in the image: call documents.ocr with the "
+    "same file. Describing what the image shows needs the vision model."
+)
+
+
+def _what_next(exc: VisionError) -> str:
+    """The refusal, and what the agent can do now when no model here can read images.
+
+    The setup message is for an administrator. The model reading it needs to know that
+    text recognition does not need a vision model.
+    """
+    return exc.message + _READ_TEXT if exc.code == "vision_unavailable" else exc.message
 
 
 def _vision_alias(store: Any, arguments: dict[str, object]) -> str:

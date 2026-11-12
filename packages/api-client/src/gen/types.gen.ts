@@ -3497,6 +3497,10 @@ export type TestBody = {
      * Dryrun
      */
     dryRun?: boolean;
+    /**
+     * Conversationid
+     */
+    conversationId?: string | null;
 };
 
 /**

@@ -83,6 +83,7 @@ Allowed callers: `mcp-gateway`, `api`, `system-worker` (and `squid` for `/intern
 | POST | `/internal/v1/sandboxes/{sandbox_id}:suspend` | Snapshot workspace and stop compute. |
 | POST | `/internal/v1/sandboxes/{sandbox_id}:terminate` | Destroy (keeps snapshot per retention). |
 | POST | `/internal/v1/sandboxes/{sandbox_id}:touch` | Update `last_active_at`. |
+| POST | `/internal/v1/sandboxes/{sandbox_id}:release` | Stop the container or pod behind a computer. The caller records the status change and the audit row. Used by a process that ends or suspends a computer but does not start them. |
 | POST | `/internal/v1/sandboxes:reap` | Suspend idle / terminate expired (called by `SandboxReaperWorkflow`). |
 | GET | `/internal/v1/sandboxes/{sandbox_id}/files?path=` | List workspace files (for the UI computer panel, proxied by `api`). |
 | GET | `/internal/v1/sandboxes/{sandbox_id}/files/content?path=` | Stream a workspace file (≤ 100 MiB). |

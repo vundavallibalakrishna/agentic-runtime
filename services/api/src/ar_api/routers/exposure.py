@@ -75,7 +75,16 @@ def _bearer(request: Request) -> str:
 
 
 def _require_key(request: Request, response: Response) -> dict[str, object]:
-    store = _store(request)
+    try:
+        store = _store(request)
+    except NotFoundError as exc:
+        # The read model opens a tenant's rows only for a key that names a tenant. With
+        # none open there is no such key, which is a caller without credentials and not a
+        # missing resource.
+        from ar_common.logging import get_logger  # noqa: PLC0415
+
+        get_logger(__name__).info("agent_api_key_denied", reason="missing")
+        raise UnauthenticatedError("agent api key is required") from exc
     token = _bearer(request)
     row, reason = keys.lookup(store, token)
     if reason == "missing" or row is None:

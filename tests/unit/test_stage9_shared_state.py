@@ -20,7 +20,7 @@ from ar_domain.process_state import (
 )
 from ar_domain.readmodel.boot import build_product_store
 from ar_domain.readmodel.model import RepositoryReadModel
-from ar_domain.sandboxes.manager_launch import register_worker_sandbox
+from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher, register_sandbox_client
 
 pytestmark = pytest.mark.unit
 
@@ -62,21 +62,30 @@ def _staging() -> BaseServiceSettings:
 
 def test_staging_refuses_a_process_local_book(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AR_SANDBOX_MANAGER_URL", raising=False)
+    monkeypatch.setattr("redis.Redis.from_url", lambda *_a, **_k: _Valkey())
     previous = get_settings()
     settings = _staging()
     set_settings(settings)
     try:
+        # A process that uses computers needs the manager's address before it boots.
+        monkeypatch.delenv("AR_SANDBOX_MANAGER_URL", raising=False)
+        with pytest.raises(ProcessLocalStateRefusedError):
+            build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
         store = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
+        assert isinstance(store.sandbox_launcher, SandboxManagerLauncher)
+        # Building the store attaches the Valkey books, so no entry point can forget them.
+        require_shared_request_state(store, settings)
+        store.builder_sessions = {}
         with pytest.raises(ProcessLocalStateRefusedError):
             require_shared_request_state(store, settings)
-        with pytest.raises(ProcessLocalStateRefusedError):
-            register_worker_sandbox(store, settings)
     finally:
         set_settings(previous)
     assert isinstance(store, RepositoryReadModel)
 
 
 def test_two_stores_share_a_valkey_session_and_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
     client = _Valkey()
     monkeypatch.setattr("redis.Redis.from_url", lambda *_a, **_k: client)
     previous = get_settings()
@@ -127,9 +136,8 @@ def test_a_down_valkey_refuses_boot(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = _staging()
     set_settings(settings)
     try:
-        store = build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
         with pytest.raises(ProcessLocalStateRefusedError):
-            install_shared_state(store, settings)
+            build_product_store(settings, allow_loopback=False, fake_models_allowed=False)
     finally:
         set_settings(previous)
 
@@ -161,7 +169,7 @@ def test_worker_registers_the_manager(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
     monkeypatch.setenv("AR_SANDBOX_DRIVER", "kubernetes")
     store = ChatService()
-    register_worker_sandbox(store, BaseServiceSettings(_env_file=None, env=EnvName.DEV))
+    register_sandbox_client(store, BaseServiceSettings(_env_file=None, env=EnvName.DEV))
     assert isinstance(store.sandbox_launcher, SandboxManagerLauncher)
 
 
@@ -330,7 +338,7 @@ def test_shared_books_cover_the_remaining_branches(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr("ar_common.sandbox_docker.DockerSandboxLauncher", _Launcher)
     store = ChatService()
-    register_worker_sandbox(
+    register_sandbox_client(
         store,
         BaseServiceSettings(_env_file=None, env=EnvName.DEV, sandbox_allow_unisolated=True),
     )

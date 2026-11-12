@@ -32,6 +32,7 @@ from ar_domain.agents.templates import (
     template_definition,
 )
 from ar_domain.agents.validation import reference_issues, schema_errors, split_issues
+from ar_domain.durable.tracking import keep
 from ar_domain.references import ReferenceIssue, ResolveContext
 
 _SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
@@ -729,8 +730,7 @@ class AgentLifecycle:
             "published_at": None,
             "published_by": None,
         }
-        self.store.versions[version_id] = row
-        return row
+        return keep(self.store.versions, version_id, row)
 
     def validate(
         self, actor: Actor, agent_id: uuid.UUID, *, version_ref: str = "draft"

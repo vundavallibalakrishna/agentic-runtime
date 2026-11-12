@@ -5,14 +5,14 @@ A step reads the checkpoint and writes it back. Repeating a finished step is a n
 
 from __future__ import annotations
 
-import time
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from ar_common.time import utcnow
 from ar_domain.research.citations import source_record, verify_report
 from ar_domain.research.fetch import fetch_page
-from ar_domain.research.providers import search
+from ar_domain.research.providers import scope, search
 
 if TYPE_CHECKING:
     from typing import Any
@@ -22,6 +22,7 @@ _DEFAULTS = {
     "max_breadth": 4,
     "max_wall_clock_s": 120,
     "max_cost_micros": 1_000_000,
+    "max_steps": 16,
 }
 
 
@@ -41,7 +42,6 @@ def initial_state(question: str, bounds: dict[str, object] | None = None) -> dic
         "subtasks": {},
         "report": "",
         "citations": [],
-        "started_monotonic": time.monotonic(),
         "started_at": utcnow().isoformat(),
         "cost_micros": 0,
         **limits,
@@ -77,12 +77,7 @@ def _whole(value: object, default: int = 0) -> int:
 
 
 def over_budget(state: dict[str, object]) -> str | None:
-    started = state.get("started_monotonic")
-    if isinstance(started, int | float) and not isinstance(started, bool):
-        origin = float(started)
-    else:
-        origin = time.monotonic()
-    elapsed = time.monotonic() - origin
+    elapsed = _elapsed_s(state.get("started_at"))
     if elapsed > _whole(state.get("max_wall_clock_s"), 120):
         return "max_wall_clock_s"
     if _whole(state.get("cost_micros")) > _whole(state.get("max_cost_micros")):
@@ -90,6 +85,19 @@ def over_budget(state: dict[str, object]) -> str | None:
     if _whole(state.get("depth")) > _whole(state.get("max_depth"), 1):
         return "max_depth"
     return None
+
+
+def _elapsed_s(started_at: object) -> float:
+    """Seconds since the stored start. Any replica reads the same clock time."""
+    try:
+        started = datetime.fromisoformat(str(started_at))
+    except ValueError:
+        return 0.0
+    return (utcnow() - started).total_seconds()
+
+
+def max_steps(state: dict[str, object]) -> int:
+    return _whole(state.get("max_steps"), _DEFAULTS["max_steps"])
 
 
 def plan_queries(question: str, *, breadth: int) -> list[dict[str, str]]:
@@ -116,7 +124,7 @@ def run_subtask(store: Any, tenant_id: object, query: dict[str, str]) -> dict[st
         url = str(hit.get("url") or "")
         if not url:
             continue
-        page = fetch_page(store, url, query=query["text"])
+        page = fetch_page(store, url, tenant_id=tenant_id)
         text = str(page.get("text") or "")
         if not text:
             continue
@@ -150,11 +158,24 @@ def synthesise(question: str, sources: list[dict[str, object]]) -> str:
     lines.append("")
     lines.append("Sources")
     for index, source in enumerate(sources, start=1):
-        lines.append(f"[{index}] {source.get('title')} {source.get('url')}")
+        lines.append(f"[{index}] {_named(source)}")
     return "\n".join(lines)
 
 
-def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: ARG001, PLR0911
+def _named(source: dict[str, object]) -> str:
+    """How a report names a source: a web page by title and address, a document by title.
+
+    A library address is for the product, not a reader. The citation under the report
+    opens the document.
+    """
+    title = str(source.get("title") or "").strip()
+    address = str(source.get("url") or "")
+    if address.startswith(("http://", "https://")):
+        return f"{title} {address}".strip()
+    return title or "Document"
+
+
+def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: PLR0911
     """Move one phase. Return ``fanout``, ``model``, ``final`` or ``paused``."""
     if str(run.get("status") or "") == "cancelled":
         return "final"
@@ -172,6 +193,9 @@ def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: 
         return _collect(state, run)
     if phase == "synthesize":
         report = synthesise(str(state.get("question") or question), _sources(state))
+        if not _sources(state):
+            # Nothing matched. The report says where it looked, so the person can act.
+            report = f"{report} {scope(store, run.get('tenant_id'))}"
         state["report"] = report
         state["phase"] = "verify"
         save_state(run, state)
@@ -230,6 +254,18 @@ def _collect(state: dict[str, object], run: dict[str, object]) -> str:
             rows = result.get("sources")
             if isinstance(rows, list):
                 sources.extend(row for row in rows if isinstance(row, dict))
+    # Two queries often find the same passage, and two documents can hold the same text.
+    # A source is listed once per address and once per text.
+    listed: dict[str, dict[str, object]] = {}
+    texts: set[str] = set()
+    for row in sources:
+        address = str(row.get("url"))
+        text = str(row.get("sha256") or row.get("text") or "")
+        if address in listed or (text and text in texts):
+            continue
+        listed[address] = row
+        texts.add(text)
+    sources = list(listed.values())
     state["sources"] = sources
     state["phase"] = "synthesize"
     save_state(run, state)

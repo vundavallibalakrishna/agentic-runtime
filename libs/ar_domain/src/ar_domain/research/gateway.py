@@ -31,6 +31,10 @@ def subtask_via_gateway(
             label="search",
         ),
     )
+    if found.get("replayed"):
+        # A stored call keeps a preview, not its hits, so a repeat cannot rebuild the pages.
+        # The sub-task stays pending and is not recorded as finished with nothing read.
+        return {"query_id": query["id"], "sources": [], "status": "failed", "reason": "replayed"}
     hits = _hits(found)
     sources: list[dict[str, object]] = []
     for index, hit in enumerate(hits[:2], start=1):

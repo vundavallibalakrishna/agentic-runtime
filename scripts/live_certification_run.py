@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 import orjson
+import yaml
 
 if TYPE_CHECKING:
     from typing import Any
@@ -32,6 +33,8 @@ def _sign_in():
 _SIGN_IN = _sign_in()
 _EMBED_MODEL = "Qwen/Qwen3-Embedding-8B"
 _CHAT_ALIASES = ("chat", "reasoning", "fast", "vision")
+EVAL_SUITE = Path(__file__).resolve().parents[1] / "evals" / "live" / "certification.yaml"
+_EVAL_DONE = frozenset({"completed", "failed", "cancelled"})
 
 
 def _session_headers(cookies: dict[str, str]) -> dict[str, str]:
@@ -67,14 +70,35 @@ def _still_login(page: object) -> bool:
     return "/login" in url
 
 
-def _shot(page: object, path: Path, *, signed_in: bool) -> str | None:
+_BUSY = '[aria-busy="true"], .animate-pulse'
+
+
+def _ready(page: Any) -> str | None:
+    """Wait until the page has its data: requests settled and no loading placeholder left."""
+    try:
+        page.wait_for_load_state("networkidle", timeout=15000)
+        page.wait_for_function(
+            "selector => document.querySelector(selector) === null", arg=_BUSY, timeout=15000
+        )
+    except Exception as exc:  # noqa: BLE001 - a page that never settles is a failed screenshot
+        return f"page was still loading ({type(exc).__name__})"
+    return None
+
+
+def _shot(page: Any, path: Path, *, signed_in: bool) -> str | None:
+    waiting = _ready(page)
+    if waiting:
+        return f"{path.name}: {waiting}"
     page.screenshot(path=str(path), full_page=True)  # type: ignore[attr-defined]
     if signed_in and _still_login(page):
         return f"{path.name} is still the sign-in page"
     return None
 
 
-def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, object]:
+def _screenshots(
+    web: str, email: str, password: str, out: Path, *, uploaded: bool
+) -> dict[str, object]:
+    """Shots of the signed-in screens, taken after the run so they show what it stored."""
     try:
         from playwright.sync_api import sync_playwright  # noqa: PLC0415
     except ImportError:
@@ -86,7 +110,9 @@ def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, ob
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(base_url=web)
         page.goto("/login")
-        page.screenshot(path=str(shots / "01-login.png"), full_page=True)
+        login = _shot(page, shots / "01-login.png", signed_in=False)
+        if login:
+            problems.append(login)
         page.fill("#email", email)
         page.fill("#password", password)
         page.locator("form button[type=submit]").click()
@@ -110,6 +136,9 @@ def _screenshots(web: str, email: str, password: str, out: Path) -> dict[str, ob
             failed = _shot(page, shots / name, signed_in=True)
             if failed:
                 problems.append(failed)
+            listed = page.locator('main a[href^="/documents/"]').count()
+            if path == "/documents" and uploaded and listed == 0:
+                problems.append(f"{name} does not list the uploaded document")
         # There is no /audit page. The audit proof is the API plus verify_audit_chain.py.
         browser.close()
     if problems:
@@ -155,8 +184,6 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
     model = os.environ.get("AR_LLM_MODEL", "Qwen/Qwen3-32B")
     document = Path(os.environ.get("AR_CERT_DOCUMENT", ""))
     steps: list[dict[str, object]] = []
-    shots = _screenshots(web, email, password, out)
-    steps.append({"step": "screenshots", "ok": shots.get("ok") is True})
     try:
         cookies = _SIGN_IN.sign_in(api, email, password)
     except _SIGN_IN.SignInError:
@@ -243,6 +270,11 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
     )
     steps.extend(_stage10(api, auth))
     steps.extend(_stage11())
+    uploaded = any(row.get("step") == "upload" and row.get("ok") is True for row in steps)
+    shots = _screenshots(web, email, password, out, uploaded=uploaded)
+    steps.append(
+        {"step": "screenshots", "ok": shots.get("ok") is True, "error": shots.get("error", "")}
+    )
     _seal(steps)
     counts = _counts(steps)
     ok = counts["fail"] == 0 and counts["unverified"] == 0 and counts["pass"] > 0
@@ -333,57 +365,105 @@ def _seconds(name: str, default: float) -> float:
     return value if value > 0 else default
 
 
+def _live_eval(api: str, auth: dict[str, str]) -> dict[str, object]:
+    """Score the certification suite on the product path: real agent turns, real tools.
+
+    The suite's own gate decides. ``AR_EVAL_MIN_PASS_RATE`` overrides its pass rate.
+    """
+    loaded = yaml.safe_load(EVAL_SUITE.read_text(encoding="utf-8"))
+    document = loaded if isinstance(loaded, dict) else {}
+    gate = document.get("gate") if isinstance(document.get("gate"), dict) else {}
+    wanted = os.environ.get("AR_EVAL_MIN_PASS_RATE", "").strip()
+    if wanted:
+        gate = {**gate, "min_pass_rate": float(wanted)}
+    name = f"{document.get('name') or 'Live certification'} {time.strftime('%Y%m%d-%H%M%S')}"
+    status, _headers, suite = _json(
+        "POST",
+        f"{api}/api/v1/eval-suites",
+        {
+            "name": name,
+            "description": str(document.get("description") or ""),
+            "kind": str(document.get("kind") or "functional"),
+            "gate": gate,
+        },
+        auth,
+    )
+    suite_id = suite.get("id") if isinstance(suite, dict) else None
+    if status not in {200, 201} or not suite_id:
+        return {"step": "eval-live", "ok": False, "result": "fail", "body": suite}
+    cases = document.get("cases")
+    for case in cases if isinstance(cases, list) else []:
+        case_status, _case_headers, saved = _json(
+            "POST", f"{api}/api/v1/eval-suites/{suite_id}/cases", case, auth
+        )
+        if case_status not in {200, 201}:
+            return {"step": "eval-live", "ok": False, "result": "fail", "body": saved}
+    run_status, _run_headers, started = _json(
+        "POST", f"{api}/api/v1/eval-suites/{suite_id}:run", {}, auth
+    )
+    run_id = started.get("id") if isinstance(started, dict) else None
+    if run_status not in {200, 202} or not run_id:
+        return {"step": "eval-live", "ok": False, "result": "fail", "body": started}
+    timeout = _seconds("AR_EVAL_POLL_TIMEOUT_S", 900.0)
+    interval = _seconds("AR_EVAL_POLL_INTERVAL_S", 3.0)
+    deadline = time.monotonic() + timeout
+    row: object = started
+    state = "queued"
+    while time.monotonic() < deadline:
+        _poll_status, _poll_headers, row = _json(
+            "GET", f"{api}/api/v1/eval-runs/{run_id}", {}, auth
+        )
+        state = str(row.get("status") if isinstance(row, dict) else "")
+        if state in _EVAL_DONE:
+            break
+        time.sleep(interval)
+    summary = row.get("summary") if isinstance(row, dict) else None
+    summary = summary if isinstance(summary, dict) else {}
+    _results_status, _results_headers, listed = _json(
+        "GET", f"{api}/api/v1/eval-runs/{run_id}/results", {}, auth
+    )
+    items = listed.get("items") if isinstance(listed, dict) else None
+    ok = state == "completed" and bool(summary.get("gatePassed", summary.get("gate_passed")))
+    return {
+        "step": "eval-live",
+        "ok": ok,
+        "result": "pass" if ok else ("timeout" if state not in _EVAL_DONE else "fail"),
+        "proof": "live" if ok else "unverified",
+        "evalRunId": str(run_id),
+        "status": state,
+        "summary": summary,
+        "cases": [
+            {
+                "case": _case_name(item.get("case")),
+                "passed": item.get("passed"),
+                "scores": item.get("scores"),
+            }
+            for item in (items if isinstance(items, list) else [])
+            if isinstance(item, dict)
+        ],
+    }
+
+
+def _case_name(case: object) -> str:
+    return str(case.get("name") or "") if isinstance(case, dict) else str(case or "")
+
+
 def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
     """Research, the live eval sample, and the model-route read. No key is stored."""
     steps: list[dict[str, object]] = []
     research_status, _headers, research = _json(
         "POST",
         f"{api}/api/v1/research/runs",
-        {"question": "What do the stored notes say about a kite?"},
+        {
+            "question": os.environ.get(
+                "AR_CERT_RESEARCH_QUESTION", "What does the uploaded document say?"
+            )
+        },
         auth,
     )
     research_step = _poll_research(api, auth, research_status, research)
     steps.append(research_step)
-    eval_run = subprocess.run(
-        ["uv", "run", "python", "scripts/eval_run.py", "--live"],  # noqa: S607
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    eval_ok = False
-    eval_body: object = {"stderr": eval_run.stderr[-400:]}
-    if eval_run.stdout.strip():
-        try:
-            eval_body = orjson.loads(eval_run.stdout)
-        except orjson.JSONDecodeError:
-            eval_body = {"raw": eval_run.stdout[-400:]}
-    if isinstance(eval_body, dict):
-        summary = eval_body.get("summary")
-        rate = summary.get("pass_rate") if isinstance(summary, dict) else None
-        errors = summary.get("errors") if isinstance(summary, dict) else None
-        cases = eval_body.get("cases")
-        every_errored = (
-            isinstance(cases, int)
-            and cases > 0
-            and isinstance(errors, (int, float))
-            and errors >= cases
-        )
-        eval_ok = (
-            eval_run.returncode == 0
-            and eval_body.get("label") == "live"
-            and bool(eval_body.get("modelId"))
-            and not every_errored
-            and isinstance(rate, (int, float))
-            and float(rate) > 0
-        )
-    steps.append(
-        {
-            "step": "eval-live",
-            "ok": eval_ok,
-            "result": "pass" if eval_ok else "fail",
-            "body": eval_body,
-        }
-    )
+    steps.append(_live_eval(api, auth))
     routes_status, _headers, routes = _json("GET", f"{api}/api/v1/model-routes", {}, auth)
     steps.append(
         {
@@ -393,6 +473,15 @@ def _stage10(api: str, auth: dict[str, str]) -> list[dict[str, object]]:
         }
     )
     return steps
+
+
+def _drew_chart(event: object) -> bool:
+    """A finished ``general.chart`` call in a run's events."""
+    if not isinstance(event, dict) or event.get("type") != "tool_call.completed":
+        return False
+    data = event.get("data") if isinstance(event.get("data"), dict) else event
+    name = data.get("qualifiedName") or data.get("qualified_name")
+    return name == "general.chart" and data.get("status") == "succeeded"
 
 
 def _stage13(api: str, token: str) -> list[dict[str, object]]:
@@ -451,18 +540,29 @@ def _stage13(api: str, token: str) -> list[dict[str, object]]:
     chart_status, _chart_headers, chart = _json(
         "POST",
         f"{api}/v1/agents/assistant:run",
-        {
-            "text": "Use the chart tool to draw a bar chart with North 2 and South 5. Then stop.",
-        },
+        {"text": "Draw a bar chart with North 2 and South 5."},
         headers,
     )
     chart_content = chart.get("content") if isinstance(chart, dict) else None
-    figure = False
-    if isinstance(chart_content, list):
-        figure = any(
-            isinstance(part, dict) and part.get("type") in {"file", "image"}
-            for part in chart_content
+    # A chart is a PNG image part, drawn by general.chart. Any other file is not a chart.
+    figure = isinstance(chart_content, list) and any(
+        isinstance(part, dict)
+        and part.get("type") == "image"
+        and part.get("mimeType") == "image/png"
+        for part in chart_content
+    )
+    drawn = False
+    chart_run = chart.get("id") if isinstance(chart, dict) else None
+    if chart_run:
+        _events_status, _events_headers, chart_events = _json(
+            "GET",
+            f"{api}/v1/agents/assistant/runs/{chart_run}/events",
+            {},
+            {**headers, "accept": "application/json"},
         )
+        rows = chart_events.get("items") if isinstance(chart_events, dict) else chart_events
+        drawn = isinstance(rows, list) and any(_drew_chart(event) for event in rows)
+    figure = figure and drawn
     return [
         {
             "step": "stage13-content-parts",

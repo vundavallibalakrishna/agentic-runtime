@@ -2,7 +2,7 @@
 
 Generic calls. Replace the origin and the key. Nothing here is tied to an industry.
 
-A reply's `content` array is additive. A `followups` part lists short prompts you can send next. `responseFormat` is a JSON Schema checked against the answer. When the agent already has `output.jsonSchema`, the request schema is the one used for that turn.
+A reply's `content` array is additive. A `followups` part lists short prompts you can send next. `responseFormat` is a JSON Schema checked against the answer. When the agent already has `output.jsonSchema`, the request schema is the one used for that turn. The model is told the schema, and a reply that does not match is sent back to it once. If the answer still does not match, the run ends `failed` with code `repair_exhausted`; you never receive text that breaks the schema as the answer.
 
 ## Review a document, then ask a follow-up
 
