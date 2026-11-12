@@ -154,7 +154,7 @@ Ordered by how much they block production.
 7. **The tenant seed run by hand in staging mode stops with an error** after it creates the people, unless a flag that only the chart's job sets is present.
 8. **Answers from an attachment are cited only when the model repeats an anchor.** Nothing forces it to.
 9. **Deleting the last file in a turn does not stick.** The next turn restores the folder from an earlier run that still had the file.
-10. **The tool detail API shows parameter names in camelCase.** The tools require snake_case names such as `file_id`. The Tools screen shows names that do not work.
+10. **The tool detail API shows parameter names in camelCase.** The tools require snake_case names such as `file_id`. The Tools screen shows names that do not work. *(Fixed 2026-11-12: the global response camelizer recursively renamed every key, including a tool's `input_schema.properties` keys, which are parameter names the tool accepts. `input_schema` and `output_schema` are now opaque in `ar_common.json_api` — the field name is camelCase but the JSON Schema inside is copied through unchanged, so the screen shows the names the tool takes. Fix is API-side; the web shows what the API returns.)*
 11. **Built-in tool text is not updated for stored tenants.** Approved tool versions cannot change, so a release that changes a built-in tool's description or schema reaches a stored tenant only in memory.
 12. **A refused boot is logged as "temporal_unavailable"** with no message, and retried for ever.
 13. **The data connection body defaults its address to `memory://warehouse`.**
