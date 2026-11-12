@@ -283,7 +283,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 store, run, messages, alias, repairing=bool(run.get("needs_replan"))
             )
             run["needs_replan"] = False
-        messages = _fit_context(store, run, messages, limits)
+        messages = _fit_context(store, run, messages, limits, definition)
+        _offer_retrieve(store, run, by_name, openai_tools, offered)
         turn = await store.complete_turn(
             messages,
             openai_tools,
@@ -733,6 +734,44 @@ def _catalogue_row(store: Any, qualified: str, model_name: str) -> dict[str, obj
     return None
 
 
+def _model_text(
+    result: dict[str, object], qualified: str, call_id: str, text: str, *, failed: bool
+) -> str:
+    """What the model reads for one tool call: the gateway's whole wrapped result.
+
+    The preview is the short copy kept for the screen and the stored row. Giving the
+    model that copy cut every longer result off with no way to read the rest; fitting
+    the prompt is the context step's job, by the agent's own setting.
+    """
+    whole = result.get("wrapped")
+    if not failed and isinstance(whole, str) and whole:
+        return whole
+    return wrap_tool_result(tool=qualified, call_id=call_id, content=text or "empty")
+
+
+def _offer_retrieve(
+    store: Any,
+    run: dict[str, object],
+    by_name: dict[str, dict[str, object]],
+    openai_tools: list[dict[str, object]],
+    offered: set[str],
+) -> None:
+    """Offer the tool a shortened result points at, whether or not the agent binds it."""
+    from ar_domain.loop.context import RETRIEVE, has_shortened  # noqa: PLC0415
+
+    if not has_shortened(run):
+        return
+    row = by_name.get(RETRIEVE) or _catalogue_row(store, RETRIEVE, RETRIEVE.replace(".", "__"))
+    if row is None:
+        return
+    by_name[RETRIEVE] = row
+    by_name[str(row["model_name"])] = row
+    spec = _openai_tool(row)
+    if _spec_name(spec) not in offered:
+        openai_tools.append(spec)
+        offered.add(_spec_name(spec))
+
+
 def _search_tool_row(store: Any) -> dict[str, object] | None:
     """The catalogue row for ``session.search``, so the search tool can always be offered."""
     return _catalogue_row(store, "session.search", "session__search")
@@ -819,12 +858,21 @@ def _terminal_text() -> str:
 
 
 def _fit_context(
-    store: Any, run: dict[str, object], messages: list[dict[str, object]], limits: dict[str, int]
+    store: Any,
+    run: dict[str, object],
+    messages: list[dict[str, object]],
+    limits: dict[str, int],
+    definition: dict[str, object],
 ) -> list[dict[str, object]]:
-    from ar_domain.loop.context import context_book, fit_messages  # noqa: PLC0415
+    from ar_domain.loop.context import context_book, context_limits, fit_messages  # noqa: PLC0415
 
+    settings = context_limits(definition)
     fitted, note = fit_messages(
-        messages, max_tokens=limits["max_tokens"], retained=context_book(run)
+        messages,
+        max_tokens=limits["max_tokens"],
+        retained=context_book(run),
+        tool_result_max_tokens=int(settings["tool_result_max_tokens"]),
+        threshold=settings["compaction_threshold"],
     )
     if note is not None:
         run["compaction"] = note
@@ -1114,7 +1162,7 @@ def _act(  # noqa: PLR0917
     return {
         "failed": failed,
         "preview": preview,
-        "wrapped": wrap_tool_result(tool=qualified, call_id=model_call_id, content=text or "empty"),
+        "wrapped": _model_text(result, qualified, model_call_id, text, failed=failed),
         "images": collect_images(store, structured, run.get("tenant_id")),
         "structured": structured,
     }

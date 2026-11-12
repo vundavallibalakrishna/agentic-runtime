@@ -124,7 +124,7 @@ All activities are idempotent on (`run_id`, `step_seq` / `tool_call_id`): they u
 
 Tools: `catalog:resolve` result (cached per run in the activity's Valkey cache `ar:run:{run_id}:tools`, refreshed after `tools.search`), plus control tools: `agents__delegate` (if subagents allowed or self-clone), `plan__update` (always), `tools__search` (when tool search active).
 
-Tool results are wrapped by `mcp-gateway` as `<tool_result tool="jira.search_issues" call_id="…" trust="untrusted" nonce="…">…</tool_result>` (exact format: [prompt-injection §3](../06-security/prompt-injection.md#3-untrusted-content-wrapping)) and truncated to `context.tool_result_max_tokens` with a trailer `[truncated: full result in file <id>; use files__read to page]`.
+Tool results are wrapped by `mcp-gateway` as `<tool_result tool="jira.search_issues" call_id="…" trust="untrusted" nonce="…">…</tool_result>` (exact format: [prompt-injection §3](../06-security/prompt-injection.md#3-untrusted-content-wrapping)). The model is given the whole wrapped result, not the short preview kept for the screen and the `tool_calls` row. A result longer than the agent's `context.toolResultMaxTokens` is cut to that size with a trailer `[shortened: characters 0 to N of M shown; call context.retrieve with output_id=<id> and offset=N to read on]`.
 
 Citations: knowledge hits are numbered per run (`[1]`, `[2]`…) and the model is instructed to cite with `[n]`. `model_step` parses `[n]` markers in the final text, emits `citation.added` for each valid index, and stores `citation_ref` parts. With `output.citations=required` and no citations while knowledge was retrieved, one corrective re-prompt is made ("Cite sources or state that none were found").
 
@@ -132,7 +132,7 @@ Citations: knowledge hits are numbered per run (`[1]`, `[2]`…) and the model i
 
 - **Threshold**: `estimated_tokens > compaction_threshold * context_window(model)` → compaction.
 - **Compaction** (`compact_context`): (a) fold the oldest history messages (all but the last 6 turns) into `rolling_summary` using `fast_alias` with prompt `ar_runtime/prompts/compaction.md` (keeps decisions, facts, open tasks, file ids, citations); update `summary_through_message_id`; (b) within the current run, replace tool results older than the last 4 steps with stubs `[earlier result of <tool>: <preview ≤ 300 chars>; file <id>]`. Emits `context.compacted`, writes `run_steps(kind='compaction')`.
-- **Offloading**: any tool result beyond `tool_result_max_tokens` is stored as `files(kind='tool_result')` by `mcp-gateway`; the model can page it with `files__read {file_id, offset, limit}`.
+- **Offloading**: any tool result beyond `context.toolResultMaxTokens` is kept whole on the run's checkpoint. The model reads on with `context.retrieve {output_id, offset}`, one part at a time; each part fits the same limit, so reading on never shortens again. The tool is offered to every agent from the moment a result is shortened, whether or not the agent binds the `context` server. The fill level that starts a summary is the agent's `context.compactionThreshold`.
 - If after compaction the prompt still exceeds the window → fail the step with `context_length_exceeded` (non-retryable) and finalize `failed` with a user-facing message suggesting a new conversation.
 
 ## 6. Planning (`plan.update`)

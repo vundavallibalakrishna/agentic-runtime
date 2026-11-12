@@ -695,7 +695,8 @@ def execute_write(
         }
     return {
         "status": "completed",
-        "output": str(result.get("result_preview") or ""),
+        # The whole result: the preview is the short copy kept for the screen.
+        "output": str(result.get("text") or result.get("result_preview") or ""),
         "run_id": str(run_id),
         "conversation_id": str(conversation_id),
         "tool": qualified,

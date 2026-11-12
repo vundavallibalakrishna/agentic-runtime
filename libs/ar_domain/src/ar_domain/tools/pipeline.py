@@ -1037,6 +1037,7 @@ class ToolPipeline:
             "status": status,
             "is_error": is_error,
             "result_preview": preview(text),
+            "text": text,
             "wrapped": text,
             "structured": structured if isinstance(structured, dict) else {},
             "error": error,

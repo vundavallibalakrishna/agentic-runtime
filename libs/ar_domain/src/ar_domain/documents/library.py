@@ -304,7 +304,16 @@ class DocumentLibrary:
         row = self._own(actor, document_id)
         pages = _rows(row.get("passages"))
         if anchor:
+            known = [str(item.get("anchor") or "") for item in pages]
             pages = [item for item in pages if str(item.get("anchor") or "") == anchor]
+            if not pages:
+                # An empty answer here reads as "the document does not say", which is wrong.
+                raise ValidationFailedError(
+                    f"This document has no anchor {anchor!r}. Its anchors run from "
+                    f"{known[0]} to {known[-1]}. Read it without an anchor to see the whole text."
+                    if known
+                    else "This document has no stored text to read."
+                )
         elif page_to > 0:
             pages = [
                 item for item in pages if page_from <= int(str(item.get("page") or 1)) <= page_to

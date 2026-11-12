@@ -4,6 +4,8 @@ These six flows use only the document library, knowledge, agents, and the extern
 Test files are in `fixtures/`. Every flow below was run on 5 Nov 2026 against real `Qwen/Qwen3-32B`. See `report.md`.
 A refreshed, reproducible, asserting run on current HEAD (SOC 2 + ISO 27001 + CCM, prompt-driven generic actions) is in [`report-2026-11-09.md`](report-2026-11-09.md), driven by `scripts/grc_proof.py` (+ `scripts/grc-login.cjs` for the Keycloak session).
 
+The latest run, on 12 Nov 2026 with the product's own sign-in and eight flows, is in [`report-2026-11-12.md`](report-2026-11-12.md). `scripts/grc_proof.py` now drives that run; the steps below are the earlier walkthrough.
+
 Sign in at `http://127.0.0.1:18132` as `admin@dev.local`.
 
 ## A. Policy gap analysis (policy vs SOC 2 / ISO controls)

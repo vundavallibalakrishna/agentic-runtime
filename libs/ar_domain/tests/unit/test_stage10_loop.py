@@ -67,10 +67,12 @@ def test_context_keeps_the_full_tool_output() -> None:
         [{"role": "tool", "content": full}],
         max_tokens=100,
         retained=retained,
+        tool_result_max_tokens=100,
+        threshold=0.7,
     )
     assert note is not None
     content = str(messages[-1]["content"])
     assert "output_id=" in content
-    output_id = content.split("output_id=", 1)[1].split(";", 1)[0]
+    output_id = content.split("output_id=", 1)[1].split(" ", 1)[0]
     assert read_output({"checkpoint": {"context": retained}}, output_id) == full
     assert retain_output(retained, "short")

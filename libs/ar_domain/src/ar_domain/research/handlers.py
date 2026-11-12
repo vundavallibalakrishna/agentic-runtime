@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ar_domain.loop.context import read_output
+from ar_domain.loop.context import read_part
 from ar_domain.research.fetch import fetch_page
 from ar_domain.research.providers import LIBRARY, scope, search
 
@@ -29,10 +29,16 @@ def dispatch_context(store: Any, name: str, arguments: dict[str, object]) -> dic
     run = _run(store, arguments.get("_run_id"))
     if run is None:
         return _error("not_found", "The run is not available.")
-    text = read_output(run, output_id)
-    if text is None:
+    raw = arguments.get("offset")
+    offset = raw if isinstance(raw, int) and not isinstance(raw, bool) else 0
+    part = read_part(run, output_id, offset)
+    if part is None:
         return _error("not_found", "That output id is not stored on this run.")
-    return {"text": text, "structured": {"output_id": output_id, "text": text}, "is_error": False}
+    return {
+        "text": part["text"],
+        "structured": {"output_id": output_id, **part},
+        "is_error": False,
+    }
 
 
 def _search(store: Any, arguments: dict[str, object]) -> dict[str, object]:

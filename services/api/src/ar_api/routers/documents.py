@@ -1,15 +1,19 @@
 """Document library HTTP surface."""
 
 import uuid
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from pydantic import Field
 
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, page
+from ar_common.offload import run_sync
 from ar_contracts.api_model import ApiModel
 from ar_domain.documents.library import DocumentLibrary, ingest_bytes
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 router = APIRouter()
 
@@ -65,6 +69,14 @@ class DecideBody(ApiModel):
 
 class SummariseBody(ApiModel):
     model_alias: str = ""
+
+
+async def _waiting(
+    call: Callable[..., dict[str, object]], /, *args: object, **kwargs: object
+) -> dict[str, object]:
+    """Run a library call that may wait on a model, while the API goes on serving others."""
+    result: dict[str, object] = await run_sync(lambda: call(*args, **kwargs))
+    return result
 
 
 def _library(request: Request) -> DocumentLibrary:
@@ -151,7 +163,9 @@ async def document_tables(document_id: uuid.UUID, request: Request) -> dict[str,
 async def summarise_document(
     document_id: uuid.UUID, body: SummariseBody, request: Request
 ) -> dict[str, object]:
-    return _library(request).summarise(actor(request), document_id, alias=body.model_alias)
+    return await _waiting(
+        _library(request).summarise, actor(request), document_id, alias=body.model_alias
+    )
 
 
 @router.post(
@@ -162,8 +176,12 @@ async def summarise_document(
 async def compare_documents(
     document_id: uuid.UUID, body: CompareBody, request: Request
 ) -> dict[str, object]:
-    return _library(request).compare(
-        actor(request), document_id, body.other_document_id, alias=body.model_alias
+    return await _waiting(
+        _library(request).compare,
+        actor(request),
+        document_id,
+        body.other_document_id,
+        alias=body.model_alias,
     )
 
 
@@ -176,7 +194,8 @@ async def judge_document(
     document_id: uuid.UUID, body: JudgeBody, request: Request
 ) -> dict[str, object]:
     payload = body.rule_set.model_dump(by_alias=False) if body.rule_set is not None else None
-    return _library(request).judge(
+    return await _waiting(
+        _library(request).judge,
         actor(request),
         document_id,
         statements=body.statements,
@@ -222,7 +241,8 @@ async def document_missing(
     document_id: uuid.UUID, body: MissingBody, request: Request
 ) -> dict[str, object]:
     payload = body.rule_set.model_dump(by_alias=False) if body.rule_set is not None else None
-    return _library(request).missing(
+    return await _waiting(
+        _library(request).missing,
         actor(request),
         document_id,
         statements=body.statements,
@@ -249,8 +269,8 @@ async def redact_document(document_id: uuid.UUID, request: Request) -> dict[str,
 async def extract_document_fields(
     document_id: uuid.UUID, body: ExtractBody, request: Request
 ) -> dict[str, object]:
-    return _library(request).extract(
-        actor(request), document_id, body.fields, alias=body.model_alias
+    return await _waiting(
+        _library(request).extract, actor(request), document_id, body.fields, alias=body.model_alias
     )
 
 
@@ -262,7 +282,8 @@ async def extract_document_fields(
 async def rewrite_document(
     document_id: uuid.UUID, body: RewriteBody, request: Request
 ) -> dict[str, object]:
-    return _library(request).propose_rewrite(
+    return await _waiting(
+        _library(request).propose_rewrite,
         actor(request),
         document_id,
         anchor=body.anchor,

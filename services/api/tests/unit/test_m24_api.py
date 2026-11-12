@@ -1,13 +1,23 @@
 """Document library HTTP, including a cross-tenant 404."""
 
+import asyncio
+import time
 import uuid
+from collections.abc import Awaitable
+from typing import TYPE_CHECKING
 
+import httpx
 from fastapi.testclient import TestClient
 
+from ar_common.offload import blocking
 from ar_domain.chat.service import demo_id
 from ar_domain.db.context import Principal
+from ar_domain.documents.library import DocumentLibrary
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_testing.demo import demo_application
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _client() -> tuple[TestClient, dict[str, uuid.UUID]]:
@@ -116,3 +126,51 @@ def test_rule_set_import_is_hidden_from_another_tenant() -> None:
     holder["tenant"] = uuid.uuid4()
     hidden = client.get("/api/v1/rule-sets/door-access", params={"version": "1"})
     assert hidden.status_code == 404
+
+
+def test_a_document_check_waiting_on_a_model_does_not_hold_up_other_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stage 14: the API answered nothing for half a minute while one check ran."""
+    client, _holder = _client()
+    created = client.post(
+        "/api/v1/library-documents",
+        files={"upload": ("policy.md", b"# Access\n\nOwner: Security.", "text/markdown")},
+    )
+    document_id = created.json()["id"]
+    app = client.app
+
+    def slow_model(_self: object, _actor: object, _alias: str) -> object:
+        def ask(_system: str, _evidence: str) -> str:
+            blocking(time.sleep, 0.6)
+            return "{}"
+
+        return ask
+
+    monkeypatch.setattr(DocumentLibrary, "_ask", slow_model)
+
+    async def both() -> tuple[float, float]:
+        transport = httpx.ASGITransport(app=app)  # type: ignore[arg-type]
+        async with httpx.AsyncClient(transport=transport, base_url="http://api") as http:
+            started = time.monotonic()
+
+            async def timed(call: Awaitable[httpx.Response]) -> float:
+                response = await call
+                assert response.status_code == 200, response.text
+                return time.monotonic() - started
+
+            slow = asyncio.create_task(
+                timed(
+                    http.post(
+                        f"/api/v1/library-documents/{document_id}:extract",
+                        json={"fields": ["owner"]},
+                    )
+                )
+            )
+            await asyncio.sleep(0.1)
+            quick = await timed(http.get("/api/v1/library-documents"))
+            return quick, await slow
+
+    quick, slow = asyncio.run(both())
+    assert slow >= 0.6
+    assert quick < 0.5

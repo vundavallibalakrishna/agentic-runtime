@@ -2648,15 +2648,20 @@ def _context_tools() -> list[dict[str, object]]:
         _tool(
             "retrieve",
             "Read a truncated tool result",
-            "Read the full text of a tool result that was shortened in the prompt. "
-            "Use the output id from the truncated message.",
+            "Read on in a tool result that was shortened in the prompt. "
+            "Use the output id and offset from the shortened message.",
             {
                 "type": "object",
                 "properties": {
                     "output_id": {
                         "type": "string",
-                        "description": "The output id printed on the truncated tool result.",
-                    }
+                        "description": "The output id printed on the shortened tool result.",
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "The character to read on from. Starts at 0.",
+                    },
                 },
                 "required": ["output_id"],
             },

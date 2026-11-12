@@ -662,6 +662,8 @@ def _markdown(data: bytes, filename: str) -> Extracted:
     text = data.decode("utf-8", errors="replace")
     passages: list[Passage] = []
     heading = Path(filename).stem or "Document"
+    # The document's own first heading names it, even when no text sits directly under it.
+    title = ""
     level = 1
     body: list[str] = []
 
@@ -678,13 +680,14 @@ def _markdown(data: bytes, filename: str) -> Extracted:
             flush()
             heading = match.group(2).strip()
             level = len(match.group(1))
+            title = title or heading
             continue
         body.append(line)
     flush()
     if not passages:
         raise ExtractError("no_text", "This file has no readable text.")
     return Extracted(
-        title=passages[0].heading,
+        title=title or passages[0].heading,
         media_type="text/markdown",
         page_count=1,
         passages=_chunk_all(passages),
