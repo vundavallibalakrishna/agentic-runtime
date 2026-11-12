@@ -223,6 +223,8 @@ def test_image_ask_fails_clearly_without_a_vision_model() -> None:
         "",
     )
     assert result["code"] == "vision_unavailable"
+    # The agent is told what it can still do: text recognition needs no vision model.
+    assert "documents.ocr" in str(result["text"])
     assert "vision alias" in str(result["text"]).lower() or "Vision is not configured" in str(
         result["text"]
     )

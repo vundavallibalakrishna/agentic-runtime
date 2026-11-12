@@ -142,7 +142,7 @@ The web app keeps a `RunViewState` per run (zustand store `useRunStreams`), redu
 
 ## 7. Grounding and evidence citations (M7-T11)
 
-`Citation` in §3 gains optional fields. When they are absent, `sourceKind` defaults to `knowledge` and `documentId`, `chunkId`, `collectionId` stay required. When `sourceKind` is `tool_result`, `toolCallId` is required and the document fields are omitted. When `sourceKind` is `evidence_item`, `evidenceItemId` is required and the document fields are omitted.
+`Citation` in §3 gains optional fields. When they are absent, `sourceKind` defaults to `knowledge` and `documentId`, `chunkId`, `collectionId` stay required. When `sourceKind` is `tool_result`, `toolCallId` is required and the document fields are omitted. When `sourceKind` is `evidence_item`, `evidenceItemId` is required and the document fields are omitted. When `sourceKind` is `document`, the citation is a passage of a document attached to the conversation: `documentId`, `anchor` and `page` name it, `uri` is `/documents/{documentId}#{anchor}`, and `chunkId` and `collectionId` are omitted. It is added when the answer repeats the passage's anchor, and `citation.added` is emitted for it.
 
 ```json
 {"index": 2, "sourceKind": "tool_result", "toolCallId": "0192...", "title": "jira.search_issues", "snippet": "..."}

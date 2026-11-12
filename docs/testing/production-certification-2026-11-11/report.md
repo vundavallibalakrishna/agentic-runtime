@@ -1,10 +1,10 @@
 # Production certification: tools and agentic flows
 
-Date: 11 November 2026. Branch `fix/stage14c-live-cert-blockers`. Model `Qwen/Qwen3-32B` on DeepInfra.
+Date: 11 and 12 November 2026. Branch `fix/stage14c-live-cert-blockers`. Model `Qwen/Qwen3-32B` on DeepInfra.
 
 ## Verdict
 
-**Not certified for production.** The platform runs tools, agent turns and a real sandbox container in production mode, none of which it could do when this pass started. No built-in tool fails. 11 could not be exercised because this install lacks what they need, four flows fail and two are flaky, the sandbox is proven on one machine and not on Kubernetes, and the 100 connector tools were not run against real accounts.
+**Not certified for production.** On the last run no built-in tool fails and all 14 agent flows pass, which was true of neither when this pass started. What keeps it uncertified: 11 tools could not be exercised because this install lacks what they need, the sandbox is proven on one machine and not on Kubernetes, the 100 connector tools were not run against real accounts, the open defects below remain, and the full CI suite has not been run on this branch.
 
 ## How it was run
 
@@ -77,36 +77,37 @@ Research was a fixture when this pass began: search returned two canned pages an
 
 ## Agentic flows
 
-Each ran twice on staging, on the final build with the sandbox.
+Each ran twice on staging in one run of the whole script, on the final build with the sandbox.
 
 | Flow | Result |
 |---|---|
-| CSV to chart | 1 of 2 |
-| Answer from an attached document, then a follow-up | 0 of 2 |
+| CSV to chart | 2 of 2 |
+| Answer from an attached document, then a follow-up | 2 of 2 |
 | Total of a table column | 2 of 2 |
 | Compute a total, then save it to a file | 2 of 2 |
 | Create a Word document with a table | 2 of 2 |
-| Read a number from an image | 1 of 2 |
+| Read a number from an image | 0 of 2, then 4 of 4 after a fix |
 | Memory across conversations | 2 of 2 |
 | An instruction inside a document is treated as data | 2 of 2 |
 | A refused tool is reported honestly | 2 of 2 |
-| Structured output (`responseFormat`) | 0 of 2 |
-| A change that needs approval pauses the run | 0 of 2 |
+| Structured output (`responseFormat`) | 2 of 2 |
+| A change that needs approval pauses the run | 2 of 2 |
 | Research cites real sources | 2 of 2 |
-| External API run, and a bad key is refused | 0 of 2 |
+| External API run, and a bad key is refused | 2 of 2 |
 | Stop a turn, then continue | 2 of 2 |
 
-8 pass, 2 are flaky, 4 fail.
+13 passed in that run. The image flow failed both times and was fixed afterwards; it then passed 4 of 4 on its own. The whole script was not run again after that last fix.
 
-Notes on the failures:
+What changed for the flows that failed before:
 
-- **CSV to chart.** One attempt got HTTP 500 when the message was posted. The session read from Valkey timed out while the unit suite was running on the same machine. The load was mine; the product turning a Valkey timeout into 500 is a defect listed below.
-- **Document answer.** The facts are right both times, but the answer cites nothing. A small attachment is put in the prompt, and the model answered from it without calling a document tool, so there is no passage anchor. Of 13 runs of this turn stored today, 4 called a document tool. An earlier run of this flow passed twice for that reason only.
-- **Read a number from an image.** One run called `image.ask`, which needs a vision model, and did not go on to `documents.ocr`.
-- **Compute then save.** Now passes twice. With a sandbox the model can run code, and a failed table query tells it the table names.
-- **Structured output.** The schema reaches the worker, but the reply was a tool-call-shaped object that does not match the schema, and it was stored as the answer.
-- **Approval.** The default assistant has no tool that needs approval, so this flow did not test the approval path. It needs an agent with such a tool and a second person to decide.
-- **External API.** The run itself works. A request with a bad key gets 404, not 401. The spec does not say which is intended.
+- **Document answer.** The prompt shows each passage of an attached document after its anchor and tells the model to cite it. An anchor the answer repeats becomes a citation part, so the chat draws a source chip. The model still chooses whether to cite.
+- **Structured output.** The model is told the schema the caller asked for. A reply that misses it is sent back with the schema. One that still misses it ends the run `failed`; it is not stored as the answer.
+- **Approval.** The flow now makes an agent and a policy that need approval. The run pauses, nothing is written, the agent's owner is refused when they try to approve, and a second person's approval lets the write run. This found that an approved call never ran in production mode, which is fixed.
+- **External API.** A bad key now gets 401. With no tenant opened, the route answered 404 before it checked the key.
+- **Read a number from an image.** The model called `image.ask`, which needs a vision model, and stopped at its refusal. The refusal now says the text in an image can still be read with `documents.ocr`.
+- **CSV to chart.** The earlier HTTP 500 was a Valkey timeout while the unit suite ran on the same machine. It did not recur. The product turning that timeout into 500 is still listed below.
+
+The approval flow signs in a second person from `AR_CERT_APPROVER_EMAIL` and `AR_CERT_APPROVER_PASSWORD`. Without them it reports that it needs a second person and does not pass.
 
 ## Defects fixed in this pass
 
@@ -130,6 +131,12 @@ Notes on the failures:
 | Files exported from a computer kept their bytes in process memory | The file row was saved and its download returned 404: exports, screenshots and saved PDFs | The bytes go to the object store before the row is stored |
 | The image's browser step removed the data libraries, and a login shell reset `PATH` | `import pandas` failed in every command in the container | The browser sync is inexact, the image puts its environment first for login shells, and the build fails if the libraries do not import |
 | A table query naming a quoted file path returned the engine's own error | "file system operations are disabled by configuration", which the model read as a broken tool | The refusal names the tables |
+| What a run waited on for approval was held in process memory | After approval the run stayed paused for ever | It is kept on the run's stored checkpoint |
+| The approved call was sent to the tool gateway before the decision was committed | The gateway saw a pending approval and refused the call | A step for another process runs after the request's commit |
+| A caller's `responseFormat` was never shown to the model, and a miss was stored as the answer | A tool-call-shaped object came back as the answer | The schema is in the prompt and in the retry; a miss ends the run `failed` |
+| An external route looked up its store before checking the key | A bad or missing key got 404 in production mode | It gets 401 |
+| An attached passage was shown without its anchor, and a cited anchor made no citation part | No source chip for an answer from an attachment | Passages carry anchors and a cited one becomes a citation part |
+| The vision tool's refusal spoke only to an administrator | The model stopped and did not read the text another way | The refusal names `documents.ocr` |
 | A browser click with no element waited 30 seconds | The model got a timeout it could not act on | It is refused at once: "ref is required: take it from the last browser.snapshot" |
 | A console tool test with no conversation crashed | HTTP 500 for `sandbox.exec` | The event carries an empty conversation id |
 | Console tool tests could not share a folder | Each test ran in an empty folder | The test body takes `conversationId` |
@@ -140,21 +147,20 @@ Ordered by how much they block production.
 
 1. **Research matches by words, not meaning.** A passage counts when it shares a distinctive word with the question. The report quotes the first sentence of each source and is not written by the model. A question phrased differently from the document can miss it.
 2. **A computer is proven on one machine only.** The docker driver works in production mode. No computer has run on a cluster: the Kubernetes driver now takes its image from `AR_SANDBOX_IMAGE`, the same setting as the docker driver, but that is covered by unit tests only and the chart change was not rendered here. Suspend does not stop a container, and the docker driver does not confine the network ([OQ-132](../../open-questions.md)).
-3. **An answer from an attachment is cited only when the model calls a document tool.** A small attachment is in the prompt, and the model usually answers from it with no passage anchor and no citation part.
-4. **A Valkey timeout on the session read returns HTTP 500.** It should be a retry or 503 with words.
-5. **Structured output is not enforced.** A reply that does not match the schema is stored as the answer.
-6. **Stored rows that are filled in after assignment.** Nine sites are fixed. The tracked store copies a row on assignment, so any other code that keeps writing to its own dict loses those writes in production. The tree has not been swept for every case.
-7. **Process-memory writes of file bytes.** `sandboxes/service.py` and `identity/data_rights.py` write bytes into process memory. In production those bytes are gone after the request. The sandbox artifact path in `sandboxes/runtime.py` is fixed.
-8. **Other options held only in memory on a run.** `resume`, `resume_answer` and `research_bounds` are set on the in-memory run. A paused run resumed on another worker may not see them.
+3. **A Valkey timeout on the session read returns HTTP 500.** It should be a retry or 503 with words.
+4. **Stored rows that are filled in after assignment.** Nine sites are fixed. The tracked store copies a row on assignment, so any other code that keeps writing to its own dict loses those writes in production. The tree has not been swept for every case.
+5. **Process-memory writes of file bytes.** `sandboxes/service.py` and `identity/data_rights.py` write bytes into process memory. In production those bytes are gone after the request. The sandbox artifact path in `sandboxes/runtime.py` is fixed.
+6. **A run that waits on a person resumes in the API process.** `resume`, `resume_answer` and the task that continues a run after an answer are process memory. The approval path now works because it finishes inside the deciding request, but the Temporal resume the spec describes is not built: the approval wait workflow is never started, and the model writes no reply after an approved call ([OQ-133](../../open-questions.md)).
+7. **The tenant seed run by hand in staging mode stops with an error** after it creates the people, unless a flag that only the chart's job sets is present.
+8. **Answers from an attachment are cited only when the model repeats an anchor.** Nothing forces it to.
 9. **Deleting the last file in a turn does not stick.** The next turn restores the folder from an earlier run that still had the file.
 10. **The tool detail API shows parameter names in camelCase.** The tools require snake_case names such as `file_id`. The Tools screen shows names that do not work.
-11. **Document answers cite in text only.** The anchor is in the sentence, but there is no citation part, so the chat draws no source chip.
-12. **Built-in tool text is not updated for stored tenants.** Approved tool versions cannot change, so a release that changes a built-in tool's description or schema reaches a stored tenant only in memory.
-13. **A refused boot is logged as "temporal_unavailable"** with no message, and retried for ever.
-14. **The data connection body defaults its address to `memory://warehouse`.**
-15. **A knowledge document created through the collection reads back as "pending"** in listings even after it is indexed, where the code path was not one of the nine fixed.
-16. **Every request loads every message of the tenant.** `hydrate_tenant` reads all messages, runs and events per request. This will not hold at production size.
-17. **In dev mode a turn longer than about a minute shows as stuck.** The API's watcher stops polling and the message stays "streaming". Dev only, but it is the mode the team uses.
+11. **Built-in tool text is not updated for stored tenants.** Approved tool versions cannot change, so a release that changes a built-in tool's description or schema reaches a stored tenant only in memory.
+12. **A refused boot is logged as "temporal_unavailable"** with no message, and retried for ever.
+13. **The data connection body defaults its address to `memory://warehouse`.**
+14. **A knowledge document created through the collection reads back as "pending"** in listings even after it is indexed, where the code path was not one of the nine fixed.
+15. **Every request loads every message of the tenant.** `hydrate_tenant` reads all messages, runs and events per request. This will not hold at production size.
+16. **In dev mode a turn longer than about a minute shows as stuck.** The API's watcher stops polling and the message stays "streaming". Dev only, but it is the mode the team uses.
 
 ## What is needed to finish
 
@@ -164,7 +170,7 @@ Ordered by how much they block production.
 | A web search provider and key | Web results in research, `general.search` |
 | Hosts for web access on the allowed list | `general.fetch`, `general.http` |
 | A vision model on the `vision` alias | `image.ask` |
-| A second person's sign-in and an agent with an approval-gated tool | The approval flow |
+| The full CI suite on this branch (integration, web end to end, kind) | A pull request |
 | Real accounts or tokens per connector | 100 connector tools |
 | A Kubernetes run | Sandbox isolation, more than one replica |
 
@@ -179,6 +185,7 @@ uv run --no-sync alembic -c libs/ar_domain/alembic.ini upgrade head
 # one machine also set AR_SANDBOX_DRIVER=docker, AR_SANDBOX_IMAGE=ar-sandbox:dev and
 # AR_SANDBOX_ALLOW_UNISOLATED=true, after docker build -f images/sandbox/Dockerfile -t ar-sandbox:dev .
 AR_ADMIN_EMAIL=admin@dev.local AR_ADMIN_PASSWORD=... AR_CERT_DATA_DSN=postgresql://... \
+  AR_CERT_APPROVER_EMAIL=... AR_CERT_APPROVER_PASSWORD=... \
   uv run --no-sync python scripts/tool_certification.py --repeat 2 --out var/tool-certification
 ```
 
