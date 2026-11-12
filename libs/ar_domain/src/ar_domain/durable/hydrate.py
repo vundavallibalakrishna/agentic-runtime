@@ -167,7 +167,9 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     from ar_domain.durable.m35 import load_durability  # noqa: PLC0415
 
     await load_durability(session, store, tenant_id)
-    await _events(session, store, tenant_id)
+    # Run events are not loaded for every request: they grow per turn and are read only by
+    # run id (the run trace and the SSE resume), which call ``load_run_events`` on demand.
+    # The live SSE path refreshes through ``reload_run`` as it polls. See OQ-136.
     await _channel_integrations(session, store, tenant_id)
     await _channel_identities(session, store, tenant_id)
     await _channel_threads(session, store, tenant_id)
@@ -534,19 +536,29 @@ async def _messages(session: AsyncSession, store: object, tenant_id: uuid.UUID) 
         _merge(store, "messages", row["id"], row)
 
 
-async def _events(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
-    result = await session.execute(
-        text(
-            "SELECT run_id, seq, type, data, created_at, tenant_id FROM run_events "
-            "WHERE tenant_id = :tenant_id ORDER BY run_id, seq"
-        ),
-        {"tenant_id": tenant_id},
-    )
-    grouped: dict[uuid.UUID, list[dict[str, Any]]] = {}
-    for row in result.mappings():
-        grouped.setdefault(row["run_id"], []).append(dict(row))
-    for run_id, events in grouped.items():
-        await _events_for(session, store, run_id, None, tenant_id, events=events)
+async def load_run_events(store: object, run_id: uuid.UUID) -> None:
+    """Load one run's events on demand, for a run trace or an SSE resume.
+
+    Run events are no longer loaded for every request (``_hydrate_all``); they are read only
+    by run id. This fills ``store.events[run_id]`` once from Postgres. The live SSE stream
+    uses ``reload_run`` instead, which refreshes the run as it polls. It is a no-op without a
+    database, or when this run's events are already on the store.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        return
+    bucket = getattr(store, "events", None)
+    if isinstance(bucket, dict) and run_id in bucket:
+        return
+    runs = getattr(store, "runs", None)
+    run = runs.get(run_id) if isinstance(runs, dict) else None
+    tenant_id = run.get("tenant_id") if isinstance(run, dict) else None
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        if tenant_id is not None:
+            await apply_tenant_context(session, tenant_id)
+        await _events_for(session, store, run_id, None, tenant_id)
 
 
 async def _events_for(  # noqa: PLR0917 - the event row needs the run, conversation and tenant
