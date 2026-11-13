@@ -470,6 +470,160 @@ async def test_hydrate_and_reload_merge_rows(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.asyncio
+async def test_hydrate_does_not_eager_load_run_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15 (step 2): run events are not loaded for every request.
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+    install_tracking(service)
+    service.durable_engine = engine  # type: ignore[assignment]
+    service.events.clear()
+    await hydrate_tenant(service, engine, _TENANT)  # type: ignore[arg-type]
+    assert not service.events
+
+
+@pytest.mark.asyncio
+async def test_load_run_events_on_demand(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.durable.hydrate import load_run_events
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+    install_tracking(service)
+    service.runs[_RUN] = {"id": _RUN, "tenant_id": _TENANT, "conversation_id": _AGENT}
+    service.events.clear()
+
+    service.durable_engine = None  # type: ignore[assignment]
+    await load_run_events(service, _RUN)
+    assert _RUN not in service.events  # no database -> no load
+
+    service.durable_engine = engine  # type: ignore[assignment]
+    await load_run_events(service, _RUN)
+    assert service.events.get(_RUN)  # loaded on demand, keyed by run id
+    loaded = service.events[_RUN]
+    await load_run_events(service, _RUN)  # idempotent: already present, not reloaded
+    assert service.events[_RUN] is loaded
+
+
+@pytest.mark.asyncio
+async def test_hydrate_does_not_eager_load_usage(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15: usage is no longer loaded for every request.
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    calls: list[uuid.UUID] = []
+
+    async def _recorder(_session: object, _store: object, tenant_id: uuid.UUID) -> None:
+        calls.append(tenant_id)
+
+    monkeypatch.setattr(hydrate_mod, "_usage_events", _recorder)
+    service = demo_store()
+    install_tracking(service)
+    service.durable_engine = engine  # type: ignore[assignment]
+    await hydrate_tenant(service, engine, _TENANT)  # type: ignore[arg-type]
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_load_usage_events_loads_on_demand(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.durable.hydrate import load_usage_events
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    calls: list[uuid.UUID] = []
+
+    async def _recorder(_session: object, store: object, tenant_id: uuid.UUID) -> None:
+        calls.append(tenant_id)
+        store.usage[("t", "k")] = object()  # type: ignore[attr-defined]
+
+    monkeypatch.setattr(hydrate_mod, "_usage_events", _recorder)
+    service = demo_store()
+    service.durable_engine = None  # type: ignore[assignment]
+    await load_usage_events(service, _TENANT)
+    assert calls == []  # no database -> no load
+    service.durable_engine = engine  # type: ignore[assignment]
+    await load_usage_events(service, _TENANT)
+    assert calls == [_TENANT] and service.usage
+
+
+@pytest.mark.asyncio
+async def test_load_idempotency_row_reads_by_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15 (step 3): idempotency rows are read by their unique key, not
+    # by loading the whole tenant's rows for every request.
+    from ar_domain.durable.hydrate import load_idempotency_row
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+
+    service.durable_engine = None  # type: ignore[assignment]
+    assert await load_idempotency_row(service, _TENANT, _USER, "h1") is None  # no database
+
+    captured: dict[str, object] = {}
+
+    class _IdemSession(_Session):
+        async def execute(self, statement: object, params: object = None) -> _Rows:
+            del statement
+            if isinstance(params, dict) and "key_id" in params:
+                captured.update(params)
+                return _Rows(
+                    [
+                        {
+                            "id": _RUN,
+                            "key_id": _USER,
+                            "idempotency_key": "h1",
+                            "state": "completed",
+                            "request_hash": "fp",
+                            "response": {"ok": True},
+                        }
+                    ]
+                )
+            return _Rows([])
+
+    monkeypatch.setattr(hydrate_mod, "AsyncSession", _IdemSession)
+    service.durable_engine = engine  # type: ignore[assignment]
+    row = await load_idempotency_row(service, _TENANT, _USER, "h1")
+    assert row is not None
+    assert row["state"] == "completed" and row["response"] == {"ok": True}
+    assert captured["key_id"] == _USER and captured["header"] == "h1"
+
+
+@pytest.mark.asyncio
+async def test_load_a2a_tasks_for_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15 (step 4): a key's A2A tasks are loaded by key id, not by
+    # loading the whole tenant's tasks for every request.
+    from ar_domain.durable.hydrate import load_a2a_tasks_for_key
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+    install_tracking(service)
+
+    service.durable_engine = None  # type: ignore[assignment]
+    await load_a2a_tasks_for_key(service, _TENANT, _USER)
+    assert not service.a2a_tasks  # no database -> no load
+    service.durable_engine = engine  # type: ignore[assignment]
+    await load_a2a_tasks_for_key(service, None, None)
+    assert not service.a2a_tasks  # no key -> no load
+
+    captured: dict[str, object] = {}
+
+    class _TaskSession(_Session):
+        async def execute(self, statement: object, params: object = None) -> _Rows:
+            del statement
+            if isinstance(params, dict) and "key_id" in params:
+                captured.update(params)
+                return _Rows(
+                    [{"id": _RUN, "tenant_id": _TENANT, "key_id": _USER, "state": "completed"}]
+                )
+            return _Rows([])
+
+    monkeypatch.setattr(hydrate_mod, "AsyncSession", _TaskSession)
+    await load_a2a_tasks_for_key(service, _TENANT, _USER)
+    assert _RUN in service.a2a_tasks and service.a2a_tasks[_RUN]["key_id"] == _USER
+    assert captured["key_id"] == _USER
+
+
+@pytest.mark.asyncio
 async def test_load_job_progress_scoped(monkeypatch: pytest.MonkeyPatch) -> None:
     # Production-cert defect 15 (step 5): job progress is loaded by conversation (the view)
     # or by running status (the restart reconcile), not tenant-wide per request.

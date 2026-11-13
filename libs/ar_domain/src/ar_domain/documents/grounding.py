@@ -58,6 +58,10 @@ def compare(
         "right_id": str(right.get("id") or ""),
         "left_title": str(left.get("title") or ""),
         "right_title": str(right.get("title") or ""),
+        "shared_sections": len(
+            {str(row.get("heading") or "") for row in _passages(left)}
+            & {str(row.get("heading") or "") for row in _passages(right)}
+        ),
         "changes": changes,
         "notes": notes,
         "model_used": bool(notes),
@@ -324,6 +328,34 @@ def apply_hunks(original: str, hunks: list[dict[str, object]]) -> str:
         replacement = str(hunk.get("after") or "")
         lines[start:end] = replacement.splitlines() if replacement else []
     return "\n".join(lines)
+
+
+def table_items(filename: str, data: bytes, *, limit: int = 40) -> list[tuple[str, str]]:
+    """The rows of a delimited file as items: each row's longest cell, named by its first.
+
+    A list kept as a table has one item a row. Read as prose it has none, and its
+    file name was offered as the only item.
+    """
+    import csv  # noqa: PLC0415
+    import io  # noqa: PLC0415
+
+    suffix = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if suffix not in {"csv", "tsv"} or not data:
+        return []
+    text = data.decode("utf-8-sig", errors="replace")
+    rows = list(csv.reader(io.StringIO(text), delimiter="\t" if suffix == "tsv" else ","))
+    items: list[tuple[str, str]] = []
+    # The first row names the columns.
+    for index, row in enumerate(rows[1:], start=1):
+        cells = [cell.strip() for cell in row if cell.strip()]
+        if not cells:
+            continue
+        statement = max(cells, key=len)
+        first = cells[0]
+        items.append((first if first != statement else f"r{index}", statement))
+        if len(items) >= limit:
+            break
+    return items
 
 
 def requirements_from(document: dict[str, object], *, limit: int = 40) -> list[str]:

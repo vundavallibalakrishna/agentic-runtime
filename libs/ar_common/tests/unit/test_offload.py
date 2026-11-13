@@ -15,28 +15,20 @@ REQUEST = contextvars.ContextVar("request", default="none")
 
 
 async def test_the_loop_goes_on_while_synchronous_code_waits() -> None:
-    ticks: list[float] = []
+    # The handler blocks a worker thread on an event only a loop-thread coroutine can set.
+    # If the wait held the loop, that coroutine could not run and the handler would wait the
+    # full safety timeout and get False. This is deterministic: no tick counting, no clock.
+    released = threading.Event()
 
-    async def heartbeat() -> None:
-        while True:
-            ticks.append(time.monotonic())
-            await asyncio.sleep(0.02)
+    async def release_from_the_loop() -> None:
+        released.set()
 
-    window: dict[str, float] = {}
+    def handler() -> bool:
+        return blocking(released.wait, 5.0)
 
-    def handler() -> str:
-        window["start"] = time.monotonic()
-        blocking(time.sleep, 0.3)
-        window["end"] = time.monotonic()
-        return "done"
-
-    beat = asyncio.create_task(heartbeat())
-    assert await run_sync(handler) == "done"
-    beat.cancel()
-    # A held loop lets no tick happen between the start and the end of the wait. How
-    # many happen depends on the machine, so the count is not what is checked.
-    during = [tick for tick in ticks if window["start"] < tick < window["end"]]
-    assert len(during) >= 2, "the loop was held while the handler waited"
+    task = asyncio.create_task(release_from_the_loop())
+    assert await run_sync(handler) is True, "the loop was held while the handler waited"
+    await task
 
 
 async def test_only_the_wait_leaves_the_loop_thread() -> None:
@@ -92,19 +84,24 @@ async def test_an_error_in_the_wait_is_raised_where_the_code_called_it() -> None
 
 async def test_code_that_takes_too_long_is_stopped_at_its_wait_and_cleans_up() -> None:
     steps: list[str] = []
+    # Never set, so the wait would block for ever. run_sync returning at all proves the limit
+    # stopped it at the wait rather than waiting for the call to end — no wall-clock margin to
+    # race on. The worker thread is released afterwards so it does not leak.
+    never = threading.Event()
 
     def handler() -> None:
         try:
-            blocking(time.sleep, 0.5)
+            blocking(never.wait)
             steps.append("finished")
         finally:
             steps.append("cleaned up")
 
-    started = time.monotonic()
-    with pytest.raises(CallTimedOutError) as caught:
-        await run_sync(handler, limit_s=0.05)
-    assert time.monotonic() - started < 0.4, "it waited for the slow call to end"
-    assert caught.value.seconds == 0.05
+    try:
+        with pytest.raises(CallTimedOutError) as caught:
+            await run_sync(handler, limit_s=0.2)
+    finally:
+        never.set()
+    assert caught.value.seconds == 0.2
     assert steps == ["cleaned up"]
 
 
@@ -172,3 +169,44 @@ async def test_code_with_no_wait_returns_its_value_and_its_error() -> None:
 
     with pytest.raises(ValueError, match="bad input"):
         await run_sync(boom)
+
+
+def test_several_waits_run_at_the_same_time_and_keep_their_order() -> None:
+    import asyncio
+    import time
+
+    from ar_common.offload import blocking_all, run_sync
+
+    def wait(tag: str) -> str:
+        time.sleep(0.3)
+        return tag
+
+    def work() -> list[str]:
+        return blocking_all([lambda: wait("a"), lambda: wait("b"), lambda: wait("c")])
+
+    started = time.monotonic()
+    assert asyncio.run(run_sync(work)) == ["a", "b", "c"]
+    assert time.monotonic() - started < 0.8
+    # With no loop behind it the same code runs the calls one after another.
+    assert blocking_all([lambda: 1, lambda: 2]) == [1, 2]
+
+
+def test_a_failed_wait_is_raised_after_the_others_end() -> None:
+    import asyncio
+
+    import pytest
+
+    from ar_common.offload import blocking_all, run_sync
+
+    done: list[str] = []
+
+    def fail() -> str:
+        raise ValueError("no answer")
+
+    def fine() -> str:
+        done.append("fine")
+        return "fine"
+
+    with pytest.raises(ValueError, match="no answer"):
+        asyncio.run(run_sync(lambda: blocking_all([fail, fine])))
+    assert done == ["fine"]

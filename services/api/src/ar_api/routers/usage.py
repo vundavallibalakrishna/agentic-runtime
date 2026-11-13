@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import Response
 
 from ar_api.deps import expose, require_permission
-from ar_api.routers.tooling import actor, chat
+from ar_api.routers.tooling import actor, chat, load_usage
 from ar_domain.usage.service import UsageBook
 
 router = APIRouter()
@@ -60,6 +60,7 @@ async def usage_summary(
         user_id=user_id,
         team_id=team_id,
     )
+    await load_usage(request)
     return _book(request).summary(actor(request), query)
 
 
@@ -85,6 +86,7 @@ async def usage_export(
         user_id=user_id,
         team_id=team_id,
     )
+    await load_usage(request)
     body = _book(request).export_csv(actor(request), query)
     return Response(
         content=body,
@@ -96,4 +98,5 @@ async def usage_export(
 @router.get("/api/v1/me/usage")
 @expose(public=False, permission=None)
 async def my_usage(request: Request) -> dict[str, object]:
+    await load_usage(request)
     return _book(request).mine(actor(request))

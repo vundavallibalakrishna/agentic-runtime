@@ -24,6 +24,20 @@ def page(items: list[dict[str, object]]) -> dict[str, object]:
     return {"data": items}
 
 
+async def load_usage(request: Request) -> None:
+    """Load this tenant's stored usage for a usage or quota report.
+
+    The read model does not load usage for every request; a report calls this first so its
+    summary sees the metering. It is a no-op without a database.
+    """
+    from ar_domain.durable.hydrate import load_usage_events  # noqa: PLC0415
+
+    store = chat(request)
+    tenant_id = getattr(store, "context_tenant_id", None)
+    if tenant_id is not None:
+        await load_usage_events(store, tenant_id)
+
+
 def dump(body: ApiModel) -> dict[str, object]:
     """Snake_case fields for the domain. Public JSON stays camelCase."""
     return body.model_dump(by_alias=False, exclude_unset=True)

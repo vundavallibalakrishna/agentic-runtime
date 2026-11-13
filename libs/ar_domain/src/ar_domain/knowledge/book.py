@@ -325,7 +325,9 @@ class KnowledgeBook:
             "created_at": now,
             "updated_at": now,
         }
-        self.store.knowledge_sources[source_id] = row
+        # Keep the stored row: the first sync below writes the cursor and sync state onto
+        # it, and the production store would otherwise hold a copy that never sees them.
+        row = keep(self.store.knowledge_sources, source_id, row)
         remember(
             self.store,
             tenant_id=actor.tenant_id,
