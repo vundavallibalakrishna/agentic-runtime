@@ -397,6 +397,52 @@ async def load_usage_events(store: object, tenant_id: uuid.UUID) -> None:
         await _usage_events(session, store, tenant_id)
 
 
+async def load_jobs_for_conversation(
+    store: object, tenant_id: uuid.UUID | None, conversation_id: uuid.UUID | None
+) -> None:
+    """Load one conversation's job-progress rows on demand.
+
+    Job progress is no longer loaded for every request (``load_durability``); it grows with
+    every long job. The conversation view reads it by conversation id, so it loads that
+    conversation's rows here. A no-op without a database or a conversation.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine) or tenant_id is None or conversation_id is None:
+        return
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await apply_tenant_context(session, tenant_id)
+        result = await session.execute(
+            text("SELECT * FROM job_progress WHERE conversation_id = :cid"),
+            {"cid": conversation_id},
+        )
+        for row in result.mappings():
+            _merge(store, "job_progress", row["id"], dict(row))
+
+
+async def load_running_jobs(store: object, tenant_id: uuid.UUID | None) -> None:
+    """Load the tenant's still-running job-progress rows, for the restart reconcile.
+
+    The reconcile marks jobs that were running when a process stopped as interrupted. It
+    needs those rows, which are no longer loaded eagerly; the set is small (only jobs
+    mid-flight at the stop). A no-op without a database.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine) or tenant_id is None:
+        return
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await apply_tenant_context(session, tenant_id)
+        result = await session.execute(
+            text("SELECT * FROM job_progress WHERE tenant_id = :tid AND status = 'running'"),
+            {"tid": tenant_id},
+        )
+        for row in result.mappings():
+            _merge(store, "job_progress", row["id"], dict(row))
+
+
 def _text_or_none(value: object) -> str | None:
     return None if value is None else str(value)
 

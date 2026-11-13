@@ -575,6 +575,9 @@ async def get_conversation(conversation_id: uuid.UUID, request: Request) -> dict
     principal = _principal(request)
     read_all = principal.allows("conversations:read_all")
     service = _chat(request)
+    from ar_domain.durable.hydrate import load_jobs_for_conversation  # noqa: PLC0415
+
+    await load_jobs_for_conversation(service, _tenant(principal), conversation_id)
     body = service.get_conversation(
         _tenant(principal),
         uuid.UUID(principal.id),
@@ -824,7 +827,11 @@ async def export_conversation(
     fmt: Annotated[str, Query(alias="format")] = "markdown",
 ) -> dict[str, object]:
     principal = _principal(request)
-    return _chat(request).export_conversation(
+    service = _chat(request)
+    from ar_domain.durable.hydrate import load_jobs_for_conversation  # noqa: PLC0415
+
+    await load_jobs_for_conversation(service, _tenant(principal), conversation_id)
+    return service.export_conversation(
         _tenant(principal),
         uuid.UUID(principal.id),
         conversation_id,

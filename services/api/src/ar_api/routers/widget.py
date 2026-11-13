@@ -126,6 +126,9 @@ async def widget_messages(
         from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
         await reload_run(chat(request), uuid.UUID(str(current["active_run_id"])))
+    from ar_domain.durable.hydrate import load_jobs_for_conversation  # noqa: PLC0415
+
+    await load_jobs_for_conversation(chat(request), data.tenant_id, conversation_id)
     return chat(request).get_conversation(
         data.tenant_id, data.user_id, conversation_id, read_all=False
     )

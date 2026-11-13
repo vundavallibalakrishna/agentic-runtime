@@ -186,17 +186,19 @@ async def _legacy_rows(
 async def load_durability(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
 
+    # Job progress is not loaded for every request: it grows with every long job and is read
+    # by conversation id (the conversation view) or by status (the restart reconcile), which
+    # load it on demand through `hydrate.load_jobs_for_conversation` / `load_running_jobs`.
+    # See OQ-136.
     queries = (
         "SELECT * FROM files WHERE tenant_id = :tenant_id AND deleted_at IS NULL",
         "SELECT * FROM workspace_files WHERE tenant_id = :tenant_id",
-        "SELECT * FROM job_progress WHERE tenant_id = :tenant_id",
         "SELECT * FROM a2a_push_configs WHERE tenant_id = :tenant_id",
         "SELECT * FROM tool_search_vectors WHERE tenant_id = :tenant_id",
     )
     names = (
         "files",
         "workspace_files",
-        "job_progress",
         "a2a_push_configs",
         "tool_search_vectors",
     )
