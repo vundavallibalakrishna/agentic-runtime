@@ -169,3 +169,44 @@ async def test_code_with_no_wait_returns_its_value_and_its_error() -> None:
 
     with pytest.raises(ValueError, match="bad input"):
         await run_sync(boom)
+
+
+def test_several_waits_run_at_the_same_time_and_keep_their_order() -> None:
+    import asyncio
+    import time
+
+    from ar_common.offload import blocking_all, run_sync
+
+    def wait(tag: str) -> str:
+        time.sleep(0.3)
+        return tag
+
+    def work() -> list[str]:
+        return blocking_all([lambda: wait("a"), lambda: wait("b"), lambda: wait("c")])
+
+    started = time.monotonic()
+    assert asyncio.run(run_sync(work)) == ["a", "b", "c"]
+    assert time.monotonic() - started < 0.8
+    # With no loop behind it the same code runs the calls one after another.
+    assert blocking_all([lambda: 1, lambda: 2]) == [1, 2]
+
+
+def test_a_failed_wait_is_raised_after_the_others_end() -> None:
+    import asyncio
+
+    import pytest
+
+    from ar_common.offload import blocking_all, run_sync
+
+    done: list[str] = []
+
+    def fail() -> str:
+        raise ValueError("no answer")
+
+    def fine() -> str:
+        done.append("fine")
+        return "fine"
+
+    with pytest.raises(ValueError, match="no answer"):
+        asyncio.run(run_sync(lambda: blocking_all([fail, fine])))
+    assert done == ["fine"]

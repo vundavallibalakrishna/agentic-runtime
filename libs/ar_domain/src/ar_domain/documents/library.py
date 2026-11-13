@@ -30,9 +30,10 @@ from ar_domain.documents.grounding import (
     requirements_from,
     rewrite_text,
     summarise,
+    table_items,
 )
 from ar_domain.documents.judgement import judge_items
-from ar_domain.documents.model import ask_model, model_id_for
+from ar_domain.documents.model import ModelAsk, model_id_for
 from ar_domain.documents.originals import read_original, store_original
 from ar_domain.documents.rules import remember
 from ar_domain.files.logic import scan_bytes
@@ -477,6 +478,9 @@ class DocumentLibrary:
             raise ValidationFailedError("The stored file does not match its content hash.")
         return data
 
+    def _source_bytes(self, row: dict[str, object]) -> bytes:
+        return read_original(self.store, str(row.get("object_key") or "")) or b""
+
     def _rule_statements(
         self,
         actor: Actor,
@@ -493,9 +497,17 @@ class DocumentLibrary:
             statements=statements,
             rule_set_id=rule_set_id,
         )
-        if source_id is not None:
-            for index, text in enumerate(requirements_from(self._own(actor, source_id)), start=1):
-                items.append((f"r{index}", text))
+        if source_id is not None and not items:
+            # A set that already has its items is not read again from its source file.
+            source = self._own(actor, source_id)
+            rows = table_items(str(source.get("filename") or ""), self._source_bytes(source))
+            items.extend(
+                rows
+                or [
+                    (f"r{index}", text)
+                    for index, text in enumerate(requirements_from(source), start=1)
+                ]
+            )
         if not items:
             raise ValidationFailedError("Provide a rule set or a list of statements.")
         return items, source_id, set_id, version
@@ -707,13 +719,8 @@ class DocumentLibrary:
     def _aggressive(self, actor: Actor, agent_version_id: uuid.UUID | None) -> bool:
         return analysis_redaction_enabled(self.store, actor.tenant_id, agent_version_id)
 
-    def _ask(self, actor: Actor, alias: str) -> Any:
-        chosen = alias or "reasoning"
-
-        def ask(task: str, evidence: str) -> str | None:
-            return ask_model(self.store, actor.tenant_id, chosen, task, evidence)
-
-        return ask
+    def _ask(self, actor: Actor, alias: str) -> ModelAsk:
+        return ModelAsk(self.store, actor.tenant_id, alias or "reasoning")
 
     def _own(self, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
         row = self.store.library_documents.get(document_id)

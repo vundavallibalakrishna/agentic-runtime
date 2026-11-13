@@ -98,6 +98,9 @@ def remember(
             ]
             version = str(stored.get("version") or "")
             source = _as_uuid(stored.get("source_file_id"))
+        elif not caller:
+            # No set is stored under this id: it may name the document that holds the list.
+            source = _as_uuid(set_id)
     return [*caller, *extra], set_id, version, source
 
 

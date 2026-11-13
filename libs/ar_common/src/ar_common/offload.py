@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any
 import greenlet
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Sequence
 
 _DEFAULT_THREADS = 16
 
@@ -111,3 +111,24 @@ def blocking[T](fn: Callable[..., T], /, *args: object, **kwargs: object) -> T:
     future = loop.run_in_executor(_executor(), lambda: fn(*args, **kwargs))
     result: T = current.parent.switch(future)
     return result
+
+
+def blocking_all[T](calls: Sequence[Callable[[], T]]) -> list[T]:
+    """Run several calls that only wait, at the same time, and return their results in order.
+
+    Under ``run_sync`` each call goes to a worker thread and the loop goes on until all
+    have returned; the pool's size bounds how many wait at once. Anywhere else they run
+    one after another, in place. The first failure is raised once every call has ended.
+    """
+    current = greenlet.getcurrent()
+    if not getattr(current, _MARK, False) or current.parent is None:
+        return [call() for call in calls]
+    loop = asyncio.get_running_loop()
+    pending = [loop.run_in_executor(_executor(), call) for call in calls]
+    done: list[T | BaseException] = current.parent.switch(
+        asyncio.gather(*pending, return_exceptions=True)
+    )
+    for item in done:
+        if isinstance(item, BaseException):
+            raise item
+    return [item for item in done if not isinstance(item, BaseException)]
