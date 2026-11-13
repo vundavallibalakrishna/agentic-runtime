@@ -545,6 +545,48 @@ async def test_load_usage_events_loads_on_demand(monkeypatch: pytest.MonkeyPatch
     assert calls == [_TENANT] and service.usage
 
 
+@pytest.mark.asyncio
+async def test_load_idempotency_row_reads_by_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15 (step 3): idempotency rows are read by their unique key, not
+    # by loading the whole tenant's rows for every request.
+    from ar_domain.durable.hydrate import load_idempotency_row
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+
+    service.durable_engine = None  # type: ignore[assignment]
+    assert await load_idempotency_row(service, _TENANT, _USER, "h1") is None  # no database
+
+    captured: dict[str, object] = {}
+
+    class _IdemSession(_Session):
+        async def execute(self, statement: object, params: object = None) -> _Rows:
+            del statement
+            if isinstance(params, dict) and "key_id" in params:
+                captured.update(params)
+                return _Rows(
+                    [
+                        {
+                            "id": _RUN,
+                            "key_id": _USER,
+                            "idempotency_key": "h1",
+                            "state": "completed",
+                            "request_hash": "fp",
+                            "response": {"ok": True},
+                        }
+                    ]
+                )
+            return _Rows([])
+
+    monkeypatch.setattr(hydrate_mod, "AsyncSession", _IdemSession)
+    service.durable_engine = engine  # type: ignore[assignment]
+    row = await load_idempotency_row(service, _TENANT, _USER, "h1")
+    assert row is not None
+    assert row["state"] == "completed" and row["response"] == {"ok": True}
+    assert captured["key_id"] == _USER and captured["header"] == "h1"
+
+
 def test_should_bind_and_the_binding_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_DURABLE_STATE", "memory")
     assert should_bind() is False
