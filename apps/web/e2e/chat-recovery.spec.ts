@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 async function signIn(page: import("@playwright/test").Page) {
