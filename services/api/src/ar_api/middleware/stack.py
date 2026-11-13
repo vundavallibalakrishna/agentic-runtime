@@ -56,7 +56,16 @@ class AuthenticateMiddleware:
         scope.setdefault("state", {})
         path = str(scope.get("path", ""))
         resolver = scope["app"].state.resolve_principal
-        principal = await resolver(scope)
+        try:
+            principal = await resolver(scope)
+        except ArError as exc:
+            # A dependency the loader needs (the session store on Valkey, the identity
+            # database) was unavailable. Answer with the error's own status — 503 for a
+            # Valkey timeout — not a bare 500 from the ASGI server, so the caller sees
+            # words and can retry instead of a blank server error.
+            response = problem_response(exc, instance=path, request_id=_request_id(scope))
+            await response(scope, receive, send)
+            return
         if principal is None and not is_public(path):
             response = problem_response(
                 UnauthenticatedError(),

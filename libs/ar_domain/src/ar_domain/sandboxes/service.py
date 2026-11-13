@@ -111,9 +111,12 @@ class SandboxBook:
         answer = "wrote revenue-by-month.png"
         self._message(tenant_id, conversation_id, user_id, role="user", text=question, now=now)
         self._message(tenant_id, conversation_id, user_id, role="assistant", text=answer, now=now)
+        from ar_domain.files.logic import object_key  # noqa: PLC0415
+        from ar_domain.files.objects import keep_bytes  # noqa: PLC0415
+
         png = png_chart([12000, 15000, 18000, 14000, 21000, 19000])
         file_id = demo_id("showcase-revenue-png")
-        self.store.files[file_id] = {
+        file_row = {
             "id": file_id,
             "tenant_id": tenant_id,
             "owner_user_id": user_id,
@@ -122,13 +125,19 @@ class SandboxBook:
             "name": "revenue-by-month.png",
             "mime_type": "image/png",
             "size_bytes": len(png),
+            "object_key": object_key(
+                str(tenant_id), "artifact", f"{now:%Y}", f"{now:%m}", str(file_id)
+            ),
             "status": "ready",
             "scan_status": "skipped",
             "preview": {},
             "created_at": now,
             "deleted_at": None,
         }
-        self.store.blobs[file_id] = png
+        self.store.files[file_id] = file_row
+        # The chart bytes go to the object store, not process memory, so the preview
+        # survives the request and any replica can read it.
+        keep_bytes(self.store, file_row, png)
         sandbox_id = demo_id("showcase-revenue-sandbox")
         self.store.sandboxes[sandbox_id] = {
             "id": sandbox_id,
