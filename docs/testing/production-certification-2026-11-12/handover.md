@@ -13,7 +13,7 @@ The target the owner set: a working platform with no known issue, on which any a
   - Document flows: 47 of 47 checks ([report](../../../packs/examples/grc-flows/report-2026-11-12.md)).
   - Built-in tools: 67 of 81 pass, 11 blocked on setup, none fail.
   - Certification flows: 13 of 14 in one full run, the fourteenth after its fix.
-- Open items already recorded: [OQ-131 to OQ-135](../../open-questions.md).
+- Open items already recorded: [OQ-131 to OQ-136](../../open-questions.md).
 
 ## How to read this document
 
@@ -54,7 +54,7 @@ What done looks like for group A: each store is a table with `tenant_id`, row-le
 
 ### B. Known defects
 
-From the certification report's open list and OQ-132 to OQ-135. All are recorded there with their evidence.
+From the certification report's open list and OQ-132 to OQ-136. All are recorded there with their evidence.
 
 1. A Valkey timeout on the session read returns HTTP 500.
 2. Rows filled in after they are assigned lose writes. The tree has not been swept for other cases.
@@ -68,7 +68,7 @@ From the certification report's open list and OQ-132 to OQ-135. All are recorded
 10. In dev mode a turn longer than about a minute shows as stuck.
 11. A replayed tool call returns a preview and no structured result.
 12. Eval conversations appear in the recent chats of the person who started the eval.
-13. A long tool shows no card in chat until it ends, because `tool_call.started` is stored when the step commits (OQ-135).
+13. A long tool shows no card in chat until it ends, because `tool_call.started` is stored when the step commits (OQ-136).
 14. The document library has no delete (OQ-134).
 15. Sums written between dollar signs show as plain text, and the chat column is squeezed at narrow widths.
 16. Sandbox, from OQ-132: suspend does not stop a container; the docker driver does not confine the network and a clicked link is not checked against the allowed hosts; the whole run folder is copied into the container on each call and deletions there are not carried back; the sandbox manager routes carry no service token; the computer panel lists a host folder, so it shows no files for a container.
