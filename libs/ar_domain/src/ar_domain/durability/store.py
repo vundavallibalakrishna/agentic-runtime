@@ -82,12 +82,51 @@ def _prune_removed(book: dict[object, object], existing: dict[str, Any], present
     """Drop saved rows whose path is no longer on disk, so a move or delete sticks."""
     removed = 0
     for rel, saved in existing.items():
-        if rel in present:
+        if not rel or rel in present:
             continue
         saved_id = saved.get("id") if isinstance(saved, dict) else None
         if isinstance(saved_id, uuid.UUID) and book.pop(saved_id, None) is not None:
             removed += 1
     return removed
+
+
+def _settle_tombstone(
+    book: dict[object, object],
+    existing: dict[str, Any],
+    run_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+    *,
+    has_files: bool,
+    had_files: bool,
+) -> int:
+    """Record, or clear, that a run's workspace was emptied.
+
+    A run that had files and now has none keeps a tombstone (an empty-path row), so the
+    next turn reads this run as the latest workspace state and does not fall back to an
+    earlier run that still held the deleted file. A run that has files again drops its
+    tombstone. A run that never had files writes none, so an unrelated turn does not hide
+    an earlier turn's work.
+    """
+    tomb = existing.get("")
+    tomb_id = tomb.get("id") if isinstance(tomb, dict) else None
+    if has_files:
+        if isinstance(tomb_id, uuid.UUID) and book.pop(tomb_id, None) is not None:
+            return 1
+        return 0
+    if isinstance(tomb, dict) or not had_files:
+        return 0
+    row_id = new_id()
+    book[row_id] = {
+        "id": row_id,
+        "tenant_id": tenant_id,
+        "run_id": run_id,
+        "path": "",
+        "body": b"",
+        "size_bytes": 0,
+        "created_at": utcnow(),
+        "updated_at": utcnow(),
+    }
+    return 1
 
 
 def snapshot_workspace(store: Any, run_id: uuid.UUID | None, tenant_id: object) -> int:
@@ -104,6 +143,7 @@ def snapshot_workspace(store: Any, run_id: uuid.UUID | None, tenant_id: object) 
         for row in book.values()
         if isinstance(row, dict) and row.get("run_id") == run_id
     }
+    had_files = any(rel for rel in existing if rel)
     changed = 0
     kept: dict[str, bytes] = {}
     present: set[str] = set()
@@ -148,6 +188,9 @@ def snapshot_workspace(store: Any, run_id: uuid.UUID | None, tenant_id: object) 
             "updated_at": utcnow(),
         }
         changed += 1
+    changed += _settle_tombstone(
+        book, existing, run_id, tenant_id, has_files=bool(kept), had_files=had_files
+    )
     if changed:
         remember(
             store,
@@ -254,6 +297,14 @@ def _rows_for(store: Any, run_id: uuid.UUID) -> list[dict[str, object]]:
     ]
 
 
+def _has_any_workspace_row(store: Any, run_id: uuid.UUID) -> bool:
+    """Whether the run saved any workspace state, including a tombstone for an emptied one."""
+    book = getattr(store, "workspace_files", None)
+    if not isinstance(book, dict):
+        return False
+    return any(isinstance(row, dict) and row.get("run_id") == run_id for row in book.values())
+
+
 def _write_rows(workspace: Path, rows: list[dict[str, object]]) -> int:
     wrote = 0
     for row in rows:
@@ -282,7 +333,7 @@ def _prior_run(store: Any, conversation_id: object, current: uuid.UUID) -> uuid.
         if run.get("conversation_id") != conversation_id:
             continue
         run_id = run.get("id")
-        if isinstance(run_id, uuid.UUID) and _rows_for(store, run_id):
+        if isinstance(run_id, uuid.UUID) and _has_any_workspace_row(store, run_id):
             found.append(run)
     if not found:
         return None
