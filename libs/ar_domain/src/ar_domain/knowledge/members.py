@@ -130,6 +130,42 @@ async def refresh_document(store: Any, actor: Actor, document_id: uuid.UUID) -> 
     return await add_member(store, actor, uuid.UUID(str(collection["id"])), body)
 
 
+_MAX_HITS = 20
+_ITEM = re.compile(r"^\s*(?:[-*\u2022]|\(?\w{1,6}[.):])\s+\S")
+
+
+def message_queries(text: str) -> list[str]:
+    """The separate things a message asks, each of which is searched on its own.
+
+    One search over a message of many questions returns the passages closest to the
+    message as a whole, and a question on another subject gets none. A message whose
+    lines are list items or questions is searched line by line; any other message is
+    one query. Current practice is the same idea with a model writing the queries
+    (multi-query retrieval with rank fusion); here the message's own lines are used.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    items = [line for line in lines if _ITEM.match(line) or line.endswith("?")]
+    if len(items) < 2:
+        return [text]
+    return items[:_MAX_HITS]
+
+
+def _fused(ranked: list[list[dict[str, object]]]) -> list[dict[str, object]]:
+    """Take each query's best hit, then each query's second, and so on, without repeats."""
+    merged: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for rank in range(max((len(hits) for hits in ranked), default=0)):
+        for hits in ranked:
+            if rank >= len(hits):
+                continue
+            hit = hits[rank]
+            key = str(hit.get("chunk_id") or id(hit))
+            if key not in seen:
+                seen.add(key)
+                merged.append(hit)
+    return merged
+
+
 async def retrieve(
     store: Any,
     actor: Actor,
@@ -141,21 +177,28 @@ async def retrieve(
     """Hybrid search trimmed to the prompt budget. The trace lists every chunk used."""
     from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
 
-    found = await search_async(
-        store,
-        actor,
-        query=query,
-        collection_ids=collection_ids,
-        top_k=min(max(top_k, 1), 20),
-        debug=True,
-    )
-    raw_hits = found.get("hits")
-    hits = raw_hits if isinstance(raw_hits, list) else []
+    queries = message_queries(query)
+    ranked: list[list[dict[str, object]]] = []
+    found: dict[str, object] = {}
+    for item in queries:
+        found = await search_async(
+            store,
+            actor,
+            query=item,
+            collection_ids=collection_ids,
+            top_k=min(max(top_k, 1), _MAX_HITS),
+            debug=True,
+        )
+        raw_hits = found.get("hits")
+        ranked.append(
+            [hit for hit in raw_hits if isinstance(hit, dict)] if isinstance(raw_hits, list) else []
+        )
+    # Several queries may each bring a passage, so the count is bounded by the same
+    # ceiling a single query has; the character budget below still applies.
+    hits = _fused(ranked)[: _MAX_HITS if len(queries) > 1 else None]
     kept: list[dict[str, object]] = []
     used = 0
     for hit in hits:
-        if not isinstance(hit, dict):
-            continue
         text = str(hit.get("text") or hit.get("snippet") or "")
         if used and used + len(text) > RETRIEVAL_BUDGET:
             break
@@ -170,6 +213,7 @@ async def retrieve(
             model = str(row.get("embedding_model") or "")
     trace = {
         "query": query[:500],
+        "queries": [item[:200] for item in queries] if len(queries) > 1 else [],
         "collection_ids": [str(item) for item in collection_ids],
         "embedding_model": model,
         "rerank_model": str(found.get("rerank_model") or ""),

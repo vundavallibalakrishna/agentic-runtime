@@ -142,3 +142,88 @@ def test_a_passage_that_only_shares_common_words_is_not_a_source() -> None:
     # The tenant sets its own bar.
     store.tenant_settings.setdefault(tenant, {})["research"] = {"minMatchedWords": 0}
     assert library_hits(store, tenant, "What is the airspeed of a swallow?", limit=4)
+
+
+def _ingest_note(store: object, tenant: uuid.UUID, *, filename: str, text: str) -> None:
+    from ar_domain.agents.access import Actor
+    from ar_domain.documents.library import ingest_bytes
+    from ar_domain.identity.permissions import PERMISSION_KEYS
+
+    actor = Actor(tenant, demo_id("admin"), PERMISSION_KEYS)
+    asyncio.run(
+        ingest_bytes(
+            store, actor, data=text.encode(), filename=filename, media_type="text/markdown"
+        )
+    )
+
+
+def test_rank_by_similarity_orders_and_filters() -> None:
+    from ar_domain.research.providers import rank_by_similarity
+
+    query = [1.0, 0.0]
+    vectors = [[1.0, 0.0], [0.0, 1.0], [0.9, 0.0]]
+    ranked = rank_by_similarity(query, vectors, min_score=0.5, limit=5)
+    assert [index for index, _score in ranked] == [0, 2]  # best first, orthogonal one dropped
+    assert rank_by_similarity(query, vectors, min_score=0.5, limit=1) == [(0, 1.0)]
+
+
+def test_semantic_recall_finds_a_passage_with_no_shared_words(monkeypatch) -> None:
+    from ar_domain.research import providers
+
+    store = demo_store()
+    tenant = demo_id("tenant")
+    _ingest_note(
+        store,
+        tenant,
+        filename="marine.md",
+        text="# Marine life\n\nOctopuses have three hearts and blue blood.\n",
+    )
+    _ingest_note(
+        store,
+        tenant,
+        filename="weather.md",
+        text="# Weather\n\nThe weather today is sunny and warm.\n",
+    )
+    query = "What is unusual about cephalopod circulation?"
+    # The target passage shares no distinctive words with the question: words alone miss it.
+    assert providers._lexical_hits(store, tenant, query, limit=4) == []
+
+    def fake_embed(_target, texts, **_kwargs):
+        # texts[0] is the query; give it and any octopus passage the same direction.
+        return [
+            [1.0, 0.0] if index == 0 or "octopus" in text.lower() else [0.0, 1.0]
+            for index, text in enumerate(texts)
+        ]
+
+    monkeypatch.setattr("ar_domain.models.embedding.embedding_model", lambda *a, **k: object())
+    monkeypatch.setattr("ar_domain.models.embedding.embed", fake_embed)
+    hits = providers.library_hits(store, tenant, query, limit=4)
+    assert hits, "meaning should find the octopus passage even with no shared words"
+    assert any("octopus" in row["snippet"].lower() for row in hits)
+    assert all(row["url"].startswith("library://") for row in hits)
+    # The unrelated weather passage is not close in meaning, so it is not a source.
+    assert not any("sunny" in row["snippet"].lower() for row in hits)
+
+
+def test_embedding_failure_falls_back_to_word_match(monkeypatch) -> None:
+    from ar_domain.research import providers
+
+    store = demo_store()
+    tenant = demo_id("tenant")
+    _ingest_note(
+        store,
+        tenant,
+        filename="marine.md",
+        text="# Marine life\n\nOctopuses have three hearts and blue blood.\n",
+    )
+
+    def boom(_target, _texts, **_kwargs):
+        from ar_domain.models.embedding import EmbeddingFailedError
+
+        raise EmbeddingFailedError("the embedding model did not answer")
+
+    monkeypatch.setattr("ar_domain.models.embedding.embedding_model", lambda *a, **k: object())
+    monkeypatch.setattr("ar_domain.models.embedding.embed", boom)
+    # A failed embedding call does not break research: the word signal still finds the passage.
+    hits = providers.library_hits(store, tenant, "What do octopuses have?", limit=4)
+    assert hits and all(row["url"].startswith("library://") for row in hits)

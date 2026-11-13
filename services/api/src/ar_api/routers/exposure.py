@@ -242,6 +242,9 @@ async def _event_page(
     from ar_domain.exposure.public import include_reasoning, public_events  # noqa: PLC0415
 
     show_reasoning = include_reasoning(request.query_params.get("includeReasoning"))
+    from ar_domain.durable.hydrate import load_run_events  # noqa: PLC0415
+
+    await load_run_events(store, run_id)
     rows = public_events(
         list(store.events_after(tenant, run_id, after)), show_reasoning=show_reasoning
     )
@@ -503,10 +506,13 @@ async def get_external_trace(
     slug: str, run_id: uuid.UUID, request: Request, response: Response
 ) -> dict[str, object]:
     key = _require_key(request, response)
+    from ar_domain.durable.hydrate import load_run_events  # noqa: PLC0415
     from ar_domain.exposure.public import include_reasoning  # noqa: PLC0415
 
+    store = _store(request)
+    await load_run_events(store, run_id)
     return runs.trace(
-        _store(request),
+        store,
         key,
         slug,
         run_id,

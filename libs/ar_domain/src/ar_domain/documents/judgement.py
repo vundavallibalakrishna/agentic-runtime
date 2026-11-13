@@ -16,7 +16,7 @@ import orjson
 
 from ar_common.wrapping import wrap_untrusted
 from ar_domain.documents.chunk import retrieve
-from ar_domain.documents.model import prompt_hash
+from ar_domain.documents.model import ask_each, prompt_hash
 
 Ask = Callable[[str, str], str | None]
 
@@ -26,7 +26,10 @@ _TASK = (
     'Return JSON {"verdict":"supported"|"not_supported","passageId":"","quote":""}. '
     "Use supported only when quote is an exact substring of the passage named by passageId "
     "and that substring states the requirement. "
-    "Use not_supported when no stored passage states it. "
+    "Use not_supported when no stored passage states it. With not_supported, when a "
+    "passage speaks to the same subject without meeting the requirement, name it and "
+    "quote its words exactly, so a reader sees what the document does say; otherwise "
+    "leave passageId and quote empty. "
     "Do not return any other verdict."
 )
 
@@ -47,25 +50,31 @@ def judge_items(
     against the stored passage, so a masked quote is not a verdict.
     """
     passages = _passages(document)
-    rows: list[dict[str, object]] = []
-    for item_id, statement in items:
-        text = statement.strip()
-        if not text:
-            continue
-        rows.append(
-            _one(
-                document,
-                passages,
-                item_id or text,
-                text,
-                ask,
-                model_id=model_id,
-                rule_set_id=rule_set_id,
-                rule_set_version=rule_set_version,
-                aggressive=aggressive,
-            )
+    wanted = [(item_id, statement.strip()) for item_id, statement in items if statement.strip()]
+    prompts = [
+        (
+            f"{_TASK}\nStatement: {text}",
+            _evidence(_window(passages, text), aggressive=aggressive),
         )
-    return rows
+        for _item_id, text in wanted
+    ]
+    # Each statement is its own question, so they are all asked at the same time.
+    answers = [None] * len(wanted) if ask is None else ask_each(ask, prompts)
+    return [
+        _one(
+            document,
+            passages,
+            item_id or text,
+            text,
+            raw,
+            asked=ask is not None,
+            digest=prompt_hash(task, evidence),
+            model_id=model_id,
+            rule_set_id=rule_set_id,
+            rule_set_version=rule_set_version,
+        )
+        for (item_id, text), (task, evidence), raw in zip(wanted, prompts, answers, strict=True)
+    ]
 
 
 def _one(
@@ -73,16 +82,14 @@ def _one(
     passages: list[dict[str, object]],
     item_id: str,
     statement: str,
-    ask: Ask | None,
+    raw: str | None,
     *,
+    asked: bool,
+    digest: str,
     model_id: str,
     rule_set_id: str,
     rule_set_version: str,
-    aggressive: bool,
 ) -> dict[str, object]:
-    evidence = _evidence(_window(passages, statement), aggressive=aggressive)
-    task = f"{_TASK}\nStatement: {statement}"
-    digest = prompt_hash(task, evidence)
     base: dict[str, object] = {
         "item_id": item_id,
         "statement": statement,
@@ -96,14 +103,13 @@ def _one(
         "citation": None,
         "model": False,
     }
-    raw = None if ask is None else ask(task, evidence)
     if raw is None:
         located = _statement_in_passage(passages, statement)
         if located is None:
             reason = (
-                "Lexical overlap is not a verdict."
-                if ask is None
-                else "The model did not answer. Overlap is not a verdict."
+                "The model did not answer. Overlap is not a verdict."
+                if asked
+                else "Lexical overlap is not a verdict."
             )
             return _row(base, "not_judged", reason)
         passage, quote = located
@@ -131,7 +137,8 @@ def _verified(
     quote = parsed["quote"]
     passage = _by_anchor(passages, passage_id)
     stored = "" if passage is None else str(passage.get("text") or "")
-    quote_ok = bool(quote) and quote in stored
+    # Line breaks and runs of spaces differ between a passage and a model's copy of it.
+    quote_ok = bool(quote.strip()) and " ".join(quote.split()) in " ".join(stored.split())
     if verdict == "supported" and passage is not None and quote_ok:
         row = _row(base, "supported", "The quote is a substring of the stored passage.")
         row["passage_id"] = passage_id
@@ -140,7 +147,9 @@ def _verified(
         row["model"] = True
         return row
     if verdict == "not_supported" and passage is not None and quote_ok:
-        row = _row(base, "not_supported", "The passage does not support the statement.")
+        row = _row(
+            base, "not_supported", "The quoted passage is on the subject and does not meet it."
+        )
         row["passage_id"] = passage_id
         row["quote"] = quote
         row["citation"] = _citation(document, passage, quote)
