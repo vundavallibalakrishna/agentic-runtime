@@ -38,7 +38,11 @@ class DataConnections:
         ):
             raise ConflictError("a data connection with that name already exists")
         secret_id = new_id()
-        dsn = str(body.get("dsn") or "memory://warehouse")
+        # The caller gives the warehouse address. There is no built-in default: a data
+        # connection without a dsn used to become a fake in-memory warehouse.
+        dsn = str(body.get("dsn") or "").strip()
+        if not dsn:
+            raise ValidationFailedError("a dsn is required: the address of the warehouse")
         self.store.secret_values[secret_id] = dsn.encode()
         ciphertext = b""
         if not dsn.startswith("memory:"):

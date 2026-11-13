@@ -29,14 +29,15 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from ar_api.main import LISTEN_PORT, create_application
 from ar_common.host_ports import api_listen_port
-from ar_testing.demo import serve_demo_tenant, start_session
+from ar_testing.demo import rebuild_demo_store, serve_demo_tenant, start_session
 from ar_testing.demo_people import catalogue
 
 SIGN_IN_PATH = "/api/v1/test/sign-in"
+RESET_PATH = "/api/v1/test/reset"
 
 
 class DemoSignIn:
-    """Answer the test sign-in path and pass every other request to the product."""
+    """Answer the test sign-in and reset paths and pass every other request to the product."""
 
     def __init__(self, app: ASGIApp, product: object) -> None:
         self.app = app
@@ -46,6 +47,12 @@ class DemoSignIn:
         if scope["type"] == "http" and scope["path"] == SIGN_IN_PATH:
             response = await self._sign_in(Request(scope, receive))
             await response(scope, receive, send)
+            return
+        if scope["type"] == "http" and scope["path"] == RESET_PATH:
+            # The tests call this between a failed attempt and its retry, so the retry starts
+            # from the seeded demo tenant and not from the rows the attempt before it left.
+            rebuild_demo_store(self.product)
+            await JSONResponse({"reset": True})(scope, receive, send)
             return
         await self.app(scope, receive, send)
 

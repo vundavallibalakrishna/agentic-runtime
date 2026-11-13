@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import zipfile
 from typing import TYPE_CHECKING, Any
 
 from ar_common.ids import new_id
 from ar_common.time import utcnow
+from ar_domain.files.logic import object_key
+from ar_domain.files.objects import keep_bytes
 from ar_domain.records.access import audit
 
 if TYPE_CHECKING:
@@ -36,16 +39,40 @@ def export_user(store: Any, actor: Actor) -> dict[str, object]:
             ]
             archive.writestr(f"{name}.txt", "\n".join(lines))
     export_id = new_id()
+    data = buffer.getvalue()
+    now = utcnow()
     store.notifications.append(
         {
             "id": export_id,
             "tenant_id": actor.tenant_id,
             "user_id": actor.user_id,
             "kind": "export_ready",
-            "created_at": utcnow().isoformat(),
+            "created_at": now.isoformat(),
         }
     )
-    store.blobs[export_id] = buffer.getvalue()
+    # The export is a durable file, not bytes in this process: the object store holds it
+    # under the row's key, so it survives the request and any API replica can serve it.
+    row: dict[str, object] = {
+        "id": export_id,
+        "tenant_id": actor.tenant_id,
+        "owner_user_id": actor.user_id,
+        "conversation_id": None,
+        "kind": "export",
+        "name": "export.zip",
+        "mime_type": "application/zip",
+        "size_bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "object_key": object_key(
+            str(actor.tenant_id), "export", f"{now:%Y}", f"{now:%m}", str(export_id)
+        ),
+        "status": "ready",
+        "scan_status": "skipped",
+        "preview": {},
+        "created_at": now,
+        "deleted_at": None,
+    }
+    store.files[export_id] = row
+    keep_bytes(store, row, data)
     notice = getattr(store, "user_settings", {})
     if isinstance(notice, dict):
         current = notice.get(actor.user_id)
