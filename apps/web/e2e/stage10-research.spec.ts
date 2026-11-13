@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "e2e/screenshots";

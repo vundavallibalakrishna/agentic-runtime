@@ -1,5 +1,6 @@
 """Idempotent tool catalogue for the dev process and ``make seed``."""
 
+import functools
 import hashlib
 from typing import TYPE_CHECKING, Any
 
@@ -66,7 +67,7 @@ PETSTORE: dict[str, object] = {
 }
 
 
-def seed(store: Any, *, tenant: bool = True) -> None:  # noqa: PLR0915
+def seed(store: Any, *, tenant: bool = True) -> None:
     """Insert the built-in tool catalogue, and the demo tenant's rows when ``tenant`` is set.
 
     The catalogue belongs to no tenant. The demo tenant's settings, sample review queue,
@@ -94,12 +95,7 @@ def seed(store: Any, *, tenant: bool = True) -> None:  # noqa: PLR0915
     if demo:
         _settings(store, tenant_id)
     if catalogue:
-        _builtin(store, "files", "Files", "builtin://files", _file_tools())
-        _builtin(
-            store, "conversations", "Conversations", "builtin://conversations", _history_tools()
-        )
-        session = _session_tools(fixtures=bool(getattr(store, "fake_models_allowed", True)))
-        _builtin(store, "session", "Session", "builtin://session", session)
+        _core_servers(store, fixtures=bool(getattr(store, "fake_models_allowed", True)))
     if fixtures:
         # `web.fetch` answers one canned page. The real page reader is `general.fetch`.
         _builtin(store, "web", "Web", "builtin://web", _web_tools())
@@ -112,25 +108,88 @@ def seed(store: Any, *, tenant: bool = True) -> None:  # noqa: PLR0915
     if demo:
         _reviews(store, tenant_id)
     if catalogue:
-        _sandbox_server(store)
-        _browser_server(store)
-        _general_server(store)
-        _data_server(store)
-        _documents_server(store)
-        _image_server(store)
-        _knowledge_server(store)
-        _memory_server(store)
-        _routines_server(store)
-        _skills_server(store)
-        _connector_server(store)
-        _builtin(store, "research", "Research", "builtin://research", _research_tools())
-        _builtin(store, "context", "Context", "builtin://context", _context_tools())
+        _platform_servers(store)
         store.tools_seeded = True
     if demo:
         _analyst(store, tenant_id, admin)
         store.tenant_tools_seeded = True
     ensure_m33b(store)
     ensure_m34b(store)
+
+
+def _core_servers(store: Any, *, fixtures: bool) -> None:
+    _builtin(store, "files", "Files", "builtin://files", _file_tools())
+    _builtin(store, "conversations", "Conversations", "builtin://conversations", _history_tools())
+    _builtin(store, "session", "Session", "builtin://session", _session_tools(fixtures=fixtures))
+
+
+def _platform_servers(store: Any) -> None:
+    _sandbox_server(store)
+    _browser_server(store)
+    _general_server(store)
+    _data_server(store)
+    _documents_server(store)
+    _image_server(store)
+    _knowledge_server(store)
+    _memory_server(store)
+    _routines_server(store)
+    _skills_server(store)
+    _connector_server(store)
+    _builtin(store, "research", "Research", "builtin://research", _research_tools())
+    _builtin(store, "context", "Context", "builtin://context", _context_tools())
+
+
+class _Shelf:
+    """Holds what the seed writes, so this release's own tool text can be read back."""
+
+    def __init__(self) -> None:
+        self.tool_servers: dict[object, dict[str, object]] = {}
+        self.tool_server_versions: dict[object, dict[str, object]] = {}
+        self.tool_defs: dict[object, dict[str, object]] = {}
+        self.tool_versions: dict[object, dict[str, object]] = {}
+
+
+@functools.cache
+def shipped_tools() -> dict[str, dict[str, object]]:
+    """Every built-in tool as this release defines it, by qualified name."""
+    shelf = _Shelf()
+    _core_servers(shelf, fixtures=False)
+    _platform_servers(shelf)
+    _append_tools(shelf, "documents", [_ocr_tool()])
+    _append_tools(shelf, "general", [_pivot_tool()])
+    return {str(row["qualified_name"]): row for row in shelf.tool_versions.values()}
+
+
+def refresh_builtins(store: Any) -> None:
+    """Give every loaded built-in tool the title, description and schema this release ships.
+
+    A catalogue is stored once, when an install is first seeded, and the stored row of an
+    approved version cannot change. Without this an install keeps describing its tools to
+    the model the way the release that seeded it did. The text is applied to the loaded
+    row and is not written back.
+    """
+    versions = getattr(store, "tool_versions", None)
+    if not isinstance(versions, dict):
+        return
+    shipped = shipped_tools()
+    was = getattr(store, "reloading", False)
+    store.reloading = True
+    try:
+        for row in versions.values():
+            if not isinstance(row, dict) or row.get("tenant_id") is not None:
+                continue
+            item = shipped.get(str(row.get("qualified_name")))
+            if item is None:
+                continue
+            text = str(item["description"])
+            if row.get("description") == text and row.get("input_schema") == item["input_schema"]:
+                continue
+            row["title"] = item["title"]
+            row["description"] = text
+            row["description_hash"] = description_hash(text)
+            row["input_schema"] = item["input_schema"]
+    finally:
+        store.reloading = was
 
 
 def _settings(store: Any, tenant: uuid.UUID) -> None:
@@ -1573,7 +1632,9 @@ def _documents_server(store: Any) -> None:
             _tool(
                 "compare",
                 "Compare documents",
-                "Compare two library documents and report added, removed and changed passages.",
+                "Compare two library documents and report added, removed and changed passages. "
+                "Use it for two versions or two drafts of the same kind of document. To test a "
+                "document against a list of requirements, use documents.judge.",
                 {
                     "type": "object",
                     "properties": {
@@ -1593,7 +1654,9 @@ def _documents_server(store: Any) -> None:
             _tool(
                 "judge",
                 "Judge a document",
-                "Judge a document against a versioned rule set or a list of statements. "
+                "Test whether a document meets each item of a list, such as requirements, "
+                "rules or a checklist, and get a verdict with a quote for each. The list is "
+                "statements, a stored rule set, or a library document that holds the list. "
                 "A verdict is supported only when the quote is in the stored passage. "
                 "A quote that is not in the passage is not_supported. "
                 "Lexical overlap is not_judged. A schema failure is failed.",
@@ -1606,8 +1669,8 @@ def _documents_server(store: Any) -> None:
                         },
                         "ruleSetId": {
                             "type": "string",
-                            "description": "The id of a rule set already stored for this tenant. "
-                            "Give this or statements or ruleSet.",
+                            "description": "The id of a stored rule set, or of a library "
+                            "document that holds the list. Give this or statements or ruleSet.",
                         },
                         "statements": {
                             "type": "array",
@@ -1634,7 +1697,8 @@ def _documents_server(store: Any) -> None:
             _tool(
                 "missing",
                 "Find missing statements",
-                "Return statements that were not supported, not judged, or failed. "
+                "Return only the items of a list that a document does not meet: those not "
+                "supported, not judged, or failed. Takes the same list as documents.judge. "
                 "Do not invent a gap.",
                 {
                     "type": "object",
@@ -1645,8 +1709,8 @@ def _documents_server(store: Any) -> None:
                         },
                         "ruleSetId": {
                             "type": "string",
-                            "description": "The id of a stored rule set. Give this or statements "
-                            "or ruleSet.",
+                            "description": "The id of a stored rule set, or of a library "
+                            "document that holds the list. Give this or statements or ruleSet.",
                         },
                         "statements": {
                             "type": "array",
@@ -1946,9 +2010,7 @@ def ensure_m34b(store: Any) -> None:
     if not isinstance(getattr(store, "tool_servers", None), dict):
         return
     _append_tools(store, "general", [_pivot_tool()])
-    _refresh_tool(store, "general.query_table", _query_table_tool())
-    _refresh_tool(store, "general.chart", _chart_tool())
-    _refresh_tool(store, "general.code", _code_tool())
+    refresh_builtins(store)
 
 
 def _query_table_tool() -> dict[str, object]:
@@ -2147,30 +2209,6 @@ def _chart_tool() -> dict[str, object]:
         },
         "W1",
     )
-
-
-def _refresh_tool(store: Any, qualified: str, item: dict[str, object]) -> None:
-    versions = getattr(store, "tool_versions", None)
-    if not isinstance(versions, dict):
-        return
-    text = str(item["description"])
-    for row in versions.values():
-        if not isinstance(row, dict) or row.get("qualified_name") != qualified:
-            continue
-        if row.get("description") == text and row.get("input_schema") == item["input_schema"]:
-            return
-        # The stored row of an approved version cannot change, so the built-in text this
-        # release ships is applied to the loaded row and is not written back.
-        was = getattr(store, "reloading", False)
-        store.reloading = True
-        try:
-            row["title"] = item["title"]
-            row["description"] = text
-            row["description_hash"] = description_hash(text)
-            row["input_schema"] = item["input_schema"]
-        finally:
-            store.reloading = was
-        return
 
 
 def _platform_server(store: Any, slug: str) -> dict[str, object] | None:
