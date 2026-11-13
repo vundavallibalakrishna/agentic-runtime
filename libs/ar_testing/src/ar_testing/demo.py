@@ -103,6 +103,23 @@ def demo_application() -> Any:
     return serve_demo_tenant(create_application())
 
 
+def rebuild_demo_store(app: Any) -> Any:
+    """Give a running demo application a freshly seeded store, in place.
+
+    Only the browser-test harness calls this, between a failed attempt and its retry, so a
+    retried flow starts from the seeded baseline instead of the rows the failed attempt
+    left behind (the harness keeps one in-memory tenant for the whole run, so without this
+    a retry would see another copy of what the attempt before it created). It reuses the
+    startup build path, so the new store carries the same configuration, and swaps it onto
+    the application; every request reads ``app.state.chat`` afresh. Sessions are untouched,
+    and the retried test signs in again anyway. A product process has no such door.
+    """
+    fresh = demo_application()
+    app.state.chat = fresh.state.chat
+    app.state.identity_provider = fresh.state.identity_provider
+    return app
+
+
 async def start_session(app: Any, email: str) -> dict[str, str]:
     """Start a session for a demo person. Returns the two cookies a browser would hold."""
     from ar_api.auth.session import new_session, remember_profile  # noqa: PLC0415

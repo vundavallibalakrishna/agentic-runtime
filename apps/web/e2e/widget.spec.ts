@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/harness";
 import { SIGN_IN_PATH, signInAs } from "./support/sign-in";
 
 let host: Server;
