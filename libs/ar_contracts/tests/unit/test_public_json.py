@@ -59,6 +59,29 @@ def test_request_options_are_not_camelized() -> None:
     assert camelize(public) == public
 
 
+def test_tool_input_schema_parameter_names_are_not_camelized() -> None:
+    # A tool's input_schema is a JSON Schema whose properties keys are parameter names the
+    # tool accepts (snake_case, e.g. file_id). The field name becomes camelCase, but the
+    # schema's keys must survive so the Tools screen shows names that work.
+    body = {
+        "input_schema": {
+            "type": "object",
+            "properties": {"file_id": {"type": "string"}, "max_rows": {"type": "integer"}},
+            "required": ["file_id"],
+        },
+        "output_schema": {"properties": {"row_count": {"type": "integer"}}},
+        "risk_class": "R0",
+    }
+    public = camelize(body)
+    assert public["inputSchema"]["properties"] == {
+        "file_id": {"type": "string"},
+        "max_rows": {"type": "integer"},
+    }
+    assert public["inputSchema"]["required"] == ["file_id"]
+    assert public["outputSchema"]["properties"] == {"row_count": {"type": "integer"}}
+    assert public["riskClass"] == "R0"
+
+
 def test_identity_me_accepts_alias_and_python_name() -> None:
     stamp = datetime(2026, 10, 20, tzinfo=UTC)
     by_python = Me.model_validate(

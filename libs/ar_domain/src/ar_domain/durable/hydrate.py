@@ -167,12 +167,16 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     from ar_domain.durable.m35 import load_durability  # noqa: PLC0415
 
     await load_durability(session, store, tenant_id)
-    await _events(session, store, tenant_id)
+    # Run events are not loaded for every request: they grow per turn and are read only by
+    # run id (the run trace and the SSE resume), which call ``load_run_events`` on demand.
+    # The live SSE path refreshes through ``reload_run`` as it polls. See OQ-136.
     await _channel_integrations(session, store, tenant_id)
     await _channel_identities(session, store, tenant_id)
     await _channel_threads(session, store, tenant_id)
     await _channel_posts(session, store, tenant_id)
-    await _usage_events(session, store, tenant_id)
+    # Usage is not loaded for every request: the 400-day metering window is large and only
+    # the usage and quota reports read it. Those endpoints call ``load_usage_events`` on
+    # demand. Quota enforcement reads the shared counters, not this bucket. See OQ-136.
     from ar_domain.tools.seed_tools import ensure_m33b  # noqa: PLC0415
 
     ensure_m33b(store)
@@ -346,6 +350,51 @@ async def load_a2a_tasks_for_key(
         )
         for row in result.mappings():
             _merge(store, "a2a_tasks", row["id"], dict(row))
+
+
+async def load_idempotency_row(
+    store: object, tenant_id: uuid.UUID, key_id: uuid.UUID, header: str
+) -> dict[str, Any] | None:
+    """A prior request's agent-API idempotency row, read by its unique key.
+
+    Idempotency rows are no longer loaded for every request (``load_exposure``); they grow
+    with every idempotent call. This reads the one row for ``(key_id, idempotency_key)``
+    through its unique index. A no-op without a database or an idempotency key.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine) or not header:
+        return None
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await apply_tenant_context(session, tenant_id)
+        result = await session.execute(
+            text(
+                "SELECT * FROM agent_api_idempotency "
+                "WHERE key_id = :key_id AND idempotency_key = :header LIMIT 1"
+            ),
+            {"key_id": key_id, "header": header},
+        )
+        row = result.mappings().first()
+    return dict(row) if row is not None else None
+
+
+async def load_usage_events(store: object, tenant_id: uuid.UUID) -> None:
+    """Load one tenant's recent usage on demand, for a usage or quota report.
+
+    The per-request read model no longer loads usage for every request (``_hydrate_all``).
+    The reporting endpoints call this first so their summaries see the stored metering. It
+    is a no-op without a database (the in-memory test store fills ``usage`` directly), and
+    the loaded rows are marked flushed so they are not written back.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        return
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await apply_tenant_context(session, tenant_id)
+        await _usage_events(session, store, tenant_id)
 
 
 def _text_or_none(value: object) -> str | None:
@@ -557,19 +606,29 @@ async def _messages(session: AsyncSession, store: object, tenant_id: uuid.UUID) 
         _merge(store, "messages", row["id"], row)
 
 
-async def _events(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
-    result = await session.execute(
-        text(
-            "SELECT run_id, seq, type, data, created_at, tenant_id FROM run_events "
-            "WHERE tenant_id = :tenant_id ORDER BY run_id, seq"
-        ),
-        {"tenant_id": tenant_id},
-    )
-    grouped: dict[uuid.UUID, list[dict[str, Any]]] = {}
-    for row in result.mappings():
-        grouped.setdefault(row["run_id"], []).append(dict(row))
-    for run_id, events in grouped.items():
-        await _events_for(session, store, run_id, None, tenant_id, events=events)
+async def load_run_events(store: object, run_id: uuid.UUID) -> None:
+    """Load one run's events on demand, for a run trace or an SSE resume.
+
+    Run events are no longer loaded for every request (``_hydrate_all``); they are read only
+    by run id. This fills ``store.events[run_id]`` once from Postgres. The live SSE stream
+    uses ``reload_run`` instead, which refreshes the run as it polls. It is a no-op without a
+    database, or when this run's events are already on the store.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        return
+    bucket = getattr(store, "events", None)
+    if isinstance(bucket, dict) and run_id in bucket:
+        return
+    runs = getattr(store, "runs", None)
+    run = runs.get(run_id) if isinstance(runs, dict) else None
+    tenant_id = run.get("tenant_id") if isinstance(run, dict) else None
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        if tenant_id is not None:
+            await apply_tenant_context(session, tenant_id)
+        await _events_for(session, store, run_id, None, tenant_id)
 
 
 async def _events_for(  # noqa: PLR0917 - the event row needs the run, conversation and tenant

@@ -236,7 +236,14 @@ async def _replay(
             return loaded
     if not header:
         return None
-    existing = _idempotency_row(store, key["id"], header)
+    # The book is written this request (the in-flight then completed upgrade), so the
+    # in-memory scan finds that. A prior request's row is no longer loaded for every
+    # request; it is read by its key with the unique index. See OQ-136.
+    from ar_domain.durable.hydrate import load_idempotency_row  # noqa: PLC0415
+
+    existing = _idempotency_row(store, key["id"], header) or await load_idempotency_row(
+        store, key["tenant_id"], key["id"], header
+    )
     if existing is None:
         return None
     if existing.get("request_hash") != fingerprint:
@@ -281,6 +288,9 @@ async def _shared_put(
 
 
 def _idempotency_row(store: Any, key_id: uuid.UUID, header: str) -> dict[str, Any] | None:
+    """A row written by this request. The book is no longer loaded for every request, so
+    this scan is over this request's writes only; a prior request's row is read from the
+    database by ``_idempotency_row_db``."""
     for row in _book(store, "agent_api_idempotency").values():
         if (
             isinstance(row, dict)

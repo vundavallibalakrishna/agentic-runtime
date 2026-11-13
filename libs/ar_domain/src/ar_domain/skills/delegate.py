@@ -246,10 +246,12 @@ def _insert_child(
         "steps": [],
         "loaded_skills": [],
     }
-    store.runs[child_id] = run
+    stored = keep(store.runs, child_id, run)
     store.events[child_id] = []
     planned["stored_id"] = str(child_id)
-    return run
+    # Return the stored row, not the original: the production store keeps its own copy, so
+    # the child's later status, result and usage writes must land on the stored object.
+    return stored
 
 
 def _finish_child(
