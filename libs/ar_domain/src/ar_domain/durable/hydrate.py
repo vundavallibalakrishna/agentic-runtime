@@ -172,7 +172,9 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     await _channel_identities(session, store, tenant_id)
     await _channel_threads(session, store, tenant_id)
     await _channel_posts(session, store, tenant_id)
-    await _usage_events(session, store, tenant_id)
+    # Usage is not loaded for every request: the 400-day metering window is large and only
+    # the usage and quota reports read it. Those endpoints call ``load_usage_events`` on
+    # demand. Quota enforcement reads the shared counters, not this bucket. See OQ-136.
     from ar_domain.tools.seed_tools import ensure_m33b  # noqa: PLC0415
 
     ensure_m33b(store)
@@ -323,6 +325,24 @@ async def _usage_events(session: AsyncSession, store: object, tenant_id: uuid.UU
         )
         record_usage(usage, item)
         flushed.add((item.tenant_id, item.dedupe_key))
+
+
+async def load_usage_events(store: object, tenant_id: uuid.UUID) -> None:
+    """Load one tenant's recent usage on demand, for a usage or quota report.
+
+    The per-request read model no longer loads usage for every request (``_hydrate_all``).
+    The reporting endpoints call this first so their summaries see the stored metering. It
+    is a no-op without a database (the in-memory test store fills ``usage`` directly), and
+    the loaded rows are marked flushed so they are not written back.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine):
+        return
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await apply_tenant_context(session, tenant_id)
+        await _usage_events(session, store, tenant_id)
 
 
 def _text_or_none(value: object) -> str | None:

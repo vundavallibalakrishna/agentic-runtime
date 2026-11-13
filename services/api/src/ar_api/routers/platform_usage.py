@@ -6,7 +6,7 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import Response
 
 from ar_api.deps import expose
-from ar_api.routers.tooling import chat
+from ar_api.routers.tooling import chat, load_usage
 from ar_common.errors import ForbiddenError, NotFoundError
 from ar_domain.usage.service import UsageBook
 
@@ -36,6 +36,7 @@ async def platform_usage(
     end: Annotated[str | None, Query(alias="to")] = None,
 ) -> dict[str, object]:
     _saas(request)
+    await load_usage(request)
     return UsageBook(chat(request)).platform_summary(
         _query(group_by=group_by, start=start, end=end)
     )
@@ -51,6 +52,7 @@ async def platform_export(
     end: Annotated[str | None, Query(alias="to")] = None,
 ) -> Response:
     _saas(request)
+    await load_usage(request)
     body = UsageBook(chat(request)).platform_export(_query(group_by=group_by, start=start, end=end))
     return Response(
         content=body,
