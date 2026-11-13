@@ -10,6 +10,7 @@ from ar_common.errors import ConflictError, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
+from ar_domain.durable.tracking import keep
 from ar_domain.policy.logic import enrich_time, evaluate, normalize_effect, tenant_zone
 from ar_domain.rows import as_dict, as_int, as_list
 
@@ -62,7 +63,9 @@ class PolicyBook:
             "created_at": now,
             "updated_at": now,
         }
-        self.store.policies[policy_id] = row
+        # Keep the stored row so the version add below (which bumps updated_at) writes to
+        # the object the production store will flush, not a discarded copy.
+        row = keep(self.store.policies, policy_id, row)
         version = self._add_version(actor, row, body, number=1)
         remember(
             self.store,

@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 test.use({ locale: "en-US" });

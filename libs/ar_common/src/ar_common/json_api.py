@@ -8,10 +8,22 @@ free-form objects that are not Pydantic fields, such as pagination items.
 
 from pydantic.alias_generators import to_camel
 
-# Provider protocol objects. Their keys are sent upstream as stored, so a
-# read/write round trip must not rename ``chat_template_kwargs``.
+# Free-form objects whose keys are data, not API fields, so they are copied through
+# unchanged. Provider protocol objects (``request_options``, ``default_params``) are sent
+# upstream as stored, so a round trip must not rename ``chat_template_kwargs``. A tool's
+# ``input_schema``/``output_schema`` is a JSON Schema whose ``properties`` keys are the
+# tool's parameter names (``file_id``); camelCasing them would show names the tool rejects.
 OPAQUE_JSON_KEYS = frozenset(
-    {"request_options", "requestOptions", "default_params", "defaultParams"}
+    {
+        "request_options",
+        "requestOptions",
+        "default_params",
+        "defaultParams",
+        "input_schema",
+        "inputSchema",
+        "output_schema",
+        "outputSchema",
+    }
 )
 
 
