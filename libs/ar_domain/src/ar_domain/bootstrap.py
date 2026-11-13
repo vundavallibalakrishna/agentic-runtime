@@ -77,17 +77,30 @@ async def provision_defaults(tenant_slug: str, owner_email: str) -> None:
     from ar_domain.durable.bind import bind_store  # noqa: PLC0415
     from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
-    store = ChatService(fake_models_allowed=False)
-    binding = await bind_store(store, app_database_url(), tenant_slug=tenant_slug)
-    if binding is None:
-        raise SystemExit("The database stopped answering before the default agents were made.")
+    # The bootstrap writes the tenant's defaults through the same store a process uses, which
+    # the read-model guard refuses in staging and production unless the caller is the declared
+    # bootstrap writer. The bootstrap is that writer, so it declares itself here; otherwise a
+    # by-hand staging seed stops at this step unless the operator knows AR_BOOTSTRAP_WRITER
+    # (which, until now, only the Helm job set).
+    previous_writer = os.environ.get("AR_BOOTSTRAP_WRITER")
+    os.environ["AR_BOOTSTRAP_WRITER"] = "1"
     try:
-        owner = binding.users[owner_email.strip().lower()]
-        AgentLifecycle(store).ensure_builtins(binding.tenant_id, owner)
-        await flush_store(store)
+        store = ChatService(fake_models_allowed=False)
+        binding = await bind_store(store, app_database_url(), tenant_slug=tenant_slug)
+        if binding is None:
+            raise SystemExit("The database stopped answering before the default agents were made.")
+        try:
+            owner = binding.users[owner_email.strip().lower()]
+            AgentLifecycle(store).ensure_builtins(binding.tenant_id, owner)
+            await flush_store(store)
+        finally:
+            if store.durable_engine is not None:
+                await store.durable_engine.dispose()
     finally:
-        if store.durable_engine is not None:
-            await store.durable_engine.dispose()
+        if previous_writer is None:
+            os.environ.pop("AR_BOOTSTRAP_WRITER", None)
+        else:
+            os.environ["AR_BOOTSTRAP_WRITER"] = previous_writer
 
 
 async def _second_user(

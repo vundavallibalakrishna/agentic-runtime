@@ -125,7 +125,7 @@ async def _retrieve(
         return {"hits": [], "trace": {"query": user_text[:500], "hits": [], "used_chars": 0}}
     actor = Actor(tenant, user, PERMISSION_KEYS)
     try:
-        return await retrieve(store, actor, ids, user_text)
+        return await retrieve(store, actor, ids, user_text, top_k=_top_k(definition))
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         detail = str(exc.detail or exc)
         emit = getattr(store, "_emit", None)
@@ -204,6 +204,16 @@ def _definition(store: Any, run: dict[str, object]) -> dict[str, object] | None:
         return None
     definition = version.get("definition")
     return definition if isinstance(definition, dict) else None
+
+
+def _top_k(definition: dict[str, object]) -> int:
+    """How many passages one query may bring: the agent's own ``knowledge.topK``."""
+    from ar_contracts.definitions import KnowledgeSpec  # noqa: PLC0415
+
+    knowledge = definition.get("knowledge")
+    raw = knowledge.get("top_k") if isinstance(knowledge, dict) else None
+    default = int(KnowledgeSpec.model_fields["top_k"].default)
+    return raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else default
 
 
 def _collection_slugs(definition: dict[str, object]) -> set[str]:

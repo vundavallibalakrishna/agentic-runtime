@@ -121,6 +121,26 @@ def test_connection_secrets_stay_sealed_and_real_names_win() -> None:
     assert missing["is_error"] is True
 
 
+def test_data_connection_requires_a_dsn() -> None:
+    # Production-cert defect 13: a data connection without a dsn used to default to the
+    # fake memory://warehouse. It must ask for a real address instead.
+    from ar_common.errors import ValidationFailedError
+    from ar_domain.agents.access import Actor
+
+    store = demo_store()
+    actor = Actor(demo_id("tenant"), demo_id("admin"), frozenset({"tools:create"}))
+    book = DataConnections(store)
+    before = len(store.data_connections)
+    with pytest.raises(ValidationFailedError):
+        book.create(actor, {"name": "no-dsn", "engine": "postgres"})
+    assert len(store.data_connections) == before  # no fake warehouse was stored
+    made = book.create(
+        actor,
+        {"name": "real-wh", "engine": "postgres", "dsn": "postgresql://u:p@127.0.0.1:5432/db"},
+    )
+    assert made["name"] == "real-wh"
+
+
 def test_spreadsheet_chart_and_export() -> None:
     store = demo_store()
     from ar_domain.tools.general import _prepare

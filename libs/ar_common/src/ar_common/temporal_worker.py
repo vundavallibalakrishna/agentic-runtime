@@ -22,3 +22,20 @@ def temporal_worker_kwargs() -> WorkerVersioning:
     if flag not in {"1", "true", "yes"} or not build_id:
         return {}
     return {"build_id": build_id, "use_worker_versioning": True}
+
+
+def temporal_unavailable_fields(
+    address: str, exc: BaseException, *, retry_in_s: int = 5
+) -> dict[str, object]:
+    """Log fields for a worker that cannot reach the Temporal frontend.
+
+    The worker keeps the health server up and retries, so the log says where it tried, what
+    went wrong and when it will try again, not only the exception's class name.
+    """
+    return {
+        "message": f"Cannot reach the Temporal frontend at {address}; retrying in {retry_in_s}s.",
+        "address": address,
+        "error": type(exc).__name__,
+        "detail": str(exc),
+        "retry_in_s": retry_in_s,
+    }

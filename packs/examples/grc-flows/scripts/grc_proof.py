@@ -118,12 +118,10 @@ class Run:
             f"/api/v1/agents/{self.agent}/versions/draft",
             definition={
                 "instructions": (
-                    "You work from the document library. Use the document tools to do the "
-                    "work: judge and missing to test a document against statements, compare "
-                    "for two documents, extract for a named value, create for a file, and "
-                    "knowledge search for the knowledge collection. Base every verdict only "
-                    "on the document's words and quote them. If the document says nothing, "
-                    "say it is not supported. Never invent a section or a control."
+                    "You work from the document library and the knowledge collection, with "
+                    "the tools you are given. Base every verdict only on the document's "
+                    "words and quote them. If the document says nothing, say it is not "
+                    "supported. Never invent a section or a control."
                 ),
                 "tools": [
                     {"server": "documents", "include": ["*"]},

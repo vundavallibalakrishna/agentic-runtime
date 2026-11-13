@@ -207,3 +207,246 @@ def test_a_markdown_document_is_named_by_its_first_heading() -> None:
     assert titled.title == "Vendor addendum"
     plain = extract_bytes(b"No heading here, only text.\n", filename="note.md")
     assert plain.title == "note"
+
+
+_CONTROLS = (
+    b"control_id,framework,statement\n"
+    b"AC-1,House,Staff use badges at the door.\n"
+    b"AC-2,House,Visitors are escorted on a Mars colony.\n"
+)
+
+
+def _checked(arguments: dict[str, object]) -> tuple[dict[str, object], str]:
+    """Check a small policy with the given rule arguments; returns the result and its text."""
+    from ar_domain.tools.documents import _check_text
+
+    store = demo_store()
+    library = DocumentLibrary(store)
+    actor = Actor(tenant_id=uuid.uuid4(), user_id=uuid.uuid4(), permissions=frozenset({"chat:use"}))
+    policy = library.ingest(
+        actor, data=b"# Access\n\nStaff use badges at the door.", filename="policy.md"
+    )
+    controls = library.ingest(actor, data=_CONTROLS, filename="controls.csv")
+    rule_set = {
+        key: (str(controls["id"]) if value == "CONTROLS" else value)
+        for key, value in arguments.items()
+    }
+    body = library.judge(actor, uuid.UUID(str(policy["id"])), statements=[], rule_set=rule_set)
+    return body, _check_text(body)
+
+
+def test_a_table_of_rules_is_read_a_row_at_a_time_with_its_ids() -> None:
+    from ar_domain.documents.grounding import table_items
+
+    assert table_items("controls.csv", _CONTROLS) == [
+        ("AC-1", "Staff use badges at the door."),
+        ("AC-2", "Visitors are escorted on a Mars colony."),
+    ]
+    assert table_items("notes.md", _CONTROLS) == []
+    assert table_items("empty.csv", b"") == []
+    body, text = _checked({"source_file_id": "CONTROLS"})
+    ids = [row["item_id"] for row in body["rows"]]  # type: ignore[union-attr, index]
+    assert ids == ["AC-1", "AC-2"]
+    # The file's name is not a rule.
+    assert "controls:" not in text
+    assert "AC-1 | Staff use badges at the door." in text
+
+
+def test_a_rule_set_with_items_is_not_read_again_from_its_source_file() -> None:
+    body, text = _checked(
+        {
+            "id": "house",
+            "items": [{"item_id": "AC-1", "statement": "Staff use badges at the door."}],
+            "source_file_id": "CONTROLS",
+        }
+    )
+    assert [row["item_id"] for row in body["rows"]] == ["AC-1"]  # type: ignore[union-attr, index]
+    assert "Mars" not in text
+
+
+def test_a_gap_shows_what_the_document_says_on_the_subject() -> None:
+    from ar_domain.documents.judgement import judge_items
+    from ar_domain.tools.documents import _check_text
+
+    def ask(_task: str, _evidence: str) -> str:
+        # The model copies the passage with a line break the stored text does not have.
+        return (
+            '{"verdict":"not_supported","passageId":"p1-s1",'
+            '"quote":"Security logs are retained\\nfor 365 days."}'
+        )
+
+    rows = judge_items(
+        _POLICY,
+        [("LOG-1", "Logs are retained for at least two years.")],
+        ask,
+        model_id="m",
+        rule_set_id="",
+        rule_set_version="",
+    )
+    assert rows[0]["verdict"] == "not_supported"
+    assert rows[0]["citation"]["anchor"] == "p1-s1"  # type: ignore[index]
+    text = _check_text({"rows": rows})
+    assert "LOG-1 | Logs are retained for at least two years.: not_supported [p1-s1 p.1]" in text
+    assert "retained" in text
+    assert "(None)" not in text
+
+
+def test_a_document_id_given_as_the_rule_set_is_read_as_the_list() -> None:
+    store = demo_store()
+    library = DocumentLibrary(store)
+    actor = Actor(tenant_id=uuid.uuid4(), user_id=uuid.uuid4(), permissions=frozenset({"chat:use"}))
+    policy = library.ingest(
+        actor, data=b"# Access\n\nStaff use badges at the door.", filename="policy.md"
+    )
+    controls = library.ingest(actor, data=_CONTROLS, filename="controls.csv")
+    body = library.judge(
+        actor, uuid.UUID(str(policy["id"])), statements=[], rule_set_id=str(controls["id"])
+    )
+    assert [row["item_id"] for row in body["rows"]] == ["AC-1", "AC-2"]  # type: ignore[union-attr, index]
+
+
+def test_an_install_seeded_earlier_describes_its_tools_as_this_release_does() -> None:
+    from ar_domain.tools.seed_tools import refresh_builtins, shipped_tools
+
+    store = demo_store()
+    shipped = shipped_tools()
+    built_in = [
+        row
+        for row in store.tool_versions.values()
+        if row.get("tenant_id") is None and str(row.get("qualified_name")) in shipped
+    ]
+    # Every built-in tool the product seeds is one the release can describe again. The
+    # demo store also seeds session tools that exist only where a scripted model is allowed.
+    from ar_domain.tools.seed_tools import _session_tools
+
+    scripted = {f"session.{row['name']}" for row in _session_tools(fixtures=True)} - {
+        f"session.{row['name']}" for row in _session_tools(fixtures=False)
+    }
+    seeded = {
+        str(row["qualified_name"])
+        for row in store.tool_versions.values()
+        if row.get("tenant_id") is None and not str(row["qualified_name"]).startswith("web.")
+    }
+    assert seeded - set(shipped) == scripted
+    stale = next(row for row in built_in if row["qualified_name"] == "documents.compare")
+    stale["description"] = "An older release's words."
+    stale["input_schema"] = {"type": "object"}
+    refresh_builtins(store)
+    assert "two versions or two drafts" in str(stale["description"])
+    assert "otherDocumentId" in str(stale["input_schema"])
+    assert stale["description_hash"]
+    judge = shipped["documents.judge"]
+    assert "library document that holds the list" in str(judge["description"])
+
+
+def test_the_statements_of_a_check_are_asked_together() -> None:
+    from ar_domain.documents.judgement import judge_items
+
+    class Ask:
+        def __init__(self) -> None:
+            self.batches: list[int] = []
+
+        def __call__(self, _task: str, _evidence: str) -> str | None:
+            raise AssertionError("each statement was asked on its own")
+
+        def many(self, prompts: list[tuple[str, str]]) -> list[str | None]:
+            self.batches.append(len(prompts))
+            return [
+                '{"verdict":"supported","passageId":"p1-s1",'
+                '"quote":"Security logs are retained for 365 days."}'
+                if "retained" in task
+                else None
+                for task, _evidence in prompts
+            ]
+
+    ask = Ask()
+    rows = judge_items(
+        _POLICY,
+        [("L-1", "Logs are retained."), ("", "  "), ("X-1", "A Mars site exists.")],
+        ask,
+        model_id="m",
+        rule_set_id="",
+        rule_set_version="",
+    )
+    assert ask.batches == [2]
+    assert [(row["item_id"], row["verdict"]) for row in rows] == [
+        ("L-1", "supported"),
+        ("X-1", "not_judged"),
+    ]
+
+
+def test_a_call_a_busy_provider_turned_away_is_asked_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ar_domain.documents.model import ask_model_many
+
+    seen: list[str] = []
+
+    class Response:
+        def __init__(self, status: int, text: str) -> None:
+            self.status_code = status
+            self._text = text
+
+        def json(self) -> dict[str, object]:
+            return {"choices": [{"message": {"content": self._text}}]}
+
+    class Client:
+        def __init__(self, timeout: float) -> None:
+            del timeout
+
+        def __enter__(self) -> Client:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+        def post(self, url: str, json: dict[str, object], headers: dict[str, str]) -> Response:
+            del url, headers
+            asked = str(json["messages"][1]["content"])  # type: ignore[index]
+            seen.append(asked)
+            # The second prompt is turned away the first time it is asked.
+            if asked.startswith("two") and seen.count(asked) == 1:
+                return Response(429, "")
+            return Response(200, f"answer to {asked[:3]}")
+
+    monkeypatch.setattr("ar_domain.documents.model.httpx.Client", Client)
+
+    class Live:
+        def _completion_call(
+            self, tenant_id: uuid.UUID, alias: str
+        ) -> tuple[str, dict[str, str], float, bool]:
+            del tenant_id, alias
+            return "model", {}, 1.0, True
+
+        def _completion_url_for(
+            self, tenant_id: uuid.UUID, alias: str, headers: dict[str, str]
+        ) -> str:
+            del tenant_id, alias, headers
+            return "https://example.test/v1/chat/completions"
+
+    answers = ask_model_many(Live(), uuid.uuid4(), "reasoning", [("one", "e"), ("two", "e")])
+    assert answers == ["answer to one", "answer to two"]
+    assert len(seen) == 3
+
+
+def test_comparing_a_text_with_a_list_points_at_the_tool_for_that() -> None:
+    from ar_domain.documents.grounding import compare
+    from ar_domain.tools.documents import _change_text
+
+    policy = {"id": "a", "title": "Policy", "passages": _POLICY["passages"]}
+    controls = {
+        "id": "b",
+        "title": "controls",
+        "passages": [{"anchor": "p1-s0", "page": 1, "heading": "controls", "text": "AC-1,Badges"}],
+    }
+    unrelated = _change_text(compare(policy, controls, None))
+    assert "no section in common" in unrelated
+    assert "documents.judge" in unrelated
+    later = {
+        "id": "c",
+        "title": "Policy",
+        "passages": [
+            dict(row, text=str(row["text"]) + " Reviewed.") for row in _POLICY["passages"]
+        ],  # type: ignore[union-attr, call-overload]
+    }
+    assert "no section in common" not in _change_text(compare(policy, later, None))

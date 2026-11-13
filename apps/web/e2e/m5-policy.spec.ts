@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m5";
@@ -35,9 +35,16 @@ async function capture(page: Page, name: string) {
   await page.setViewportSize({ width: 1280, height: 800 });
 }
 
-test("approve a pet, sign a review, and author a policy", async ({ page }) => {
+// The flow is one chain of state but far too long to finish inside a single test budget on a
+// loaded runner, where it used to run out mid-step. It is split into serial phases that share
+// the server-side demo tenant (one API process) and carry the two ids they need between them;
+// each phase re-signs in and gets its own budget, so no single test has to complete the lot.
+let approverId = "";
+let conversation = "";
+
+test("approve a pet", async ({ page }) => {
   await signIn(page, "approver@dev.local");
-  const approverId = await page.evaluate(async () => {
+  approverId = await page.evaluate(async () => {
     const response = await fetch("/api/v1/auth/session", { credentials: "include" });
     const body = (await response.json()) as { user: { id: string } };
     return body.user.id;
@@ -50,7 +57,7 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
   await expect(page.getByText("Waiting for approval before this tool runs.").first()).toBeVisible({
     timeout: 20_000,
   });
-  const conversation = new URL(page.url()).searchParams.get("conversation");
+  conversation = new URL(page.url()).searchParams.get("conversation") ?? "";
   expect(conversation).toBeTruthy();
 
   await page.goto("/approvals");
@@ -66,7 +73,10 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
   await page.goto(`/chat?conversation=${conversation}`);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible({ timeout: 20_000 });
   await capture(page, "pet-created");
+});
 
+test("sign a review", async ({ page }) => {
+  await signIn(page);
   await page.goto("/reviews");
   await expect(page.getByRole("heading", { name: "Reviews" })).toBeVisible();
   const reviews = await new AxeBuilder({ page }).analyze();
@@ -76,7 +86,11 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
   await page.getByRole("button", { name: "Sign" }).click();
   await expect(page.getByText("signed")).toBeVisible({ timeout: 20_000 });
   await capture(page, "review-signed");
+});
 
+test("author and activate a policy", async ({ page }) => {
+  expect(approverId, "the approve-a-pet phase must run first").toBeTruthy();
+  await signIn(page);
   await page.goto("/admin/policies");
   await expect(
     page.getByRole("heading", { name: "Policies", exact: true, level: 1 }),
@@ -134,7 +148,11 @@ test("approve a pet, sign a review, and author a policy", async ({ page }) => {
       )
       .toBe("require_approval");
   }
+});
 
+test("delete a pet behind the new policy", async ({ page }) => {
+  expect(conversation, "the approve-a-pet phase must run first").toBeTruthy();
+  await signIn(page);
   await page.goto(`/chat?agent=desk&conversation=${conversation}`);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible();
   await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");

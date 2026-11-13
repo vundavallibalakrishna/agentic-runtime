@@ -481,6 +481,14 @@ def _change_text(body: dict[str, object]) -> str:
         f"Left and before are {left}. Right and after are {right or 'the second document'}. "
         "A removed passage is only in the left document. An added passage is only in the right."
     )
+    kinds = {str(row.get("op")) for row in changes if isinstance(row, dict)}
+    if "changed" not in kinds and body.get("shared_sections") == 0:
+        # Two documents with no section in common are not two versions of one text.
+        legend += (
+            " These two documents have no section in common, so this is not a comparison of "
+            "versions. If one of them is a list of requirements to test the other against, "
+            "use documents.judge with that document as the list."
+        )
     return _OPEN + "\n" + legend + "\n" + "\n".join(lines[:40])
 
 
@@ -499,9 +507,14 @@ def _check_text(body: dict[str, object]) -> str:
             anchor = f" [{citation.get('anchor')} p.{citation.get('page')}]"
             if citation.get("quote"):
                 quote = f' "{citation.get("quote")}"'
+        # The item's id is how a person names the row: a control number, a clause.
+        named = str(row.get("item_id") or "")
+        label = f"{named} | " if named and named != str(row.get("requirement") or "") else ""
+        confidence = row.get("confidence")
+        sure = "" if confidence is None else f" ({confidence})"
         lines.append(
-            f"{row.get('requirement')}: {row.get('verdict')} ({row.get('confidence')}){anchor}"
-            f"{quote} {row.get('reason')}"
+            f"{label}{row.get('requirement')}: {row.get('verdict')}{sure}{anchor}{quote} "
+            f"{row.get('reason')}"
         )
     return _OPEN + "\n" + "\n".join(lines)
 
