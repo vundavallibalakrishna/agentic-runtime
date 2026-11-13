@@ -188,6 +188,12 @@ async def reload_run(store: object, run_id: uuid.UUID) -> None:
     if not isinstance(engine, AsyncEngine):
         return
     async with AsyncSession(engine, expire_on_commit=False) as session:
+        from ar_domain.durable.flush import _set_tenant_context  # noqa: PLC0415
+
+        # Read under the store's tenant, or the RLS-enforced ``ar_app`` role returns no row
+        # (``tenant_id = app_tenant_id()`` with the setting unset is NULL) and the in-memory
+        # copy is never refreshed. See production-cert defect 14.
+        await _set_tenant_context(session, store)
         run = (
             (await session.execute(text("SELECT * FROM runs WHERE id = :id"), {"id": run_id}))
             .mappings()
@@ -521,6 +527,12 @@ async def reload_document(store: object, document_id: uuid.UUID) -> None:
     if not isinstance(engine, AsyncEngine):
         return
     async with AsyncSession(engine, expire_on_commit=False) as session:
+        from ar_domain.durable.flush import _set_tenant_context  # noqa: PLC0415
+
+        # The ingest worker writes "indexed" to Postgres in its own unit; this refresh runs in
+        # the API store under the RLS-enforced ``ar_app`` role, so without the tenant context
+        # the row is invisible and the document reads back "pending" for ever (defect 14).
+        await _set_tenant_context(session, store)
         document = (
             (
                 await session.execute(
