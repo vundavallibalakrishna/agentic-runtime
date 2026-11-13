@@ -84,8 +84,12 @@ async def bind_store(
         await hydrate_tenant(store, engine, binding.tenant_id)
     finally:
         store._initial_loaded = None  # type: ignore[attr-defined]
+    from ar_domain.durable.hydrate import load_running_jobs  # noqa: PLC0415
     from ar_domain.orchestration.reconcile import reconcile_interrupted  # noqa: PLC0415
 
+    # Job progress is no longer loaded eagerly; the reconcile needs the still-running jobs
+    # to mark them interrupted after this process took over.
+    await load_running_jobs(store, binding.tenant_id)
     reconcile_interrupted(store)
     # Platform rows built in this process (the built-in tool catalogue) that the database
     # does not hold yet are written once.

@@ -159,7 +159,7 @@ Ordered by how much they block production.
 12. **A refused boot is logged as "temporal_unavailable"** with no message, and retried for ever.
 13. **The data connection body defaults its address to `memory://warehouse`.**
 14. **A knowledge document created through the collection reads back as "pending"** in listings even after it is indexed, where the code path was not one of the nine fixed.
-15. **Every request loads every message of the tenant.** `hydrate_tenant` reads all messages, runs and events per request. This will not hold at production size.
+15. **Every request loads every message of the tenant.** `hydrate_tenant` reads all messages, runs and events per request. This will not hold at production size. *(In progress, de-eagered so far: `usage_events`, `run_events`, `agent_api_idempotency`, `a2a_tasks`, and `job_progress`. Job progress grows with every long job; the conversation view loads it by `conversation_id` on demand (`load_jobs_for_conversation`) and the restart reconcile loads the still-running jobs by status (`load_running_jobs`); the write path accumulates it live as before. The remaining unbounded buckets — tool_calls, messages, runs, document_chunks — are ranked and planned in [OQ-136](../../open-questions.md), each needing its consumers scoped first.)*
 16. **In dev mode a turn longer than about a minute shows as stuck.** The API's watcher stops polling and the message stays "streaming". Dev only, but it is the mode the team uses.
 
 ## Local CI run

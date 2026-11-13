@@ -469,6 +469,63 @@ async def test_hydrate_and_reload_merge_rows(monkeypatch: pytest.MonkeyPatch) ->
     await reload_run(SimpleNamespace(), _RUN)
 
 
+@pytest.mark.asyncio
+async def test_load_job_progress_scoped(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15 (step 5): job progress is loaded by conversation (the view)
+    # or by running status (the restart reconcile), not tenant-wide per request.
+    from ar_domain.durable.hydrate import load_jobs_for_conversation, load_running_jobs
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+    install_tracking(service)
+
+    service.durable_engine = None  # type: ignore[assignment]
+    await load_jobs_for_conversation(service, _TENANT, _AGENT)
+    await load_running_jobs(service, _TENANT)
+    assert not service.job_progress  # no database -> no load
+    service.durable_engine = engine  # type: ignore[assignment]
+    await load_jobs_for_conversation(service, _TENANT, None)
+    assert not service.job_progress  # no conversation -> no load
+
+    captured: dict[str, object] = {}
+
+    class _JobSession(_Session):
+        async def execute(self, statement: object, params: object = None) -> _Rows:
+            del statement
+            if isinstance(params, dict) and "cid" in params:
+                captured["cid"] = params["cid"]
+                return _Rows(
+                    [
+                        {
+                            "id": _RUN,
+                            "tenant_id": _TENANT,
+                            "conversation_id": _AGENT,
+                            "status": "running",
+                        }
+                    ]
+                )
+            if isinstance(params, dict) and "tid" in params:
+                captured["tid"] = params["tid"]
+                return _Rows(
+                    [
+                        {
+                            "id": _DOC,
+                            "tenant_id": _TENANT,
+                            "conversation_id": _AGENT,
+                            "status": "running",
+                        }
+                    ]
+                )
+            return _Rows([])
+
+    monkeypatch.setattr(hydrate_mod, "AsyncSession", _JobSession)
+    await load_jobs_for_conversation(service, _TENANT, _AGENT)
+    assert _RUN in service.job_progress and captured["cid"] == _AGENT
+    await load_running_jobs(service, _TENANT)
+    assert _DOC in service.job_progress and captured["tid"] == _TENANT
+
+
 def test_should_bind_and_the_binding_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_DURABLE_STATE", "memory")
     assert should_bind() is False
