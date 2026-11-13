@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const root = "../../docs/testing/m20";

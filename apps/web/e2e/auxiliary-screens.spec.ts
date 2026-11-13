@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 test("tenant choice and platform health fit in both themes and recover from failure", async ({
