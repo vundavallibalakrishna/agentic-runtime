@@ -325,6 +325,33 @@ async def _usage_events(session: AsyncSession, store: object, tenant_id: uuid.UU
         flushed.add((item.tenant_id, item.dedupe_key))
 
 
+async def load_idempotency_row(
+    store: object, tenant_id: uuid.UUID, key_id: uuid.UUID, header: str
+) -> dict[str, Any] | None:
+    """A prior request's agent-API idempotency row, read by its unique key.
+
+    Idempotency rows are no longer loaded for every request (``load_exposure``); they grow
+    with every idempotent call. This reads the one row for ``(key_id, idempotency_key)``
+    through its unique index. A no-op without a database or an idempotency key.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine) or not header:
+        return None
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await apply_tenant_context(session, tenant_id)
+        result = await session.execute(
+            text(
+                "SELECT * FROM agent_api_idempotency "
+                "WHERE key_id = :key_id AND idempotency_key = :header LIMIT 1"
+            ),
+            {"key_id": key_id, "header": header},
+        )
+        row = result.mappings().first()
+    return dict(row) if row is not None else None
+
+
 def _text_or_none(value: object) -> str | None:
     return None if value is None else str(value)
 

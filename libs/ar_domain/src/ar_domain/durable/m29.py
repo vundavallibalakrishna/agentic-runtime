@@ -24,12 +24,11 @@ async def save_exposure(session: AsyncSession, pending: dict[str, list[dict[str,
 async def load_exposure(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     from ar_domain.durable.hydrate import _merge  # noqa: PLC0415
 
+    # Idempotency rows are not loaded for every request: they grow with every idempotent
+    # call and are read by their unique (key_id, idempotency_key) through
+    # ``exposure.runs._idempotency_row_db``. See OQ-136.
     queries = (
         ("agent_api_keys", "SELECT * FROM agent_api_keys WHERE tenant_id = :tenant_id"),
-        (
-            "agent_api_idempotency",
-            "SELECT * FROM agent_api_idempotency WHERE tenant_id = :tenant_id",
-        ),
         ("agent_api_grants", "SELECT * FROM agent_api_grants WHERE tenant_id = :tenant_id"),
         ("a2a_tasks", "SELECT * FROM a2a_tasks WHERE tenant_id = :tenant_id"),
     )
