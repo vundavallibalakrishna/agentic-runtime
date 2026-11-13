@@ -31,8 +31,10 @@ async def load_exposure(session: AsyncSession, store: object, tenant_id: uuid.UU
             "SELECT * FROM agent_api_idempotency WHERE tenant_id = :tenant_id",
         ),
         ("agent_api_grants", "SELECT * FROM agent_api_grants WHERE tenant_id = :tenant_id"),
-        ("a2a_tasks", "SELECT * FROM a2a_tasks WHERE tenant_id = :tenant_id"),
     )
+    # A2A tasks are not loaded for every request: they grow with every task and are read
+    # behind a key-authenticated A2A endpoint, so they are loaded by `key_id` on demand
+    # through `exposure.a2a._call`. See OQ-136.
     for name, sql in queries:
         result = await session.execute(text(sql), {"tenant_id": tenant_id})
         for row in result.mappings():
