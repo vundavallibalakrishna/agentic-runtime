@@ -470,6 +470,42 @@ async def test_hydrate_and_reload_merge_rows(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.asyncio
+async def test_hydrate_does_not_eager_load_run_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15 (step 2): run events are not loaded for every request.
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+    install_tracking(service)
+    service.durable_engine = engine  # type: ignore[assignment]
+    service.events.clear()
+    await hydrate_tenant(service, engine, _TENANT)  # type: ignore[arg-type]
+    assert not service.events
+
+
+@pytest.mark.asyncio
+async def test_load_run_events_on_demand(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.durable.hydrate import load_run_events
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+    install_tracking(service)
+    service.runs[_RUN] = {"id": _RUN, "tenant_id": _TENANT, "conversation_id": _AGENT}
+    service.events.clear()
+
+    service.durable_engine = None  # type: ignore[assignment]
+    await load_run_events(service, _RUN)
+    assert _RUN not in service.events  # no database -> no load
+
+    service.durable_engine = engine  # type: ignore[assignment]
+    await load_run_events(service, _RUN)
+    assert service.events.get(_RUN)  # loaded on demand, keyed by run id
+    loaded = service.events[_RUN]
+    await load_run_events(service, _RUN)  # idempotent: already present, not reloaded
+    assert service.events[_RUN] is loaded
+
+
+@pytest.mark.asyncio
 async def test_hydrate_does_not_eager_load_usage(monkeypatch: pytest.MonkeyPatch) -> None:
     # Production-cert defect 15: usage is no longer loaded for every request.
     _Session.raise_once = False

@@ -2584,6 +2584,9 @@ class ChatBehaviour:
         ``idle_s`` is the gap between SSE keep-alive comments (stream-events §3).
         The comment is not stored and does not advance ``seq``.
         """
+        from ar_domain.durable.hydrate import load_run_events  # noqa: PLC0415
+
+        await load_run_events(self, run_id)
         for event in self.events_after(tenant_id, run_id, after):
             after = max(after, _seq(event))
             yield event
