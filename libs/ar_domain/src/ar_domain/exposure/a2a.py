@@ -544,6 +544,11 @@ async def _call(
 ) -> dict[str, Any]:
     if method in {"message/send", "tasks/send", "message/stream", "tasks/sendSubscribe"}:
         return await send_task(store, key, slug, params)
+    # Every method below reads this key's tasks, which are no longer loaded for every
+    # request. Load them by key id on demand (OQ-136); send above creates and needs none.
+    from ar_domain.durable.hydrate import load_a2a_tasks_for_key  # noqa: PLC0415
+
+    await load_a2a_tasks_for_key(store, key.get("tenant_id"), key.get("id"))
     if method == "tasks/list":
         return list_tasks(store, key, params)
     if method.startswith("tasks/pushNotificationConfig/"):

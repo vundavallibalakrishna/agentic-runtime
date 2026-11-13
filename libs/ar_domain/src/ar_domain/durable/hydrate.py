@@ -329,6 +329,29 @@ async def _usage_events(session: AsyncSession, store: object, tenant_id: uuid.UU
         flushed.add((item.tenant_id, item.dedupe_key))
 
 
+async def load_a2a_tasks_for_key(
+    store: object, tenant_id: uuid.UUID | None, key_id: uuid.UUID | None
+) -> None:
+    """Load one agent API key's A2A tasks on demand.
+
+    A2A tasks are no longer loaded for every request (``load_exposure``); they grow with
+    every task. The A2A endpoints are authenticated by a key, so they load that key's tasks
+    here before reading them. A no-op without a database or a key.
+    """
+    engine = getattr(store, "durable_engine", None)
+    if not isinstance(engine, AsyncEngine) or tenant_id is None or key_id is None:
+        return
+    from ar_domain.readmodel.model import apply_tenant_context  # noqa: PLC0415
+
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        await apply_tenant_context(session, tenant_id)
+        result = await session.execute(
+            text("SELECT * FROM a2a_tasks WHERE key_id = :key_id"), {"key_id": key_id}
+        )
+        for row in result.mappings():
+            _merge(store, "a2a_tasks", row["id"], dict(row))
+
+
 async def load_idempotency_row(
     store: object, tenant_id: uuid.UUID, key_id: uuid.UUID, header: str
 ) -> dict[str, Any] | None:

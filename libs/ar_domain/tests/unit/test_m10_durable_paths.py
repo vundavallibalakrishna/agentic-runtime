@@ -587,6 +587,42 @@ async def test_load_idempotency_row_reads_by_key(monkeypatch: pytest.MonkeyPatch
     assert captured["key_id"] == _USER and captured["header"] == "h1"
 
 
+@pytest.mark.asyncio
+async def test_load_a2a_tasks_for_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Production-cert defect 15 (step 4): a key's A2A tasks are loaded by key id, not by
+    # loading the whole tenant's tasks for every request.
+    from ar_domain.durable.hydrate import load_a2a_tasks_for_key
+
+    _Session.raise_once = False
+    engine = _patch_engines(monkeypatch)
+    service = demo_store()
+    install_tracking(service)
+
+    service.durable_engine = None  # type: ignore[assignment]
+    await load_a2a_tasks_for_key(service, _TENANT, _USER)
+    assert not service.a2a_tasks  # no database -> no load
+    service.durable_engine = engine  # type: ignore[assignment]
+    await load_a2a_tasks_for_key(service, None, None)
+    assert not service.a2a_tasks  # no key -> no load
+
+    captured: dict[str, object] = {}
+
+    class _TaskSession(_Session):
+        async def execute(self, statement: object, params: object = None) -> _Rows:
+            del statement
+            if isinstance(params, dict) and "key_id" in params:
+                captured.update(params)
+                return _Rows(
+                    [{"id": _RUN, "tenant_id": _TENANT, "key_id": _USER, "state": "completed"}]
+                )
+            return _Rows([])
+
+    monkeypatch.setattr(hydrate_mod, "AsyncSession", _TaskSession)
+    await load_a2a_tasks_for_key(service, _TENANT, _USER)
+    assert _RUN in service.a2a_tasks and service.a2a_tasks[_RUN]["key_id"] == _USER
+    assert captured["key_id"] == _USER
+
+
 def test_should_bind_and_the_binding_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_DURABLE_STATE", "memory")
     assert should_bind() is False
