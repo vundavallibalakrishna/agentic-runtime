@@ -25,6 +25,10 @@ A host named exactly on the list may resolve to a private address (`10.0.0.0/8`,
 
 Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-separated) or to the tenant allowlist before saving those providers. The API and the runtime worker already have no port 443 rule.
 
+## Default assistant
+
+New tenants, and a seeded assistant that has not been republished by an administrator, no longer bind `general.fetch`, `general.http` or `general.search`. Revision `0046` publishes that grant. To turn the tools back on, edit the assistant and add `fetch`, `http` and `search` to the general tool include list. Other agents are not changed.
+
 ## Re-enabling a host
 
 Add the hostname on the Policies screen under Web access, or append it to `AR_EGRESS_HOSTS` and restart. An exact name is required for a private address.

@@ -128,10 +128,13 @@ def test_an_assistant_asked_for_a_chart_is_offered_the_chart_tool() -> None:
         tenant, user, uuid.UUID(str(conversation["id"])), request, schedule=False
     )
     asyncio.run(store.generate(uuid.UUID(str(posted["run"]["id"])), request, []))
-    # The assistant has more tools than the threshold, so the model is not sent them all.
+    # Web tools are not on the default assistant, so the set stays under the
+    # search threshold and the chart tool is sent with the rest.
     assert "session__search" in captured[0]
     assert "general__chart" in captured[0]
-    assert len(captured[0]) < 20
+    assert "general__fetch" not in captured[0]
+    assert "general__http" not in captured[0]
+    assert "general__search" not in captured[0]
 
 
 def test_the_chart_tool_plots_a_table_file_in_the_working_folder() -> None:

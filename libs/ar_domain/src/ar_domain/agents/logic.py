@@ -108,9 +108,6 @@ def assistant_definition(*, fixtures: bool = True) -> dict[str, object]:
                     "read_file",
                     "write_file",
                     "list_files",
-                    "fetch",
-                    "search",
-                    "http",
                     "inspect_table",
                     "query_table",
                     "pivot_table",
@@ -120,8 +117,6 @@ def assistant_definition(*, fixtures: bool = True) -> dict[str, object]:
                 "overrides": {
                     "code": {"timeout_s": 30, "network": False},
                     "shell": {"timeout_s": 30, "network": False},
-                    "fetch": {"timeout_s": 20},
-                    "http": {"timeout_s": 20},
                 },
             },
         ],
