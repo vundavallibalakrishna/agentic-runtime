@@ -10,7 +10,7 @@ Set it to `true` to refuse outbound calls whose host is not on the tenant allowl
 - cloud OCR endpoints named by a tenant secret
 - knowledge source fetches
 - web search
-- notification SMTP, web push, and a SIEM URL on audit export
+- notification SMTP, web push, outbound webhook delivery, and a SIEM URL on audit export
 - the OTEL exporter (skipped, not crashed, when the collector host is not listed)
 
 `general.fetch`, `general.http` and browser navigation already require the tenant allowlist. Closed mode does not widen that.
