@@ -51,7 +51,7 @@ def test_a_provider_is_renamed_repointed_and_given_a_new_key() -> None:
     created = strict.create_provider(
         other, "Cloud", "openai_compatible", "https://models.example.com/v1", platform=False
     )
-    with pytest.raises(ArError, match="not allowed"):
+    with pytest.raises(ArError, match="deny list"):
         strict.update_provider(
             other, uuid.UUID(str(created["id"])), platform=False, base_url="http://127.0.0.1:9/v1"
         )

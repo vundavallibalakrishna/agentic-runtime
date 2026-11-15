@@ -75,6 +75,25 @@ def _suite(
     return store, book, suite_id
 
 
+def _grant_web(store: ChatService) -> None:
+    """The default assistant no longer binds fetch and http. These cases do."""
+    for version in store.versions.values():
+        definition = version.get("definition") if isinstance(version, dict) else None
+        if not isinstance(definition, dict):
+            continue
+        tools = definition.get("tools")
+        if not isinstance(tools, list):
+            continue
+        for grant in tools:
+            if not isinstance(grant, dict) or grant.get("server") != "general":
+                continue
+            include = grant.get("include")
+            if isinstance(include, list) and "*" not in include:
+                for name in ("fetch", "http", "search"):
+                    if name not in include:
+                        include.append(name)
+
+
 def _calls(store: ChatService) -> list[dict[str, object]]:
     return [row for row in store.tool_calls.values() if row.get("qualified_name")]
 
@@ -95,6 +114,7 @@ def test_a_case_runs_the_agent_and_a_mock_answers_its_tool_call(stand_in: StandI
             ],
         },
     )
+    _grant_web(store)
     run = book.start_run(_actor(), suite_id, {"agent_version_ref": "published"})
     assert run["status"] == "completed"
     assert run["summary"]["pass_rate"] == 1  # type: ignore[index]
@@ -122,6 +142,7 @@ def test_a_write_in_an_eval_run_is_refused_and_never_waits_for_approval(
             "assertions": [{"type": "contains", "value": "could not send"}],
         },
     )
+    _grant_web(store)
     run = book.start_run(_actor(), suite_id, {"agent_version_ref": "published"})
     assert run["status"] == "completed"
     assert run["summary"]["pass_rate"] == 1  # type: ignore[index]

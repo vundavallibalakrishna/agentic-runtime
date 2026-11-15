@@ -134,7 +134,7 @@ def decide(  # noqa: PLR0911, PLR0912
     loop = loopback_allowed() if loopback is None else loopback
     if is_closed and not listed_host(name, [item for item in combined if item.strip() != "*"]):
         return (
-            f"{name} is not on the list of hosts this install may reach. "
+            f"{name} is not on the egress allow list. "
             "Add it to the organisation allowlist or to AR_EGRESS_HOSTS."
         )
     addresses = _addresses(

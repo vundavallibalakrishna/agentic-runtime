@@ -1681,7 +1681,13 @@ class ChatBehaviour:
         """Closed egress and cluster residency. Residency ``in`` stays open."""
         from ar_domain.egress import model_refusal  # noqa: PLC0415
 
-        problem = model_refusal(self, tenant_id, url, residency=self._residency(tenant_id))
+        problem = model_refusal(
+            self,
+            tenant_id,
+            url,
+            residency=self._residency(tenant_id),
+            loopback=self.allow_loopback,
+        )
         if problem is not None:
             raise ArError(ErrorCode.BAD_REQUEST, problem)
 

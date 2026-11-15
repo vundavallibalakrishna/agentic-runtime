@@ -23,7 +23,7 @@ def _meta(host: str) -> list[str]:
 def test_closed_mode_refuses_a_host_that_is_not_listed() -> None:
     reason = decide("api.example", [], resolve=_public, closed=True, loopback=False)
     assert reason is not None
-    assert "not on the list" in reason
+    assert "allow list" in reason
 
 
 @pytest.mark.unit

@@ -63,7 +63,14 @@ def dial_allow(store: Any, tenant_id: object) -> list[str]:
     return ["*", *hosts]
 
 
-def model_refusal(store: Any, tenant_id: object, url: str, *, residency: str = "in") -> str | None:
+def model_refusal(
+    store: Any,
+    tenant_id: object,
+    url: str,
+    *,
+    residency: str = "in",
+    loopback: bool | None = None,
+) -> str | None:
     """Why a model or embedding URL may not be called.
 
     ``residency`` of ``cluster`` requires a private or loopback address.
@@ -72,11 +79,11 @@ def model_refusal(store: Any, tenant_id: object, url: str, *, residency: str = "
     """
     hosts = tenant_hosts(store, tenant_id)
     if closed_egress():
-        problem = decide_url(url, hosts, closed=True, check_private=True)
+        problem = decide_url(url, hosts, closed=True, check_private=True, loopback=loopback)
         if problem is not None:
             return problem
     elif residency != "cluster":
-        return decide_url(url, [], closed=False, check_private=False)
+        return decide_url(url, [], closed=False, check_private=False, loopback=loopback)
     if residency == "cluster":
         return _cluster(url)
     return None
