@@ -92,9 +92,8 @@ def dispatch_grc(  # noqa: PLR0911
             )
             return {"text": str(linked["id"]), "structured": linked, "is_error": False}
         if name == "add_risk":
-            saved = book.add_risk(
-                actor, str(arguments.get("title") or ""), int(arguments.get("score") or 0)
-            )
+            raw_score = arguments.get("score") or 0
+            saved = book.add_risk(actor, str(arguments.get("title") or ""), int(str(raw_score)))
             return {"text": str(saved["id"]), "structured": saved, "is_error": False}
         if name == "add_finding":
             saved = book.add_finding(

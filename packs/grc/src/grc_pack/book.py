@@ -125,7 +125,7 @@ class CatalogueBook:
     ) -> list[dict[str, object]]:
         """Judge each imported statement with the core document judge. No model is required."""
         rows = self.items(actor, catalogue_id)
-        document = {"id": str(catalogue_id), "passages": passages}
+        document: dict[str, object] = {"id": str(catalogue_id), "passages": passages}
         pairs = [(str(row["item_key"]), str(row["statement"])) for row in rows]
         return judge_items(
             document,
