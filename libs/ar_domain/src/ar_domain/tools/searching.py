@@ -78,8 +78,9 @@ def search_configured(store: Any, tenant_id: object) -> bool:
 def _configured(store: Any, tenant_id: object) -> tuple[str, str]:
     """Provider name and key. The key is never logged or returned to the model."""
     settings = _tenant_search(store, tenant_id)
-    name = str(settings.get("provider") or os.environ.get("AR_SEARCH_PROVIDER") or "none")
-    name = name.strip().lower() or "none"
+    name = str(settings.get("provider") or "").strip().lower()
+    if name in {"", "none"}:
+        name = str(os.environ.get("AR_SEARCH_PROVIDER") or "none").strip().lower() or "none"
     secret_name = str(settings.get("secret_name") or settings.get("secretName") or "").strip()
     key = _secret(store, tenant_id, secret_name).strip() if secret_name else ""
     if not key:
