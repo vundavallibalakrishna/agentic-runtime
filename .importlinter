@@ -89,6 +89,7 @@ forbidden_modules =
     ar_pack_fixture
     records_pack
     locale_pack
+    grc_pack
 
 [importlinter:contract:retrieval-adapters]
 name = Services never import retrieval store adapters or engine clients
