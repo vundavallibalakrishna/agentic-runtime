@@ -260,7 +260,7 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
             "refresh_token": saved["refresh_token"],
             "client_id": "ar",
             "secret": saved["secret"],
-        }
+        },
     )
     assert refreshed["access_token"].startswith("refreshed-")
 
