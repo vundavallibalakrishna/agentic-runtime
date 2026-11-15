@@ -134,6 +134,9 @@ RECORDED_FIXTURES = frozenset(
         "jira",
         "confluence",
         "rest",
+        "okta",
+        "entra",
+        "servicenow",
     }
 )
 

@@ -106,7 +106,7 @@ def _install(store: object, actor: Actor, slug: str, base: str) -> None:
             "secret": "recorded-client-secret",
             "username": "ada@example.com",
             "client_id": "recorded-client",
-            "config": {"baseUrl": base},
+            "config": {"baseUrl": base, "tenantId": "recorded-tenant"},
         },
     )
     row = next(iter(store.service_connections.values()))  # type: ignore[attr-defined]
@@ -134,6 +134,9 @@ def _install(store: object, actor: Actor, slug: str, base: str) -> None:
         "confluence",
         "github",
         "rest",
+        "okta",
+        "entra",
+        "servicenow",
     ],
 )
 def test_recorded_fixture_list_read_write_refresh_and_denied(slug: str) -> None:
@@ -154,7 +157,7 @@ def test_recorded_fixture_list_read_write_refresh_and_denied(slug: str) -> None:
             result = dispatch_connector(store, str(step["tool"]), {**args, **step["arguments"]})
             assert result["is_error"] is False, result
         assert any(path == "/token" for _method, path, _auth in server.seen)
-        assert any(auth == "Bearer recorded-fixture-token" for _method, _path, auth in server.seen)
+        assert any("recorded-fixture-token" in auth for _method, _path, auth in server.seen)
         server.denied = True
         write = cassette["steps"][-1]
         denied = dispatch_connector(store, str(write["tool"]), {**args, **write["arguments"]})
