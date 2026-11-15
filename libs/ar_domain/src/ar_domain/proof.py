@@ -171,16 +171,68 @@ def proof_for_qualified(qualified_name: str) -> str:
     return connector_proof(found[0])
 
 
-def offered_to_model(qualified_name: str) -> bool:
+def offered_to_model(
+    qualified_name: str, store: object | None = None, tenant_id: object | None = None
+) -> bool:
     """Whether the model may see this tool.
 
-    Connector tools are offered only when their proof is ``live``. A ``not_live``
-    or ``public`` connector is hidden. Built-in tools stay offered; their label
-    is still ``unit`` (OQ-123).
+    Proof (``live``, ``contract``, ``unit``) is a badge. A connector tool is
+    offered only when this tenant has the connector installed and a credential
+    stored. Retired ``sandbox.*`` tools are not offered. Other built-ins stay
+    offered; their label is still ``unit`` (OQ-123).
     """
+    if qualified_name.startswith("sandbox."):
+        return False
     if not qualified_name.startswith("connectors."):
         return True
-    return proof_for_qualified(qualified_name) == LIVE
+    if store is None or tenant_id is None:
+        return False
+    return _connector_ready(store, tenant_id, qualified_name)
+
+
+def _connector_ready(  # noqa: PLR0911, PLR0912
+    store: object, tenant_id: object, qualified_name: str
+) -> bool:
+    """True when this tenant installed the connector and stored a credential."""
+    from ar_domain.connectors.catalog import tool_by_name  # noqa: PLC0415
+
+    short = qualified_name.split(".", 1)[1]
+    found = tool_by_name(short)
+    if found is None:
+        return False
+    connector, tool = found
+    installs = getattr(store, "connector_installs", None)
+    if not isinstance(installs, dict):
+        return False
+    install: dict[str, object] | None = None
+    for row in installs.values():
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("tenant_id")) != str(tenant_id):
+            continue
+        if str(row.get("slug")) != connector.slug or str(row.get("status")) != "installed":
+            continue
+        disabled = row.get("disabled_tools")
+        if isinstance(disabled, list) and tool.name in {str(item) for item in disabled}:
+            return False
+        install = row
+        break
+    if install is None or not str(install.get("connection_name") or "").strip():
+        return False
+    name = str(install.get("connection_name")).lower()
+    connections = getattr(store, "service_connections", None)
+    if not isinstance(connections, dict):
+        return False
+    for row in connections.values():
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("tenant_id")) != str(tenant_id):
+            continue
+        if str(row.get("name") or "").lower() != name:
+            continue
+        if row.get("secret") or row.get("access_token") or row.get("refresh_token"):
+            return True
+    return False
 
 
 def omitted_from_matrix(qualified_name: str) -> bool:
@@ -205,7 +257,8 @@ def render_capability_matrix() -> str:
         "([ADR-0032](../02-architecture/adr/ADR-0032-proof-labels.md)).",
         "A mock is not `live`. Offered is `yes` only when the model may call the tool.",
         "Twenty-one connectors have catalogue verification `not_live`. "
-        "Recorded HTTP fixtures are `contract` and are not offered. The rest stay `unit`.",
+        "Proof is a badge. A connector tool is offered only after this tenant "
+        "installs it and stores a credential, so the static matrix marks them no.",
         "Self-serve signup is not a route.",
         "Tools that Stage 2 moves into a pack are omitted. They are not core capabilities.",
         "",
@@ -226,16 +279,15 @@ def _connector_rows() -> list[tuple[str, str, str, str, str]]:
     rows: list[tuple[str, str, str, str, str]] = []
     for connector in CONNECTORS:
         proof = connector_proof(connector)
-        offered = "yes" if proof == LIVE else "no"
         note = _connector_note(connector.verification, proof)
-        rows.append(("connector", connector.slug, proof, offered, note))
+        rows.append(("connector", connector.slug, proof, "no", note))
         rows.extend(
             (
                 "connector-tool",
                 tool.name,
                 proof,
-                offered,
-                "Same proof as its connector. Hidden from the model unless live.",
+                "no",
+                "Badge only. Offered after this tenant installs it and stores a credential.",
             )
             for tool in connector.tools
         )
@@ -265,15 +317,13 @@ def _builtin_rows() -> list[tuple[str, str, str, str, str]]:
             continue
         proof = proof_for_qualified(name)
         offered = "yes" if offered_to_model(name) else "no"
-        rows.append(
-            (
-                "tool",
-                name,
-                proof,
-                offered,
-                "In-process tool. Not a recorded live model run.",
+        note = "In-process tool. Not a recorded live model run."
+        if name.startswith("sandbox."):
+            note = (
+                "Retired. A sandbox binding is rewritten to general "
+                "and the model is not shown this tool."
             )
-        )
+        rows.append(("tool", name, proof, offered, note))
     rows.sort(key=lambda item: item[1])
     return rows
 

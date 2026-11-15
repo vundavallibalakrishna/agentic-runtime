@@ -103,6 +103,7 @@ class ToolPipeline:
         bindings = definition.get("tools")
         if not isinstance(bindings, list):
             bindings = []
+        owner = version.get("tenant_id") if isinstance(version, dict) else None
         tools = []
         for binding in bindings:
             if not isinstance(binding, dict):
@@ -110,11 +111,10 @@ class ToolPipeline:
             server_slug = str(binding.get("server") or "")
             include = binding.get("include")
             names = include if isinstance(include, list) else ["*"]
-            tools.extend(self._bound(server_slug, names, user_id))
+            tools.extend(self._bound(server_slug, names, user_id, owner))
         from ar_domain.tools.readiness import ready_for  # noqa: PLC0415
 
         # A tool the tenant has not set up is not offered, so the model does not promise it.
-        owner = version.get("tenant_id") if isinstance(version, dict) else None
         tools = [
             row
             for row in tools
@@ -660,9 +660,20 @@ class ToolPipeline:
         stored["result_preview"] = "Waiting for approval."
         return stored
 
-    def _bound(self, slug: str, names: list[object], user_id: uuid.UUID) -> list[dict[str, object]]:
+    def _bound(
+        self,
+        slug: str,
+        names: list[object],
+        user_id: uuid.UUID,
+        tenant_id: object | None = None,
+    ) -> list[dict[str, object]]:
         if slug in _RETIRED_SERVER_ALIAS:
-            return self._bound(_RETIRED_SERVER_ALIAS[slug], _aliased_names(slug, names), user_id)
+            return self._bound(
+                _RETIRED_SERVER_ALIAS[slug],
+                _aliased_names(slug, names),
+                user_id,
+                tenant_id,
+            )
         server = next(
             (
                 row
@@ -700,7 +711,11 @@ class ToolPipeline:
         del user_id
         from ar_domain.proof import offered_to_model  # noqa: PLC0415
 
-        return [row for row in rows if offered_to_model(str(row.get("qualified_name") or ""))]
+        return [
+            row
+            for row in rows
+            if offered_to_model(str(row.get("qualified_name") or ""), self.store, tenant_id)
+        ]
 
     def _request_run(self, request: dict[str, object]) -> dict[str, object] | None:
         raw = request.get("run_id")
