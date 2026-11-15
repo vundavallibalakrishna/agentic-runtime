@@ -765,7 +765,7 @@
     "proofUnit": "Unit",
     "proofContract": "Contract",
     "proofLive": "Live",
-    "proofHint": "Unit is an in-process check. Contract called a public endpoint, not a customer account. Live is a recorded provider call. Only Live is offered to an agent.",
+    "proofHint": "Unit is an in-process check. Contract called a public endpoint, not a customer account. Live is a recorded provider call. The badge does not offer the tool. An agent sees it after this tenant installs the connector and stores a credential.",
     "notOffered": "Not offered to an agent",
     "saveCredentials": "Save credentials",
     "setup": "How to create the app",
