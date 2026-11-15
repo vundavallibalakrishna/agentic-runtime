@@ -16,8 +16,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
-from ar_domain.tools.http_tools import guard_public
-
 _TTL_S = 12 * 60 * 60
 
 
@@ -58,7 +56,9 @@ def post_push(
 ) -> int:
     """POST one notification. Returns the status, or 0 when the call is refused."""
     if transport is None:
-        problem = guard_public(endpoint, allow=["*"], loopback=True)
+        from ar_common.egress_policy import decide_url  # noqa: PLC0415
+
+        problem = decide_url(endpoint, [], check_private=True)
         if problem:
             return 0
     headers = {

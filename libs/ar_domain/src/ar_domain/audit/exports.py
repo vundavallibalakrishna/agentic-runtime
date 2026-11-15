@@ -60,6 +60,12 @@ class AuditExportBook:
         siem = audit_settings.get("siem") if isinstance(audit_settings, dict) else None
         if not isinstance(siem, dict) or not siem.get("url"):
             return
+        from ar_common.egress_policy import decide_url  # noqa: PLC0415
+        from ar_domain.egress import tenant_hosts  # noqa: PLC0415
+
+        target = str(siem.get("url"))
+        if decide_url(target, tenant_hosts(self.store, actor.tenant_id), check_private=True):
+            return
         self.store.domain_events.append(
             {
                 "topic": "audit.event",

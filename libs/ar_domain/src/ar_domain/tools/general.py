@@ -26,14 +26,12 @@ from ar_common.ids import new_id
 from ar_common.isolate import IsolatedRun, isolation_mode, run_isolated
 from ar_common.offload import blocking
 from ar_common.sandboxkit import (
-    DEFAULT_DENY_CIDRS,
     PathEscapeError,
     confine,
-    host_denied,
     relative_path,
     sanitise_name,
 )
-from ar_common.settings import host_exec_allowed, loopback_allowed
+from ar_common.settings import host_exec_allowed
 from ar_common.time import utcnow
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
@@ -784,8 +782,19 @@ def _public_url(
     refused = host_refusal(store, arguments, tool, host)
     if refused is not None:
         return _error("egress_denied", refused)
-    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback_allowed()):
-        return _error("egress_denied", f"{host} is blocked by the egress deny list")
+    from ar_common.egress_policy import decide  # noqa: PLC0415
+
+    # The organisation list was already checked. This step refuses a private or
+    # metadata address, unless the list names this host exactly.
+    refused = decide(
+        host,
+        _tenant_hosts(store, arguments),
+        resolve=_resolve,
+        closed=False,
+        check_private=True,
+    )
+    if refused is not None:
+        return _error("egress_denied", refused)
     return None
 
 

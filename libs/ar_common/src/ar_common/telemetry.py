@@ -55,6 +55,16 @@ def setup(service_name: str, settings: BaseServiceSettings | None = None) -> Non
     if current is None:
         current = get_settings()
     resource = Resource.create({"service.name": service_name})
+    from ar_common.egress_policy import closed_egress, decide_url  # noqa: PLC0415
+
+    if closed_egress():
+        problem = decide_url(
+            current.otel_exporter_otlp_endpoint, [], closed=True, check_private=False
+        )
+        if problem is not None:
+            _log.info("telemetry_skipped", reason="egress_closed")
+            _TelemetryState.ready = True
+            return
     target, insecure = _grpc_target(current.otel_exporter_otlp_endpoint)
     sampler = ParentBased(TraceIdRatioBased(current.trace_sample_ratio))
     tracer_provider = TracerProvider(resource=resource, sampler=sampler)

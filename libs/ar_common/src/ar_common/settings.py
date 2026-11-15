@@ -30,6 +30,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CONSECUTIVE_TOOL_ERROR_LIMIT",
         "AR_CSRF_ALLOWED_ORIGINS",
         "AR_CURSOR_SECRET",
+        "AR_DATA_RESIDENCY",
         "AR_DATABASE_URL",
         "AR_DB_ENCRYPTION_ACTIVE_KEY",
         "AR_DB_ENCRYPTION_KEYS",
@@ -40,7 +41,9 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DEPLOYMENT_MODE",
         "AR_EGRESS_ALLOW_LOOPBACK",
         "AR_EGRESS_ALLOW_WILDCARD",
+        "AR_EGRESS_CLOSED",
         "AR_EGRESS_DENY_CIDRS",
+        "AR_EGRESS_HOSTS",
         "AR_EGRESS_PROXY_URL",
         "AR_EMBEDDING_TIMEOUT_S",
         "AR_ENV",
@@ -256,6 +259,14 @@ class BaseServiceSettings(BaseSettings):
     # Whether ``*`` (reach any host) is honoured in a sandbox egress allowlist. An install
     # decides; the default is no, so an allowlist must name its hosts.
     egress_allow_wildcard: bool = False
+    # When true, model calls, embeddings, connectors, knowledge fetches, search,
+    # webhooks and telemetry may only dial a host on the tenant allowlist or
+    # AR_EGRESS_HOSTS. Default false, so an existing cloud provider keeps working.
+    # The air-gap Helm overlay turns it on.
+    egress_closed: bool = False
+    # Comma-separated hosts this install may reach even when a tenant list is empty.
+    # Used for in-cluster names such as otel-collector when egress_closed is on.
+    egress_hosts: str = ""
     # Whether a sandbox may run without kernel isolation (the docker driver, or an empty
     # one that runs on the host). An install decides; the default is no.
     sandbox_allow_unisolated: bool = False

@@ -116,6 +116,11 @@ def embed(
     rows = [text if isinstance(text, str) else str(text) for text in texts]
     if not rows:
         return []
+    from ar_domain.egress import model_refusal  # noqa: PLC0415
+
+    problem = model_refusal(None, None, f"{target.base_url.rstrip('/')}/embeddings")
+    if problem is not None:
+        raise EmbeddingFailedError(problem)
     payload: dict[str, object] = {"model": target.name}
     asked = dimensions if dimensions is not None else target.dimensions
     if asked is not None:
@@ -162,6 +167,11 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
     if not docs:
         return []
     url, shape = rerank_route(target)
+    from ar_domain.egress import model_refusal  # noqa: PLC0415
+
+    problem = model_refusal(None, None, url)
+    if problem is not None:
+        raise EmbeddingFailedError(problem)
     payload: dict[str, object] = (
         {"queries": [query], "documents": docs}
         if shape == "queries"

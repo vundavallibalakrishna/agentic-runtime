@@ -72,6 +72,10 @@
 {{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "false" }}
 {{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" "false" }}
 {{- end }}
+{{- if .Values.airgap.lockdown }}
+{{- $_ := set $overrides "AR_EGRESS_CLOSED" "true" }}
+{{- $_ := set $overrides "AR_EGRESS_HOSTS" "otel-collector" }}
+{{- end }}
 {{- $cfg := merge $overrides .Values.config }}
 apiVersion: v1
 kind: ConfigMap

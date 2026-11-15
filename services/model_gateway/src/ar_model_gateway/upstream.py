@@ -26,7 +26,9 @@ async def forward_registered(
         return JSONResponse(status_code=502, content=_UNAVAILABLE)
 
 
-async def complete_upstream(body: dict[str, object], target: UpstreamTarget) -> dict[str, object]:
+async def complete_upstream(
+    body: dict[str, object], target: UpstreamTarget
+) -> dict[str, object] | JSONResponse:
     """POST ``/chat/completions`` with the stored key. The key is not copied into the result."""
     payload = dict(body)
     payload["model"] = target.upstream_model
@@ -35,6 +37,14 @@ async def complete_upstream(body: dict[str, object], target: UpstreamTarget) -> 
     if target.api_key:
         headers["Authorization"] = f"Bearer {target.api_key}"
     url = chat_completions_url(target.base_url)
+    from ar_domain.egress import model_refusal  # noqa: PLC0415
+
+    problem = model_refusal(None, None, url)
+    if problem is not None:
+        return JSONResponse(
+            status_code=502,
+            content={"error": {"code": "egress_denied", "message": problem}},
+        )
     async with httpx.AsyncClient(timeout=float(target.timeout_s)) as client:
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()

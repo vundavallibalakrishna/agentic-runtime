@@ -12,9 +12,8 @@ from urllib.parse import urljoin, urlparse
 import httpx
 
 from ar_common.offload import blocking
-from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, host_denied
 from ar_common.settings import loopback_allowed
-from ar_domain.tools.general import _allow_hosts, _host_ok, _resolve
+from ar_domain.tools.general import _allow_hosts, _resolve
 
 if TYPE_CHECKING:
     from typing import Any
@@ -24,17 +23,24 @@ _MAX_SPEC = 2_000_000
 
 
 def guard_public(url: str, *, allow: list[str], loopback: bool) -> str | None:
-    """Return an error when the URL is not an allowed public http(s) address."""
-    parsed = urlparse(url)
-    host = parsed.hostname or ""
-    if parsed.scheme not in {"http", "https"} or not host:
-        return "url must be an http or https URL"
-    if not _host_ok(host, allow):
-        return f"{host} is not on the egress allow list"
-    allowed = loopback and loopback_allowed()
-    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=allowed):
-        return f"{host} is blocked by the egress deny list"
-    return None
+    """Return an error when the URL is not an allowed http(s) address.
+
+    A star in ``allow`` means any public host. Closed egress ignores the star.
+    A host named exactly in ``allow`` may be a private address. Metadata addresses
+    stay denied.
+    """
+    from ar_common.egress_policy import decide_url  # noqa: PLC0415
+
+    listed = [item for item in allow if item != "*"]
+    star = "*" in allow
+    return decide_url(
+        url,
+        listed,
+        resolve=_resolve,
+        closed=True if not star else None,
+        loopback=loopback and loopback_allowed(),
+        check_private=True,
+    )
 
 
 def fetch_text(

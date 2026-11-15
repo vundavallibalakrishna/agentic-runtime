@@ -41,18 +41,28 @@ def run_aws(  # noqa: PLR0917
     if isinstance(creds, dict):
         return creds
     access_key, secret_key, session_token = creds
-    region = config.get("region") or "us-east-1"
-    endpoint = config.get("endpoint", "").rstrip("/")
-    name = tool.name
-    if name.endswith("list_instances") or name.endswith("describe_instance"):
-        return _ec2(store, name, arguments, access_key, secret_key, session_token, region, endpoint)
-    if name.endswith("list_buckets"):
-        return _s3(store, access_key, secret_key, session_token, region, endpoint)
-    if name.endswith("list_iam_users") or name.endswith("list_iam_policies"):
-        return _iam(store, name, access_key, secret_key, session_token, endpoint)
-    if name.endswith("list_cloudtrail_events"):
-        return _trail(store, access_key, secret_key, session_token, region, endpoint)
-    return _fail("unknown_tool", f"Unknown AWS action {name}.")
+    from ar_domain.egress import bind_tenant  # noqa: PLC0415
+
+    tenant_token = bind_tenant(arguments.get("_tenant_id"))
+    try:
+        region = config.get("region") or "us-east-1"
+        endpoint = config.get("endpoint", "").rstrip("/")
+        name = tool.name
+        if name.endswith("list_instances") or name.endswith("describe_instance"):
+            return _ec2(
+                store, name, arguments, access_key, secret_key, session_token, region, endpoint
+            )
+        if name.endswith("list_buckets"):
+            return _s3(store, access_key, secret_key, session_token, region, endpoint)
+        if name.endswith("list_iam_users") or name.endswith("list_iam_policies"):
+            return _iam(store, name, access_key, secret_key, session_token, endpoint)
+        if name.endswith("list_cloudtrail_events"):
+            return _trail(store, access_key, secret_key, session_token, region, endpoint)
+        return _fail("unknown_tool", f"Unknown AWS action {name}.")
+    finally:
+        from ar_domain.egress import reset_tenant  # noqa: PLC0415
+
+        reset_tenant(tenant_token)
 
 
 def probe_aws(
@@ -350,7 +360,9 @@ def _signed(  # noqa: PLR0917
     service: str,
     extra: dict[str, str],
 ) -> tuple[int, object, dict[str, str]]:
-    problem = guard_public(url, allow=["*"], loopback=True)
+    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+
+    problem = guard_public(url, allow=dial_allow(store, current_tenant()), loopback=True)
     if problem:
         return 0, {"error": problem}, {}
     signed = sign_headers(

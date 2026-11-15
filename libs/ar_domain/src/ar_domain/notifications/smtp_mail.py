@@ -13,6 +13,12 @@ def send_smtp(message: dict[str, Any]) -> None:
     port = int(message.get("port") or 0)
     if not host or port <= 0:
         raise smtplib.SMTPException("smtp host is not configured")
+    from ar_common.egress_policy import closed_egress, decide  # noqa: PLC0415
+
+    if closed_egress():
+        problem = decide(host, [], closed=True, check_private=True)
+        if problem is not None:
+            raise smtplib.SMTPException(problem)
     mail = EmailMessage()
     sender = str(message.get("from") or "noreply@dev.local")
     mail["From"] = sender

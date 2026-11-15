@@ -10,6 +10,7 @@ runtime worker.
 import asyncio
 import contextlib
 import hashlib
+import os
 import re
 import threading
 import time
@@ -50,7 +51,6 @@ from ar_domain.models.logic import (
     DEFAULT_DENY_CIDRS,
     AliasRef,
     completion_text,
-    provider_url_denied,
     resolve_alias,
     valid_alias,
 )
@@ -543,8 +543,7 @@ class ChatBehaviour:
         platform: bool,
         api_key: str | None = None,
     ) -> dict[str, object]:
-        if provider_url_denied(base_url, self.deny_cidrs, allow_loopback=self.allow_loopback):
-            raise ArError(ErrorCode.BAD_REQUEST, "provider URL is not allowed")
+        self._refuse_model_url(tenant_id, base_url)
         if kind not in {"openai_compatible", "vllm", "tei", "fake"}:
             raise ArError(ErrorCode.VALIDATION_FAILED, "unknown provider kind")
         provider_id = new_id()
@@ -571,8 +570,7 @@ class ChatBehaviour:
         """Rename a provider, point it at another address, or replace its key."""
         row = self._writable(self.providers, provider_id, tenant_id, platform=platform)
         if base_url:
-            if provider_url_denied(base_url, self.deny_cidrs, allow_loopback=self.allow_loopback):
-                raise ArError(ErrorCode.BAD_REQUEST, "provider URL is not allowed")
+            self._refuse_model_url(tenant_id, base_url)
             row["base_url"] = base_url
         if name:
             row["name"] = name
@@ -1675,7 +1673,29 @@ class ChatBehaviour:
             headers["Authorization"] = f"Bearer {key}"
         from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
 
-        return chat_completions_url(base)
+        url = chat_completions_url(base)
+        self._refuse_model_url(tenant_id, url)
+        return url
+
+    def _refuse_model_url(self, tenant_id: uuid.UUID | None, url: str) -> None:
+        """Closed egress and cluster residency. Residency ``in`` stays open."""
+        from ar_domain.egress import model_refusal  # noqa: PLC0415
+
+        problem = model_refusal(self, tenant_id, url, residency=self._residency(tenant_id))
+        if problem is not None:
+            raise ArError(ErrorCode.BAD_REQUEST, problem)
+
+    def _residency(self, tenant_id: uuid.UUID | None) -> str:
+        override = os.environ.get("AR_DATA_RESIDENCY", "").strip()
+        if override:
+            return override
+        tenants = getattr(self, "tenants", None)
+        if not isinstance(tenants, dict) or tenant_id is None:
+            return "in"
+        row = tenants.get(tenant_id)
+        if isinstance(row, dict) and row.get("data_residency"):
+            return str(row["data_residency"])
+        return "in"
 
     def completion_url(self) -> str:
         """Chat completions. The gateway wins when it is configured."""

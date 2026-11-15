@@ -97,6 +97,11 @@ def fetch_bytes(item: dict[str, object]) -> tuple[bytes, str]:
         return str(item["text"]).encode(), str(item.get("mime_type") or "text/markdown")
     url = str(item.get("uri") or "")
     if url.startswith("http"):
+        from ar_common.egress_policy import decide_url  # noqa: PLC0415
+
+        problem = decide_url(url, [], check_private=True)
+        if problem is not None:
+            raise httpx.HTTPError(problem)
         response = httpx.get(url, timeout=5.0, follow_redirects=False)
         response.raise_for_status()
         return response.content, str(item.get("mime_type") or "text/html")
@@ -133,8 +138,13 @@ def _web(config: dict[str, object]) -> dict[str, object]:
         if isinstance(config.get("allowlist"), list)
         else set()
     )
-    host = urlparse(start).netloc
-    if allow and host not in allow:
+    host = urlparse(start).hostname or ""
+    if allow and host not in allow and urlparse(start).netloc not in allow:
+        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
+    from ar_common.egress_policy import decide  # noqa: PLC0415
+
+    problem = decide(host, list(allow), check_private=True)
+    if problem is not None:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
     proxy = str(config.get("proxy") or "")
     client = httpx.Client(timeout=5.0, proxy=proxy or None, follow_redirects=False)
@@ -197,6 +207,10 @@ def _s3(config: dict[str, object]) -> dict[str, object]:
 def _graph(config: dict[str, object], kind: str) -> dict[str, object]:
     url = str(config.get("url") or "")
     if not url:
+        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
+    from ar_common.egress_policy import decide_url  # noqa: PLC0415
+
+    if decide_url(url, [], check_private=True) is not None:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
     headers = {}
     token = str(config.get("token") or "")

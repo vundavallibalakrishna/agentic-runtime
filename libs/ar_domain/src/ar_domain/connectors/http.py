@@ -154,7 +154,9 @@ def run_http(  # noqa: PLR0911, PLR0912, PLR0915, PLR0917
     if missing:
         return _fail("validation_failed", f"{missing[0]} is required")
     url = _join(base_url, path)
-    problem = guard_public(url, allow=["*"], loopback=True)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(url, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True)
     if problem:
         return _fail("egress_denied", problem)
     params = {
@@ -211,7 +213,11 @@ def run_http(  # noqa: PLR0911, PLR0912, PLR0915, PLR0917
         nxt = _next(tool.page, payload, response_headers, page_url)
         if not nxt or nxt == url:
             break
-        problem = guard_public(nxt, allow=["*"], loopback=True)
+        from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+        problem = guard_public(
+            nxt, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True
+        )
         if problem:
             return _fail("egress_denied", problem)
         url = nxt

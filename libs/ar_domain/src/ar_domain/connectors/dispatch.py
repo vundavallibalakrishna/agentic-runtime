@@ -14,7 +14,19 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-def dispatch_connector(  # noqa: PLR0911
+def dispatch_connector(
+    store: Any, name: str, arguments: dict[str, object]
+) -> dict[str, object]:
+    from ar_domain.egress import bind_tenant, reset_tenant  # noqa: PLC0415
+
+    tenant_token = bind_tenant(arguments.get("_tenant_id"))
+    try:
+        return _dispatch_bound(store, name, arguments)
+    finally:
+        reset_tenant(tenant_token)
+
+
+def _dispatch_bound(  # noqa: PLR0911
     store: Any, name: str, arguments: dict[str, object]
 ) -> dict[str, object]:
     found = tool_by_name(name)
@@ -367,7 +379,9 @@ def _gdrive_upload(
         url = f"{configured}/upload/drive/v3/files?uploadType=multipart"
     else:
         url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
-    problem = guard_public(url, allow=["*"], loopback=True)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(url, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True)
     if problem:
         return _fail("egress_denied", problem)
     name = str(arguments.get("name") or "note.txt")
@@ -410,7 +424,9 @@ def _share_upload(
     path = quote(str(arguments.get("path") or "note.txt"), safe="/")
     base = _config(install).get("baseUrl", "").rstrip("/") or "https://graph.microsoft.com/v1.0"
     url = f"{base}/me/drive/root:/{path}:/content"
-    problem = guard_public(url, allow=["*"], loopback=True)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(url, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True)
     if problem:
         return _fail("egress_denied", problem)
     text = str(arguments.get("text") or "")
@@ -444,7 +460,7 @@ def _probe_email(
     host = config.get("smtpHost", "")
     if not host:
         return {"ok": False, "status": 0, "error": "Set the SMTP host on the connector."}
-    problem = host_blocked(host)
+    problem = host_blocked(store, host)
     if problem:
         return {"ok": False, "status": 0, "error": problem}
     port = _port(config.get("smtpPort"), 587)

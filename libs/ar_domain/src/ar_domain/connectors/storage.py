@@ -36,7 +36,7 @@ def _endpoint_host(endpoint: str) -> str | None:
 def list_objects(store: Any, settings: dict[str, str], *, prefix: str) -> dict[str, object]:
     host = _endpoint_host(settings["endpoint"])
     if host:
-        problem = host_blocked(host)
+        problem = host_blocked(store, host)
         if problem:
             return _fail(problem)
     try:
@@ -60,7 +60,7 @@ def list_objects(store: Any, settings: dict[str, str], *, prefix: str) -> dict[s
 def get_object(store: Any, settings: dict[str, str], *, key: str) -> dict[str, object]:
     host = _endpoint_host(settings["endpoint"])
     if host:
-        problem = host_blocked(host)
+        problem = host_blocked(store, host)
         if problem:
             return _fail(problem)
     try:
@@ -82,7 +82,7 @@ def get_object(store: Any, settings: dict[str, str], *, key: str) -> dict[str, o
 def put_object(store: Any, settings: dict[str, str], *, key: str, text: str) -> dict[str, object]:
     host = _endpoint_host(settings["endpoint"])
     if host:
-        problem = host_blocked(host)
+        problem = host_blocked(store, host)
         if problem:
             return _fail(problem)
     payload = text.encode()

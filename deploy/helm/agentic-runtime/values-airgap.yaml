@@ -3,6 +3,9 @@ global:
   imageRegistry: registry.example.internal/ar
 airgap:
   lockdown: true
+# lockdown also sets AR_EGRESS_CLOSED=true and AR_EGRESS_HOSTS=otel-collector,
+# and drops the chart's extra port 443 rules. Add in-cluster model hosts to
+# AR_EGRESS_HOSTS or the tenant allowlist before pointing a provider at them.
 sandboxes:
   driver: kubernetes
 egress:

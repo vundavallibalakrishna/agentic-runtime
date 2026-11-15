@@ -42,9 +42,11 @@ spec:
   egress:
     - to:
         - podSelector: {}
+    {{- if not .Values.airgap.lockdown }}
     - ports:
         - port: 443
           protocol: TCP
+    {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -143,8 +145,10 @@ spec:
               ar.io/purpose: sandboxes
       ports:
         - {port: 8080, protocol: TCP}
+    {{- if not .Values.airgap.lockdown }}
     - ports:
         - {port: 443, protocol: TCP}
+    {{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
