@@ -241,9 +241,14 @@ def probe_http(
     headers: dict[str, str],
     base_url: str,
     path: str | None = None,
+    *,
+    tenant_id: object = None,
 ) -> dict[str, object]:
+    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+
     url = _join(base_url, connector.probe_path if path is None else path)
-    problem = guard_public(url, allow=["*"], loopback=True)
+    chosen = current_tenant() if tenant_id is None else tenant_id
+    problem = guard_public(url, allow=dial_allow(store, chosen), loopback=True)
     if problem:
         return {"ok": False, "status": 0, "error": problem}
     status, _payload, response_headers, error = _once(

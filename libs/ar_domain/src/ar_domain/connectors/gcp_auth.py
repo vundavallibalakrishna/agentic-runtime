@@ -84,7 +84,10 @@ def bearer_for(  # noqa: PLR0911
         assertion = service_account_assertion(info, chosen, datetime.now(UTC))
     except ValueError, TypeError:
         return _fail("The service-account private key could not be read.")
-    problem = guard_public(_OAUTH_URL, allow=["*"], loopback=False)
+    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+
+    tenant = row.get("tenant_id") or current_tenant()
+    problem = guard_public(_OAUTH_URL, allow=dial_allow(store, tenant), loopback=False)
     if problem:
         return _fail(problem)
     status, payload = _exchange(store, token_form(assertion))

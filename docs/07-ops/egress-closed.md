@@ -6,7 +6,8 @@ Set it to `true` to refuse outbound calls whose host is not on the tenant allowl
 
 - chat completions, including the model gateway
 - embedding and rerank calls
-- connector HTTP, AWS, SMTP, IMAP and S3 endpoints
+- connector HTTP, probes, OAuth token URLs, the Google service-account exchange, AWS, SMTP, IMAP and S3 endpoints
+- cloud OCR endpoints named by a tenant secret
 - knowledge source fetches
 - web search
 - notification SMTP, web push, and a SIEM URL on audit export

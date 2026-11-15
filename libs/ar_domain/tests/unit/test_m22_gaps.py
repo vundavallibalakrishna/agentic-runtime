@@ -225,10 +225,10 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(ArError):
         _token_response("https://example.com/token", {"grant_type": "client_credentials"})
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "invalid", "verifier"))
+        asyncio.run(_exchange(store, saved, "invalid", "verifier"))
     saved["token_url"] = "http://169.254.169.254/token"
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "auth-code", "verifier"))
+        asyncio.run(_exchange(store, saved, "auth-code", "verifier"))
     saved["token_url"] = "https://example.com/token"
 
     real_async = httpx.AsyncClient
@@ -239,7 +239,7 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
 
     monkeypatch.setattr(httpx, "AsyncClient", _async)
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "auth-code", "verifier"))
+        asyncio.run(_exchange(store, saved, "auth-code", "verifier"))
     monkeypatch.setattr(
         httpx,
         "AsyncClient",
@@ -251,8 +251,9 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
         ),
     )
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "auth-code", "verifier"))
+        asyncio.run(_exchange(store, saved, "auth-code", "verifier"))
     refreshed = _refresh_token(
+        store,
         {
             "name": "userlogin",
             "token_url": "memory://tokens",

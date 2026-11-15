@@ -115,11 +115,12 @@ def probe_install(  # noqa: PLR0911
             headers,
             _base(connector, install),
             path=f"/subscriptions/{subscription}?api-version=2022-12-01",
+            tenant_id=actor_tenant,
         )
     base = _base(connector, install)
     if not base:
         return {"ok": False, "status": 0, "error": "Set the site URL on the connector first."}
-    return probe_http(store, connector, headers, base)
+    return probe_http(store, connector, headers, base, tenant_id=actor_tenant)
 
 
 def _special(  # noqa: PLR0911, PLR0917
