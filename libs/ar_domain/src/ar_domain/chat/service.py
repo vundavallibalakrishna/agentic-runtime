@@ -1674,19 +1674,28 @@ class ChatBehaviour:
         from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
 
         url = chat_completions_url(base)
-        self._refuse_model_url(tenant_id, url)
+        self._refuse_model_url(tenant_id, url, at_call=True)
         return url
 
-    def _refuse_model_url(self, tenant_id: uuid.UUID | None, url: str) -> None:
-        """Closed egress and cluster residency. Residency ``in`` stays open."""
+    def _refuse_model_url(
+        self, tenant_id: uuid.UUID | None, url: str, *, at_call: bool = False
+    ) -> None:
+        """Closed egress and cluster residency. Residency ``in`` stays open.
+
+        Saving a provider uses this service's loopback flag, so a strict store
+        cannot record ``127.0.0.1``. A call also honours the install flag,
+        because the worker that reloads a saved provider is a new process.
+        """
+        from ar_common.settings import loopback_allowed  # noqa: PLC0415
         from ar_domain.egress import model_refusal  # noqa: PLC0415
 
+        loop = self.allow_loopback or (loopback_allowed() if at_call else False)
         problem = model_refusal(
             self,
             tenant_id,
             url,
             residency=self._residency(tenant_id),
-            loopback=self.allow_loopback,
+            loopback=loop,
         )
         if problem is not None:
             raise ArError(ErrorCode.BAD_REQUEST, problem)
