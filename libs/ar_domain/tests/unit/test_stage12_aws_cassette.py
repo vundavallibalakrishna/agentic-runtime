@@ -29,7 +29,7 @@ _BUCKETS = b"""<?xml version="1.0"?>
 
 def test_aws_reads_replay_a_local_xml_cassette() -> None:
     class Handler(BaseHTTPRequestHandler):
-        def do_POST(self) -> None:  # noqa: N802
+        def do_POST(self) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             self.rfile.read(length)
             body = _INSTANCES
@@ -39,7 +39,7 @@ def test_aws_reads_replay_a_local_xml_cassette() -> None:
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             body = _BUCKETS
             self.send_response(200)
             self.send_header("Content-Type", "text/xml")
@@ -54,7 +54,7 @@ def test_aws_reads_replay_a_local_xml_cassette() -> None:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_address[1]}"
     try:
-        from ar_testing.demo import demo_store  # noqa: PLC0415
+        from ar_testing.demo import demo_store
 
         store = demo_store()
         actor = Actor(__import__("uuid").uuid4(), __import__("uuid").uuid4(), PERMISSION_KEYS)

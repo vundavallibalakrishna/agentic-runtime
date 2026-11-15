@@ -14,9 +14,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-def dispatch_connector(
-    store: Any, name: str, arguments: dict[str, object]
-) -> dict[str, object]:
+def dispatch_connector(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
     from ar_domain.egress import bind_tenant, reset_tenant  # noqa: PLC0415
 
     tenant_token = bind_tenant(arguments.get("_tenant_id"))
