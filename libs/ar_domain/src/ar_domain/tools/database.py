@@ -12,7 +12,7 @@ import os
 import re
 import socket
 import uuid
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
@@ -61,6 +61,7 @@ def probe(store: Any, row: dict[str, object]) -> dict[str, object]:
             timeout_s=5,
             limit=1,
             allow=as_mapping(row.get("allowlist")),
+            hosts=_tenant_hosts(store, row),
         )
         checks.append({"name": "connectivity", "ok": True, "detail": "the connection answered"})
     except Exception as exc:  # noqa: BLE001
@@ -84,7 +85,13 @@ def catalog(store: Any, row: dict[str, object]) -> dict[str, object]:
         "ORDER BY 1, 2"
     )
     found = _execute(
-        dsn, engine, sql, timeout_s=10, limit=500, allow=as_mapping(row.get("allowlist"))
+        dsn,
+        engine,
+        sql,
+        timeout_s=10,
+        limit=500,
+        allow=as_mapping(row.get("allowlist")),
+        hosts=_tenant_hosts(store, row),
     )
     tables = [
         {"name": f"{item[0]}.{item[1]}", "columns": []} for item in found["rows"] if len(item) >= 2
@@ -143,6 +150,7 @@ def _list_schemas(store: Any, arguments: dict[str, object]) -> dict[str, object]
         timeout_s=limits["timeout_s"],
         limit=200,
         allow=as_mapping(row.get("allowlist")),
+        hosts=_tenant_hosts(store, row),
     )
     names = [str(item[0]) for item in found["rows"] if item]
     if limits["schemas"]:
@@ -190,6 +198,7 @@ def _describe(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         limit=200,
         params=(schema, table),
         allow=as_mapping(row.get("allowlist")),
+        hosts=_tenant_hosts(store, row),
     )
     described = [
         {"name": str(item[0]), "type": str(item[1])} for item in found["rows"] if len(item) >= 2
@@ -223,6 +232,7 @@ def _query(store: Any, arguments: dict[str, object]) -> dict[str, object]:
         timeout_s=limits["timeout_s"],
         limit=limits["row_limit"],
         allow=as_mapping(row.get("allowlist")),
+        hosts=_tenant_hosts(store, row),
     )
     return _with_progress(store, arguments, checked, found, limits["row_limit"])
 
@@ -319,23 +329,28 @@ def _execute(
     limit: int,
     params: tuple[object, ...] = (),
     allow: dict[str, object] | None = None,
+    hosts: list[str] | None = None,
 ) -> dict[str, Any]:
     _refuse_unsafe(dsn, allow or {})
+    chosen = list(hosts or [])
     if engine == "mysql":
-        return _mysql(dsn, sql, timeout_s=timeout_s, limit=limit, params=params)
-    return _postgres(dsn, sql, timeout_s=timeout_s, limit=limit, params=params)
+        return _mysql(dsn, sql, timeout_s=timeout_s, limit=limit, params=params, hosts=chosen)
+    return _postgres(dsn, sql, timeout_s=timeout_s, limit=limit, params=params, hosts=chosen)
 
 
 def _postgres(
-    dsn: str, sql: str, *, timeout_s: int, limit: int, params: tuple[object, ...]
+    dsn: str,
+    sql: str,
+    *,
+    timeout_s: int,
+    limit: int,
+    params: tuple[object, ...],
+    hosts: list[str],
 ) -> dict[str, Any]:
     import psycopg  # noqa: PLC0415
 
-    from ar_common.egress_http import approved_addresses, pin_dns  # noqa: PLC0415
-
     host = urlsplit(clean_dsn(dsn)).hostname or ""
-    addresses = approved_addresses(host) if host else []
-    with pin_dns(host, addresses) if host else nullcontext():
+    with _pin(host, hosts):
         conn = psycopg.connect(clean_dsn(dsn), connect_timeout=5)
     try:
 
@@ -356,16 +371,19 @@ def _postgres(
 
 
 def _mysql(
-    dsn: str, sql: str, *, timeout_s: int, limit: int, params: tuple[object, ...]
+    dsn: str,
+    sql: str,
+    *,
+    timeout_s: int,
+    limit: int,
+    params: tuple[object, ...],
+    hosts: list[str],
 ) -> dict[str, Any]:
     import pymysql  # type: ignore[import-untyped]  # noqa: PLC0415
 
     parts = urlsplit(clean_dsn(dsn))
-    from ar_common.egress_http import approved_addresses, pin_dns  # noqa: PLC0415
-
     host = parts.hostname or ""
-    addresses = approved_addresses(host) if host else []
-    with pin_dns(host, addresses) if host else nullcontext():
+    with _pin(host, hosts):
         conn = pymysql.connect(
             host=parts.hostname or "localhost",
             port=parts.port or 3306,
@@ -468,6 +486,35 @@ def _with_progress(
         detail="truncated" if found.get("truncated") else "",
     )
     return attach_progress(rendered, job)
+
+
+def _pin(host: str, hosts: list[str]) -> AbstractContextManager[None]:
+    """Pin the dial address. Open mode still allows a private database.
+
+    Closed mode uses the tenant allowlist. Link-local and metadata hosts are
+    refused earlier by :func:`_refuse_unsafe`.
+    """
+    from ar_common.egress_http import (  # noqa: PLC0415
+        EgressDenied,
+        approved_addresses,
+        pin_dns,
+        resolve_host,
+    )
+    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+    if not host:
+        return nullcontext()
+    try:
+        addresses = approved_addresses(host, hosts) if closed_egress() else resolve_host(host)
+    except EgressDenied as exc:
+        raise SqlRejected(exc.reason) from exc
+    return pin_dns(host, addresses)
+
+
+def _tenant_hosts(store: Any, row: dict[str, object]) -> list[str]:
+    from ar_domain.egress import tenant_hosts  # noqa: PLC0415
+
+    return tenant_hosts(store, row.get("tenant_id"))
 
 
 def _refuse_unsafe(dsn: str, allow: dict[str, object]) -> None:

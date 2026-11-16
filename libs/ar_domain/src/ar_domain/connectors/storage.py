@@ -63,6 +63,9 @@ def _bound(client: Any, endpoint: str) -> Any:
         def __getattr__(self, name: str) -> Any:
             method = getattr(client, name)
 
+            if not callable(method):
+                return method
+
             def call(*args: object, **kwargs: object) -> object:
                 with pin_dns(host, approved_addresses(host)):
                     return method(*args, **kwargs)

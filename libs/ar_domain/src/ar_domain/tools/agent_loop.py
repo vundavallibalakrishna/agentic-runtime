@@ -17,7 +17,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import budget_exceeded
-from ar_domain.runs.request import asked
+from ar_domain.runs.request import asked, permissions_of
 from ar_domain.tools.gateway_client import execute_tool
 from ar_domain.tools.images import build_image_message, collect_images
 from ar_domain.tools.logic import call_args_hash
@@ -1093,7 +1093,7 @@ def _act(  # noqa: PLR0917
             "step": attempt,
             "call_index": attempt,
             "query_id": run.get("query_id"),
-            "permissions": run.get("permissions"),
+            "permissions": permissions_of(run),
         },
     )
     if result.get("status") == "awaiting_approval":

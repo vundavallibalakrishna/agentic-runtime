@@ -6,7 +6,7 @@ loads the run from the database. These two functions are the only way to set and
 
 from __future__ import annotations
 
-OPTIONS = frozenset({"response_format", "suggest_followups", "orchestration_child"})
+OPTIONS = frozenset({"response_format", "suggest_followups", "orchestration_child", "permissions"})
 
 
 def ask(run: dict[str, object], name: str, value: object) -> None:
@@ -24,3 +24,18 @@ def asked(run: dict[str, object], name: str) -> object:
     """The option's value, or None when the turn did not ask for it."""
     current = run.get("request")
     return current.get(name) if isinstance(current, dict) else None
+
+
+def permissions_of(run: dict[str, object]) -> list[str] | None:
+    """The caller's effective permissions, including after a reload.
+
+    A loose field is enough in the process that created the run. The copy kept
+    on ``request`` is what another process reads back from the database.
+    """
+    direct = run.get("permissions")
+    if isinstance(direct, list | tuple):
+        return [str(item) for item in direct]
+    stored = asked(run, "permissions")
+    if isinstance(stored, list | tuple):
+        return [str(item) for item in stored]
+    return None

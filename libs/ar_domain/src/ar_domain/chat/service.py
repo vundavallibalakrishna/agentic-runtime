@@ -1554,6 +1554,9 @@ class ChatBehaviour:
         )
         if permissions is not None:
             run["permissions"] = list(permissions)
+            from ar_domain.runs.request import ask  # noqa: PLC0415
+
+            ask(run, "permissions", list(permissions))
         from ar_domain.runs.request import ask  # noqa: PLC0415
 
         if suggest_followups:
@@ -2842,15 +2845,26 @@ class ChatBehaviour:
         callback_url: str | None,
         on_behalf_of: uuid.UUID | None,
         allow_on_behalf: bool,
+        permissions: list[str] | None = None,
     ) -> dict[str, object]:
         if on_behalf_of is not None and not allow_on_behalf:
             raise ArError(ErrorCode.FORBIDDEN, "on behalf of is not allowed")
         conversation = self.create_conversation(tenant_id, on_behalf_of or user_id, agent_id)
         conversation_id = uuid.UUID(str(conversation["id"]))
-        posted = self.post_message(tenant_id, on_behalf_of or user_id, conversation_id, text)
+        posted = self.post_message(
+            tenant_id,
+            on_behalf_of or user_id,
+            conversation_id,
+            text,
+            permissions=permissions,
+        )
         run = self.runs[uuid.UUID(str(posted["run"]["id"]))]  # type: ignore[index]
         run["trigger"] = "api"
         run["callback_url"] = callback_url
+        if permissions is not None:
+            from ar_domain.runs.request import ask  # noqa: PLC0415
+
+            ask(run, "permissions", list(permissions))
         return posted
 
     def regenerate(
