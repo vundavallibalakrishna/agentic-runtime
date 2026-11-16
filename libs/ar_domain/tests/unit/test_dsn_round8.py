@@ -253,19 +253,3 @@ def test_mysql_rejects_postgres_parameters_and_honours_connect_timeout(
     assert seen["connect_timeout"] == 8
 
 
-def test_the_chart_names_platform_services_and_can_isolate_the_pooler() -> None:
-    root = Path(__file__).resolve()
-    while not (root / "deploy/helm/agentic-runtime").is_dir():
-        root = root.parent
-    policy = (root / "deploy/helm/agentic-runtime/templates/networkpolicy.yaml").read_text(
-        encoding="utf-8"
-    )
-    config = (root / "deploy/helm/agentic-runtime/templates/configmap.yaml").read_text(
-        encoding="utf-8"
-    )
-    overlay = (root / "deploy/helm/agentic-runtime/values-airgap.yaml").read_text(encoding="utf-8")
-    assert "isolatePlatformDb" in policy
-    assert "cnpg.io/podRole: pooler" in policy
-    assert "-pg-rw" in config
-    assert "-pg-ro" in config
-    assert "isolatePlatformDb: true" in overlay

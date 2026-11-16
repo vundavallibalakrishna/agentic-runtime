@@ -5,6 +5,10 @@
 # Replicas and the autoscaler minimum stay at 1 when this is false.
 process:
   shared: true
+# The chart cannot discover this. Set it so customer connections to platform
+# pod IPs are refused. Empty leaves that control to the NetworkPolicy.
+cluster:
+  podCIDR: ""
 global:
   imageRegistry: ''
   imageTag: "1.0.0"
@@ -51,6 +55,7 @@ config:
   AR_DB_MAX_ADDRESSES: '4'
   AR_DB_MIN_SSLMODE: ''
   AR_DB_STRICT_TLS: 'true'
+  AR_DB_STRICT_TLS_FLOOR: verify-full
   AR_PLATFORM_DB_DENY_CIDRS: ''
   AR_PLATFORM_DB_DENY_HOSTS: ''
   AR_EGRESS_CLOSED: 'false'
@@ -246,8 +251,11 @@ postgres:
   password: ar-install-db
   # Extra platform database names, appended to the bundled CNPG services.
   denyHosts: []
-  # Pod CIDR of the platform database, when the operator knows it.
+  # Extra pod CIDRs. The chart cannot discover the cluster pod CIDR; set
+  # cluster.podCIDR for that. Both are copied into AR_PLATFORM_DB_DENY_CIDRS.
   denyCidrs: []
+  # Required when airgap.isolatePlatformDb is on and Postgres is not bundled.
+  externalCidrs: []
   image:
     repository: pgvector/pgvector
     tag: 0.8.7-pg18-trixie
@@ -340,9 +348,12 @@ networkPolicy:
   enabled: true
 airgap:
   lockdown: false
-  # When true, the runtime worker may open 5432 only to the CNPG pooler.
-  # Instance pods (-rw, -ro, -r) stay unreachable from tool runs.
+  # When true, the API and the runtime worker may open 5432 only to the
+  # platform database (CNPG pooler, the StatefulSet, or postgres.externalCidrs)
+  # plus airgap.tenantDbCidrs. A vector read DSN must use that same path.
   isolatePlatformDb: false
+  # Customer database networks the API may dial when it tests a connection.
+  tenantDbCidrs: []
   # Appended to otel-collector and any AR_EGRESS_HOSTS already in config.
   egressHosts: []
   # Extra NetworkPolicy egress, for an on-prem model or connector.

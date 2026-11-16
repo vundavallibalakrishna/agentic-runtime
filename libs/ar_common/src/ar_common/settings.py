@@ -1,5 +1,6 @@
 """Process settings. Spec: docs/07-ops/environments.md sections 2-3."""
 
+import ipaddress
 import os
 from enum import StrEnum
 from pathlib import Path
@@ -39,6 +40,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DB_MAX_ADDRESSES",
         "AR_DB_MIN_SSLMODE",
         "AR_DB_STRICT_TLS",
+        "AR_DB_STRICT_TLS_FLOOR",
         "AR_DB_ENCRYPTION_KEYS",
         "AR_DURABLE_STATE",
         "AR_DEV_MODEL_API_KEY",
@@ -296,6 +298,9 @@ class BaseServiceSettings(BaseSettings):
     db_min_sslmode: str = ""
     # When true, closed egress rejects ``require`` and demands certificate verification.
     db_strict_tls: bool = True
+    # ``verify-full`` checks the server name. Set ``verify-ca`` for a database
+    # addressed by IP, or whose certificate has no matching name.
+    db_strict_tls_floor: str = "verify-full"
     # Comma-separated names of the platform database services. A customer DSN that
     # resolves to one of them is refused on any port.
     platform_db_deny_hosts: str = ""
@@ -380,7 +385,23 @@ class BaseServiceSettings(BaseSettings):
             self.log_hash_user_ids = True
         apply_host_ports(self)
         self._refuse_default_cursor_secret()
+        self._refuse_bad_platform_cidrs()
         return self
+
+    def _refuse_bad_platform_cidrs(self) -> None:
+        """A malformed deny CIDR stops the process instead of being skipped."""
+        floor = self.db_strict_tls_floor.strip().lower()
+        if floor not in {"verify-ca", "verify-full"}:
+            raise ValueError("AR_DB_STRICT_TLS_FLOOR must be verify-ca or verify-full")
+        self.db_strict_tls_floor = floor
+        for raw in self.platform_db_deny_cidrs.split(","):
+            text = raw.strip()
+            if not text:
+                continue
+            try:
+                ipaddress.ip_network(text, strict=False)
+            except ValueError as exc:
+                raise ValueError(f"AR_PLATFORM_DB_DENY_CIDRS has an invalid CIDR: {text}") from exc
 
     def _refuse_default_cursor_secret(self) -> None:
         """Staging and production do not boot with a missing or well-known cursor secret."""

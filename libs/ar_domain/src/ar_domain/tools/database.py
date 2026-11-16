@@ -74,7 +74,8 @@ _POSTGRES_ONLY = frozenset(
 _REFUSED_CERT_ROOTS = frozenset(
     {"/", "/tmp", "/var/tmp", "/etc", "/proc", "/dev", "/sys", "/run"}  # noqa: S108
 )
-_HOST_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+# Underscores are not in RFC 1123. Internal DNS and libpq accept them.
+_HOST_LABEL = re.compile(r"[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?")
 _TENANT_ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 _FATAL_CONNECT = (
     "password authentication failed",
@@ -507,7 +508,8 @@ def _connect_mysql(pymysql: Any, dial: _Dial, timeout_s: int) -> Any:
             "password": dial.password,
             "database": dial.database,
             "connect_timeout": budget,
-            "read_timeout": max(1, timeout_s),
+            "read_timeout": min(max(1, timeout_s), budget),
+            "write_timeout": budget,
             "autocommit": False,
         }
         if dial.params.get("charset"):
@@ -518,13 +520,18 @@ def _connect_mysql(pymysql: Any, dial: _Dial, timeout_s: int) -> Any:
             kwargs["ssl"] = context
         try:
             with _pin(dial.host, [address]):
-                return pymysql.connect(**kwargs)
+                conn = pymysql.connect(**kwargs)
         except SqlRejected:
             raise
         except Exception as exc:
             if _stop_trying(exc):
                 raise SqlRejected(_public(exc, dial.dsn, dial.password)) from exc
             last = exc
+        else:
+            sock = getattr(conn, "_sock", None)
+            if sock is not None:
+                sock.settimeout(max(1, timeout_s))
+            return conn
     return _give_up(dial, last, tried)
 
 
@@ -876,6 +883,8 @@ def _query_params(query: str, engine: str, tenant_id: str | None) -> dict[str, s
             raise SqlRejected(f"connection parameter {name} is not allowed")
         if engine == "mysql" and name in _POSTGRES_ONLY:
             raise SqlRejected(f"connection parameter {name} is not used by mysql")
+        if engine == "postgres" and name == "charset":
+            raise SqlRejected("connection parameter charset is not used by postgres")
         found[name] = _checked(name, value, tenant_id)
     if ("sslcert" in found) != ("sslkey" in found):
         raise SqlRejected("sslcert and sslkey must be set together")
@@ -924,6 +933,7 @@ def _cert_file(name: str, value: str, tenant_id: str | None) -> str:
             _check_key(real)
         return real
     if _shared_ca(real, tenant_id):
+        _refuse_key_material(name, real)
         return real
     raise SqlRejected(f"{name} is outside the certificate directory")
 
@@ -945,8 +955,9 @@ def _shared_ca(real: str, tenant_id: str | None) -> bool:
     if not root or not _inside(root, real):
         return False
     relative = Path(real).relative_to(root)
-    if relative.parts and _TENANT_ID.fullmatch(relative.parts[0]):
-        return bool(tenant_id) and relative.parts[0] == tenant_id
+    first = relative.parts[0].lower() if relative.parts else ""
+    if _TENANT_ID.fullmatch(first):
+        return bool(tenant_id) and first == tenant_id
     return True
 
 
@@ -971,15 +982,47 @@ def _inside(root: str, real: str) -> bool:
 
 def _check_key(path: str) -> None:
     try:
-        head = Path(path).read_bytes()[:4096]
+        head = Path(path).read_bytes()
+        info = Path(path).stat()
     except OSError as exc:
         raise SqlRejected("sslkey could not be read") from exc
-    if b"ENCRYPTED" in head:
+    if _key_is_encrypted(head):
         raise SqlRejected("sslkey is encrypted; provide an unencrypted key")
-    mode = Path(path).stat().st_mode & 0o777
+    mode = info.st_mode & 0o777
+    if mode & 0o007 or not mode & 0o400:
+        raise SqlRejected("sslkey must be readable only by its owner")
     group = mode & 0o070
-    if mode & 0o007 or group not in {0, 0o040} or not mode & 0o400:
-        raise SqlRejected("sslkey must be readable only by the owner, or owner and group")
+    if group == 0:
+        return
+    if group == 0o040 and info.st_uid == 0:
+        return
+    raise SqlRejected("sslkey must be mode 0600, or 0640 and owned by root")
+
+
+def _key_is_encrypted(data: bytes) -> bool:
+    if b"ENCRYPTED" in data[:4096]:
+        return True
+    from cryptography.hazmat.primitives.serialization import (  # noqa: PLC0415
+        load_der_private_key,
+        load_pem_private_key,
+    )
+
+    loader = load_pem_private_key if b"-----BEGIN" in data[:80] else load_der_private_key
+    try:
+        loader(data, password=None)
+    except (TypeError, ValueError) as exc:
+        text = str(exc).lower()
+        return "password was not given" in text or "private key is encrypted" in text
+    return False
+
+
+def _refuse_key_material(name: str, path: str) -> None:
+    try:
+        head = Path(path).read_bytes()[:4096]
+    except OSError as exc:
+        raise SqlRejected(f"{name} could not be read") from exc
+    if b"PRIVATE KEY" in head or path.endswith(".key"):
+        raise SqlRejected(f"{name} must be a certificate, not a key")
 
 
 def _ca_bundle() -> str:
@@ -1002,7 +1045,7 @@ def _apply_tls(params: dict[str, str]) -> None:
     if floor and floor not in _SSL_RANK:
         floor = ""
     if closed_egress():
-        closed_floor = "verify-full" if settings.db_strict_tls else "require"
+        closed_floor = settings.db_strict_tls_floor if settings.db_strict_tls else "require"
         if not floor or _SSL_RANK[floor] < _SSL_RANK[closed_floor]:
             floor = closed_floor
     if not mode and floor:
@@ -1100,30 +1143,56 @@ def _platform_blocked(parsed: _Dial, addresses: list[str], allow: dict[str, obje
     return _hits_deny_list(parsed.host, addresses)
 
 
+_DENY_TTL_S = 60.0
+_deny_cache: dict[tuple[str, int], tuple[float, set[str]]] = {}
+
+
+def _deny_names() -> set[str]:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return {
+        item.strip().rstrip(".").lower()
+        for item in str(get_settings().platform_db_deny_hosts or "").split(",")
+        if item.strip()
+    }
+
+
+def _deny_addresses(names: set[str]) -> set[str]:
+    """Resolve the deny list once per TTL. A miss with no cache refuses the dial."""
+    now = time.monotonic()
+    resolver = id(socket.getaddrinfo)
+    found: set[str] = set()
+    for name in names:
+        key = (name, resolver)
+        cached = _deny_cache.get(key)
+        if cached is not None and now - cached[0] < _DENY_TTL_S:
+            found.update(cached[1])
+            continue
+        try:
+            addresses = set(_lookup_once(name))
+        except SqlRejected:
+            if cached is not None:
+                found.update(cached[1])
+                continue
+            raise SqlRejected("the platform database deny list did not resolve") from None
+        _deny_cache[key] = (now, addresses)
+        found.update(addresses)
+    return found
+
+
 def _hits_deny_list(host: str, addresses: list[str]) -> bool:
     from ar_common.settings import get_settings  # noqa: PLC0415
 
-    settings = get_settings()
-    names = {
-        item.strip().rstrip(".").lower()
-        for item in str(settings.platform_db_deny_hosts or "").split(",")
-        if item.strip()
-    }
+    names = _deny_names()
     if host in names:
         return True
-    ours = set(addresses)
-    for name in names:
-        with suppress(SqlRejected):
-            if ours & set(_lookup_once(name)):
-                return True
-    for raw in str(settings.platform_db_deny_cidrs or "").split(","):
+    if names and set(addresses) & _deny_addresses(names):
+        return True
+    for raw in str(get_settings().platform_db_deny_cidrs or "").split(","):
         text = raw.strip()
         if not text:
             continue
-        try:
-            network = ipaddress.ip_network(text, strict=False)
-        except ValueError:
-            continue
+        network = ipaddress.ip_network(text, strict=False)
         for address in addresses:
             try:
                 if ipaddress.ip_address(address) in network:
