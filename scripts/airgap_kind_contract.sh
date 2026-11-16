@@ -145,10 +145,20 @@ if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-b
 fi
 
 echo "waiting for workloads"
+# The API starts before Postgres is ready and can trip its progress deadline.
+kubectl -n "$namespace" rollout restart deploy/agentic-runtime-api
 for deploy in api runtime-worker mcp-gateway sandbox-manager model-gateway fake-llm temporal; do
   if ! kubectl -n "$namespace" rollout status "deploy/agentic-runtime-${deploy}" --timeout=15m; then
     kubectl -n "$namespace" get pods -o wide || true
-    kubectl -n "$namespace" logs -l "app.kubernetes.io/name=${deploy}" --all-containers --tail=200 || true
+    kubectl -n "$namespace" exec "deploy/agentic-runtime-${deploy}" -- \
+      python -c 'import urllib.request
+try:
+    print(urllib.request.urlopen("http://127.0.0.1:8000/readyz", timeout=5).read().decode())
+except Exception as exc:
+    body = getattr(exc, "read", lambda: b"")()
+    print(body.decode() if isinstance(body, bytes) else body)
+    print(exc)' || true
+    kubectl -n "$namespace" logs -l "app.kubernetes.io/name=${deploy}" --all-containers --tail=80 || true
     exit 1
   fi
 done
