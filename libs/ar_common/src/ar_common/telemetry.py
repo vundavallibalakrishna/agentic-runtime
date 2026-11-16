@@ -54,9 +54,7 @@ def _otel_channel(target: str, *, insecure: bool) -> tuple[str, tuple[tuple[str,
     endpoint = f"{shown}:{port}" if separator else shown
     if insecure:
         return endpoint, None
-    import grpc  # noqa: PLC0415
-
-    return endpoint, (grpc.ssl_target_name_override(host),)
+    return endpoint, (("grpc.ssl_target_name_override", host),)
 
 
 def _grpc_target(endpoint: str) -> tuple[str, bool]:
