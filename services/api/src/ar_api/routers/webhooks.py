@@ -120,48 +120,59 @@ async def redeliver(
 @expose(public=False, permission="tenant:manage")
 async def rotate_callback(request: Request) -> dict[str, str]:
     from ar_api.deps import current_principal  # noqa: PLC0415
-    from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
 
-    secret = await request.app.state.webhooks.rotate_callback()
+    secret = request.app.state.webhooks.mint_callback_secret()
     principal = current_principal(request)
     if principal.tenant_id is not None:
-        write_named_secret(
-            request.app.state.chat,
-            principal.tenant_id,
-            "__run_callback_secret__",
-            secret,
-        )
-        await _audit_callback_secret(request, principal)
+        await _store_callback_secret(request, principal, secret)
+    else:
+        request.app.state.webhooks.apply_callback_secret(secret)
     return {"secret": secret}
 
 
-async def _audit_callback_secret(request: Request, principal: object) -> None:
-    """Record the rotation. The secret value is not in the event."""
+async def _store_callback_secret(request: Request, principal: object, secret: str) -> None:
+    """Commit the secret, then install it. A failed write leaves the old secret."""
     from ar_domain.audit.actions import AuditAction  # noqa: PLC0415
     from ar_domain.audit.memory import remember  # noqa: PLC0415
+    from ar_domain.tools.named_secrets import (  # noqa: PLC0415
+        install_named_secret,
+        stage_named_secret,
+        write_named_secret,
+    )
 
     chat = request.app.state.chat
+    webhooks = request.app.state.webhooks
+    tenant_id = getattr(principal, "tenant_id", None)
     detail: dict[str, object] = {"name": "__run_callback_secret__"}
     engine = getattr(chat, "durable_engine", None)
+    if not isinstance(tenant_id, uuid.UUID):
+        webhooks.apply_callback_secret(secret)
+        return
     if engine is None:
+        write_named_secret(chat, tenant_id, "__run_callback_secret__", secret)
         remember(
             chat,
-            tenant_id=getattr(principal, "tenant_id", None),
+            tenant_id=tenant_id,
             actor_id=getattr(principal, "id", None),
             action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
             target_type="tenant",
-            target_id=str(getattr(principal, "tenant_id", "")),
+            target_id=str(tenant_id or ""),
             detail=detail,
         )
+        webhooks.apply_callback_secret(secret)
         return
     from ar_domain.audit.service import record  # noqa: PLC0415
     from ar_domain.db.context import Principal, TenantContext  # noqa: PLC0415
     from ar_domain.db.session import tenant_session  # noqa: PLC0415
+    from ar_domain.durable.m26 import upsert_named_secret  # noqa: PLC0415
 
-    if not isinstance(principal, Principal) or principal.tenant_id is None:
+    if not isinstance(principal, Principal):
+        webhooks.apply_callback_secret(secret)
         return
+    row = stage_named_secret(tenant_id, "__run_callback_secret__", secret)
     ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "")))
     async with tenant_session(ctx, engine=engine) as session:
+        await upsert_named_secret(session, row)
         await record(
             session,
             tenant_id=principal.tenant_id,
@@ -172,6 +183,8 @@ async def _audit_callback_secret(request: Request, principal: object) -> None:
             target_id=str(principal.tenant_id),
             detail=detail,
         )
+    install_named_secret(chat, row)
+    webhooks.apply_callback_secret(secret)
 
 
 def _check_url(url: str, *, allow_private: bool) -> None:

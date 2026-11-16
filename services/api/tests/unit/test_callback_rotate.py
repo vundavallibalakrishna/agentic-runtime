@@ -79,3 +79,38 @@ def test_the_rotate_route_signs_the_next_callback() -> None:
     stamp = int(_Handler.seen["signature"].split(",", 1)[0].removeprefix("t="))
     assert _Handler.seen["signature"] == sign_run_callback(secret, body, stamp)
     assert orjson.loads(_Handler.seen["body"])["status"] == "completed"
+
+
+def test_a_failed_write_does_not_install_the_new_secret(monkeypatch) -> None:
+    from ar_common.errors import ConflictError
+
+    person = catalogue()["admin@dev.local"]
+    principal = Principal(
+        kind="user",
+        id=str(person.user_id),
+        tenant_id=DEV_TENANT_ID,
+        permissions=PERMISSION_KEYS,
+        auth_method="api_key",
+        email="admin@dev.local",
+        roles=frozenset({"tenant_admin"}),
+    )
+    app = demo_application()
+
+    async def resolve(_scope: object) -> Principal:
+        return principal
+
+    app.state.resolve_principal = resolve
+    app.state.context_override = TenantContext.from_principal(principal, "req-rotate")
+    app.state.chat.durable_engine = object()
+    previous = "previous-secret"
+    app.state.webhooks.callback_secret = previous
+    app.state.chat.named_secrets = {}
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise ConflictError("the callback secret changed while it was being saved; retry")
+
+    monkeypatch.setattr("ar_domain.db.session.tenant_session", boom)
+    rotated = TestClient(app).post("/api/v1/tenant/run-callback-secret:rotate")
+    assert rotated.status_code == 409, rotated.text
+    assert app.state.webhooks.callback_secret == previous
+    assert app.state.chat.named_secrets == {}
