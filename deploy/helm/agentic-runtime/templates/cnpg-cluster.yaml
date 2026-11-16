@@ -32,15 +32,22 @@ spec:
     initdb:
       database: ar
       owner: {{ .Values.postgres.username }}
+      secret:
+        name: {{ .Release.Name }}-pg-credentials
       postInitSQL:
-        - |
-{{ include "ar.postgresRolesSql" . | indent 10 }}
+        # One statement each. CloudNativePG splits on semicolons, so a DO block
+        # with dollar quotes never reaches Postgres intact. The owner password
+        # comes from the credentials secret above.
+        - CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS
+        - CREATE ROLE ar_platform LOGIN PASSWORD 'ar_platform' NOSUPERUSER BYPASSRLS
+        - CREATE ROLE ar_readonly LOGIN PASSWORD 'ar_readonly' NOSUPERUSER NOBYPASSRLS
       postInitApplicationSQL:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
         - CREATE DATABASE langfuse
   storage:
     size: {{ .Values.postgres.storage }}
+  {{- if .Values.backup.enabled }}
   backup:
     retentionPolicy: {{ .Values.backup.retention | quote }}
     barmanObjectStore:
@@ -58,6 +65,7 @@ spec:
         maxParallel: 1
       data:
         compression: gzip
+  {{- end }}
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler

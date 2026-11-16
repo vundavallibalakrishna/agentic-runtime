@@ -212,7 +212,8 @@ def test_the_platform_guard_uses_the_address_and_port(
     with pytest.raises(SqlRejected, match="null"):
         _dial("postgresql://ar:pw@ar-postgres-rw/AR%00", {}, [])
     _dial("postgresql://ar:pw@ar-postgres-rw:5432/ar", {"allow_platform": True}, [])
-    _dial("postgresql://ar:pw@ar-postgres-rw:5433/other", {}, [])
+    with pytest.raises(SqlRejected, match="platform"):
+        _dial("postgresql://ar:pw@ar-postgres-rw:5433/other", {}, [])
 
 
 def test_a_bad_port_scheme_or_keyword_dsn_is_rejected(mode) -> None:

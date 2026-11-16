@@ -20,6 +20,8 @@
   --accent: var(--primary);
   --accent-foreground: var(--primary-foreground);
   --destructive: oklch(0.5 0.19 27);
+  --success: oklch(0.43 0.11 152);
+  --warning: oklch(0.46 0.1 70);
   --ring: var(--primary);
   --sidebar: oklch(0.24 0.06 255);
   --sidebar-foreground: oklch(0.9 0.02 255);
@@ -66,6 +68,8 @@
   --accent: var(--primary);
   --accent-foreground: var(--primary-foreground);
   --destructive: oklch(0.74 0.14 25);
+  --success: oklch(0.8 0.13 152);
+  --warning: oklch(0.82 0.12 80);
   --ring: var(--primary);
   --sidebar: oklch(0.14 0.022 260);
   --sidebar-foreground: oklch(0.9 0.015 255);
@@ -148,6 +152,76 @@ textarea {
 
 .console-sidebar {
   scrollbar-color: var(--sidebar-border) transparent;
+}
+
+/* A status tone tints a badge with one colour: a faint fill, a soft border and readable text. */
+.tone {
+  border-color: color-mix(in oklch, var(--tone) 35%, transparent);
+  background: color-mix(in oklch, var(--tone) 12%, var(--card));
+  color: var(--tone);
+}
+
+.tone-success {
+  --tone: var(--success);
+}
+
+.tone-warning {
+  --tone: var(--warning);
+}
+
+.tone-danger {
+  --tone: var(--destructive);
+}
+
+.tone-info {
+  --tone: var(--primary);
+}
+
+/* A list of records is one panel with a hairline between rows, not a stack of cards. */
+.row-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.row-list:empty {
+  display: none;
+}
+
+.row-list > li + li {
+  border-top: 1px solid var(--border);
+}
+
+/* The small heading over a block inside a panel. */
+.panel-title {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* A long form reads as sections: each group of fields starts under a hairline with its title. */
+.form-sections > fieldset {
+  margin-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-6);
+}
+
+.form-sections > fieldset > legend {
+  float: left;
+  width: 100%;
+  font-weight: 600;
+}
+
+.form-sections > fieldset > legend + * {
+  clear: both;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--primary);
 }
 
 /* Management panels keep field widths and label spacing consistent. */

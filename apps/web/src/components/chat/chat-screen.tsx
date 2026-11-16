@@ -27,11 +27,13 @@ import { MarkdownView } from "@/components/chat/markdown-view";
 import { MemoryIndicator } from "@/components/chat/memory-indicator";
 import { MessageBody } from "@/components/chat/message-body";
 import { PlanChecklist, planItems } from "@/components/chat/plan-checklist";
+import { RunDetails } from "@/components/chat/run-details";
 import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { chatAliases } from "@/lib/model-aliases";
 import { LATE_MEMORY_WAITS_MS, lateMemoryEvents } from "@/lib/stream/late";
 import {
   shouldResumeStatus,
@@ -133,23 +135,11 @@ export function ChatScreen() {
       setSession(me);
       const listed = await api<{ items: Item[] }>("/api/v1/conversations");
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
-      const aliasPage = await api<{ items?: Item[] }>("/api/v1/model-aliases").catch(() => ({
-        items: [] as Item[],
-      }));
+      const aliasList = await chatAliases();
       setConversations(listed.items ?? []);
       // An archived agent is put away: it is not offered for a new conversation.
       setAgents((agentPage.items ?? []).filter((row) => String(row.status ?? "") !== "archived"));
-      setAliases(
-        Array.from(
-          new Set(
-            (aliasPage.items ?? [])
-              // Only a chat model can answer a conversation; embedding and rerank aliases cannot.
-              .filter((row) => String(row.kind ?? "chat") === "chat")
-              .map((row) => String(row.alias ?? ""))
-              .filter((alias) => alias.length > 0),
-          ),
-        ),
-      );
+      setAliases(aliasList);
       const requested = new URLSearchParams(window.location.search).get("agent");
       if (requested) {
         const match = (agentPage.items ?? []).find((row) => row.slug === requested);
@@ -653,6 +643,11 @@ export function ChatScreen() {
   const latestAssistantId = [...visible]
     .reverse()
     .find((message) => message.role === "assistant")?.id;
+  const lastRun = [...messages]
+    .reverse()
+    .map((message) => (message as { runId?: string }).runId)
+    .find(Boolean);
+  const detailRunId = runId || lastRun || "";
   const virtualizer = useVirtualizer({
     count: visible.length,
     getScrollElement: () => parentRef.current,
@@ -1176,7 +1171,7 @@ export function ChatScreen() {
                 </section>
               ) : null}
               {runId ? (
-                <p className="mx-auto mb-2 max-w-2xl text-sm">
+                <p className="mx-auto mb-2 max-w-2xl text-sm md:hidden">
                   <a className="underline" href={`/runs/${runId}`}>
                     {t("viewTrace")}
                   </a>
@@ -1323,13 +1318,22 @@ export function ChatScreen() {
             </form>
           </div>
           {activeId ? (
-            <div className="hidden h-full w-80 shrink-0 md:block">
-              <WorkspacePanel
-                conversationId={activeId}
-                revision={
-                  messages.length + stream.tools.length + (stream.status === "completed" ? 1 : 0)
-                }
-              />
+            <div className="hidden h-full w-80 shrink-0 flex-col md:flex">
+              {detailRunId ? (
+                <RunDetails
+                  agents={agents}
+                  runId={detailRunId}
+                  settled={stream.status !== "streaming"}
+                />
+              ) : null}
+              <div className="min-h-0 flex-1">
+                <WorkspacePanel
+                  conversationId={activeId}
+                  revision={
+                    messages.length + stream.tools.length + (stream.status === "completed" ? 1 : 0)
+                  }
+                />
+              </div>
             </div>
           ) : null}
         </section>

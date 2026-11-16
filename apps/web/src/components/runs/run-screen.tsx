@@ -9,9 +9,11 @@ import { AppShell } from "@/components/app-shell";
 import { BackButton, DetailState } from "@/components/common/detail-state";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
+import { durationLabel, liveStatuses } from "./format";
 import { RunTraceGraph } from "./run-trace-graph";
 import { buildTrace } from "./trace";
 
@@ -31,13 +33,6 @@ type Run = {
   budget?: { maxSteps?: number; maxCostMicros?: number };
   error?: { code?: string; message?: string };
 };
-
-function durationLabel(run: Run) {
-  const start = Date.parse(run.startedAt || "");
-  if (!start) return "";
-  const end = Date.parse(run.endedAt || "") || Date.now();
-  return `${Math.max(0, Math.round((end - start) / 1000))}s`;
-}
 
 type Step = { id?: string; kind?: string; detail?: { agent?: string } };
 type Tool = { id?: string; qualifiedName?: string; status?: string };
@@ -86,9 +81,7 @@ export function RunScreen() {
     void load();
   }, [load]);
 
-  const live = ["queued", "running", "waiting_input", "waiting_approval"].includes(
-    run?.status || "",
-  );
+  const live = liveStatuses.includes(run?.status || "");
   useEffect(() => {
     if (!live) return;
     const timer = window.setInterval(() => void load(true), 2000);
@@ -113,8 +106,9 @@ export function RunScreen() {
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{run.resultSummary}</p>
             </div>
           ) : null}
-          <p className="mb-3 text-sm text-[var(--muted-foreground)]">
-            {run.trigger} · {run.status}
+          <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-[var(--muted-foreground)]">
+            <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+            {run.trigger}
             {durationLabel(run) ? ` · ${t("duration")} ${durationLabel(run)}` : ""}
             {run.usage?.costMicros != null ? ` · ${t("cost")} ${run.usage.costMicros}` : ""}
             {children.length ? ` · ${t("children", { count: children.length })}` : ""}

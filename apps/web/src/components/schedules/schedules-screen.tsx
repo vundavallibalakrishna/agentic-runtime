@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -270,15 +271,13 @@ export function SchedulesScreen() {
         </div>
       ) : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
-      <ul className="space-y-2">
+      <ul className="row-list">
         {rows.map((row) => (
-          <li
-            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-            key={row.id}
-          >
+          <li className="p-4" key={row.id}>
             <button className="text-left" onClick={() => setSelected(row.id)} type="button">
-              <p className="text-sm font-medium">
-                {row.name} · {row.status}
+              <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                {row.name}
+                <Badge tone={statusTone(row.status)}>{row.status}</Badge>
               </p>
               <p className="mt-1 text-sm text-[var(--muted-foreground)]">
                 {row.triggerType} {row.triggerSummary ? `· ${row.triggerSummary}` : ""}
@@ -327,12 +326,9 @@ export function SchedulesScreen() {
           {events.length === 0 ? (
             <p className="text-sm text-[var(--muted-foreground)]">{t("noHistory")}</p>
           ) : null}
-          <ul className="space-y-2">
+          <ul className="row-list">
             {events.map((row) => (
-              <li
-                className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
-                key={row.id}
-              >
+              <li className="px-3 py-2 text-sm" key={row.id}>
                 {eventText(row)}
                 {row.runId ? ` · ${row.runId}` : ""}
               </li>

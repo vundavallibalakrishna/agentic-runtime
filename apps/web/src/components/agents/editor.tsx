@@ -8,11 +8,13 @@ import { useCallback, useEffect, useState } from "react";
 import { MemoryReview } from "@/components/agent-builder/MemoryReview";
 import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { definitionToYaml, type JsonValue, yamlToDefinition } from "@/lib/agent-yaml";
 import { api } from "@/lib/api";
+import { chatAliases } from "@/lib/model-aliases";
 
 import { ExposePanel } from "./expose-panel";
 import type { AgentDetail, Definition, ValidationReport } from "./types";
@@ -127,21 +129,7 @@ export function AgentEditor() {
         ),
       )
       .catch(() => setCatalogue([]));
-    void api<{ items?: { alias?: string; kind?: string }[] }>("/api/v1/model-aliases")
-      .then((page) =>
-        setAliases(
-          Array.from(
-            new Set(
-              (page.items ?? [])
-                // An agent answers with a chat model; embedding and rerank aliases are not offered.
-                .filter((row) => (row.kind ?? "chat") === "chat")
-                .map((row) => String(row.alias ?? ""))
-                .filter(Boolean),
-            ),
-          ),
-        ),
-      )
-      .catch(() => setAliases([]));
+    void chatAliases().then(setAliases);
   }, []);
 
   function budgetValue(key: keyof NonNullable<Definition["budget"]>, fallback: number) {
@@ -452,6 +440,17 @@ export function AgentEditor() {
       <PageHeader
         actions={
           <>
+            {agent ? (
+              <Badge tone={statusTone(agent.disabled ? "disabled" : agent.status)}>
+                {agent.disabled
+                  ? t("disabled")
+                  : agent.status === "published"
+                    ? t("published")
+                    : agent.status === "archived"
+                      ? t("archived")
+                      : t("draftStatus")}
+              </Badge>
+            ) : null}
             <Link className="text-sm underline" href={`/chat?agent=${agent?.slug ?? ""}`}>
               {t("useInChat")}
             </Link>
@@ -480,7 +479,7 @@ export function AgentEditor() {
             <fieldset disabled={busy || agent.canEdit === false} className="min-w-0 space-y-6">
               <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
                 <div className="min-w-0 space-y-6">
-                  <section className="detail-panel">
+                  <section className="detail-panel form-sections">
                     <label className="block text-sm font-medium" htmlFor="instructions">
                       {t("instructions")}
                     </label>
@@ -1107,7 +1106,7 @@ export function AgentEditor() {
                   ) : null}
                   <MemoryReview agentId={agentId} />
                 </div>
-                <div className="min-w-0 space-y-6 [&>.detail-panel]:p-5">
+                <div className="min-w-0 space-y-6 xl:sticky xl:top-2 [&>.detail-panel]:p-5">
                   <section className="detail-panel">
                     <h2 className="text-sm font-medium">{t("publish")}</h2>
                     <Input

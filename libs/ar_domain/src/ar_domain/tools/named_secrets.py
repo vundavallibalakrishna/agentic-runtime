@@ -31,15 +31,14 @@ def install_named_secret(store: Any, row: dict[str, Any]) -> None:
     book = _book(store)
     tenant = str(row.get("tenant_id"))
     name = str(row.get("name"))
-    for existing in book.values():
+    for key, existing in list(book.items()):
         if (
             isinstance(existing, dict)
             and str(existing.get("tenant_id")) == tenant
             and str(existing.get("name")) == name
         ):
-            existing["ciphertext"] = row.get("ciphertext")
-            existing["updated_at"] = row.get("updated_at")
-            return
+            book.pop(key, None)
+            break
     book[row.get("id")] = row
 
 

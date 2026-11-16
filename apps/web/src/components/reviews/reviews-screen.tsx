@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -62,15 +63,13 @@ export function ReviewsScreen() {
         </div>
       ) : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
-      <ul className="space-y-3">
+      <ul className="row-list">
         {rows.map((row) => (
-          <li
-            key={String(row.id)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
-          >
-            <a className="font-medium underline" href={`/reviews/${String(row.id)}`}>
-              {String(row.subjectType)} · {String(row.status)}
+          <li key={String(row.id)} className="flex flex-wrap items-center gap-3 p-4">
+            <a className="font-medium hover:underline" href={`/reviews/${String(row.id)}`}>
+              {String(row.subjectType)}
             </a>
+            <Badge tone={statusTone(String(row.status))}>{String(row.status)}</Badge>
           </li>
         ))}
       </ul>

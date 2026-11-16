@@ -5,6 +5,13 @@
 # Replicas and the autoscaler minimum stay at 1 when this is false.
 process:
   shared: true
+# The chart cannot discover this. Set it so customer connections to platform
+# pod IPs are refused. Empty leaves that control to the NetworkPolicy.
+cluster:
+  podCIDR: ""
+  # ClusterIP range. Copied into AR_PLATFORM_DB_DENY_CIDRS with podCIDR.
+  # The chart cannot discover it.
+  serviceCIDR: ""
 global:
   imageRegistry: ''
   imageTag: "1.0.0"
@@ -47,7 +54,13 @@ config:
   AR_EGRESS_ALLOW_WILDCARD: 'false'
   AR_CA_BUNDLE: ''
   AR_DB_CERT_DIR: ''
+  AR_DB_CONNECT_DEADLINE_S: '15'
+  AR_DB_MAX_ADDRESSES: '4'
   AR_DB_MIN_SSLMODE: ''
+  AR_DB_STRICT_TLS: 'true'
+  AR_DB_STRICT_TLS_FLOOR: verify-full
+  AR_PLATFORM_DB_DENY_CIDRS: ''
+  AR_PLATFORM_DB_DENY_HOSTS: ''
   AR_EGRESS_CLOSED: 'false'
   AR_EGRESS_HOSTS: ''
   AR_DATA_RESIDENCY: ''
@@ -239,6 +252,13 @@ postgres:
   storage: 200Gi
   username: ar_app
   password: ar-install-db
+  # Extra platform database names, appended to the bundled CNPG services.
+  denyHosts: []
+  # Extra pod CIDRs. The chart cannot discover the cluster pod CIDR; set
+  # cluster.podCIDR for that. Both are copied into AR_PLATFORM_DB_DENY_CIDRS.
+  denyCidrs: []
+  # Required when airgap.isolatePlatformDb is on and Postgres is not bundled.
+  externalCidrs: []
   image:
     repository: pgvector/pgvector
     tag: 0.8.7-pg18-trixie
@@ -331,6 +351,19 @@ networkPolicy:
   enabled: true
 airgap:
   lockdown: false
+  # When true, api, runtime-worker, mcp-gateway, sandbox-manager,
+  # system-worker and ingest-worker open 5432 only to the platform path
+  # (CNPG pooler, the StatefulSet, or postgres.externalCidrs). api,
+  # runtime-worker and mcp-gateway also open tenantDbPorts to tenantDbCidrs.
+  # Other pods cannot reach the platform database. A vector read DSN must
+  # use the pooler or the StatefulSet service, not a CNPG instance pod.
+  isolatePlatformDb: false
+  # Customer database networks the API and mcp-gateway may dial.
+  tenantDbCidrs: []
+  # Ports opened for those networks. Postgres and MySQL by default.
+  tenantDbPorts:
+    - 5432
+    - 3306
   # Appended to otel-collector and any AR_EGRESS_HOSTS already in config.
   egressHosts: []
   # Extra NetworkPolicy egress, for an on-prem model or connector.

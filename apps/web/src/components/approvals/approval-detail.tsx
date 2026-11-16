@@ -5,8 +5,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
+import { Facts } from "@/components/common/facts";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { confirmStepUp } from "@/lib/step-up";
@@ -107,17 +109,30 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
       <DetailState loading={loading} error={error} onRetry={() => void load()} />
       <ActionStatus busy={busy} />
       {row ? (
-        <article className="mx-auto max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
-          <h2 className="text-lg font-medium">{String(row.qualifiedName ?? "")}</h2>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            {String(row.riskClass ?? "")} · {String(row.status ?? "")}
-          </p>
-          <p className="mt-3">{preview.title}</p>
-          <p>{preview.summary}</p>
+        <article className="detail-panel max-w-3xl">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h2 className="min-w-0 break-all font-mono text-base font-semibold">
+              {String(row.qualifiedName ?? "")}
+            </h2>
+            <Badge tone={statusTone(String(row.status ?? ""))}>{String(row.status ?? "")}</Badge>
+          </div>
+          {row.riskClass ? (
+            <Facts
+              className="mt-4"
+              items={[{ label: t("risk"), value: <Badge>{String(row.riskClass)}</Badge> }]}
+            />
+          ) : null}
+          {preview.title || preview.summary ? (
+            <section className="mt-5 border-t border-[var(--border)] pt-5">
+              <h3 className="panel-title">{t("request")}</h3>
+              <p className="mt-2 font-medium">{preview.title}</p>
+              <p className="mt-1 text-sm">{preview.summary}</p>
+            </section>
+          ) : null}
           {reasons.length > 0 ? (
-            <section className="mt-4">
-              <h3 className="text-sm font-medium">{t("reasons")}</h3>
-              <ul className="mt-1 list-disc pl-5">
+            <section className="mt-5 border-t border-[var(--border)] pt-5">
+              <h3 className="panel-title">{t("reasons")}</h3>
+              <ul className="mt-2 list-disc pl-5 text-sm">
                 {reasons.map((reason) => (
                   <li key={reason}>{reason}</li>
                 ))}
@@ -125,12 +140,15 @@ export function ApprovalDetail({ approvalId }: { approvalId: string }) {
             </section>
           ) : null}
           {advanced ? (
-            <pre className="mt-4 overflow-auto rounded-lg bg-[var(--muted)] p-3 text-xs">
-              {JSON.stringify(row.arguments ?? {}, null, 2)}
-            </pre>
+            <section className="mt-5 border-t border-[var(--border)] pt-5">
+              <h3 className="panel-title">{t("raw")}</h3>
+              <pre className="mt-2 overflow-auto rounded-lg bg-[var(--muted)] p-3 text-xs">
+                {JSON.stringify(row.arguments ?? {}, null, 2)}
+              </pre>
+            </section>
           ) : null}
           {row.status === "pending" ? (
-            <fieldset disabled={busy} className="mt-6 border-t border-[var(--border)] pt-2">
+            <fieldset disabled={busy} className="mt-5 border-t border-[var(--border)] pt-1">
               <label className="mt-4 block text-sm" htmlFor="detail-comment">
                 {t("comment")}
                 <textarea

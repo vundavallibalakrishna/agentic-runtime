@@ -1,3 +1,6 @@
+{{- if and (or .Values.airgap.isolatePlatformDb .Values.airgap.lockdown) (eq (printf "%s" .Values.postgres.password) "ar-install-db") }}
+{{- fail "air-gap installs must set postgres.password. The chart default ar-install-db is not allowed while airgap.isolatePlatformDb or airgap.lockdown is on." }}
+{{- end }}
 {{- if and (eq .Values.global.deploymentMode "single_tenant") (not .Values.bootstrap.adminEmail) }}
 {{- fail "bootstrap.adminEmail is required when global.deploymentMode=single_tenant" }}
 {{- end }}
@@ -71,6 +74,31 @@
 {{- $_ := set $overrides "AR_FILES_SCANNER" "none" }}
 {{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "false" }}
 {{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" "false" }}
+{{- end }}
+{{- $deny := list }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+{{- $deny = list (printf "%s-pg-rw" .Release.Name) (printf "%s-pg-ro" .Release.Name) (printf "%s-pg-r" .Release.Name) (printf "%s-pg-pooler" .Release.Name) }}
+{{- else if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") }}
+{{- $deny = list (printf "%s-postgres" .Release.Name) }}
+{{- end }}
+{{- range $name := (.Values.postgres.denyHosts | default list) }}
+{{- $deny = append $deny $name }}
+{{- end }}
+{{- if $deny }}
+{{- $_ := set $overrides "AR_PLATFORM_DB_DENY_HOSTS" (join "," $deny) }}
+{{- end }}
+{{- $cidrs := list }}
+{{- if and .Values.cluster .Values.cluster.podCIDR }}
+{{- $cidrs = append $cidrs .Values.cluster.podCIDR }}
+{{- end }}
+{{- if and .Values.cluster .Values.cluster.serviceCIDR }}
+{{- $cidrs = append $cidrs .Values.cluster.serviceCIDR }}
+{{- end }}
+{{- range (.Values.postgres.denyCidrs | default list) }}
+{{- $cidrs = append $cidrs . }}
+{{- end }}
+{{- if $cidrs }}
+{{- $_ := set $overrides "AR_PLATFORM_DB_DENY_CIDRS" (join "," $cidrs) }}
 {{- end }}
 {{- if .Values.airgap.lockdown }}
 {{- $hosts := list "otel-collector" }}

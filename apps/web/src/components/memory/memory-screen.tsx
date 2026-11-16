@@ -275,12 +275,9 @@ export function MemoryScreen() {
           {loading ? <Skeleton className="h-24 w-full max-w-xl" /> : null}
           {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
           <h2 className="mb-2 text-base font-semibold">{t("yours")}</h2>
-          <ul className="grid max-w-3xl gap-3">
+          <ul className="row-list max-w-3xl">
             {rows.map((row) => (
-              <li
-                className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-                key={row.id}
-              >
+              <li className="p-4" key={row.id}>
                 {editing === row.id ? (
                   <form
                     className="grid gap-2"
@@ -352,12 +349,9 @@ export function MemoryScreen() {
               {team.items.length === 0 ? (
                 <p className="mt-2 text-sm text-[var(--muted-foreground)]">{t("teamEmpty")}</p>
               ) : (
-                <ul className="mt-3 grid max-w-3xl gap-3">
+                <ul className="row-list mt-3 max-w-3xl">
                   {team.items.map((row) => (
-                    <li
-                      className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-                      key={row.id}
-                    >
+                    <li className="p-4" key={row.id}>
                       <p>{row.content}</p>
                       <p className="mt-1 text-xs text-[var(--muted-foreground)]">{row.category}</p>
                     </li>
