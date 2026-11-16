@@ -167,6 +167,9 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     from ar_domain.durable.m35 import load_durability  # noqa: PLC0415
 
     await load_durability(session, store, tenant_id)
+    from ar_domain.durable.extensions import load_extension_rows  # noqa: PLC0415
+
+    await load_extension_rows(session, store, tenant_id)
     # Run events are not loaded for every request: they grow per turn and are read only by
     # run id (the run trace and the SSE resume), which call ``load_run_events`` on demand.
     # The live SSE path refreshes through ``reload_run`` as it polls. See OQ-136.
@@ -460,12 +463,21 @@ async def _rows(session: AsyncSession, sql: str, tenant_id: uuid.UUID) -> list[d
 
 async def _settings(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
     result = await session.execute(
-        text("SELECT settings FROM tenants WHERE id = :tenant_id"), {"tenant_id": tenant_id}
+        text("SELECT settings, data_residency FROM tenants WHERE id = :tenant_id"),
+        {"tenant_id": tenant_id},
     )
     row = result.mappings().first()
     settings = row.get("settings") if row is not None else None
     if isinstance(settings, dict):
         store.tenant_settings[tenant_id] = settings  # type: ignore[attr-defined]
+    profiles = getattr(store, "tenant_profiles", None)
+    if not isinstance(profiles, dict):
+        profiles = {}
+        store.tenant_profiles = profiles  # type: ignore[attr-defined]
+    residency = "in"
+    if row is not None and row.get("data_residency"):
+        residency = str(row["data_residency"])
+    profiles[tenant_id] = {"data_residency": residency}
 
 
 async def _agents(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:

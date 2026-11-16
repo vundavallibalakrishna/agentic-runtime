@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 import httpx
 import orjson
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_domain.tools.http_tools import guard_public
 
@@ -244,16 +245,20 @@ def probe_http(
     *,
     tenant_id: object = None,
 ) -> dict[str, object]:
-    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+    from ar_domain.egress import bind_tenant, current_tenant, dial_allow, reset_tenant  # noqa: PLC0415
 
     url = _join(base_url, connector.probe_path if path is None else path)
     chosen = current_tenant() if tenant_id is None else tenant_id
     problem = guard_public(url, allow=dial_allow(store, chosen), loopback=True)
     if problem:
         return {"ok": False, "status": 0, "error": problem}
-    status, _payload, response_headers, error = _once(
-        store, connector, connector.probe_method or "GET", url, headers, {}, None
-    )
+    tenant_token = bind_tenant(chosen)
+    try:
+        status, _payload, response_headers, error = _once(
+            store, connector, connector.probe_method or "GET", url, headers, {}, None
+        )
+    finally:
+        reset_tenant(tenant_token)
     if error:
         return {
             "ok": False,
@@ -276,26 +281,35 @@ def _once(  # noqa: PLR0917
     params: dict[str, object],
     body: dict[str, object] | None,
 ) -> tuple[int, object, dict[str, str], dict[str, object] | None]:
+    from ar_common.egress_http import bind_allow, reset_allow  # noqa: PLC0415
+    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+
     request_headers = _provider_headers(connector, headers)
     transport = getattr(store, "connector_transport", None)
     kwargs: dict[str, object] = {"timeout": 20.0, "follow_redirects": False}
+    allow_token = bind_allow(dial_allow(store, current_tenant()))
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
-            request_kwargs: dict[str, object] = {"headers": request_headers}
-            if params:
-                request_kwargs["params"] = {key: str(value) for key, value in params.items()}
-            if body is not None:
-                request_kwargs["json"] = body
-            response = blocking(client.request, method, url, **request_kwargs)
-    except httpx.HTTPError:
-        return (
-            0,
-            {},
-            {},
-            _fail("upstream_error", "The provider did not answer. Check the host and try again."),
-        )
+        try:
+            with sync_client(**kwargs) as client:  # type: ignore[arg-type]
+                request_kwargs: dict[str, object] = {"headers": request_headers}
+                if params:
+                    request_kwargs["params"] = {key: str(value) for key, value in params.items()}
+                if body is not None:
+                    request_kwargs["json"] = body
+                response = blocking(client.request, method, url, **request_kwargs)
+        except httpx.HTTPError:
+            return (
+                0,
+                {},
+                {},
+                _fail(
+                    "upstream_error", "The provider did not answer. Check the host and try again."
+                ),
+            )
+    finally:
+        reset_allow(allow_token)
     if response.status_code in {301, 302, 303, 307, 308}:
         return (
             response.status_code,

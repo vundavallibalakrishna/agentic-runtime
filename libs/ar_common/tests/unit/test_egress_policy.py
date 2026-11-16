@@ -44,9 +44,26 @@ def test_open_mode_allows_a_public_host_without_a_list() -> None:
 
 
 @pytest.mark.unit
-def test_a_named_host_may_be_private() -> None:
+def test_a_named_host_may_be_private_only_when_the_install_allows_it() -> None:
+    blocked = decide(
+        "minio.internal",
+        ["minio.internal"],
+        resolve=_private,
+        closed=True,
+        loopback=False,
+        named_private=False,
+    )
+    assert blocked is not None
+    assert "AR_EGRESS_ALLOW_NAMED_PRIVATE" in blocked
     assert (
-        decide("minio.internal", ["minio.internal"], resolve=_private, closed=True, loopback=False)
+        decide(
+            "minio.internal",
+            ["minio.internal"],
+            resolve=_private,
+            closed=True,
+            loopback=False,
+            named_private=True,
+        )
         is None
     )
 
@@ -84,6 +101,23 @@ def test_metadata_is_denied_even_when_named() -> None:
 
 
 @pytest.mark.unit
+def test_mapped_decimal_octal_and_unspecified_addresses_stay_denied() -> None:
+    for host in (
+        "::ffff:169.254.169.254",
+        "0.0.0.0",  # noqa: S104
+        "::",
+        "100.100.100.200",
+        "168.63.129.16",
+        "192.0.0.192",
+    ):
+        reason = decide(host, [host], closed=False, loopback=True, named_private=True)
+        assert reason is not None, host
+    for host in ("2130706433", "0177.0.0.1", "localhost", "fake-llm"):
+        reason = decide(host, [host], closed=False, loopback=False)
+        assert reason is not None, host
+        assert "not allowed" in reason or "deny list" in reason
+
+
 def test_a_star_is_not_a_match_when_closed() -> None:
     reason = decide_url(
         "https://api.example/v1",

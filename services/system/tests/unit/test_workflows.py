@@ -60,7 +60,9 @@ def test_relay_webhook_and_subscribers() -> None:
     else:
         raise AssertionError("private webhook targets are rejected")
     previous = get_settings()
-    set_settings(previous.model_copy(update={"egress_closed": True}))
+    set_settings(
+        previous.model_copy(update={"egress_closed": True, "egress_allow_named_private": True})
+    )
     try:
         with pytest.raises(ForbiddenError, match="allow list"):
             prepare_delivery(

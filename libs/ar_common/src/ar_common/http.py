@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from ar_common.egress_http import async_client
 from ar_common.errors import ForbiddenError
 
 _CONNECT_TIMEOUT_S = 5.0
@@ -130,5 +131,5 @@ def http_client(
 ) -> HttpClient:
     """Build the process HTTP client. OpenTelemetry instruments the inner httpx client."""
     timeout = httpx.Timeout(_READ_TIMEOUT_S, connect=_CONNECT_TIMEOUT_S)
-    client = httpx.AsyncClient(timeout=timeout, follow_redirects=False)
+    client = async_client(timeout=timeout, follow_redirects=False)
     return HttpClient(client, resolver=resolver, allow_hosts=allow_hosts)

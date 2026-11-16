@@ -92,7 +92,7 @@ def test_an_installed_connector_is_offered_and_proof_stays_a_badge() -> None:
             "config": {"baseUrl": "https://example.okta.com"},
         },
     )
-    assert connector_proof(next(item for item in CONNECTORS if item.slug == "okta")) == CONTRACT
+    assert connector_proof(next(item for item in CONNECTORS if item.slug == "okta")) == UNIT
     assert offered_to_model("connectors.okta_list_users", store, tenant) is True
     assert offered_to_model("connectors.github_list_repos", store, tenant) is False
 

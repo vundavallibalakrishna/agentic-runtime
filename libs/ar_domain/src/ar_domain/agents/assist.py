@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 import orjson
 from pydantic import ValidationError
 
+from ar_common.egress_http import async_client
 from ar_common.errors import ArError, ErrorCode, FieldError
 from ar_contracts.definitions import AgentDefinition
 from ar_domain.agents.service import AgentLifecycle
@@ -236,7 +237,7 @@ async def _ask_model(
     apply_request_options(body, options)
     url = store._completion_url_for(actor.tenant_id, "reasoning", headers)
     try:
-        async with httpx.AsyncClient(timeout=max(timeout_s, 30.0)) as client:
+        async with async_client(timeout=max(timeout_s, 30.0)) as client:
             response = await client.post(url, json=body, headers=headers)
     except httpx.HTTPError:
         return "The model provider did not answer."

@@ -4,6 +4,7 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from ar_common.egress_http import async_client
 from ar_common.host_ports import fake_llm_base_url, listen_port
 from ar_common.settings import BaseServiceSettings, EnvName
 from ar_common.web import create_app
@@ -55,7 +56,7 @@ def create_application() -> FastAPI:
             headers["X-Fake-Script-Set"] = script
         upstream = fake_llm_base_url().rstrip("/") + "/chat/completions"
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with async_client(mode="cluster", timeout=3.0) as client:
                 response = await client.post(upstream, json=body, headers=headers)
             if response.status_code < 300:
                 parsed = response.json()

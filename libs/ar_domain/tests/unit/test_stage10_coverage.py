@@ -152,7 +152,7 @@ def test_a_searxng_server_is_a_web_provider(monkeypatch: pytest.MonkeyPatch) -> 
         body = {"results": [{"title": "S", "url": "https://example.com/s", "content": "c"}]}
         return httpx.Response(200, json=body, request=httpx.Request("GET", url))
 
-    monkeypatch.setattr("ar_domain.tools.searching.httpx.get", fake_get)
+    monkeypatch.setattr("ar_common.egress_http.http_get", fake_get)
     provider = provider_for(store, tenant)
     assert isinstance(provider, SearxngSearch)
     assert provider.search("kites", limit=3) == [

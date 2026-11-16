@@ -15,7 +15,9 @@ Set it to `true` to refuse outbound calls whose host is not on the tenant allowl
 
 `general.fetch`, `general.http` and browser navigation already require the tenant allowlist. Closed mode does not widen that.
 
-A host named exactly on the list may resolve to a private address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, and the IPv6 equivalents). That is how an on-prem mail host or object store is reached. The metadata range `169.254.0.0/16` stays denied even if it is named. A star, a CIDR, and a wildcard of a single label (`*.com`) are not matches. A wildcard such as `*.corp.example` matches a public name and does not unlock a private address.
+A host named exactly on the list may resolve to a private address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, and the IPv6 unique-local range) only when `AR_EGRESS_ALLOW_NAMED_PRIVATE` is `true`. The default is `false`. The air-gap overlay sets it to `true`. Metadata addresses, `0.0.0.0/8`, `::`, and the cloud metadata addresses `100.100.100.200`, `168.63.129.16` and `192.0.0.192` stay denied even when named, including IPv4-mapped, decimal and octal spellings. A star, a CIDR, and a wildcard of a single label (`*.com`) are not matches.
+
+Outbound HTTP goes through `ar_common.egress_http`. A real socket connects to the address that decision resolved. Restart API and worker processes after upgrading so they load the new client and revision `0047`.
 
 ## Helm
 

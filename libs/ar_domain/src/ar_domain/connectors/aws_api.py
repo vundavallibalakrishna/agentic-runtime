@@ -15,6 +15,7 @@ from xml.etree import ElementTree
 import httpx
 import orjson
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_domain.connectors.http import explain_status
 from ar_domain.connectors.sigv4 import sign_headers
@@ -382,7 +383,7 @@ def _signed(  # noqa: PLR0917
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(
                 client.request, method, url, headers=request_headers, content=body or None
             )

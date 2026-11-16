@@ -73,8 +73,17 @@
 {{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" "false" }}
 {{- end }}
 {{- if .Values.airgap.lockdown }}
+{{- $hosts := list "otel-collector" }}
+{{- $configured := index .Values.config "AR_EGRESS_HOSTS" | default "" | toString }}
+{{- if $configured }}
+{{- $hosts = append $hosts $configured }}
+{{- end }}
+{{- range $name := (.Values.airgap.egressHosts | default list) }}
+{{- $hosts = append $hosts $name }}
+{{- end }}
 {{- $_ := set $overrides "AR_EGRESS_CLOSED" "true" }}
-{{- $_ := set $overrides "AR_EGRESS_HOSTS" "otel-collector" }}
+{{- $_ := set $overrides "AR_EGRESS_ALLOW_NAMED_PRIVATE" "true" }}
+{{- $_ := set $overrides "AR_EGRESS_HOSTS" (join "," $hosts) }}
 {{- end }}
 {{- $cfg := merge $overrides .Values.config }}
 apiVersion: v1

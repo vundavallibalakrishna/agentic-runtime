@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Any, cast
 import httpx
 import orjson
 
+from ar_common.egress_http import sync_client
 from ar_common.errors import ConflictError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.offload import blocking
@@ -113,7 +114,7 @@ def _admin_post(
     token = str(sandbox.get("agent_token") or sandbox.get("token") or "")
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
-        with httpx.Client(timeout=60.0) as client:
+        with sync_client(timeout=60.0) as client:
             response = blocking(
                 client.post, f"{endpoint}/admin/{path}", json=payload, headers=headers
             )

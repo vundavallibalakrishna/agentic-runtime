@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+from ar_common.egress_http import http_post
 from ar_common.settings import unisolated_sandbox_allowed, uses_shared_process_state
 
 if TYPE_CHECKING:
@@ -23,12 +24,11 @@ class SandboxManagerLauncher:
 
     def release(self, sandbox_id: object) -> None:
         """Ask the manager to stop the container or pod behind a computer."""
-        import httpx  # noqa: PLC0415
 
         from ar_common.offload import blocking  # noqa: PLC0415
 
         address = f"{self.url}/internal/v1/sandboxes/{sandbox_id}:release"
-        blocking(lambda: httpx.post(address, timeout=30.0).close())
+        blocking(lambda: http_post(address, timeout=30.0).close())
 
 
 def sandbox_image() -> str:

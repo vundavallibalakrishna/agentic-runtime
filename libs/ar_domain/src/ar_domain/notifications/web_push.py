@@ -16,6 +16,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
+from ar_common.egress_http import sync_client
+
 _TTL_S = 12 * 60 * 60
 
 
@@ -71,7 +73,7 @@ def post_push(
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:
+        with sync_client(**kwargs) as client:
             response = client.post(endpoint, headers=headers, content=payload)
     except httpx.HTTPError:
         return 0

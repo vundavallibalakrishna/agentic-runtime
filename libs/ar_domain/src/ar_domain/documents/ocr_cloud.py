@@ -12,6 +12,7 @@ from typing import Any  # noqa: TC003
 
 import httpx
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_domain.tools.named_secrets import read_named_secret
 
@@ -49,7 +50,9 @@ def read_cloud(  # noqa: PLR0911
         if problem is not None:
             return None
     headers = {"content-type": "application/octet-stream"}
-    client = httpx.Client(transport=transport or httpx.HTTPTransport(), timeout=30)
+    client = sync_client(
+        transport=transport, timeout=30, allow=tenant_hosts(store, tenant_id)
+    )
     try:
         post = client.post
         response = blocking(post, endpoint, content=data, headers=headers)

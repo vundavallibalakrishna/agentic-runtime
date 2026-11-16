@@ -83,14 +83,14 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | connector-tool | `notion_read_page` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector-tool | `notion_read_database` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector-tool | `notion_create_page` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector | `servicenow` | `contract` | no | Catalogue verification is not_live. Proof is contract. |
-| connector-tool | `servicenow_get_incident` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `servicenow_create_incident` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `servicenow_update_incident` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `servicenow_get_change` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `servicenow_create_change` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `servicenow_update_change` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `servicenow_query_table` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector | `servicenow` | `unit` | no | Catalogue verification is not_live. Proof is unit. |
+| connector-tool | `servicenow_get_incident` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `servicenow_create_incident` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `servicenow_update_incident` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `servicenow_get_change` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `servicenow_create_change` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `servicenow_update_change` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `servicenow_query_table` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector | `salesforce` | `unit` | no | Catalogue verification is not_live. Proof is unit. |
 | connector-tool | `salesforce_query` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector-tool | `salesforce_get_record` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
@@ -110,20 +110,20 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | connector-tool | `hubspot_create_contact` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector-tool | `hubspot_update_contact` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector-tool | `hubspot_list_deals` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector | `okta` | `contract` | no | Catalogue verification is not_live. Proof is contract. |
-| connector-tool | `okta_list_users` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `okta_read_user` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `okta_list_groups` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `okta_read_group` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `okta_list_app_users` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `okta_deactivate_user` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector | `entra` | `contract` | no | Catalogue verification is not_live. Proof is contract. |
-| connector-tool | `entra_list_users` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `entra_read_user` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `entra_list_groups` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `entra_read_group` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `entra_list_apps` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
-| connector-tool | `entra_list_signins` | `contract` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector | `okta` | `unit` | no | Catalogue verification is not_live. Proof is unit. |
+| connector-tool | `okta_list_users` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `okta_read_user` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `okta_list_groups` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `okta_read_group` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `okta_list_app_users` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `okta_deactivate_user` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector | `entra` | `unit` | no | Catalogue verification is not_live. Proof is unit. |
+| connector-tool | `entra_list_users` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `entra_read_user` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `entra_list_groups` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `entra_read_group` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `entra_list_apps` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
+| connector-tool | `entra_list_signins` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector | `aws` | `unit` | no | Catalogue verification is not_live. Proof is unit. |
 | connector-tool | `aws_list_instances` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |
 | connector-tool | `aws_describe_instance` | `unit` | no | Badge only. Offered after this tenant installs it and stores a credential. |

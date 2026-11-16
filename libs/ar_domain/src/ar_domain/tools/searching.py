@@ -60,7 +60,11 @@ def provider_for(store: Any, tenant_id: object) -> SearchProvider:
     if name == "tavily" and key:
         return TavilySearch(key, hosts)
     settings = _tenant_search(store, tenant_id)
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
     base = str(settings.get("base_url") or settings.get("baseUrl") or "").strip().rstrip("/")
+    if not base:
+        base = get_settings().search_base_url.strip().rstrip("/")
     if name == "searxng" and base:
         return SearxngSearch(base, hosts)
     raise SearchUnavailableError
@@ -79,8 +83,14 @@ def _configured(store: Any, tenant_id: object) -> tuple[str, str]:
     """Provider name and key. The key is never logged or returned to the model."""
     settings = _tenant_search(store, tenant_id)
     name = str(settings.get("provider") or "").strip().lower()
-    if name in {"", "none"}:
+    # An explicit "none" is this tenant opting out. Only a missing provider
+    # falls through to the install default.
+    if name == "":
+        from ar_common.settings import get_settings  # noqa: PLC0415
+
         name = str(os.environ.get("AR_SEARCH_PROVIDER") or "none").strip().lower() or "none"
+        if name == "none" and get_settings().search_base_url.strip():
+            name = "searxng"
     secret_name = str(settings.get("secret_name") or settings.get("secretName") or "").strip()
     key = _secret(store, tenant_id, secret_name).strip() if secret_name else ""
     if not key:
@@ -114,9 +124,12 @@ class BraveSearch:
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
         _refuse("https://api.search.brave.com/res/v1/web/search", self._allow)
+        from ar_common.egress_http import http_get  # noqa: PLC0415
+
         response = blocking(
-            httpx.get,
+            http_get,
             "https://api.search.brave.com/res/v1/web/search",
+            allow=self._allow,
             params={"q": query, "count": max(1, min(limit, 10))},
             headers={"X-Subscription-Token": self._key, "Accept": "application/json"},
             timeout=15.0,
@@ -137,9 +150,12 @@ class TavilySearch:
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
         _refuse("https://api.tavily.com/search", self._allow)
+        from ar_common.egress_http import http_post  # noqa: PLC0415
+
         response = blocking(
-            httpx.post,
+            http_post,
             "https://api.tavily.com/search",
+            allow=self._allow,
             json={
                 "api_key": self._key,
                 "query": query,
@@ -163,9 +179,12 @@ class SearxngSearch:
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
         _refuse(f"{self._base}/search", self._allow)
+        from ar_common.egress_http import http_get  # noqa: PLC0415
+
         response = blocking(
-            httpx.get,
+            http_get,
             f"{self._base}/search",
+            allow=self._allow,
             params={"q": query, "format": "json"},
             headers={"Accept": "application/json"},
             timeout=15.0,

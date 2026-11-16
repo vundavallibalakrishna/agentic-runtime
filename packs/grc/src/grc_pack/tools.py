@@ -65,7 +65,9 @@ def dispatch_grc(  # noqa: PLR0911
         user_id = uuid.UUID(str(arguments.get("_user_id")))
     except ValueError:
         return _error("validation_failed", "grc tools need a tenant")
-    actor = Actor(tenant_id, user_id, frozenset(PACK_PERMISSIONS))
+    raw = arguments.get("_permissions")
+    permissions = frozenset(str(item) for item in raw) if isinstance(raw, list) else frozenset()
+    actor = Actor(tenant_id, user_id, permissions)
     book = CatalogueBook(store)
     try:
         if name == "import_catalogue":
@@ -111,12 +113,61 @@ def dispatch_grc(  # noqa: PLR0911
     return _error("unknown_tool", f"unknown tool {name}")
 
 
+_SCHEMAS: dict[str, dict[str, object]] = {
+    "import_catalogue": {
+        "type": "object",
+        "properties": {"name": {"type": "string"}, "csv": {"type": "string"}},
+        "required": ["name", "csv"],
+        "additionalProperties": False,
+    },
+    "judge_catalogue": {
+        "type": "object",
+        "properties": {
+            "catalogue_id": {"type": "string"},
+            "passages": {"type": "array"},
+        },
+        "required": ["catalogue_id"],
+        "additionalProperties": False,
+    },
+    "link_evidence": {
+        "type": "object",
+        "properties": {
+            "item_id": {"type": "string"},
+            "evidence_id": {"type": "string"},
+            "note": {"type": "string"},
+        },
+        "required": ["item_id", "evidence_id"],
+        "additionalProperties": False,
+    },
+    "add_risk": {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "score": {"type": "integer"},
+            "status": {"type": "string"},
+        },
+        "required": ["title", "score"],
+        "additionalProperties": False,
+    },
+    "add_finding": {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string"},
+            "item_key": {"type": "string"},
+            "status": {"type": "string"},
+        },
+        "required": ["title"],
+        "additionalProperties": False,
+    },
+}
+
+
 def _tool(name: str, title: str, description: str, risk: str) -> dict[str, object]:
     return {
         "name": name,
         "title": title,
         "description": description,
-        "input_schema": {"type": "object", "properties": {}, "additionalProperties": True},
+        "input_schema": _SCHEMAS[name],
         "risk_class": risk,
         "annotations": {},
     }

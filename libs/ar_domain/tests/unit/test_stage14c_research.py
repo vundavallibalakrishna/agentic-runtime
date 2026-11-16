@@ -248,7 +248,6 @@ def test_a_search_provider_keeps_its_key_out_of_results(monkeypatch) -> None:  #
     import httpx
     import pytest
 
-    from ar_domain.tools import searching
     from ar_domain.tools.searching import SearchRejectedError, TavilySearch
 
     answers = [
@@ -266,7 +265,9 @@ def test_a_search_provider_keeps_its_key_out_of_results(monkeypatch) -> None:  #
         httpx.Response(500, text="down"),
         httpx.Response(200, json=["not an object"]),
     ]
-    monkeypatch.setattr(searching.httpx, "post", lambda *_a, **_k: answers.pop(0))
+    monkeypatch.setattr(
+        "ar_common.egress_http.http_post", lambda *_a, **_k: answers.pop(0)
+    )
     provider = TavilySearch("sekret")
     rows = provider.search("kites", limit=50)
     assert len(rows) == 1

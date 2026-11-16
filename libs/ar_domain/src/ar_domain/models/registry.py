@@ -47,6 +47,9 @@ class UpstreamTarget:
     timeout_s: int
     kind: str
     request_options: dict[str, object] = field(default_factory=dict)
+    tenant_id: uuid.UUID | None = None
+    data_residency: str = "in"
+    egress_allow: tuple[str, ...] = ()
 
 
 def _secret_path(tenant_id: uuid.UUID, secret_id: uuid.UUID) -> str:
@@ -563,10 +566,13 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
                     await session.execute(
                         text(
                             """
-                        SELECT p.id, p.base_url, p.kind, p.timeout_s, m.upstream_model,
-                               m.request_options
+                        SELECT p.id, p.base_url, p.kind, p.timeout_s, p.tenant_id,
+                               m.upstream_model, m.request_options,
+                               COALESCE(t.data_residency, 'in') AS data_residency,
+                               t.settings AS tenant_settings
                         FROM models m
                         JOIN model_providers p ON p.id = m.provider_id
+                        LEFT JOIN tenants t ON t.id = p.tenant_id
                         WHERE m.upstream_model = :name
                           AND m.status = 'active'
                           AND p.status = 'active'
@@ -593,6 +599,17 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
         key = await read_api_key(engine, provider_id)
     except Exception:  # noqa: BLE001 — a missing key is an upstream failure, not a crash
         key = ""
+    owner = found.get("tenant_id")
+    tenant = owner if isinstance(owner, uuid.UUID) else None
+    if isinstance(owner, str):
+        try:
+            tenant = uuid.UUID(owner)
+        except ValueError:
+            tenant = None
+    settings = found.get("tenant_settings")
+    allow: tuple[str, ...] = ()
+    if isinstance(settings, dict) and isinstance(settings.get("egress_allowlist"), list):
+        allow = tuple(str(item) for item in settings["egress_allowlist"])
     return UpstreamTarget(
         base_url=str(found["base_url"]),
         api_key=key,
@@ -600,6 +617,9 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
         timeout_s=int(found["timeout_s"] or 120),
         kind=str(found["kind"]),
         request_options=request_options_of(found),
+        tenant_id=tenant,
+        data_residency=str(found.get("data_residency") or "in"),
+        egress_allow=allow,
     )
 
 

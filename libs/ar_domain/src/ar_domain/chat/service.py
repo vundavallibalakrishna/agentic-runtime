@@ -10,7 +10,6 @@ runtime worker.
 import asyncio
 import contextlib
 import hashlib
-import os
 import re
 import threading
 import time
@@ -21,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.egress_http import async_client
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
 from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
@@ -237,6 +237,8 @@ class ChatBehaviour:
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
     bindings: dict[tuple[object, ...], dict[str, object]] = field(default_factory=dict)
     audit_log: list[dict[str, object]] = field(default_factory=list)
+    tenant_profiles: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    extension_rows: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     domain_events: list[dict[str, object]] = field(default_factory=list)
     packs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     pack_resources: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -620,7 +622,7 @@ class ChatBehaviour:
         ok = False
         output = "provider test failed"
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with async_client(timeout=30.0) as client:
                 response = await client.get(base_url.rstrip("/") + "/models", headers=headers)
             if response.status_code < 300:
                 body = response.json()
@@ -1126,7 +1128,7 @@ class ChatBehaviour:
         output = "provider test failed"
         answered = False
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with async_client(timeout=60.0) as client:
                 response = await client.post(
                     chat_completions_url(base_url), json=body, headers=headers
                 )
@@ -1686,10 +1688,18 @@ class ChatBehaviour:
         cannot record ``127.0.0.1``. A call also honours the install flag,
         because the worker that reloads a saved provider is a new process.
         """
+        from ar_common.egress_http import bind_allow  # noqa: PLC0415
         from ar_common.settings import loopback_allowed  # noqa: PLC0415
-        from ar_domain.egress import model_refusal  # noqa: PLC0415
+        from ar_domain.egress import (  # noqa: PLC0415
+            dial_allow,
+            model_refusal,
+        )
+        from ar_domain.models.logic import provider_url_denied  # noqa: PLC0415
 
+        bind_allow(dial_allow(self, tenant_id))
         loop = self.allow_loopback or (loopback_allowed() if at_call else False)
+        if provider_url_denied(url, self.deny_cidrs, allow_loopback=loop):
+            raise ArError(ErrorCode.BAD_REQUEST, "that model URL is not allowed")
         problem = model_refusal(
             self,
             tenant_id,
@@ -1701,16 +1711,9 @@ class ChatBehaviour:
             raise ArError(ErrorCode.BAD_REQUEST, problem)
 
     def _residency(self, tenant_id: uuid.UUID | None) -> str:
-        override = os.environ.get("AR_DATA_RESIDENCY", "").strip()
-        if override:
-            return override
-        tenants = getattr(self, "tenants", None)
-        if not isinstance(tenants, dict) or tenant_id is None:
-            return "in"
-        row = tenants.get(tenant_id)
-        if isinstance(row, dict) and row.get("data_residency"):
-            return str(row["data_residency"])
-        return "in"
+        from ar_domain.egress import residency_of  # noqa: PLC0415
+
+        return residency_of(self, tenant_id)
 
     def completion_url(self) -> str:
         """Chat completions. The gateway wins when it is configured."""
@@ -2190,9 +2193,17 @@ class ChatBehaviour:
         await self._remember(run, text, answer)
         callback = run.get("callback_url")
         if isinstance(callback, str) and callback:
-            self.callbacks.append(
-                {"url": callback, "run_id": str(run_id), "status": "completed", "text": answer}
-            )
+            queued: dict[str, object] = {
+                "url": callback,
+                "run_id": str(run_id),
+                "status": "completed",
+                "text": answer,
+            }
+            self.callbacks.append(queued)
+            if getattr(self, "send_callbacks", False):
+                from ar_domain.runs.callbacks import deliver_callback  # noqa: PLC0415
+
+                deliver_callback(self, queued)
 
     async def _tokens(
         self,
@@ -2262,7 +2273,7 @@ class ChatBehaviour:
         else:
             body = {"model": model, "messages": messages}
         try:
-            async with httpx.AsyncClient(timeout=timeout_s) as client:
+            async with async_client(timeout=timeout_s) as client:
                 response = await client.post(
                     url or self.completion_url(),
                     json=body,
@@ -2327,7 +2338,7 @@ class ChatBehaviour:
                 body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
         try:
-            async with httpx.AsyncClient(timeout=timeout_s) as client:
+            async with async_client(timeout=timeout_s) as client:
                 response = await client.post(url, json=body, headers=headers)
         except httpx.HTTPError:
             if not real:
@@ -3208,3 +3219,4 @@ class RequestUnit(ChatBehaviour):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.request_scoped = True
+        self.send_callbacks = True

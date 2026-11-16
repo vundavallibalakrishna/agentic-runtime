@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import orjson
 
+from ar_common.egress_http import async_client
 from ar_common.settings import get_settings, uses_shared_process_state
 
 if TYPE_CHECKING:
@@ -56,6 +57,19 @@ def routes_for(store: Any, tenant_id: uuid.UUID) -> list[dict[str, str]]:
 
 def replace_routes(store: Any, tenant_id: uuid.UUID, routes: list[dict[str, str]]) -> None:
     """Save the ordered list on the store and on tenant settings when that book exists."""
+    from ar_common.errors import ArError, ErrorCode  # noqa: PLC0415
+    from ar_domain.egress import model_refusal, residency_of  # noqa: PLC0415
+    from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
+
+    for route in routes:
+        problem = model_refusal(
+            store,
+            tenant_id,
+            chat_completions_url(route["base_url"]),
+            residency=residency_of(store, tenant_id),
+        )
+        if problem is not None:
+            raise ArError(ErrorCode.BAD_REQUEST, problem)
     book = getattr(store, "model_routes", None)
     if not isinstance(book, dict):
         book = {}
@@ -203,6 +217,16 @@ async def routed_completion(  # noqa: PLR0915
         from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
 
         url = chat_completions_url(route["base_url"])
+        from ar_domain.egress import model_refusal, residency_of  # noqa: PLC0415
+
+        problem = model_refusal(
+            store, tenant_id, url, residency=residency_of(store, tenant_id)
+        )
+        if problem is not None:
+            breaker.failure(key)
+            last = problem
+            fell_back = True
+            continue
         from ar_domain.models.options import request_options_of  # noqa: PLC0415
         from ar_domain.models.request import chat_completion_body, model_output_limit  # noqa: PLC0415
 
@@ -226,7 +250,7 @@ async def routed_completion(  # noqa: PLR0915
             options=options,
         )
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with async_client(timeout=30.0) as client:
                 response = await client.post(url, json=body, headers=headers)
         except httpx.HTTPError:
             breaker.failure(key)

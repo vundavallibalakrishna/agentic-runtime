@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from ar_common.egress_http import async_client, sync_client
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.offload import blocking
@@ -432,7 +433,11 @@ def _client_credentials(store: Any, row: dict[str, object]) -> dict[str, str]:
     scopes = row.get("scopes")
     if isinstance(scopes, list) and scopes:
         form["scope"] = " ".join(str(item) for item in scopes)
-    return _token_response(token_url, form, row.get("_token_transport"))
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    return _token_response(
+        token_url, form, row.get("_token_transport"), dial_allow(store, row.get("tenant_id"))
+    )
 
 
 def _refresh_token(store: Any, row: dict[str, object]) -> dict[str, str]:
@@ -456,17 +461,24 @@ def _refresh_token(store: Any, row: dict[str, object]) -> dict[str, str]:
         "client_id": str(row.get("client_id") or ""),
         "client_secret": _open(row.get("secret")),
     }
-    return _token_response(token_url, form, row.get("_token_transport"))
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    return _token_response(
+        token_url, form, row.get("_token_transport"), dial_allow(store, row.get("tenant_id"))
+    )
 
 
 def _token_response(
-    token_url: str, form: dict[str, str], transport: object = None
+    token_url: str,
+    form: dict[str, str],
+    transport: object = None,
+    allow: list[str] | None = None,
 ) -> dict[str, str]:
-    kwargs: dict[str, object] = {"timeout": 20.0}
+    kwargs: dict[str, object] = {"timeout": 20.0, "allow": allow}
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(client.post, token_url, data=form)
             response.raise_for_status()
             loaded = response.json()
@@ -489,7 +501,8 @@ async def _exchange(store: Any, row: dict[str, object], code: str, verifier: str
         }
     from ar_domain.egress import dial_allow  # noqa: PLC0415
 
-    problem = guard_public(token_url, allow=dial_allow(store, row.get("tenant_id")), loopback=False)
+    allow = dial_allow(store, row.get("tenant_id"))
+    problem = guard_public(token_url, allow=allow, loopback=False)
     if problem:
         raise ArError(ErrorCode.FORBIDDEN, problem)
     form = {
@@ -500,7 +513,7 @@ async def _exchange(store: Any, row: dict[str, object], code: str, verifier: str
         "client_secret": _open(row.get("secret")),
     }
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with async_client(timeout=20.0, allow=allow) as client:
             response = await client.post(token_url, data=form)
             response.raise_for_status()
             loaded = response.json()

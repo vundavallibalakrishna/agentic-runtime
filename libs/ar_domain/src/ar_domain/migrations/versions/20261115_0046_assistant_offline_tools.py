@@ -12,7 +12,9 @@ since is left alone.
 To give the tools back, edit the assistant and add ``fetch``, ``http`` and ``search``
 to the general include list.
 
-Downgrade puts those three names back on the version this upgrade published.
+Downgrade publishes a new version that puts those three names back. It does not
+edit the published row in place. Restart API and worker processes after the
+migration so they load the new published version.
 """
 
 import uuid
@@ -21,8 +23,6 @@ from typing import TYPE_CHECKING
 import orjson
 import sqlalchemy as sa
 from alembic import op
-
-from ar_common.jcs import args_hash
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -83,8 +83,10 @@ def _with(definition: dict[str, object]) -> dict[str, object]:
 
 
 def _hash(definition: dict[str, object]) -> str:
-    body = {key: value for key, value in definition.items() if key != "resolved"}
-    return args_hash(body)  # type: ignore[arg-type]
+    """Same digest ``agents.logic.definition_hash`` writes, including ``resolved``."""
+    from ar_domain.agents.logic import definition_hash  # noqa: PLC0415
+
+    return definition_hash(definition)
 
 
 def upgrade() -> None:
@@ -145,8 +147,8 @@ def downgrade() -> None:
     bind = op.get_bind()
     rows = bind.execute(
         sa.text(
-            "SELECT v.id, v.definition FROM agents a "
-            "JOIN agent_versions v ON v.id = a.published_version_id "
+            "SELECT v.id, v.tenant_id, v.agent_id, v.definition, v.created_by, v.published_by "
+            "FROM agents a JOIN agent_versions v ON v.id = a.published_version_id "
             "WHERE a.slug = 'assistant' AND v.change_note = :note"
         ),
         {"note": _NOTE},
@@ -155,10 +157,30 @@ def downgrade() -> None:
         stored = row["definition"]
         definition = orjson.loads(stored) if isinstance(stored, str) else dict(stored)
         fresh = _with(definition)
+        new_id = uuid.uuid4()
         bind.execute(
             sa.text(
-                "UPDATE agent_versions SET definition = CAST(:definition AS jsonb), "
-                "definition_hash = :hash WHERE id = :id"
+                "INSERT INTO agent_versions (id, tenant_id, agent_id, version, state, definition, "
+                "definition_hash, change_note, created_by, published_at, published_by) "
+                "SELECT :id, :tenant_id, :agent_id, COALESCE(MAX(version), 0) + 1, 'published', "
+                "CAST(:definition AS jsonb), :hash, 'seed', :created_by, now(), :published_by "
+                "FROM agent_versions WHERE agent_id = :agent_id"
             ),
-            {"id": row["id"], "definition": orjson.dumps(fresh).decode(), "hash": _hash(fresh)},
+            {
+                "id": new_id,
+                "tenant_id": row["tenant_id"],
+                "agent_id": row["agent_id"],
+                "definition": orjson.dumps(fresh).decode(),
+                "hash": _hash(fresh),
+                "created_by": row["created_by"],
+                "published_by": row["published_by"],
+            },
+        )
+        bind.execute(
+            sa.text("UPDATE agent_versions SET state = 'superseded' WHERE id = :old_id"),
+            {"old_id": row["id"]},
+        )
+        bind.execute(
+            sa.text("UPDATE agents SET published_version_id = :new_id WHERE id = :agent_id"),
+            {"new_id": new_id, "agent_id": row["agent_id"]},
         )

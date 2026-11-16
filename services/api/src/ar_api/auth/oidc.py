@@ -13,11 +13,11 @@ import secrets
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
-import httpx
 import jwt
 import orjson
 
 from ar_api.auth.complete import LoginError
+from ar_common.egress_http import async_client
 
 if TYPE_CHECKING:
     from ar_api.main import Settings
@@ -217,7 +217,7 @@ class OidcClient:
                 if method == "GET":
                     return await self._http.get(url)
                 return await self._http.post(url, data=form)
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with async_client(timeout=5.0) as client:
                 if method == "GET":
                     response = await client.get(url)
                 else:

@@ -35,7 +35,14 @@ def enable(store: Any, tenant_id: uuid.UUID, *, owner: uuid.UUID | None = None) 
     register_pack_audit_actions(
         store,
         "grc",
-        ["grc.catalogue.imported", "grc.evidence.linked", "grc.risk.added", "grc.finding.added"],
+        [
+            "grc.catalogue.imported",
+            "grc.evidence.linked",
+            "grc.risk.added",
+            "grc.risk.updated",
+            "grc.finding.added",
+            "grc.finding.updated",
+        ],
     )
     bucket(store, "pack_flags")[(str(tenant_id), "grc")] = {
         "tenant_id": tenant_id,

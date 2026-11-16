@@ -41,6 +41,11 @@ class JudgeBody(ApiModel):
     passages: list[dict[str, Any]] = Field(default_factory=list)
 
 
+class UpdateBody(ApiModel):
+    title: str = ""
+    status: str = ""
+
+
 def _enabled(request: Request) -> None:
     from ar_api.routers.tooling import actor, chat  # noqa: PLC0415
     from ar_common.errors import ArError, ErrorCode  # noqa: PLC0415
@@ -53,6 +58,31 @@ def _enabled(request: Request) -> None:
     )
     if not enabled:
         raise ArError(ErrorCode.NOT_FOUND, "feature_disabled")
+
+
+@router.get(
+    "/api/v1/ext/grc/catalogues",
+    dependencies=[Depends(_enabled), Depends(require_permission("grc.catalogues:manage"))],
+)
+async def list_catalogues(request: Request) -> dict[str, object]:
+    from ar_api.routers.tooling import actor, chat  # noqa: PLC0415
+    from grc_pack.book import CatalogueBook  # noqa: PLC0415
+
+    rows = CatalogueBook(chat(request)).list_catalogues(actor(request))
+    return {"items": rows}
+
+
+@router.get(
+    "/api/v1/ext/grc/catalogues/{catalogue_id}",
+    dependencies=[Depends(_enabled), Depends(require_permission("grc.catalogues:manage"))],
+)
+async def get_catalogue(catalogue_id: uuid.UUID, request: Request) -> dict[str, object]:
+    from ar_api.routers.tooling import actor, chat  # noqa: PLC0415
+    from grc_pack.book import CatalogueBook  # noqa: PLC0415
+
+    book = CatalogueBook(chat(request))
+    who = actor(request)
+    return {"catalogue": book._catalogue(who, catalogue_id), "items": book.items(who, catalogue_id)}
 
 
 @router.post(
@@ -89,6 +119,56 @@ async def add_risk(body: RiskBody, request: Request) -> dict[str, object]:
 
     return CatalogueBook(chat(request)).add_risk(
         actor(request), body.title, body.score, body.status
+    )
+
+
+@router.get(
+    "/api/v1/ext/grc/risks",
+    dependencies=[Depends(_enabled), Depends(require_permission("grc.risks:manage"))],
+)
+async def list_risks(request: Request) -> dict[str, object]:
+    from ar_api.routers.tooling import actor, chat  # noqa: PLC0415
+    from grc_pack.book import CatalogueBook  # noqa: PLC0415
+
+    return {"items": CatalogueBook(chat(request)).list_risks(actor(request))}
+
+
+@router.patch(
+    "/api/v1/ext/grc/risks/{risk_id}",
+    dependencies=[Depends(_enabled), Depends(require_permission("grc.risks:manage"))],
+)
+async def update_risk(risk_id: uuid.UUID, body: UpdateBody, request: Request) -> dict[str, object]:
+    from ar_api.routers.tooling import actor, chat  # noqa: PLC0415
+    from grc_pack.book import CatalogueBook  # noqa: PLC0415
+
+    return CatalogueBook(chat(request)).update_risk(
+        actor(request), risk_id, title=body.title or None, status=body.status or None
+    )
+
+
+@router.get(
+    "/api/v1/ext/grc/findings",
+    dependencies=[Depends(_enabled), Depends(require_permission("grc.findings:manage"))],
+)
+async def list_findings(request: Request) -> dict[str, object]:
+    from ar_api.routers.tooling import actor, chat  # noqa: PLC0415
+    from grc_pack.book import CatalogueBook  # noqa: PLC0415
+
+    return {"items": CatalogueBook(chat(request)).list_findings(actor(request))}
+
+
+@router.patch(
+    "/api/v1/ext/grc/findings/{finding_id}",
+    dependencies=[Depends(_enabled), Depends(require_permission("grc.findings:manage"))],
+)
+async def update_finding(
+    finding_id: uuid.UUID, body: UpdateBody, request: Request
+) -> dict[str, object]:
+    from ar_api.routers.tooling import actor, chat  # noqa: PLC0415
+    from grc_pack.book import CatalogueBook  # noqa: PLC0415
+
+    return CatalogueBook(chat(request)).update_finding(
+        actor(request), finding_id, title=body.title or None, status=body.status or None
     )
 
 

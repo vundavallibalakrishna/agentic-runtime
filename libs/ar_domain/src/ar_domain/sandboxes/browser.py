@@ -19,6 +19,7 @@ from urllib.parse import urlencode, urljoin, urlparse
 
 import httpx
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, accessibility_tree, host_denied
 from ar_common.settings import loopback_allowed
@@ -470,8 +471,8 @@ def _reject(store: Any, sandbox: dict[str, object], host: str) -> None:
 def _client(store: Any) -> httpx.Client:
     transport = getattr(store, "browser_transport", None)
     if transport is not None:
-        return httpx.Client(transport=transport, follow_redirects=False, timeout=5.0)
-    return httpx.Client(follow_redirects=False, timeout=5.0)
+        return sync_client(transport=transport, follow_redirects=False, timeout=5.0)
+    return sync_client(follow_redirects=False, timeout=5.0)
 
 
 def _cookie_header(session: dict[str, object], host: str) -> str:

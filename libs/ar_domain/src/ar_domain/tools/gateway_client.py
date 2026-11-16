@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.egress_http import http_post
 from ar_common.offload import blocking
 
 if TYPE_CHECKING:
@@ -68,7 +69,7 @@ def _post(store: Any, request: dict[str, object]) -> dict[str, object]:
 
 
 def _send(url: str, body: dict[str, object], timeout: float) -> httpx.Response:
-    return blocking(lambda: httpx.post(url, json=body, timeout=timeout))
+    return blocking(lambda: http_post(url, json=body, timeout=timeout))
 
 
 def _timeout(store: Any, request: dict[str, object]) -> float:

@@ -21,21 +21,32 @@ if TYPE_CHECKING:
 
 from ar_common.settings import get_settings, loopback_allowed
 
-_METADATA = (
+# Always refused, even when the name is on an allowlist.
+_ALWAYS_DENY = (
+    ipaddress.ip_network("0.0.0.0/8"),
     ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("192.0.0.192/32"),
+    ipaddress.ip_network("100.100.100.200/32"),
+    ipaddress.ip_network("168.63.129.16/32"),
+    ipaddress.ip_network("::/128"),
     ipaddress.ip_network("fd00:ec2::254/128"),
 )
-_PRIVATE = (
-    ipaddress.ip_network("0.0.0.0/8"),
+# Private ranges an operator may name when AR_EGRESS_ALLOW_NAMED_PRIVATE is on.
+_NAMED_PRIVATE = (
     ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("100.64.0.0/10"),
-    ipaddress.ip_network("127.0.0.0/8"),
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
+)
+_PRIVATE = (
+    *_ALWAYS_DENY,
+    *_NAMED_PRIVATE,
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fe80::/10"),
 )
+_LOOPBACK_NAMES = frozenset({"localhost", "fake-llm"})
 
 
 def closed_egress() -> bool:
@@ -44,9 +55,23 @@ def closed_egress() -> bool:
 
 
 def install_hosts() -> list[str]:
-    """Hosts the install itself may reach, from ``AR_EGRESS_HOSTS``."""
+    """Hosts the install itself may reach, from ``AR_EGRESS_HOSTS``.
+
+    They apply only while closed egress is on. In open mode they do not widen
+    what a tenant may dial.
+    """
     raw = get_settings().egress_hosts
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def is_operator_private(address: str) -> bool:
+    """True for an RFC1918 or unique-local address, not metadata or loopback."""
+    return _named_private(address)
+
+
+def named_private_allowed() -> bool:
+    """Whether an exactly named host may resolve to a private address."""
+    return bool(get_settings().egress_allow_named_private)
 
 
 def host_of(url: str) -> str:
@@ -59,20 +84,58 @@ def resolved_addresses(host: str) -> list[str] | None:
     return _addresses(host, None, need=True)
 
 
-def metadata_address(address: str) -> bool:
-    """True for a link-local or cloud metadata address."""
+def canonical_ip(  # noqa: PLR0911
+    host: str,
+) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """The address ``host`` names, unwrapping mapped, decimal and octal forms.
+
+    ``2130706433`` and ``0177.0.0.1`` are ``127.0.0.1``. ``::ffff:169.254.169.254``
+    is ``169.254.169.254``. A hostname returns None.
+    """
+    text = host.strip().strip("[]")
+    if not text:
+        return None
+    if text.isdigit():
+        number = int(text)
+        if 0 <= number <= 0xFFFFFFFF:
+            return ipaddress.IPv4Address(number)
+        return None
+    if text.count(".") == 3 and all(part.isdigit() for part in text.split(".")):
+        values: list[int] = []
+        for part in text.split("."):
+            base = 8 if len(part) > 1 and part.startswith("0") else 10
+            try:
+                parsed = int(part, base)
+            except ValueError:
+                return None
+            if parsed > 255:
+                return None
+            values.append(parsed)
+        return ipaddress.IPv4Address(".".join(str(item) for item in values))
     try:
-        ip = ipaddress.ip_address(address)
+        parsed_ip = ipaddress.ip_address(text)
     except ValueError:
-        return False
-    return any(ip in network for network in _METADATA)
+        return None
+    mapped = getattr(parsed_ip, "ipv4_mapped", None)
+    if isinstance(mapped, ipaddress.IPv4Address):
+        return mapped
+    return parsed_ip
+
+
+def metadata_address(address: str) -> bool:
+    """True for a link-local, unspecified, or cloud metadata address."""
+    ip = canonical_ip(address)
+    if ip is None:
+        return address.strip().lower().rstrip(".") == "metadata.google.internal"
+    if any(ip in network for network in _ALWAYS_DENY):
+        return True
+    return bool(ip.is_link_local or ip.is_unspecified)
 
 
 def private_address(address: str) -> bool:
     """True for a non-public address, including loopback and metadata."""
-    try:
-        ip = ipaddress.ip_address(address)
-    except ValueError:
+    ip = canonical_ip(address)
+    if ip is None:
         return False
     if metadata_address(address):
         return True
@@ -109,7 +172,7 @@ def listed_host(host: str, allow: list[str]) -> bool:
     return False
 
 
-def decide(  # noqa: PLR0911, PLR0912
+def decide(  # noqa: PLR0911
     host: str,
     allow: list[str],
     *,
@@ -117,6 +180,7 @@ def decide(  # noqa: PLR0911, PLR0912
     closed: bool | None = None,
     loopback: bool | None = None,
     check_private: bool = True,
+    named_private: bool | None = None,
 ) -> str | None:
     """Why ``host`` may not be dialled, or None when it may.
 
@@ -127,43 +191,38 @@ def decide(  # noqa: PLR0911, PLR0912
     name = host.strip().lower().rstrip(".")
     if not name:
         return "url must name a host"
-    if name in {"169.254.169.254", "metadata.google.internal"}:
+    if name == "metadata.google.internal" or metadata_address(name):
         return f"{name} is a metadata address and is denied"
-    combined = [*allow, *install_hosts()]
     is_closed = closed_egress() if closed is None else closed
     loop = loopback_allowed() if loopback is None else loopback
-    if is_closed and not listed_host(name, [item for item in combined if item.strip() != "*"]):
+    private_ok = named_private_allowed() if named_private is None else named_private
+    combined = list(allow)
+    if is_closed:
+        combined = [*combined, *install_hosts()]
+    listed = [item for item in combined if item.strip() != "*"]
+    if is_closed and not listed_host(name, listed):
         return (
             f"{name} is not on the egress allow list. "
             "Add it to the organisation allowlist or to AR_EGRESS_HOSTS."
         )
-    addresses = _addresses(
-        name, resolve, need=check_private or is_closed or explicit_host(name, combined)
-    )
+    if name in _LOOPBACK_NAMES:
+        if not loop:
+            return f"{name} is not allowed"
+        return None
+    literal = canonical_ip(name)
+    if literal is not None:
+        return _ip_decision(name, [str(literal)], listed, loop=loop, private_ok=private_ok)
+    addresses = _addresses(name, resolve, need=check_private or is_closed)
     if addresses is None:
         if check_private or is_closed:
             return f"{name} could not be resolved"
         return None
-    if any(metadata_address(item) for item in addresses):
-        return f"{name} is a metadata address and is denied"
-    if explicit_host(name, combined):
-        # Loopback stays an install setting. Any other private address that was
-        # named exactly is the on-prem path.
-        if any(_loopback(item) for item in addresses) and not loop:
-            return f"{name} is blocked by the egress deny list"
+    if not addresses and not check_private and not is_closed:
         return None
-    if not check_private and not is_closed:
-        literals = [item for item in addresses if _literal(name)]
-        if any(private_address(item) for item in literals):
-            if loop and all(_loopback(item) for item in literals):
-                return None
-            return f"{name} is blocked by the egress deny list"
-        return None
-    if any(private_address(item) for item in addresses):
-        if loop and all(_loopback(item) for item in addresses):
-            return None
-        return f"{name} is blocked by the egress deny list"
-    return None
+    canonical = [str(canonical_ip(item) or item) for item in addresses]
+    return _ip_decision(
+        name, canonical, listed, loop=loop, private_ok=private_ok, named=explicit_host(name, listed)
+    )
 
 
 def decide_url(
@@ -174,6 +233,7 @@ def decide_url(
     closed: bool | None = None,
     loopback: bool | None = None,
     check_private: bool = True,
+    named_private: bool | None = None,
 ) -> str | None:
     """``decide`` for a URL. A non-http scheme is refused."""
     parsed = urlparse(url)
@@ -186,7 +246,78 @@ def decide_url(
         closed=closed,
         loopback=loopback,
         check_private=check_private,
+        named_private=named_private,
     )
+
+
+def dial_addresses(
+    host: str,
+    allow: list[str],
+    *,
+    resolve: Callable[[str], list[str]] | None = None,
+    closed: bool | None = None,
+    loopback: bool | None = None,
+    named_private: bool | None = None,
+) -> tuple[str | None, list[str]]:
+    """The addresses a real connection may use, after ``decide``.
+
+    The caller connects to these addresses and not to a second DNS answer.
+    """
+    problem = decide(
+        host,
+        allow,
+        resolve=resolve,
+        closed=closed,
+        loopback=loopback,
+        check_private=True,
+        named_private=named_private,
+    )
+    if problem is not None:
+        return problem, []
+    literal = canonical_ip(host)
+    if literal is not None:
+        return None, [str(literal)]
+    found = _addresses(host, resolve, need=True)
+    if not found:
+        return f"{host} could not be resolved", []
+    pinned = [str(canonical_ip(item) or item) for item in found]
+    return None, pinned
+
+
+def _ip_decision(  # noqa: PLR0911
+    name: str,
+    addresses: list[str],
+    listed: list[str],
+    *,
+    loop: bool,
+    private_ok: bool,
+    named: bool | None = None,
+) -> str | None:
+    """Refuse metadata, unspecified, and private addresses the install did not allow."""
+    if not addresses:
+        return f"{name} could not be resolved"
+    if any(metadata_address(item) for item in addresses):
+        return f"{name} is a metadata address and is denied"
+    is_named = explicit_host(name, listed) if named is None else named
+    if any(private_address(item) for item in addresses):
+        if all(_loopback(item) for item in addresses) and loop:
+            return None
+        if is_named and private_ok and all(_named_private(item) for item in addresses):
+            return None
+        if is_named and all(_named_private(item) for item in addresses):
+            return (
+                f"{name} is a private address. Set AR_EGRESS_ALLOW_NAMED_PRIVATE "
+                "to reach a named private host."
+            )
+        return f"{name} is blocked by the egress deny list"
+    return None
+
+
+def _named_private(address: str) -> bool:
+    ip = canonical_ip(address)
+    if ip is None or metadata_address(address) or _loopback(address):
+        return False
+    return any(ip in network for network in _NAMED_PRIVATE)
 
 
 def _literal(host: str) -> bool:
@@ -198,10 +329,8 @@ def _literal(host: str) -> bool:
 
 
 def _loopback(address: str) -> bool:
-    try:
-        return ipaddress.ip_address(address).is_loopback
-    except ValueError:
-        return False
+    ip = canonical_ip(address)
+    return bool(ip is not None and ip.is_loopback)
 
 
 def _addresses(

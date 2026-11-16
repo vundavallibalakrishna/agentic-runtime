@@ -187,6 +187,29 @@ spec:
       ports:
         - {port: 8080, protocol: TCP}
 {{- if .Values.airgap.lockdown }}
+{{- if .Values.airgap.egressCIDRs }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-airgap-cidrs
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: ["api", "runtime-worker", "mcp-gateway"]
+  policyTypes: ["Egress"]
+  egress:
+    {{- range .Values.airgap.egressCIDRs }}
+    - to:
+        - ipBlock:
+            cidr: {{ . | quote }}
+      ports:
+        - {port: 443, protocol: TCP}
+        - {port: 80, protocol: TCP}
+    {{- end }}
+{{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

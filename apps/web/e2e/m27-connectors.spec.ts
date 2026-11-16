@@ -57,7 +57,7 @@ test("batch-two catalog and setup pages", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Connectors", exact: true })).toBeVisible();
   await page.getByLabel("Search connectors").fill("service");
   await expect(page.getByRole("link", { name: /ServiceNow/ })).toBeVisible();
-  await expect(page.getByText("Contract", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Unit", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("Not offered to an agent").first()).toBeVisible();
   await capture(page, "catalog");
 
@@ -67,8 +67,7 @@ test("batch-two catalog and setup pages", async ({ page }) => {
   for (const [slug, name] of pages) {
     await page.goto(`/connectors/${slug}`);
     await expect(page.getByRole("heading", { name })).toBeVisible();
-    const proof = ["servicenow", "okta", "entra"].includes(slug) ? "Contract" : "Unit";
-    await expect(page.getByText(proof, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Unit", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Not offered to an agent").first()).toBeVisible();
     await expect(page.getByText("Built", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Open the provider's app page" })).toBeVisible();

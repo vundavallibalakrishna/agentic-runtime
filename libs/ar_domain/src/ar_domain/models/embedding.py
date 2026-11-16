@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.egress_http import sync_client
 from ar_common.errors import ArError, ErrorCode
 from ar_common.offload import blocking
 
@@ -65,6 +66,8 @@ class ModelTarget:
     dimensions: int | None
     # Provider-specific options stored on the model (``models.request_options``).
     request_options: dict[str, object] = field(default_factory=dict)
+    tenant_id: object = None
+    egress_store: object = None
 
 
 async def refresh_registry(store: Any) -> None:
@@ -116,9 +119,17 @@ def embed(
     rows = [text if isinstance(text, str) else str(text) for text in texts]
     if not rows:
         return []
-    from ar_domain.egress import model_refusal  # noqa: PLC0415
+    from ar_domain.egress import (  # noqa: PLC0415
+        model_refusal,
+        residency_of,
+    )
 
-    problem = model_refusal(None, None, f"{target.base_url.rstrip('/')}/embeddings")
+    problem = model_refusal(
+        target.egress_store,
+        target.tenant_id,
+        f"{target.base_url.rstrip('/')}/embeddings",
+        residency=residency_of(target.egress_store, target.tenant_id),
+    )
     if problem is not None:
         raise EmbeddingFailedError(problem)
     payload: dict[str, object] = {"model": target.name}
@@ -127,7 +138,7 @@ def embed(
         payload["dimensions"] = asked
     ordered: list[list[float] | None] = [None] * len(rows)
     try:
-        with httpx.Client(timeout=_timeout(target)) as http:
+        with sync_client(timeout=_timeout(target)) as http:
             for start in range(0, len(rows), _BATCH):
                 response = blocking(
                     http.post,
@@ -167,9 +178,17 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
     if not docs:
         return []
     url, shape = rerank_route(target)
-    from ar_domain.egress import model_refusal  # noqa: PLC0415
+    from ar_domain.egress import (  # noqa: PLC0415
+        model_refusal,
+        residency_of,
+    )
 
-    problem = model_refusal(None, None, url)
+    problem = model_refusal(
+        target.egress_store,
+        target.tenant_id,
+        url,
+        residency=residency_of(target.egress_store, target.tenant_id),
+    )
     if problem is not None:
         raise EmbeddingFailedError(problem)
     payload: dict[str, object] = (
@@ -178,7 +197,7 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
         else {"model": target.name, "query": query, "documents": docs}
     )
     try:
-        with httpx.Client(timeout=_timeout(target)) as http:
+        with sync_client(timeout=_timeout(target)) as http:
             response = blocking(http.post, url, json=payload, headers=_headers(target))
             response.raise_for_status()
     except httpx.HTTPError as exc:
@@ -274,6 +293,8 @@ def _target(store: Any, tenant_id: object, model: object) -> ModelTarget | None:
         timeout_s=float(timeout) if isinstance(timeout, int | float) and timeout > 0 else 0.0,
         dimensions=raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else None,
         request_options=dict(options) if isinstance(options, dict) else {},
+        tenant_id=tenant_id,
+        egress_store=store,
     )
 
 

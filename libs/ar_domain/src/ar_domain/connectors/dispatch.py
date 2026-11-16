@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ar_common.egress_http import sync_client
 from ar_common.errors import ArError, ErrorCode
 from ar_common.offload import blocking
 from ar_domain.connectors.catalog import CONNECTORS, ToolDef, connector_by_slug, tool_by_name
@@ -401,7 +402,7 @@ def _gdrive_upload(
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(client.post, url, headers=request_headers, content=payload)
     except httpx.HTTPError:
         return _fail("upstream_error", "The provider did not answer. Check the host and try again.")
@@ -434,7 +435,7 @@ def _share_upload(
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(
                 client.put,
                 url,

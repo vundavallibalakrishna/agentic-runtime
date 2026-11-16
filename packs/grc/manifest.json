@@ -21,7 +21,9 @@
         "grc.catalogue.imported",
         "grc.evidence.linked",
         "grc.risk.added",
-        "grc.finding.added"
+        "grc.risk.updated",
+        "grc.finding.added",
+        "grc.finding.updated"
       ],
       "ui": {
         "nav": [

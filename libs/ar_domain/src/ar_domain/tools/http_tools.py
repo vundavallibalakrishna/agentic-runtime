@@ -7,13 +7,14 @@ shown to the model. Private addresses stay denied.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 
 import httpx
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_common.settings import loopback_allowed
-from ar_domain.tools.general import _allow_hosts, _resolve
+from ar_domain.tools.general import _resolve
 
 if TYPE_CHECKING:
     from typing import Any
@@ -62,7 +63,7 @@ def fetch_text(
         if isinstance(sent, httpx.Response):
             return sent.status_code, sent.text
     body = None if method in {"GET", "HEAD"} else json_body
-    with httpx.Client(timeout=float(timeout), follow_redirects=False) as client:
+    with sync_client(timeout=float(timeout), follow_redirects=False) as client:
         response = blocking(
             client.request, method, url, headers=headers, params=_query(params), json=body
         )
@@ -98,15 +99,14 @@ def execute_operation(store: Any, arguments: dict[str, object]) -> dict[str, obj
     url = _url(operation, arguments)
     if not url:
         return _error("validation_failed", "this tool has no URL")
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
     extra = operation.get("allow_hosts")
-    allow = [str(item) for item in extra] if isinstance(extra, list) else []
-    host = urlparse(url).hostname or ""
-    if host and host not in allow:
-        allow.append(host)
+    named = [str(item) for item in extra] if isinstance(extra, list) else []
     problem = guard_public(
         url,
-        allow=allow + _allow_hosts(store, arguments, "http"),
-        loopback=True,
+        allow=[*dial_allow(store, arguments.get("_tenant_id")), *named],
+        loopback=False,
     )
     if problem:
         return _error("egress_denied", problem)
@@ -201,7 +201,7 @@ def _get_raw(store: Any, url: str) -> tuple[int, str, str]:
         sent = sender("GET", url, timeout=20, headers={}, params=None, json_body=None)
         if isinstance(sent, httpx.Response):
             return sent.status_code, sent.text, sent.headers.get("location", "")
-    with httpx.Client(timeout=20.0, follow_redirects=False) as client:
+    with sync_client(timeout=20.0, follow_redirects=False) as client:
         response = blocking(client.get, url)
     return response.status_code, response.text, response.headers.get("location", "")
 

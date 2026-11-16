@@ -63,6 +63,27 @@ def dial_allow(store: Any, tenant_id: object) -> list[str]:
     return ["*", *hosts]
 
 
+def residency_of(store: Any, tenant_id: object) -> str:
+    """The residency that applies to this tenant.
+
+    ``AR_DATA_RESIDENCY`` wins for the whole install. Otherwise the value is the
+    tenant row loaded into ``tenant_profiles``. ``in`` does not block a cloud model.
+    """
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    configured = get_settings().data_residency.strip()
+    if configured:
+        return configured
+    profiles = getattr(store, "tenant_profiles", None)
+    if isinstance(profiles, dict) and tenant_id is not None:
+        row = profiles.get(tenant_id)
+        if not isinstance(row, dict):
+            row = profiles.get(str(tenant_id))
+        if isinstance(row, dict) and str(row.get("data_residency") or "").strip():
+            return str(row["data_residency"])
+    return "in"
+
+
 def model_refusal(
     store: Any,
     tenant_id: object,

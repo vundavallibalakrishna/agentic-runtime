@@ -256,7 +256,7 @@ def test_search_uses_the_named_secret_and_hides_the_key(monkeypatch: pytest.Monk
             },
         )
 
-    monkeypatch.setattr("ar_domain.tools.searching.httpx.get", fake_get)
+    monkeypatch.setattr("ar_common.egress_http.http_get", fake_get)
     result = dispatch_general(store, "search", {"_tenant_id": tenant, "query": "widgets"})
     assert seen["url"].startswith("https://api.search.brave.com/")
     assert seen["token"] == "secret-key-value"  # noqa: S105
@@ -283,7 +283,7 @@ def test_search_falls_back_to_the_environment_key(monkeypatch: pytest.MonkeyPatc
         seen["key"] = key
         return httpx.Response(401, json={"error": "bad env-key-value"})
 
-    monkeypatch.setattr("ar_domain.tools.searching.httpx.post", fake_post)
+    monkeypatch.setattr("ar_common.egress_http.http_post", fake_post)
     result = dispatch_general(store, "search", {"_tenant_id": tenant, "query": "widgets"})
     assert seen["url"] == "https://api.tavily.com/search"
     assert seen["key"] == "env-key-value"
@@ -302,7 +302,7 @@ def test_search_without_a_key_does_not_call_a_provider(monkeypatch: pytest.Monke
         called["n"] += 1
         return httpx.Response(200, json={"web": {"results": []}})
 
-    monkeypatch.setattr("ar_domain.tools.searching.httpx.get", fake_get)
+    monkeypatch.setattr("ar_common.egress_http.http_get", fake_get)
     missing = dispatch_general(store, "search", {"query": "open data"})
     assert missing["code"] == "search_unconfigured"
     assert "not_live" in str(missing["text"])

@@ -16,7 +16,11 @@ from ar_domain.tools.service_connections import _client_credentials
 
 
 def _closed() -> None:
-    set_settings(get_settings().model_copy(update={"egress_closed": True}))
+    set_settings(
+        get_settings().model_copy(
+            update={"egress_closed": True, "egress_allow_named_private": True}
+        )
+    )
 
 
 def test_a_probe_reaches_a_named_private_host_and_refuses_the_rest(monkeypatch) -> None:

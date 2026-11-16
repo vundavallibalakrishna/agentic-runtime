@@ -134,9 +134,6 @@ RECORDED_FIXTURES = frozenset(
         "jira",
         "confluence",
         "rest",
-        "okta",
-        "entra",
-        "servicenow",
     }
 )
 
@@ -233,9 +230,26 @@ def _connector_ready(  # noqa: PLR0911, PLR0912
             continue
         if str(row.get("name") or "").lower() != name:
             continue
-        if row.get("secret") or row.get("access_token") or row.get("refresh_token"):
-            return True
+        return _credential_live(row)
     return False
+
+
+def _credential_live(row: dict[str, object]) -> bool:
+    """A stored client secret is not a connection. The status has to say it is live."""
+    status = str(row.get("status") or "").lower()
+    if status in {"pending", "error", "errored", "expired", "revoked", "disabled"}:
+        return False
+    kind = str(row.get("kind") or "")
+    if kind.startswith("oauth"):
+        return bool(row.get("access_token") or row.get("refresh_token")) and status in {
+            "active",
+            "connected",
+            "installed",
+            "",
+        }
+    if status not in {"active", "connected", "installed", ""}:
+        return False
+    return bool(row.get("access_token") or row.get("refresh_token") or row.get("secret"))
 
 
 def omitted_from_matrix(qualified_name: str) -> bool:
