@@ -14,9 +14,7 @@ class ExtensionRow(Base):
     """One pack record. The pack id and bucket are columns, not table names."""
 
     __tablename__ = "extension_rows"
-    __table_args__ = (
-        Index("ix_extension_rows_tenant_pack", "tenant_id", "pack_id", "bucket"),
-    )
+    __table_args__ = (Index("ix_extension_rows_tenant_pack", "tenant_id", "pack_id", "bucket"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
