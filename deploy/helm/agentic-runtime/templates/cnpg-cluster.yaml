@@ -33,8 +33,12 @@ spec:
       database: ar
       owner: {{ .Values.postgres.username }}
       postInitSQL:
-        - |
-{{ include "ar.postgresRolesSql" . | indent 10 }}
+        # One statement each. CloudNativePG splits on semicolons, so a DO block
+        # with dollar quotes never reaches Postgres intact.
+        - CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS
+        - ALTER ROLE {{ .Values.postgres.username }} WITH LOGIN PASSWORD '{{ .Values.postgres.password }}' NOSUPERUSER NOBYPASSRLS
+        - CREATE ROLE ar_platform LOGIN PASSWORD 'ar_platform' NOSUPERUSER BYPASSRLS
+        - CREATE ROLE ar_readonly LOGIN PASSWORD 'ar_readonly' NOSUPERUSER NOBYPASSRLS
       postInitApplicationSQL:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
