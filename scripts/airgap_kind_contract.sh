@@ -111,19 +111,34 @@ if ! kind load docker-image ar-api:dev ar-runtime:dev ar-mcp-gateway:dev \
 fi
 
 db_pass="$(openssl rand -hex 18)"
+api_ip="$(kubectl get endpoints kubernetes -n default -o jsonpath='{.subsets[0].addresses[0].ip}')"
+if [[ -z "$api_ip" ]]; then
+  echo "kubernetes endpoint address is empty"
+  exit 1
+fi
+api_cidrs="$(mktemp)"
+cat >"$api_cidrs" <<EOF
+cluster:
+  apiServerCidrs:
+    - 10.96.0.0/12
+    - ${api_ip}/32
+EOF
 if ! helm upgrade --install agentic-runtime "$chart" \
   --namespace "$namespace" --create-namespace \
   -f "$chart/values-stage9-contract.yaml" \
   -f "$chart/values-airgap.yaml" \
   -f "$chart/values-airgap-kind.yaml" \
+  -f "$api_cidrs" \
   --set "postgres.password=${db_pass}" \
   --timeout 25m --wait; then
   kubectl -n "$namespace" get pods -o wide || true
   kubectl -n "$namespace" describe cluster agentic-runtime-pg || true
   kubectl -n "$namespace" logs -l cnpg.io/cluster=agentic-runtime-pg --all-containers --tail=80 || true
   kubectl -n "$namespace" logs job/agentic-runtime-migrate --tail=80 || true
+  rm -f "$api_cidrs"
   exit 1
 fi
+rm -f "$api_cidrs"
 
 echo "checking every workload"
 kubectl -n "$namespace" get deploy,sts -o name | while read -r item; do

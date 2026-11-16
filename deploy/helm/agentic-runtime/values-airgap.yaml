@@ -2,7 +2,9 @@
 global:
   imageRegistry: registry.example.internal/ar
 cluster:
-  # Replace with this cluster's Kubernetes API service CIDR.
+  # Addresses the CNI enforces for the API. Include the service CIDR and the
+  # control-plane endpoint IPs. A service CIDR alone is dropped when the CNI
+  # evaluates the node address after DNAT.
   apiServerCidrs:
     - 10.96.0.0/12
 airgap:

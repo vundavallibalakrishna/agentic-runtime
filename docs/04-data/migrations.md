@@ -5,7 +5,7 @@
 - Alembic lives in `libs/ar_domain/src/ar_domain/migrations/` with `env.py` configured for async SQLAlchemy and `target_metadata = ar_domain.db.Base.metadata`.
 - Revision ids are timestamp-prefixed and human-named: `20261101_0001_identity_core.py`. Configure `file_template = %%(year)d%%(month).2d%%(day).2d_%%(rev)s_%%(slug)s` and use sequential 4-digit `rev` values (`--rev-id 0001`).
 - One linear history (no branches). CI fails if `alembic heads` returns more than one head.
-- Migrations run as the `ar_owner` role in the `migrate` Kubernetes Job (Helm `pre-install,pre-upgrade` hook) or `make migrate` locally.
+- Migrations run as the `ar_owner` role in the `migrate` Kubernetes Job (Helm `post-install,post-upgrade` hook, after Postgres accepts connections) or `make migrate` locally.
 
 ## 2. Rules (never skip)
 

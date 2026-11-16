@@ -8,6 +8,9 @@ postgres:
   bundled: true
   mode: statefulset
   instances: 1
+  image:
+    repository: pgvector/pgvector
+    tag: 0.8.7-pg18-trixie
 valkey:
   bundled: true
   mode: standalone
