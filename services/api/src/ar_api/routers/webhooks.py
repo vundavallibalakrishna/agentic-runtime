@@ -131,7 +131,47 @@ async def rotate_callback(request: Request) -> dict[str, str]:
             "__run_callback_secret__",
             secret,
         )
+        await _audit_callback_secret(request, principal)
     return {"secret": secret}
+
+
+async def _audit_callback_secret(request: Request, principal: object) -> None:
+    """Record the rotation. The secret value is not in the event."""
+    from ar_domain.audit.actions import AuditAction  # noqa: PLC0415
+    from ar_domain.audit.memory import remember  # noqa: PLC0415
+
+    chat = request.app.state.chat
+    detail: dict[str, object] = {"name": "__run_callback_secret__"}
+    engine = getattr(chat, "durable_engine", None)
+    if engine is None:
+        remember(
+            chat,
+            tenant_id=getattr(principal, "tenant_id", None),
+            actor_id=getattr(principal, "id", None),
+            action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
+            target_type="tenant",
+            target_id=str(getattr(principal, "tenant_id", "")),
+            detail=detail,
+        )
+        return
+    from ar_domain.audit.service import record  # noqa: PLC0415
+    from ar_domain.db.context import Principal, TenantContext  # noqa: PLC0415
+    from ar_domain.db.session import tenant_session  # noqa: PLC0415
+
+    if not isinstance(principal, Principal) or principal.tenant_id is None:
+        return
+    ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "")))
+    async with tenant_session(ctx, engine=engine) as session:
+        await record(
+            session,
+            tenant_id=principal.tenant_id,
+            actor_type=principal.kind,
+            actor_id=str(principal.id),
+            action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
+            target_type="tenant",
+            target_id=str(principal.tenant_id),
+            detail=detail,
+        )
 
 
 def _check_url(url: str, *, allow_private: bool) -> None:

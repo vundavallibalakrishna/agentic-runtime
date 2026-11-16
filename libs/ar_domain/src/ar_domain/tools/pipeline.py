@@ -520,7 +520,10 @@ class ToolPipeline:
         if explicit is None:
             run = self._request_run(request)
             if isinstance(run, dict):
-                explicit = run.get("permissions")
+                from ar_domain.runs.request import permissions_of  # noqa: PLC0415
+
+                explicit = permissions_of(run)
+        scoped = isinstance(explicit, list | set | frozenset | tuple)
         if isinstance(explicit, list | set | frozenset | tuple):
             permissions = {str(item) for item in explicit}
             roles = set(getattr(self.store, "user_roles", {}).get(request.get("user_id"), set()))
@@ -536,7 +539,11 @@ class ToolPipeline:
                     custom = getattr(self.store, "role_permissions", {}).get(role, ())
                     if isinstance(custom, list | set | frozenset | tuple):
                         permissions.update(str(item) for item in custom)
-        permissions.update(permissions_for(self.store, request.get("tenant_id"), roles))
+        pack = permissions_for(self.store, request.get("tenant_id"), roles)
+        if scoped:
+            permissions.update(item for item in pack if item in permissions)
+        else:
+            permissions.update(pack)
         return sorted(permissions)
 
     def _emit_streams(self, request: dict[str, object], outcome: dict[str, object]) -> None:

@@ -7,6 +7,7 @@ from ar_common.time import utcnow
 from ar_domain.approvals.pending import held, release
 from ar_domain.conversations.logic import run_is_active
 from ar_domain.durable.after import after_commit
+from ar_domain.runs.request import permissions_of
 
 if TYPE_CHECKING:
     from typing import Any
@@ -65,6 +66,7 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
             "call_index": pending.get("call_index"),
             "approval_id": approval.get("id"),
             "tool_call_id": approval.get("tool_call_id"),
+            "permissions": permissions_of(run),
         },
     )
     text = str(result.get("result_preview") or "")

@@ -48,13 +48,25 @@ def _otel_channel(target: str, *, insecure: bool) -> tuple[str, tuple[tuple[str,
 
     if not closed_egress():
         return target, None
-    host, separator, port = target.partition(":")
+    host, port = _split_host(target)
     dial = approved_address(host)
     shown = f"[{dial}]" if ":" in dial else dial
-    endpoint = f"{shown}:{port}" if separator else shown
+    endpoint = f"{shown}:{port}" if port else shown
     if insecure:
         return endpoint, None
     return endpoint, (("grpc.ssl_target_name_override", host),)
+
+
+def _split_host(target: str) -> tuple[str, str]:
+    """Host and port of a gRPC target. Bracketed IPv6 stays one host."""
+    if target.startswith("["):
+        host, _, rest = target[1:].partition("]")
+        port = rest[1:] if rest.startswith(":") else ""
+        return host, port
+    if target.count(":") > 1:
+        return target, ""
+    host, separator, port = target.partition(":")
+    return host, port if separator else ""
 
 
 def _grpc_target(endpoint: str) -> tuple[str, bool]:

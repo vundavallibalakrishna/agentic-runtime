@@ -278,12 +278,16 @@ class EgressTransport(httpx.BaseTransport):
         timeout: float | None,
         verify: ssl.SSLContext | str | bool,
         http2: bool,
+        cert: str | tuple[str, str] | tuple[str, str, str] | None = None,
+        limits: httpx.Limits | None = None,
     ) -> None:
         self._allow = allow
         self._mode = mode
         self._loopback = loopback
         self._timeout = timeout
-        self._inner = httpx.HTTPTransport(trust_env=False, verify=verify, http2=http2)
+        self._inner = httpx.HTTPTransport(
+            trust_env=False, verify=verify, http2=http2, cert=cert, limits=limits or httpx.Limits()
+        )
         self._inner._pool._network_backend = _PinSync()
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
@@ -309,12 +313,16 @@ class AsyncEgressTransport(httpx.AsyncBaseTransport):
         timeout: float | None,
         verify: ssl.SSLContext | str | bool,
         http2: bool,
+        cert: str | tuple[str, str] | tuple[str, str, str] | None = None,
+        limits: httpx.Limits | None = None,
     ) -> None:
         self._allow = allow
         self._mode = mode
         self._loopback = loopback
         self._timeout = timeout
-        self._inner = httpx.AsyncHTTPTransport(trust_env=False, verify=verify, http2=http2)
+        self._inner = httpx.AsyncHTTPTransport(
+            trust_env=False, verify=verify, http2=http2, cert=cert, limits=limits or httpx.Limits()
+        )
         self._inner._pool._network_backend = _PinAsync()
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
@@ -398,6 +406,8 @@ def sync_client(
     chosen = current_allow() if allow is None else list(allow)
     verify = _ca_bundle(client_kwargs.pop("verify", True))
     http2 = bool(client_kwargs.pop("http2", False))
+    cert = client_kwargs.pop("cert", None)
+    limits = client_kwargs.pop("limits", None)
     checked: httpx.BaseTransport
     if transport is None:
         checked = EgressTransport(
@@ -407,6 +417,8 @@ def sync_client(
             timeout=_seconds(timeout),
             verify=verify,
             http2=http2,
+            cert=cert,
+            limits=limits if isinstance(limits, httpx.Limits) else None,
         )
     else:
         checked = _CheckingTransport(transport, allow=chosen, mode=_mode(mode), loopback=loopback)
@@ -435,6 +447,8 @@ def async_client(
     chosen = current_allow() if allow is None else list(allow)
     verify = _ca_bundle(client_kwargs.pop("verify", True))
     http2 = bool(client_kwargs.pop("http2", False))
+    cert = client_kwargs.pop("cert", None)
+    limits = client_kwargs.pop("limits", None)
     checked: httpx.AsyncBaseTransport
     if transport is None:
         checked = AsyncEgressTransport(
@@ -444,6 +458,8 @@ def async_client(
             timeout=_seconds(timeout),
             verify=verify,
             http2=http2,
+            cert=cert,
+            limits=limits if isinstance(limits, httpx.Limits) else None,
         )
     else:
         checked = _CheckingAsyncTransport(

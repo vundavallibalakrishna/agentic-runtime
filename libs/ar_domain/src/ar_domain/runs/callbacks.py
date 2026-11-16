@@ -33,17 +33,22 @@ def deliver_callback(store: Any, item: dict[str, object]) -> None:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         thread = threading.Thread(target=_send, args=(item, allow, secret), name="run-callback")
-        threads = getattr(store, "callback_threads", None)
-        if not isinstance(threads, list):
-            threads = []
-            store.callback_threads = threads
+        threads = _live(store, "callback_threads", lambda item: item.is_alive())
         threads.append(thread)
         thread.start()
         return
     task = loop.create_task(asyncio.to_thread(_send, item, allow, secret))
-    tasks = getattr(store, "callback_tasks", None)
-    if isinstance(tasks, list):
-        tasks.append(task)
+    tasks = _live(store, "callback_tasks", lambda item: not item.done())
+    tasks.append(task)
+
+
+def _live(store: Any, name: str, alive: Any) -> list[Any]:
+    found = getattr(store, name, None)
+    if not isinstance(found, list):
+        found = []
+        setattr(store, name, found)
+    found[:] = [item for item in found if alive(item)]
+    return found
 
 
 def _send(item: dict[str, object], allow: list[str], secret: str) -> None:
