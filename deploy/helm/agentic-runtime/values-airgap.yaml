@@ -1,8 +1,12 @@
 # Air-gapped overlay. Combine with values-small.yaml.
 global:
   imageRegistry: registry.example.internal/ar
+postgres:
+  # The chart default ar-install-db is refused while isolation or lockdown is on.
+  password: airgap-set-a-real-password
 airgap:
   lockdown: true
+  isolatePlatformDb: true
 # lockdown also sets AR_EGRESS_CLOSED=true and AR_EGRESS_HOSTS=otel-collector,
 # and drops the chart's extra port 443 rules. Add in-cluster model hosts to
 # AR_EGRESS_HOSTS or the tenant allowlist before pointing a provider at them.

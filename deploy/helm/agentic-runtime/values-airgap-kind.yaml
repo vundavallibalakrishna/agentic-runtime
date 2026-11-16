@@ -1,0 +1,52 @@
+# Kind contract for an isolated install. Layer after values-stage9-contract.yaml
+# and values-airgap.yaml. Images are the locally loaded contract tag.
+global:
+  imageRegistry: ""
+  imageTag: dev
+  env: staging
+postgres:
+  bundled: true
+  mode: cnpg
+  instances: 1
+  storage: 1Gi
+  password: airgap-kind-fixture
+  # The operator reads the major version from the tag. The pgvector tag does not.
+  image:
+    repository: ghcr.io/cloudnative-pg/postgresql
+    tag: "18"
+cluster:
+  podCIDR: 10.244.0.0/16
+  serviceCIDR: 10.96.0.0/12
+networkPolicy:
+  enabled: true
+airgap:
+  lockdown: true
+  isolatePlatformDb: true
+  egressHosts:
+    - fake-llm
+    - agentic-runtime-fake-llm
+    - agentic-runtime-api
+    - agentic-runtime-mcp-gateway
+    - agentic-runtime-model-gateway
+    - agentic-runtime-temporal
+    - agentic-runtime-sandbox-manager
+temporal:
+  ha: false
+  workerVersioning: false
+valkey:
+  mode: standalone
+openbao:
+  bundled: false
+objectStorage:
+  bundled: true
+  mode: single
+backup:
+  enabled: false
+monitoring:
+  enabled: false
+gateway:
+  enabled: false
+autoscaling:
+  enabled: false
+keda:
+  enabled: false

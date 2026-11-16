@@ -236,15 +236,41 @@ async def save_oauth_states(session: AsyncSession, rows: list[dict[str, Any]]) -
 
 
 async def upsert_named_secret(session: AsyncSession, row: dict[str, Any]) -> None:
-    """Insert or update one secret. A unique-name race is a conflict, not a 500."""
+    """Insert or update one secret. The stored id is written back onto ``row``."""
     from sqlalchemy.exc import IntegrityError  # noqa: PLC0415
 
     from ar_common.errors import ConflictError  # noqa: PLC0415
 
+    secret_id = as_uuid(row.get("id"))
+    tenant_id = as_uuid(row.get("tenant_id"))
+    name = as_text(row.get("name"))
+    if secret_id is None or tenant_id is None or not name:
+        return
+    now = utcnow()
+    sql = """
+        INSERT INTO named_secrets (id, tenant_id, name, ciphertext, created_at, updated_at)
+        VALUES (:id, :tenant_id, :name, :ciphertext, :created_at, :updated_at)
+        ON CONFLICT (tenant_id, (lower(name))) DO UPDATE SET
+            ciphertext = EXCLUDED.ciphertext,
+            updated_at = EXCLUDED.updated_at
+        RETURNING id
+    """
     try:
-        await save_named_secrets(session, [row])
+        result = await session.execute(
+            text(sql),
+            {
+                "id": secret_id,
+                "tenant_id": tenant_id,
+                "name": name,
+                "ciphertext": _bytea(row.get("ciphertext")),
+                "created_at": as_dt(row.get("created_at")) or now,
+                "updated_at": as_dt(row.get("updated_at")) or now,
+            },
+        )
     except IntegrityError as exc:
         raise ConflictError("the callback secret changed while it was being saved; retry") from exc
+    stored = result.scalar_one()
+    row["id"] = stored
 
 
 async def save_named_secrets(session: AsyncSession, rows: list[dict[str, Any]]) -> None:

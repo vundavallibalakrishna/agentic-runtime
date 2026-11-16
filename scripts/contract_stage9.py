@@ -88,6 +88,33 @@ def request(
     return response.status_code, dict(response.headers), response.content
 
 
+def wait_for_port_forward(namespace: str, local: int, remote: int) -> subprocess.Popen[str]:
+    """Poll ``/readyz`` until the forward answers. Other requests are not retried."""
+    deadline = time.monotonic() + 30
+    forward = port_forward(namespace, "svc/agentic-runtime-api", local, remote)
+    attempt = 0
+    url = f"http://127.0.0.1:{local}/readyz"
+    while time.monotonic() < deadline:
+        if forward.poll() is not None:
+            print(f"port-forward exited ({forward.returncode}); restarting", flush=True)
+            forward = port_forward(namespace, "svc/agentic-runtime-api", local, remote)
+            time.sleep(0.5)
+            continue
+        attempt += 1
+        try:
+            response = httpx.get(url, timeout=2)
+        except httpx.TransportError as exc:
+            print(f"readyz attempt {attempt} failed: {exc}", flush=True)
+            time.sleep(0.5)
+            continue
+        print(f"readyz attempt {attempt} status {response.status_code}", flush=True)
+        if response.status_code == 200:
+            return forward
+        time.sleep(0.5)
+    forward.terminate()
+    raise SystemExit("port-forward did not become ready")
+
+
 def login(base: str) -> tuple[str, str]:
     response = httpx.post(
         f"{base}/api/v1/auth/login",
@@ -177,13 +204,9 @@ def main() -> int:  # noqa: PLR0915
     kubectl("-n", namespace, "get", "deploy", "agentic-runtime-sandbox-manager")
     kubectl("-n", namespace, "get", "deploy", "agentic-runtime-temporal")
     wait_ready(namespace)
-    forward = port_forward(namespace, "svc/agentic-runtime-api", 18080, 8000)
+    forward = wait_for_port_forward(namespace, 18080, 8000)
     try:
-        time.sleep(2)
         base = "http://127.0.0.1:18080"
-        status, _headers, _body = request("GET", f"{base}/readyz")
-        if status != 200:
-            raise SystemExit(f"readyz returned {status}")
         cookie, csrf = login(base)
         status, _headers, body = request("GET", f"{base}/api/v1/agents", headers={"cookie": cookie})
         if status != 200:

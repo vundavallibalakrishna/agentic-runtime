@@ -273,7 +273,7 @@ def _configure_policy(chat: Any, settings: Settings) -> None:
 
 def create_application() -> FastAPI:
     """Build the ASGI app. ``/healthz`` does not connect. ``/readyz`` does."""
-    from ar_api.readiness import api_readiness  # noqa: PLC0415
+    from ar_api.readiness import api_readiness, api_readiness_notes  # noqa: PLC0415
 
     settings = Settings()
     from ar_api.auth.mode import assert_auth_mode  # noqa: PLC0415
@@ -359,6 +359,7 @@ def create_application() -> FastAPI:
         docs_url=docs,
         camel_json=True,
         readiness_checks=api_readiness(settings),
+        readiness_notes=api_readiness_notes(settings),
         # A route that takes a file accepts the upload cap, not the JSON body limit.
         body_limits={
             "/api/v1/files:upload": UPLOAD_BODY_LIMIT,

@@ -1,5 +1,6 @@
 """Process settings. Spec: docs/07-ops/environments.md sections 2-3."""
 
+import ipaddress
 import os
 from enum import StrEnum
 from pathlib import Path
@@ -34,8 +35,12 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DATA_RESIDENCY",
         "AR_DATABASE_URL",
         "AR_DB_CERT_DIR",
+        "AR_DB_CONNECT_DEADLINE_S",
         "AR_DB_ENCRYPTION_ACTIVE_KEY",
+        "AR_DB_MAX_ADDRESSES",
         "AR_DB_MIN_SSLMODE",
+        "AR_DB_STRICT_TLS",
+        "AR_DB_STRICT_TLS_FLOOR",
         "AR_DB_ENCRYPTION_KEYS",
         "AR_DURABLE_STATE",
         "AR_DEV_MODEL_API_KEY",
@@ -109,6 +114,8 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_OPA_TIMEOUT_MS",
         "AR_OPA_URL",
         "AR_OTEL_EXPORTER_OTLP_ENDPOINT",
+        "AR_PLATFORM_DB_DENY_CIDRS",
+        "AR_PLATFORM_DB_DENY_HOSTS",
         "AR_OUTBOX_BATCH_SIZE",
         "AR_PASSWORD_LOGIN",
         "AR_PASSWORD_MFA",
@@ -277,12 +284,28 @@ class BaseServiceSettings(BaseSettings):
     egress_allow_named_private: bool = False
     # Extra trust anchor for outbound TLS. ``SSL_CERT_FILE`` wins when this is empty.
     ca_bundle: str = ""
-    # Directory customer-database TLS files must live under. Empty uses the
-    # directory of ``AR_CA_BUNDLE`` (or ``SSL_CERT_FILE``).
+    # Directory customer-database TLS files must live under. Client certificates
+    # and keys are read only from ``<dir>/<tenant id>/``. Empty refuses client
+    # certificates. ``sslrootcert=system`` and the ``AR_CA_BUNDLE`` file stay allowed.
     db_cert_dir: str = ""
+    # How many resolved addresses a customer database dial will try.
+    db_max_addresses: int = 4
+    # Overall budget, in seconds, for those attempts.
+    db_connect_deadline_s: float = 15
     # Lowest libpq sslmode a customer database may use. Empty means no floor,
-    # except closed egress, which requires TLS (``require``).
+    # except closed egress. With ``db_strict_tls``, closed egress requires
+    # ``verify-full``. With it off, closed egress requires ``require``.
     db_min_sslmode: str = ""
+    # When true, closed egress rejects ``require`` and demands certificate verification.
+    db_strict_tls: bool = True
+    # ``verify-full`` checks the server name. Set ``verify-ca`` for a database
+    # addressed by IP, or whose certificate has no matching name.
+    db_strict_tls_floor: str = "verify-full"
+    # Comma-separated names of the platform database services. A customer DSN that
+    # resolves to one of them is refused on any port.
+    platform_db_deny_hosts: str = ""
+    # Comma-separated CIDRs of the platform database pods.
+    platform_db_deny_cidrs: str = ""
     # Empty leaves each tenant's data_residency column in charge. ``cluster`` forces
     # model and embedding URLs onto a private or loopback address for the whole install.
     data_residency: str = ""
@@ -362,7 +385,23 @@ class BaseServiceSettings(BaseSettings):
             self.log_hash_user_ids = True
         apply_host_ports(self)
         self._refuse_default_cursor_secret()
+        self._refuse_bad_platform_cidrs()
         return self
+
+    def _refuse_bad_platform_cidrs(self) -> None:
+        """A malformed deny CIDR stops the process instead of being skipped."""
+        floor = self.db_strict_tls_floor.strip().lower()
+        if floor not in {"verify-ca", "verify-full"}:
+            raise ValueError("AR_DB_STRICT_TLS_FLOOR must be verify-ca or verify-full")
+        self.db_strict_tls_floor = floor
+        for raw in self.platform_db_deny_cidrs.split(","):
+            text = raw.strip()
+            if not text:
+                continue
+            try:
+                ipaddress.ip_network(text, strict=False)
+            except ValueError as exc:
+                raise ValueError(f"AR_PLATFORM_DB_DENY_CIDRS has an invalid CIDR: {text}") from exc
 
     def _refuse_default_cursor_secret(self) -> None:
         """Staging and production do not boot with a missing or well-known cursor secret."""
