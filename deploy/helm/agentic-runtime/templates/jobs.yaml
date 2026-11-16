@@ -108,6 +108,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-db-role-ar-owner
                   key: password
+            - name: AR_DB_PLATFORM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-role-ar-platform
+                  key: password
             {{- end }}
             - name: AR_BOOTSTRAP_TENANT_SLUG
               value: {{ .Values.bootstrap.tenantSlug | quote }}

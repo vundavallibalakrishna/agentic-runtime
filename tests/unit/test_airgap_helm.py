@@ -414,6 +414,18 @@ def test_egress_cidrs_do_not_reopen_platform_pods() -> None:
     assert "PASSWORD '" not in text
 
 
+def test_bootstrap_job_receives_generated_role_passwords() -> None:
+    docs = _render(_CHART / "values-airgap.yaml")
+    job = next(
+        doc
+        for doc in docs
+        if doc.get("kind") == "Job" and str(doc["metadata"]["name"]).endswith("-bootstrap")
+    )
+    names = {item["name"] for item in job["spec"]["template"]["spec"]["containers"][0]["env"]}
+    assert "AR_DB_OWNER_PASSWORD" in names
+    assert "AR_DB_PLATFORM_PASSWORD" in names
+
+
 def test_required_database_and_service_edges() -> None:
     docs = _render(_CHART / "values-airgap.yaml", sets=["cluster.podCIDR=10.244.0.0/16"])
     assert _can_reach(docs, "pooler", source=_POOLER, labels=_INSTANCE, port=5432)
