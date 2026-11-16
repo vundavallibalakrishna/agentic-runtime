@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import ClassVar
 
 import httpx
 import orjson
@@ -104,6 +105,71 @@ def test_extension_values_and_a_private_ca_directory_are_accepted(tmp_path) -> N
     with pin_dns("pinned.example", ["127.0.0.1"]):
         found = socket.getaddrinfo("pinned.example", 80)
     assert found[0][4][0] == "127.0.0.1"
+
+
+def test_an_ipv6_otel_target_keeps_its_host() -> None:
+    from ar_common.telemetry import _split_host
+
+    assert _split_host("[2001:db8::1]:4317") == ("2001:db8::1", "4317")
+    assert _split_host("otel-collector:4317") == ("otel-collector", "4317")
+
+
+def test_an_s3_attribute_stays_an_attribute(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_common.s3 import _pinned_calls
+    from ar_common.settings import get_settings, set_settings
+
+    current = get_settings()
+    set_settings(current.model_copy(update={"egress_closed": True}))
+
+    class Client:
+        meta: ClassVar[dict[str, str]] = {"region": "local"}
+
+        def put(self) -> str:
+            return "sent"
+
+    try:
+        wrapped = _pinned_calls(Client(), "https://127.0.0.1")
+        assert wrapped.meta == {"region": "local"}
+    finally:
+        set_settings(current)
+    del monkeypatch
+
+
+def test_cert_and_limits_reach_the_transport(tmp_path) -> None:
+    import shutil
+    import subprocess
+
+    openssl = shutil.which("openssl")
+    assert openssl is not None
+    key = tmp_path / "key.pem"
+    cert = tmp_path / "cert.pem"
+    subprocess.run(  # noqa: S603
+        [
+            openssl,
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-keyout",
+            str(key),
+            "-out",
+            str(cert),
+            "-days",
+            "1",
+            "-nodes",
+            "-subj",
+            "/CN=egress-test",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    limits = httpx.Limits(max_connections=3)
+    with pytest.raises(FileNotFoundError):
+        sync_client(cert=("missing.pem", "missing.key"), limits=limits, timeout=1)
+    client = sync_client(cert=(str(cert), str(key)), limits=limits, timeout=1)
+    pool = client._transport._inner._pool  # type: ignore[attr-defined]
+    assert pool._max_connections == 3
+    client.close()
 
 
 def test_an_unknown_keyword_is_rejected() -> None:

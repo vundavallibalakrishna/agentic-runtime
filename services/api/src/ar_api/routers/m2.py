@@ -945,6 +945,7 @@ async def create_run(body: RunBody, request: Request) -> dict[str, object]:
         callback_url=body.callback_url,
         on_behalf_of=body.on_behalf_of_user_id,
         allow_on_behalf=body.allow_on_behalf_of,
+        permissions=sorted(principal.permissions),
     )
 
 

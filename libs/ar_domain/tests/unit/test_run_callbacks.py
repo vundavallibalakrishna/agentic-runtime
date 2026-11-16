@@ -81,3 +81,25 @@ def test_delivery_is_scheduled_off_the_caller() -> None:
         assert item["result"] == "denied"
 
     asyncio.run(_run())
+
+
+def test_finished_callback_tasks_are_dropped() -> None:
+    async def _run() -> None:
+        store = type("Store", (), {"callback_tasks": [], "run_callback_secret": "s"})()
+        first: dict[str, object] = {
+            "url": "http://169.254.169.254/hook",
+            "run_id": "run-3",
+            "status": "completed",
+        }
+        deliver_callback(store, first)
+        await store.callback_tasks[0]
+        second: dict[str, object] = {
+            "url": "http://169.254.169.254/hook",
+            "run_id": "run-4",
+            "status": "completed",
+        }
+        deliver_callback(store, second)
+        assert len(store.callback_tasks) == 1
+        await store.callback_tasks[0]
+
+    asyncio.run(_run())
