@@ -41,6 +41,7 @@ spec:
         - CREATE DATABASE langfuse
   storage:
     size: {{ .Values.postgres.storage }}
+  {{- if .Values.backup.enabled }}
   backup:
     retentionPolicy: {{ .Values.backup.retention | quote }}
     barmanObjectStore:
@@ -58,6 +59,7 @@ spec:
         maxParallel: 1
       data:
         compression: gzip
+  {{- end }}
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Pooler
