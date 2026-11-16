@@ -390,6 +390,14 @@ spec:
       ports:
         - {port: 5432, protocol: TCP}
         - {port: 8000, protocol: TCP}
+    # A replica's base backup runs as jobRole=join, not podRole=instance.
+    - from:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: {{ .Release.Name }}-pg
+              cnpg.io/jobRole: join
+      ports:
+        - {port: 5432, protocol: TCP}
     - from:
         - namespaceSelector:
             matchLabels:
@@ -424,6 +432,26 @@ spec:
       cnpg.io/podRole: pooler
   policyTypes: ["Egress"]
   egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: {{ .Release.Name }}-pg
+              cnpg.io/podRole: instance
+      ports:
+        - {port: 5432, protocol: TCP}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-cnpg-join
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: {{ .Release.Name }}-pg
+      cnpg.io/jobRole: join
+  policyTypes: ["Egress"]
+  egress:
+    # The join Job is not an instance pod. It takes a base backup from the primary.
     - to:
         - podSelector:
             matchLabels:

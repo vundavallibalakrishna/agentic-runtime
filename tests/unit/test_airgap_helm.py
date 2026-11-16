@@ -423,6 +423,9 @@ def test_required_database_and_service_edges() -> None:
         "app.kubernetes.io/name": "postgresql",
     }
     assert _can_reach(docs, "initdb", source=initdb, ip="10.96.0.1", port=443)
+    join = {"cnpg.io/cluster": "r-pg", "cnpg.io/jobRole": "join"}
+    assert _can_reach(docs, "join", source=join, labels=_INSTANCE, port=5432)
+    assert _can_ingress(docs, _INSTANCE, port=5432, source=join)
     assert _can_reach(docs, "instance", source=_INSTANCE, labels=_INSTANCE, port=5432)
     assert _can_reach(docs, "instance", source=_INSTANCE, labels=_INSTANCE, port=8000)
     assert _can_ingress(docs, _INSTANCE, port=8000, namespace="cnpg-system")

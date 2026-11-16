@@ -37,6 +37,7 @@ Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-sep
 | `temporal`, `migrate`, `bootstrap` | Platform path on 5432 | CNPG instance pods |
 | CNPG pooler pods | Instance pods on 5432 | |
 | CNPG instance pods | Other instance pods on 5432 and 8000, the API server on 443 and 6443, object storage on 8333 | |
+| CNPG `jobRole: join` | Instance pods on 5432, for the replica base backup | |
 | CNPG operator (`cnpg-system`) | Instance pods on 8000 (ingress) | |
 | `web`, `channels`, `model-gateway`, `mcp-sql`, `mcp-openapi`, `opa`, `squid`, `fake-llm` | Their existing in-cluster traffic | The platform database |
 
