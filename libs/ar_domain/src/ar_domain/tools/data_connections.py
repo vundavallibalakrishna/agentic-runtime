@@ -43,6 +43,15 @@ class DataConnections:
         dsn = str(body.get("dsn") or "").strip()
         if not dsn:
             raise ValidationFailedError("a dsn is required: the address of the warehouse")
+        allow = as_mapping(body.get("allowlist"))
+        if not dsn.startswith("memory:"):
+            from ar_domain.egress import tenant_hosts  # noqa: PLC0415
+            from ar_domain.tools.database import _refuse_unsafe  # noqa: PLC0415
+
+            try:
+                _refuse_unsafe(dsn, allow, tenant_hosts(self.store, actor.tenant_id))
+            except SqlRejected as exc:
+                raise ValidationFailedError(exc.reason) from exc
         self.store.secret_values[secret_id] = dsn.encode()
         ciphertext = b""
         if not dsn.startswith("memory:"):
@@ -52,7 +61,6 @@ class DataConnections:
             ciphertext = seal(connection_key(), dsn.encode())
         connection_id = new_id()
         now = utcnow()
-        allow = as_mapping(body.get("allowlist"))
         self.store.data_connections[connection_id] = {
             "id": connection_id,
             "tenant_id": actor.tenant_id,

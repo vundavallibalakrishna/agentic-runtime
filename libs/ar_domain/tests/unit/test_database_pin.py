@@ -9,7 +9,7 @@ import uuid
 import pytest
 
 from ar_common.settings import get_settings, set_settings
-from ar_domain.tools.database import SqlRejected, _mysql, _pin, _postgres, probe
+from ar_domain.tools.database import SqlRejected, _dial, _execute, probe
 
 
 class _Quiet(socket.socket):
@@ -49,23 +49,25 @@ def mode():
 
 
 def test_open_mode_pins_a_private_address_without_refusing_it(mode) -> None:
+
     mode(closed=False, loopback=False)
-    with _pin("10.1.2.3", []):
-        pass
+    dial = _dial("postgresql://reader:pw@10.1.2.3/app", {}, [])
+    assert dial.address == "10.1.2.3"
+    assert "hostaddr=10.1.2.3" in dial.dsn
 
 
 def test_postgres_and_mysql_reach_a_local_listener(mode) -> None:
     server, port = _listener()
     try:
         mode(closed=False)
-        for engine in (_postgres, _mysql):
+        for engine in ("postgres", "mysql"):
             with pytest.raises(Exception) as raised:
-                engine(
-                    f"postgresql://reader:secret@127.0.0.1:{port}/app",
+                _execute(
+                    f"{engine}://reader:secret@127.0.0.1:{port}/app",
+                    engine,
                     "SELECT 1",
                     timeout_s=2,
                     limit=1,
-                    params=(),
                     hosts=[],
                 )
             text = str(raised.value)
@@ -73,22 +75,22 @@ def test_postgres_and_mysql_reach_a_local_listener(mode) -> None:
             assert "allow list" not in text
         mode(closed=True, loopback=True)
         with pytest.raises(SqlRejected) as closed:
-            _postgres(
+            _execute(
                 f"postgresql://reader:secret@127.0.0.1:{port}/app",
+                "postgres",
                 "SELECT 1",
                 timeout_s=2,
                 limit=1,
-                params=(),
                 hosts=[],
             )
         assert "allow list" in closed.value.reason or "blocked" in closed.value.reason
         with pytest.raises(Exception) as allowed:
-            _mysql(
+            _execute(
                 f"mysql://reader:secret@127.0.0.1:{port}/app",
+                "mysql",
                 "SELECT 1",
                 timeout_s=2,
                 limit=1,
-                params=(),
                 hosts=["127.0.0.1"],
             )
         assert "allow list" not in str(allowed.value)

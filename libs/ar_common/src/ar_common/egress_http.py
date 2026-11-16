@@ -407,7 +407,7 @@ def sync_client(
     verify = _ca_bundle(client_kwargs.pop("verify", True))
     http2 = bool(client_kwargs.pop("http2", False))
     cert = client_kwargs.pop("cert", None)
-    limits = client_kwargs.pop("limits", None)
+    limits = _limits(client_kwargs.pop("limits", None))
     checked: httpx.BaseTransport
     if transport is None:
         checked = EgressTransport(
@@ -418,7 +418,7 @@ def sync_client(
             verify=verify,
             http2=http2,
             cert=cert,
-            limits=limits if isinstance(limits, httpx.Limits) else None,
+            limits=limits,
         )
     else:
         checked = _CheckingTransport(transport, allow=chosen, mode=_mode(mode), loopback=loopback)
@@ -448,7 +448,7 @@ def async_client(
     verify = _ca_bundle(client_kwargs.pop("verify", True))
     http2 = bool(client_kwargs.pop("http2", False))
     cert = client_kwargs.pop("cert", None)
-    limits = client_kwargs.pop("limits", None)
+    limits = _limits(client_kwargs.pop("limits", None))
     checked: httpx.AsyncBaseTransport
     if transport is None:
         checked = AsyncEgressTransport(
@@ -459,7 +459,7 @@ def async_client(
             verify=verify,
             http2=http2,
             cert=cert,
-            limits=limits if isinstance(limits, httpx.Limits) else None,
+            limits=limits,
         )
     else:
         checked = _CheckingAsyncTransport(
@@ -502,6 +502,14 @@ def _client_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     if unknown:
         raise TypeError(f"unexpected keyword argument {unknown[0]}")
     return dict(kwargs)
+
+
+def _limits(value: object) -> httpx.Limits | None:
+    if value is None:
+        return None
+    if isinstance(value, httpx.Limits):
+        return value
+    raise TypeError("limits must be an httpx.Limits")
 
 
 def _real_transport(transport: object) -> None:
@@ -613,14 +621,15 @@ async def _dial_one_async(
 
 
 _PIN_INSTALLED = False
-_PIN_PREVIOUS: Any = None
+_REAL_GETADDRINFO = socket.getaddrinfo
 
 
 def _install_pin() -> None:
-    global _PIN_INSTALLED, _PIN_PREVIOUS  # noqa: PLW0603
-    if _PIN_INSTALLED and socket.getaddrinfo is _pinned_getaddrinfo:
+    """Install the pin. The fallback is the resolver captured at import, not a test double."""
+    global _PIN_INSTALLED  # noqa: PLW0603
+    if socket.getaddrinfo is _pinned_getaddrinfo:
+        _PIN_INSTALLED = True
         return
-    _PIN_PREVIOUS = socket.getaddrinfo
     socket.getaddrinfo = _pinned_getaddrinfo  # type: ignore[assignment]
     _PIN_INSTALLED = True
 
@@ -638,7 +647,7 @@ def _pinned_getaddrinfo(  # noqa: PLR0917
     chosen = pins.get(host_key(text)) if isinstance(pins, dict) else None
     if chosen:
         return [_answer(address, port) for address in chosen]
-    found = _PIN_PREVIOUS(host, port, family, type, proto, flags)
+    found = _REAL_GETADDRINFO(host, port, family, type, proto, flags)
     return list(found)
 
 

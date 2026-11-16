@@ -120,48 +120,50 @@ async def redeliver(
 @expose(public=False, permission="tenant:manage")
 async def rotate_callback(request: Request) -> dict[str, str]:
     from ar_api.deps import current_principal  # noqa: PLC0415
-    from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
 
     secret = await request.app.state.webhooks.rotate_callback()
     principal = current_principal(request)
     if principal.tenant_id is not None:
-        write_named_secret(
-            request.app.state.chat,
-            principal.tenant_id,
-            "__run_callback_secret__",
-            secret,
-        )
-        await _audit_callback_secret(request, principal)
+        await _store_callback_secret(request, principal, secret)
     return {"secret": secret}
 
 
-async def _audit_callback_secret(request: Request, principal: object) -> None:
-    """Record the rotation. The secret value is not in the event."""
+async def _store_callback_secret(request: Request, principal: object, secret: str) -> None:
+    """Write the secret and its audit event in one transaction when Postgres is bound."""
     from ar_domain.audit.actions import AuditAction  # noqa: PLC0415
     from ar_domain.audit.memory import remember  # noqa: PLC0415
+    from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
 
     chat = request.app.state.chat
+    tenant_id = getattr(principal, "tenant_id", None)
     detail: dict[str, object] = {"name": "__run_callback_secret__"}
     engine = getattr(chat, "durable_engine", None)
+    if not isinstance(tenant_id, uuid.UUID):
+        return
+    write_named_secret(chat, tenant_id, "__run_callback_secret__", secret)
     if engine is None:
         remember(
             chat,
-            tenant_id=getattr(principal, "tenant_id", None),
+            tenant_id=tenant_id,
             actor_id=getattr(principal, "id", None),
             action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
             target_type="tenant",
-            target_id=str(getattr(principal, "tenant_id", "")),
+            target_id=str(tenant_id or ""),
             detail=detail,
         )
         return
     from ar_domain.audit.service import record  # noqa: PLC0415
     from ar_domain.db.context import Principal, TenantContext  # noqa: PLC0415
     from ar_domain.db.session import tenant_session  # noqa: PLC0415
+    from ar_domain.durable.m26 import save_named_secrets  # noqa: PLC0415
 
-    if not isinstance(principal, Principal) or principal.tenant_id is None:
+    if not isinstance(principal, Principal):
         return
+    row = _callback_row(chat, tenant_id)
     ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "")))
     async with tenant_session(ctx, engine=engine) as session:
+        if row is not None:
+            await save_named_secrets(session, [row])
         await record(
             session,
             tenant_id=principal.tenant_id,
@@ -172,6 +174,19 @@ async def _audit_callback_secret(request: Request, principal: object) -> None:
             target_id=str(principal.tenant_id),
             detail=detail,
         )
+
+
+def _callback_row(store: object, tenant_id: object) -> dict[str, object] | None:
+    book = getattr(store, "named_secrets", None)
+    if not isinstance(book, dict):
+        return None
+    for row in book.values():
+        if not isinstance(row, dict):
+            continue
+        same_tenant = str(row.get("tenant_id")) == str(tenant_id)
+        if same_tenant and row.get("name") == "__run_callback_secret__":
+            return row
+    return None
 
 
 def _check_url(url: str, *, allow_private: bool) -> None:
