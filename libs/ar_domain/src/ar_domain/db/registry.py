@@ -16,6 +16,7 @@ TABLE_MODULES: tuple[str, ...] = (
     "ar_domain.connectors.tables",
     "ar_domain.conversations.tables",
     "ar_domain.documents.tables",
+    "ar_domain.durable.tables",
     "ar_domain.durability.tables",
     "ar_domain.evals.tables",
     "ar_domain.events.models",
