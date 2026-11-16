@@ -2861,10 +2861,6 @@ class ChatBehaviour:
         run = self.runs[uuid.UUID(str(posted["run"]["id"]))]  # type: ignore[index]
         run["trigger"] = "api"
         run["callback_url"] = callback_url
-        if permissions is not None:
-            from ar_domain.runs.request import ask  # noqa: PLC0415
-
-            ask(run, "permissions", list(permissions))
         return posted
 
     def regenerate(

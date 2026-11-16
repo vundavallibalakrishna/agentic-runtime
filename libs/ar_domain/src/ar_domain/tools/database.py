@@ -14,7 +14,7 @@ import socket
 import uuid
 from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING
-from urllib.parse import parse_qsl, urlsplit, urlunsplit
+from urllib.parse import SplitResult, parse_qsl, quote, unquote, urlsplit, urlunsplit
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -26,9 +26,22 @@ from ar_domain.tools.sql_guard import SqlRejected, check_sql
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 _META = frozenset({"metadata.google.internal", "metadata.internal", "instance-data"})
 _LINK_LOCAL = ipaddress.ip_network("169.254.0.0/16")
-_STRIPPED_QUERY = frozenset({"options", "init_command"})
+# Query keys the driver may see. Anything else can retarget the socket, read a
+# local file, or run a startup command, so it is rejected rather than dropped.
+_ALLOWED_QUERY = frozenset(
+    {"sslmode", "connect_timeout", "application_name", "client_encoding", "charset"}
+)
 _BYTE_CAP = 65_536
 _SAMPLE = 8
+
+
+class _Dial:
+    """The DSN the driver opens, and the one address it is allowed to use."""
+
+    def __init__(self, dsn: str, host: str, address: str) -> None:
+        self.dsn = dsn
+        self.host = host
+        self.address = address
 
 
 def dispatch_data(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
@@ -122,14 +135,15 @@ def apply_read_only(execute: Callable[[str], object], timeout_ms: int, *, mysql:
 
 
 def clean_dsn(dsn: str) -> str:
-    """Drop driver options that can disable read-only or run a startup command."""
-    parts = urlsplit(dsn.strip())
+    """The DSN the driver may see, with the connection target left unchanged.
+
+    A parameter that can redirect the socket, read a local file, or run a
+    startup command is rejected. It is not removed quietly.
+    """
+    if dsn.startswith("memory:"):
+        return dsn
+    parts, kept = _parsed(dsn)
     scheme = "postgresql" if parts.scheme in {"postgres", "postgresql"} else parts.scheme
-    kept = [
-        (key, value)
-        for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if key.lower() not in _STRIPPED_QUERY
-    ]
     query = "&".join(f"{key}={value}" if value else key for key, value in kept)
     return urlunsplit((scheme, parts.netloc, parts.path, query, ""))
 
@@ -247,7 +261,7 @@ def _bound(
     if not dsn:
         raise SqlRejected("this connection has no database")
     if not dsn.startswith("memory:"):
-        _refuse_unsafe(dsn, as_mapping(row.get("allowlist")))
+        _refuse_unsafe(dsn, as_mapping(row.get("allowlist")), _tenant_hosts(store, row))
     return row, dsn, _limits(store, arguments, row)
 
 
@@ -331,27 +345,24 @@ def _execute(
     allow: dict[str, object] | None = None,
     hosts: list[str] | None = None,
 ) -> dict[str, Any]:
-    _refuse_unsafe(dsn, allow or {})
-    chosen = list(hosts or [])
+    dial = _dial(dsn, allow or {}, list(hosts or []))
     if engine == "mysql":
-        return _mysql(dsn, sql, timeout_s=timeout_s, limit=limit, params=params, hosts=chosen)
-    return _postgres(dsn, sql, timeout_s=timeout_s, limit=limit, params=params, hosts=chosen)
+        return _mysql(dial, sql, timeout_s=timeout_s, limit=limit, params=params)
+    return _postgres(dial, sql, timeout_s=timeout_s, limit=limit, params=params)
 
 
 def _postgres(
-    dsn: str,
+    dial: _Dial,
     sql: str,
     *,
     timeout_s: int,
     limit: int,
     params: tuple[object, ...],
-    hosts: list[str],
 ) -> dict[str, Any]:
     import psycopg  # noqa: PLC0415
 
-    host = urlsplit(clean_dsn(dsn)).hostname or ""
-    with _pin(host, hosts):
-        conn = psycopg.connect(clean_dsn(dsn), connect_timeout=5)
+    with _pin(dial.host, [dial.address]):
+        conn = psycopg.connect(dial.dsn, connect_timeout=5)
     try:
 
         def run(statement: str) -> None:
@@ -364,28 +375,26 @@ def _postgres(
         conn.rollback()
     except Exception as exc:
         conn.rollback()
-        raise SqlRejected(_public(exc, dsn)) from exc
+        raise SqlRejected(_public(exc, dial.dsn)) from exc
     finally:
         conn.close()
     return _pack(columns, raw, limit)
 
 
 def _mysql(
-    dsn: str,
+    dial: _Dial,
     sql: str,
     *,
     timeout_s: int,
     limit: int,
     params: tuple[object, ...],
-    hosts: list[str],
 ) -> dict[str, Any]:
     import pymysql  # type: ignore[import-untyped]  # noqa: PLC0415
 
-    parts = urlsplit(clean_dsn(dsn))
-    host = parts.hostname or ""
-    with _pin(host, hosts):
+    parts = urlsplit(dial.dsn)
+    with _pin(dial.host, [dial.address]):
         conn = pymysql.connect(
-            host=parts.hostname or "localhost",
+            host=dial.address,
             port=parts.port or 3306,
             user=parts.username or "",
             password=parts.password or "",
@@ -407,7 +416,7 @@ def _mysql(
         conn.rollback()
     except Exception as exc:
         conn.rollback()
-        raise SqlRejected(_public(exc, dsn)) from exc
+        raise SqlRejected(_public(exc, dial.dsn)) from exc
     finally:
         conn.close()
     return _pack(columns, raw, limit)
@@ -488,26 +497,12 @@ def _with_progress(
     return attach_progress(rendered, job)
 
 
-def _pin(host: str, hosts: list[str]) -> AbstractContextManager[None]:
-    """Pin the dial address. Open mode still allows a private database.
+def _pin(host: str, addresses: list[str]) -> AbstractContextManager[None]:
+    """Return lookups of ``host`` as the address already approved. No second DNS."""
+    from ar_common.egress_http import pin_dns  # noqa: PLC0415
 
-    Closed mode uses the tenant allowlist. Link-local and metadata hosts are
-    refused earlier by :func:`_refuse_unsafe`.
-    """
-    from ar_common.egress_http import (  # noqa: PLC0415
-        EgressDenied,
-        approved_addresses,
-        pin_dns,
-        resolve_host,
-    )
-    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
-
-    if not host:
+    if not host or not addresses:
         return nullcontext()
-    try:
-        addresses = approved_addresses(host, hosts) if closed_egress() else resolve_host(host)
-    except EgressDenied as exc:
-        raise SqlRejected(exc.reason) from exc
     return pin_dns(host, addresses)
 
 
@@ -517,40 +512,144 @@ def _tenant_hosts(store: Any, row: dict[str, object]) -> list[str]:
     return tenant_hosts(store, row.get("tenant_id"))
 
 
-def _refuse_unsafe(dsn: str, allow: dict[str, object]) -> None:
+def _refuse_unsafe(
+    dsn: str, allow: dict[str, object], hosts: list[str] | None = None
+) -> None:
+    """Reject a DSN that would dial a host other than the one it names."""
     if dsn.startswith("memory:"):
         return
-    cleaned = clean_dsn(dsn)
-    parts = urlsplit(cleaned)
-    host = (parts.hostname or "").lower()
-    if not host:
+    _dial(dsn, allow, list(hosts or []))
+
+
+def _dial(dsn: str, allow: dict[str, object], hosts: list[str]) -> _Dial:
+    """Resolve once, check those addresses, and build a DSN that dials them."""
+    parts, kept = _parsed(dsn)
+    host = (parts.hostname or "").lower().rstrip(".")
+    addresses = _lookup_once(host)
+    _screen(host, addresses, hosts)
+    if _is_platform(dsn) and not _truthy(allow.get("allow_platform") or allow.get("allowPlatform")):
+        raise SqlRejected("the platform database is not available on this connection")
+    return _Dial(_with_address(parts, kept, addresses[0]), host, addresses[0])
+
+
+def _parsed(dsn: str) -> tuple[SplitResult, list[tuple[str, str]]]:
+    """The URL and its allowed query, or a rejection. The host is a single name."""
+    text = dsn.strip()
+    if not text or text.lower().startswith("memory:"):
         raise SqlRejected("the connection has no host")
-    if host in _META or host.endswith(".metadata.google.internal"):
+    try:
+        parts = urlsplit(text)
+    except ValueError as exc:
+        raise SqlRejected("a connection may name only one host") from exc
+    hostport = parts.netloc.rsplit("@", 1)[-1]
+    lowered = hostport.lower()
+    decoded = unquote(lowered)
+    if "," in hostport or "," in decoded:
+        raise SqlRejected("a connection may name only one host")
+    if lowered.startswith(("/", "%2f")) or decoded.startswith("/"):
+        raise SqlRejected("a unix socket is not allowed")
+    try:
+        host = parts.hostname or ""
+    except ValueError as exc:
+        raise SqlRejected("a connection may name only one host") from exc
+    bare = host.lower()
+    if not bare:
+        raise SqlRejected("the connection has no host")
+    if bare.startswith("/") or "%2f" in bare or "," in bare:
+        raise SqlRejected(
+            "a unix socket is not allowed" if bare.startswith("/") or "%2f" in bare
+            else "a connection may name only one host"
+        )
+    if bare in _META or bare.endswith(".metadata.google.internal"):
         raise SqlRejected("that host is not allowed")
+    kept: list[tuple[str, str]] = []
+    for key, value in parse_qsl(parts.query, keep_blank_values=True):
+        name = key.lower()
+        if name not in _ALLOWED_QUERY:
+            raise SqlRejected(f"connection parameter {name} is not allowed")
+        kept.append((name, value))
+    return parts, kept
+
+
+def _lookup_once(host: str) -> list[str]:
     try:
         infos = socket.getaddrinfo(host, None)
     except socket.gaierror as exc:
         raise SqlRejected("the database host did not resolve") from exc
+    found: list[str] = []
     for info in infos:
-        address = info[4][0]
-        try:
-            ip = ipaddress.ip_address(address)
-        except ValueError:
-            continue
-        if ip in _LINK_LOCAL or ip.is_link_local:
+        address = str(info[4][0]).split("%", 1)[0]
+        if address and address not in found:
+            found.append(address)
+    if not found:
+        raise SqlRejected("the database host did not resolve")
+    return found
+
+
+def _screen(host: str, addresses: list[str], hosts: list[str]) -> None:
+    """Apply the egress rules to the addresses this one lookup returned."""
+    from ar_common.egress_policy import (  # noqa: PLC0415
+        canonical_ip,
+        closed_egress,
+        decide,
+        metadata_address,
+    )
+    from ar_common.settings import loopback_allowed  # noqa: PLC0415
+
+    for address in addresses:
+        ip = canonical_ip(address)
+        if ip is not None and (ip.is_link_local or ip.is_unspecified or ip in _LINK_LOCAL):
             raise SqlRejected("link-local addresses are not allowed")
-    if _is_platform(cleaned) and not _truthy(
-        allow.get("allow_platform") or allow.get("allowPlatform")
-    ):
-        raise SqlRejected("the platform database is not available on this connection")
+        if metadata_address(address):
+            raise SqlRejected("that host is not allowed")
+    if closed_egress():
+        problem = decide(
+            host,
+            hosts,
+            resolve=lambda _name: addresses,
+            closed=True,
+            check_private=True,
+        )
+        if problem is not None:
+            raise SqlRejected(problem)
+        return
+    if loopback_allowed():
+        return
+    for address in addresses:
+        ip = canonical_ip(address)
+        if ip is not None and ip.is_loopback:
+            raise SqlRejected(f"{host} is blocked by the egress deny list")
+
+
+def _with_address(parts: SplitResult, kept: list[tuple[str, str]], address: str) -> str:
+    """A DSN whose socket target is ``address``. The name stays for TLS."""
+    user = quote(parts.username or "", safe="")
+    secret = quote(parts.password or "", safe="")
+    host = parts.hostname or ""
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    auth = ""
+    if parts.username is not None:
+        auth = user
+        if parts.password is not None:
+            auth += f":{secret}"
+        auth += "@"
+    port = f":{parts.port}" if parts.port else ""
+    scheme = "postgresql" if parts.scheme in {"postgres", "postgresql"} else parts.scheme
+    pairs = [*kept, ("hostaddr", address)]
+    query = "&".join(f"{key}={quote(value, safe='')}" for key, value in pairs)
+    return urlunsplit((scheme, f"{auth}{host}{port}", parts.path, query, ""))
 
 
 def _is_platform(dsn: str) -> bool:
     platform = os.environ.get("AR_DATABASE_URL", "").strip()
     if not platform:
         return False
-    left = _endpoint(dsn)
-    right = _endpoint(clean_dsn(platform))
+    try:
+        left = _endpoint(dsn)
+        right = _endpoint(platform)
+    except ValueError:
+        return False
     if left[1] != right[1] or left[2] != right[2] or not left[2]:
         return False
     return left[0] == right[0] or (_loopback(left[0]) and _loopback(right[0]))
