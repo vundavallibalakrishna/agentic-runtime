@@ -347,7 +347,7 @@ def test_verify_full_checks_the_name_while_dialing_the_pinned_address(
                     conn.sendall(b"S")
                 tls = context.wrap_socket(conn, server_side=True)
                 tls.close()
-            except (ssl.SSLError, OSError):
+            except OSError:
                 conn.close()
 
     threading.Thread(target=serve, daemon=True).start()
