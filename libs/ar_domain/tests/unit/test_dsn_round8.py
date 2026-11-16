@@ -251,5 +251,3 @@ def test_mysql_rejects_postgres_parameters_and_honours_connect_timeout(
             limit=1,
         )
     assert seen["connect_timeout"] == 8
-
-
