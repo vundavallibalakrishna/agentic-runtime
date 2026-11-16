@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
+import { durationLabel, liveStatuses } from "./format";
 import { RunTraceGraph } from "./run-trace-graph";
 import { buildTrace } from "./trace";
 
@@ -31,13 +32,6 @@ type Run = {
   budget?: { maxSteps?: number; maxCostMicros?: number };
   error?: { code?: string; message?: string };
 };
-
-function durationLabel(run: Run) {
-  const start = Date.parse(run.startedAt || "");
-  if (!start) return "";
-  const end = Date.parse(run.endedAt || "") || Date.now();
-  return `${Math.max(0, Math.round((end - start) / 1000))}s`;
-}
 
 type Step = { id?: string; kind?: string; detail?: { agent?: string } };
 type Tool = { id?: string; qualifiedName?: string; status?: string };
@@ -86,9 +80,7 @@ export function RunScreen() {
     void load();
   }, [load]);
 
-  const live = ["queued", "running", "waiting_input", "waiting_approval"].includes(
-    run?.status || "",
-  );
+  const live = liveStatuses.includes(run?.status || "");
   useEffect(() => {
     if (!live) return;
     const timer = window.setInterval(() => void load(true), 2000);

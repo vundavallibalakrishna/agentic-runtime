@@ -2,11 +2,41 @@ import type { HTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils";
 
-export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
+export type Tone = "neutral" | "success" | "warning" | "danger" | "info";
+
+const tones: Record<Tone, string> = {
+  neutral: "border-[var(--border)] bg-[var(--muted)]",
+  success: "tone tone-success",
+  warning: "tone tone-warning",
+  danger: "tone tone-danger",
+  info: "tone tone-info",
+};
+
+const settled = new Set(["published", "completed", "succeeded", "success", "active", "ok"]);
+const moving = new Set(["running", "queued", "in_progress", "started"]);
+const waiting = new Set(["draft", "paused", "pending", "waiting_input", "waiting_approval"]);
+const broken = new Set(["failed", "error", "denied", "disabled", "timed_out"]);
+
+/** The tone for a status word the API returns. A word it does not know is neutral. */
+export function statusTone(status: string | null | undefined): Tone {
+  const word = (status ?? "").toLowerCase();
+  if (settled.has(word)) return "success";
+  if (moving.has(word)) return "info";
+  if (waiting.has(word)) return "warning";
+  if (broken.has(word)) return "danger";
+  return "neutral";
+}
+
+export function Badge({
+  className,
+  tone = "neutral",
+  ...props
+}: HTMLAttributes<HTMLSpanElement> & { tone?: Tone }) {
   return (
     <span
       className={cn(
-        "inline-flex rounded-md border border-[var(--border)] bg-[var(--muted)] px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium",
+        tones[tone],
         className,
       )}
       {...props}

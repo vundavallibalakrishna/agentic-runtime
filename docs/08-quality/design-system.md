@@ -15,12 +15,17 @@ All colour, type, radius, shadow and motion values live in `apps/web/src/app/glo
 | `--primary`, `--primary-hover`, `--primary-foreground` | The one accent, its hovered shade and the label on it |
 | `--border`, `--ring` | Hairlines and the focus ring |
 | `--destructive` | A failed action |
+| `--success`, `--warning` | A settled status and a waiting status, used through badge tones |
 | `--scrim` | The layer behind a menu or the command palette |
 | `--shadow`, `--shadow-xs`, `--shadow-composer`, `--radius` | Menus, subtle card elevation, composer elevation and corners |
 | `--nav-active`, `--nav-active-foreground` | The selected navigation row and its text |
 | `--motion` | Short transitions |
 
 Light and dark are both specified. The theme choice is `system`, `light` or `dark`, stored in `localStorage` under `ar-theme`. The default is `system`. A small script in the document head applies the choice before paint. `prefers-reduced-motion: reduce` shortens animation and transitions.
+
+## Status badges
+
+`ui/Badge` takes a `tone`: `neutral`, `success`, `warning`, `danger` or `info`. A tone tints the badge with one token (a faint fill, a soft border, text in that colour) through the `.tone` classes in `globals.css`, so both themes follow. `statusTone` maps a status word from the API to a tone: published and completed are success, running and queued are info, draft and waiting are warning, failed and disabled are danger. A word it does not know stays neutral. Screens use `statusTone` and do not choose status colours themselves.
 
 ## Type
 
@@ -56,11 +61,11 @@ Detail screens put their Back action in the page header. Approvals, reviews and 
 
 ## Chat
 
-The thread sits in a centred column. The welcome state pairs a display heading with three starter cards. Conversation history has a separate quiet column on desktop and a disclosure on mobile. The composer uses subtle elevation and a labelled send control that is disabled for an empty message. The composer grows with the text, accepts a file, and sends on Enter. Shift+Enter inserts a line. Streaming keeps a caret, announces text through `aria-live="polite"` about twice a second, and does not pull the scroll position when the reader has moved up. Markdown, including fenced code with a copy control, is rendered in the thread. Copy and regenerate sit on the message.
+The thread sits in a centred column. The welcome state pairs a display heading with three starter cards. Conversation history has a separate quiet column on desktop and a disclosure on mobile. The composer uses subtle elevation and a labelled send control that is disabled for an empty message. The composer grows with the text, accepts a file, and sends on Enter. Shift+Enter inserts a line. Streaming keeps a caret, announces text through `aria-live="polite"` about twice a second, and does not pull the scroll position when the reader has moved up. Markdown, including fenced code with a copy control, is rendered in the thread. Copy and regenerate sit on the message. From the tablet width up, a right column holds the run-details panel (status badge, agent, model, duration, step and tool-call counts, each tool call with its status, and the trace link) above the Computer panel. The panel reads the latest run of the conversation, refreshes while the run is live and when the reply ends, and has loading and error states. Below that width the trace link sits above the composer.
 
 ## Agent catalogue
 
-A prominent description-based builder entry appears only for users with `agents:create`. Agent cards show their description, status, version, owner, favourite toggle and available chat action. Search and status filters share one toolbar. Loading uses card-shaped skeletons, an empty filtered result offers Clear filters, and an error offers Try again. Disabled agents do not offer chat.
+The catalogue is a table, one agent per row: name and description, status badge, owner, published version, then the chat action and the favourite toggle. The New agent button in the page header appears only for users with `agents:create`. Search and status filters share one toolbar. Loading uses row-shaped skeletons, an empty filtered result offers Clear filters, and an error offers Try again. Disabled agents do not offer chat. The table scrolls sideways in its own region on a narrow screen. The runs list is a table in the same style, with the run status as a badge.
 
 ## Sign-in
 

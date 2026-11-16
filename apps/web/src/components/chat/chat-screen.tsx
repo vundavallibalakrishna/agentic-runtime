@@ -27,6 +27,7 @@ import { MarkdownView } from "@/components/chat/markdown-view";
 import { MemoryIndicator } from "@/components/chat/memory-indicator";
 import { MessageBody } from "@/components/chat/message-body";
 import { PlanChecklist, planItems } from "@/components/chat/plan-checklist";
+import { RunDetails } from "@/components/chat/run-details";
 import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
@@ -653,6 +654,11 @@ export function ChatScreen() {
   const latestAssistantId = [...visible]
     .reverse()
     .find((message) => message.role === "assistant")?.id;
+  const lastRun = [...messages]
+    .reverse()
+    .map((message) => (message as { runId?: string }).runId)
+    .find(Boolean);
+  const detailRunId = runId || lastRun || "";
   const virtualizer = useVirtualizer({
     count: visible.length,
     getScrollElement: () => parentRef.current,
@@ -1176,7 +1182,7 @@ export function ChatScreen() {
                 </section>
               ) : null}
               {runId ? (
-                <p className="mx-auto mb-2 max-w-2xl text-sm">
+                <p className="mx-auto mb-2 max-w-2xl text-sm md:hidden">
                   <a className="underline" href={`/runs/${runId}`}>
                     {t("viewTrace")}
                   </a>
@@ -1323,13 +1329,22 @@ export function ChatScreen() {
             </form>
           </div>
           {activeId ? (
-            <div className="hidden h-full w-80 shrink-0 md:block">
-              <WorkspacePanel
-                conversationId={activeId}
-                revision={
-                  messages.length + stream.tools.length + (stream.status === "completed" ? 1 : 0)
-                }
-              />
+            <div className="hidden h-full w-80 shrink-0 flex-col md:flex">
+              {detailRunId ? (
+                <RunDetails
+                  agents={agents}
+                  runId={detailRunId}
+                  settled={stream.status !== "streaming"}
+                />
+              ) : null}
+              <div className="min-h-0 flex-1">
+                <WorkspacePanel
+                  conversationId={activeId}
+                  revision={
+                    messages.length + stream.tools.length + (stream.status === "completed" ? 1 : 0)
+                  }
+                />
+              </div>
             </div>
           ) : null}
         </section>
