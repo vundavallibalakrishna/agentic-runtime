@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import socket
 import threading
 import time
@@ -151,13 +150,24 @@ def test_a_bad_deny_cidr_stops_settings_and_a_lookup_miss_is_reported(
 
     monkeypatch.setattr("ar_domain.tools.database.socket.getaddrinfo", down)
     monkeypatch.setattr("ar_common.egress_http._REAL_GETADDRINFO", down)
-    _dial("postgresql://u:pw@db.example/app", {}, [])
-    assert "missing.db" in platform_db_deny_problem()
-    from ar_api.readiness import api_readiness
+    with pytest.raises(SqlRejected, match="did not resolve"):
+        _dial("postgresql://u:pw@db.example/app", {}, [])
+    from ar_api.readiness import platform_db_deny_note
+    from ar_common.web.app import create_app
 
-    check = api_readiness(get_settings())["platform_db"]
-    with pytest.raises(RuntimeError, match="missing"):
-        asyncio.run(check())
+    assert "missing.db" in platform_db_deny_problem()
+    app = create_app(
+        "api",
+        get_settings(),
+        readiness_checks={},
+        readiness_notes={"platform_db": platform_db_deny_note},
+    )
+    from fastapi.testclient import TestClient
+
+    ready = TestClient(app).get("/readyz")
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "ready"
+    assert "missing.db" in ready.json()["degraded"][0]["detail"]
 
 
 def test_mysql_stops_within_the_connect_deadline(mode, monkeypatch: pytest.MonkeyPatch) -> None:

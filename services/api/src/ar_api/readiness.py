@@ -1,9 +1,10 @@
 """Readiness checks for the API process.
 
 ``/healthz`` stays a liveness probe and does not connect. ``/readyz`` checks
-Postgres, Valkey when sessions and the limiter are shared, Temporal when
-``AR_TEMPORAL_REQUIRED`` is set, and a platform-database deny name that has
-never resolved. A check is cached for ten seconds.
+Postgres, Valkey when sessions and the limiter are shared, and Temporal when
+``AR_TEMPORAL_REQUIRED`` is set. A platform-database deny name that has never
+resolved is a ``degraded`` detail, not a failure. A check is cached for ten
+seconds.
 """
 
 from __future__ import annotations
@@ -45,18 +46,28 @@ def api_readiness(settings: BaseServiceSettings) -> dict[str, ReadinessCheck]:
         checks["temporal"] = _cached(
             lambda: ping_temporal(settings.temporal_address, settings.temporal_namespace)
         )
-    if settings.platform_db_deny_hosts.strip():
-        checks["platform_db"] = _cached(_platform_deny)
     return checks
 
 
-async def _platform_deny() -> None:
-    """Surface a deny-list name that has never resolved. It does not block other checks."""
+def api_readiness_notes(settings: BaseServiceSettings) -> dict[str, Callable[[], Awaitable[str]]]:
+    """Details that must not take the process out of service."""
+    if not settings.platform_db_deny_hosts.strip():
+        return {}
+    return {"platform_db": platform_db_deny_note}
+
+
+async def platform_db_deny_note() -> str:
+    """Resolve deny names off the event loop. A miss is logged and returned."""
+    from ar_common.logging import get_logger  # noqa: PLC0415
     from ar_domain.tools.database import platform_db_deny_problem  # noqa: PLC0415
 
-    problem = platform_db_deny_problem()
+    try:
+        problem = await asyncio.wait_for(asyncio.to_thread(platform_db_deny_problem), timeout=2)
+    except TimeoutError:
+        problem = "platform database deny list lookup timed out"
     if problem:
-        raise RuntimeError(problem)
+        get_logger("ar_api.readiness").error("platform_db_deny_unresolved", detail=problem)
+    return problem
 
 
 def _cached(ping: Ping) -> ReadinessCheck:

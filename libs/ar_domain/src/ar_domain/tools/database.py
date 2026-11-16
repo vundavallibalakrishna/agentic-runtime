@@ -1163,6 +1163,11 @@ def _platform_blocked(parsed: _Dial, addresses: list[str], allow: dict[str, obje
     """The platform server, on any port, plus the operator deny list."""
     if _truthy(allow.get("allow_platform") or allow.get("allowPlatform")):
         return False
+    problem = platform_db_deny_problem()
+    if problem:
+        raise SqlRejected(
+            problem + ". Customer connections stay closed until every deny name resolves."
+        )
     target = _platform_target()
     if target is not None and set(addresses) & target[0]:
         return True
@@ -1193,6 +1198,9 @@ def platform_db_deny_problem() -> str:
         return ""
     _deny_addresses(names)
     missing = sorted(name for name in names if name in _unresolved_deny)
+    from ar_common.metrics import PLATFORM_DB_DENY_UNRESOLVED  # noqa: PLC0415
+
+    PLATFORM_DB_DENY_UNRESOLVED.set(1 if missing else 0)
     if not missing:
         return ""
     return "platform database deny list did not resolve: " + ", ".join(missing)

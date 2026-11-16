@@ -1,6 +1,9 @@
 # Air-gapped overlay. Combine with values-small.yaml.
 global:
   imageRegistry: registry.example.internal/ar
+postgres:
+  # The chart default ar-install-db is refused while isolation or lockdown is on.
+  password: airgap-set-a-real-password
 airgap:
   lockdown: true
   isolatePlatformDb: true

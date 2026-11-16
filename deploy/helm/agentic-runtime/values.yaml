@@ -9,6 +9,9 @@ process:
 # pod IPs are refused. Empty leaves that control to the NetworkPolicy.
 cluster:
   podCIDR: ""
+  # ClusterIP range. Copied into AR_PLATFORM_DB_DENY_CIDRS with podCIDR.
+  # The chart cannot discover it.
+  serviceCIDR: ""
 global:
   imageRegistry: ''
   imageTag: "1.0.0"

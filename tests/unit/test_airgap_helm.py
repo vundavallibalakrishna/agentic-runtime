@@ -128,7 +128,10 @@ def test_isolation_reaches_the_database_in_each_postgres_mode() -> None:
     for suffix in ("-api", "-runtime-worker"):
         rules = _db_rules(external, suffix)
         assert any(rule["to"][0].get("ipBlock", {}).get("cidr") == "10.7.0.0/16" for rule in rules)
-    tenant = _render(overlay, sets=["airgap.tenantDbCidrs[0]=10.8.0.0/16"])
+    tenant = _render(
+        overlay,
+        sets=["airgap.tenantDbCidrs[0]=10.8.0.0/16", "cluster.podCIDR=10.244.0.0/16"],
+    )
     api_rules = _db_rules(tenant, "-api")
     assert any(rule["to"][0].get("ipBlock", {}).get("cidr") == "10.8.0.0/16" for rule in api_rules)
 
@@ -205,9 +208,10 @@ def _can_reach(
     labels: dict[str, str] | None = None,
     ip: str | None = None,
     port: int,
+    source: dict[str, str] | None = None,
 ) -> bool:
     """True when any policy selecting this pod allows the destination and port."""
-    source = {"app.kubernetes.io/name": pod}
+    source = source or {"app.kubernetes.io/name": pod}
     for doc in docs:
         if doc.get("kind") != "NetworkPolicy":
             continue
@@ -225,9 +229,44 @@ def _can_reach(
     return False
 
 
+def _can_ingress(
+    docs: list[dict],
+    dest: dict[str, str],
+    *,
+    port: int,
+    source: dict[str, str] | None = None,
+    namespace: str | None = None,
+) -> bool:
+    """True when a policy selecting dest admits this source on the port."""
+    for doc in docs:
+        if doc.get("kind") != "NetworkPolicy":
+            continue
+        if not _selector_matches(doc["spec"].get("podSelector") or {}, dest):
+            continue
+        for rule in doc["spec"].get("ingress") or []:
+            ports = rule.get("ports")
+            if ports is not None and port not in [item.get("port") for item in ports]:
+                continue
+            for peer in rule.get("from") or []:
+                if source is not None and "podSelector" in peer:
+                    if _selector_matches(peer.get("podSelector") or {}, source):
+                        return True
+                name = (
+                    (peer.get("namespaceSelector") or {})
+                    .get("matchLabels", {})
+                    .get("kubernetes.io/metadata.name")
+                )
+                if namespace is not None and name == namespace:
+                    return True
+    return False
+
+
 def test_each_pod_reaches_only_its_database_targets() -> None:
     overlay = _CHART / "values-airgap.yaml"
-    cnpg = _render(overlay, sets=["airgap.tenantDbCidrs[0]=10.8.0.0/16"])
+    cnpg = _render(
+        overlay,
+        sets=["airgap.tenantDbCidrs[0]=10.8.0.0/16", "cluster.podCIDR=10.244.0.0/16"],
+    )
     for pod in _PLATFORM_PODS:
         assert _can_reach(cnpg, pod, labels=_POOLER, port=5432)
         assert not _can_reach(cnpg, pod, labels=_INSTANCE, port=5432)
@@ -238,12 +277,9 @@ def test_each_pod_reaches_only_its_database_targets() -> None:
     for pod in _TOOL_PODS:
         assert _can_reach(cnpg, pod, ip="10.8.1.5", port=5432)
         assert _can_reach(cnpg, pod, ip="10.8.1.5", port=3306)
-    for pod in ("sandbox-manager", "system-worker", "ingest-worker", "web", "channels"):
+    for pod in ("sandbox-manager", "system-worker", "ingest-worker"):
         assert not _can_reach(cnpg, pod, ip="10.8.1.5", port=5432)
         assert not _can_reach(cnpg, pod, ip="10.8.1.5", port=3306)
-    for pod in ("web", "channels", "model-gateway", "mcp-sql"):
-        assert not _can_reach(cnpg, pod, labels=_POOLER, port=5432)
-        assert not _can_reach(cnpg, pod, labels=_INSTANCE, port=5432)
 
     stateful = _render(overlay, sets=["postgres.mode=statefulset"])
     for pod in _PLATFORM_PODS:
@@ -306,3 +342,77 @@ def test_egress_cidrs_do_not_reopen_platform_pods() -> None:
     )
     assert blocked.returncode != 0
     assert "podCIDR" in blocked.stderr
+    wide = _render(
+        _CHART / "values-airgap.yaml",
+        sets=[
+            "airgap.egressCIDRs[0]=10.0.0.0/8",
+            "airgap.egressCIDRs[1]=192.168.0.0/16",
+            "airgap.egressPorts[0]=5432",
+            "cluster.podCIDR=10.244.0.0/16",
+        ],
+    )
+    policy = next(
+        doc
+        for doc in wide
+        if doc.get("kind") == "NetworkPolicy"
+        and str(doc["metadata"]["name"]).endswith("airgap-cidrs")
+    )
+    blocks = [rule["to"][0]["ipBlock"] for rule in policy["spec"]["egress"]]
+    wide_block = next(item for item in blocks if item["cidr"] == "10.0.0.0/8")
+    other_block = next(item for item in blocks if item["cidr"] == "192.168.0.0/16")
+    assert "10.244.0.0/16" in wide_block["except"]
+    assert "except" not in other_block
+    same = _helm(
+        "template",
+        "r",
+        str(_CHART),
+        "-f",
+        str(_CHART / "values-airgap.yaml"),
+        "--set",
+        "airgap.egressCIDRs[0]=10.244.0.0/16",
+        "--set",
+        "airgap.egressPorts[0]=5432",
+        "--set",
+        "cluster.podCIDR=10.244.0.0/16",
+        check=False,
+    )
+    assert same.returncode != 0
+    assert "cannot exclude" in same.stderr
+
+
+def test_required_database_and_service_edges() -> None:
+    docs = _render(_CHART / "values-airgap.yaml", sets=["cluster.podCIDR=10.244.0.0/16"])
+    assert _can_reach(docs, "pooler", source=_POOLER, labels=_INSTANCE, port=5432)
+    assert _can_reach(docs, "instance", source=_INSTANCE, labels=_INSTANCE, port=5432)
+    assert _can_reach(docs, "instance", source=_INSTANCE, labels=_INSTANCE, port=8000)
+    assert _can_ingress(docs, _INSTANCE, port=8000, namespace="cnpg-system")
+    assert _can_ingress(docs, _INSTANCE, port=5432, source=_POOLER)
+    for name in ("temporal", "migrate", "bootstrap"):
+        assert _can_reach(docs, name, labels=_POOLER, port=5432)
+        assert not _can_reach(docs, name, labels=_INSTANCE, port=5432)
+    stateful = _render(
+        _CHART / "values-airgap.yaml",
+        sets=["postgres.mode=statefulset", "cluster.podCIDR=10.244.0.0/16"],
+    )
+    for name in ("temporal", "migrate", "bootstrap"):
+        assert _can_reach(stateful, name, labels=_STATEFUL, port=5432)
+    edges = (
+        ("api", "mcp-gateway", 8002),
+        ("runtime-worker", "sandbox-manager", 8003),
+        ("runtime-worker", "opa", 8181),
+        ("mcp-gateway", "model-gateway", 8001),
+        ("mcp-gateway", "temporal", 7233),
+        ("sandbox-manager", "openbao", 8200),
+        ("sandbox-manager", "valkey", 6379),
+    )
+    for source, dest, port in edges:
+        assert _can_reach(docs, source, labels={"app.kubernetes.io/name": dest}, port=port)
+    for pod in _PLATFORM_PODS:
+        assert _can_reach(docs, pod, ip="1.1.1.1", port=4317)
+        assert not _can_reach(docs, pod, labels=_INSTANCE, port=5432)
+    wide = _render(
+        _CHART / "values-airgap.yaml",
+        sets=["airgap.tenantDbCidrs[0]=10.0.0.0/8", "cluster.podCIDR=10.244.0.0/16"],
+    )
+    assert _can_reach(wide, "mcp-gateway", ip="10.1.1.1", port=5432)
+    assert not _can_reach(wide, "mcp-gateway", ip="10.244.1.5", port=5432)

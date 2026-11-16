@@ -1,3 +1,6 @@
+{{- if and (or .Values.airgap.isolatePlatformDb .Values.airgap.lockdown) (eq (printf "%s" .Values.postgres.password) "ar-install-db") }}
+{{- fail "air-gap installs must set postgres.password. The chart default ar-install-db is not allowed while airgap.isolatePlatformDb or airgap.lockdown is on." }}
+{{- end }}
 {{- if and (eq .Values.global.deploymentMode "single_tenant") (not .Values.bootstrap.adminEmail) }}
 {{- fail "bootstrap.adminEmail is required when global.deploymentMode=single_tenant" }}
 {{- end }}
@@ -87,6 +90,9 @@
 {{- $cidrs := list }}
 {{- if and .Values.cluster .Values.cluster.podCIDR }}
 {{- $cidrs = append $cidrs .Values.cluster.podCIDR }}
+{{- end }}
+{{- if and .Values.cluster .Values.cluster.serviceCIDR }}
+{{- $cidrs = append $cidrs .Values.cluster.serviceCIDR }}
 {{- end }}
 {{- range (.Values.postgres.denyCidrs | default list) }}
 {{- $cidrs = append $cidrs . }}

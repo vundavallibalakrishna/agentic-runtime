@@ -28,21 +28,34 @@ Outbound HTTP goes through `ar_common.egress_http`. `http_get` and `http_post` p
 
 Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-separated) or to the tenant allowlist before saving those providers. The API and the runtime worker already have no port 443 rule. `airgap.egressPorts` is the port list opened for `airgap.egressCIDRs`. The default is 443 and 80. Add 25, 587, 993, 389 or 8000 when mail, a directory or an in-cluster model needs them.
 
-`airgap.isolatePlatformDb` is set by the air-gap overlay. It changes egress for six pods:
+`airgap.isolatePlatformDb` is set by the air-gap overlay. It limits who may open port 5432 to the platform database. The platform path is the CloudNativePG pooler (`cnpg.io/podRole: pooler`) in `cnpg` mode, the `app.kubernetes.io/name: postgres` pods in `statefulset` mode, or `postgres.externalCidrs` when Postgres is not bundled. Temporal's persistence uses that same host. A vector read DSN must use it too. `postgres.externalCidrs` is also granted when isolation is off. Isolation with an external database and an empty CIDR list fails `helm template`.
 
-| Pod | Platform database | Customer databases |
+| Source | May reach | May not reach |
 | --- | --- | --- |
-| `api`, `runtime-worker`, `mcp-gateway` | Pooler, StatefulSet, or `postgres.externalCidrs` only | `airgap.tenantDbCidrs` on `airgap.tenantDbPorts` (default 5432 and 3306) |
-| `sandbox-manager`, `system-worker`, `ingest-worker` | The same platform path | None. These pods keep their other in-cluster egress, except CloudNativePG instance pods |
-| every other pod (`web`, `channels`, `model-gateway`, `mcp-sql`, `mcp-openapi`, `opa`, `squid`, `fake-llm`) | Denied | None from this chart |
+| `api`, `runtime-worker`, `mcp-gateway` | Platform path on 5432, and `airgap.tenantDbCidrs` on `airgap.tenantDbPorts` (default 5432 and 3306) | CNPG instance pods |
+| `sandbox-manager`, `system-worker`, `ingest-worker` | Platform path on 5432, plus their other in-cluster services | CNPG instance pods and tenant CIDRs |
+| `temporal`, `migrate`, `bootstrap` | Platform path on 5432 | CNPG instance pods |
+| CNPG pooler pods | Instance pods on 5432 | |
+| CNPG instance pods | Other instance pods on 5432 and 8000, the API server on 443 and 6443, object storage on 8333 | |
+| CNPG operator (`cnpg-system`) | Instance pods on 8000 (ingress) | |
+| `web`, `channels`, `model-gateway`, `mcp-sql`, `mcp-openapi`, `opa`, `squid`, `fake-llm` | Their existing in-cluster traffic | The platform database |
 
-The platform path is the CloudNativePG pooler (`cnpg.io/podRole: pooler`) in `cnpg` mode, the `app.kubernetes.io/name: postgres` pods in `statefulset` mode, or `postgres.externalCidrs` when Postgres is not bundled. CNPG instance pods (`cnpg.io/podRole: instance`) are denied for every pod while isolation is on. `postgres.externalCidrs` is also granted to the six pods when isolation is off, so an external platform database stays reachable. Isolation with an external database and an empty CIDR list fails `helm template`. A vector read DSN must use the pooler or the StatefulSet service.
+Application calls that must stay open while isolation is on:
+
+| From | To | Port |
+| --- | --- | --- |
+| `api` | `mcp-gateway`, model-gateway, Temporal, sandbox-manager, OPA, Valkey, OpenBao, SeaweedFS, the OTEL collector | 8002, 8001, 7233, 8003, 8181, 6379, 8200, 8333, 4317 |
+| `runtime-worker` | `mcp-gateway`, sandbox-manager, OPA, model-gateway, Temporal, Valkey, OpenBao, SeaweedFS, the OTEL collector | 8002, 8003, 8181, 8001, 7233, 6379, 8200, 8333, 4317 |
+| `mcp-gateway` | model-gateway, Temporal, sandbox-manager, `mcp-sql`, `mcp-openapi`, OPA, Squid, OpenBao, Valkey, SeaweedFS, the OTEL collector | 8001, 7233, 8003, 8010, 8011, 8181, 3128, 8200, 6379, 8333, 4317 |
+| `sandbox-manager` | OpenBao, Valkey, the Kubernetes API, sandbox pods, the OTEL collector | 8200, 6379, 6443, 8080, 4317 |
 
 `mcp-sql` in this tree does not open a database socket. Customer SQL from the product runs in `mcp-gateway` and in the API.
 
-If `airgap.egressPorts` includes a port from `airgap.tenantDbPorts`, each `airgap.egressCIDRs` rule excludes `cluster.podCIDR`. The render fails when that port is listed and `cluster.podCIDR` is empty, because a wide CIDR would reopen the platform database pods. Ports that are not database ports are unchanged.
+`cluster.podCIDR` is excluded from an `airgap.egressCIDRs` or `airgap.tenantDbCidrs` entry only when that entry contains the pod CIDR. An entry that does not contain it is left unchanged, because Kubernetes rejects an `except` outside its CIDR. The same rule applies to `cluster.serviceCIDR` and `postgres.denyCidrs`. A CIDR equal to the pod CIDR fails the render. A database port in `airgap.egressPorts`, or any `airgap.tenantDbCidrs` entry, fails the render when `cluster.podCIDR` is empty. The chart copies `cluster.podCIDR` and `cluster.serviceCIDR` into `AR_PLATFORM_DB_DENY_CIDRS`. It cannot discover either range.
 
-The chart cannot discover the cluster pod CIDR. Set `cluster.podCIDR` so the application refuses those addresses as well. The chart sets `AR_PLATFORM_DB_DENY_HOSTS` to `<release>-pg-rw`, `-ro`, `-r` and `-pooler` for CloudNativePG, and to `<release>-postgres` for the StatefulSet. A deny-list name that has never resolved is logged at startup of the next dial and reported by the API `/readyz` check `platform_db`. It does not refuse unrelated customer databases. A name that resolved before keeps its last addresses.
+The chart sets `AR_PLATFORM_DB_DENY_HOSTS` to `<release>-pg-rw`, `-ro`, `-r` and `-pooler` for CloudNativePG, and to `<release>-postgres` for the StatefulSet. Until every deny name has resolved at least once, customer database dials fail with that reason. A later lookup failure keeps the last addresses. `/readyz` stays ready and lists the miss under `degraded`. The lookup runs off the event loop and times out after two seconds. The gauge `ar_platform_db_deny_unresolved` is 1 while a name is unresolved.
+
+The air-gap overlay sets `postgres.password`. `helm template` fails when `airgap.isolatePlatformDb` or `airgap.lockdown` is on and the password is still the chart default `ar-install-db`. A process whose `AR_DATABASE_URL` still contains that password logs `default_database_password` once at startup. Large, SaaS and external presets use an external database, so combining them with this overlay also requires `postgres.externalCidrs`.
 
 ## Default assistant
 

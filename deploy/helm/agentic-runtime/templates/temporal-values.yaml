@@ -21,14 +21,14 @@ data:
                 manageSchema: true
                 pluginName: postgres12
                 databaseName: temporal
-                connectAddr: {{ printf "%s-pg-pooler:5432" .Release.Name | quote }}
+                connectAddr: {{ include "ar.platformDbHost" . | quote }}
             visibility:
               sql:
                 createDatabase: true
                 manageSchema: true
                 pluginName: postgres12
                 databaseName: temporal_visibility
-                connectAddr: {{ printf "%s-pg-pooler:5432" .Release.Name | quote }}
+                connectAddr: {{ include "ar.platformDbHost" . | quote }}
         namespaces:
           - name: {{ .Values.temporal.namespace }}
             retention: 72h
