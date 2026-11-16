@@ -80,7 +80,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     *,
     one_step: bool = False,
 ) -> bool:
-    """Run the model loop. Return false when a fake provider should answer alone."""
+    """Run the model loop. Return false when this run has no agent definition."""
     definition = _definition(store, run)
     if definition is None:
         return False
@@ -91,9 +91,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     _model, _headers, _timeout, real = store._completion_call(
         uuid.UUID(str(run["tenant_id"])), alias
     )
-    if not real:
-        if getattr(store, "fake_models_allowed", True):
-            return False
+    if not real and not getattr(store, "fake_models_allowed", True):
         # Outside dev and CI an alias that resolves to the local fake must not echo
         # the prompt back as an answer (fresh-pass defect 5).
         _stop_error(
