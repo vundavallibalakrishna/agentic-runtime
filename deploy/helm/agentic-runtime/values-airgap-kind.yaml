@@ -7,16 +7,13 @@ global:
 postgres:
   bundled: true
   mode: cnpg
-  instances: 1
+  instances: 2
   storage: 1Gi
-  password: airgap-kind-fixture
-  # The operator reads the major version from the tag. The pgvector tag does not.
-  image:
-    repository: ghcr.io/cloudnative-pg/postgresql
-    tag: "18"
 cluster:
   podCIDR: 10.244.0.0/16
   serviceCIDR: 10.96.0.0/12
+  apiServerCidrs:
+    - 10.96.0.0/12
 networkPolicy:
   enabled: true
 airgap:
@@ -31,8 +28,11 @@ airgap:
     - agentic-runtime-temporal
     - agentic-runtime-sandbox-manager
 temporal:
-  ha: false
+  ha: true
   workerVersioning: false
+workloads:
+  api:
+    progressDeadlineSeconds: 1200
 valkey:
   mode: standalone
 openbao:

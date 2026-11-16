@@ -1,5 +1,9 @@
-{{- if and (or .Values.airgap.isolatePlatformDb .Values.airgap.lockdown) (eq (printf "%s" .Values.postgres.password) "ar-install-db") }}
-{{- fail "air-gap installs must set postgres.password. The chart default ar-install-db is not allowed while airgap.isolatePlatformDb or airgap.lockdown is on." }}
+{{- if and (or .Values.airgap.isolatePlatformDb .Values.airgap.lockdown) (not .Values.secrets.existingSecret) }}
+{{- $pw := printf "%s" .Values.postgres.password }}
+{{- $placeholders := list "ar-install-db" "airgap-set-a-real-password" "changeme" "change-me" "password" "placeholder" "postgres" "" }}
+{{- if has $pw $placeholders }}
+{{- fail "air-gap installs must set postgres.password to a value that is not a placeholder, or set secrets.existingSecret. Refused: empty, ar-install-db, airgap-set-a-real-password, changeme, change-me, password, placeholder, postgres." }}
+{{- end }}
 {{- end }}
 {{- if and (eq .Values.global.deploymentMode "single_tenant") (not .Values.bootstrap.adminEmail) }}
 {{- fail "bootstrap.adminEmail is required when global.deploymentMode=single_tenant" }}

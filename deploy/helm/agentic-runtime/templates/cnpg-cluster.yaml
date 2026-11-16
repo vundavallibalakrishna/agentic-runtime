@@ -6,12 +6,35 @@ metadata:
   labels:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/instance: {{ .Release.Name }}
-type: Opaque
+type: kubernetes.io/basic-auth
 stringData:
   username: {{ .Values.postgres.username | quote }}
   password: {{ .Values.postgres.password | quote }}
 {{- end }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+{{- range $role := list "ar_owner" "ar_platform" "ar_readonly" }}
+---
+{{- $secretName := printf "%s-db-role-%s" $.Release.Name ($role | replace "_" "-") }}
+{{- $found := lookup "v1" "Secret" $.Release.Namespace $secretName }}
+{{- $password := "" }}
+{{- if and $found $found.data (index $found.data "password") }}
+{{- $password = index $found.data "password" | b64dec }}
+{{- else }}
+{{- $password = randAlphaNum 32 }}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    cnpg.io/reload: "true"
+type: kubernetes.io/basic-auth
+stringData:
+  username: {{ $role }}
+  password: {{ $password }}
+{{- end }}
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
@@ -28,25 +51,58 @@ spec:
     parameters:
       archive_timeout: "300"
       shared_buffers: "256MB"
+    extensions:
+      - name: pgvector
+        image:
+          reference: {{ .Values.postgres.pgvectorImage | quote }}
   bootstrap:
     initdb:
       database: ar
-      owner: {{ .Values.postgres.username }}
+      owner: ar_owner
       secret:
-        name: {{ .Release.Name }}-pg-credentials
-      postInitSQL:
-        # One statement each. CloudNativePG splits on semicolons, so a DO block
-        # with dollar quotes never reaches Postgres intact. The owner password
-        # comes from the credentials secret above.
-        - CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS
-        - CREATE ROLE ar_platform LOGIN PASSWORD 'ar_platform' NOSUPERUSER BYPASSRLS
-        - CREATE ROLE ar_readonly LOGIN PASSWORD 'ar_readonly' NOSUPERUSER NOBYPASSRLS
+        name: {{ .Release.Name }}-db-role-ar-owner
       postInitApplicationSQL:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
         - CREATE DATABASE langfuse
   storage:
     size: {{ .Values.postgres.storage }}
+  managed:
+    roles:
+      # Migrations run as the database owner. CREATEROLE covers role grants in
+      # revisions. It is not a superuser. BYPASSRLS is not set: the owner is
+      # exempt from its own policies unless FORCE ROW LEVEL SECURITY is used.
+      - name: ar_owner
+        ensure: present
+        login: true
+        superuser: false
+        createdb: true
+        createrole: true
+        bypassrls: false
+        passwordSecret:
+          name: {{ .Release.Name }}-db-role-ar-owner
+      # Platform sessions open before a tenant is known, so they must bypass RLS.
+      - name: ar_platform
+        ensure: present
+        login: true
+        superuser: false
+        bypassrls: true
+        passwordSecret:
+          name: {{ .Release.Name }}-db-role-ar-platform
+      - name: ar_app
+        ensure: present
+        login: true
+        superuser: false
+        bypassrls: false
+        passwordSecret:
+          name: {{ .Release.Name }}-pg-credentials
+      - name: ar_readonly
+        ensure: present
+        login: true
+        superuser: false
+        bypassrls: false
+        passwordSecret:
+          name: {{ .Release.Name }}-db-role-ar-readonly
   {{- if .Values.backup.enabled }}
   backup:
     retentionPolicy: {{ .Values.backup.retention | quote }}
@@ -78,6 +134,22 @@ spec:
   type: rw
   pgbouncer:
     poolMode: transaction
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ .Release.Name }}-db-ar
+spec:
+  name: ar
+  owner: ar_owner
+  cluster:
+    name: {{ .Release.Name }}-pg
+  extensions:
+    - name: vector
+    - name: pgcrypto
+    - name: citext
+    - name: pg_trgm
+    - name: btree_gin
 {{- end }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") }}
 ---

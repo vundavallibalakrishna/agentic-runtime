@@ -104,7 +104,6 @@ spec:
         - {port: 8002, protocol: TCP}
         - {port: 8200, protocol: TCP}
         - {port: 8333, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- else }}
     - to:
         - podSelector: {}
@@ -118,10 +117,8 @@ spec:
         - {port: 8181, protocol: TCP}
         - {port: 8200, protocol: TCP}
         - {port: 8333, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- end }}
-    - ports:
-        - {port: 4317, protocol: TCP}
+    {{- include "ar.otelEgress" . | nindent 4 }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -147,7 +144,6 @@ spec:
         - {port: 8181, protocol: TCP}
         - {port: 8200, protocol: TCP}
         - {port: 8333, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- else }}
     - to:
         - podSelector: {}
@@ -161,10 +157,8 @@ spec:
         - {port: 8181, protocol: TCP}
         - {port: 8200, protocol: TCP}
         - {port: 8333, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- end }}
-    - ports:
-        - {port: 4317, protocol: TCP}
+    {{- include "ar.otelEgress" . | nindent 4 }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -206,7 +200,6 @@ spec:
         - {port: 8001, protocol: TCP}
         - {port: 8200, protocol: TCP}
         - {port: 8333, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- else }}
     - to:
         - podSelector: {}
@@ -222,10 +215,8 @@ spec:
         - {port: 3128, protocol: TCP}
         - {port: 8200, protocol: TCP}
         - {port: 8333, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- end }}
-    - ports:
-        - {port: 4317, protocol: TCP}
+    {{- include "ar.otelEgress" . | nindent 4 }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -270,7 +261,6 @@ spec:
         - {port: 6443, protocol: TCP}
         - {port: 443, protocol: TCP}
         - {port: 8200, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- else }}
     - to:
         - podSelector: {}
@@ -280,10 +270,11 @@ spec:
         - {port: 6443, protocol: TCP}
         - {port: 443, protocol: TCP}
         - {port: 8200, protocol: TCP}
-        - {port: 4317, protocol: TCP}
     {{- end }}
-    - ports:
-        - {port: 4317, protocol: TCP}
+    {{- include "ar.otelEgress" . | nindent 4 }}
+    {{- if eq .Values.sandboxes.driver "kubernetes" }}
+    {{- include "ar.apiServerEgress" . | nindent 4 }}
+    {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -312,8 +303,7 @@ spec:
               - key: cnpg.io/podRole
                 operator: NotIn
                 values: ["instance", "pooler"]
-    - ports:
-        - {port: 4317, protocol: TCP}
+    {{- include "ar.otelEgress" . | nindent 4 }}
     {{- if not .Values.airgap.lockdown }}
     - ports:
         - {port: 443, protocol: TCP}
@@ -339,8 +329,7 @@ spec:
               - key: cnpg.io/podRole
                 operator: NotIn
                 values: ["instance", "pooler"]
-    - ports:
-        - {port: 4317, protocol: TCP}
+    {{- include "ar.otelEgress" . | nindent 4 }}
     {{- if not .Values.airgap.lockdown }}
     - ports:
         - {port: 443, protocol: TCP}
@@ -373,9 +362,7 @@ spec:
   policyTypes: ["Egress"]
   egress:
     # initdb Jobs have cnpg.io/jobRole, not podRole=instance, and they dial the API service IP.
-    - ports:
-        - {port: 443, protocol: TCP}
-        - {port: 6443, protocol: TCP}
+    {{- include "ar.apiServerEgress" . | nindent 4 }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -420,9 +407,7 @@ spec:
         - {port: 5432, protocol: TCP}
         - {port: 8000, protocol: TCP}
     # The API server is a node endpoint, not a pod, so a namespace selector misses it.
-    - ports:
-        - {port: 443, protocol: TCP}
-        - {port: 6443, protocol: TCP}
+    {{- include "ar.apiServerEgress" . | nindent 4 }}
     - to:
         - podSelector: {}
       ports:

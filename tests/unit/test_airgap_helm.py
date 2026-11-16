@@ -40,6 +40,8 @@ def test_airgap_overlay_appends_hosts_and_renders_cidrs(tmp_path: Path) -> None:
         str(_CHART / "values-airgap.yaml"),
         "-f",
         str(extra),
+        "--set",
+        "postgres.password=airgap-helm-check-secret",
     )
     docs = list(yaml.safe_load_all(rendered.stdout))
     config = next(doc for doc in docs if doc and doc.get("kind") == "ConfigMap")
@@ -77,7 +79,12 @@ def _render(*files: Path, sets: list[str] | None = None) -> list[dict]:
     command = ["template", "r", str(_CHART)]
     for item in files:
         command.extend(["-f", str(item)])
-    for item in sets or []:
+    chosen = list(sets or [])
+    if any(item.name == "values-airgap.yaml" for item in files) and not any(
+        item.startswith("postgres.password=") for item in chosen
+    ):
+        chosen.append("postgres.password=airgap-helm-check-secret")
+    for item in chosen:
         command.extend(["--set", item])
     rendered = _helm(*command)
     return [doc for doc in yaml.safe_load_all(rendered.stdout) if doc]
@@ -145,6 +152,8 @@ def test_isolation_without_an_external_cidr_fails_the_render() -> None:
         str(_CHART / "values-airgap.yaml"),
         "--set",
         "postgres.bundled=false",
+        "--set",
+        "postgres.password=airgap-helm-check-secret",
         check=False,
     )
     assert completed.returncode != 0
@@ -338,6 +347,8 @@ def test_egress_cidrs_do_not_reopen_platform_pods() -> None:
         "airgap.egressCIDRs[0]=10.0.0.0/8",
         "--set",
         "airgap.egressPorts[0]=3306",
+        "--set",
+        "postgres.password=airgap-helm-check-secret",
         check=False,
     )
     assert blocked.returncode != 0
@@ -374,10 +385,33 @@ def test_egress_cidrs_do_not_reopen_platform_pods() -> None:
         "airgap.egressPorts[0]=5432",
         "--set",
         "cluster.podCIDR=10.244.0.0/16",
+        "--set",
+        "postgres.password=airgap-helm-check-secret",
         check=False,
     )
     assert same.returncode != 0
     assert "cannot exclude" in same.stderr
+    inside = _helm(
+        "template",
+        "r",
+        str(_CHART),
+        "-f",
+        str(_CHART / "values-airgap.yaml"),
+        "--set",
+        "postgres.password=airgap-helm-check-secret",
+        "--set",
+        "airgap.tenantDbCidrs[0]=10.244.5.0/24",
+        "--set",
+        "cluster.podCIDR=10.244.0.0/16",
+        check=False,
+    )
+    assert inside.returncode != 0
+    assert "sits inside" in inside.stderr
+    rendered = _render(
+        _CHART / "values-airgap.yaml", sets=["postgres.password=airgap-helm-check-secret"]
+    )
+    text = "\n".join(str(doc) for doc in rendered)
+    assert "PASSWORD '" not in text
 
 
 def test_required_database_and_service_edges() -> None:
@@ -414,8 +448,17 @@ def test_required_database_and_service_edges() -> None:
     for source, dest, port in edges:
         assert _can_reach(docs, source, labels={"app.kubernetes.io/name": dest}, port=port)
     for pod in _PLATFORM_PODS:
-        assert _can_reach(docs, pod, ip="1.1.1.1", port=4317)
+        assert _can_reach(docs, pod, labels={"app.kubernetes.io/name": "otel-collector"}, port=4317)
+        assert not _can_reach(docs, pod, ip="1.1.1.1", port=4317)
         assert not _can_reach(docs, pod, labels=_INSTANCE, port=5432)
+    assert _can_reach(
+        docs,
+        "sandbox-manager",
+        ip="10.96.0.1",
+        port=6443,
+    )
+    assert not _can_reach(docs, "initdb", source=initdb, ip="1.1.1.1", port=443)
+    assert _can_reach(docs, "initdb", source=initdb, ip="10.96.0.1", port=443)
     wide = _render(
         _CHART / "values-airgap.yaml",
         sets=["airgap.tenantDbCidrs[0]=10.0.0.0/8", "cluster.podCIDR=10.244.0.0/16"],

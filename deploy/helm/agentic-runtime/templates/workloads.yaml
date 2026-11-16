@@ -31,6 +31,7 @@ metadata:
     app.kubernetes.io/part-of: agentic-runtime
 spec:
   replicas: {{ $replicas }}
+  progressDeadlineSeconds: {{ $workload.progressDeadlineSeconds | default 600 }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}
@@ -86,7 +87,7 @@ spec:
             - secretRef:
                 name: {{ $secretName }}
           {{- $versioning := and (or (eq $name "runtime-worker") (eq $name "system-worker") (eq $name "ingest-worker")) $.Values.temporal.workerVersioning }}
-          {{- if or $workload.appModule $versioning }}
+          {{- if or $workload.appModule $versioning (and $.Values.postgres.bundled (eq $.Values.postgres.mode "cnpg")) }}
           env:
             {{- if $workload.appModule }}
             # The shared image starts ``python -m ar_common.serve``, which imports
@@ -95,6 +96,18 @@ spec:
               value: {{ $workload.appModule | quote }}
             - name: AR_PORT
               value: {{ $workload.port | quote }}
+            {{- end }}
+            {{- if and $.Values.postgres.bundled (eq $.Values.postgres.mode "cnpg") }}
+            - name: AR_DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Release.Name }}-db-role-ar-owner
+                  key: password
+            - name: AR_DB_PLATFORM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Release.Name }}-db-role-ar-platform
+                  key: password
             {{- end }}
             {{- if $versioning }}
             - name: TEMPORAL_WORKER_BUILD_ID

@@ -28,7 +28,11 @@ render() {
 }
 render | kubeconform -kubernetes-version 1.33.0 -ignore-missing-schemas -summary -skip CustomResourceDefinition
 for preset in "${presets[@]}"; do
-  render -f "$chart/$preset.yaml" | kubeconform -kubernetes-version 1.33.0 -ignore-missing-schemas -summary -skip CustomResourceDefinition
+  extra=()
+  if [ "$preset" = "values-airgap" ]; then
+    extra=(--set postgres.password=airgap-helm-check-secret)
+  fi
+  render -f "$chart/$preset.yaml" "${extra[@]}" | kubeconform -kubernetes-version 1.33.0 -ignore-missing-schemas -summary -skip CustomResourceDefinition
 done
 uv run python "$root/scripts/check_helm.py"
 helm lint "$chart/charts/qdrant"

@@ -12,6 +12,11 @@ cluster:
   # ClusterIP range. Copied into AR_PLATFORM_DB_DENY_CIDRS with podCIDR.
   # The chart cannot discover it.
   serviceCIDR: ""
+  # Kubernetes API endpoint CIDRs. Required under airgap.lockdown.
+  apiServerCidrs: []
+otel:
+  name: otel-collector
+  cidrs: []
 global:
   imageRegistry: ''
   imageTag: "1.0.0"
@@ -260,8 +265,10 @@ postgres:
   # Required when airgap.isolatePlatformDb is on and Postgres is not bundled.
   externalCidrs: []
   image:
-    repository: pgvector/pgvector
-    tag: 0.8.7-pg18-trixie
+    repository: ghcr.io/cloudnative-pg/postgresql
+    tag: "18"
+  # Mounted with the operand. The tag must match the PostgreSQL major above.
+  pgvectorImage: ghcr.io/cloudnative-pg/pgvector:0.8.1-18-trixie
 valkey:
   bundled: true
   mode: sentinel

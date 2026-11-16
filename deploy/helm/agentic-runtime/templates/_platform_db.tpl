@@ -72,6 +72,13 @@ contains
 {{- else -}}
 other
 {{- end -}}
+{{- else if gt $pp $cp -}}
+{{- $block := include "ar.pow2" (sub 32 $cp) | trim | int -}}
+{{- if eq (div $pb $block) (div $cb $block) -}}
+inside
+{{- else -}}
+other
+{{- end -}}
 {{- else -}}
 other
 {{- end -}}
@@ -97,6 +104,8 @@ other
 {{- fail (printf "CIDR %s equals %s, so a NetworkPolicy cannot exclude it. Use a narrower CIDR." $cidr .) -}}
 {{- else if eq $rel "ipv6" -}}
 {{- fail "cluster CIDR checks support IPv4 only." -}}
+{{- else if eq $rel "inside" -}}
+{{- fail (printf "CIDR %s sits inside %s, so it would reopen platform pods. Remove it from the database allow list." $cidr .) -}}
 {{- else if eq $rel "contains" -}}
 {{- $_ := set $seen . "1" -}}
 {{- end -}}
@@ -135,6 +144,41 @@ other
 {{- if eq $needle (. | toString) }}yes{{- end -}}
 {{- end -}}
 {{- end -}}
+{{- end }}
+{{- define "ar.otelEgress" -}}
+- to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: {{ .Values.otel.name | default "otel-collector" }}
+  ports:
+    - {port: 4317, protocol: TCP}
+{{- range (.Values.otel.cidrs | default list) }}
+- to:
+    - ipBlock:
+        cidr: {{ . | quote }}
+  ports:
+    - {port: 4317, protocol: TCP}
+{{- end }}
+{{- end }}
+{{- define "ar.apiServerEgress" -}}
+{{- $cidrs := .Values.cluster.apiServerCidrs | default list }}
+{{- if and .Values.airgap.lockdown (not $cidrs) }}
+{{- fail "airgap.lockdown requires cluster.apiServerCidrs so database and sandbox pods reach the Kubernetes API without opening every address." }}
+{{- end }}
+{{- if $cidrs }}
+- to:
+    {{- range $cidrs }}
+    - ipBlock:
+        cidr: {{ . | quote }}
+    {{- end }}
+  ports:
+    - {port: 443, protocol: TCP}
+    - {port: 6443, protocol: TCP}
+{{- else }}
+- ports:
+    - {port: 443, protocol: TCP}
+    - {port: 6443, protocol: TCP}
+{{- end }}
 {{- end }}
 {{- define "ar.externalDbEgress" -}}
 {{- range (.Values.postgres.externalCidrs | default list) }}

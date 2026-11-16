@@ -69,7 +69,7 @@ def assert_rollout(rendered: str) -> None:
     text = rendered
     if "maxUnavailable: 0" not in text:
         raise SystemExit("rolling update must keep maxUnavailable at 0")
-    if "helm.sh/hook: pre-install,pre-upgrade" not in text:
+    if "helm.sh/hook: post-install,post-upgrade" not in text:
         raise SystemExit("migrate hook missing")
     if "TEMPORAL_WORKER_BUILD_ID" not in text:
         raise SystemExit("worker build id missing")
@@ -105,14 +105,24 @@ def main() -> None:
         raise SystemExit("small install must bootstrap the tenant")
     assert_bootstrap_secret(default)
     assert_bootstrap_secret(small)
-    airgap = template("-f", str(CHART / "values-airgap.yaml"))
+    airgap = template(
+        "-f",
+        str(CHART / "values-airgap.yaml"),
+        "--set",
+        "postgres.password=airgap-helm-check-secret",
+    )
     if "0.0.0.0/0" in airgap:
         raise SystemExit("air-gap render allows world egress")
     dev = template("-f", str(CHART / "values-dev.yaml"))
     if "RuntimeClass" in kinds(dev):
         raise SystemExit("dev preset must not install RuntimeClass")
     for preset in PRESETS:
-        template("-f", str(CHART / preset))
+        extra = (
+            ["--set", "postgres.password=airgap-helm-check-secret"]
+            if preset == "values-airgap.yaml"
+            else []
+        )
+        template("-f", str(CHART / preset), *extra)
     assert_fails(["--set", "bootstrap.adminEmail="], "bootstrap.adminEmail")
     assert_fails(
         ["--set", "global.env=prod", "--set", "sandboxes.driver=docker"], "sandboxes.driver"

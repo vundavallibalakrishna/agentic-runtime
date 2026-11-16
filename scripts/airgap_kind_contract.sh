@@ -46,6 +46,23 @@ networking:
   serviceSubnet: 10.96.0.0/12
 nodes:
   - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            feature-gates: ImageVolume=true
+      - |
+        kind: ClusterConfiguration
+        apiServer:
+          extraArgs:
+            feature-gates: ImageVolume=true
+        scheduler:
+          extraArgs:
+            feature-gates: ImageVolume=true
+        controllerManager:
+          extraArgs:
+            feature-gates: ImageVolume=true
 EOF
   kind create cluster --name "$name" --config /tmp/kind-calico.yaml --image kindest/node:v1.33.1
 fi
@@ -93,99 +110,24 @@ if ! kind load docker-image ar-api:dev ar-runtime:dev ar-mcp-gateway:dev \
   rm -f "${tar}"
 fi
 
-helm upgrade --install agentic-runtime "$chart" \
+db_pass="$(openssl rand -hex 18)"
+if ! helm upgrade --install agentic-runtime "$chart" \
   --namespace "$namespace" --create-namespace \
   -f "$chart/values-stage9-contract.yaml" \
   -f "$chart/values-airgap.yaml" \
   -f "$chart/values-airgap-kind.yaml" \
-  --timeout 15m --no-hooks --wait=false
-
-echo "waiting for the database"
-if ! kubectl -n "$namespace" wait --for=condition=Ready "cluster/agentic-runtime-pg" --timeout=15m; then
-  kubectl -n "$namespace" describe cluster agentic-runtime-pg || true
+  --set "postgres.password=${db_pass}" \
+  --timeout 25m --wait; then
   kubectl -n "$namespace" get pods -o wide || true
-  kubectl -n "$namespace" describe pods -l "cnpg.io/cluster=agentic-runtime-pg" || true
-  kubectl -n "$namespace" logs -l "cnpg.io/cluster=agentic-runtime-pg" --all-containers --tail=80 || true
-  exit 1
-fi
-kubectl -n "$namespace" wait --for=condition=Ready pod -l cnpg.io/podRole=pooler --timeout=10m
-kubectl -n "$namespace" rollout status statefulset/agentic-runtime-valkey --timeout=5m
-
-echo "migrating and bootstrapping"
-helm template agentic-runtime "$chart" \
-  --namespace "$namespace" \
-  -f "$chart/values-stage9-contract.yaml" \
-  -f "$chart/values-airgap.yaml" \
-  -f "$chart/values-airgap-kind.yaml" \
-  -s templates/jobs.yaml > /tmp/airgap-jobs.yaml
-python3 - <<'PY'
-from pathlib import Path
-text = Path("/tmp/airgap-jobs.yaml").read_text(encoding="utf-8")
-docs = [item for item in text.split("---\n") if item.strip()]
-for doc in docs:
-    if "name: agentic-runtime-migrate" in doc:
-        Path("/tmp/airgap-migrate.yaml").write_text("---\n" + doc, encoding="utf-8")
-    if "name: agentic-runtime-bootstrap" in doc:
-        Path("/tmp/airgap-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
-PY
-job_logs() {
-  local job="$1"
-  kubectl -n "$namespace" get pods -l "job-name=${job}" -o wide || true
-  kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
-}
-kubectl apply -n "$namespace" -f /tmp/airgap-migrate.yaml
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
-  job_logs agentic-runtime-migrate
-  exit 1
-fi
-kubectl apply -n "$namespace" -f /tmp/airgap-bootstrap.yaml
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
-  job_logs agentic-runtime-bootstrap
+  kubectl -n "$namespace" describe cluster agentic-runtime-pg || true
+  kubectl -n "$namespace" logs -l cnpg.io/cluster=agentic-runtime-pg --all-containers --tail=80 || true
+  kubectl -n "$namespace" logs job/agentic-runtime-migrate --tail=80 || true
   exit 1
 fi
 
-echo "waiting for workloads"
-# The API starts before Postgres is ready and can trip its progress deadline.
-kubectl -n "$namespace" rollout restart deploy/agentic-runtime-api
-kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=3m || true
-# The owner password comes from the chart secret. A SASL failure here means
-# the pooler is still using a generated password.
-echo "probing the API database connection"
-kubectl -n "$namespace" exec deploy/agentic-runtime-api -- python -c '
-import asyncio, os
-from sqlalchemy.ext.asyncio import create_async_engine
-url = os.environ.get("AR_DATABASE_URL", "")
-head, _, tail = url.partition("://")
-user = head and tail.split(":", 1)[0]
-print("db user", user, "target", url.split("@")[-1])
-async def main():
-    engine = create_async_engine(url, connect_args={"statement_cache_size": 0, "prepared_statement_cache_size": 0})
-    try:
-        async with engine.connect() as conn:
-            await conn.exec_driver_sql("SELECT 1")
-        print("postgres ok")
-    except Exception as exc:
-        print(type(exc).__name__, exc)
-        raise
-asyncio.run(main())
-' || {
-  kubectl -n "$namespace" logs -l cnpg.io/podRole=pooler --tail=40 || true
-  exit 1
-}
-for deploy in api runtime-worker mcp-gateway sandbox-manager model-gateway fake-llm temporal; do
-  if ! kubectl -n "$namespace" rollout status "deploy/agentic-runtime-${deploy}" --timeout=15m; then
-    kubectl -n "$namespace" get pods -o wide || true
-    kubectl -n "$namespace" exec "deploy/agentic-runtime-${deploy}" -- \
-      python -c 'import urllib.request
-try:
-    print(urllib.request.urlopen("http://127.0.0.1:8000/readyz", timeout=5).read().decode())
-except Exception as exc:
-    body = getattr(exc, "read", lambda: b"")()
-    print(body.decode() if isinstance(body, bytes) else body)
-    print(exc)' || true
-    kubectl -n "$namespace" logs -l "app.kubernetes.io/name=${deploy}" --all-containers --tail=80 || true
-    exit 1
-  fi
+echo "checking every workload"
+kubectl -n "$namespace" get deploy,sts -o name | while read -r item; do
+  kubectl -n "$namespace" rollout status "$item" --timeout=10m
 done
 
 AIRGAP_NAMESPACE="$namespace" uv run python scripts/contract_airgap.py

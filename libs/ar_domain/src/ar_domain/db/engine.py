@@ -3,6 +3,7 @@
 Spec: docs/04-data/rls.md §6, docs/07-ops/scaling.md (pool of 20 via PgBouncer).
 """
 
+import os
 import uuid  # noqa: TC003
 from typing import Any  # noqa: TC003
 
@@ -33,23 +34,34 @@ def app_database_url() -> str:
     return get_settings().database_url
 
 
+def _role_password(env_name: str, fallback: str) -> str:
+    """Helm injects a generated password. Local Postgres keeps the dev fallback."""
+    configured = os.environ.get(env_name, "").strip()
+    return configured or fallback
+
+
 def platform_database_url(url: str | None = None) -> str:
     """DSN for ``ar_platform`` (BYPASSRLS). Dev passwords match the role name."""
     current = app_database_url() if url is None else url
     parsed = make_url(current)
     if parsed.username == "ar_platform":
         return current
-    return swap_user(current, "ar_platform", "ar_platform")
+    return swap_user(
+        current, "ar_platform", _role_password("AR_DB_PLATFORM_PASSWORD", "ar_platform")
+    )
 
 
 def owner_database_url(url: str | None = None) -> str:
     """DSN for migrations and seed. ``ar_app`` URLs are rewritten to ``ar_owner``."""
     current = app_database_url() if url is None else url
     parsed = make_url(current)
+    password = _role_password("AR_DB_OWNER_PASSWORD", "ar_owner")
     if parsed.username in {"ar_owner", "postgres", "test"}:
+        if parsed.username == "ar_owner" and os.environ.get("AR_DB_OWNER_PASSWORD", "").strip():
+            return swap_user(current, "ar_owner", password)
         return current
     if parsed.username == "ar_app":
-        return swap_user(current, "ar_owner", "ar_owner")
+        return swap_user(current, "ar_owner", password)
     return current
 
 

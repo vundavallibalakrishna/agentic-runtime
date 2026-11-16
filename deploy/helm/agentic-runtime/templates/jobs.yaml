@@ -3,7 +3,7 @@ kind: Job
 metadata:
   name: {{ .Release.Name }}-migrate
   annotations:
-    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-weight: "-5"
     helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
 spec:
@@ -24,7 +24,23 @@ spec:
       containers:
         - name: migrate
           image: {{ include "ar.thirdPartyImage" (list . "ar-migrate" .Values.global.imageTag) }}
-          command: ["alembic", "-c", "/app/libs/ar_domain/alembic.ini", "upgrade", "head"]
+          command:
+            - python
+            - -c
+            - |
+              import os, socket, time
+              url = os.environ.get("AR_DATABASE_URL", "")
+              host = url.split("@")[-1].split("/")[0].split(":")[0]
+              for _ in range(90):
+                  try:
+                      sock = socket.create_connection((host, 5432), 2)
+                      sock.close()
+                      break
+                  except OSError:
+                      time.sleep(2)
+              else:
+                  raise SystemExit("the platform database did not accept connections")
+              os.execvp("alembic", ["alembic", "-c", "/app/libs/ar_domain/alembic.ini", "upgrade", "head"])
           env:
             - name: AR_DATABASE_URL
               valueFrom:
@@ -32,6 +48,13 @@ spec:
                   name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) }}
                   key: AR_DATABASE_URL
                   optional: true
+            {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+            - name: AR_DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-role-ar-owner
+                  key: password
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -79,6 +102,13 @@ spec:
                   name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) }}
                   key: AR_DATABASE_URL
                   optional: true
+            {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+            - name: AR_DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-role-ar-owner
+                  key: password
+            {{- end }}
             - name: AR_BOOTSTRAP_TENANT_SLUG
               value: {{ .Values.bootstrap.tenantSlug | quote }}
             - name: AR_BOOTSTRAP_TENANT_NAME
