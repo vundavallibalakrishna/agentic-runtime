@@ -383,6 +383,12 @@ def test_egress_cidrs_do_not_reopen_platform_pods() -> None:
 def test_required_database_and_service_edges() -> None:
     docs = _render(_CHART / "values-airgap.yaml", sets=["cluster.podCIDR=10.244.0.0/16"])
     assert _can_reach(docs, "pooler", source=_POOLER, labels=_INSTANCE, port=5432)
+    initdb = {
+        "cnpg.io/cluster": "r-pg",
+        "cnpg.io/jobRole": "initdb",
+        "app.kubernetes.io/name": "postgresql",
+    }
+    assert _can_reach(docs, "initdb", source=initdb, ip="10.96.0.1", port=443)
     assert _can_reach(docs, "instance", source=_INSTANCE, labels=_INSTANCE, port=5432)
     assert _can_reach(docs, "instance", source=_INSTANCE, labels=_INSTANCE, port=8000)
     assert _can_ingress(docs, _INSTANCE, port=8000, namespace="cnpg-system")
