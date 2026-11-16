@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Isolated-install contract.
 
-A chat turn asks fake-llm to call ``list_files``. The worker posts that call
+A chat turn asks fake-llm to call ``general.list_files``. The worker posts that call
 to mcp-gateway and the run must record a successful tool result. The gateway
 must time out dialing a CloudNativePG instance pod, while that same pod IP
 accepts a connection from the database itself.
@@ -83,7 +83,7 @@ def tool_turn(base: str) -> None:
     token = _agent_token(base, headers)
     started = httpx.post(
         f"{base}/v1/agents/assistant:run",
-        json={"text": "/tool list_files {}", "stream": False},
+        json={"text": "/tool general__list_files {}", "stream": False},
         headers={"authorization": f"Bearer {token}"},
         timeout=180,
     )
