@@ -24,9 +24,7 @@ def mode():
 
     def apply(*, closed: bool) -> None:
         set_settings(
-            current.model_copy(
-                update={"egress_closed": closed, "egress_allow_loopback": True}
-            )
+            current.model_copy(update={"egress_closed": closed, "egress_allow_loopback": True})
         )
 
     yield apply
