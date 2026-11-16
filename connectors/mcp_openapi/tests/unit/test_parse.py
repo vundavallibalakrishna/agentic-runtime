@@ -23,8 +23,9 @@ PET = {
 }
 
 
-
 pytestmark = pytest.mark.dns_fallback
+
+
 def test_methods_map_to_the_spec_risk_classes() -> None:
     tools = {item["name"]: item for item in operations_from(PET)}
     assert tools["list_pets"]["risk_class"] == risk_for("get") == "R0"

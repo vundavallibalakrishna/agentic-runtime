@@ -38,8 +38,9 @@ from ar_testing.demo import demo_store
 pytestmark = pytest.mark.unit
 
 
-
 pytestmark = pytest.mark.dns_fallback
+
+
 def _ids() -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:
     return uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 

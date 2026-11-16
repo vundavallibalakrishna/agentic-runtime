@@ -15,8 +15,9 @@ from ar_testing.demo import demo_store
 URL = "https://mcp.example/rpc"
 
 
-
 pytestmark = pytest.mark.dns_fallback
+
+
 def _store() -> tuple[Any, list[str]]:
     store = demo_store()
     store.mcp_resolver = lambda _host: ["93.184.216.34"]

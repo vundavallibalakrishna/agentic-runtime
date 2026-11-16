@@ -14,8 +14,9 @@ from ar_testing.demo import demo_store
 URL = "https://mcp.example/rpc"
 
 
-
 pytestmark = pytest.mark.dns_fallback
+
+
 def test_result_keeps_every_content_block() -> None:
     payload = {
         "jsonrpc": "2.0",
