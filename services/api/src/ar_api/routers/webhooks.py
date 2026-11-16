@@ -121,27 +121,38 @@ async def redeliver(
 async def rotate_callback(request: Request) -> dict[str, str]:
     from ar_api.deps import current_principal  # noqa: PLC0415
 
-    secret = await request.app.state.webhooks.rotate_callback()
+    secret = request.app.state.webhooks.mint_callback_secret()
     principal = current_principal(request)
     if principal.tenant_id is not None:
         await _store_callback_secret(request, principal, secret)
+    else:
+        request.app.state.webhooks.apply_callback_secret(secret)
     return {"secret": secret}
 
 
 async def _store_callback_secret(request: Request, principal: object, secret: str) -> None:
-    """Write the secret and its audit event in one transaction when Postgres is bound."""
+    """Commit the secret, then install it. A failed write leaves the old secret."""
+    from sqlalchemy.exc import IntegrityError  # noqa: PLC0415
+
+    from ar_common.errors import ConflictError  # noqa: PLC0415
     from ar_domain.audit.actions import AuditAction  # noqa: PLC0415
     from ar_domain.audit.memory import remember  # noqa: PLC0415
-    from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
+    from ar_domain.tools.named_secrets import (  # noqa: PLC0415
+        install_named_secret,
+        stage_named_secret,
+        write_named_secret,
+    )
 
     chat = request.app.state.chat
+    webhooks = request.app.state.webhooks
     tenant_id = getattr(principal, "tenant_id", None)
     detail: dict[str, object] = {"name": "__run_callback_secret__"}
     engine = getattr(chat, "durable_engine", None)
     if not isinstance(tenant_id, uuid.UUID):
+        webhooks.apply_callback_secret(secret)
         return
-    write_named_secret(chat, tenant_id, "__run_callback_secret__", secret)
     if engine is None:
+        write_named_secret(chat, tenant_id, "__run_callback_secret__", secret)
         remember(
             chat,
             tenant_id=tenant_id,
@@ -151,6 +162,7 @@ async def _store_callback_secret(request: Request, principal: object, secret: st
             target_id=str(tenant_id or ""),
             detail=detail,
         )
+        webhooks.apply_callback_secret(secret)
         return
     from ar_domain.audit.service import record  # noqa: PLC0415
     from ar_domain.db.context import Principal, TenantContext  # noqa: PLC0415
@@ -158,35 +170,27 @@ async def _store_callback_secret(request: Request, principal: object, secret: st
     from ar_domain.durable.m26 import save_named_secrets  # noqa: PLC0415
 
     if not isinstance(principal, Principal):
+        webhooks.apply_callback_secret(secret)
         return
-    row = _callback_row(chat, tenant_id)
+    row = stage_named_secret(tenant_id, "__run_callback_secret__", secret)
     ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "")))
-    async with tenant_session(ctx, engine=engine) as session:
-        if row is not None:
+    try:
+        async with tenant_session(ctx, engine=engine) as session:
             await save_named_secrets(session, [row])
-        await record(
-            session,
-            tenant_id=principal.tenant_id,
-            actor_type=principal.kind,
-            actor_id=str(principal.id),
-            action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
-            target_type="tenant",
-            target_id=str(principal.tenant_id),
-            detail=detail,
-        )
-
-
-def _callback_row(store: object, tenant_id: object) -> dict[str, object] | None:
-    book = getattr(store, "named_secrets", None)
-    if not isinstance(book, dict):
-        return None
-    for row in book.values():
-        if not isinstance(row, dict):
-            continue
-        same_tenant = str(row.get("tenant_id")) == str(tenant_id)
-        if same_tenant and row.get("name") == "__run_callback_secret__":
-            return row
-    return None
+            await record(
+                session,
+                tenant_id=principal.tenant_id,
+                actor_type=principal.kind,
+                actor_id=str(principal.id),
+                action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
+                target_type="tenant",
+                target_id=str(principal.tenant_id),
+                detail=detail,
+            )
+    except IntegrityError as exc:
+        raise ConflictError("the callback secret changed while it was being saved; retry") from exc
+    install_named_secret(chat, row)
+    webhooks.apply_callback_secret(secret)
 
 
 def _check_url(url: str, *, allow_private: bool) -> None:

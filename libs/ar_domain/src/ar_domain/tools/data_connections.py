@@ -103,8 +103,13 @@ class DataConnections:
         ):
             if key in body and body[key] is not None:
                 row[key] = body[key]
-        if isinstance(body.get("allowlist"), dict):
-            row["allowlist"] = body["allowlist"]
+        incoming = body.get("allowlist")
+        if isinstance(incoming, dict):
+            row["allowlist"] = {
+                "schemas": as_sequence(incoming.get("schemas")),
+                "tables": as_sequence(incoming.get("tables")),
+                "columns_deny": as_sequence(incoming.get("columns_deny")),
+            }
         row["updated_at"] = utcnow()
         self._audit(actor, "data_connection.updated", connection_id)
         return self._view(row)

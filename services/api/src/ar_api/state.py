@@ -187,9 +187,13 @@ class WebhookApi:
     async def redeliver(self, delivery_id: str) -> None:
         del delivery_id
 
-    async def rotate_callback(self) -> str:
-        self.callback_secret = secrets.token_urlsafe(24)
-        return self.callback_secret
+    def mint_callback_secret(self) -> str:
+        """A new secret that is not installed until the caller commits it."""
+        return secrets.token_urlsafe(24)
+
+    def apply_callback_secret(self, secret: str) -> None:
+        """Install a secret that has already been committed."""
+        self.callback_secret = secret
 
 
 def _public(row: dict[str, object]) -> dict[str, object]:

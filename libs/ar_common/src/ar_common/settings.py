@@ -33,7 +33,9 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CURSOR_SECRET",
         "AR_DATA_RESIDENCY",
         "AR_DATABASE_URL",
+        "AR_DB_CERT_DIR",
         "AR_DB_ENCRYPTION_ACTIVE_KEY",
+        "AR_DB_MIN_SSLMODE",
         "AR_DB_ENCRYPTION_KEYS",
         "AR_DURABLE_STATE",
         "AR_DEV_MODEL_API_KEY",
@@ -275,6 +277,12 @@ class BaseServiceSettings(BaseSettings):
     egress_allow_named_private: bool = False
     # Extra trust anchor for outbound TLS. ``SSL_CERT_FILE`` wins when this is empty.
     ca_bundle: str = ""
+    # Directory customer-database TLS files must live under. Empty uses the
+    # directory of ``AR_CA_BUNDLE`` (or ``SSL_CERT_FILE``).
+    db_cert_dir: str = ""
+    # Lowest libpq sslmode a customer database may use. Empty means no floor,
+    # except closed egress, which requires TLS (``require``).
+    db_min_sslmode: str = ""
     # Empty leaves each tenant's data_residency column in charge. ``cluster`` forces
     # model and embedding URLs onto a private or loopback address for the whole install.
     data_residency: str = ""
