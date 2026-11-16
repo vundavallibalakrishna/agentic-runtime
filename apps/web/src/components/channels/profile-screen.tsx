@@ -147,12 +147,9 @@ export function ProfileScreen() {
           {!loading && rows.length === 0 ? (
             <p className="text-sm text-[var(--muted-foreground)]">{t("empty")}</p>
           ) : null}
-          <ul className="space-y-3">
+          <ul className="row-list">
             {rows.map((row) => (
-              <li
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-                key={row.id}
-              >
+              <li className="flex flex-wrap items-center justify-between gap-3 p-4" key={row.id}>
                 <div>
                   <h2 className="text-sm font-medium">{row.externalUserId}</h2>
                   <p className="text-sm text-[var(--muted-foreground)]">{row.matchMethod}</p>

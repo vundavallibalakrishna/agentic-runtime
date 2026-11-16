@@ -313,17 +313,14 @@ export function M22Panels({ tools, onChanged }: { tools: Row[]; onChanged: () =>
         {tools.length === 0 ? (
           <p className="text-sm text-[var(--muted-foreground)]">{t("empty")}</p>
         ) : (
-          <ul className="grid gap-2">
+          <ul className="row-list">
             {tools.slice(0, 40).map((tool) => {
               const name = text(field(tool, "qualifiedName", "qualified_name"));
               const risk = text(field(tool, "riskClass", "risk_class"));
               const disabled = Boolean(tool.disabled);
               const id = text(field(tool, "toolId", "tool_id"));
               return (
-                <li
-                  className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
-                  key={id || name}
-                >
+                <li className="px-3 py-2 text-sm" key={id || name}>
                   <p className="font-medium">{name}</p>
                   <p className="text-[var(--muted-foreground)]">
                     {text(tool.source) || "builtin"} · {text(tool.status)} · {risk}

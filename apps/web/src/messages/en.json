@@ -134,6 +134,14 @@
     "working": "Working",
     "runFailed": "The run failed.",
     "viewTrace": "View trace",
+    "runDetails": "Run details",
+    "runDetailsError": "The run details could not be loaded.",
+    "runStatus": "Status",
+    "runModel": "Model",
+    "runDuration": "Duration",
+    "runSteps": "Steps",
+    "runToolCalls": "Tool calls",
+    "runNoTools": "This run called no tools.",
     "plan": "Plan",
     "planPending": "Not started",
     "planActive": "In progress",
@@ -292,7 +300,9 @@
     "status": "Status",
     "hidden": "hidden from you",
     "listTitle": "Collections",
-    "closeness": "{percent}% close to the question"
+    "closeness": "{percent}% close to the question",
+    "addTitle": "Add to this collection",
+    "hits": "Passages found"
   },
   "computer": {
     "title": "Computer",
@@ -340,6 +350,11 @@
     "dismiss": "Dismiss",
     "readOnly": "You can see the models here. Changing them needs the permission to manage models.",
     "usesTitle": "What the product uses",
+    "usesTable": "Model for each use",
+    "useColumn": "Use",
+    "modelColumn": "Model",
+    "statusColumn": "Status",
+    "actionsColumn": "Actions",
     "usesBody": "Agents, knowledge and memory ask for a model by these names. Point each name at a model you added below.",
     "uses": {
       "reasoning": {
@@ -512,7 +527,6 @@
     "error": "The request failed. Try again.",
     "empty": "No agents match this search.",
     "owner": "Owner",
-    "unknownOwner": "Owner",
     "version": "Version",
     "open": "Open",
     "chat": "Chat",
@@ -660,9 +674,6 @@
     "dryRun": "Preview import",
     "importApply": "Import",
     "importEmpty": "Nothing to import.",
-    "eyebrow": "Your team of assistants",
-    "createHint": "Describe the work. Build an agent.",
-    "createBody": "Turn a task you do often into an assistant you can work with.",
     "browse": "Explore your agents",
     "results": "{count, plural, =0 {No agents} one {# agent} other {# agents}}",
     "retry": "Try again",
@@ -670,7 +681,8 @@
     "emptyFiltered": "No agents match these filters. Try a different search.",
     "emptyTitle": "Make room for your first agent",
     "catalogueLoading": "Loading agents",
-    "details": "View agent",
+    "agentColumn": "Agent",
+    "actions": "Actions",
     "noDescription": "An assistant ready to help with your work.",
     "disabled": "Disabled",
     "save": "Save draft"
@@ -878,7 +890,8 @@
     "reasons": "Why this needs a decision",
     "emptyHelp": "New requests will appear here when an action needs your approval.",
     "refresh": "Refresh",
-    "scopeLabel": "Approval filters"
+    "scopeLabel": "Approval filters",
+    "request": "Request"
   },
   "policies": {
     "activated": "Policy activated. Changes can take up to 15 seconds to reach tool checks.",
@@ -1000,7 +1013,11 @@
     "events": "Events",
     "noEvents": "No events yet.",
     "seedDescription": "A scheduled task for this workspace.",
-    "listTitle": "Scheduled routines"
+    "listTitle": "Scheduled routines",
+    "trigger": "Trigger",
+    "status": "Status",
+    "webhook": "Webhook address",
+    "webhookSecret": "Webhook secret"
   },
   "runs": {
     "title": "Runs",
@@ -1032,7 +1049,9 @@
     "stepDetail": "Step",
     "closeStep": "Close",
     "waiting": "Waiting on a person",
-    "childStatus": "Child"
+    "childStatus": "Child",
+    "run": "Run",
+    "status": "Status"
   },
   "schedules": {
     "title": "Schedules",
@@ -1283,10 +1302,14 @@
     "libraryBody": "Upload a file. The library keeps the extracted text, headings and tables.",
     "upload": "Upload",
     "file": "File",
+    "uploading": "Uploading",
+    "document": "Document",
+    "type": "Type",
+    "pagesColumn": "Pages",
     "empty": "No documents yet. Upload a PDF, document, spreadsheet, presentation, text file or image.",
     "loading": "Loading documents",
     "error": "The document library could not be loaded.",
-    "pages": "{count} pages",
+    "status": "Status",
     "ready": "Ready",
     "open": "Open",
     "compare": "Compare",

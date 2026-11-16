@@ -109,8 +109,7 @@ test("skills publish, research delegates, and the writer produces a brief", asyn
   await capture(page, "runs");
 
   await page.goto("/agents");
-  const lead = page.getByRole("listitem").filter({ hasText: "Research lead" });
-  await lead.getByRole("link", { name: "View agent" }).click();
+  await page.getByRole("link", { name: "Research lead", exact: true }).click();
   await page.getByRole("button", { name: "Advanced" }).click();
   await page.getByRole("tab", { name: "Subagents" }).click();
   await expect(page.getByLabel("Allowed subagents")).toHaveValue(/researcher/);

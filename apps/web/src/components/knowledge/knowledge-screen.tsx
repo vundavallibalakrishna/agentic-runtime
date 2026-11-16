@@ -144,16 +144,13 @@ export function KnowledgeScreen() {
         >
           {loading ? <Skeleton className="h-24 w-full max-w-xl" /> : null}
           {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
-          <ul className="grid gap-3">
+          <ul className="row-list">
             {rows.map((row) => {
               const id = String(row.id);
               const stats = (row.stats as Row) ?? {};
               return (
                 <li key={id}>
-                  <Link
-                    className="block rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 hover:bg-[var(--muted)]"
-                    href={`/knowledge/${id}`}
-                  >
+                  <Link className="block p-4 hover:bg-[var(--muted)]" href={`/knowledge/${id}`}>
                     <h2 className="text-base font-semibold">{String(row.name)}</h2>
                     <p className="mt-1 text-sm text-[var(--muted-foreground)]">
                       {String(row.description || "")}

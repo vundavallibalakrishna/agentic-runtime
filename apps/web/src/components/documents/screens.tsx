@@ -1,15 +1,27 @@
 "use client";
 
+import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { BackButton } from "@/components/common/detail-state";
+import { Facts } from "@/components/common/facts";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TableScroll } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableScroll,
+} from "@/components/ui/table";
 import { api } from "@/lib/api";
 
 type Row = Record<string, unknown>;
@@ -88,11 +100,18 @@ export function LibraryScreen() {
         title={t("libraryTitle")}
         body={t("libraryBody")}
         actions={
-          <label className="inline-flex cursor-pointer items-center">
-            <span className="sr-only">{t("file")}</span>
+          <label
+            className={
+              "inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-[var(--primary)] px-4 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--ring)]" +
+              (busy ? " pointer-events-none opacity-60" : "")
+            }
+          >
+            <Upload size={16} aria-hidden="true" />
+            <span aria-hidden="true">{busy ? t("uploading") : t("upload")}</span>
             <input
               aria-label={t("file")}
-              className="max-w-56 text-sm"
+              className="sr-only"
+              disabled={busy}
               type="file"
               onChange={(event) => void upload(event.target.files?.[0])}
             />
@@ -100,35 +119,68 @@ export function LibraryScreen() {
         }
       />
       {loading ? <Skeleton className="h-40 w-full" /> : null}
-      {error ? <p className="mb-4 text-sm text-[var(--destructive)]">{error}</p> : null}
-      {!loading && items.length === 0 ? <EmptyState title={t("empty")} /> : null}
+      {error ? (
+        <p className="mb-4 text-sm text-[var(--destructive)]" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {!loading && !error && items.length === 0 ? <EmptyState title={t("empty")} /> : null}
       {items.length > 0 ? (
         <div className="space-y-6">
-          <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
-            {items.map((item) => {
-              const id = text(item.id);
-              return (
-                <li
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                  key={id}
-                >
-                  <div>
-                    <a className="font-medium underline" href={`/documents/${id}`}>
-                      {text(item.title)}
-                    </a>
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      {text(item.filename)} ·{" "}
-                      {t("pages", { count: Number(item.pageCount ?? item.page_count ?? 0) })} ·{" "}
-                      {t("ready")}
-                    </p>
-                  </div>
-                  <a className="text-sm underline" href={`/documents/${id}`}>
-                    {t("open")}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+          <TableScroll
+            className="rounded-xl border border-[var(--border)] bg-[var(--card)]"
+            label={t("libraryTitle")}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">{t("document")}</TableHead>
+                  <TableHead scope="col">{t("type")}</TableHead>
+                  <TableHead scope="col">{t("pagesColumn")}</TableHead>
+                  <TableHead scope="col">{t("status")}</TableHead>
+                  <TableHead scope="col">
+                    <span className="sr-only">{t("open")}</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => {
+                  const id = text(item.id);
+                  return (
+                    <TableRow className="hover:bg-[var(--muted)]" key={id}>
+                      <TableCell className="min-w-56">
+                        <a className="font-semibold hover:underline" href={`/documents/${id}`}>
+                          {text(item.title)}
+                        </a>
+                        <p className="mt-0.5 break-all text-[var(--muted-foreground)]">
+                          {text(item.filename)}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-[var(--muted-foreground)]">
+                        {text(item.mediaType ?? item.media_type) || "—"}
+                      </TableCell>
+                      <TableCell className="tabular-nums text-[var(--muted-foreground)]">
+                        {Number(item.pageCount ?? item.page_count ?? 0)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge tone="success">{t("ready")}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild className="h-8 text-xs" variant="outline">
+                          <a
+                            aria-label={`${t("open")}: ${text(item.title)}`}
+                            href={`/documents/${id}`}
+                          >
+                            {t("open")}
+                          </a>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableScroll>
           <form
             className="grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:grid-cols-[1fr_1fr_auto]"
             onSubmit={(event) => {
@@ -273,18 +325,28 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
   const outline = rowsOf(doc?.outline);
   return (
     <AppShell>
-      <PageHeader title={text(doc?.title) || t("viewTitle")} body={t("viewBody")} />
-      <p className="mb-4 text-sm">
-        <a className="underline" href="/documents">
-          {t("back")}
-        </a>
-      </p>
+      <PageHeader
+        actions={<BackButton href="/documents">{t("back")}</BackButton>}
+        body={t("viewBody")}
+        title={text(doc?.title) || t("viewTitle")}
+      />
       {loading ? <Skeleton className="h-48 w-full" /> : null}
-      {error ? <p className="mb-4 text-sm text-[var(--destructive)]">{error}</p> : null}
+      {error ? (
+        <p className="mb-4 text-sm text-[var(--destructive)]" role="alert">
+          {error}
+        </p>
+      ) : null}
       {!loading && doc ? (
-        <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
-          <aside className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <h2 className="mb-3 text-sm font-semibold">{t("outline")}</h2>
+        <div className="grid items-start gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+          <aside className="detail-panel p-4 lg:sticky lg:top-2 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
+            <Facts
+              className="mb-4 border-b border-[var(--border)] pb-4"
+              items={[
+                { label: t("type"), value: text(doc.mediaType) },
+                { label: t("pagesColumn"), value: text(doc.pageCount) },
+              ]}
+            />
+            <h2 className="panel-title mb-3">{t("outline")}</h2>
             <ul className="space-y-2 text-sm">
               {outline.map((item) => (
                 <li key={text(item.anchor)}>
@@ -297,24 +359,29 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
             </ul>
           </aside>
           <div className="space-y-6">
-            <section className="space-y-3">
-              <h2 className="text-sm font-semibold">{t("passages")}</h2>
+            <section>
+              <h2 className="panel-title mb-3">{t("passages")}</h2>
               {passages.length === 0 ? <EmptyState title={t("noPassages")} /> : null}
-              {passages.map((passage) => (
-                <article
-                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-                  id={text(passage.anchor)}
-                  key={text(passage.anchor)}
-                >
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    {text(passage.anchor)} · p.{text(passage.page)} · {text(passage.heading)}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm">{text(passage.text)}</p>
-                </article>
-              ))}
+              <ul className="row-list">
+                {passages.map((passage) => (
+                  <li
+                    className="scroll-mt-4 px-5 py-4 target:bg-[var(--muted)]"
+                    id={text(passage.anchor)}
+                    key={text(passage.anchor)}
+                  >
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      <span className="font-mono">{text(passage.anchor)}</span> · p.
+                      {text(passage.page)} · {text(passage.heading)}
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+                      {text(passage.text)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
             </section>
             <section>
-              <h2 className="mb-3 text-sm font-semibold">{t("tables")}</h2>
+              <h2 className="panel-title mb-3">{t("tables")}</h2>
               {tables.length === 0 ? (
                 <p className="text-sm text-[var(--muted-foreground)]">{t("noTables")}</p>
               ) : null}
@@ -329,76 +396,78 @@ export function DocumentScreen({ documentId }: { documentId: string }) {
                 </pre>
               ))}
             </section>
-            <form
-              className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void runCheck();
-              }}
-            >
-              <h2 className="text-sm font-semibold">{t("check")}</h2>
-              <label className="block text-sm">
-                {t("requirements")}
-                <textarea
-                  aria-label={t("requirements")}
-                  className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
-                  value={requirements}
-                  onChange={(event) => setRequirements(event.target.value)}
-                />
-              </label>
-              <label className="block text-sm">
-                {t("standard")}
-                <select
-                  aria-label={t("standard")}
-                  className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-2"
-                  value={standard}
-                  onChange={(event) => setStandard(event.target.value)}
-                >
-                  <option value="">{t("standard")}</option>
-                  {library
-                    .filter((item) => text(item.id) !== documentId)
-                    .map((item) => (
-                      <option key={text(item.id)} value={text(item.id)}>
-                        {text(item.title)}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <Button disabled={busy} type="submit">
-                {t("check")}
-              </Button>
-            </form>
-            <form
-              className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void runRewrite();
-              }}
-            >
-              <h2 className="text-sm font-semibold">{t("rewrite")}</h2>
-              <label className="block text-sm" htmlFor="rewrite-anchor">
-                {t("anchor")}
-                <Input
-                  aria-label={t("anchor")}
-                  className="mt-1"
-                  id="rewrite-anchor"
-                  value={anchor}
-                  onChange={(event) => setAnchor(event.target.value)}
-                />
-              </label>
-              <label className="block text-sm">
-                {t("instruction")}
-                <textarea
-                  aria-label={t("instruction")}
-                  className="mt-1 min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
-                  value={instruction}
-                  onChange={(event) => setInstruction(event.target.value)}
-                />
-              </label>
-              <Button disabled={busy || !instruction.trim()} type="submit">
-                {t("previewRewrite")}
-              </Button>
-            </form>
+            <div className="grid items-start gap-6 xl:grid-cols-2">
+              <form
+                className="detail-panel space-y-3 p-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void runCheck();
+                }}
+              >
+                <h2 className="panel-title">{t("check")}</h2>
+                <label className="block text-sm">
+                  {t("requirements")}
+                  <textarea
+                    aria-label={t("requirements")}
+                    className="mt-1 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
+                    value={requirements}
+                    onChange={(event) => setRequirements(event.target.value)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  {t("standard")}
+                  <select
+                    aria-label={t("standard")}
+                    className="mt-1 h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-2"
+                    value={standard}
+                    onChange={(event) => setStandard(event.target.value)}
+                  >
+                    <option value="">{t("standard")}</option>
+                    {library
+                      .filter((item) => text(item.id) !== documentId)
+                      .map((item) => (
+                        <option key={text(item.id)} value={text(item.id)}>
+                          {text(item.title)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <Button disabled={busy} type="submit">
+                  {t("check")}
+                </Button>
+              </form>
+              <form
+                className="detail-panel space-y-3 p-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void runRewrite();
+                }}
+              >
+                <h2 className="panel-title">{t("rewrite")}</h2>
+                <label className="block text-sm" htmlFor="rewrite-anchor">
+                  {t("anchor")}
+                  <Input
+                    aria-label={t("anchor")}
+                    className="mt-1"
+                    id="rewrite-anchor"
+                    value={anchor}
+                    onChange={(event) => setAnchor(event.target.value)}
+                  />
+                </label>
+                <label className="block text-sm">
+                  {t("instruction")}
+                  <textarea
+                    aria-label={t("instruction")}
+                    className="mt-1 min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-2"
+                    value={instruction}
+                    onChange={(event) => setInstruction(event.target.value)}
+                  />
+                </label>
+                <Button disabled={busy || !instruction.trim()} type="submit">
+                  {t("previewRewrite")}
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
       ) : null}
@@ -438,11 +507,19 @@ export function CompareScreen({ comparisonId }: { comparisonId: string }) {
   const changes = rowsOf(body?.changes);
   return (
     <AppShell>
-      <PageHeader title={t("compareTitle")} body={t("compareBody")} />
+      <PageHeader
+        actions={<BackButton href="/documents">{t("back")}</BackButton>}
+        body={t("compareBody")}
+        title={t("compareTitle")}
+      />
       {loading ? <Skeleton className="h-40 w-full" /> : null}
-      {error ? <p className="text-sm text-[var(--destructive)]">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-[var(--destructive)]" role="alert">
+          {error}
+        </p>
+      ) : null}
       {!loading && changes.length === 0 && !error ? <EmptyState title={t("noChanges")} /> : null}
-      <ul className="space-y-4">
+      <ul className="row-list">
         {changes.map((change) => {
           const key = `${text(change.op)}-${text(change.leftAnchor || change.left_anchor)}-${text(change.rightAnchor || change.right_anchor)}`;
           const leftId = text(body?.leftId || body?.left_id);
@@ -450,14 +527,24 @@ export function CompareScreen({ comparisonId }: { comparisonId: string }) {
           const leftAnchor = text(change.leftAnchor || change.left_anchor);
           const rightAnchor = text(change.rightAnchor || change.right_anchor);
           return (
-            <li className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4" key={key}>
-              <p className="text-sm font-medium">
-                {text(change.op) === "added"
-                  ? t("added")
-                  : text(change.op) === "removed"
-                    ? t("removed")
-                    : t("changed")}{" "}
-                · {text(change.heading)}
+            <li className="px-5 py-4" key={key}>
+              <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                <Badge
+                  tone={
+                    text(change.op) === "added"
+                      ? "success"
+                      : text(change.op) === "removed"
+                        ? "danger"
+                        : "warning"
+                  }
+                >
+                  {text(change.op) === "added"
+                    ? t("added")
+                    : text(change.op) === "removed"
+                      ? t("removed")
+                      : t("changed")}
+                </Badge>
+                {text(change.heading)}
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <div>
@@ -514,23 +601,34 @@ export function CheckScreen({ checkId }: { checkId: string }) {
   const rows = rowsOf(body?.rows);
   return (
     <AppShell>
-      <PageHeader title={text(body?.label) || t("checkTitle")} body={t("checkBody")} />
+      <PageHeader
+        actions={<BackButton href="/documents">{t("back")}</BackButton>}
+        body={t("checkBody")}
+        title={text(body?.label) || t("checkTitle")}
+      />
       {loading ? <Skeleton className="h-40 w-full" /> : null}
-      {error ? <p className="text-sm text-[var(--destructive)]">{error}</p> : null}
+      {error ? (
+        <p className="text-sm text-[var(--destructive)]" role="alert">
+          {error}
+        </p>
+      ) : null}
       {!loading && rows.length === 0 && !error ? <EmptyState title={t("missing")} /> : null}
       {rows.length > 0 ? (
-        <TableScroll className="rounded-xl border border-[var(--border)]" label={t("checkTitle")}>
-          <table className="w-full text-left text-sm">
-            <thead className="bg-[var(--muted)]">
-              <tr>
-                <th className="px-3 py-2">{t("requirement")}</th>
-                <th className="px-3 py-2">{t("verdict")}</th>
-                <th className="px-3 py-2">{t("citation")}</th>
-                <th className="px-3 py-2">{t("confidence")}</th>
-                <th className="px-3 py-2">{t("reason")}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <TableScroll
+          className="rounded-xl border border-[var(--border)] bg-[var(--card)]"
+          label={t("checkTitle")}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">{t("requirement")}</TableHead>
+                <TableHead scope="col">{t("verdict")}</TableHead>
+                <TableHead scope="col">{t("citation")}</TableHead>
+                <TableHead scope="col">{t("confidence")}</TableHead>
+                <TableHead scope="col">{t("reason")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row) => {
                 const citation =
                   row.citation && typeof row.citation === "object" ? (row.citation as Row) : null;
@@ -542,13 +640,12 @@ export function CheckScreen({ checkId }: { checkId: string }) {
                 );
                 const anchor = text(citation?.anchor);
                 return (
-                  <tr
-                    className="border-t border-[var(--border)]"
-                    key={`${text(row.requirement)}-${anchor}`}
-                  >
-                    <td className="px-3 py-2">{text(row.requirement)}</td>
-                    <td className="px-3 py-2">{text(row.verdict)}</td>
-                    <td className="px-3 py-2">
+                  <TableRow key={`${text(row.requirement)}-${anchor}`}>
+                    <TableCell className="min-w-56">{text(row.requirement)}</TableCell>
+                    <TableCell>
+                      <Badge tone={statusTone(text(row.verdict))}>{text(row.verdict)}</Badge>
+                    </TableCell>
+                    <TableCell>
                       {anchor ? (
                         <a className="underline" href={`/documents/${documentId}#${anchor}`}>
                           {t("openPassage")} {anchor}
@@ -561,14 +658,14 @@ export function CheckScreen({ checkId }: { checkId: string }) {
                           {text(citation.quote)}
                         </p>
                       ) : null}
-                    </td>
-                    <td className="px-3 py-2">{text(row.confidence)}</td>
-                    <td className="px-3 py-2">{text(row.reason)}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell className="tabular-nums">{text(row.confidence)}</TableCell>
+                    <TableCell>{text(row.reason)}</TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </TableScroll>
       ) : null}
     </AppShell>
@@ -619,19 +716,33 @@ export function RewriteScreen({ rewriteId }: { rewriteId: string }) {
   const status = text(body?.status);
   return (
     <AppShell>
-      <PageHeader title={t("rewriteTitle")} body={t("rewriteBody")} />
+      <PageHeader
+        actions={
+          <>
+            {status ? (
+              <Badge tone={statusTone(status)}>
+                {status === "accepted"
+                  ? t("accepted")
+                  : status === "rejected"
+                    ? t("rejected")
+                    : t("proposed")}
+              </Badge>
+            ) : null}
+            <BackButton href="/documents">{t("back")}</BackButton>
+          </>
+        }
+        body={t("rewriteBody")}
+        title={t("rewriteTitle")}
+      />
       {loading ? <Skeleton className="h-40 w-full" /> : null}
-      {error ? <p className="mb-4 text-sm text-[var(--destructive)]">{error}</p> : null}
+      {error ? (
+        <p className="mb-4 text-sm text-[var(--destructive)]" role="alert">
+          {error}
+        </p>
+      ) : null}
       {body ? (
         <div className="space-y-4">
-          <p className="text-sm text-[var(--muted-foreground)]">
-            {text(body.instruction)} ·{" "}
-            {status === "accepted"
-              ? t("accepted")
-              : status === "rejected"
-                ? t("rejected")
-                : t("proposed")}
-          </p>
+          <p className="text-sm text-[var(--muted-foreground)]">{text(body.instruction)}</p>
           {status === "proposed" ? (
             <div className="flex gap-2">
               <Button disabled={busy} type="button" onClick={() => void decide("accept")}>
@@ -648,14 +759,17 @@ export function RewriteScreen({ rewriteId }: { rewriteId: string }) {
             </div>
           ) : null}
           {hunks.map((hunk) => (
-            <article
-              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-              key={text(hunk.id)}
-            >
-              <p className="text-xs text-[var(--muted-foreground)]">{text(hunk.op)}</p>
-              <div className="mt-2 grid gap-3 md:grid-cols-2">
-                <p className="whitespace-pre-wrap text-sm">{text(hunk.before)}</p>
-                <p className="whitespace-pre-wrap text-sm">{text(hunk.after)}</p>
+            <article className="detail-panel p-5" key={text(hunk.id)}>
+              <Badge>{text(hunk.op)}</Badge>
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="panel-title">{t("before")}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{text(hunk.before)}</p>
+                </div>
+                <div>
+                  <p className="panel-title">{t("after")}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm">{text(hunk.after)}</p>
+                </div>
               </div>
               {status === "proposed" && !hunk.decision ? (
                 <div className="mt-3 flex gap-2">
@@ -676,7 +790,11 @@ export function RewriteScreen({ rewriteId }: { rewriteId: string }) {
                   </Button>
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-[var(--muted-foreground)]">{text(hunk.decision)}</p>
+                <p className="mt-3">
+                  {hunk.decision ? (
+                    <Badge tone={statusTone(text(hunk.decision))}>{text(hunk.decision)}</Badge>
+                  ) : null}
+                </p>
               )}
             </article>
           ))}

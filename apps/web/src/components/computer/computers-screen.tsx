@@ -186,12 +186,9 @@ export function ComputersScreen() {
             </div>
           ) : null}
           {!loading && !error && templates.length === 0 ? <EmptyState title={t("empty")} /> : null}
-          <ul className="mb-8 space-y-3">
+          <ul className="row-list mb-8">
             {templates.map((row) => (
-              <li
-                className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
-                key={String(row.id)}
-              >
+              <li className="p-4" key={String(row.id)}>
                 <h2 className="font-medium">{String(row.name)}</h2>
                 <p className="text-sm text-[var(--muted-foreground)]">
                   {String(row.slug)} · {String(row.cpuMillis)} {t("cpuUnit")} ·{" "}
@@ -204,12 +201,9 @@ export function ComputersScreen() {
           {!loading && !error && live.length === 0 ? (
             <p className="text-sm text-[var(--muted-foreground)]">{t("emptyLive")}</p>
           ) : null}
-          <ul className="space-y-3">
+          <ul className="row-list">
             {live.map((row) => (
-              <li
-                className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
-                key={String(row.id)}
-              >
+              <li className="p-4" key={String(row.id)}>
                 <p className="font-medium">{String(row.templateSlug || row.scopeKey)}</p>
                 <p className="text-sm text-[var(--muted-foreground)]">{String(row.status)}</p>
                 {row.status !== "terminated" ? (

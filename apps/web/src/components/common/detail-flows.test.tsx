@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentEditor } from "@/components/agents/editor";
 import { ApprovalDetail } from "@/components/approvals/approval-detail";
 import { CollectionScreen } from "@/components/knowledge/collection-screen";
+import { RoutineDetail } from "@/components/routines/routine-detail";
 import { SkillEditor } from "@/components/skills/skill-editor";
 import { formatCost } from "@/lib/format";
 import messages from "@/messages/en.json";
@@ -160,6 +161,31 @@ describe("detail flow failures", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Approve" })).toBeNull());
     expect(decisions).toBe(1);
     expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("shows a routine as facts with its status and each event's result as a badge", async () => {
+    server.use(
+      http.get("*/api/v1/routines/routine", () =>
+        HttpResponse.json({
+          id: "routine",
+          name: "Weekly digest",
+          status: "paused",
+          pausedReason: "manual",
+          instructions: "Summarise the week.",
+          triggerSummary: "Every Monday 09:00 UTC",
+        }),
+      ),
+      http.get("*/api/v1/routines/routine/events", () =>
+        HttpResponse.json({ items: [{ id: "event", source: "schedule", status: "failed" }] }),
+      ),
+    );
+    render(wrap(<RoutineDetail routineId="routine" />));
+    expect((await screen.findByText("Every Monday 09:00 UTC")).tagName).toBe("DD");
+    expect(screen.getByText("Trigger").tagName).toBe("DT");
+    expect(screen.getByText("paused", { exact: true }).className).toContain("tone-warning");
+    expect(screen.getByText("paused · manual")).toBeTruthy();
+    expect(screen.queryByText("Webhook address")).toBeNull();
+    expect(screen.getByText("failed").className).toContain("tone-danger");
   });
 
   it("shows upload failures and retains the selected file for retry", async () => {

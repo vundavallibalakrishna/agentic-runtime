@@ -205,15 +205,12 @@ export function ApprovalsScreen() {
             </Button>
           </EmptyState>
         ) : null}
-        <ul className="space-y-3">
+        <ul className="row-list">
           {rows.map((row) => {
             const id = String(row.id);
             const preview = row.preview as { title?: string; summary?: string } | undefined;
             return (
-              <li
-                key={id}
-                className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-              >
+              <li key={id} className="p-4">
                 <div className="flex items-start gap-3">
                   <input
                     aria-label={String(row.qualifiedName ?? id)}

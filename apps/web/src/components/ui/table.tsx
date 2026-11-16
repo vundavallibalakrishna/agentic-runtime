@@ -39,7 +39,8 @@ export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCel
 /**
  * The frame around a table that may be wider than its space. It scrolls sideways, and a
  * region that scrolls must be reachable by keyboard and have a name, or a keyboard user
- * cannot see the columns that are off screen.
+ * cannot see the columns that are off screen. It is the positioning parent of its content, so
+ * a visually hidden column heading is clipped with the table instead of widening the page.
  */
 export function TableScroll({
   label,
@@ -49,7 +50,7 @@ export function TableScroll({
   return (
     <section
       aria-label={label}
-      className={cn("overflow-x-auto", className)}
+      className={cn("relative overflow-x-auto", className)}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
       tabIndex={0}
       {...props}

@@ -219,12 +219,9 @@ export function PoliciesScreen() {
           </div>
         ) : null}
         {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
-        <ul className="space-y-3">
+        <ul className="row-list">
           {rows.map((row) => (
-            <li
-              key={String(row.id)}
-              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
-            >
+            <li key={String(row.id)} className="p-4">
               <h2 className="font-medium">{String(row.name)}</h2>
               <p className="text-sm text-[var(--muted-foreground)]">
                 {String(row.status)} · {t("versions")} {String(row.latestVersion ?? "")}

@@ -89,12 +89,9 @@ export function InboxScreen() {
         </div>
       ) : null}
       {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
-      <ul className="space-y-3">
+      <ul className="row-list">
         {rows.map((row) => (
-          <li
-            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-            key={row.id}
-          >
+          <li className="p-4" key={row.id}>
             <p className="text-sm font-medium">
               {row.type === "approval" ? t("approval") : t("question")}
             </p>

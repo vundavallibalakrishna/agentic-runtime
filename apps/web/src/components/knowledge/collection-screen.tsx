@@ -6,8 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
+import { Facts } from "@/components/common/facts";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -182,11 +184,7 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
     <AppShell>
       <PageHeader
         title={String(collection?.name || t("title"))}
-        body={
-          collection
-            ? `${String(collection.description || t("body"))} · ${t("embedding")} ${String(collection.embeddingModel || "")} · ${t("chunks", { count: Number((collection.stats as Row | undefined)?.chunks || 0) })}`
-            : t("body")
-        }
+        body={String(collection?.description || t("body"))}
         actions={
           <>
             <BackButton href="/knowledge">{t("back")}</BackButton>
@@ -202,6 +200,28 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
       <ActionStatus busy={busy} notice={notice} />
       {!loading && collection ? (
         <fieldset disabled={busy} className="min-w-0">
+          <Facts
+            className="mb-6"
+            items={[
+              {
+                label: t("embedding"),
+                value: collection.embeddingModel ? (
+                  <span className="font-mono text-xs">{String(collection.embeddingModel)}</span>
+                ) : null,
+              },
+              {
+                label: t("documents"),
+                value: (
+                  <span className="tabular-nums">
+                    {documents.length} ·{" "}
+                    {t("chunks", {
+                      count: Number((collection.stats as Row | undefined)?.chunks || 0),
+                    })}
+                  </span>
+                ),
+              },
+            ]}
+          />
           <Tabs defaultValue="documents">
             <TabsList>
               {TABS.map((item) => (
@@ -213,124 +233,137 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
             <TabsContent value="documents">
               <section>
                 {collection.canManage !== false ? (
-                  <form
-                    className="detail-panel mb-6 flex flex-wrap items-end gap-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      void upload();
-                    }}
-                  >
-                    <label className="min-w-0 flex-1 text-sm" htmlFor="knowledge-file">
-                      {t("upload")}
-                      <Input
-                        ref={uploadInput}
-                        className="mt-2 max-w-full"
-                        id="knowledge-file"
-                        onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-                        type="file"
-                      />
-                    </label>
-                    <Button disabled={!file || busy} type="submit">
-                      {t("upload")}
-                    </Button>
-                  </form>
-                ) : null}
-                {collection.canManage !== false ? (
-                  <form
-                    className="mb-6 grid gap-3 md:grid-cols-2"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      if (libraryId)
-                        void addMember({ kind: "library", libraryDocumentId: libraryId });
-                    }}
-                  >
-                    <label className="text-sm" htmlFor="knowledge-library">
-                      {t("library")}
-                      <select
-                        className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-                        id="knowledge-library"
-                        onChange={(event) => setLibraryId(event.target.value)}
-                        value={libraryId}
-                      >
-                        <option value="">{t("library")}</option>
-                        {libraryDocs.map((row) => (
-                          <option key={String(row.id)} value={String(row.id)}>
-                            {String(row.title)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="flex items-end">
-                      <Button disabled={!libraryId || busy} type="submit">
-                        {t("addLibrary")}
+                  <div className="detail-panel mb-6">
+                    <h2 className="panel-title mb-4">{t("addTitle")}</h2>
+                    <form
+                      className="flex flex-wrap items-end gap-3"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void upload();
+                      }}
+                    >
+                      <label className="min-w-0 flex-1 text-sm" htmlFor="knowledge-file">
+                        {t("upload")}
+                        <Input
+                          ref={uploadInput}
+                          className="mt-2 max-w-full"
+                          id="knowledge-file"
+                          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                          type="file"
+                        />
+                      </label>
+                      <Button disabled={!file || busy} type="submit">
+                        {t("upload")}
                       </Button>
-                    </div>
-                    <label className="text-sm" htmlFor="knowledge-url">
-                      {t("url")}
-                      <Input
-                        className="mt-2"
-                        id="knowledge-url"
-                        onChange={(event) => setPageUrl(event.target.value)}
-                        value={pageUrl}
-                      />
-                    </label>
-                    <div className="flex items-end">
-                      <Button
-                        disabled={!pageUrl.trim() || busy}
-                        onClick={() => void addMember({ kind: "url", url: pageUrl.trim() })}
-                        type="button"
-                      >
-                        {t("addUrl")}
-                      </Button>
-                    </div>
-                    <label className="text-sm" htmlFor="knowledge-connection">
-                      {t("connection")}
-                      <select
-                        className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
-                        id="knowledge-connection"
-                        onChange={(event) => setConnectionId(event.target.value)}
-                        value={connectionId}
-                      >
-                        <option value="">{t("connection")}</option>
-                        {connections.map((row) => (
-                          <option key={String(row.id)} value={String(row.id)}>
-                            {String(row.name)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="flex items-end">
-                      <Button
-                        disabled={!connectionId || busy}
-                        onClick={() =>
-                          void addMember({ kind: "connection", connectionId, url: pageUrl.trim() })
-                        }
-                        type="button"
-                      >
-                        {t("addConnection")}
-                      </Button>
-                    </div>
-                  </form>
+                    </form>
+                    <form
+                      className="mt-5 grid gap-3 border-t border-[var(--border)] pt-5 md:grid-cols-[minmax(0,1fr)_auto]"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (libraryId)
+                          void addMember({ kind: "library", libraryDocumentId: libraryId });
+                      }}
+                    >
+                      <label className="text-sm" htmlFor="knowledge-library">
+                        {t("library")}
+                        <select
+                          className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                          id="knowledge-library"
+                          onChange={(event) => setLibraryId(event.target.value)}
+                          value={libraryId}
+                        >
+                          <option value="">{t("library")}</option>
+                          {libraryDocs.map((row) => (
+                            <option key={String(row.id)} value={String(row.id)}>
+                              {String(row.title)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="flex items-end">
+                        <Button disabled={!libraryId || busy} type="submit">
+                          {t("addLibrary")}
+                        </Button>
+                      </div>
+                      <label className="text-sm" htmlFor="knowledge-url">
+                        {t("url")}
+                        <Input
+                          className="mt-2"
+                          id="knowledge-url"
+                          onChange={(event) => setPageUrl(event.target.value)}
+                          value={pageUrl}
+                        />
+                      </label>
+                      <div className="flex items-end">
+                        <Button
+                          disabled={!pageUrl.trim() || busy}
+                          onClick={() => void addMember({ kind: "url", url: pageUrl.trim() })}
+                          type="button"
+                        >
+                          {t("addUrl")}
+                        </Button>
+                      </div>
+                      <label className="text-sm" htmlFor="knowledge-connection">
+                        {t("connection")}
+                        <select
+                          className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                          id="knowledge-connection"
+                          onChange={(event) => setConnectionId(event.target.value)}
+                          value={connectionId}
+                        >
+                          <option value="">{t("connection")}</option>
+                          {connections.map((row) => (
+                            <option key={String(row.id)} value={String(row.id)}>
+                              {String(row.name)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="flex items-end">
+                        <Button
+                          disabled={!connectionId || busy}
+                          onClick={() =>
+                            void addMember({
+                              kind: "connection",
+                              connectionId,
+                              url: pageUrl.trim(),
+                            })
+                          }
+                          type="button"
+                        >
+                          {t("addConnection")}
+                        </Button>
+                      </div>
+                    </form>
+                  </div>
                 ) : null}
                 {documents.length === 0 ? <EmptyState title={t("emptyDocuments")} /> : null}
-                <ul className="divide-y divide-[var(--border)]">
+                <ul className="row-list">
                   {documents.map((row) => (
-                    <li className="py-3" key={String(row.id)}>
-                      <p className="font-medium">{String(row.title)}</p>
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        {String(row.status)} · {t("chunks", { count: Number(row.chunkCount || 0) })}
-                        {row.canRead === false ? ` · ${t("hidden")}` : ""}
-                      </p>
-                      {collection.canManage !== false ? (
-                        <Button
-                          className="mt-2 h-7 px-2 text-xs"
-                          onClick={() => void reindex(String(row.id))}
-                          type="button"
-                          variant="outline"
-                        >
-                          {t("reindex")}
-                        </Button>
-                      ) : null}
+                    <li
+                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                      key={String(row.id)}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium">{String(row.title)}</p>
+                        <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+                          {t("chunks", { count: Number(row.chunkCount || 0) })}
+                          {row.canRead === false ? ` · ${t("hidden")}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge tone={statusTone(String(row.status))}>{String(row.status)}</Badge>
+                        {collection.canManage !== false ? (
+                          <Button
+                            className="h-8 text-xs"
+                            onClick={() => void reindex(String(row.id))}
+                            type="button"
+                            variant="outline"
+                          >
+                            {t("reindex")}
+                          </Button>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -363,12 +396,9 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
                   <p role="status">{scored ? t("answerable") : t("closest")}</p>
                 ) : null}
                 {answerable === false ? <p>{t("noHits")}</p> : null}
-                <ul className="grid gap-3">
+                <ul aria-label={t("hits")} className="row-list">
                   {hits.map((hit) => (
-                    <li
-                      className="rounded-lg border border-[var(--border)] p-3"
-                      key={String(hit.chunkId)}
-                    >
+                    <li className="px-4 py-3" key={String(hit.chunkId)}>
                       <p className="font-medium">{String(hit.title)}</p>
                       <p className="mt-1 text-sm">{String(hit.snippet)}</p>
                       <p className="mt-1 text-xs text-[var(--muted-foreground)]">
@@ -392,15 +422,17 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
             </TabsContent>
             <TabsContent value="sources">
               {sources.length === 0 ? <EmptyState title={detail("noSources")} /> : null}
-              <ul className="grid gap-2">
+              <ul className="row-list">
                 {sources.map((row) => (
                   <li
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border)] p-3"
+                    className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm"
                     key={String(row.id)}
                   >
-                    <span>
-                      {String(row.name)} · {String(row.kind)} · {String(row.status)}
-                    </span>
+                    <span className="font-medium">{String(row.name)}</span>
+                    <span className="text-[var(--muted-foreground)]">{String(row.kind)}</span>
+                    <Badge className="mr-auto" tone={statusTone(String(row.status))}>
+                      {String(row.status)}
+                    </Badge>
                     {collection.canManage !== false && row.kind !== "upload" ? (
                       <Button
                         onClick={() => void sync(String(row.id))}
@@ -416,10 +448,14 @@ export function CollectionScreen({ collectionId }: { collectionId: string }) {
             </TabsContent>
             <TabsContent value="jobs">
               {jobs.length === 0 ? <EmptyState title={detail("noJobs")} /> : null}
-              <ul className="grid gap-2">
+              <ul className="row-list">
                 {jobs.map((row) => (
-                  <li className="detail-panel text-sm" key={String(row.id)}>
-                    {String(row.kind)} · {String(row.status)}
+                  <li
+                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
+                    key={String(row.id)}
+                  >
+                    <span className="font-medium">{String(row.kind)}</span>
+                    <Badge tone={statusTone(String(row.status))}>{String(row.status)}</Badge>
                   </li>
                 ))}
               </ul>
