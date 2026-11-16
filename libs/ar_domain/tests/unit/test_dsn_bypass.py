@@ -121,6 +121,7 @@ def test_mysql_is_given_the_pinned_address(mode, monkeypatch: pytest.MonkeyPatch
 
     def connect(**kwargs: object) -> None:
         seen.update(kwargs)
+        seen["resolved"] = socket.getaddrinfo(str(kwargs["host"]), None)[0][4][0]
         raise SqlRejected("stopped")
 
     monkeypatch.setattr(pymysql, "connect", connect)
@@ -129,7 +130,9 @@ def test_mysql_is_given_the_pinned_address(mode, monkeypatch: pytest.MonkeyPatch
 
     with pytest.raises(SqlRejected, match="stopped"):
         _mysql(dial, "SELECT 1", timeout_s=2, limit=1, params=())
-    assert seen["host"] == "127.0.0.1"
+    assert seen["host"] == "allowed.example"
+    assert seen["password"] == "pw"  # noqa: S105
+    assert seen["resolved"] == "127.0.0.1"
 
 
 def test_creating_a_connection_rejects_a_redirecting_dsn() -> None:

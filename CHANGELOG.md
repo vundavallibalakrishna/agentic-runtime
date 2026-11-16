@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Customer database connections:
+
+- A URL parameter that can retarget the socket, read a file, or run a startup command is rejected. That includes `host`, `hostaddr`, `port`, `user`, `password`, `dbname` and `options`. `sslmode` must be a libpq mode, and a repeated parameter is rejected.
+- Keyword=value connection strings (`host=... dbname=...`) are rejected. Use a `postgresql://` or `mysql://` URL. `postgresql+psycopg` and `mysql+pymysql` are accepted.
+- Creating a connection resolves the host in the API process. A name that does not resolve is rejected then, not at the first query.
+- With `AR_EGRESS_CLOSED`, a customer database must use TLS. An omitted `sslmode` becomes `verify-full`. `disable`, `allow` and `prefer` are rejected. There is no migration.
+
 ## 1.0.0
 
 First shippable release of Agentic Runtime.

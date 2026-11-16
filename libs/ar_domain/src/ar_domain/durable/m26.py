@@ -239,7 +239,7 @@ async def save_named_secrets(session: AsyncSession, rows: list[dict[str, Any]]) 
     sql = """
         INSERT INTO named_secrets (id, tenant_id, name, ciphertext, created_at, updated_at)
         VALUES (:id, :tenant_id, :name, :ciphertext, :created_at, :updated_at)
-        ON CONFLICT (id) DO UPDATE SET
+        ON CONFLICT (tenant_id, (lower(name))) DO UPDATE SET
             ciphertext = EXCLUDED.ciphertext,
             updated_at = EXCLUDED.updated_at
     """
