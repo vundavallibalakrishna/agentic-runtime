@@ -50,9 +50,7 @@ def read_cloud(  # noqa: PLR0911
         if problem is not None:
             return None
     headers = {"content-type": "application/octet-stream"}
-    client = sync_client(
-        transport=transport, timeout=30, allow=tenant_hosts(store, tenant_id)
-    )
+    client = sync_client(transport=transport, timeout=30, allow=tenant_hosts(store, tenant_id))
     try:
         post = client.post
         response = blocking(post, endpoint, content=data, headers=headers)

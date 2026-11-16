@@ -158,9 +158,7 @@ def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, obje
     proxy = str(config.get("proxy") or "")
     if proxy and guard(proxy, hosts) is not None:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    client = sync_client(
-        allow=hosts, timeout=5.0, follow_redirects=False, proxy=proxy or None
-    )
+    client = sync_client(allow=hosts, timeout=5.0, follow_redirects=False, proxy=proxy or None)
     try:
         robots = client.get(urljoin(start, "/robots.txt"))
         if robots.status_code == 200 and "Disallow: /" in robots.text:

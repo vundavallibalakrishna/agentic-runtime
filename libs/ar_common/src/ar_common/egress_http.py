@@ -41,9 +41,7 @@ def _pinned_getaddrinfo(  # noqa: PLR0917
     """Resolve ``host`` to the address ``decide`` already approved."""
     pins = _pins.get()
     chosen = pins.get(host) if pins else None
-    return _real_getaddrinfo(
-        chosen or host, port, family, type, proto, flags
-    )  # type: ignore[return-value]
+    return _real_getaddrinfo(chosen or host, port, family, type, proto, flags)  # type: ignore[return-value]
 
 
 socket.getaddrinfo = _pinned_getaddrinfo  # type: ignore[assignment]

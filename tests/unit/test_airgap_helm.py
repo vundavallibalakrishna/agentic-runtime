@@ -53,8 +53,8 @@ def test_airgap_overlay_appends_hosts_and_renders_cidrs(tmp_path: Path) -> None:
     cidr = next(
         doc
         for doc in docs
-        if doc and doc.get("kind") == "NetworkPolicy" and str(doc["metadata"]["name"]).endswith(
-            "airgap-cidrs"
-        )
+        if doc
+        and doc.get("kind") == "NetworkPolicy"
+        and str(doc["metadata"]["name"]).endswith("airgap-cidrs")
     )
     assert cidr["spec"]["egress"][0]["to"][0]["ipBlock"]["cidr"] == "10.8.0.0/16"

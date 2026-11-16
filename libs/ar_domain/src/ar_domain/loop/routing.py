@@ -219,9 +219,7 @@ async def routed_completion(  # noqa: PLR0915
         url = chat_completions_url(route["base_url"])
         from ar_domain.egress import model_refusal, residency_of  # noqa: PLC0415
 
-        problem = model_refusal(
-            store, tenant_id, url, residency=residency_of(store, tenant_id)
-        )
+        problem = model_refusal(store, tenant_id, url, residency=residency_of(store, tenant_id))
         if problem is not None:
             breaker.failure(key)
             last = problem

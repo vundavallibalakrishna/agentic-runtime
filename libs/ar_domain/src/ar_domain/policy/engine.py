@@ -145,9 +145,7 @@ def _ask_opa(url: str, policy_input: dict[str, object], timeout: float) -> dict[
             from ar_common.offload import blocking  # noqa: PLC0415
 
             with sync_client(mode="cluster", timeout=timeout) as client:
-                response = blocking(
-                    lambda: client.post(endpoint, json={"input": policy_input})
-                )
+                response = blocking(lambda: client.post(endpoint, json={"input": policy_input}))
         except httpx.HTTPError:
             continue
         if response.status_code >= 300:
