@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center px-6 py-16">
       <div className="w-full max-w-[22rem]">
-        <h1 className="font-serif text-4xl tracking-tight">{t("forgotTitle")}</h1>
+        <h1 className="font-display text-4xl tracking-tight">{t("forgotTitle")}</h1>
         <p className="mt-4 text-[15px] text-[var(--muted-foreground)]">{t("forgotBody")}</p>
         {sent ? (
           <p className="mt-6 text-sm" role="status">

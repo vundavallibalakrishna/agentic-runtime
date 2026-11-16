@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Source_Sans_3, Source_Serif_4 } from "next/font/google";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
 import type { ReactNode } from "react";
 
 import { Providers } from "@/components/providers";
@@ -7,15 +7,9 @@ import messages from "@/messages/en.json";
 
 import "./globals.css";
 
-const sans = Source_Sans_3({
+const sans = Inter({
   subsets: ["latin"],
-  variable: "--font-source-sans",
-  display: "swap",
-});
-
-const serif = Source_Serif_4({
-  subsets: ["latin"],
-  variable: "--font-source-serif",
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -28,7 +22,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Agentic Runtime",
-  description: "A calm workspace for agents that do the work.",
+  description: "Build, run and govern agents on your own infrastructure.",
 };
 
 const themeBoot = `
@@ -43,11 +37,7 @@ try {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${sans.variable} ${serif.variable} ${mono.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the theme has to apply before paint */}
         <script dangerouslySetInnerHTML={{ __html: themeBoot }} />

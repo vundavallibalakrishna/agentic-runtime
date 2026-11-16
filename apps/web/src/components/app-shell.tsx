@@ -30,12 +30,20 @@ import { cn } from "@/lib/utils";
 
 const SIDEBAR_KEY = "ar-sidebar";
 let rememberedSession: Session | null = null;
-const sections = ["workspace", "resources", "manage"] as const;
+const sections = ["work", "build", "data", "admin"] as const;
 const sectionLabels = {
-  workspace: "sectionWorkspace",
-  resources: "sectionResources",
-  manage: "sectionManage",
+  work: "sectionWork",
+  build: "sectionBuild",
+  data: "sectionData",
+  admin: "sectionAdmin",
 } as const;
+// One look for every row in the dark navigation column.
+const navRow = "group flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-[13px]";
+const navRowIdle =
+  "text-[var(--sidebar-foreground)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-strong)]";
+const navRowActive = "bg-[var(--nav-active)] font-semibold text-[var(--nav-active-foreground)]";
+const navHeading =
+  "mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--sidebar-muted)]";
 
 export function AppShell({
   children,
@@ -186,12 +194,19 @@ export function AppShell({
   }
 
   const brand = (
-    <Link className="flex min-w-0 items-center gap-2.5" href="/chat" aria-label={t("product")}>
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--primary)] text-[var(--primary-foreground)]">
-        <Layers2 size={20} aria-hidden="true" strokeWidth={1.6} />
+    <Link className="flex min-w-0 items-center gap-2.5" href="/chat">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--nav-active)] text-[var(--nav-active-foreground)]">
+        <Layers2 size={18} aria-hidden="true" strokeWidth={1.8} />
       </span>
-      <span className={cn("text-[15px] font-semibold tracking-tight", collapsed && "lg:sr-only")}>
-        {t("product")}
+      <span className={cn("min-w-0", collapsed && "lg:sr-only")}>
+        <span className="block truncate text-sm font-semibold text-[var(--sidebar-strong)]">
+          {t("product")}
+        </span>
+        {session?.tenant?.name ? (
+          <span className="block truncate text-xs text-[var(--sidebar-muted)]">
+            {session.tenant.name}
+          </span>
+        ) : null}
       </span>
     </Link>
   );
@@ -199,18 +214,11 @@ export function AppShell({
   const nav = (
     <nav
       aria-label={t("primaryNavigation")}
-      className="min-h-0 flex-1 space-y-5 overflow-y-auto px-1 py-2"
+      className="min-h-0 flex-1 space-y-5 overflow-y-auto py-2"
     >
       {packLinks.length ? (
         <div>
-          <p
-            className={cn(
-              "mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]",
-              collapsed && "lg:sr-only",
-            )}
-          >
-            {t("sectionPacks")}
-          </p>
+          <p className={cn(navHeading, collapsed && "lg:sr-only")}>{t("sectionPacks")}</p>
           <div className="space-y-0.5">
             {packLinks.map((item) => {
               const active = path === item.href || path.startsWith(`${item.href}/`);
@@ -218,10 +226,8 @@ export function AppShell({
                 <Link
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-[13px]",
-                    active
-                      ? "bg-[var(--nav-active)] font-semibold text-[var(--foreground)] shadow-[var(--shadow-xs)]"
-                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+                    navRow,
+                    active ? navRowActive : navRowIdle,
                     collapsed && "lg:justify-center lg:px-2",
                   )}
                   href={item.href}
@@ -242,14 +248,7 @@ export function AppShell({
         if (!entries.length) return null;
         return (
           <div key={section}>
-            <p
-              className={cn(
-                "mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted-foreground)]",
-                collapsed && "lg:sr-only",
-              )}
-            >
-              {t(sectionLabels[section])}
-            </p>
+            <p className={cn(navHeading, collapsed && "lg:sr-only")}>{t(sectionLabels[section])}</p>
             <div className="space-y-0.5">
               {entries.map((item) => {
                 const Icon = item.icon;
@@ -258,10 +257,8 @@ export function AppShell({
                   <Link
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group flex min-h-9 items-center gap-3 rounded-lg px-3 py-2 text-[13px]",
-                      active
-                        ? "bg-[var(--nav-active)] font-semibold text-[var(--foreground)] shadow-[var(--shadow-xs)]"
-                        : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+                      navRow,
+                      active ? navRowActive : navRowIdle,
                       collapsed && "lg:justify-center lg:px-2",
                     )}
                     href={item.href}
@@ -273,15 +270,6 @@ export function AppShell({
                     <span className={cn("flex-1", collapsed && "lg:sr-only")}>
                       {t(item.labelKey)}
                     </span>
-                    {active ? (
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          "size-1.5 rounded-full bg-[var(--foreground)]",
-                          collapsed && "lg:hidden",
-                        )}
-                      />
-                    ) : null}
                     {item.soon ? (
                       <span className={cn("text-[10px]", collapsed && "lg:hidden")}>
                         {t("soon")}
@@ -308,16 +296,16 @@ export function AppShell({
       <aside
         aria-label={t("sidebar")}
         className={cn(
-          "hidden shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar)] px-3 py-5 lg:flex",
-          collapsed ? "w-[72px]" : "w-60",
+          "console-sidebar hidden shrink-0 flex-col bg-[var(--sidebar)] px-3 py-4 text-[var(--sidebar-foreground)] lg:flex",
+          collapsed ? "w-[68px]" : "w-[232px]",
         )}
       >
-        <div className="mb-5 px-1">{brand}</div>
+        <div className="mb-4 px-1">{brand}</div>
         {session?.permissions?.includes("chat:use") ? (
           <button
             aria-label={`${t("newChat")} ⌘⇧O`}
             className={cn(
-              "mb-5 flex h-10 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 text-[13px] font-medium shadow-[var(--shadow-xs)] hover:bg-[var(--muted)]",
+              "mb-4 flex h-10 items-center gap-2 rounded-md border border-[var(--sidebar-border)] px-3 text-[13px] font-medium text-[var(--sidebar-strong)] hover:bg-[var(--sidebar-hover)]",
               collapsed && "justify-center px-0",
             )}
             onClick={newChat}
@@ -327,7 +315,7 @@ export function AppShell({
             <span className={cn(collapsed && "sr-only")}>{t("newChat")}</span>
             <kbd
               className={cn(
-                "ml-auto text-[10px] text-[var(--muted-foreground)]",
+                "ml-auto text-[10px] text-[var(--sidebar-muted)]",
                 collapsed && "hidden",
               )}
             >
@@ -339,7 +327,7 @@ export function AppShell({
         {session?.permissions?.includes("agents:create") && !collapsed ? (
           <Link
             href="/agents/new"
-            className="mt-3 flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-3 text-xs font-medium hover:bg-[var(--card)]"
+            className="mt-3 flex min-h-10 items-center justify-between rounded-md border border-[var(--sidebar-border)] px-3 py-2 text-xs font-medium text-[var(--sidebar-strong)] hover:bg-[var(--sidebar-hover)]"
           >
             {t("createAgent")}
             <ArrowUpRight size={15} aria-hidden="true" />
@@ -347,7 +335,7 @@ export function AppShell({
         ) : null}
         <button
           aria-label={collapsed ? t("expand") : t("collapse")}
-          className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+          className="mt-3 flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-xs text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-strong)]"
           onClick={() =>
             setCollapsed((value) => {
               window.localStorage.setItem(SIDEBAR_KEY, value ? "expanded" : "collapsed");
@@ -361,7 +349,7 @@ export function AppShell({
         </button>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 md:px-6">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 md:px-6">
           <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
             <Dialog.Trigger asChild>
               <button
@@ -374,7 +362,7 @@ export function AppShell({
             </Dialog.Trigger>
             <Dialog.Portal>
               <Dialog.Overlay className="fixed inset-0 z-40 bg-[var(--scrim)]" />
-              <Dialog.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col bg-[var(--sidebar)] p-4 shadow-[var(--shadow)]">
+              <Dialog.Content className="console-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)] shadow-[var(--shadow)]">
                 <Dialog.Title className="sr-only">{t("sidebar")}</Dialog.Title>
                 <Dialog.Description className="sr-only">
                   {t("primaryNavigation")}
@@ -383,7 +371,7 @@ export function AppShell({
                   {brand}
                   <Dialog.Close
                     aria-label={t("closeMenu")}
-                    className="rounded-lg p-2 hover:bg-[var(--muted)]"
+                    className="rounded-md p-2 hover:bg-[var(--sidebar-hover)]"
                   >
                     <X size={18} />
                   </Dialog.Close>
@@ -394,7 +382,9 @@ export function AppShell({
           </Dialog.Root>
           <div className="flex min-w-0 flex-1 items-center gap-2 text-xs md:text-[13px]">
             <span className="truncate text-[var(--muted-foreground)]">
-              {session?.tenant?.name ?? t("workspace")}
+              {current
+                ? t(sectionLabels[current.section])
+                : (session?.tenant?.name ?? t("workspace"))}
             </span>
             {current ? (
               <>
@@ -425,7 +415,7 @@ export function AppShell({
               >
                 <span
                   aria-hidden="true"
-                  className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--sidebar)] text-xs font-semibold"
+                  className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--muted)] text-xs font-semibold"
                 >
                   <UserRound size={16} aria-hidden="true" />
                 </span>
@@ -490,7 +480,9 @@ export function AppShell({
             <div className="mx-auto w-full max-w-xl p-5 md:p-10">
               <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
                 <div role="alert">
-                  <h1 className="font-serif text-2xl tracking-tight">{t("sessionProblemTitle")}</h1>
+                  <h1 className="font-display text-2xl tracking-tight">
+                    {t("sessionProblemTitle")}
+                  </h1>
                   <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
                     {t("sessionProblemBody")}
                   </p>
@@ -506,7 +498,7 @@ export function AppShell({
           ) : flush ? (
             children
           ) : (
-            <div className="mx-auto w-full max-w-6xl p-5 md:p-10">{children}</div>
+            <div className="mx-auto w-full max-w-7xl p-5 md:p-8">{children}</div>
           )}
         </main>
       </div>
