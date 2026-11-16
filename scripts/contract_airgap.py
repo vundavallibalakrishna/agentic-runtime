@@ -144,7 +144,8 @@ def tool_turn(base: str) -> None:
                 print(f"tool call ok run={run_id}", flush=True)
                 return
         time.sleep(2)
-    state = _sql(f"SELECT status FROM runs WHERE id = '{run_id}'").strip()  # noqa: S608
+    query = f"SELECT status || ' ' || coalesce(error::text, '') FROM runs WHERE id = '{run_id}'"  # noqa: S608
+    state = _sql(query).strip()
     raise SystemExit(f"the run recorded no tool call: run={run_id} status={state}")
 
 

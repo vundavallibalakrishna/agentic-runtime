@@ -3,7 +3,8 @@
 global:
   imageRegistry: ""
   imageTag: dev
-  env: staging
+  # Staging refuses a fake model before any tool call. This contract's model is fake-llm.
+  env: dev
 postgres:
   bundled: true
   mode: cnpg
