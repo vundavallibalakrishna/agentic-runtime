@@ -82,7 +82,7 @@ def test_the_rotate_route_signs_the_next_callback() -> None:
 
 
 def test_a_failed_write_does_not_install_the_new_secret(monkeypatch) -> None:
-    from sqlalchemy.exc import IntegrityError
+    from ar_common.errors import ConflictError
 
     person = catalogue()["admin@dev.local"]
     principal = Principal(
@@ -107,7 +107,7 @@ def test_a_failed_write_does_not_install_the_new_secret(monkeypatch) -> None:
     app.state.chat.named_secrets = {}
 
     def boom(*_args: object, **_kwargs: object) -> None:
-        raise IntegrityError("INSERT", {}, Exception("ux_named_secrets_name"))
+        raise ConflictError("the callback secret changed while it was being saved; retry")
 
     monkeypatch.setattr("ar_domain.db.session.tenant_session", boom)
     rotated = TestClient(app).post("/api/v1/tenant/run-callback-secret:rotate")

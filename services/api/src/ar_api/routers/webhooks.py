@@ -132,9 +132,6 @@ async def rotate_callback(request: Request) -> dict[str, str]:
 
 async def _store_callback_secret(request: Request, principal: object, secret: str) -> None:
     """Commit the secret, then install it. A failed write leaves the old secret."""
-    from sqlalchemy.exc import IntegrityError  # noqa: PLC0415
-
-    from ar_common.errors import ConflictError  # noqa: PLC0415
     from ar_domain.audit.actions import AuditAction  # noqa: PLC0415
     from ar_domain.audit.memory import remember  # noqa: PLC0415
     from ar_domain.tools.named_secrets import (  # noqa: PLC0415
@@ -167,28 +164,25 @@ async def _store_callback_secret(request: Request, principal: object, secret: st
     from ar_domain.audit.service import record  # noqa: PLC0415
     from ar_domain.db.context import Principal, TenantContext  # noqa: PLC0415
     from ar_domain.db.session import tenant_session  # noqa: PLC0415
-    from ar_domain.durable.m26 import save_named_secrets  # noqa: PLC0415
+    from ar_domain.durable.m26 import upsert_named_secret  # noqa: PLC0415
 
     if not isinstance(principal, Principal):
         webhooks.apply_callback_secret(secret)
         return
     row = stage_named_secret(tenant_id, "__run_callback_secret__", secret)
     ctx = TenantContext.from_principal(principal, str(getattr(request.state, "request_id", "")))
-    try:
-        async with tenant_session(ctx, engine=engine) as session:
-            await save_named_secrets(session, [row])
-            await record(
-                session,
-                tenant_id=principal.tenant_id,
-                actor_type=principal.kind,
-                actor_id=str(principal.id),
-                action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
-                target_type="tenant",
-                target_id=str(principal.tenant_id),
-                detail=detail,
-            )
-    except IntegrityError as exc:
-        raise ConflictError("the callback secret changed while it was being saved; retry") from exc
+    async with tenant_session(ctx, engine=engine) as session:
+        await upsert_named_secret(session, row)
+        await record(
+            session,
+            tenant_id=principal.tenant_id,
+            actor_type=principal.kind,
+            actor_id=str(principal.id),
+            action=AuditAction.TENANT_RUN_CALLBACK_SECRET_ROTATED,
+            target_type="tenant",
+            target_id=str(principal.tenant_id),
+            detail=detail,
+        )
     install_named_secret(chat, row)
     webhooks.apply_callback_secret(secret)
 
