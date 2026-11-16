@@ -394,6 +394,7 @@ spec:
               kubernetes.io/metadata.name: cnpg-system
       ports:
         - {port: 8000, protocol: TCP}
+        - {port: 5432, protocol: TCP}
   egress:
     - to:
         - podSelector:
@@ -403,14 +404,8 @@ spec:
       ports:
         - {port: 5432, protocol: TCP}
         - {port: 8000, protocol: TCP}
-    - to:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: default
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: kube-system
-      ports:
+    # The API server is a node endpoint, not a pod, so a namespace selector misses it.
+    - ports:
         - {port: 443, protocol: TCP}
         - {port: 6443, protocol: TCP}
     - to:

@@ -101,7 +101,13 @@ helm upgrade --install agentic-runtime "$chart" \
   --timeout 15m --no-hooks --wait=false
 
 echo "waiting for the database"
-kubectl -n "$namespace" wait --for=condition=Ready "cluster/agentic-runtime-pg" --timeout=15m
+if ! kubectl -n "$namespace" wait --for=condition=Ready "cluster/agentic-runtime-pg" --timeout=15m; then
+  kubectl -n "$namespace" describe cluster agentic-runtime-pg || true
+  kubectl -n "$namespace" get pods -o wide || true
+  kubectl -n "$namespace" describe pods -l "cnpg.io/cluster=agentic-runtime-pg" || true
+  kubectl -n "$namespace" logs -l "cnpg.io/cluster=agentic-runtime-pg" --all-containers --tail=80 || true
+  exit 1
+fi
 kubectl -n "$namespace" wait --for=condition=Ready pod -l cnpg.io/podRole=pooler --timeout=10m
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-valkey --timeout=5m
 
