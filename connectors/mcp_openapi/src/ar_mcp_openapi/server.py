@@ -77,7 +77,9 @@ def _call(
     headers = {"authorization": f"Bearer {token}"} if token else {}
     payload = arguments.get("body")
     try:
-        with httpx.Client(transport=transport, timeout=5.0) as client:
+        from ar_common.egress_http import sync_client  # noqa: PLC0415
+
+        with sync_client(transport=transport, timeout=5.0) as client:
             response = client.request(str(tool["method"]), url, headers=headers, json=payload)
     except httpx.HTTPError as exc:
         return str(exc), True

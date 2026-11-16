@@ -33,6 +33,8 @@ from ar_domain.tools.named_secrets import write_named_secret
 from ar_domain.tools.seed_tools import seed
 from ar_testing.demo import demo_store
 
+pytestmark = pytest.mark.dns_fallback
+
 
 def _actor() -> Actor:
     return Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS)

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.egress_http import async_client
 from ar_common.time import utcnow
 
 if TYPE_CHECKING:
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 
 async def component_health(targets: Mapping[str, str]) -> list[dict[str, object]]:
     """Probe each dependency with a 2 second timeout."""
-    async with httpx.AsyncClient(timeout=2.0) as client:
+    async with async_client(mode="cluster", timeout=2.0) as client:
         rows = await asyncio.gather(*(_probe(client, name, url) for name, url in targets.items()))
     return list(rows)
 

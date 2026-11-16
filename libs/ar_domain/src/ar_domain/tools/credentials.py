@@ -9,7 +9,6 @@ import secrets
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlencode
 
-import httpx
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -204,7 +203,7 @@ class CredentialBook:
                 "subject_token": code,
                 "audience": str(provider.get("token_exchange_audience") or ""),
             }
-        return await _post_token(token_url, form, self.store)
+        return await _post_token(token_url, form, self.store, provider.get("tenant_id"))
 
     async def _refresh(self, grant: dict[str, object]) -> str:
         provider = self.store.credential_providers.get(grant.get("provider_id"))
@@ -222,6 +221,7 @@ class CredentialBook:
                 token_url,
                 {"grant_type": "refresh_token", "refresh_token": refresh},
                 self.store,
+                provider.get("tenant_id"),
             )
         except ArError as exc:
             grant["status"] = "error"
@@ -302,9 +302,18 @@ class CredentialBook:
         )
 
 
-async def _post_token(url: str, form: dict[str, str], store: Any) -> dict[str, str]:
+async def _post_token(
+    url: str, form: dict[str, str], store: Any, tenant_id: object = None
+) -> dict[str, str]:
+    from ar_common.egress_http import async_client, guard  # noqa: PLC0415
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    allow = dial_allow(store, tenant_id)
+    problem = guard(url, allow)
+    if problem is not None:
+        raise ArError(ErrorCode.FORBIDDEN, problem)
     transport = getattr(store, "oauth_transport", None)
-    async with httpx.AsyncClient(transport=transport) as client:
+    async with async_client(allow=allow, transport=transport) as client:
         response = await client.post(url, data=form)
     if response.status_code >= 300:
         raise ArError(ErrorCode.BAD_REQUEST, "invalid_grant")

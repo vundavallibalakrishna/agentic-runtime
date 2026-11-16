@@ -31,6 +31,8 @@ from ar_domain.tools.remote_mcp import (
 from ar_domain.tools.service_connections import ConnectionBook, headers_for
 from ar_testing.demo import demo_store
 
+pytestmark = pytest.mark.dns_fallback
+
 
 def _actor() -> Actor:
     return Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS)

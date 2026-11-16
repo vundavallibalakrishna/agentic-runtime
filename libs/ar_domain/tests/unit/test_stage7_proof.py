@@ -66,10 +66,35 @@ def test_not_live_connectors_are_unit_and_not_offered() -> None:
     assert connector_proof(by_slug["github"]) == LIVE
     assert connector_proof(by_slug["email"]) == LIVE
     github_tool = by_slug["github"].tools[0].name
-    assert offered_to_model(f"connectors.{github_tool}") is True
+    assert offered_to_model(f"connectors.{github_tool}") is False
     assert connector_proof(by_slug["s3"]) == CONTRACT
     s3_tool = by_slug["s3"].tools[0].name
     assert offered_to_model(f"connectors.{s3_tool}") is False
+
+
+@pytest.mark.unit
+def test_an_installed_connector_is_offered_and_proof_stays_a_badge() -> None:
+    from ar_domain.agents.access import Actor
+    from ar_domain.connectors.book import ConnectorBook
+    from ar_domain.identity.permissions import PERMISSION_KEYS
+    from ar_testing.demo import demo_store
+
+    store = demo_store()
+    tenant = uuid.uuid4()
+    user = uuid.uuid4()
+    actor = Actor(tenant, user, PERMISSION_KEYS)
+    ConnectorBook(store).install(
+        actor,
+        "okta",
+        {
+            "connection_name": "okta",
+            "secret": "stub-token",
+            "config": {"baseUrl": "https://example.okta.com"},
+        },
+    )
+    assert connector_proof(next(item for item in CONNECTORS if item.slug == "okta")) == UNIT
+    assert offered_to_model("connectors.okta_list_users", store, tenant) is True
+    assert offered_to_model("connectors.github_list_repos", store, tenant) is False
 
 
 @pytest.mark.unit
@@ -78,11 +103,8 @@ def test_not_live_connector_tools_are_hidden_from_the_model() -> None:
     seed(store, tenant=False)
     rows = ToolPipeline(store)._bound("connectors", ["*"], uuid.uuid4())
     names = {str(row["qualified_name"]) for row in rows}
-    assert any(name.startswith("connectors.github_") for name in names)
-    assert any(name.startswith("connectors.email_") for name in names)
-    assert not any("slack" in name for name in names)
-    assert not any("notion" in name for name in names)
-    assert not any(name.startswith("connectors.s3_") or ".s3_" in name for name in names)
+    assert names == set()
+    assert offered_to_model("sandbox.exec") is False
 
 
 @pytest.mark.unit

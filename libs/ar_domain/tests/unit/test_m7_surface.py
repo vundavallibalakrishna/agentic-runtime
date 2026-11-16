@@ -52,6 +52,9 @@ from ar_testing.sleeping import in_this_thread
 pytestmark = pytest.mark.unit
 
 
+pytestmark = pytest.mark.dns_fallback
+
+
 def _zip(entries: dict[str, str]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as book:

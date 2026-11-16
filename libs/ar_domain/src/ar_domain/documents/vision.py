@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 
 if TYPE_CHECKING:
@@ -133,7 +134,7 @@ def ask_image(
     if "qwen3" in model_name.lower():
         body["chat_template_kwargs"] = {"enable_thinking": False}
     try:
-        with httpx.Client(timeout=timeout_s) as client:
+        with sync_client(timeout=timeout_s) as client:
             response = blocking(client.post, url, json=body, headers=headers)
     except httpx.HTTPError as exc:
         raise VisionError(

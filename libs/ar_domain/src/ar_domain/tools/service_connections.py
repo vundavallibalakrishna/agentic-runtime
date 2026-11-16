@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from ar_common.egress_http import async_client, sync_client
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError, ValidationFailedError
 from ar_common.ids import new_id
 from ar_common.offload import blocking
@@ -190,7 +191,11 @@ class ConnectionBook:
                 "status": 0,
                 "error": "Add a test URL. The secret is not sent anywhere until you do.",
             }
-        problem = guard_public(target, allow=["*"], loopback=False)
+        from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+        problem = guard_public(
+            target, allow=dial_allow(self.store, row.get("tenant_id")), loopback=False
+        )
         if problem:
             row["last_error"] = problem
             row["last_tested_at"] = utcnow()
@@ -260,7 +265,7 @@ class ConnectionBook:
         row = _book(self.store).get(connection_id)
         if not isinstance(row, dict):
             raise NotFoundError()
-        tokens = await _exchange(row, code, str(saved.get("verifier") or ""))
+        tokens = await _exchange(self.store, row, code, str(saved.get("verifier") or ""))
         _store_tokens(row, tokens)
         row["status"] = "active"
         row["updated_at"] = utcnow()
@@ -400,22 +405,24 @@ def _refresh_if_needed(store: Any, row: dict[str, object]) -> None:
 
         shared = cached_token(store, row)
         if not shared:
-            tokens = _client_credentials(row)
+            tokens = _client_credentials(store, row)
             raw_expires = str(tokens.get("expires_in") or "")
             lifetime = int(raw_expires) if raw_expires.isdigit() else 3600
             remember_token(store, row, str(tokens.get("access_token") or ""), lifetime)
         return
     if kind == "oauth_authorization_code" and _expired(row) and _open(row.get("refresh_token")):
-        tokens = _refresh_token(row)
+        tokens = _refresh_token(store, row)
         _store_tokens(row, tokens)
         del store
 
 
-def _client_credentials(row: dict[str, object]) -> dict[str, str]:
+def _client_credentials(store: Any, row: dict[str, object]) -> dict[str, str]:
     token_url = str(row.get("token_url") or "")
     if token_url.startswith("memory://"):
         return {"access_token": f"access-{row.get('name')}", "expires_in": "3600"}
-    problem = guard_public(token_url, allow=["*"], loopback=False)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(token_url, allow=dial_allow(store, row.get("tenant_id")), loopback=False)
     if problem:
         raise ArError(ErrorCode.FORBIDDEN, problem)
     form = {
@@ -426,16 +433,26 @@ def _client_credentials(row: dict[str, object]) -> dict[str, str]:
     scopes = row.get("scopes")
     if isinstance(scopes, list) and scopes:
         form["scope"] = " ".join(str(item) for item in scopes)
-    return _token_response(token_url, form, row.get("_token_transport"))
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    return _token_response(
+        token_url, form, row.get("_token_transport"), dial_allow(store, row.get("tenant_id"))
+    )
 
 
-def _refresh_token(row: dict[str, object]) -> dict[str, str]:
+def _refresh_token(store: Any, row: dict[str, object]) -> dict[str, str]:
     token_url = str(row.get("token_url") or "")
     if token_url.startswith("memory://"):
         return {"access_token": f"refreshed-{row.get('name')}", "expires_in": "3600"}
     # A recorded fixture may point the token URL at a loopback server. Production
     # rows do not set this flag, so a loopback token URL stays denied.
-    problem = guard_public(token_url, allow=["*"], loopback=bool(row.get("allow_loopback_token")))
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(
+        token_url,
+        allow=dial_allow(store, row.get("tenant_id")),
+        loopback=bool(row.get("allow_loopback_token")),
+    )
     if problem:
         raise ArError(ErrorCode.FORBIDDEN, problem)
     form = {
@@ -444,17 +461,24 @@ def _refresh_token(row: dict[str, object]) -> dict[str, str]:
         "client_id": str(row.get("client_id") or ""),
         "client_secret": _open(row.get("secret")),
     }
-    return _token_response(token_url, form, row.get("_token_transport"))
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    return _token_response(
+        token_url, form, row.get("_token_transport"), dial_allow(store, row.get("tenant_id"))
+    )
 
 
 def _token_response(
-    token_url: str, form: dict[str, str], transport: object = None
+    token_url: str,
+    form: dict[str, str],
+    transport: object = None,
+    allow: list[str] | None = None,
 ) -> dict[str, str]:
-    kwargs: dict[str, object] = {"timeout": 20.0}
+    kwargs: dict[str, object] = {"timeout": 20.0, "allow": allow}
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(client.post, token_url, data=form)
             response.raise_for_status()
             loaded = response.json()
@@ -465,7 +489,7 @@ def _token_response(
     return {str(key): str(value) for key, value in loaded.items() if value is not None}
 
 
-async def _exchange(row: dict[str, object], code: str, verifier: str) -> dict[str, str]:
+async def _exchange(store: Any, row: dict[str, object], code: str, verifier: str) -> dict[str, str]:
     token_url = str(row.get("token_url") or "")
     if code == "invalid":
         raise ArError(ErrorCode.BAD_REQUEST, "invalid_grant")
@@ -475,7 +499,10 @@ async def _exchange(row: dict[str, object], code: str, verifier: str) -> dict[st
             "refresh_token": f"refresh-{code}",
             "expires_in": "3600",
         }
-    problem = guard_public(token_url, allow=["*"], loopback=False)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    allow = dial_allow(store, row.get("tenant_id"))
+    problem = guard_public(token_url, allow=allow, loopback=False)
     if problem:
         raise ArError(ErrorCode.FORBIDDEN, problem)
     form = {
@@ -486,7 +513,7 @@ async def _exchange(row: dict[str, object], code: str, verifier: str) -> dict[st
         "client_secret": _open(row.get("secret")),
     }
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with async_client(timeout=20.0, allow=allow) as client:
             response = await client.post(token_url, data=form)
             response.raise_for_status()
             loaded = response.json()

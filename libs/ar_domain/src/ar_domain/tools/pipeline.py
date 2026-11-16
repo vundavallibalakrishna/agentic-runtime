@@ -103,6 +103,7 @@ class ToolPipeline:
         bindings = definition.get("tools")
         if not isinstance(bindings, list):
             bindings = []
+        owner = version.get("tenant_id") if isinstance(version, dict) else None
         tools = []
         for binding in bindings:
             if not isinstance(binding, dict):
@@ -110,11 +111,10 @@ class ToolPipeline:
             server_slug = str(binding.get("server") or "")
             include = binding.get("include")
             names = include if isinstance(include, list) else ["*"]
-            tools.extend(self._bound(server_slug, names, user_id))
+            tools.extend(self._bound(server_slug, names, user_id, owner))
         from ar_domain.tools.readiness import ready_for  # noqa: PLC0415
 
         # A tool the tenant has not set up is not offered, so the model does not promise it.
-        owner = version.get("tenant_id") if isinstance(version, dict) else None
         tools = [
             row
             for row in tools
@@ -262,6 +262,7 @@ class ToolPipeline:
         call_args = dict(arguments)
         if endpoint.startswith("builtin://"):
             call_args.update(self._sandbox_context(request))
+            call_args["_permissions"] = self._caller_permissions(request)
         if endpoint == "builtin://browser" and str(version.get("name")) in {
             "navigate",
             "submit_form",
@@ -507,6 +508,37 @@ class ToolPipeline:
             context["_agent_id"] = run.get("agent_id")
         return context
 
+    def _caller_permissions(self, request: dict[str, object]) -> list[str]:
+        """The caller's real permissions, including pack grants for a tenant admin."""
+        from ar_domain.identity.permissions import (  # noqa: PLC0415
+            PERMISSION_KEYS,
+            SYSTEM_ROLE_PERMISSIONS,
+        )
+        from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
+
+        explicit = request.get("permissions")
+        if explicit is None:
+            run = self._request_run(request)
+            if isinstance(run, dict):
+                explicit = run.get("permissions")
+        if isinstance(explicit, list | set | frozenset | tuple):
+            permissions = {str(item) for item in explicit}
+            roles = set(getattr(self.store, "user_roles", {}).get(request.get("user_id"), set()))
+        else:
+            user_id = request.get("user_id")
+            roles = set(getattr(self.store, "user_roles", {}).get(user_id, set()))
+            if "tenant_admin" in roles:
+                permissions = set(PERMISSION_KEYS)
+            else:
+                permissions = set()
+                for role in roles:
+                    permissions.update(SYSTEM_ROLE_PERMISSIONS.get(role, ()))
+                    custom = getattr(self.store, "role_permissions", {}).get(role, ())
+                    if isinstance(custom, list | set | frozenset | tuple):
+                        permissions.update(str(item) for item in custom)
+        permissions.update(permissions_for(self.store, request.get("tenant_id"), roles))
+        return sorted(permissions)
+
     def _emit_streams(self, request: dict[str, object], outcome: dict[str, object]) -> None:
         streams = outcome.get("streams")
         if not isinstance(streams, list) or not hasattr(self.store, "_emit"):
@@ -660,9 +692,20 @@ class ToolPipeline:
         stored["result_preview"] = "Waiting for approval."
         return stored
 
-    def _bound(self, slug: str, names: list[object], user_id: uuid.UUID) -> list[dict[str, object]]:
+    def _bound(
+        self,
+        slug: str,
+        names: list[object],
+        user_id: uuid.UUID,
+        tenant_id: object | None = None,
+    ) -> list[dict[str, object]]:
         if slug in _RETIRED_SERVER_ALIAS:
-            return self._bound(_RETIRED_SERVER_ALIAS[slug], _aliased_names(slug, names), user_id)
+            return self._bound(
+                _RETIRED_SERVER_ALIAS[slug],
+                _aliased_names(slug, names),
+                user_id,
+                tenant_id,
+            )
         server = next(
             (
                 row
@@ -700,7 +743,11 @@ class ToolPipeline:
         del user_id
         from ar_domain.proof import offered_to_model  # noqa: PLC0415
 
-        return [row for row in rows if offered_to_model(str(row.get("qualified_name") or ""))]
+        return [
+            row
+            for row in rows
+            if offered_to_model(str(row.get("qualified_name") or ""), self.store, tenant_id)
+        ]
 
     def _request_run(self, request: dict[str, object]) -> dict[str, object] | None:
         raw = request.get("run_id")

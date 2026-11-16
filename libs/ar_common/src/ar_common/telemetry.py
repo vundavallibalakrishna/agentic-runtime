@@ -41,6 +41,22 @@ class _TelemetryState:
 _log = get_logger(__name__)
 
 
+def _otel_channel(target: str, *, insecure: bool) -> tuple[str, tuple[tuple[str, str], ...] | None]:
+    """Dial the approved address. TLS still checks the original hostname."""
+    from ar_common.egress_http import approved_address  # noqa: PLC0415
+    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+    if not closed_egress():
+        return target, None
+    host, separator, port = target.partition(":")
+    dial = approved_address(host)
+    shown = f"[{dial}]" if ":" in dial else dial
+    endpoint = f"{shown}:{port}" if separator else shown
+    if insecure:
+        return endpoint, None
+    return endpoint, (("grpc.ssl_target_name_override", host),)
+
+
 def _grpc_target(endpoint: str) -> tuple[str, bool]:
     insecure = endpoint.startswith("http://")
     target = endpoint.removeprefix("http://").removeprefix("https://").rstrip("/")
@@ -55,14 +71,49 @@ def setup(service_name: str, settings: BaseServiceSettings | None = None) -> Non
     if current is None:
         current = get_settings()
     resource = Resource.create({"service.name": service_name})
-    target, insecure = _grpc_target(current.otel_exporter_otlp_endpoint)
+    from ar_common.egress_policy import closed_egress, decide_url  # noqa: PLC0415
+
+    if closed_egress():
+        problem = decide_url(
+            current.otel_exporter_otlp_endpoint, [], closed=True, check_private=False
+        )
+        if problem is not None:
+            _log.info("telemetry_skipped", reason="egress_closed")
+            _TelemetryState.ready = True
+            return
+        from ar_common.egress_http import EgressDenied, pinned_host  # noqa: PLC0415
+
+        host = _grpc_target(current.otel_exporter_otlp_endpoint)[0].split("/")[0].split(":")[0]
+        try:
+            pinned_host(host)
+        except EgressDenied:
+            _log.info("telemetry_skipped", reason="egress_closed")
+            _TelemetryState.ready = True
+            return
+        current_endpoint = current.otel_exporter_otlp_endpoint
+    else:
+        current_endpoint = current.otel_exporter_otlp_endpoint
+    target, insecure = _grpc_target(current_endpoint)
+    target, channel_options = _otel_channel(target, insecure=insecure)
     sampler = ParentBased(TraceIdRatioBased(current.trace_sample_ratio))
     tracer_provider = TracerProvider(resource=resource, sampler=sampler)
     tracer_provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=target, insecure=insecure))
+        BatchSpanProcessor(
+            OTLPSpanExporter(
+                endpoint=target,
+                insecure=insecure,
+                channel_options=channel_options,  # type: ignore[arg-type]
+            )
+        )
     )
     trace.set_tracer_provider(tracer_provider)
-    reader = PeriodicExportingMetricReader(OTLPMetricExporter(endpoint=target, insecure=insecure))
+    reader = PeriodicExportingMetricReader(
+        OTLPMetricExporter(
+            endpoint=target,
+            insecure=insecure,
+            channel_options=channel_options,  # type: ignore[arg-type]
+        )
+    )
     metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
     FastAPIInstrumentor().instrument()
     HTTPXClientInstrumentor().instrument()

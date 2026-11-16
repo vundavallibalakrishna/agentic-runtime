@@ -1,0 +1,39 @@
+{
+  "apiVersion": "agentic-runtime.dev/v1",
+  "kind": "ContentPack",
+  "metadata": {
+    "id": "grc",
+    "version": "1.0.0",
+    "name": "GRC",
+    "minPlatform": "1.0.0"
+  },
+  "spec": {
+    "resources": [],
+    "extension": {
+      "entry": "grc_pack",
+      "permissions": [
+        "grc.catalogues:manage",
+        "grc.evidence:link",
+        "grc.risks:manage",
+        "grc.findings:manage"
+      ],
+      "auditActions": [
+        "grc.catalogue.imported",
+        "grc.evidence.linked",
+        "grc.risk.added",
+        "grc.risk.updated",
+        "grc.finding.added",
+        "grc.finding.updated"
+      ],
+      "ui": {
+        "nav": [
+          {
+            "href": "/packs/grc",
+            "label": "GRC",
+            "permission": "grc.catalogues:manage"
+          }
+        ]
+      }
+    }
+  }
+}

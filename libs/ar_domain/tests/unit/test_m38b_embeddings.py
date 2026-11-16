@@ -39,6 +39,7 @@ from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo_tenant
 from ar_testing.stand_in import EMBEDDING_MODEL
 
+pytestmark = pytest.mark.dns_fallback
 TENANT = demo_id("tenant")
 BASE = "https://embed.example/v1"
 ROOT = Path(__file__).resolve().parents[4]

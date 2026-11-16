@@ -812,5 +812,193 @@
       "expires_in": 3600,
       "refresh_token": "recorded-refresh"
     }
+  },
+  "okta": {
+    "source": "https://developer.okta.com/docs/reference/api/users/",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": "Authorization_RequestDenied",
+          "message": "denied"
+        }
+      }
+    },
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "okta_list_users",
+        "arguments": {},
+        "method": "GET",
+        "path": "/api/v1/users",
+        "json": [
+          {
+            "id": "00u1",
+            "profile": {
+              "login": "ada@example.com"
+            }
+          }
+        ]
+      },
+      {
+        "name": "read",
+        "tool": "okta_read_user",
+        "arguments": {
+          "user_id": "00u1"
+        },
+        "method": "GET",
+        "path": "/api/v1/users/00u1",
+        "json": {
+          "id": "00u1",
+          "status": "ACTIVE"
+        }
+      },
+      {
+        "name": "write",
+        "tool": "okta_deactivate_user",
+        "arguments": {
+          "user_id": "00u1"
+        },
+        "method": "POST",
+        "path": "/api/v1/users/00u1/lifecycle/deactivate",
+        "json": {}
+      }
+    ]
+  },
+  "entra": {
+    "source": "https://learn.microsoft.com/graph/api/user-list",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": "Authorization_RequestDenied",
+          "message": "denied"
+        }
+      }
+    },
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "entra_list_users",
+        "arguments": {},
+        "method": "GET",
+        "path": "/users",
+        "json": {
+          "value": [
+            {
+              "id": "u1",
+              "displayName": "Ada"
+            }
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "tool": "entra_read_user",
+        "arguments": {
+          "user_id": "u1"
+        },
+        "method": "GET",
+        "path": "/users/u1",
+        "json": {
+          "id": "u1",
+          "displayName": "Ada"
+        }
+      },
+      {
+        "name": "write",
+        "tool": "entra_list_groups",
+        "arguments": {},
+        "method": "GET",
+        "path": "/groups",
+        "json": {
+          "value": [
+            {
+              "id": "g1",
+              "displayName": "Staff"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "servicenow": {
+    "source": "https://www.servicenow.com/docs/r/api-reference/rest-api-explorer/c_TableAPI.html",
+    "denied": {
+      "status": 403,
+      "json": {
+        "error": {
+          "code": "Authorization_RequestDenied",
+          "message": "denied"
+        }
+      }
+    },
+    "token": {
+      "access_token": "recorded-fixture-token",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "refresh_token": "recorded-refresh"
+    },
+    "steps": [
+      {
+        "name": "list",
+        "tool": "servicenow_query_table",
+        "arguments": {
+          "table": "incident"
+        },
+        "method": "GET",
+        "path": "/api/now/table/incident",
+        "json": {
+          "result": [
+            {
+              "sys_id": "abc",
+              "number": "INC001"
+            }
+          ]
+        }
+      },
+      {
+        "name": "read",
+        "tool": "servicenow_get_incident",
+        "arguments": {
+          "sys_id": "abc"
+        },
+        "method": "GET",
+        "path": "/api/now/table/incident/abc",
+        "json": {
+          "result": {
+            "sys_id": "abc",
+            "number": "INC001"
+          }
+        }
+      },
+      {
+        "name": "write",
+        "tool": "servicenow_create_incident",
+        "arguments": {
+          "short_description": "Door left open"
+        },
+        "method": "POST",
+        "path": "/api/now/table/incident",
+        "json": {
+          "result": {
+            "sys_id": "def",
+            "number": "INC002"
+          }
+        }
+      }
+    ]
   }
 }

@@ -1093,6 +1093,7 @@ def _act(  # noqa: PLR0917
             "step": attempt,
             "call_index": attempt,
             "query_id": run.get("query_id"),
+            "permissions": run.get("permissions"),
         },
     )
     if result.get("status") == "awaiting_approval":
@@ -1370,9 +1371,17 @@ def _finish(
     callback = run.get("callback_url")
     callbacks = getattr(store, "callbacks", None)
     if isinstance(callback, str) and callback and isinstance(callbacks, list):
-        callbacks.append(
-            {"url": callback, "run_id": str(run.get("id")), "status": "completed", "text": answer}
-        )
+        queued: dict[str, object] = {
+            "url": callback,
+            "run_id": str(run.get("id")),
+            "status": "completed",
+            "text": answer,
+        }
+        callbacks.append(queued)
+        if getattr(store, "send_callbacks", False):
+            from ar_domain.runs.callbacks import deliver_callback  # noqa: PLC0415
+
+            deliver_callback(store, queued)
 
 
 def _stop_budget(

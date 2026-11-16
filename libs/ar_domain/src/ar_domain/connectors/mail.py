@@ -7,18 +7,23 @@ import smtplib
 from email.message import EmailMessage
 from typing import TYPE_CHECKING
 
-from ar_common.sandboxkit import DEFAULT_DENY_CIDRS, host_denied
-from ar_common.settings import loopback_allowed
 from ar_domain.tools.general import _resolve
 
 if TYPE_CHECKING:
     from typing import Any
 
 
-def host_blocked(host: str) -> str | None:
-    if host_denied(host, DEFAULT_DENY_CIDRS, _resolve, allow_loopback=loopback_allowed()):
-        return f"{host} is blocked by the egress deny list"
-    return None
+def host_blocked(store: Any, host: str) -> str | None:
+    """Refuse a mailbox host that closed egress or the private-range rule rejects."""
+    from ar_common.egress_policy import decide  # noqa: PLC0415
+    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+
+    return decide(
+        host,
+        dial_allow(store, current_tenant()),
+        resolve=_resolve,
+        check_private=True,
+    )
 
 
 def send_message(
@@ -34,7 +39,7 @@ def send_message(
     body: str,
     use_tls: bool,
 ) -> dict[str, object]:
-    problem = host_blocked(host)
+    problem = host_blocked(store, host)
     if problem:
         return _fail(problem)
     message = EmailMessage()
@@ -48,7 +53,7 @@ def send_message(
             with factory() as client:
                 _login_and_send(client, username, password, sender, recipient, message)
         else:
-            with smtplib.SMTP(host, port, timeout=20) as client:
+            with smtplib.SMTP(_dial(host), port, timeout=20) as client:
                 client.ehlo()
                 if use_tls:
                     client.starttls()
@@ -73,7 +78,7 @@ def list_messages(
     limit: int,
     use_ssl: bool,
 ) -> dict[str, object]:
-    problem = host_blocked(host)
+    problem = host_blocked(store, host)
     if problem:
         return _fail(problem)
     try:
@@ -127,6 +132,15 @@ def read_message(
     return _fail("The provider could not find that item (404).")
 
 
+def _dial(host: str) -> str:
+    from ar_common.egress_http import EgressDenied, pinned_host  # noqa: PLC0415
+
+    try:
+        return pinned_host(host)
+    except EgressDenied as exc:
+        raise OSError(exc.reason) from exc
+
+
 def _login_and_send(  # noqa: PLR0917
     client: Any, username: str, password: str, sender: str, recipient: str, message: EmailMessage
 ) -> None:
@@ -141,8 +155,8 @@ def _imap(store: Any, host: str, port: int, *, use_ssl: bool) -> Any:
     if factory is not None:
         return factory()
     if use_ssl:
-        return imaplib.IMAP4_SSL(host, port)
-    return imaplib.IMAP4(host, port)
+        return imaplib.IMAP4_SSL(_dial(host), port)
+    return imaplib.IMAP4(_dial(host), port)
 
 
 def _header(client: Any, item: bytes) -> dict[str, str]:

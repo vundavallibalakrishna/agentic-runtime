@@ -55,7 +55,7 @@ describe("connector catalog", () => {
     expect(screen.getByText("Not offered to an agent")).toBeTruthy();
     expect(screen.queryByText("Built")).toBeNull();
     expect(screen.queryByText("Ready")).toBeNull();
-    expect(screen.getByText(/Only Live is offered to an agent/)).toBeTruthy();
+    expect(screen.getByText(/does not offer the tool/)).toBeTruthy();
     expect(screen.getByText("No workspace was connected.")).toBeTruthy();
   });
 });

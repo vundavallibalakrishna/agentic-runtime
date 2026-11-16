@@ -433,7 +433,9 @@ def _searchable(store: Any, row: dict[str, object], tenant: str) -> bool:
     from ar_domain.tools.readiness import ready_for  # noqa: PLC0415
 
     name = str(row.get("qualified_name") or "")
-    return offered_to_model(name) and ready_for(store, _tenant_uuid(tenant), name)
+    return offered_to_model(name, store, _tenant_uuid(tenant)) and ready_for(
+        store, _tenant_uuid(tenant), name
+    )
 
 
 def _tenant_uuid(tenant: str) -> uuid.UUID | None:

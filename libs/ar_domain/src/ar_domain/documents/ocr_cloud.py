@@ -12,6 +12,7 @@ from typing import Any  # noqa: TC003
 
 import httpx
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_domain.tools.named_secrets import read_named_secret
 
@@ -22,7 +23,7 @@ _SECRET = {
 }
 
 
-def read_cloud(
+def read_cloud(  # noqa: PLR0911
     store: Any,
     tenant_id: object,
     engine: str,
@@ -39,8 +40,17 @@ def read_cloud(
         return None
     if not endpoint:
         endpoint = "https://ocr.invalid/process"
+    from ar_common.egress_policy import closed_egress, decide_url  # noqa: PLC0415
+    from ar_domain.egress import tenant_hosts  # noqa: PLC0415
+
+    if closed_egress():
+        problem = decide_url(
+            endpoint, tenant_hosts(store, tenant_id), closed=True, check_private=True
+        )
+        if problem is not None:
+            return None
     headers = {"content-type": "application/octet-stream"}
-    client = httpx.Client(transport=transport or httpx.HTTPTransport(), timeout=30)
+    client = sync_client(transport=transport, timeout=30, allow=tenant_hosts(store, tenant_id))
     try:
         post = client.post
         response = blocking(post, endpoint, content=data, headers=headers)

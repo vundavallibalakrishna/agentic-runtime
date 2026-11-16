@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ar_common.egress_http import sync_client
 from ar_common.errors import ArError, ErrorCode
 from ar_common.offload import blocking
 from ar_domain.connectors.catalog import CONNECTORS, ToolDef, connector_by_slug, tool_by_name
@@ -14,7 +15,17 @@ if TYPE_CHECKING:
     from typing import Any
 
 
-def dispatch_connector(  # noqa: PLR0911
+def dispatch_connector(store: Any, name: str, arguments: dict[str, object]) -> dict[str, object]:
+    from ar_domain.egress import bind_tenant, reset_tenant  # noqa: PLC0415
+
+    tenant_token = bind_tenant(arguments.get("_tenant_id"))
+    try:
+        return _dispatch_bound(store, name, arguments)
+    finally:
+        reset_tenant(tenant_token)
+
+
+def _dispatch_bound(  # noqa: PLR0911
     store: Any, name: str, arguments: dict[str, object]
 ) -> dict[str, object]:
     found = tool_by_name(name)
@@ -105,11 +116,12 @@ def probe_install(  # noqa: PLR0911
             headers,
             _base(connector, install),
             path=f"/subscriptions/{subscription}?api-version=2022-12-01",
+            tenant_id=actor_tenant,
         )
     base = _base(connector, install)
     if not base:
         return {"ok": False, "status": 0, "error": "Set the site URL on the connector first."}
-    return probe_http(store, connector, headers, base)
+    return probe_http(store, connector, headers, base, tenant_id=actor_tenant)
 
 
 def _special(  # noqa: PLR0911, PLR0917
@@ -367,7 +379,9 @@ def _gdrive_upload(
         url = f"{configured}/upload/drive/v3/files?uploadType=multipart"
     else:
         url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
-    problem = guard_public(url, allow=["*"], loopback=True)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(url, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True)
     if problem:
         return _fail("egress_denied", problem)
     name = str(arguments.get("name") or "note.txt")
@@ -388,7 +402,7 @@ def _gdrive_upload(
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(client.post, url, headers=request_headers, content=payload)
     except httpx.HTTPError:
         return _fail("upstream_error", "The provider did not answer. Check the host and try again.")
@@ -410,7 +424,9 @@ def _share_upload(
     path = quote(str(arguments.get("path") or "note.txt"), safe="/")
     base = _config(install).get("baseUrl", "").rstrip("/") or "https://graph.microsoft.com/v1.0"
     url = f"{base}/me/drive/root:/{path}:/content"
-    problem = guard_public(url, allow=["*"], loopback=True)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(url, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True)
     if problem:
         return _fail("egress_denied", problem)
     text = str(arguments.get("text") or "")
@@ -419,7 +435,7 @@ def _share_upload(
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(
                 client.put,
                 url,
@@ -444,12 +460,18 @@ def _probe_email(
     host = config.get("smtpHost", "")
     if not host:
         return {"ok": False, "status": 0, "error": "Set the SMTP host on the connector."}
-    problem = host_blocked(host)
+    problem = host_blocked(store, host)
     if problem:
         return {"ok": False, "status": 0, "error": problem}
     port = _port(config.get("smtpPort"), 587)
+    from ar_common.egress_http import EgressDenied, pinned_host  # noqa: PLC0415
+
     try:
-        with smtplib.SMTP(host, port, timeout=15) as client:
+        dial = pinned_host(host)
+    except EgressDenied as exc:
+        return {"ok": False, "status": 0, "error": exc.reason}
+    try:
+        with smtplib.SMTP(dial, port, timeout=15) as client:
             client.ehlo()
             if config.get("smtpTls", "true").lower() != "false":
                 client.starttls()

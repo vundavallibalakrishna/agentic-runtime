@@ -21,6 +21,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_BOOTSTRAP_ADMIN_EMAIL",
         "AR_BOOTSTRAP_TENANT_NAME",
         "AR_BOOTSTRAP_TENANT_SLUG",
+        "AR_CA_BUNDLE",
         "AR_CHANNELS_EMAIL_POLL_S",
         "AR_CHANNELS_PORT",
         "AR_CHANNELS_SLACK_UPDATE_INTERVAL_MS",
@@ -30,6 +31,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CONSECUTIVE_TOOL_ERROR_LIMIT",
         "AR_CSRF_ALLOWED_ORIGINS",
         "AR_CURSOR_SECRET",
+        "AR_DATA_RESIDENCY",
         "AR_DATABASE_URL",
         "AR_DB_ENCRYPTION_ACTIVE_KEY",
         "AR_DB_ENCRYPTION_KEYS",
@@ -39,8 +41,11 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DELTA_COALESCE_MS",
         "AR_DEPLOYMENT_MODE",
         "AR_EGRESS_ALLOW_LOOPBACK",
+        "AR_EGRESS_ALLOW_NAMED_PRIVATE",
         "AR_EGRESS_ALLOW_WILDCARD",
+        "AR_EGRESS_CLOSED",
         "AR_EGRESS_DENY_CIDRS",
+        "AR_EGRESS_HOSTS",
         "AR_EGRESS_PROXY_URL",
         "AR_EMBEDDING_TIMEOUT_S",
         "AR_ENV",
@@ -129,6 +134,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_S3_SSE",
         "AR_SAAS_SELF_SIGNUP",
         "AR_SEARCH_API_KEY",
+        "AR_SEARCH_BASE_URL",
         "AR_SEARCH_PROVIDER",
         "AR_SANDBOX_ALLOW_UNISOLATED",
         "AR_SANDBOX_ALLOWED_REGISTRIES",
@@ -256,6 +262,24 @@ class BaseServiceSettings(BaseSettings):
     # Whether ``*`` (reach any host) is honoured in a sandbox egress allowlist. An install
     # decides; the default is no, so an allowlist must name its hosts.
     egress_allow_wildcard: bool = False
+    # When true, model calls, embeddings, connectors, knowledge fetches, search,
+    # webhooks and telemetry may only dial a host on the tenant allowlist or
+    # AR_EGRESS_HOSTS. Default false, so an existing cloud provider keeps working.
+    # The air-gap Helm overlay turns it on.
+    egress_closed: bool = False
+    # Comma-separated hosts this install may reach even when a tenant list is empty.
+    # Used for in-cluster names such as otel-collector when egress_closed is on.
+    egress_hosts: str = ""
+    # Off by default. An exact allowlist name may resolve to a private address only
+    # when this is true. The air-gap overlay turns it on. Metadata addresses stay denied.
+    egress_allow_named_private: bool = False
+    # Extra trust anchor for outbound TLS. ``SSL_CERT_FILE`` wins when this is empty.
+    ca_bundle: str = ""
+    # Empty leaves each tenant's data_residency column in charge. ``cluster`` forces
+    # model and embedding URLs onto a private or loopback address for the whole install.
+    data_residency: str = ""
+    # Install-wide SearXNG address. A tenant search.baseUrl wins. Empty means none.
+    search_base_url: str = ""
     # Whether a sandbox may run without kernel isolation (the docker driver, or an empty
     # one that runs on the host). An install decides; the default is no.
     sandbox_allow_unisolated: bool = False

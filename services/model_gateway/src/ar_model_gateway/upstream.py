@@ -3,6 +3,7 @@
 import httpx
 from fastapi.responses import JSONResponse
 
+from ar_common.egress_http import async_client
 from ar_domain.models.logic import completion_text
 from ar_domain.models.options import apply_request_options
 from ar_domain.models.registry import UpstreamTarget, lookup_upstream
@@ -26,7 +27,9 @@ async def forward_registered(
         return JSONResponse(status_code=502, content=_UNAVAILABLE)
 
 
-async def complete_upstream(body: dict[str, object], target: UpstreamTarget) -> dict[str, object]:
+async def complete_upstream(
+    body: dict[str, object], target: UpstreamTarget
+) -> dict[str, object] | JSONResponse:
     """POST ``/chat/completions`` with the stored key. The key is not copied into the result."""
     payload = dict(body)
     payload["model"] = target.upstream_model
@@ -35,7 +38,40 @@ async def complete_upstream(body: dict[str, object], target: UpstreamTarget) -> 
     if target.api_key:
         headers["Authorization"] = f"Bearer {target.api_key}"
     url = chat_completions_url(target.base_url)
-    async with httpx.AsyncClient(timeout=float(target.timeout_s)) as client:
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from ar_domain.egress import (  # noqa: PLC0415
+        model_refusal,
+        residency_of,
+    )
+
+    profiles = {}
+    settings = {}
+    if target.tenant_id is not None and target.data_residency == "unread":
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "egress_denied",
+                    "message": "the tenant row could not be read",
+                }
+            },
+        )
+    if target.tenant_id is not None:
+        profiles[target.tenant_id] = {"data_residency": target.data_residency}
+        settings[target.tenant_id] = {"egress_allowlist": list(target.egress_allow)}
+    stand = SimpleNamespace(tenant_profiles=profiles, tenant_settings=settings)
+    problem = model_refusal(
+        stand, target.tenant_id, url, residency=residency_of(stand, target.tenant_id)
+    )
+    if problem is not None:
+        return JSONResponse(
+            status_code=502,
+            content={"error": {"code": "egress_denied", "message": problem}},
+        )
+    async with async_client(
+        timeout=float(target.timeout_s), allow=list(target.egress_allow)
+    ) as client:
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
     parsed = response.json()

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.egress_http import async_client
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
 from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
@@ -50,7 +51,6 @@ from ar_domain.models.logic import (
     DEFAULT_DENY_CIDRS,
     AliasRef,
     completion_text,
-    provider_url_denied,
     resolve_alias,
     valid_alias,
 )
@@ -237,6 +237,8 @@ class ChatBehaviour:
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
     bindings: dict[tuple[object, ...], dict[str, object]] = field(default_factory=dict)
     audit_log: list[dict[str, object]] = field(default_factory=list)
+    tenant_profiles: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    extension_rows: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     domain_events: list[dict[str, object]] = field(default_factory=list)
     packs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     pack_resources: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -543,8 +545,7 @@ class ChatBehaviour:
         platform: bool,
         api_key: str | None = None,
     ) -> dict[str, object]:
-        if provider_url_denied(base_url, self.deny_cidrs, allow_loopback=self.allow_loopback):
-            raise ArError(ErrorCode.BAD_REQUEST, "provider URL is not allowed")
+        self._refuse_model_url(tenant_id, base_url)
         if kind not in {"openai_compatible", "vllm", "tei", "fake"}:
             raise ArError(ErrorCode.VALIDATION_FAILED, "unknown provider kind")
         provider_id = new_id()
@@ -571,8 +572,7 @@ class ChatBehaviour:
         """Rename a provider, point it at another address, or replace its key."""
         row = self._writable(self.providers, provider_id, tenant_id, platform=platform)
         if base_url:
-            if provider_url_denied(base_url, self.deny_cidrs, allow_loopback=self.allow_loopback):
-                raise ArError(ErrorCode.BAD_REQUEST, "provider URL is not allowed")
+            self._refuse_model_url(tenant_id, base_url)
             row["base_url"] = base_url
         if name:
             row["name"] = name
@@ -608,10 +608,19 @@ class ChatBehaviour:
             # A provider that only serves embeddings or reranking is tested with one of those.
             return await self._probe_vectors(tenant_id, models[0])
         if chat is None:
-            return await self._probe_listing(str(row["base_url"]), key)
-        return await self._probe_live(str(row["base_url"]), str(chat.get("upstream_model")), key)
+            return await self._probe_listing(tenant_id, str(row["base_url"]), key)
+        return await self._probe_live(
+            tenant_id, str(row["base_url"]), str(chat.get("upstream_model")), key
+        )
 
-    async def _probe_listing(self, base_url: str, api_key: str) -> dict[str, object]:
+    def _dial_allow(self, tenant_id: uuid.UUID | None) -> list[str]:
+        from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+        return dial_allow(self, tenant_id)
+
+    async def _probe_listing(
+        self, tenant_id: uuid.UUID, base_url: str, api_key: str
+    ) -> dict[str, object]:
         """Test a provider that has no model yet: ask it which models it serves.
 
         No model name is made up to call it with. A provider that answers and accepts the
@@ -622,7 +631,7 @@ class ChatBehaviour:
         ok = False
         output = "provider test failed"
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with async_client(timeout=30.0, allow=self._dial_allow(tenant_id)) as client:
                 response = await client.get(base_url.rstrip("/") + "/models", headers=headers)
             if response.status_code < 300:
                 body = response.json()
@@ -1048,6 +1057,7 @@ class ChatBehaviour:
             return await self._probe_vectors(tenant_id, model)
         provider = self.providers[uuid.UUID(str(model["provider_id"]))]
         return await self._probe_live(
+            tenant_id,
             str(provider["base_url"]),
             str(model["upstream_model"]),
             await self._provider_key(provider),
@@ -1064,6 +1074,7 @@ class ChatBehaviour:
             return await self._probe_vectors(tenant_id, model)
         provider = self.providers[uuid.UUID(str(model["provider_id"]))]
         return await self._probe_live(
+            tenant_id,
             str(provider["base_url"]),
             str(model["upstream_model"]),
             await self._provider_key(provider),
@@ -1090,6 +1101,7 @@ class ChatBehaviour:
 
     async def _probe_live(
         self,
+        tenant_id: uuid.UUID,
         base_url: str,
         model: str,
         api_key: str,
@@ -1128,7 +1140,7 @@ class ChatBehaviour:
         output = "provider test failed"
         answered = False
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with async_client(timeout=60.0, allow=self._dial_allow(tenant_id)) as client:
                 response = await client.post(
                     chat_completions_url(base_url), json=body, headers=headers
                 )
@@ -1479,6 +1491,7 @@ class ChatBehaviour:
         research: bool = False,
         suggest_followups: bool = False,
         response_format: dict[str, object] | None = None,
+        permissions: list[str] | None = None,
     ) -> dict[str, object]:
         conversation = self._owned_conversation(tenant_id, user_id, conversation_id)
         agent_id = conversation.get("agent_id")
@@ -1539,6 +1552,8 @@ class ChatBehaviour:
             message_id=message_id,
             trigger="research" if research else "chat",
         )
+        if permissions is not None:
+            run["permissions"] = list(permissions)
         from ar_domain.runs.request import ask  # noqa: PLC0415
 
         if suggest_followups:
@@ -1675,7 +1690,40 @@ class ChatBehaviour:
             headers["Authorization"] = f"Bearer {key}"
         from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
 
-        return chat_completions_url(base)
+        url = chat_completions_url(base)
+        self._refuse_model_url(tenant_id, url, at_call=True)
+        return url
+
+    def _refuse_model_url(
+        self, tenant_id: uuid.UUID | None, url: str, *, at_call: bool = False
+    ) -> None:
+        """Closed egress and cluster residency. Residency ``in`` stays open.
+
+        Saving a provider uses this service's loopback flag, so a strict store
+        cannot record ``127.0.0.1``. A call also honours the install flag,
+        because the worker that reloads a saved provider is a new process.
+        """
+        from ar_common.settings import loopback_allowed  # noqa: PLC0415
+        from ar_domain.egress import model_refusal  # noqa: PLC0415
+        from ar_domain.models.logic import provider_url_denied  # noqa: PLC0415
+
+        loop = self.allow_loopback or (loopback_allowed() if at_call else False)
+        if provider_url_denied(url, self.deny_cidrs, allow_loopback=loop):
+            raise ArError(ErrorCode.BAD_REQUEST, "that model URL is not allowed")
+        problem = model_refusal(
+            self,
+            tenant_id,
+            url,
+            residency=self._residency(tenant_id),
+            loopback=loop,
+        )
+        if problem is not None:
+            raise ArError(ErrorCode.BAD_REQUEST, problem)
+
+    def _residency(self, tenant_id: uuid.UUID | None) -> str:
+        from ar_domain.egress import residency_of  # noqa: PLC0415
+
+        return residency_of(self, tenant_id)
 
     def completion_url(self) -> str:
         """Chat completions. The gateway wins when it is configured."""
@@ -2155,9 +2203,17 @@ class ChatBehaviour:
         await self._remember(run, text, answer)
         callback = run.get("callback_url")
         if isinstance(callback, str) and callback:
-            self.callbacks.append(
-                {"url": callback, "run_id": str(run_id), "status": "completed", "text": answer}
-            )
+            queued: dict[str, object] = {
+                "url": callback,
+                "run_id": str(run_id),
+                "status": "completed",
+                "text": answer,
+            }
+            self.callbacks.append(queued)
+            if getattr(self, "send_callbacks", False):
+                from ar_domain.runs.callbacks import deliver_callback  # noqa: PLC0415
+
+                deliver_callback(self, queued)
 
     async def _tokens(
         self,
@@ -2195,6 +2251,7 @@ class ChatBehaviour:
             real=real,
             options=self.request_options(owner, alias),
             url=url,
+            allow=self._dial_allow(owner),
         )
         return [prefix + (remote or "The model returned an empty answer.")]
 
@@ -2209,6 +2266,7 @@ class ChatBehaviour:
         real: bool = False,
         options: dict[str, object] | None = None,
         url: str | None = None,
+        allow: list[str] | None = None,
     ) -> str | None:
         from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
 
@@ -2227,7 +2285,7 @@ class ChatBehaviour:
         else:
             body = {"model": model, "messages": messages}
         try:
-            async with httpx.AsyncClient(timeout=timeout_s) as client:
+            async with async_client(timeout=timeout_s, allow=allow) as client:
                 response = await client.post(
                     url or self.completion_url(),
                     json=body,
@@ -2292,7 +2350,7 @@ class ChatBehaviour:
                 body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
         try:
-            async with httpx.AsyncClient(timeout=timeout_s) as client:
+            async with async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client:
                 response = await client.post(url, json=body, headers=headers)
         except httpx.HTTPError:
             if not real:
@@ -3173,3 +3231,4 @@ class RequestUnit(ChatBehaviour):
     def __post_init__(self) -> None:
         super().__post_init__()
         self.request_scoped = True
+        self.send_callbacks = True

@@ -16,13 +16,60 @@ def _client(store: Any, *, endpoint: str, region: str, access_key: str, secret_k
         return factory()
     import boto3  # noqa: PLC0415
 
-    return boto3.client(
+    endpoint = _pinned_endpoint(endpoint)
+    client = boto3.client(
         "s3",
         endpoint_url=endpoint or None,
         region_name=region or "us-east-1",
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
     )
+    return _bound(client, endpoint)
+
+
+def _pinned_endpoint(endpoint: str) -> str:
+    """Keep the hostname so TLS checks it. The socket is pinned at the call."""
+    from urllib.parse import urlsplit  # noqa: PLC0415
+
+    from ar_common.egress_http import EgressDenied, approved_addresses  # noqa: PLC0415
+    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+    if not closed_egress():
+        return endpoint
+    if not endpoint:
+        raise OSError("an endpoint is required when egress is closed")
+    host = urlsplit(endpoint).hostname
+    if not host:
+        raise OSError("an endpoint is required when egress is closed")
+    try:
+        approved_addresses(host)
+    except EgressDenied as exc:
+        raise OSError(exc.reason) from exc
+    return endpoint
+
+
+def _bound(client: Any, endpoint: str) -> Any:
+    from urllib.parse import urlsplit  # noqa: PLC0415
+
+    from ar_common.egress_http import approved_addresses, pin_dns  # noqa: PLC0415
+    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+    raw_host = urlsplit(endpoint).hostname if endpoint else None
+    if not closed_egress() or not raw_host:
+        return client
+    host = raw_host
+
+    class _Calls:
+        def __getattr__(self, name: str) -> Any:
+            method = getattr(client, name)
+
+            def call(*args: object, **kwargs: object) -> object:
+                with pin_dns(host, approved_addresses(host)):
+                    return method(*args, **kwargs)
+
+            return call
+
+    return _Calls()
 
 
 def _endpoint_host(endpoint: str) -> str | None:
@@ -36,7 +83,7 @@ def _endpoint_host(endpoint: str) -> str | None:
 def list_objects(store: Any, settings: dict[str, str], *, prefix: str) -> dict[str, object]:
     host = _endpoint_host(settings["endpoint"])
     if host:
-        problem = host_blocked(host)
+        problem = host_blocked(store, host)
         if problem:
             return _fail(problem)
     try:
@@ -60,7 +107,7 @@ def list_objects(store: Any, settings: dict[str, str], *, prefix: str) -> dict[s
 def get_object(store: Any, settings: dict[str, str], *, key: str) -> dict[str, object]:
     host = _endpoint_host(settings["endpoint"])
     if host:
-        problem = host_blocked(host)
+        problem = host_blocked(store, host)
         if problem:
             return _fail(problem)
     try:
@@ -82,7 +129,7 @@ def get_object(store: Any, settings: dict[str, str], *, key: str) -> dict[str, o
 def put_object(store: Any, settings: dict[str, str], *, key: str, text: str) -> dict[str, object]:
     host = _endpoint_host(settings["endpoint"])
     if host:
-        problem = host_blocked(host)
+        problem = host_blocked(store, host)
         if problem:
             return _fail(problem)
     payload = text.encode()

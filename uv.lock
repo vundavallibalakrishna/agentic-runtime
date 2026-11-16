@@ -28,6 +28,7 @@ members = [
     "ar-sandbox-manager",
     "ar-system",
     "ar-testing",
+    "grc-pack",
     "locale-pack",
     "records-pack",
 ]
@@ -295,7 +296,6 @@ dependencies = [
     { name = "ar-common" },
     { name = "ar-domain" },
     { name = "fastapi" },
-    { name = "httpx" },
     { name = "orjson" },
     { name = "prometheus-client" },
     { name = "pydantic" },
@@ -312,7 +312,6 @@ requires-dist = [
     { name = "ar-common", editable = "libs/ar_common" },
     { name = "ar-domain", editable = "libs/ar_domain" },
     { name = "fastapi", specifier = "==0.151.0" },
-    { name = "httpx", specifier = "==0.28.1" },
     { name = "orjson", specifier = "==3.13.0" },
     { name = "prometheus-client", specifier = "==0.26.0" },
     { name = "pydantic", specifier = "==2.14.1" },
@@ -392,6 +391,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "granian" },
     { name = "greenlet" },
+    { name = "httpcore" },
     { name = "httpx" },
     { name = "opentelemetry-exporter-otlp" },
     { name = "opentelemetry-instrumentation-asyncpg" },
@@ -422,6 +422,7 @@ requires-dist = [
     { name = "fastapi", specifier = "==0.151.0" },
     { name = "granian", specifier = "==2.8.4" },
     { name = "greenlet", specifier = "==3.5.6" },
+    { name = "httpcore", specifier = "==1.0.9" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "opentelemetry-exporter-otlp", specifier = "==1.45.1" },
     { name = "opentelemetry-instrumentation-asyncpg", specifier = "==0.66b1" },
@@ -1990,6 +1991,27 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/fa/90/dfade6d16a55abb45e41b215fcdc940e4f119a6ac7d87430d45d020b659f/graphql_core-3.3.0.tar.gz", hash = "sha256:fd3424e88af3f3211931c6ff96350f1cd9069cf0f1a31b9972899e35d39136b5", size = 726439, upload-time = "2026-09-27T14:50:14.57Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/0c/13/03fb01b3581134cc30d7dd3fb8a9c429267574ace881a9e72c2f57896ee9/graphql_core-3.3.0-py3-none-any.whl", hash = "sha256:d37fac6ef4dfc3eaa5daa59dcb498d7cbb118439d240993c68fddc4cb1bade44", size = 347906, upload-time = "2026-09-27T14:50:12.905Z" },
+]
+
+[[package]]
+name = "grc-pack"
+version = "1.0.0"
+source = { editable = "packs/grc" }
+dependencies = [
+    { name = "ar-api" },
+    { name = "ar-common" },
+    { name = "ar-contracts" },
+    { name = "ar-domain" },
+    { name = "records-pack" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "ar-api", editable = "services/api" },
+    { name = "ar-common", editable = "libs/ar_common" },
+    { name = "ar-contracts", editable = "libs/ar_contracts" },
+    { name = "ar-domain", editable = "libs/ar_domain" },
+    { name = "records-pack", editable = "packs/records" },
 ]
 
 [[package]]

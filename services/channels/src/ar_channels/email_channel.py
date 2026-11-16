@@ -49,9 +49,26 @@ class InProcessMailbox:
         self.sent.append(message)
 
 
-def client_factories() -> tuple[type[aioimaplib.IMAP4], type[aiosmtplib.SMTP]]:
-    """The libraries the poller and the sender construct against a real host."""
-    return aioimaplib.IMAP4, aiosmtplib.SMTP
+def client_factories() -> tuple[object, object]:
+    """Constructors that dial the approved address when egress is closed."""
+    from ar_common.egress_http import pinned_host  # noqa: PLC0415
+
+    def IMAP4(*args: object, **kwargs: object) -> object:  # noqa: N802
+        if args:
+            pinned = pinned_host(str(args[0]))
+            return aioimaplib.IMAP4(pinned, *args[1:], **kwargs)
+        host = kwargs.get("host")
+        if isinstance(host, str):
+            kwargs["host"] = pinned_host(host)
+        return aioimaplib.IMAP4(*args, **kwargs)
+
+    def SMTP(*args: object, **kwargs: object) -> object:  # noqa: N802
+        hostname = kwargs.get("hostname")
+        if isinstance(hostname, str):
+            kwargs["hostname"] = pinned_host(hostname)
+        return aiosmtplib.SMTP(*args, **kwargs)  # type: ignore[arg-type]
+
+    return IMAP4, SMTP
 
 
 def accept_email(

@@ -31,15 +31,15 @@ def list_changes(source: dict[str, object], *, mode: str) -> dict[str, object]: 
         }
     kind = str(source.get("kind") or "")
     if kind == "web":
-        return _web(config)
+        return _web(source, config)
     if kind == "s3":
         return _s3(config)
     if kind == "sharepoint":
-        return _graph(config, "sharepoint")
+        return _graph(source, config, "sharepoint")
     if kind == "confluence":
-        return _graph(config, "confluence")
+        return _graph(source, config, "confluence")
     if kind == "google_drive":
-        return _graph(config, "google_drive")
+        return _graph(source, config, "google_drive")
     if kind == "database":
         return _rows(config)
     if kind == "mcp_resource":
@@ -97,7 +97,13 @@ def fetch_bytes(item: dict[str, object]) -> tuple[bytes, str]:
         return str(item["text"]).encode(), str(item.get("mime_type") or "text/markdown")
     url = str(item.get("uri") or "")
     if url.startswith("http"):
-        response = httpx.get(url, timeout=5.0, follow_redirects=False)
+        from ar_common.egress_http import guard, sync_client  # noqa: PLC0415
+
+        problem = guard(url, _hosts(item))
+        if problem is not None:
+            raise httpx.HTTPError(problem)
+        with sync_client(allow=_hosts(item), timeout=5.0, follow_redirects=False) as client:
+            response = client.get(url)
         response.raise_for_status()
         return response.content, str(item.get("mime_type") or "text/html")
     return b"", str(item.get("mime_type") or "text/plain")
@@ -124,7 +130,18 @@ def _config(source: dict[str, object]) -> dict[str, object]:
     return config if isinstance(config, dict) else {}
 
 
-def _web(config: dict[str, object]) -> dict[str, object]:
+def _hosts(row: dict[str, object]) -> list[str]:
+    """Tenant allowlist carried on the source. A source allowlist is not a grant."""
+    from ar_domain.egress import tenant_hosts  # noqa: PLC0415
+
+    store = row.get("store")
+    tenant = row.get("tenant_id")
+    if store is None:
+        return []
+    return tenant_hosts(store, tenant)
+
+
+def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
     start = str(config.get("url") or "")
     if not start:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
@@ -133,11 +150,23 @@ def _web(config: dict[str, object]) -> dict[str, object]:
         if isinstance(config.get("allowlist"), list)
         else set()
     )
-    host = urlparse(start).netloc
-    if allow and host not in allow:
+    host = urlparse(start).hostname or ""
+    if allow and host not in allow and urlparse(start).netloc not in allow:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    proxy = str(config.get("proxy") or "")
-    client = httpx.Client(timeout=5.0, proxy=proxy or None, follow_redirects=False)
+    from ar_common.egress_http import guard, sync_client  # noqa: PLC0415
+
+    hosts = _hosts(source)
+    if guard(start, hosts) is not None:
+        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
+    if str(config.get("proxy") or "").strip():
+        return {
+            "items": [],
+            "deleted_external_ids": [],
+            "next_cursor": {},
+            "done": True,
+            "error": "a proxy is configured and is refused",
+        }
+    client = sync_client(allow=hosts, timeout=5.0, follow_redirects=False)
     try:
         robots = client.get(urljoin(start, "/robots.txt"))
         if robots.status_code == 200 and "Disallow: /" in robots.text:
@@ -194,15 +223,21 @@ def _s3(config: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _graph(config: dict[str, object], kind: str) -> dict[str, object]:
+def _graph(source: dict[str, object], config: dict[str, object], kind: str) -> dict[str, object]:
     url = str(config.get("url") or "")
     if not url:
+        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
+    from ar_common.egress_http import guard, sync_client  # noqa: PLC0415
+
+    hosts = _hosts(source)
+    if guard(url, hosts) is not None:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
     headers = {}
     token = str(config.get("token") or "")
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    response = httpx.get(url, headers=headers, timeout=5.0)
+    with sync_client(allow=hosts, timeout=5.0) as client:
+        response = client.get(url, headers=headers)
     response.raise_for_status()
     body = response.json()
     rows = body.get("value") if isinstance(body, dict) else None

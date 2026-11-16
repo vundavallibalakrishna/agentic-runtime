@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING, cast
 
 import httpx
 
+from ar_common.egress_http import http_post, sync_client
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -325,9 +327,12 @@ def _answers(row: dict[str, object]) -> bool:
     if not endpoint:
         return False
     try:
-        return blocking(httpx.get, f"{endpoint}/healthz", timeout=3.0).status_code == 200
+        with sync_client(mode="cluster", timeout=3.0) as client:
+            status = blocking(lambda: client.get(f"{endpoint}/healthz").status_code)
     except httpx.HTTPError:
         return False
+    else:
+        return status == 200
 
 
 def _revive(store: Any, row: dict[str, object]) -> None:
@@ -375,10 +380,9 @@ def _delegate_ensure(
     }
 
     def _post() -> dict[str, object]:
-        import httpx  # noqa: PLC0415
 
         response = blocking(
-            lambda: httpx.post(f"{url}/internal/v1/sandboxes:ensure", json=body, timeout=60.0)
+            lambda: http_post(f"{url}/internal/v1/sandboxes:ensure", json=body, timeout=60.0)
         )
         try:
             response.raise_for_status()
@@ -682,7 +686,7 @@ def _agent_post(
         "arguments": {key: value for key, value in arguments.items() if not key.startswith("_")},
     }
     try:
-        with httpx.Client(timeout=timeout) as client:
+        with sync_client(mode="cluster", timeout=timeout) as client:
             response = blocking(client.post, f"{endpoint}/mcp", json=payload, headers=headers)
         response.raise_for_status()
         body = response.json()

@@ -653,6 +653,7 @@ async def post_message(
         research=body.research_mode,
         suggest_followups=body.suggest_followups,
         response_format=schema,
+        permissions=sorted(principal.permissions),
     )
     run = posted["run"]
     message = posted["message"]

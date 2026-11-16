@@ -45,7 +45,7 @@ class S3Store:
             signature = "s3v4" if self._settings.s3_access_key_id else UNSIGNED
             config = Config(signature_version=signature, retries={"max_attempts": 2})
             self._sync = boto3.client("s3", config=config, **kwargs)
-        return self._sync
+        return _pinned_calls(self._sync, self.endpoint)
 
     def put(self, key: str, body: bytes, content_type: str) -> None:
         """Store an object. The configured bucket is made the first time it is missing."""
@@ -104,8 +104,27 @@ class S3Store:
 
     # -- async --------------------------------------------------------------------------
 
+    def _require_endpoint(self, endpoint: str, *, pin: bool) -> str:
+        from urllib.parse import urlsplit  # noqa: PLC0415
+
+        from ar_common.egress_http import pinned_host  # noqa: PLC0415
+        from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+        if not closed_egress():
+            return endpoint
+        if not endpoint:
+            raise ObjectStoreError("an endpoint is required when egress is closed")
+        parts = urlsplit(endpoint)
+        host = parts.hostname
+        if not host:
+            raise ObjectStoreError("an endpoint is required when egress is closed")
+        pinned_host(host)
+        del pin
+        return endpoint
+
     def _client_kwargs(self, *, public: bool) -> dict[str, object]:
-        endpoint = self._settings.s3_public_endpoint if public else self._settings.s3_endpoint
+        raw = self._settings.s3_public_endpoint if public else self._settings.s3_endpoint
+        endpoint = self._require_endpoint(raw, pin=False)
         return {
             "endpoint_url": endpoint,
             "region_name": self._settings.s3_region,
@@ -114,7 +133,12 @@ class S3Store:
         }
 
     async def put_bytes(self, key: str, body: bytes, content_type: str) -> None:
-        """Store an object."""
+        """Store an object. Closed mode uses the sync client so the socket stays pinned."""
+        from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+        if closed_egress():
+            await asyncio.to_thread(self.put, key, body, content_type)
+            return
         kwargs = self._client_kwargs(public=False)
         async with self._session.create_client("s3", **kwargs) as client:
             await client.put_object(
@@ -129,6 +153,7 @@ class S3Store:
         settings = self._settings
 
         def sign() -> str:
+            self._require_endpoint(settings.s3_public_endpoint, pin=False)
             client = boto3.client(
                 "s3",
                 endpoint_url=settings.s3_public_endpoint,
@@ -145,3 +170,27 @@ class S3Store:
             return cast("str", url)
 
         return await asyncio.to_thread(sign)
+
+
+def _pinned_calls(client: Any, endpoint: str) -> Any:
+    from urllib.parse import urlsplit  # noqa: PLC0415
+
+    from ar_common.egress_http import approved_addresses, pin_dns  # noqa: PLC0415
+    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+    raw_host = urlsplit(endpoint).hostname if endpoint else None
+    if not closed_egress() or not raw_host:
+        return client
+    host = raw_host
+
+    class _Calls:
+        def __getattr__(self, name: str) -> Any:
+            method = getattr(client, name)
+
+            def call(*args: object, **kwargs: object) -> object:
+                with pin_dns(host, approved_addresses(host)):
+                    return method(*args, **kwargs)
+
+            return call
+
+    return _Calls()

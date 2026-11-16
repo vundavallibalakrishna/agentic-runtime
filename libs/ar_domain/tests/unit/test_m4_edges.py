@@ -22,6 +22,7 @@ from ar_domain.tools.remote_mcp import RemoteError, auth_headers, call_remote, l
 from ar_domain.tools.sql_guard import SqlRejected, check_sql
 from ar_testing.demo import demo_store
 
+pytestmark = pytest.mark.dns_fallback
 _CORPUS = Path("connectors/mcp_sql/tests/corpus/malicious.txt")
 
 

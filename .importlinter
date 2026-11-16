@@ -89,6 +89,7 @@ forbidden_modules =
     ar_pack_fixture
     records_pack
     locale_pack
+    grc_pack
 
 [importlinter:contract:retrieval-adapters]
 name = Services never import retrieval store adapters or engine clients
@@ -105,3 +106,44 @@ forbidden_modules =
     qdrant_client
     fastembed
 allow_indirect_imports = true
+
+[importlinter:contract:egress-clients]
+name = Outbound client libraries stay behind the egress check
+type = forbidden
+source_modules =
+    ar_common
+    ar_domain
+    ar_api
+    ar_runtime
+    ar_system
+    ar_ingest
+    ar_model_gateway
+    ar_mcp_gateway
+    ar_sandbox_manager
+    ar_sandbox_agent
+    ar_channels
+    ar_mcp_sql
+    ar_mcp_openapi
+    ar_fake_llm
+forbidden_modules =
+    requests
+    aiohttp
+    boto3
+    smtplib
+    imaplib
+    aiosmtplib
+    aioimaplib
+    psycopg
+    pymysql
+ignore_imports =
+    ar_common.s3 -> boto3
+    ar_domain.connectors.storage -> boto3
+    ar_domain.connectors.mail -> smtplib
+    ar_domain.connectors.mail -> imaplib
+    ar_domain.connectors.dispatch -> smtplib
+    ar_domain.notifications.smtp_mail -> smtplib
+    ar_domain.identity.mail -> smtplib
+    ar_domain.tools.database -> psycopg
+    ar_domain.tools.database -> pymysql
+    ar_channels.email_channel -> aiosmtplib
+    ar_channels.email_channel -> aioimaplib

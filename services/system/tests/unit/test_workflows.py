@@ -2,7 +2,10 @@
 
 import asyncio
 
+import pytest
+
 from ar_common.errors import ForbiddenError
+from ar_common.settings import get_settings, set_settings
 from ar_system.subscribers import build_registry
 from ar_system.subscribers.cache_invalidation import invalidate
 from ar_system.subscribers.notifications import handle as note_handle
@@ -56,6 +59,30 @@ def test_relay_webhook_and_subscribers() -> None:
         pass
     else:
         raise AssertionError("private webhook targets are rejected")
+    previous = get_settings()
+    set_settings(
+        previous.model_copy(update={"egress_closed": True, "egress_allow_named_private": True})
+    )
+    try:
+        with pytest.raises(ForbiddenError, match="allow list"):
+            prepare_delivery(
+                secret="signing-secret",  # noqa: S106
+                body=body,
+                timestamp=1,
+                url="https://example.com/hook",
+                allow_private=True,
+            )
+        named, _named_sig = prepare_delivery(
+            secret="signing-secret",  # noqa: S106
+            body=body,
+            timestamp=1,
+            url="http://10.8.8.8/hook",
+            allow_private=True,
+            allow_hosts=("10.8.8.8",),
+        )
+        assert named.startswith("http://10.8.8.8")
+    finally:
+        set_settings(previous)
     assert delivery_outcome(204, 1) == ("succeeded", None)
     assert delivery_outcome(410, 1)[0] == "dead"
     pending, delay = delivery_outcome(500, 1)

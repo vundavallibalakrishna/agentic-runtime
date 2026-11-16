@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 import httpx
 import orjson
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_domain.tools.http_tools import guard_public
 
@@ -154,7 +155,9 @@ def run_http(  # noqa: PLR0911, PLR0912, PLR0915, PLR0917
     if missing:
         return _fail("validation_failed", f"{missing[0]} is required")
     url = _join(base_url, path)
-    problem = guard_public(url, allow=["*"], loopback=True)
+    from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+    problem = guard_public(url, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True)
     if problem:
         return _fail("egress_denied", problem)
     params = {
@@ -211,7 +214,11 @@ def run_http(  # noqa: PLR0911, PLR0912, PLR0915, PLR0917
         nxt = _next(tool.page, payload, response_headers, page_url)
         if not nxt or nxt == url:
             break
-        problem = guard_public(nxt, allow=["*"], loopback=True)
+        from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+        problem = guard_public(
+            nxt, allow=dial_allow(store, arguments.get("_tenant_id")), loopback=True
+        )
         if problem:
             return _fail("egress_denied", problem)
         url = nxt
@@ -235,14 +242,23 @@ def probe_http(
     headers: dict[str, str],
     base_url: str,
     path: str | None = None,
+    *,
+    tenant_id: object = None,
 ) -> dict[str, object]:
+    from ar_domain.egress import bind_tenant, current_tenant, dial_allow, reset_tenant  # noqa: PLC0415
+
     url = _join(base_url, connector.probe_path if path is None else path)
-    problem = guard_public(url, allow=["*"], loopback=True)
+    chosen = current_tenant() if tenant_id is None else tenant_id
+    problem = guard_public(url, allow=dial_allow(store, chosen), loopback=True)
     if problem:
         return {"ok": False, "status": 0, "error": problem}
-    status, _payload, response_headers, error = _once(
-        store, connector, connector.probe_method or "GET", url, headers, {}, None
-    )
+    tenant_token = bind_tenant(chosen)
+    try:
+        status, _payload, response_headers, error = _once(
+            store, connector, connector.probe_method or "GET", url, headers, {}, None
+        )
+    finally:
+        reset_tenant(tenant_token)
     if error:
         return {
             "ok": False,
@@ -265,26 +281,35 @@ def _once(  # noqa: PLR0917
     params: dict[str, object],
     body: dict[str, object] | None,
 ) -> tuple[int, object, dict[str, str], dict[str, object] | None]:
+    from ar_common.egress_http import bind_allow, reset_allow  # noqa: PLC0415
+    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+
     request_headers = _provider_headers(connector, headers)
     transport = getattr(store, "connector_transport", None)
     kwargs: dict[str, object] = {"timeout": 20.0, "follow_redirects": False}
+    allow_token = bind_allow(dial_allow(store, current_tenant()))
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
-            request_kwargs: dict[str, object] = {"headers": request_headers}
-            if params:
-                request_kwargs["params"] = {key: str(value) for key, value in params.items()}
-            if body is not None:
-                request_kwargs["json"] = body
-            response = blocking(client.request, method, url, **request_kwargs)
-    except httpx.HTTPError:
-        return (
-            0,
-            {},
-            {},
-            _fail("upstream_error", "The provider did not answer. Check the host and try again."),
-        )
+        try:
+            with sync_client(**kwargs) as client:  # type: ignore[arg-type]
+                request_kwargs: dict[str, object] = {"headers": request_headers}
+                if params:
+                    request_kwargs["params"] = {key: str(value) for key, value in params.items()}
+                if body is not None:
+                    request_kwargs["json"] = body
+                response = blocking(client.request, method, url, **request_kwargs)
+        except httpx.HTTPError:
+            return (
+                0,
+                {},
+                {},
+                _fail(
+                    "upstream_error", "The provider did not answer. Check the host and try again."
+                ),
+            )
+    finally:
+        reset_allow(allow_token)
     if response.status_code in {301, 302, 303, 307, 308}:
         return (
             response.status_code,

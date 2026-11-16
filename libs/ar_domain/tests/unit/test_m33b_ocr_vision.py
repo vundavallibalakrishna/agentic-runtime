@@ -288,7 +288,8 @@ def test_image_ask_sends_the_image_and_keeps_the_key_out_of_the_result(
             }
 
     class _Client:
-        def __init__(self, timeout: float = 0) -> None:
+        def __init__(self, timeout: float = 0, **kwargs: object) -> None:
+            del kwargs
             captured["timeout"] = timeout
 
         def __enter__(self) -> _Client:

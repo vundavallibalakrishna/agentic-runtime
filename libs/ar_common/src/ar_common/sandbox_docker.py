@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from ar_common.egress_http import async_client
+
 if TYPE_CHECKING:
     from collections.abc import Coroutine
 
@@ -121,7 +123,7 @@ async def _endpoint(container: Any, network: str | None, port: int) -> str:
 async def _wait_healthy(endpoint: str, token: str, wait_s: float) -> None:
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     deadline = asyncio.get_running_loop().time() + wait_s
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    async with async_client(mode="cluster", timeout=5.0) as client:
         while True:
             try:
                 response = await client.get(f"{endpoint}/healthz", headers=headers)

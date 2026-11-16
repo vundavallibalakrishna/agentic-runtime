@@ -59,28 +59,36 @@ def _parse_host(url: str) -> str:
     return "" if host is None else host
 
 
-def provider_url_denied(
+def provider_url_denied(  # noqa: PLR0911
     url: str, deny_cidrs: tuple[str, ...] | list[str], *, allow_loopback: bool
 ) -> bool:
     """Reject provider URLs whose host is inside the deny list.
 
-    Loopback and the ``fake-llm`` hostname are allowed only when
-    ``allow_loopback`` is set (dev and CI). Non-IP hostnames other than
-    ``localhost`` are not denied here; DNS rebinding is rejected at request time
-    by the same check after resolution.
+    Loopback, ``localhost``, ``fake-llm`` and decimal or octal spellings of a
+    loopback address are allowed only when ``allow_loopback`` is set. A mapped
+    or decimal metadata address is denied. Other hostnames are checked again
+    when the call is placed.
     """
+    from ar_common.egress_policy import (  # noqa: PLC0415
+        canonical_ip,
+        is_operator_private,
+        metadata_address,
+        named_private_allowed,
+    )
+
     host = _parse_host(url)
     if host == "":
         return True
-    if host == "fake-llm":
+    if metadata_address(host):
+        return True
+    if host in {"fake-llm", "localhost"}:
         return not allow_loopback
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        if host == "localhost":
-            return not allow_loopback
+    address = canonical_ip(host)
+    if address is None:
         return False
-    if allow_loopback and address.is_loopback:
+    if address.is_loopback:
+        return not allow_loopback
+    if named_private_allowed() and is_operator_private(str(address)):
         return False
     return any(address in ipaddress.ip_network(cidr, strict=False) for cidr in deny_cidrs)
 

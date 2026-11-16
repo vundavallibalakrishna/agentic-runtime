@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import orjson
 
+from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 from ar_domain.connectors.tokens import cached_token, remember_token
 from ar_domain.tools.http_tools import guard_public
@@ -84,7 +85,10 @@ def bearer_for(  # noqa: PLR0911
         assertion = service_account_assertion(info, chosen, datetime.now(UTC))
     except ValueError, TypeError:
         return _fail("The service-account private key could not be read.")
-    problem = guard_public(_OAUTH_URL, allow=["*"], loopback=False)
+    from ar_domain.egress import current_tenant, dial_allow  # noqa: PLC0415
+
+    tenant = row.get("tenant_id") or current_tenant()
+    problem = guard_public(_OAUTH_URL, allow=dial_allow(store, tenant), loopback=False)
     if problem:
         return _fail(problem)
     status, payload = _exchange(store, token_form(assertion))
@@ -102,7 +106,7 @@ def _exchange(store: Any, form: dict[str, str]) -> tuple[int, object]:
     if transport is not None:
         kwargs["transport"] = transport
     try:
-        with httpx.Client(**kwargs) as client:  # type: ignore[arg-type]
+        with sync_client(**kwargs) as client:  # type: ignore[arg-type]
             response = blocking(client.post, _OAUTH_URL, data=form)
     except httpx.HTTPError:
         return 0, {}

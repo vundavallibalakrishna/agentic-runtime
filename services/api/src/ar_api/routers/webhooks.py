@@ -119,7 +119,19 @@ async def redeliver(
 )
 @expose(public=False, permission="tenant:manage")
 async def rotate_callback(request: Request) -> dict[str, str]:
-    return {"secret": await request.app.state.webhooks.rotate_callback()}
+    from ar_api.deps import current_principal  # noqa: PLC0415
+    from ar_domain.tools.named_secrets import write_named_secret  # noqa: PLC0415
+
+    secret = await request.app.state.webhooks.rotate_callback()
+    principal = current_principal(request)
+    if principal.tenant_id is not None:
+        write_named_secret(
+            request.app.state.chat,
+            principal.tenant_id,
+            "__run_callback_secret__",
+            secret,
+        )
+    return {"secret": secret}
 
 
 def _check_url(url: str, *, allow_private: bool) -> None:

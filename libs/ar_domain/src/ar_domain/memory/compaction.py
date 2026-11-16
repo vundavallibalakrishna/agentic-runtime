@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from ar_common.egress_http import http_post
 from ar_domain.memory.metrics import COMPACTIONS
 from ar_domain.prompts.budget import estimate_tokens
 
@@ -130,7 +131,7 @@ def _join(messages: Sequence[Mapping[str, object]]) -> str:
 
 def _remote_count(url: str, text: str) -> int | None:
     try:
-        response = httpx.post(
+        response = http_post(
             url.rstrip("/") + "/v1/tokenize",
             json={"model": "fake-chat", "text": text},
             timeout=2.0,

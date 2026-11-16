@@ -7,11 +7,15 @@ from typing import Any
 
 import httpx
 import orjson
+import pytest
 
 from ar_domain.tools.remote_mcp import call_remote
 from ar_testing.demo import demo_store
 
 URL = "https://mcp.example/rpc"
+
+
+pytestmark = pytest.mark.dns_fallback
 
 
 def _store() -> tuple[Any, list[str]]:

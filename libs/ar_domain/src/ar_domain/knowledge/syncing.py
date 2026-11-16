@@ -71,7 +71,11 @@ def sync_source(
         kind=kind,
         triggered_by="manual",
     )
-    page = list_changes(source, mode=mode)
+    page = list_changes({**source, "store": store, "tenant_id": source.get("tenant_id")}, mode=mode)
+    if page.get("error"):
+        _fail(job, "", str(page["error"]))
+        job["status"] = "failed"
+        return job
     seen: set[str] = set()
     items = page.get("items") if isinstance(page.get("items"), list) else []
     for item in items:  # type: ignore[attr-defined]

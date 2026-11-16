@@ -192,18 +192,26 @@ def test_a_lost_container_is_started_again(computer: Path) -> None:
     # The agent at the old address does not answer, so the next call starts a new one.
     import ar_domain.sandboxes.runtime as module
 
-    real = module.httpx.get
+    real = module.sync_client
 
-    def get(url: str, **kwargs: object) -> httpx.Response:
-        if "gone.test" in url:
-            raise httpx.ConnectError("gone")
-        return real(url, **kwargs)
+    class _Down:
+        def __enter__(self) -> _Down:
+            return self
 
-    module.httpx.get = get  # type: ignore[assignment]
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def get(self, url: str, **_kwargs: object) -> httpx.Response:
+            if "gone.test" in url:
+                raise httpx.ConnectError("gone")
+            with real(mode="cluster", timeout=3.0) as client:
+                return client.get(url)
+
+    module.sync_client = lambda **_kwargs: _Down()  # type: ignore[method-assign, assignment]
     try:
         again = _ensure(store, "conv:lost")
     finally:
-        module.httpx.get = real  # type: ignore[assignment]
+        module.sync_client = real  # type: ignore[method-assign, assignment]
     assert started
     assert again["id"] == row["id"]
     assert again["endpoint_url"] == _ENDPOINT
@@ -233,7 +241,8 @@ def test_a_client_process_asks_the_manager_for_the_computer(
         asked.append(url)
         return httpx.Response(200, json=answers.pop(0), request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(httpx, "post", post)
+    monkeypatch.setattr("ar_domain.sandboxes.runtime.http_post", post)
+    monkeypatch.setattr("ar_domain.sandboxes.manager_launch.http_post", post)
     row = _ensure(store, "conv:managed")
     assert asked == ["http://manager.test/internal/v1/sandboxes:ensure"]
     assert (row["id"], row["endpoint_url"], row["token"], row["driver"]) == (

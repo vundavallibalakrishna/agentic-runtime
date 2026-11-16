@@ -119,8 +119,10 @@ class PrivacySettings(_Model):
 
 
 class SearchSettings(_Model):
-    provider: Literal["none", "brave", "tavily"] = "none"
+    provider: Literal["none", "brave", "tavily", "searxng"] = "none"
     secret_name: str = ""
+    # Used when provider is searxng. A local search server has an address and no key.
+    base_url: str = ""
 
 
 class TenantSettings(_Model):

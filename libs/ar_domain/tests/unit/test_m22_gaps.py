@@ -66,6 +66,8 @@ from ar_domain.tools.service_connections import (
 )
 from ar_testing.demo import demo_store
 
+pytestmark = pytest.mark.dns_fallback
+
 
 def _actor() -> Actor:
     return Actor(demo_id("tenant"), demo_id("admin"), PERMISSION_KEYS)
@@ -225,41 +227,45 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
     with pytest.raises(ArError):
         _token_response("https://example.com/token", {"grant_type": "client_credentials"})
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "invalid", "verifier"))
+        asyncio.run(_exchange(store, saved, "invalid", "verifier"))
     saved["token_url"] = "http://169.254.169.254/token"
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "auth-code", "verifier"))
+        asyncio.run(_exchange(store, saved, "auth-code", "verifier"))
     saved["token_url"] = "https://example.com/token"
 
     real_async = httpx.AsyncClient
 
     def _async(*_args: object, **kwargs: object) -> httpx.AsyncClient:
+        kwargs.pop("transport", None)
         kwargs["transport"] = httpx.MockTransport(lambda _request: httpx.Response(502, text="no"))
         return real_async(**kwargs)  # type: ignore[arg-type]
 
     monkeypatch.setattr(httpx, "AsyncClient", _async)
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "auth-code", "verifier"))
+        asyncio.run(_exchange(store, saved, "auth-code", "verifier"))
     monkeypatch.setattr(
         httpx,
         "AsyncClient",
         lambda *_args, **kwargs: real_async(
-            transport=httpx.MockTransport(
-                lambda _request: httpx.Response(200, json={"token_type": "bearer"})
-            ),
-            **kwargs,
+            **{
+                **kwargs,
+                "transport": httpx.MockTransport(
+                    lambda _request: httpx.Response(200, json={"token_type": "bearer"})
+                ),
+            },
         ),
     )
     with pytest.raises(ArError):
-        asyncio.run(_exchange(saved, "auth-code", "verifier"))
+        asyncio.run(_exchange(store, saved, "auth-code", "verifier"))
     refreshed = _refresh_token(
+        store,
         {
             "name": "userlogin",
             "token_url": "memory://tokens",
             "refresh_token": saved["refresh_token"],
             "client_id": "ar",
             "secret": saved["secret"],
-        }
+        },
     )
     assert refreshed["access_token"].startswith("refreshed-")
 

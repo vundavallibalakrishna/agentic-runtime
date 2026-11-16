@@ -119,11 +119,7 @@ def test_not_live_connector_tools_stay_hidden_from_the_model() -> None:
     )
     asyncio.run(store.generate(uuid.UUID(str(posted["run"]["id"])), "find a tool", []))
     names = captured[0]
-    assert names
-    assert all(
-        name.startswith("connectors__email_") or name.startswith("connectors__github_")
-        for name in names
-    )
+    assert not any(name.startswith("connectors__") for name in names)
     result = dispatch(
         store,
         "builtin://session",

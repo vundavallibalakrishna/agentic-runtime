@@ -19,6 +19,47 @@ pytest_plugins = [
 ]
 
 
+def pytest_configure(config: object) -> None:
+    """Register the opt-in marker. Unresolved names fail unless a test asks."""
+    config.addinivalue_line(  # type: ignore[attr-defined]
+        "markers",
+        "dns_fallback: an unresolved name is treated as 8.8.8.8 so a mock can match",
+    )
+
+
+_DNS_ORIGINAL: object = None
+
+
+def pytest_runtest_setup(item: object) -> None:
+    """Install the fallback only for tests marked ``dns_fallback``."""
+    global _DNS_ORIGINAL  # noqa: PLW0603
+    marker = getattr(item, "get_closest_marker", lambda _name: None)("dns_fallback")
+    if marker is None:
+        return
+    from ar_common import egress_http  # noqa: PLC0415
+
+    _DNS_ORIGINAL = egress_http.resolve_host
+
+    def fallback(host: str) -> list[str]:
+        try:
+            return _DNS_ORIGINAL(host)  # type: ignore[operator]
+        except egress_http.EgressDenied:
+            return ["8.8.8.8"]
+
+    egress_http.resolve_host = fallback
+
+
+def pytest_runtest_teardown(item: object) -> None:
+    global _DNS_ORIGINAL  # noqa: PLW0603
+    marker = getattr(item, "get_closest_marker", lambda _name: None)("dns_fallback")
+    if marker is None or _DNS_ORIGINAL is None:
+        return
+    from ar_common import egress_http  # noqa: PLC0415
+
+    egress_http.resolve_host = _DNS_ORIGINAL  # type: ignore[assignment]
+    _DNS_ORIGINAL = None
+
+
 def pytest_addoption(parser: object) -> None:
     """Register ``--with-qdrant`` for the optional retrieval adapter."""
     parser.addoption("--with-qdrant", action="store_true", default=False)  # type: ignore[attr-defined]

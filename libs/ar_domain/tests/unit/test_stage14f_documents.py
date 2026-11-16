@@ -391,8 +391,8 @@ def test_a_call_a_busy_provider_turned_away_is_asked_again(
             return {"choices": [{"message": {"content": self._text}}]}
 
     class Client:
-        def __init__(self, timeout: float) -> None:
-            del timeout
+        def __init__(self, timeout: float, **kwargs: object) -> None:
+            del timeout, kwargs
 
         def __enter__(self) -> Client:
             return self

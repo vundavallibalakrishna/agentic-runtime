@@ -51,15 +51,22 @@ def provider_for(store: Any, tenant_id: object) -> SearchProvider:
     override = getattr(store, "search_provider", None)
     if override is not None and callable(getattr(override, "search", None)):
         return cast("SearchProvider", override)
+    from ar_domain.egress import tenant_hosts  # noqa: PLC0415
+
+    hosts = tenant_hosts(store, tenant_id)
     name, key = _configured(store, tenant_id)
     if name == "brave" and key:
-        return BraveSearch(key)
+        return BraveSearch(key, hosts)
     if name == "tavily" and key:
-        return TavilySearch(key)
+        return TavilySearch(key, hosts)
     settings = _tenant_search(store, tenant_id)
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
     base = str(settings.get("base_url") or settings.get("baseUrl") or "").strip().rstrip("/")
+    if not base:
+        base = get_settings().search_base_url.strip().rstrip("/")
     if name == "searxng" and base:
-        return SearxngSearch(base)
+        return SearxngSearch(base, hosts)
     raise SearchUnavailableError
 
 
@@ -75,8 +82,15 @@ def search_configured(store: Any, tenant_id: object) -> bool:
 def _configured(store: Any, tenant_id: object) -> tuple[str, str]:
     """Provider name and key. The key is never logged or returned to the model."""
     settings = _tenant_search(store, tenant_id)
-    name = str(settings.get("provider") or os.environ.get("AR_SEARCH_PROVIDER") or "none")
-    name = name.strip().lower() or "none"
+    name = str(settings.get("provider") or "").strip().lower()
+    # An explicit "none" is this tenant opting out. Only a missing provider
+    # falls through to the install default.
+    if name == "":
+        from ar_common.settings import get_settings  # noqa: PLC0415
+
+        name = str(os.environ.get("AR_SEARCH_PROVIDER") or "none").strip().lower() or "none"
+        if name == "none" and get_settings().search_base_url.strip():
+            name = "searxng"
     secret_name = str(settings.get("secret_name") or settings.get("secretName") or "").strip()
     key = _secret(store, tenant_id, secret_name).strip() if secret_name else ""
     if not key:
@@ -104,13 +118,18 @@ def _secret(store: Any, tenant_id: object, name: str) -> str:
 class BraveSearch:
     """Brave web search. The subscription token is a request header, not a result."""
 
-    def __init__(self, key: str) -> None:
+    def __init__(self, key: str, allow: list[str] | None = None) -> None:
         self._key = key
+        self._allow = allow or []
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
+        _refuse("https://api.search.brave.com/res/v1/web/search", self._allow)
+        from ar_common.egress_http import http_get  # noqa: PLC0415
+
         response = blocking(
-            httpx.get,
+            http_get,
             "https://api.search.brave.com/res/v1/web/search",
+            allow=self._allow,
             params={"q": query, "count": max(1, min(limit, 10))},
             headers={"X-Subscription-Token": self._key, "Accept": "application/json"},
             timeout=15.0,
@@ -125,13 +144,18 @@ class BraveSearch:
 class TavilySearch:
     """Tavily search. The key stays in the request body and is not returned."""
 
-    def __init__(self, key: str) -> None:
+    def __init__(self, key: str, allow: list[str] | None = None) -> None:
         self._key = key
+        self._allow = allow or []
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
+        _refuse("https://api.tavily.com/search", self._allow)
+        from ar_common.egress_http import http_post  # noqa: PLC0415
+
         response = blocking(
-            httpx.post,
+            http_post,
             "https://api.tavily.com/search",
+            allow=self._allow,
             json={
                 "api_key": self._key,
                 "query": query,
@@ -149,13 +173,18 @@ class TavilySearch:
 class SearxngSearch:
     """A SearXNG server the organisation runs. It has an address and no key."""
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(self, base_url: str, allow: list[str] | None = None) -> None:
         self._base = base_url
+        self._allow = allow or []
 
     def search(self, query: str, *, limit: int) -> list[dict[str, str]]:
+        _refuse(f"{self._base}/search", self._allow)
+        from ar_common.egress_http import http_get  # noqa: PLC0415
+
         response = blocking(
-            httpx.get,
+            http_get,
             f"{self._base}/search",
+            allow=self._allow,
             params={"q": query, "format": "json"},
             headers={"Accept": "application/json"},
             timeout=15.0,
@@ -164,6 +193,18 @@ class SearxngSearch:
         payload = response.json()
         results = payload.get("results") if isinstance(payload, dict) else None
         return _rows(results)[: max(1, min(limit, 10))]
+
+
+def _refuse(url: str, allow: list[str]) -> None:
+    """Closed egress refuses a search host that is not listed. Open mode does not."""
+    from ar_common.egress_policy import closed_egress, decide_url  # noqa: PLC0415
+
+    if not closed_egress():
+        problem = decide_url(url, [], closed=False, check_private=False)
+    else:
+        problem = decide_url(url, allow, closed=True, check_private=True)
+    if problem is not None:
+        raise SearchUnavailableError(problem)
 
 
 def _checked(response: httpx.Response) -> None:
