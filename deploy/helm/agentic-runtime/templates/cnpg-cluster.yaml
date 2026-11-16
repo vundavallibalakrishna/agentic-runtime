@@ -181,7 +181,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: postgres
-          image: {{ include "ar.thirdPartyImage" (list . .Values.postgres.image.repository .Values.postgres.image.tag) }}
+          image: {{ include "ar.thirdPartyImage" (list . .Values.postgres.standaloneImage.repository .Values.postgres.standaloneImage.tag) }}
           ports:
             - containerPort: 5432
           env:

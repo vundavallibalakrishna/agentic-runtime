@@ -268,9 +268,13 @@ postgres:
     repository: ghcr.io/cloudnative-pg/postgresql
     tag: "18"
   # Mounted with the operand. The tag must match the PostgreSQL major above.
-  # StatefulSet presets override postgres.image: this operand does not listen
-  # when started with POSTGRES_USER alone.
   pgvectorImage: ghcr.io/cloudnative-pg/pgvector:0.8.1-18-trixie
+  # StatefulSet only. The operand image does not listen when started with
+  # POSTGRES_USER alone, and a preset must not override postgres.image or a
+  # later CNPG overlay inherits the wrong tag.
+  standaloneImage:
+    repository: pgvector/pgvector
+    tag: 0.8.7-pg18-trixie
 valkey:
   bundled: true
   mode: sentinel

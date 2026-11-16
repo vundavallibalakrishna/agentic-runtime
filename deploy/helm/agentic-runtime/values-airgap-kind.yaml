@@ -9,6 +9,8 @@ postgres:
   mode: cnpg
   instances: 2
   storage: 1Gi
+  # Leave postgres.image at the chart default so this job tests the operand
+  # CloudNativePG accepts. The StatefulSet image is postgres.standaloneImage.
 cluster:
   podCIDR: 10.244.0.0/16
   serviceCIDR: 10.96.0.0/12
