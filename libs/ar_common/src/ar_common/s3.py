@@ -40,7 +40,6 @@ class S3Store:
 
     def _client(self) -> Any:
         if self._sync is None:
-            self._require_endpoint(self.endpoint)
             kwargs = self._client_kwargs(public=False)
             # An install with no key (the bundled SeaweedFS in dev) is talked to unsigned.
             signature = "s3v4" if self._settings.s3_access_key_id else UNSIGNED
@@ -105,22 +104,29 @@ class S3Store:
 
     # -- async --------------------------------------------------------------------------
 
-    def _require_endpoint(self, endpoint: str) -> None:
-        from urllib.parse import urlparse  # noqa: PLC0415
+    def _require_endpoint(self, endpoint: str, *, pin: bool) -> str:
+        from urllib.parse import urlsplit, urlunsplit  # noqa: PLC0415
 
         from ar_common.egress_http import pinned_host  # noqa: PLC0415
         from ar_common.egress_policy import closed_egress  # noqa: PLC0415
 
         if not closed_egress():
-            return
-        host = urlparse(endpoint).hostname if endpoint else None
+            return endpoint
+        if not endpoint:
+            raise ObjectStoreError("an endpoint is required when egress is closed")
+        parts = urlsplit(endpoint)
+        host = parts.hostname
         if not host:
             raise ObjectStoreError("an endpoint is required when egress is closed")
-        pinned_host(host)
+        dial = pinned_host(host)
+        if not pin:
+            return endpoint
+        netloc = parts.netloc.replace(host, dial, 1)
+        return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
 
     def _client_kwargs(self, *, public: bool) -> dict[str, object]:
-        endpoint = self._settings.s3_public_endpoint if public else self._settings.s3_endpoint
-        self._require_endpoint(endpoint)
+        raw = self._settings.s3_public_endpoint if public else self._settings.s3_endpoint
+        endpoint = self._require_endpoint(raw, pin=not public)
         return {
             "endpoint_url": endpoint,
             "region_name": self._settings.s3_region,
@@ -144,7 +150,7 @@ class S3Store:
         settings = self._settings
 
         def sign() -> str:
-            self._require_endpoint(settings.s3_public_endpoint)
+            self._require_endpoint(settings.s3_public_endpoint, pin=False)
             client = boto3.client(
                 "s3",
                 endpoint_url=settings.s3_public_endpoint,
