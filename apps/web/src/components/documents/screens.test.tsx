@@ -27,6 +27,41 @@ describe("document library", () => {
     cleanup();
   });
 
+  it("lists each document as a row with its type, pages and status", async () => {
+    server.use(
+      http.get("*/api/v1/auth/session", () =>
+        HttpResponse.json({
+          permissions: ["documents:read"],
+          user: { displayName: "Ada Lovelace", email: "ada@acme.example" },
+        }),
+      ),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+      http.get("*/api/v1/library-documents", () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: "doc-1",
+              title: "Access",
+              filename: "access.md",
+              mediaType: "text/markdown",
+              pageCount: 3,
+            },
+          ],
+        }),
+      ),
+    );
+    render(wrap(<LibraryScreen />));
+    const title = await screen.findByRole("link", { name: "Access" });
+    expect(title.getAttribute("href")).toBe("/documents/doc-1");
+    const row = title.closest("tr");
+    expect(row?.textContent).toContain("access.md");
+    expect(row?.textContent).toContain("text/markdown");
+    expect(row?.textContent).toContain("3");
+    expect(screen.getByText("Ready").className).toContain("tone-success");
+    expect(screen.getByRole("link", { name: "Open: Access" })).toBeTruthy();
+    expect((screen.getByLabelText("File") as HTMLInputElement).type).toBe("file");
+  });
+
   it("shows an empty library", async () => {
     server.use(
       http.get("*/api/v1/auth/session", () =>

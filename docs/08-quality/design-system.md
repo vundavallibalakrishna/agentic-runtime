@@ -67,6 +67,12 @@ The thread sits in a centred column. The welcome state pairs a display heading w
 
 The catalogue is a table, one agent per row: name and description, status badge, owner, published version, then the chat action and the favourite toggle. The New agent button in the page header appears only for users with `agents:create`. Search and status filters share one toolbar. Loading uses row-shaped skeletons, an empty filtered result offers Clear filters, and an error offers Try again. Disabled agents do not offer chat. The table scrolls sideways in its own region on a narrow screen. The runs list is a table in the same style, with the run status as a badge.
 
+## Documents and models
+
+The document library is a table: title and file name, media type as the library recorded it, page count, a status badge and an Open action. Upload is a primary button in the page header that wraps the file input, so the input keeps its label and keyboard focus. The compare form sits under the table.
+
+On Models, "What the product uses" is a table: the use with its name and explanation, the model picker, status badges (set is success, not set and needed is danger) and the row actions. A test result names its outcome in the success or failure colour. A provider shows whether its key is stored as a success or warning badge. A scroll region nested in a named section takes its own name, so the two landmarks stay distinct.
+
 ## Sign-in
 
 The sign-in page offers the organisation account and the four seeded roles (`admin`, `builder`, `member`, `approver` at `@dev.local`). The Keycloak login theme under `deploy/compose/keycloak/themes/agentic` uses the same paper, ink and teal. Those theme files are CSS for Keycloak and are the one place a hex value is expected, because Keycloak does not read the web tokens.

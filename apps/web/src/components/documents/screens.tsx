@@ -1,15 +1,25 @@
 "use client";
 
+import { Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TableScroll } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableScroll,
+} from "@/components/ui/table";
 import { api } from "@/lib/api";
 
 type Row = Record<string, unknown>;
@@ -88,11 +98,18 @@ export function LibraryScreen() {
         title={t("libraryTitle")}
         body={t("libraryBody")}
         actions={
-          <label className="inline-flex cursor-pointer items-center">
-            <span className="sr-only">{t("file")}</span>
+          <label
+            className={
+              "inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-[var(--primary)] px-4 text-sm font-medium text-[var(--primary-foreground)] hover:bg-[var(--primary-hover)] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--ring)]" +
+              (busy ? " pointer-events-none opacity-60" : "")
+            }
+          >
+            <Upload size={16} aria-hidden="true" />
+            <span aria-hidden="true">{busy ? t("uploading") : t("upload")}</span>
             <input
               aria-label={t("file")}
-              className="max-w-56 text-sm"
+              className="sr-only"
+              disabled={busy}
               type="file"
               onChange={(event) => void upload(event.target.files?.[0])}
             />
@@ -100,35 +117,68 @@ export function LibraryScreen() {
         }
       />
       {loading ? <Skeleton className="h-40 w-full" /> : null}
-      {error ? <p className="mb-4 text-sm text-[var(--destructive)]">{error}</p> : null}
-      {!loading && items.length === 0 ? <EmptyState title={t("empty")} /> : null}
+      {error ? (
+        <p className="mb-4 text-sm text-[var(--destructive)]" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {!loading && !error && items.length === 0 ? <EmptyState title={t("empty")} /> : null}
       {items.length > 0 ? (
         <div className="space-y-6">
-          <ul className="divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
-            {items.map((item) => {
-              const id = text(item.id);
-              return (
-                <li
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                  key={id}
-                >
-                  <div>
-                    <a className="font-medium underline" href={`/documents/${id}`}>
-                      {text(item.title)}
-                    </a>
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      {text(item.filename)} ·{" "}
-                      {t("pages", { count: Number(item.pageCount ?? item.page_count ?? 0) })} ·{" "}
-                      {t("ready")}
-                    </p>
-                  </div>
-                  <a className="text-sm underline" href={`/documents/${id}`}>
-                    {t("open")}
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
+          <TableScroll
+            className="rounded-xl border border-[var(--border)] bg-[var(--card)]"
+            label={t("libraryTitle")}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">{t("document")}</TableHead>
+                  <TableHead scope="col">{t("type")}</TableHead>
+                  <TableHead scope="col">{t("pagesColumn")}</TableHead>
+                  <TableHead scope="col">{t("status")}</TableHead>
+                  <TableHead scope="col">
+                    <span className="sr-only">{t("open")}</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => {
+                  const id = text(item.id);
+                  return (
+                    <TableRow className="hover:bg-[var(--muted)]" key={id}>
+                      <TableCell className="min-w-56">
+                        <a className="font-semibold hover:underline" href={`/documents/${id}`}>
+                          {text(item.title)}
+                        </a>
+                        <p className="mt-0.5 break-all text-[var(--muted-foreground)]">
+                          {text(item.filename)}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-[var(--muted-foreground)]">
+                        {text(item.mediaType ?? item.media_type) || "—"}
+                      </TableCell>
+                      <TableCell className="tabular-nums text-[var(--muted-foreground)]">
+                        {Number(item.pageCount ?? item.page_count ?? 0)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge tone="success">{t("ready")}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild className="h-8 text-xs" variant="outline">
+                          <a
+                            aria-label={`${t("open")}: ${text(item.title)}`}
+                            href={`/documents/${id}`}
+                          >
+                            {t("open")}
+                          </a>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableScroll>
           <form
             className="grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 sm:grid-cols-[1fr_1fr_auto]"
             onSubmit={(event) => {

@@ -92,8 +92,14 @@ export function TestLine({ result }: { result: TestResult | "running" | undefine
     );
   }
   return (
-    <p className="break-words text-xs leading-relaxed" role="status">
-      <span className="font-medium">{result.ok ? t("testPassed") : t("testFailed")}</span>{" "}
+    <p className="mt-1 break-words text-xs leading-relaxed" role="status">
+      <span
+        className={
+          result.ok ? "font-medium text-[var(--success)]" : "font-medium text-[var(--destructive)]"
+        }
+      >
+        {result.ok ? t("testPassed") : t("testFailed")}
+      </span>{" "}
       <span className="text-[var(--muted-foreground)]">
         {result.ok
           ? t("testAnswer", { output: result.output, ms: result.latencyMs })
