@@ -512,9 +512,7 @@ def _tenant_hosts(store: Any, row: dict[str, object]) -> list[str]:
     return tenant_hosts(store, row.get("tenant_id"))
 
 
-def _refuse_unsafe(
-    dsn: str, allow: dict[str, object], hosts: list[str] | None = None
-) -> None:
+def _refuse_unsafe(dsn: str, allow: dict[str, object], hosts: list[str] | None = None) -> None:
     """Reject a DSN that would dial a host other than the one it names."""
     if dsn.startswith("memory:"):
         return
@@ -557,7 +555,8 @@ def _parsed(dsn: str) -> tuple[SplitResult, list[tuple[str, str]]]:
         raise SqlRejected("the connection has no host")
     if bare.startswith("/") or "%2f" in bare or "," in bare:
         raise SqlRejected(
-            "a unix socket is not allowed" if bare.startswith("/") or "%2f" in bare
+            "a unix socket is not allowed"
+            if bare.startswith("/") or "%2f" in bare
             else "a connection may name only one host"
         )
     if bare in _META or bare.endswith(".metadata.google.internal"):
