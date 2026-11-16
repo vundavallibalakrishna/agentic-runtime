@@ -10,6 +10,10 @@ import { test as base, expect, type Page } from "@playwright/test";
  * created (two "Desk note"s, two connections), which turns a recoverable flake into a hard
  * failure. On the first attempt this does nothing, so first-attempt behaviour is unchanged.
  *
+ * It also makes every stored screenshot show the settled screen. A spec switches theme and
+ * takes the picture straight away, and the app fades colours over 120 ms, so without this a
+ * dark picture catches links, inputs and buttons half-way between the two themes.
+ *
  * The reset is done once per (spec file, retry): Playwright re-runs a whole `serial` group
  * from its first test, and each test in that re-run carries the same retry number, so the
  * first one resets and the rest of the group replay on the clean tenant it left.
@@ -35,6 +39,11 @@ export const test = base.extend<{ freshTenantOnRetry: undefined }>({
     },
     { auto: true },
   ],
+  page: async ({ page }, use) => {
+    const shoot = page.screenshot.bind(page);
+    page.screenshot = (options) => shoot({ animations: "disabled", ...options });
+    await use(page);
+  },
 });
 
 export { expect, type Page };
