@@ -47,7 +47,12 @@ config:
   AR_EGRESS_ALLOW_WILDCARD: 'false'
   AR_CA_BUNDLE: ''
   AR_DB_CERT_DIR: ''
+  AR_DB_CONNECT_DEADLINE_S: '15'
+  AR_DB_MAX_ADDRESSES: '4'
   AR_DB_MIN_SSLMODE: ''
+  AR_DB_STRICT_TLS: 'true'
+  AR_PLATFORM_DB_DENY_CIDRS: ''
+  AR_PLATFORM_DB_DENY_HOSTS: ''
   AR_EGRESS_CLOSED: 'false'
   AR_EGRESS_HOSTS: ''
   AR_DATA_RESIDENCY: ''
@@ -239,6 +244,10 @@ postgres:
   storage: 200Gi
   username: ar_app
   password: ar-install-db
+  # Extra platform database names, appended to the bundled CNPG services.
+  denyHosts: []
+  # Pod CIDR of the platform database, when the operator knows it.
+  denyCidrs: []
   image:
     repository: pgvector/pgvector
     tag: 0.8.7-pg18-trixie
@@ -331,6 +340,9 @@ networkPolicy:
   enabled: true
 airgap:
   lockdown: false
+  # When true, the runtime worker may open 5432 only to the CNPG pooler.
+  # Instance pods (-rw, -ro, -r) stay unreachable from tool runs.
+  isolatePlatformDb: false
   # Appended to otel-collector and any AR_EGRESS_HOSTS already in config.
   egressHosts: []
   # Extra NetworkPolicy egress, for an on-prem model or connector.

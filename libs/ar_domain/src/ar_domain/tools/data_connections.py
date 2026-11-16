@@ -49,7 +49,12 @@ class DataConnections:
             from ar_domain.tools.database import _refuse_unsafe  # noqa: PLC0415
 
             try:
-                _refuse_unsafe(dsn, allow, tenant_hosts(self.store, actor.tenant_id))
+                _refuse_unsafe(
+                    dsn,
+                    allow,
+                    tenant_hosts(self.store, actor.tenant_id),
+                    tenant_id=str(actor.tenant_id).lower(),
+                )
             except SqlRejected as exc:
                 raise ValidationFailedError(exc.reason) from exc
         self.store.secret_values[secret_id] = dsn.encode()

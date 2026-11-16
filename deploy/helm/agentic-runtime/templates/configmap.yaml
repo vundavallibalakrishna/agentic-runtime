@@ -72,6 +72,16 @@
 {{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "false" }}
 {{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" "false" }}
 {{- end }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+{{- $deny := list (printf "%s-pg-rw" .Release.Name) (printf "%s-pg-ro" .Release.Name) (printf "%s-pg-r" .Release.Name) (printf "%s-pg-pooler" .Release.Name) }}
+{{- range $name := (.Values.postgres.denyHosts | default list) }}
+{{- $deny = append $deny $name }}
+{{- end }}
+{{- $_ := set $overrides "AR_PLATFORM_DB_DENY_HOSTS" (join "," $deny) }}
+{{- end }}
+{{- if .Values.postgres.denyCidrs }}
+{{- $_ := set $overrides "AR_PLATFORM_DB_DENY_CIDRS" (join "," .Values.postgres.denyCidrs) }}
+{{- end }}
 {{- if .Values.airgap.lockdown }}
 {{- $hosts := list "otel-collector" }}
 {{- $configured := index .Values.config "AR_EGRESS_HOSTS" | default "" | toString }}
