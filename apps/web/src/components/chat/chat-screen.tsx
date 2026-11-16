@@ -33,6 +33,7 @@ import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { chatAliases } from "@/lib/model-aliases";
 import { LATE_MEMORY_WAITS_MS, lateMemoryEvents } from "@/lib/stream/late";
 import {
   shouldResumeStatus,
@@ -134,23 +135,11 @@ export function ChatScreen() {
       setSession(me);
       const listed = await api<{ items: Item[] }>("/api/v1/conversations");
       const agentPage = await api<{ items: Item[] }>("/api/v1/agents");
-      const aliasPage = await api<{ items?: Item[] }>("/api/v1/model-aliases").catch(() => ({
-        items: [] as Item[],
-      }));
+      const aliasList = await chatAliases();
       setConversations(listed.items ?? []);
       // An archived agent is put away: it is not offered for a new conversation.
       setAgents((agentPage.items ?? []).filter((row) => String(row.status ?? "") !== "archived"));
-      setAliases(
-        Array.from(
-          new Set(
-            (aliasPage.items ?? [])
-              // Only a chat model can answer a conversation; embedding and rerank aliases cannot.
-              .filter((row) => String(row.kind ?? "chat") === "chat")
-              .map((row) => String(row.alias ?? ""))
-              .filter((alias) => alias.length > 0),
-          ),
-        ),
-      );
+      setAliases(aliasList);
       const requested = new URLSearchParams(window.location.search).get("agent");
       if (requested) {
         const match = (agentPage.items ?? []).find((row) => row.slug === requested);

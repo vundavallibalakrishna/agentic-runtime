@@ -73,6 +73,12 @@ The document library is a table: title and file name, media type as the library 
 
 On Models, "What the product uses" is a table: the use with its name and explanation, the model picker, status badges (set is success, not set and needed is danger) and the row actions. A test result names its outcome in the success or failure colour. A provider shows whether its key is stored as a success or warning badge. A scroll region nested in a named section takes its own name, so the two landmarks stay distinct.
 
+## Agent builder and editor
+
+The builder is two columns from 1280 px: on the left the description box, the preview of the draft and the templates; on the right the form for filling in the agent by hand. Below that width they stack in the same order. The preview lists the draft's tools as badges. The editor shows the agent's status as a badge in the page header, and its publish, versions and test-chat panels stay in view while the form scrolls.
+
+A long form carries the `form-sections` class: each `fieldset` directly inside it starts under a hairline with its legend as the section title. Checkboxes and radio buttons take the accent colour. The model picker on both screens lists the chat aliases the tenant has, read through `lib/model-aliases`; chat uses the same reader.
+
 ## Sign-in
 
 The sign-in page offers the organisation account and the four seeded roles (`admin`, `builder`, `member`, `approver` at `@dev.local`). The Keycloak login theme under `deploy/compose/keycloak/themes/agentic` uses the same paper, ink and teal. Those theme files are CSS for Keycloak and are the one place a hex value is expected, because Keycloak does not read the web tokens.

@@ -177,6 +177,28 @@ textarea {
   --tone: var(--primary);
 }
 
+/* A long form reads as sections: each group of fields starts under a hairline with its title. */
+.form-sections > fieldset {
+  margin-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-6);
+}
+
+.form-sections > fieldset > legend {
+  float: left;
+  width: 100%;
+  font-weight: 600;
+}
+
+.form-sections > fieldset > legend + * {
+  clear: both;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--primary);
+}
+
 /* Management panels keep field widths and label spacing consistent. */
 .management-form label {
   font-size: var(--text-sm);
