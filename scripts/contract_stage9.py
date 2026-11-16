@@ -84,8 +84,16 @@ def request(
     headers: dict[str, str] | None = None,
     timeout: float = 30,
 ) -> tuple[int, dict[str, str], bytes]:
-    response = httpx.request(method, url, json=body, headers=headers, timeout=timeout)
-    return response.status_code, dict(response.headers), response.content
+    last: Exception | None = None
+    for _attempt in range(4):
+        try:
+            response = httpx.request(method, url, json=body, headers=headers, timeout=timeout)
+        except httpx.TransportError as exc:
+            last = exc
+            time.sleep(1)
+            continue
+        return response.status_code, dict(response.headers), response.content
+    raise SystemExit(f"{method} {url} failed: {last}")
 
 
 def login(base: str) -> tuple[str, str]:
