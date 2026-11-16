@@ -1,50 +1,41 @@
 """The only HTTP client the platform uses to leave the process.
 
-Every outbound call goes through :func:`sync_client` or :func:`async_client`.
-The transport runs :func:`ar_common.egress_policy.decide` and, on a real socket,
-connects to the addresses that decision resolved so a later DNS answer cannot
-redirect the call. A test double (any transport the caller passes in) is still
-checked, and is not rewritten.
+The transport resolves the host once, refuses a failed lookup, and dials the
+approved address from a custom network backend. The request URL is unchanged,
+so the Host header and TLS SNI stay on the original name. This does not patch
+``socket.getaddrinfo`` and does not depend on which event-loop DNS the process
+uses.
 
-``mode="cluster"`` is for this install's own services. It allows a private or
-loopback address and refuses a public or metadata address. ``mode="external"``
-is everything else: models, connectors, search, webhooks, knowledge, OAuth.
+``proxy``, ``mounts`` and environment proxies are rejected. They would skip
+this transport.
 """
 
 from __future__ import annotations
 
 import socket
 from contextvars import ContextVar, Token
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
+
+import httpcore
+import httpx
+
+from ar_common.egress_policy import canonical_ip, decide, host_of
 
 if TYPE_CHECKING:
     from typing import Any
 
-import httpx
-
-from ar_common.egress_policy import canonical_ip, decide, dial_addresses, host_of
-
 _MODES = frozenset({"external", "cluster"})
+_REJECTED = frozenset({"proxy", "mounts", "trust_env"})
 _allow: ContextVar[list[str] | None] = ContextVar("egress_http_allow", default=None)
-_pins: ContextVar[dict[str, str] | None] = ContextVar("egress_http_pins", default=None)
-_real_getaddrinfo = socket.getaddrinfo
+_dial: ContextVar[dict[str, str] | None] = ContextVar("egress_http_dial", default=None)
 
 
-def _pinned_getaddrinfo(  # noqa: PLR0917
-    host: str,
-    port: int | str | None,
-    family: int = 0,
-    type: int = 0,  # noqa: A002
-    proto: int = 0,
-    flags: int = 0,
-) -> list[tuple[int, int, int, str, tuple[str, int] | tuple[str, int, int, int]]]:
-    """Resolve ``host`` to the address ``decide`` already approved."""
-    pins = _pins.get()
-    chosen = pins.get(host) if pins else None
-    return _real_getaddrinfo(chosen or host, port, family, type, proto, flags)  # type: ignore[return-value]
+class EgressDenied(httpx.TransportError):
+    """The egress decision refused this URL before a socket was opened."""
 
-
-socket.getaddrinfo = _pinned_getaddrinfo  # type: ignore[assignment]
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 def bind_allow(hosts: list[str]) -> Token[list[str] | None]:
@@ -63,64 +54,55 @@ def current_allow() -> list[str]:
     return [] if bound is None else list(bound)
 
 
-class EgressDenied(httpx.TransportError):
-    """The egress decision refused this URL before a socket was opened."""
+def resolve_host(host: str) -> list[str]:
+    """Addresses for ``host``. A failed lookup raises :class:`EgressDenied`.
 
-    def __init__(self, reason: str) -> None:
-        super().__init__(reason)
-        self.reason = reason
-
-
-class EgressTransport(httpx.BaseTransport):
-    """Sync transport. ``pin`` is false when the inner transport is a test double."""
-
-    def __init__(
-        self,
-        inner: httpx.BaseTransport,
-        *,
-        allow: list[str],
-        mode: str,
-        loopback: bool | None,
-        pin: bool,
-    ) -> None:
-        self._inner = inner
-        self._allow = allow
-        self._mode = mode
-        self._loopback = loopback
-        self._pin = pin
-
-    def handle_request(self, request: httpx.Request) -> httpx.Response:
-        rewritten = _prepare(request, self._allow, self._mode, self._loopback, pin=self._pin)
-        return self._inner.handle_request(rewritten)
-
-    def close(self) -> None:
-        self._inner.close()
+    Tests replace this function. Production uses ``socket.getaddrinfo`` once,
+    in the caller, and the socket then dials the returned address.
+    """
+    literal = canonical_ip(host)
+    if literal is not None:
+        return [str(literal)]
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise EgressDenied(f"{host} could not be resolved") from exc
+    found: list[str] = []
+    for info in infos:
+        address = info[4][0]
+        parsed = canonical_ip(str(address))
+        if parsed is not None and str(parsed) not in found:
+            found.append(str(parsed))
+    if not found:
+        raise EgressDenied(f"{host} could not be resolved")
+    return found
 
 
-class AsyncEgressTransport(httpx.AsyncBaseTransport):
-    """Async transport with the same decision as :class:`EgressTransport`."""
+def pinned_host(host: str, allow: list[str] | None = None) -> str:
+    """The address a non-HTTP client dials. Open mode keeps the name.
 
-    def __init__(
-        self,
-        inner: httpx.AsyncBaseTransport,
-        *,
-        allow: list[str],
-        mode: str,
-        loopback: bool | None,
-        pin: bool,
-    ) -> None:
-        self._inner = inner
-        self._allow = allow
-        self._mode = mode
-        self._loopback = loopback
-        self._pin = pin
+    Closed mode resolves once and returns the approved address, or raises.
+    """
+    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
 
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        rewritten = _prepare(request, self._allow, self._mode, self._loopback, pin=self._pin)
-        return await self._inner.handle_async_request(rewritten)
+    if not closed_egress():
+        return host
+    return approved_address(host, allow)
 
-    async def aclose(self) -> None:
-        await self._inner.aclose()
+
+def approved_address(
+    host: str,
+    allow: list[str] | None = None,
+    *,
+    mode: str = "external",
+    loopback: bool | None = None,
+) -> str:
+    """Resolve ``host`` and return the address a non-HTTP client may dial."""
+    addresses = resolve_host(host)
+    problem = _judge(host, addresses, allow or current_allow(), mode, loopback)
+    if problem is not None:
+        raise EgressDenied(problem)
+    return addresses[0]
 
 
 def guard(
@@ -132,7 +114,174 @@ def guard(
 ) -> str | None:
     """Why ``url`` may not be called, or None when it may. No socket is opened."""
     host = host_of(url)
-    return _reason(host, allow or [], mode, loopback, resolve_names=False)
+    if not host:
+        return "url must name a host"
+    try:
+        addresses = resolve_host(host)
+    except EgressDenied as exc:
+        return exc.reason
+    return _judge(host, addresses, allow or [], mode, loopback)
+
+
+class _PinSync(httpcore.NetworkBackend):
+    """Dial the address this task approved. Never look the name up again."""
+
+    def __init__(self) -> None:
+        self._inner = httpcore.SyncBackend()
+
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: object = None,
+    ) -> httpcore.NetworkStream:
+        return self._inner.connect_tcp(
+            _target(host),
+            port,
+            timeout=timeout,
+            local_address=local_address,
+            socket_options=socket_options,  # type: ignore[arg-type]
+        )
+
+    def connect_unix_socket(
+        self, path: str, timeout: float | None = None, socket_options: object = None
+    ) -> httpcore.NetworkStream:
+        del path, timeout, socket_options
+        raise httpcore.ConnectError("a unix socket is not an egress path")
+
+    def sleep(self, seconds: float) -> None:
+        self._inner.sleep(seconds)
+
+
+class _PinAsync(httpcore.AsyncNetworkBackend):
+    """Async dial of the address this task approved."""
+
+    def __init__(self) -> None:
+        self._inner = httpcore.AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,  # noqa: ASYNC109
+        local_address: str | None = None,
+        socket_options: object = None,
+    ) -> httpcore.AsyncNetworkStream:
+        return await self._inner.connect_tcp(
+            _target(host),
+            port,
+            timeout=timeout,
+            local_address=local_address,
+            socket_options=socket_options,  # type: ignore[arg-type]
+        )
+
+    async def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,  # noqa: ASYNC109
+        socket_options: object = None,
+    ) -> httpcore.AsyncNetworkStream:
+        del path, timeout, socket_options
+        raise httpcore.ConnectError("a unix socket is not an egress path")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._inner.sleep(seconds)
+
+
+class EgressTransport(httpx.BaseTransport):
+    """Sync transport. One pool, one decision, one pinned dial per request."""
+
+    def __init__(self, *, allow: list[str], mode: str, loopback: bool | None) -> None:
+        self._allow = allow
+        self._mode = mode
+        self._loopback = loopback
+        self._inner = httpx.HTTPTransport(trust_env=False)
+        self._inner._pool._network_backend = _PinSync()
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        token = _approve(request, self._allow, self._mode, self._loopback)
+        try:
+            return self._inner.handle_request(request)
+        finally:
+            _dial.reset(token)
+
+    def close(self) -> None:
+        self._inner.close()
+
+
+class AsyncEgressTransport(httpx.AsyncBaseTransport):
+    """Async transport. The pin is on this task, not on ``socket.getaddrinfo``."""
+
+    def __init__(self, *, allow: list[str], mode: str, loopback: bool | None) -> None:
+        self._allow = allow
+        self._mode = mode
+        self._loopback = loopback
+        self._inner = httpx.AsyncHTTPTransport(trust_env=False)
+        self._inner._pool._network_backend = _PinAsync()
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        token = _approve(request, self._allow, self._mode, self._loopback)
+        try:
+            return await self._inner.handle_async_request(request)
+        finally:
+            _dial.reset(token)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
+
+class _CheckingTransport(httpx.BaseTransport):
+    """Run the decision, then hand the original request to a test double."""
+
+    def __init__(
+        self,
+        inner: httpx.BaseTransport,
+        *,
+        allow: list[str],
+        mode: str,
+        loopback: bool | None,
+    ) -> None:
+        self._inner = inner
+        self._allow = allow
+        self._mode = mode
+        self._loopback = loopback
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        token = _approve(request, self._allow, self._mode, self._loopback)
+        try:
+            return self._inner.handle_request(request)
+        finally:
+            _dial.reset(token)
+
+    def close(self) -> None:
+        self._inner.close()
+
+
+class _CheckingAsyncTransport(httpx.AsyncBaseTransport):
+    def __init__(
+        self,
+        inner: httpx.AsyncBaseTransport,
+        *,
+        allow: list[str],
+        mode: str,
+        loopback: bool | None,
+    ) -> None:
+        self._inner = inner
+        self._allow = allow
+        self._mode = mode
+        self._loopback = loopback
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        token = _approve(request, self._allow, self._mode, self._loopback)
+        try:
+            return await self._inner.handle_async_request(request)
+        finally:
+            _dial.reset(token)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
 
 
 def sync_client(
@@ -146,24 +295,15 @@ def sync_client(
     **kwargs: Any,
 ) -> httpx.Client:
     """A client whose transport refuses a URL the egress decision rejects."""
-    inner = transport or httpx.HTTPTransport()
+    _reject(kwargs)
     chosen = current_allow() if allow is None else list(allow)
-    wrapped = EgressTransport(
-        inner,
-        allow=chosen,
-        mode=_mode(mode),
-        loopback=loopback,
-        pin=transport is None,
-    )
-    return cast(
-        "httpx.Client",
-        _open(
-            httpx.Client,
-            transport=wrapped,
-            timeout=timeout,
-            follow_redirects=follow_redirects,
-            **kwargs,
-        ),
+    checked: httpx.BaseTransport
+    if transport is None:
+        checked = EgressTransport(allow=chosen, mode=_mode(mode), loopback=loopback)
+    else:
+        checked = _CheckingTransport(transport, allow=chosen, mode=_mode(mode), loopback=loopback)
+    return httpx.Client(
+        transport=checked, timeout=timeout, follow_redirects=follow_redirects, trust_env=False
     )
 
 
@@ -178,58 +318,44 @@ def async_client(
     **kwargs: Any,
 ) -> httpx.AsyncClient:
     """Async form of :func:`sync_client`."""
-    inner = transport or httpx.AsyncHTTPTransport()
+    _reject(kwargs)
     chosen = current_allow() if allow is None else list(allow)
-    wrapped = AsyncEgressTransport(
-        inner,
-        allow=chosen,
-        mode=_mode(mode),
-        loopback=loopback,
-        pin=transport is None,
+    checked: httpx.AsyncBaseTransport
+    if transport is None:
+        checked = AsyncEgressTransport(allow=chosen, mode=_mode(mode), loopback=loopback)
+    else:
+        checked = _CheckingAsyncTransport(
+            transport, allow=chosen, mode=_mode(mode), loopback=loopback
+        )
+    return httpx.AsyncClient(
+        transport=checked, timeout=timeout, follow_redirects=follow_redirects, trust_env=False
     )
-    return cast(
-        "httpx.AsyncClient",
-        _open(
-            httpx.AsyncClient,
-            transport=wrapped,
-            timeout=timeout,
-            follow_redirects=follow_redirects,
-            **kwargs,
-        ),
-    )
-
-
-def _open(cls: Any, **kwargs: Any) -> Any:
-    """Build a client. A test double that replaces httpx does not take our transport."""
-    module = str(getattr(cls, "__module__", ""))
-    if module.startswith("httpx"):
-        return cls(**kwargs)
-    slim = {key: value for key, value in kwargs.items() if key != "transport"}
-    try:
-        return cls(**slim)
-    except TypeError:
-        timeout = slim.get("timeout")
-        if timeout is not None:
-            return cls(timeout)
-        raise
 
 
 def get(url: str, *, allow: list[str] | None = None, **kwargs: Any) -> httpx.Response:
     """One GET through :func:`sync_client`."""
     timeout = kwargs.pop("timeout", None)
-    with sync_client(allow=allow, timeout=timeout) as client:
-        return client.get(url, **kwargs)
+    with sync_client(allow=allow, timeout=timeout, **kwargs) as client:
+        return client.get(url)
 
 
 def post(url: str, *, allow: list[str] | None = None, **kwargs: Any) -> httpx.Response:
     """One POST through :func:`sync_client`."""
     timeout = kwargs.pop("timeout", None)
-    with sync_client(allow=allow, timeout=timeout) as client:
-        return client.post(url, **kwargs)
+    with sync_client(allow=allow, timeout=timeout, **kwargs) as client:
+        return client.post(url)
 
 
 http_get = get
 http_post = post
+
+
+def _reject(kwargs: dict[str, Any]) -> None:
+    found = sorted(_REJECTED.intersection(kwargs))
+    if found:
+        raise EgressDenied(
+            f"{', '.join(found)} is not accepted; it would skip the egress transport"
+        )
 
 
 def _mode(mode: str) -> str:
@@ -238,122 +364,66 @@ def _mode(mode: str) -> str:
     return mode
 
 
-def _reason(
-    host: str,
+def _approve(
+    request: httpx.Request,
     allow: list[str],
     mode: str,
     loopback: bool | None,  # noqa: FBT001
-    *,
-    resolve_names: bool,
+) -> Token[dict[str, str] | None]:
+    host = request.url.host
+    if not host:
+        raise EgressDenied("url must name a host")
+    addresses = resolve_host(host)
+    problem = _judge(host, addresses, allow, mode, loopback)
+    if problem is not None:
+        raise EgressDenied(problem)
+    return _dial.set({host: addresses[0]})
+
+
+def _target(host: str) -> str:
+    pins = _dial.get()
+    chosen = pins.get(host) if pins else None
+    if not chosen:
+        raise httpcore.ConnectError(f"no approved address for {host}")
+    return chosen
+
+
+def _judge(
+    host: str,
+    addresses: list[str],
+    allow: list[str],
+    mode: str,
+    loopback: bool | None,  # noqa: FBT001
 ) -> str | None:
     if mode == "cluster":
-        return _cluster_reason(host, loopback=loopback, resolve_names=resolve_names)
+        problem = decide(
+            host,
+            [host],
+            resolve=lambda _name: addresses,
+            closed=False,
+            loopback=True if loopback is None else loopback,
+            check_private=True,
+            named_private=True,
+        )
+        if problem is not None and "private" not in problem and "deny list" not in problem:
+            return problem
+        if any(not _cluster_ip(item) for item in addresses):
+            return f"{host} is a public address and a cluster client will not dial it"
+        return None
     return decide(
         host,
         allow,
+        resolve=lambda _name: addresses,
         closed=None,
         loopback=loopback,
-        check_private=resolve_names,
+        check_private=True,
     )
-
-
-def _cluster_reason(  # noqa: PLR0911
-    host: str, *, loopback: bool | None, resolve_names: bool
-) -> str | None:
-    """In-cluster calls may be private. A public or metadata address is refused."""
-    if not host:
-        return "url must name a host"
-    problem = decide(
-        host,
-        [host],
-        closed=False,
-        loopback=True if loopback is None else loopback,
-        check_private=resolve_names,
-        named_private=True,
-    )
-    if problem is not None and "private address" not in problem and "deny list" not in problem:
-        return problem
-    if not resolve_names:
-        literal = canonical_ip(host)
-        if (
-            literal is not None
-            and not (literal.is_private or literal.is_loopback or literal.is_link_local)
-            and not literal.is_unspecified
-        ):
-            return f"{host} is a public address and a cluster client will not dial it"
-        return None
-    _error, found = dial_addresses(host, [host], closed=False, loopback=True, named_private=True)
-    if not found:
-        return _error or f"{host} could not be resolved"
-    if any(not _cluster_ip(item) for item in found):
-        return f"{host} is a public address and a cluster client will not dial it"
-    return None
 
 
 def _cluster_ip(address: str) -> bool:
     ip = canonical_ip(address)
     if ip is None:
         return False
-    if ip.is_unspecified or ip.is_link_local or ip.is_multicast or ip.is_reserved:
-        return bool(ip.is_loopback or ip.is_private)
+    if ip.is_unspecified or ip.is_link_local:
+        return False
     return bool(ip.is_private or ip.is_loopback)
-
-
-def _prepare(
-    request: httpx.Request,
-    allow: list[str],
-    mode: str,
-    loopback: bool | None,  # noqa: FBT001
-    *,
-    pin: bool,
-) -> httpx.Request:
-    host = request.url.host
-    problem = _reason(host, allow, mode, loopback, resolve_names=False)
-    if problem is not None:
-        raise EgressDenied(problem)
-    if pin and host:
-        _error, addresses = _pinned(host, allow, mode, loopback)
-        if _error is not None and "could not be resolved" not in _error:
-            raise EgressDenied(_error)
-        if addresses:
-            current = dict(_pins.get() or {})
-            current[host] = addresses[0]
-            _pins.set(current)
-    return request
-
-
-def _pinned(
-    host: str,
-    allow: list[str],
-    mode: str,
-    loopback: bool | None,  # noqa: FBT001
-) -> tuple[str | None, list[str]]:
-    if mode == "cluster":
-        problem = _cluster_reason(host, loopback=loopback, resolve_names=True)
-        if problem is not None:
-            return problem, []
-        return dial_addresses(host, [host], closed=False, loopback=True, named_private=True)
-    problem, addresses = dial_addresses(host, allow, loopback=loopback)
-    if problem is not None and "could not be resolved" in problem:
-        return None, []
-    return problem, addresses
-
-
-def _pinned_request(request: httpx.Request, ip: str) -> httpx.Request:
-    """Connect to ``ip`` and keep the original host for Host and SNI."""
-    original = request.url.host
-    port = request.url.port
-    host_header = original if port in {None, 80, 443} else f"{original}:{port}"
-    url = request.url.copy_with(host=ip)
-    headers = list(request.headers.items())
-    replaced = [(key, value) for key, value in headers if key.lower() != "host"]
-    replaced.append(("host", host_header))
-    extensions: dict[str, object] = dict(request.extensions)
-    extensions["sni_hostname"] = original
-    return httpx.Request(
-        request.method,
-        url,
-        headers=replaced,
-        content=request.content,
-        extensions=extensions,
-    )

@@ -65,7 +65,19 @@ def setup(service_name: str, settings: BaseServiceSettings | None = None) -> Non
             _log.info("telemetry_skipped", reason="egress_closed")
             _TelemetryState.ready = True
             return
-    target, insecure = _grpc_target(current.otel_exporter_otlp_endpoint)
+        from ar_common.egress_http import EgressDenied, pinned_host  # noqa: PLC0415
+
+        host = _grpc_target(current.otel_exporter_otlp_endpoint)[0].split("/")[0].split(":")[0]
+        try:
+            pinned = pinned_host(host)
+        except EgressDenied:
+            _log.info("telemetry_skipped", reason="egress_closed")
+            _TelemetryState.ready = True
+            return
+        current_endpoint = current.otel_exporter_otlp_endpoint.replace(host, pinned, 1)
+    else:
+        current_endpoint = current.otel_exporter_otlp_endpoint
+    target, insecure = _grpc_target(current_endpoint)
     sampler = ParentBased(TraceIdRatioBased(current.trace_sample_ratio))
     tracer_provider = TracerProvider(resource=resource, sampler=sampler)
     tracer_provider.add_span_processor(

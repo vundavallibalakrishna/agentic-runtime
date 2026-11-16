@@ -608,10 +608,19 @@ class ChatBehaviour:
             # A provider that only serves embeddings or reranking is tested with one of those.
             return await self._probe_vectors(tenant_id, models[0])
         if chat is None:
-            return await self._probe_listing(str(row["base_url"]), key)
-        return await self._probe_live(str(row["base_url"]), str(chat.get("upstream_model")), key)
+            return await self._probe_listing(tenant_id, str(row["base_url"]), key)
+        return await self._probe_live(
+            tenant_id, str(row["base_url"]), str(chat.get("upstream_model")), key
+        )
 
-    async def _probe_listing(self, base_url: str, api_key: str) -> dict[str, object]:
+    def _dial_allow(self, tenant_id: uuid.UUID | None) -> list[str]:
+        from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+        return dial_allow(self, tenant_id)
+
+    async def _probe_listing(
+        self, tenant_id: uuid.UUID, base_url: str, api_key: str
+    ) -> dict[str, object]:
         """Test a provider that has no model yet: ask it which models it serves.
 
         No model name is made up to call it with. A provider that answers and accepts the
@@ -622,7 +631,7 @@ class ChatBehaviour:
         ok = False
         output = "provider test failed"
         try:
-            async with async_client(timeout=30.0) as client:
+            async with async_client(timeout=30.0, allow=self._dial_allow(tenant_id)) as client:
                 response = await client.get(base_url.rstrip("/") + "/models", headers=headers)
             if response.status_code < 300:
                 body = response.json()
@@ -1048,6 +1057,7 @@ class ChatBehaviour:
             return await self._probe_vectors(tenant_id, model)
         provider = self.providers[uuid.UUID(str(model["provider_id"]))]
         return await self._probe_live(
+            tenant_id,
             str(provider["base_url"]),
             str(model["upstream_model"]),
             await self._provider_key(provider),
@@ -1064,6 +1074,7 @@ class ChatBehaviour:
             return await self._probe_vectors(tenant_id, model)
         provider = self.providers[uuid.UUID(str(model["provider_id"]))]
         return await self._probe_live(
+            tenant_id,
             str(provider["base_url"]),
             str(model["upstream_model"]),
             await self._provider_key(provider),
@@ -1090,6 +1101,7 @@ class ChatBehaviour:
 
     async def _probe_live(
         self,
+        tenant_id: uuid.UUID,
         base_url: str,
         model: str,
         api_key: str,
@@ -1128,7 +1140,7 @@ class ChatBehaviour:
         output = "provider test failed"
         answered = False
         try:
-            async with async_client(timeout=60.0) as client:
+            async with async_client(timeout=60.0, allow=self._dial_allow(tenant_id)) as client:
                 response = await client.post(
                     chat_completions_url(base_url), json=body, headers=headers
                 )
@@ -1688,15 +1700,10 @@ class ChatBehaviour:
         cannot record ``127.0.0.1``. A call also honours the install flag,
         because the worker that reloads a saved provider is a new process.
         """
-        from ar_common.egress_http import bind_allow  # noqa: PLC0415
         from ar_common.settings import loopback_allowed  # noqa: PLC0415
-        from ar_domain.egress import (  # noqa: PLC0415
-            dial_allow,
-            model_refusal,
-        )
+        from ar_domain.egress import model_refusal  # noqa: PLC0415
         from ar_domain.models.logic import provider_url_denied  # noqa: PLC0415
 
-        bind_allow(dial_allow(self, tenant_id))
         loop = self.allow_loopback or (loopback_allowed() if at_call else False)
         if provider_url_denied(url, self.deny_cidrs, allow_loopback=loop):
             raise ArError(ErrorCode.BAD_REQUEST, "that model URL is not allowed")
@@ -2241,6 +2248,7 @@ class ChatBehaviour:
             real=real,
             options=self.request_options(owner, alias),
             url=url,
+            allow=self._dial_allow(owner),
         )
         return [prefix + (remote or "The model returned an empty answer.")]
 
@@ -2255,6 +2263,7 @@ class ChatBehaviour:
         real: bool = False,
         options: dict[str, object] | None = None,
         url: str | None = None,
+        allow: list[str] | None = None,
     ) -> str | None:
         from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
 
@@ -2273,7 +2282,7 @@ class ChatBehaviour:
         else:
             body = {"model": model, "messages": messages}
         try:
-            async with async_client(timeout=timeout_s) as client:
+            async with async_client(timeout=timeout_s, allow=allow) as client:
                 response = await client.post(
                     url or self.completion_url(),
                     json=body,
@@ -2338,7 +2347,7 @@ class ChatBehaviour:
                 body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
         try:
-            async with async_client(timeout=timeout_s) as client:
+            async with async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client:
                 response = await client.post(url, json=body, headers=headers)
         except httpx.HTTPError:
             if not real:

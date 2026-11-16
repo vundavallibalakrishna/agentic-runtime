@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 from ar_common.settings import get_settings, loopback_allowed
 
 # Always refused, even when the name is on an allowlist.
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
+_SIXTO4 = ipaddress.ip_network("2002::/16")
 _ALWAYS_DENY = (
     ipaddress.ip_network("0.0.0.0/8"),
     ipaddress.ip_network("169.254.0.0/16"),
@@ -84,7 +86,58 @@ def resolved_addresses(host: str) -> list[str] | None:
     return _addresses(host, None, need=True)
 
 
-def canonical_ip(  # noqa: PLR0911
+def _part(text: str) -> int | None:
+    if text.lower().startswith("0x"):
+        try:
+            return int(text, 16)
+        except ValueError:
+            return None
+    if len(text) > 1 and text.startswith("0") and text.isdigit():
+        try:
+            return int(text, 8)
+        except ValueError:
+            return None
+    if text.isdigit():
+        return int(text, 10)
+    return None
+
+
+def _inet_aton(text: str) -> ipaddress.IPv4Address | None:  # noqa: PLR0911
+    """inet_aton forms: ``127.1``, ``0x7f.0.0.1``, decimal and octal."""
+    parts = text.split(".")
+    if not 1 <= len(parts) <= 4:
+        return None
+    numbers: list[int] = []
+    for part in parts:
+        parsed = _part(part)
+        if parsed is None:
+            return None
+        numbers.append(parsed)
+    try:
+        if len(numbers) == 1 and numbers[0] <= 0xFFFFFFFF:
+            return ipaddress.IPv4Address(numbers[0])
+        if len(numbers) == 2 and numbers[0] <= 255 and numbers[1] <= 0xFFFFFF:
+            return ipaddress.IPv4Address((numbers[0] << 24) | numbers[1])
+        if len(numbers) == 3 and numbers[0] <= 255 and numbers[1] <= 255 and numbers[2] <= 0xFFFF:
+            return ipaddress.IPv4Address((numbers[0] << 24) | (numbers[1] << 16) | numbers[2])
+        if len(numbers) == 4 and all(item <= 255 for item in numbers):
+            value = (numbers[0] << 24) | (numbers[1] << 16) | (numbers[2] << 8) | numbers[3]
+            return ipaddress.IPv4Address(value)
+    except ValueError:
+        return None
+    return None
+
+
+def _embedded_v4(address: ipaddress.IPv6Address) -> ipaddress.IPv4Address | None:
+    """The IPv4 address inside NAT64 or 6to4, when ``address`` is one of those."""
+    if address in _NAT64:
+        return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
+    if address in _SIXTO4:
+        return ipaddress.IPv4Address((int(address) >> 80) & 0xFFFFFFFF)
+    return None
+
+
+def canonical_ip(
     host: str,
 ) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
     """The address ``host`` names, unwrapping mapped, decimal and octal forms.
@@ -95,23 +148,9 @@ def canonical_ip(  # noqa: PLR0911
     text = host.strip().strip("[]")
     if not text:
         return None
-    if text.isdigit():
-        number = int(text)
-        if 0 <= number <= 0xFFFFFFFF:
-            return ipaddress.IPv4Address(number)
-        return None
-    if text.count(".") == 3 and all(part.isdigit() for part in text.split(".")):
-        values: list[int] = []
-        for part in text.split("."):
-            base = 8 if len(part) > 1 and part.startswith("0") else 10
-            try:
-                parsed = int(part, base)
-            except ValueError:
-                return None
-            if parsed > 255:
-                return None
-            values.append(parsed)
-        return ipaddress.IPv4Address(".".join(str(item) for item in values))
+    dotted = _inet_aton(text)
+    if dotted is not None:
+        return dotted
     try:
         parsed_ip = ipaddress.ip_address(text)
     except ValueError:
@@ -119,6 +158,10 @@ def canonical_ip(  # noqa: PLR0911
     mapped = getattr(parsed_ip, "ipv4_mapped", None)
     if isinstance(mapped, ipaddress.IPv4Address):
         return mapped
+    if isinstance(parsed_ip, ipaddress.IPv6Address):
+        embedded = _embedded_v4(parsed_ip)
+        if embedded is not None:
+            return embedded
     return parsed_ip
 
 

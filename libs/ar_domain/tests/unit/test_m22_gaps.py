@@ -234,6 +234,7 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
     real_async = httpx.AsyncClient
 
     def _async(*_args: object, **kwargs: object) -> httpx.AsyncClient:
+        kwargs.pop("transport", None)
         kwargs["transport"] = httpx.MockTransport(lambda _request: httpx.Response(502, text="no"))
         return real_async(**kwargs)  # type: ignore[arg-type]
 
@@ -244,10 +245,12 @@ def test_connection_edges_and_token_failures(monkeypatch: pytest.MonkeyPatch) ->
         httpx,
         "AsyncClient",
         lambda *_args, **kwargs: real_async(
-            transport=httpx.MockTransport(
-                lambda _request: httpx.Response(200, json={"token_type": "bearer"})
-            ),
-            **kwargs,
+            **{
+                **kwargs,
+                "transport": httpx.MockTransport(
+                    lambda _request: httpx.Response(200, json={"token_type": "bearer"})
+                ),
+            },
         ),
     )
     with pytest.raises(ArError):

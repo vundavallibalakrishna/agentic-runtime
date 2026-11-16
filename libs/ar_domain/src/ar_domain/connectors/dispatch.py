@@ -464,8 +464,14 @@ def _probe_email(
     if problem:
         return {"ok": False, "status": 0, "error": problem}
     port = _port(config.get("smtpPort"), 587)
+    from ar_common.egress_http import EgressDenied, pinned_host  # noqa: PLC0415
+
     try:
-        with smtplib.SMTP(host, port, timeout=15) as client:
+        dial = pinned_host(host)
+    except EgressDenied as exc:
+        return {"ok": False, "status": 0, "error": exc.reason}
+    try:
+        with smtplib.SMTP(dial, port, timeout=15) as client:
             client.ehlo()
             if config.get("smtpTls", "true").lower() != "false":
                 client.starttls()

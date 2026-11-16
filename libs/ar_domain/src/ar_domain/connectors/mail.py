@@ -53,7 +53,7 @@ def send_message(
             with factory() as client:
                 _login_and_send(client, username, password, sender, recipient, message)
         else:
-            with smtplib.SMTP(host, port, timeout=20) as client:
+            with smtplib.SMTP(_dial(host), port, timeout=20) as client:
                 client.ehlo()
                 if use_tls:
                     client.starttls()
@@ -132,6 +132,15 @@ def read_message(
     return _fail("The provider could not find that item (404).")
 
 
+def _dial(host: str) -> str:
+    from ar_common.egress_http import EgressDenied, pinned_host  # noqa: PLC0415
+
+    try:
+        return pinned_host(host)
+    except EgressDenied as exc:
+        raise OSError(exc.reason) from exc
+
+
 def _login_and_send(  # noqa: PLR0917
     client: Any, username: str, password: str, sender: str, recipient: str, message: EmailMessage
 ) -> None:
@@ -146,8 +155,8 @@ def _imap(store: Any, host: str, port: int, *, use_ssl: bool) -> Any:
     if factory is not None:
         return factory()
     if use_ssl:
-        return imaplib.IMAP4_SSL(host, port)
-    return imaplib.IMAP4(host, port)
+        return imaplib.IMAP4_SSL(_dial(host), port)
+    return imaplib.IMAP4(_dial(host), port)
 
 
 def _header(client: Any, item: bytes) -> dict[str, str]:

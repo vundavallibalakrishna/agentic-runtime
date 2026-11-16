@@ -437,8 +437,8 @@ def test_tools_cover_ingest_paths_and_model_call(monkeypatch: pytest.MonkeyPatch
             return {"choices": [{"message": {"content": '{"claims":[]}'}}]}
 
     class Client:
-        def __init__(self, timeout: float) -> None:
-            del timeout
+        def __init__(self, timeout: float, **kwargs: object) -> None:
+            del timeout, kwargs
 
         def __enter__(self) -> Client:
             return self

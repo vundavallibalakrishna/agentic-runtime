@@ -101,11 +101,11 @@ def execute_operation(store: Any, arguments: dict[str, object]) -> dict[str, obj
         return _error("validation_failed", "this tool has no URL")
     from ar_domain.egress import dial_allow  # noqa: PLC0415
 
-    extra = operation.get("allow_hosts")
-    named = [str(item) for item in extra] if isinstance(extra, list) else []
+    # The operation's own host list is not a grant. Closed mode uses the tenant
+    # allowlist and AR_EGRESS_HOSTS only.
     problem = guard_public(
         url,
-        allow=[*dial_allow(store, arguments.get("_tenant_id")), *named],
+        allow=dial_allow(store, arguments.get("_tenant_id")),
         loopback=False,
     )
     if problem:

@@ -22,7 +22,9 @@ def send_email(
     message["To"] = recipient
     message["Subject"] = subject
     message.set_content(body)
-    with smtplib.SMTP(host, port, timeout=10) as client:
+    from ar_common.egress_http import pinned_host  # noqa: PLC0415
+
+    with smtplib.SMTP(pinned_host(host), port, timeout=10) as client:
         if starttls:
             client.starttls()
         if username:

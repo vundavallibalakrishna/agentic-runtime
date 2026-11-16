@@ -131,11 +131,14 @@ def _config(source: dict[str, object]) -> dict[str, object]:
 
 
 def _hosts(row: dict[str, object]) -> list[str]:
-    """Tenant allowlist. A source's own allowlist is not an egress grant."""
+    """Tenant allowlist carried on the source. A source allowlist is not a grant."""
     from ar_domain.egress import tenant_hosts  # noqa: PLC0415
 
-    store = row.get("_store")
-    return tenant_hosts(store, row.get("tenant_id"))
+    store = row.get("store")
+    tenant = row.get("tenant_id")
+    if store is None:
+        return []
+    return tenant_hosts(store, tenant)
 
 
 def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, object]:  # noqa: PLR0911
@@ -155,10 +158,9 @@ def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, obje
     hosts = _hosts(source)
     if guard(start, hosts) is not None:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    proxy = str(config.get("proxy") or "")
-    if proxy and guard(proxy, hosts) is not None:
+    if str(config.get("proxy") or "").strip():
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
-    client = sync_client(allow=hosts, timeout=5.0, follow_redirects=False, proxy=proxy or None)
+    client = sync_client(allow=hosts, timeout=5.0, follow_redirects=False)
     try:
         robots = client.get(urljoin(start, "/robots.txt"))
         if robots.status_code == 200 and "Disallow: /" in robots.text:

@@ -16,6 +16,7 @@ def _client(store: Any, *, endpoint: str, region: str, access_key: str, secret_k
         return factory()
     import boto3  # noqa: PLC0415
 
+    endpoint = _pinned_endpoint(endpoint)
     return boto3.client(
         "s3",
         endpoint_url=endpoint or None,
@@ -23,6 +24,27 @@ def _client(store: Any, *, endpoint: str, region: str, access_key: str, secret_k
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
     )
+
+
+def _pinned_endpoint(endpoint: str) -> str:
+    from urllib.parse import urlsplit, urlunsplit  # noqa: PLC0415
+
+    from ar_common.egress_http import EgressDenied, pinned_host  # noqa: PLC0415
+    from ar_common.egress_policy import closed_egress  # noqa: PLC0415
+
+    if not closed_egress():
+        return endpoint
+    if not endpoint:
+        raise OSError("an endpoint is required when egress is closed")
+    parts = urlsplit(endpoint)
+    if not parts.hostname:
+        raise OSError("an endpoint is required when egress is closed")
+    try:
+        dial = pinned_host(parts.hostname)
+    except EgressDenied as exc:
+        raise OSError(exc.reason) from exc
+    netloc = parts.netloc.replace(parts.hostname, dial, 1)
+    return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
 
 
 def _endpoint_host(endpoint: str) -> str | None:

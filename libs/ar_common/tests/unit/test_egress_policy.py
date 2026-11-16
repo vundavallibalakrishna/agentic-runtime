@@ -112,10 +112,18 @@ def test_mapped_decimal_octal_and_unspecified_addresses_stay_denied() -> None:
     ):
         reason = decide(host, [host], closed=False, loopback=True, named_private=True)
         assert reason is not None, host
-    for host in ("2130706433", "0177.0.0.1", "localhost", "fake-llm"):
+    for host in (
+        "2130706433",
+        "0177.0.0.1",
+        "127.1",
+        "0x7f.0.0.1",
+        "localhost",
+        "fake-llm",
+        "64:ff9b::a9fe:a9fe",
+        "2002:a9fe:a9fe::",
+    ):
         reason = decide(host, [host], closed=False, loopback=False)
         assert reason is not None, host
-        assert "not allowed" in reason or "deny list" in reason
 
 
 def test_a_star_is_not_a_match_when_closed() -> None:

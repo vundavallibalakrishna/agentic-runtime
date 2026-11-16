@@ -17,7 +17,7 @@ Set it to `true` to refuse outbound calls whose host is not on the tenant allowl
 
 A host named exactly on the list may resolve to a private address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, and the IPv6 unique-local range) only when `AR_EGRESS_ALLOW_NAMED_PRIVATE` is `true`. The default is `false`. The air-gap overlay sets it to `true`. Metadata addresses, `0.0.0.0/8`, `::`, and the cloud metadata addresses `100.100.100.200`, `168.63.129.16` and `192.0.0.192` stay denied even when named, including IPv4-mapped, decimal and octal spellings. A star, a CIDR, and a wildcard of a single label (`*.com`) are not matches.
 
-Outbound HTTP goes through `ar_common.egress_http`. A real socket connects to the address that decision resolved. Restart API and worker processes after upgrading so they load the new client and revision `0047`.
+Outbound HTTP goes through `ar_common.egress_http`. The transport resolves the name once. A failed lookup is a refusal. The socket dials the approved address while the Host header and TLS SNI stay on the original name. This holds for the sync client and the async client, including under uvloop. `proxy`, `mounts` and environment proxies are rejected. SMTP, IMAP, S3 and the OTEL exporter use the same decision and dial the approved address when closed mode is on. A client created for one request does not keep that request's allowlist. Restart API and worker processes after upgrading so they load the new client and revision `0047`.
 
 ## Helm
 
@@ -26,7 +26,7 @@ Outbound HTTP goes through `ar_common.egress_http`. A real socket connects to th
 - sets `AR_EGRESS_CLOSED=true` and `AR_EGRESS_HOSTS=otel-collector`
 - removes the port 443 egress rules on the shared pod policy and on mcp-gateway
 
-Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-separated) or to the tenant allowlist before saving those providers. The API and the runtime worker already have no port 443 rule.
+Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-separated) or to the tenant allowlist before saving those providers. The API and the runtime worker already have no port 443 rule. `airgap.egressPorts` is the port list opened for `airgap.egressCIDRs`. The default is 443 and 80. Add 25, 587, 993, 389 or 8000 when mail, a directory or an in-cluster model needs them.
 
 ## Default assistant
 
