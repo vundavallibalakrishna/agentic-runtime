@@ -14,10 +14,10 @@ from ar_domain.chat.service import ChatService
 from ar_domain.durable.bind import bind_store
 from ar_domain.durable.flush import flush_store
 from ar_domain.identity.permissions import PERMISSION_KEYS
-from grc_pack.tools import PACK_PERMISSIONS
 from ar_domain.identity.seed import apply
 from grc_pack import enable
 from grc_pack.book import CatalogueBook
+from grc_pack.tools import PACK_PERMISSIONS
 
 pytestmark = pytest.mark.integration
 
