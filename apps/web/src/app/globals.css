@@ -3,29 +3,37 @@
 
 /* Design tokens. Feature code uses these names and does not add hex colours. */
 
+/* Console look: a dark navigation column, a light work surface and one blue accent. */
 :root {
   color-scheme: light;
-  --background: oklch(0.985 0.004 80);
-  --foreground: oklch(0.23 0.008 70);
+  --background: oklch(0.975 0.004 255);
+  --foreground: oklch(0.21 0.03 265);
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: var(--card);
-  --muted: oklch(0.95 0.006 80);
-  --muted-foreground: oklch(0.47 0.01 70);
-  --border: oklch(0.9 0.008 80);
-  --primary: oklch(0.25 0.012 70);
-  --primary-foreground: oklch(0.99 0 0);
+  --muted: oklch(0.955 0.006 255);
+  --muted-foreground: oklch(0.45 0.025 260);
+  --border: oklch(0.895 0.012 258);
+  --primary: oklch(0.49 0.22 264);
+  --primary-hover: oklch(0.42 0.2 264);
+  --primary-foreground: oklch(1 0 0);
   --accent: var(--primary);
   --accent-foreground: var(--primary-foreground);
-  --destructive: oklch(0.45 0.14 25);
-  --ring: var(--foreground);
-  --sidebar: oklch(0.965 0.006 80);
-  --nav-active: var(--card);
-  --shadow-xs: 0 1px 3px oklch(0.2 0.01 70 / 0.05);
-  --shadow-composer: 0 4px 24px oklch(0.2 0.01 70 / 0.05);
-  --scrim: oklch(0.18 0 0 / 0.28);
-  --shadow: 0 12px 32px oklch(0.18 0 0 / 0.06);
-  --radius: 12px;
+  --destructive: oklch(0.5 0.19 27);
+  --ring: var(--primary);
+  --sidebar: oklch(0.24 0.06 255);
+  --sidebar-foreground: oklch(0.9 0.02 255);
+  --sidebar-strong: oklch(1 0 0);
+  --sidebar-muted: oklch(0.78 0.035 255);
+  --sidebar-hover: oklch(0.31 0.07 255);
+  --sidebar-border: oklch(0.33 0.05 255);
+  --nav-active: var(--primary);
+  --nav-active-foreground: var(--primary-foreground);
+  --shadow-xs: 0 1px 2px oklch(0.2 0.03 260 / 0.06);
+  --shadow-composer: 0 4px 20px oklch(0.2 0.03 260 / 0.07);
+  --scrim: oklch(0.18 0.02 260 / 0.4);
+  --shadow: 0 12px 32px oklch(0.18 0.02 260 / 0.12);
+  --radius: 8px;
   --motion: 120ms;
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -44,26 +52,33 @@
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.18 0.005 70);
-  --foreground: oklch(0.96 0 0);
-  --card: oklch(0.225 0.006 70);
+  --background: oklch(0.17 0.02 260);
+  --foreground: oklch(0.95 0.005 255);
+  --card: oklch(0.21 0.022 260);
   --card-foreground: var(--foreground);
   --popover: var(--card);
-  --muted: oklch(0.24 0 0);
-  --muted-foreground: oklch(0.74 0 0);
-  --border: oklch(0.3 0 0);
-  --primary: oklch(0.96 0 0);
-  --primary-foreground: oklch(0.16 0 0);
+  --muted: oklch(0.25 0.022 260);
+  --muted-foreground: oklch(0.76 0.02 258);
+  --border: oklch(0.32 0.025 260);
+  --primary: oklch(0.74 0.13 258);
+  --primary-hover: oklch(0.8 0.11 258);
+  --primary-foreground: oklch(0.17 0.03 262);
   --accent: var(--primary);
   --accent-foreground: var(--primary-foreground);
-  --destructive: oklch(0.72 0.12 25);
-  --ring: var(--foreground);
-  --sidebar: oklch(0.205 0.006 70);
-  --nav-active: oklch(0.29 0.006 70);
-  --shadow-xs: 0 1px 3px oklch(0 0 0 / 0.15);
-  --shadow-composer: 0 4px 24px oklch(0 0 0 / 0.15);
-  --scrim: oklch(0 0 0 / 0.55);
-  --shadow: 0 12px 32px oklch(0 0 0 / 0.4);
+  --destructive: oklch(0.74 0.14 25);
+  --ring: var(--primary);
+  --sidebar: oklch(0.14 0.022 260);
+  --sidebar-foreground: oklch(0.9 0.015 255);
+  --sidebar-strong: oklch(0.98 0.005 255);
+  --sidebar-muted: oklch(0.74 0.025 255);
+  --sidebar-hover: oklch(0.23 0.03 260);
+  --sidebar-border: oklch(0.27 0.025 260);
+  --nav-active: var(--primary);
+  --nav-active-foreground: var(--primary-foreground);
+  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.25);
+  --shadow-composer: 0 4px 20px oklch(0 0 0 / 0.25);
+  --scrim: oklch(0 0 0 / 0.6);
+  --shadow: 0 12px 32px oklch(0 0 0 / 0.45);
 }
 
 @theme inline {
@@ -73,7 +88,11 @@
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-primary: var(--primary);
-  --radius-lg: var(--radius);
+  /* One scale for corners: controls, panels, large surfaces. */
+  --radius-md: 6px;
+  --radius-lg: 6px;
+  --radius-xl: var(--radius);
+  --radius-2xl: 10px;
 }
 
 * {
@@ -89,8 +108,8 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-source-sans), "Source Sans 3", ui-sans-serif, sans-serif;
-  font-size: var(--text-base);
+  font-family: var(--font-sans), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: var(--text-sm);
   line-height: 1.5;
   text-rendering: optimizeLegibility;
 }
@@ -116,8 +135,19 @@ textarea {
   background: color-mix(in oklch, var(--primary) 28%, transparent);
 }
 
-.font-serif {
-  font-family: var(--font-source-serif), "Source Serif 4", Georgia, serif;
+/* Page and panel titles: the interface face, heavier and tighter. */
+.font-display {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* On the dark navigation column the blue ring is hard to see, so focus uses its text colour. */
+.console-sidebar :focus-visible {
+  outline-color: var(--sidebar-foreground);
+}
+
+.console-sidebar {
+  scrollbar-color: var(--sidebar-border) transparent;
 }
 
 /* Management panels keep field widths and label spacing consistent. */
@@ -151,13 +181,13 @@ textarea {
 .markdown h2,
 .markdown h3 {
   margin: 1rem 0 0.35rem;
-  font-family: var(--font-source-serif), Georgia, serif;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .markdown pre {
   overflow: auto;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: var(--muted);
   padding: 0.85rem 1rem;
 }
@@ -230,7 +260,7 @@ textarea {
 .detail-panel {
   min-width: 0;
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   background: var(--card);
   padding: clamp(1.25rem, 3vw, 2rem);
   overflow-wrap: anywhere;

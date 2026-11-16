@@ -83,7 +83,9 @@ export default function LoginPage() {
     <main className="flex min-h-dvh items-center justify-center px-6 py-16">
       <div className="w-full max-w-[22rem]">
         <p className="text-sm font-medium tracking-tight">{shell("product")}</p>
-        <h1 className="mt-10 font-serif text-[2.5rem] leading-none tracking-tight">{t("title")}</h1>
+        <h1 className="mt-10 font-display text-[2.5rem] leading-none tracking-tight">
+          {t("title")}
+        </h1>
         <p className="mt-4 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
           {method === "oidc" ? t("oidcBody") : t("body")}
         </p>

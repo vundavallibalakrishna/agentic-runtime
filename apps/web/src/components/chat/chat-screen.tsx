@@ -773,7 +773,7 @@ export function ChatScreen() {
                 <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
                   {t("eyebrow")}
                 </p>
-                <h2 className="font-serif text-[clamp(1.8rem,3.2vw,2.75rem)] leading-[1.15] tracking-tight">
+                <h2 className="font-display text-[clamp(1.8rem,3.2vw,2.75rem)] leading-[1.15] tracking-tight">
                   {t("welcomeTitle")}
                 </h2>
                 <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[var(--muted-foreground)]">
