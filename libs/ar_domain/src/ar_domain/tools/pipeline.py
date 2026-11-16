@@ -524,7 +524,7 @@ class ToolPipeline:
 
                 explicit = permissions_of(run)
         scoped = isinstance(explicit, list | set | frozenset | tuple)
-        if scoped:
+        if isinstance(explicit, list | set | frozenset | tuple):
             permissions = {str(item) for item in explicit}
             roles = set(getattr(self.store, "user_roles", {}).get(request.get("user_id"), set()))
         else:
