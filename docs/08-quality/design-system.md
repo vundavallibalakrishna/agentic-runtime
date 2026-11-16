@@ -27,6 +27,10 @@ Light and dark are both specified. The theme choice is `system`, `light` or `dar
 
 `ui/Badge` takes a `tone`: `neutral`, `success`, `warning`, `danger` or `info`. A tone tints the badge with one token (a faint fill, a soft border, text in that colour) through the `.tone` classes in `globals.css`, so both themes follow. `statusTone` maps a status word from the API to a tone: published and completed are success, running and queued are info, draft and waiting are warning, failed and disabled are danger. A word it does not know stays neutral. Screens use `statusTone` and do not choose status colours themselves.
 
+## Record lists
+
+A list of records is one panel with a hairline between rows: the `row-list` class on the `ul`. Rows do not carry their own border, corner or background. An empty list draws nothing, so the screen's empty state stands alone. Tools, skills, routines, schedules, knowledge, memory, inbox, approvals, reviews, policies, quotas, channels, computers and evaluations use it. A status word in a row is a badge through `statusTone`. Card grids stay for things a person picks from side by side, such as connectors.
+
 ## Type
 
 The faces are loaded with `next/font`: Inter for the interface and IBM Plex Mono for code. Titles use the `font-display` class, which is Inter at a heavier weight. The scale is `--text-xs` through `--text-3xl`, and unsized text is `--text-sm`. Corners follow one scale set in the theme block: 6 px for controls, `--radius` (8 px) for panels, 10 px for large surfaces.

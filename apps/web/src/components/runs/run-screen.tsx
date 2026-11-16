@@ -9,6 +9,7 @@ import { AppShell } from "@/components/app-shell";
 import { BackButton, DetailState } from "@/components/common/detail-state";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -105,8 +106,9 @@ export function RunScreen() {
               <p className="whitespace-pre-wrap text-sm leading-relaxed">{run.resultSummary}</p>
             </div>
           ) : null}
-          <p className="mb-3 text-sm text-[var(--muted-foreground)]">
-            {run.trigger} · {run.status}
+          <p className="mb-3 flex flex-wrap items-center gap-2 text-sm text-[var(--muted-foreground)]">
+            <Badge tone={statusTone(run.status)}>{run.status}</Badge>
+            {run.trigger}
             {durationLabel(run) ? ` · ${t("duration")} ${durationLabel(run)}` : ""}
             {run.usage?.costMicros != null ? ` · ${t("cost")} ${run.usage.costMicros}` : ""}
             {children.length ? ` · ${t("children", { count: children.length })}` : ""}

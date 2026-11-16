@@ -177,6 +177,22 @@ textarea {
   --tone: var(--primary);
 }
 
+/* A list of records is one panel with a hairline between rows, not a stack of cards. */
+.row-list {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.row-list:empty {
+  display: none;
+}
+
+.row-list > li + li {
+  border-top: 1px solid var(--border);
+}
+
 /* A long form reads as sections: each group of fields starts under a hairline with its title. */
 .form-sections > fieldset {
   margin-top: var(--space-6);

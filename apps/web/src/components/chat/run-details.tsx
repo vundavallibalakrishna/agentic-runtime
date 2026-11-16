@@ -63,12 +63,14 @@ export function RunDetails({
     void load();
   }, [load, settled]);
 
-  const live = liveStatuses.includes(run?.status || "");
+  // While the reply streams the chat already shows progress, so the panel does not poll. It
+  // reads again when the reply ends, and then slowly only if the run still waits on a person.
+  const waiting = settled && liveStatuses.includes(run?.status || "");
   useEffect(() => {
-    if (!live) return;
-    const timer = window.setInterval(() => void load(), 2000);
+    if (!waiting) return;
+    const timer = window.setInterval(() => void load(), 5000);
     return () => window.clearInterval(timer);
-  }, [live, load]);
+  }, [waiting, load]);
 
   const current = run?.id === runId ? run : null;
   const agent = agents.find((item) => item.id === current?.agentId);

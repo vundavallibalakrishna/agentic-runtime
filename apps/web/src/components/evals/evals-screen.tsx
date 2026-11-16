@@ -194,12 +194,9 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
       {loading ? <Skeleton className="h-40 w-full" /> : null}
       {!loading && suites.length === 0 ? <EmptyState title={t("empty")} /> : null}
       {!loading && suites.length > 0 ? (
-        <ul className="space-y-3">
+        <ul className="row-list">
           {suites.map((suite) => (
-            <li
-              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-              key={suite.id}
-            >
+            <li className="p-4" key={suite.id}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-medium">{suite.name}</h2>
@@ -264,12 +261,9 @@ export function EvalsScreen({ agentId, admin = false }: { agentId?: string; admi
           {feedback.length === 0 ? (
             <EmptyState title={t("noFeedback")} />
           ) : (
-            <ul className="space-y-3">
+            <ul className="row-list">
               {feedback.map((item) => (
-                <li
-                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 text-sm"
-                  key={item.messageId}
-                >
+                <li className="p-4 text-sm" key={item.messageId}>
                   <p>
                     {item.agent?.name || "Agent"} · {item.rating}
                   </p>

@@ -355,14 +355,11 @@ export function ConnectionsScreen() {
           {service.length === 0 ? (
             <p className="mt-4 text-sm text-[var(--muted-foreground)]">{t("serviceEmpty")}</p>
           ) : (
-            <ul className="mt-4 grid gap-3">
+            <ul className="row-list mt-4">
               {service.map((row) => {
                 const id = String(row.id);
                 return (
-                  <li
-                    className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm"
-                    key={id}
-                  >
+                  <li className="px-3 py-2 text-sm" key={id}>
                     <p className="font-medium">{String(row.name)}</p>
                     <p className="text-[var(--muted-foreground)]">
                       {String(row.kind)} · {String(row.status)}

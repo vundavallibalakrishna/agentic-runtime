@@ -12,10 +12,29 @@ const tones: Record<Tone, string> = {
   info: "tone tone-info",
 };
 
-const settled = new Set(["published", "completed", "succeeded", "success", "active", "ok"]);
+const settled = new Set([
+  "published",
+  "completed",
+  "succeeded",
+  "success",
+  "active",
+  "ok",
+  "approved",
+  "signed",
+  "connected",
+  "enabled",
+]);
 const moving = new Set(["running", "queued", "in_progress", "started"]);
 const waiting = new Set(["draft", "paused", "pending", "waiting_input", "waiting_approval"]);
-const broken = new Set(["failed", "error", "denied", "disabled", "timed_out"]);
+const broken = new Set([
+  "failed",
+  "error",
+  "denied",
+  "disabled",
+  "timed_out",
+  "rejected",
+  "revoked",
+]);
 
 /** The tone for a status word the API returns. A word it does not know is neutral. */
 export function statusTone(status: string | null | undefined): Tone {
