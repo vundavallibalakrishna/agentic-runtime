@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any  # noqa: TC003
 
 import orjson
@@ -26,6 +28,12 @@ _UPSERT = text(
 
 def _json(value: object) -> str:
     if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, datetime | date):
+        return value.isoformat()
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    if isinstance(value, Decimal):
         return str(value)
     raise TypeError(f"unsupported extension value {type(value).__name__}")
 

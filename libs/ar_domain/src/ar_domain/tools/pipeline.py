@@ -516,14 +516,26 @@ class ToolPipeline:
         )
         from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
 
-        user_id = request.get("user_id")
-        roles = set(getattr(self.store, "user_roles", {}).get(user_id, set()))
-        if "tenant_admin" in roles:
-            permissions = set(PERMISSION_KEYS)
+        explicit = request.get("permissions")
+        if explicit is None:
+            run = self._request_run(request)
+            if isinstance(run, dict):
+                explicit = run.get("permissions")
+        if isinstance(explicit, list | set | frozenset | tuple):
+            permissions = {str(item) for item in explicit}
+            roles = set(getattr(self.store, "user_roles", {}).get(request.get("user_id"), set()))
         else:
-            permissions = set()
-            for role in roles:
-                permissions.update(SYSTEM_ROLE_PERMISSIONS.get(role, ()))
+            user_id = request.get("user_id")
+            roles = set(getattr(self.store, "user_roles", {}).get(user_id, set()))
+            if "tenant_admin" in roles:
+                permissions = set(PERMISSION_KEYS)
+            else:
+                permissions = set()
+                for role in roles:
+                    permissions.update(SYSTEM_ROLE_PERMISSIONS.get(role, ()))
+                    custom = getattr(self.store, "role_permissions", {}).get(role, ())
+                    if isinstance(custom, list | set | frozenset | tuple):
+                        permissions.update(str(item) for item in custom)
         permissions.update(permissions_for(self.store, request.get("tenant_id"), roles))
         return sorted(permissions)
 

@@ -19,25 +19,45 @@ pytest_plugins = [
 ]
 
 
-def pytest_configure() -> None:
-    """Unresolvable test hostnames fall back to TEST-NET so mocks still match.
+def pytest_configure(config: object) -> None:
+    """Register the opt-in marker. Unresolved names fail unless a test asks."""
+    config.addinivalue_line(  # type: ignore[attr-defined]
+        "markers",
+        "dns_fallback: an unresolved name is treated as 8.8.8.8 so a mock can match",
+    )
 
-    A test that replaces ``resolve_host`` sees its own function. A test that
-    must observe a real lookup failure sets ``AR_EGRESS_STRICT_DNS=1``.
-    """
+
+_DNS_ORIGINAL: object = None
+
+
+def pytest_runtest_setup(item: object) -> None:
+    """Install the fallback only for tests marked ``dns_fallback``."""
+    global _DNS_ORIGINAL  # noqa: PLW0603
+    marker = getattr(item, "get_closest_marker", lambda _name: None)("dns_fallback")
+    if marker is None:
+        return
     from ar_common import egress_http  # noqa: PLC0415
 
-    original = egress_http.resolve_host
+    _DNS_ORIGINAL = egress_http.resolve_host
 
     def fallback(host: str) -> list[str]:
         try:
-            return original(host)
+            return _DNS_ORIGINAL(host)  # type: ignore[operator]
         except egress_http.EgressDenied:
-            if os.environ.get("AR_EGRESS_STRICT_DNS") == "1":
-                raise
             return ["8.8.8.8"]
 
     egress_http.resolve_host = fallback
+
+
+def pytest_runtest_teardown(item: object) -> None:
+    global _DNS_ORIGINAL  # noqa: PLW0603
+    marker = getattr(item, "get_closest_marker", lambda _name: None)("dns_fallback")
+    if marker is None or _DNS_ORIGINAL is None:
+        return
+    from ar_common import egress_http  # noqa: PLC0415
+
+    egress_http.resolve_host = _DNS_ORIGINAL  # type: ignore[assignment]
+    _DNS_ORIGINAL = None
 
 
 def pytest_addoption(parser: object) -> None:

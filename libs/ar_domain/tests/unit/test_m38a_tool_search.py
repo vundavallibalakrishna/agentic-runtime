@@ -12,6 +12,7 @@ from pathlib import Path
 
 import httpx
 import orjson
+import pytest
 import respx
 
 from ar_domain.chat.service import ChatService, demo_id
@@ -27,6 +28,7 @@ from ar_domain.tools.search import (
 from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo_tenant
 
+pytestmark = pytest.mark.dns_fallback
 TENANT = demo_id("tenant")
 BASE = "https://embed.example/v1"
 ROOT = Path(__file__).resolve().parents[4]
@@ -176,6 +178,49 @@ def test_a_request_that_cannot_be_embedded_is_ranked_by_words() -> None:
 
 def test_without_an_embedding_model_nothing_is_prepared() -> None:
     assert prepare_tools(_bare(), TENANT, list(TOOLS), wait=True) is False
+
+
+def test_an_installed_connector_counts_toward_the_cutoff() -> None:
+    """A live connector is one of the tools, and the thirty-tool search still applies."""
+    from ar_common.ids import new_id
+    from ar_domain.connectors.catalog import connector_by_slug
+
+    store = demo_store()
+    agent = next(row for row in store.agents.values() if row.get("slug") == "assistant")
+    version = store.versions[agent["published_version_id"]]
+    definition = version["definition"]
+    definition["tools"] = [
+        {"server": str(row["slug"]), "version": "*", "include": ["*"]}
+        for row in store.tool_servers.values()
+        if row.get("status") == "approved"
+    ]
+    connector = connector_by_slug("email")
+    assert connector is not None
+    tenant = agent["tenant_id"]
+    connection = new_id()
+    store.service_connections[connection] = {
+        "id": connection,
+        "tenant_id": tenant,
+        "name": "desk",
+        "status": "active",
+        "kind": "api_key",
+        "secret": "present",
+    }
+    install = new_id()
+    store.connector_installs[install] = {
+        "id": install,
+        "tenant_id": tenant,
+        "slug": connector.slug,
+        "status": "installed",
+        "connection_name": "desk",
+        "disabled_tools": [],
+    }
+    catalog = ToolPipeline(store).resolve_catalog(
+        agent_version_id=version["id"], user_id=demo_id("admin"), query="send"
+    )
+    names = {str(row.get("qualified_name")) for row in catalog["tools"]}
+    assert catalog["tool_search_active"] is True
+    assert any("email" in item for item in names)
 
 
 def test_an_agent_with_many_tools_is_offered_as_many_as_its_definition_says() -> None:

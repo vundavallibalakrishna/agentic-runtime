@@ -1093,6 +1093,7 @@ def _act(  # noqa: PLR0917
             "step": attempt,
             "call_index": attempt,
             "query_id": run.get("query_id"),
+            "permissions": run.get("permissions"),
         },
     )
     if result.get("status") == "awaiting_approval":

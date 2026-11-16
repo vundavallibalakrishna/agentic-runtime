@@ -408,7 +408,7 @@ def _post_once(
 ) -> tuple[dict[str, object], dict[str, str]]:
     transport = getattr(store, "mcp_transport", None)
     try:
-        with sync_client(transport=transport, timeout=timeout) as client:
+        with sync_client(transport=transport, timeout=timeout, allow=_allow(store)) as client:
             response = blocking(client.post, url, json=body, headers=headers)
             response.raise_for_status()
             response_headers = {key.lower(): value for key, value in response.headers.items()}
@@ -442,7 +442,9 @@ def _sse(
     def _read() -> None:
         try:
             with (
-                sync_client(transport=transport, timeout=httpx.Timeout(timeout)) as client,
+                sync_client(
+                    transport=transport, timeout=httpx.Timeout(timeout), allow=_allow(store)
+                ) as client,
                 client.stream(
                     "GET", url, headers={**headers, "accept": "text/event-stream"}
                 ) as response,
@@ -613,17 +615,22 @@ def _json_from_sse(text: str, *, expected: object) -> dict[str, object]:
     return chosen
 
 
+def _allow(store: Any) -> list[str]:
+    from ar_domain.egress import current_tenant, tenant_hosts  # noqa: PLC0415
+
+    extra = getattr(store, "mcp_allow_hosts", ())
+    hosts = [str(item) for item in extra] if isinstance(extra, tuple | list) else []
+    hosts.extend(tenant_hosts(store, current_tenant()))
+    return hosts
+
+
 def _guard(store: Any, url: str) -> None:
     from ar_common.egress_http import guard  # noqa: PLC0415
-    from ar_domain.egress import current_tenant, tenant_hosts  # noqa: PLC0415
 
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
         raise RemoteError("a remote server needs an http(s) URL")
-    extra = getattr(store, "mcp_allow_hosts", ())
-    hosts = [str(item) for item in extra] if isinstance(extra, tuple | list) else []
-    hosts.extend(tenant_hosts(store, current_tenant()))
-    problem = guard(url, hosts)
+    problem = guard(url, _allow(store))
     if problem is not None:
         raise RemoteError(problem)
 

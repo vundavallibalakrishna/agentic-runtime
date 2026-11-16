@@ -1491,6 +1491,7 @@ class ChatBehaviour:
         research: bool = False,
         suggest_followups: bool = False,
         response_format: dict[str, object] | None = None,
+        permissions: list[str] | None = None,
     ) -> dict[str, object]:
         conversation = self._owned_conversation(tenant_id, user_id, conversation_id)
         agent_id = conversation.get("agent_id")
@@ -1551,6 +1552,8 @@ class ChatBehaviour:
             message_id=message_id,
             trigger="research" if research else "chat",
         )
+        if permissions is not None:
+            run["permissions"] = list(permissions)
         from ar_domain.runs.request import ask  # noqa: PLC0415
 
         if suggest_followups:

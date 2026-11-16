@@ -114,6 +114,7 @@ async def test_tool(tool_id: uuid.UUID, body: TestBody, request: Request) -> dic
             "synthetic": True,
             "tool_version_id": uuid.UUID(str(detail["tool_version_id"])),
             "arguments": body.arguments,
+            "permissions": sorted(who.permissions),
             "dry_run": body.dry_run,
             "model_call_id": "test",
         }

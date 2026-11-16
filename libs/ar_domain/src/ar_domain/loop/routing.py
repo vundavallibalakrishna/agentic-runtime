@@ -248,7 +248,9 @@ async def routed_completion(  # noqa: PLR0915
             options=options,
         )
         try:
-            async with async_client(timeout=30.0) as client:
+            from ar_domain.egress import dial_allow  # noqa: PLC0415
+
+            async with async_client(timeout=30.0, allow=dial_allow(store, tenant_id)) as client:
                 response = await client.post(url, json=body, headers=headers)
         except httpx.HTTPError:
             breaker.failure(key)

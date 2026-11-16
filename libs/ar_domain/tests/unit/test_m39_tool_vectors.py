@@ -6,12 +6,14 @@ import uuid
 
 import httpx
 import orjson
+import pytest
 import respx
 
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.tools.search import BY_MEANING, prepare_tools, rank_tools, tool_text
 from ar_testing.demo_tenant import seed_demo_tenant
 
+pytestmark = pytest.mark.dns_fallback
 TENANT = demo_id("tenant")
 BASE = "https://embed.example/v1"
 

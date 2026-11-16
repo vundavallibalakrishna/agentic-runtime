@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
 
 import httpx
+import pytest
 
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.sandboxes.browser import chromium_canary, navigation_class
@@ -20,6 +21,7 @@ from ar_domain.tools.logic import call_args_hash
 from ar_domain.tools.pipeline import ToolPipeline
 from ar_testing.demo import demo_store
 
+pytestmark = pytest.mark.dns_fallback
 _PAGE = """<!DOCTYPE html>
 <html><head><title>Fixture desk</title></head>
 <body>

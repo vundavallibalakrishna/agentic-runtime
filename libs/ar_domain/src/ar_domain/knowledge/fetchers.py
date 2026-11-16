@@ -159,7 +159,13 @@ def _web(source: dict[str, object], config: dict[str, object]) -> dict[str, obje
     if guard(start, hosts) is not None:
         return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
     if str(config.get("proxy") or "").strip():
-        return {"items": [], "deleted_external_ids": [], "next_cursor": {}, "done": True}
+        return {
+            "items": [],
+            "deleted_external_ids": [],
+            "next_cursor": {},
+            "done": True,
+            "error": "a proxy is configured and is refused",
+        }
     client = sync_client(allow=hosts, timeout=5.0, follow_redirects=False)
     try:
         robots = client.get(urljoin(start, "/robots.txt"))

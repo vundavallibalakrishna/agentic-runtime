@@ -24,6 +24,8 @@ from ar_common.settings import get_settings, loopback_allowed
 # Always refused, even when the name is on an allowlist.
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")
 _SIXTO4 = ipaddress.ip_network("2002::/16")
+_COMPATIBLE = ipaddress.ip_network("::/96")
+_SITE_LOCAL = ipaddress.ip_network("fec0::/10")
 _ALWAYS_DENY = (
     ipaddress.ip_network("0.0.0.0/8"),
     ipaddress.ip_network("169.254.0.0/16"),
@@ -32,6 +34,7 @@ _ALWAYS_DENY = (
     ipaddress.ip_network("168.63.129.16/32"),
     ipaddress.ip_network("::/128"),
     ipaddress.ip_network("fd00:ec2::254/128"),
+    _SITE_LOCAL,
 )
 # Private ranges an operator may name when AR_EGRESS_ALLOW_NAMED_PRIVATE is on.
 _NAMED_PRIVATE = (
@@ -137,7 +140,7 @@ def _embedded_v4(address: ipaddress.IPv6Address) -> ipaddress.IPv4Address | None
     return None
 
 
-def canonical_ip(
+def canonical_ip(  # noqa: PLR0911
     host: str,
 ) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
     """The address ``host`` names, unwrapping mapped, decimal and octal forms.
@@ -162,6 +165,8 @@ def canonical_ip(
         embedded = _embedded_v4(parsed_ip)
         if embedded is not None:
             return embedded
+        if parsed_ip in _COMPATIBLE and int(parsed_ip) > 1:
+            return ipaddress.IPv4Address(int(parsed_ip) & 0xFFFFFFFF)
     return parsed_ip
 
 

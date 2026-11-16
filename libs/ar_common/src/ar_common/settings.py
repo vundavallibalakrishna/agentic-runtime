@@ -21,6 +21,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_BOOTSTRAP_ADMIN_EMAIL",
         "AR_BOOTSTRAP_TENANT_NAME",
         "AR_BOOTSTRAP_TENANT_SLUG",
+        "AR_CA_BUNDLE",
         "AR_CHANNELS_EMAIL_POLL_S",
         "AR_CHANNELS_PORT",
         "AR_CHANNELS_SLACK_UPDATE_INTERVAL_MS",
@@ -272,6 +273,8 @@ class BaseServiceSettings(BaseSettings):
     # Off by default. An exact allowlist name may resolve to a private address only
     # when this is true. The air-gap overlay turns it on. Metadata addresses stay denied.
     egress_allow_named_private: bool = False
+    # Extra trust anchor for outbound TLS. ``SSL_CERT_FILE`` wins when this is empty.
+    ca_bundle: str = ""
     # Empty leaves each tenant's data_residency column in charge. ``cluster`` forces
     # model and embedding URLs onto a private or loopback address for the whole install.
     data_residency: str = ""

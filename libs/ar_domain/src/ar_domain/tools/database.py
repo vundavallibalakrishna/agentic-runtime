@@ -12,6 +12,7 @@ import os
 import re
 import socket
 import uuid
+from contextlib import nullcontext
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
@@ -330,7 +331,12 @@ def _postgres(
 ) -> dict[str, Any]:
     import psycopg  # noqa: PLC0415
 
-    conn = psycopg.connect(clean_dsn(dsn), connect_timeout=5)
+    from ar_common.egress_http import approved_addresses, pin_dns  # noqa: PLC0415
+
+    host = urlsplit(clean_dsn(dsn)).hostname or ""
+    addresses = approved_addresses(host) if host else []
+    with pin_dns(host, addresses) if host else nullcontext():
+        conn = psycopg.connect(clean_dsn(dsn), connect_timeout=5)
     try:
 
         def run(statement: str) -> None:
@@ -355,16 +361,21 @@ def _mysql(
     import pymysql  # type: ignore[import-untyped]  # noqa: PLC0415
 
     parts = urlsplit(clean_dsn(dsn))
-    conn = pymysql.connect(
-        host=parts.hostname or "localhost",
-        port=parts.port or 3306,
-        user=parts.username or "",
-        password=parts.password or "",
-        database=parts.path.lstrip("/"),
-        connect_timeout=5,
-        read_timeout=max(1, timeout_s),
-        autocommit=False,
-    )
+    from ar_common.egress_http import approved_addresses, pin_dns  # noqa: PLC0415
+
+    host = parts.hostname or ""
+    addresses = approved_addresses(host) if host else []
+    with pin_dns(host, addresses) if host else nullcontext():
+        conn = pymysql.connect(
+            host=parts.hostname or "localhost",
+            port=parts.port or 3306,
+            user=parts.username or "",
+            password=parts.password or "",
+            database=parts.path.lstrip("/"),
+            connect_timeout=5,
+            read_timeout=max(1, timeout_s),
+            autocommit=False,
+        )
     try:
         cursor = conn.cursor()
 

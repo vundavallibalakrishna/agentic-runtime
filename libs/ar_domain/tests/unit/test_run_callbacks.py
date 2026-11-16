@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
+
 from ar_domain.runs.callbacks import _send, deliver_callback
 
 
@@ -17,6 +19,7 @@ def test_a_refused_callback_is_recorded_without_a_dial() -> None:
     assert item["result"] == "denied"
 
 
+@pytest.mark.dns_fallback
 def test_a_sent_callback_carries_a_signature(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     seen: dict[str, object] = {}
 
