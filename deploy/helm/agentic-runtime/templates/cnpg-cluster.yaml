@@ -70,15 +70,16 @@ spec:
   managed:
     roles:
       # Migrations run as the database owner. CREATEROLE covers role grants in
-      # revisions. It is not a superuser. BYPASSRLS is not set: the owner is
-      # exempt from its own policies unless FORCE ROW LEVEL SECURITY is used.
+      # revisions. It is not a superuser. FORCE ROW LEVEL SECURITY is on every
+      # tenant table, and plans has no INSERT policy, so the owner is not
+      # exempt. BYPASSRLS is what lets bootstrap write those catalogue rows.
       - name: ar_owner
         ensure: present
         login: true
         superuser: false
         createdb: true
         createrole: true
-        bypassrls: false
+        bypassrls: true
         passwordSecret:
           name: {{ .Release.Name }}-db-role-ar-owner
       # Platform sessions open before a tenant is known, so they must bypass RLS.

@@ -424,6 +424,11 @@ def test_bootstrap_job_receives_generated_role_passwords() -> None:
     names = {item["name"] for item in job["spec"]["template"]["spec"]["containers"][0]["env"]}
     assert "AR_DB_OWNER_PASSWORD" in names
     assert "AR_DB_PLATFORM_PASSWORD" in names
+    cluster = next(doc for doc in docs if doc.get("kind") == "Cluster")
+    roles = {role["name"]: role for role in cluster["spec"]["managed"]["roles"]}
+    assert roles["ar_owner"]["superuser"] is False
+    assert roles["ar_owner"]["bypassrls"] is True
+    assert roles["ar_app"]["bypassrls"] is False
 
 
 def test_required_database_and_service_edges() -> None:
