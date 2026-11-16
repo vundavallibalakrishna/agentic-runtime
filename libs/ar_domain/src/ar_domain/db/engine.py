@@ -13,7 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from ar_common.settings import get_settings
 
 # PgBouncer transaction pooling: asyncpg must not cache prepared statements.
-_CONNECT_ARGS: dict[str, Any] = {"statement_cache_size": 0}
+_CONNECT_ARGS: dict[str, Any] = {
+    "statement_cache_size": 0,
+    "prepared_statement_cache_size": 0,
+}
 _POOL_SIZE = 20
 _MAX_OVERFLOW = 10
 _engines: dict[str, AsyncEngine] = {}

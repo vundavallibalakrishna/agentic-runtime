@@ -147,6 +147,29 @@ fi
 echo "waiting for workloads"
 # The API starts before Postgres is ready and can trip its progress deadline.
 kubectl -n "$namespace" rollout restart deploy/agentic-runtime-api
+kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=3m || true
+echo "probing the API database connection"
+kubectl -n "$namespace" exec deploy/agentic-runtime-api -- python -c '
+import asyncio, os
+from sqlalchemy.ext.asyncio import create_async_engine
+url = os.environ.get("AR_DATABASE_URL", "")
+head, _, tail = url.partition("://")
+user = head and tail.split(":", 1)[0]
+print("db user", user, "target", url.split("@")[-1])
+async def main():
+    engine = create_async_engine(url, connect_args={"statement_cache_size": 0, "prepared_statement_cache_size": 0})
+    try:
+        async with engine.connect() as conn:
+            await conn.exec_driver_sql("SELECT 1")
+        print("postgres ok")
+    except Exception as exc:
+        print(type(exc).__name__, exc)
+        raise
+asyncio.run(main())
+' || {
+  kubectl -n "$namespace" logs -l cnpg.io/podRole=pooler --tail=40 || true
+  exit 1
+}
 for deploy in api runtime-worker mcp-gateway sandbox-manager model-gateway fake-llm temporal; do
   if ! kubectl -n "$namespace" rollout status "deploy/agentic-runtime-${deploy}" --timeout=15m; then
     kubectl -n "$namespace" get pods -o wide || true
