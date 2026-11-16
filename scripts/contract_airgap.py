@@ -33,14 +33,7 @@ def kubectl(*args: str) -> str:
     return completed.stdout
 
 
-def tool_turn(base: str) -> None:
-    response = httpx.post(
-        f"{base}/api/v1/auth/login",
-        json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
-        timeout=30,
-    )
-    if response.status_code != 200:
-        raise SystemExit(f"login failed: {response.status_code} {response.text[:200]}")
+def _session(response: httpx.Response) -> dict[str, str]:
     cookie = ""
     csrf = ""
     for raw in response.headers.get_list("set-cookie"):
@@ -49,11 +42,49 @@ def tool_turn(base: str) -> None:
             cookie = pair
         elif pair.startswith("ar_csrf="):
             csrf = pair.split("=", 1)[1]
-    headers = {"cookie": cookie, "x-csrf-token": csrf}
+    return {"cookie": cookie, "x-csrf-token": csrf}
+
+
+def _agent_token(base: str, headers: dict[str, str]) -> str:
+    agents = httpx.get(f"{base}/api/v1/agents", headers=headers, timeout=30)
+    if agents.status_code != 200:
+        raise SystemExit(f"agents list failed: {agents.status_code} {agents.text[:200]}")
+    listed = agents.json()
+    rows = listed if isinstance(listed, list) else listed.get("items") or listed.get("agents") or []
+    assistant = next(
+        (row for row in rows if isinstance(row, dict) and row.get("slug") == "assistant"),
+        None,
+    )
+    if not isinstance(assistant, dict):
+        raise SystemExit("the tenant has no assistant agent")
+    created = httpx.post(
+        f"{base}/api/v1/agents/{assistant['id']}/api-keys",
+        json={"label": "airgap", "scope": "agent"},
+        headers=headers,
+        timeout=30,
+    )
+    if created.status_code not in {200, 201}:
+        raise SystemExit(f"api key failed: {created.status_code} {created.text[:300]}")
+    token = str(created.json().get("key") or created.json().get("secret") or "")
+    if not token:
+        raise SystemExit("api key response had no secret")
+    return token
+
+
+def tool_turn(base: str) -> None:
+    response = httpx.post(
+        f"{base}/api/v1/auth/login",
+        json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+        timeout=30,
+    )
+    if response.status_code != 200:
+        raise SystemExit(f"login failed: {response.status_code} {response.text[:200]}")
+    headers = _session(response)
+    token = _agent_token(base, headers)
     started = httpx.post(
         f"{base}/v1/agents/assistant:run",
         json={"text": "/tool list_files {}", "stream": False},
-        headers=headers,
+        headers={"authorization": f"Bearer {token}"},
         timeout=180,
     )
     if started.status_code != 200:
