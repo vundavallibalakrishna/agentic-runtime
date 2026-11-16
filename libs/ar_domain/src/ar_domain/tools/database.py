@@ -528,11 +528,24 @@ def _connect_mysql(pymysql: Any, dial: _Dial, timeout_s: int) -> Any:
                 raise SqlRejected(_public(exc, dial.dsn, dial.password)) from exc
             last = exc
         else:
-            sock = getattr(conn, "_sock", None)
-            if sock is not None:
-                sock.settimeout(max(1, timeout_s))
+            _reset_mysql_timeout(conn, timeout_s)
             return conn
     return _give_up(dial, last, tried)
+
+
+def _reset_mysql_timeout(conn: Any, timeout_s: int) -> None:
+    """The statement timeout, set on the socket and on pymysql's own fields.
+
+    pymysql reapplies ``_read_timeout`` whenever it differs from
+    ``_current_timeout``, so the socket change alone does not stick.
+    """
+    bounded = max(1, timeout_s)
+    sock = getattr(conn, "_sock", None)
+    if sock is not None:
+        sock.settimeout(bounded)
+    conn._read_timeout = bounded
+    conn._write_timeout = bounded
+    conn._current_timeout = bounded
 
 
 def _attempt_addresses(dial: _Dial) -> list[str]:
@@ -785,7 +798,7 @@ def _parsed(dsn: str, tenant_id: str | None = None) -> _Dial:
     database = unquote(parts.path.lstrip("/")).split("/", 1)[0]
     _reject_null(user, "" if password is None else password, database, host)
     params = _query_params(parts.query, engine, tenant_id)
-    _apply_tls(params)
+    _apply_tls(params, host)
     return _Dial(
         scheme=scheme,
         user=user,
@@ -1018,11 +1031,22 @@ def _key_is_encrypted(data: bytes) -> bool:
 
 def _refuse_key_material(name: str, path: str) -> None:
     try:
-        head = Path(path).read_bytes()[:4096]
+        data = Path(path).read_bytes()
     except OSError as exc:
         raise SqlRejected(f"{name} could not be read") from exc
-    if b"PRIVATE KEY" in head or path.endswith(".key"):
+    if b"PRIVATE KEY" in data or path.endswith(".key"):
         raise SqlRejected(f"{name} must be a certificate, not a key")
+    from cryptography.hazmat.primitives.serialization import load_der_private_key  # noqa: PLC0415
+
+    try:
+        load_der_private_key(data, password=None)
+    except TypeError as exc:
+        text = str(exc).lower()
+        if "password was not given" in text or "private key is encrypted" in text:
+            raise SqlRejected(f"{name} must be a certificate, not a key") from exc
+    except ValueError:
+        return
+    raise SqlRejected(f"{name} must be a certificate, not a key")
 
 
 def _ca_bundle() -> str:
@@ -1034,7 +1058,7 @@ def _ca_bundle() -> str:
     return os.environ.get("SSL_CERT_FILE", "").strip()
 
 
-def _apply_tls(params: dict[str, str]) -> None:
+def _apply_tls(params: dict[str, str], host: str) -> None:
     """Closed mode never dials a customer database in plaintext."""
     from ar_common.egress_policy import closed_egress  # noqa: PLC0415
     from ar_common.settings import get_settings  # noqa: PLC0415
@@ -1046,13 +1070,15 @@ def _apply_tls(params: dict[str, str]) -> None:
         floor = ""
     if closed_egress():
         closed_floor = settings.db_strict_tls_floor if settings.db_strict_tls else "require"
+        if closed_floor == "verify-ca" and _canonical(host) is None:
+            closed_floor = "verify-full"
         if not floor or _SSL_RANK[floor] < _SSL_RANK[closed_floor]:
             floor = closed_floor
     if not mode and floor:
         mode = "verify-full"
         params["sslmode"] = mode
     if floor and _SSL_RANK.get(mode, -1) < _SSL_RANK[floor]:
-        raise SqlRejected("closed mode requires database TLS")
+        raise SqlRejected(f"closed mode requires database TLS (sslmode {floor} or stronger)")
     if mode in _VERIFY_SSL and "sslrootcert" not in params:
         bundle = _ca_bundle()
         if bundle:
@@ -1157,24 +1183,51 @@ def _deny_names() -> set[str]:
     }
 
 
+_unresolved_deny: set[str] = set()
+
+
+def platform_db_deny_problem() -> str:
+    """Names on the deny list that have never resolved. Empty when the list is usable."""
+    names = _deny_names()
+    if not names:
+        return ""
+    _deny_addresses(names)
+    missing = sorted(name for name in names if name in _unresolved_deny)
+    if not missing:
+        return ""
+    return "platform database deny list did not resolve: " + ", ".join(missing)
+
+
 def _deny_addresses(names: set[str]) -> set[str]:
-    """Resolve the deny list once per TTL. A miss with no cache refuses the dial."""
+    """Resolve the deny list once per TTL. A miss is logged and does not block other databases."""
+    from ar_common.logging import get_logger  # noqa: PLC0415
+
     now = time.monotonic()
     resolver = id(socket.getaddrinfo)
     found: set[str] = set()
+    log = get_logger("ar_domain.tools.database")
     for name in names:
         key = (name, resolver)
         cached = _deny_cache.get(key)
         if cached is not None and now - cached[0] < _DENY_TTL_S:
             found.update(cached[1])
+            _unresolved_deny.discard(name)
             continue
+        addresses: set[str] = set()
+        lookup_failed = False
         try:
             addresses = set(_lookup_once(name))
         except SqlRejected:
+            lookup_failed = True
+        if lookup_failed:
             if cached is not None:
                 found.update(cached[1])
+                log.error("platform_db_deny_stale", host=name)
                 continue
-            raise SqlRejected("the platform database deny list did not resolve") from None
+            _unresolved_deny.add(name)
+            log.error("platform_db_deny_unresolved", host=name)
+            continue
+        _unresolved_deny.discard(name)
         _deny_cache[key] = (now, addresses)
         found.update(addresses)
     return found

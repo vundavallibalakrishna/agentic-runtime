@@ -28,7 +28,21 @@ Outbound HTTP goes through `ar_common.egress_http`. `http_get` and `http_post` p
 
 Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-separated) or to the tenant allowlist before saving those providers. The API and the runtime worker already have no port 443 rule. `airgap.egressPorts` is the port list opened for `airgap.egressCIDRs`. The default is 443 and 80. Add 25, 587, 993, 389 or 8000 when mail, a directory or an in-cluster model needs them.
 
-`airgap.isolatePlatformDb` is set by the air-gap overlay. The API and the runtime worker may then open port 5432 only to the platform database path, plus `airgap.tenantDbCidrs` for customer databases the API tests. The path is the CloudNativePG pooler (`cnpg.io/podRole: pooler`) in `cnpg` mode, the `app.kubernetes.io/name: postgres` pods in `statefulset` mode, or `postgres.externalCidrs` when Postgres is not bundled. Isolation with an external database and an empty CIDR list fails `helm template`. The `-rw`, `-ro` and `-r` instance pods are not on the CNPG path, so a vector read DSN must use the pooler. The chart cannot discover the cluster pod CIDR. Set `cluster.podCIDR` to refuse those addresses in the application as well; the NetworkPolicy is what blocks them in-cluster when the CIDR is unknown. The chart sets `AR_PLATFORM_DB_DENY_HOSTS` to `<release>-pg-rw`, `-ro`, `-r` and `-pooler` for CloudNativePG, and to `<release>-postgres` for the StatefulSet.
+`airgap.isolatePlatformDb` is set by the air-gap overlay. It changes egress for six pods:
+
+| Pod | Platform database | Customer databases |
+| --- | --- | --- |
+| `api`, `runtime-worker`, `mcp-gateway` | Pooler, StatefulSet, or `postgres.externalCidrs` only | `airgap.tenantDbCidrs` on `airgap.tenantDbPorts` (default 5432 and 3306) |
+| `sandbox-manager`, `system-worker`, `ingest-worker` | The same platform path | None. These pods keep their other in-cluster egress, except CloudNativePG instance pods |
+| every other pod (`web`, `channels`, `model-gateway`, `mcp-sql`, `mcp-openapi`, `opa`, `squid`, `fake-llm`) | Denied | None from this chart |
+
+The platform path is the CloudNativePG pooler (`cnpg.io/podRole: pooler`) in `cnpg` mode, the `app.kubernetes.io/name: postgres` pods in `statefulset` mode, or `postgres.externalCidrs` when Postgres is not bundled. CNPG instance pods (`cnpg.io/podRole: instance`) are denied for every pod while isolation is on. `postgres.externalCidrs` is also granted to the six pods when isolation is off, so an external platform database stays reachable. Isolation with an external database and an empty CIDR list fails `helm template`. A vector read DSN must use the pooler or the StatefulSet service.
+
+`mcp-sql` in this tree does not open a database socket. Customer SQL from the product runs in `mcp-gateway` and in the API.
+
+If `airgap.egressPorts` includes a port from `airgap.tenantDbPorts`, each `airgap.egressCIDRs` rule excludes `cluster.podCIDR`. The render fails when that port is listed and `cluster.podCIDR` is empty, because a wide CIDR would reopen the platform database pods. Ports that are not database ports are unchanged.
+
+The chart cannot discover the cluster pod CIDR. Set `cluster.podCIDR` so the application refuses those addresses as well. The chart sets `AR_PLATFORM_DB_DENY_HOSTS` to `<release>-pg-rw`, `-ro`, `-r` and `-pooler` for CloudNativePG, and to `<release>-postgres` for the StatefulSet. A deny-list name that has never resolved is logged at startup of the next dial and reported by the API `/readyz` check `platform_db`. It does not refuse unrelated customer databases. A name that resolved before keeps its last addresses.
 
 ## Default assistant
 

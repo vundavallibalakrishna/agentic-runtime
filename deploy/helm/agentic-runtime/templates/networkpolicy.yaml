@@ -34,14 +34,34 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: NotIn
-        values: ["api", "runtime-worker", "mcp-gateway", "sandbox-manager"]
+        values:
+          - api
+          - runtime-worker
+          - mcp-gateway
+          - sandbox-manager
+          {{- if .Values.airgap.isolatePlatformDb }}
+          - system-worker
+          - ingest-worker
+          {{- end }}
   policyTypes: ["Ingress", "Egress"]
   ingress:
     - from:
         - podSelector: {}
   egress:
+    {{- if .Values.airgap.isolatePlatformDb }}
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: cnpg.io/podRole
+                operator: NotIn
+                values: ["instance", "pooler"]
+              - key: app.kubernetes.io/name
+                operator: NotIn
+                values: ["postgres"]
+    {{- else }}
     - to:
         - podSelector: {}
+    {{- end }}
     {{- if not .Values.airgap.lockdown }}
     - ports:
         - port: 443
@@ -72,6 +92,7 @@ spec:
   egress:
     {{- if .Values.airgap.isolatePlatformDb }}
     {{- include "ar.platformDbEgress" . | nindent 4 }}
+    {{- include "ar.tenantDbEgress" . | nindent 4 }}
     - to:
         - podSelector: {}
       ports:
@@ -108,6 +129,7 @@ spec:
   egress:
     {{- if .Values.airgap.isolatePlatformDb }}
     {{- include "ar.platformDbEgress" . | nindent 4 }}
+    {{- include "ar.tenantDbEgress" . | nindent 4 }}
     - to:
         - podSelector: {}
       ports:
@@ -154,6 +176,21 @@ spec:
         - port: 8002
           protocol: TCP
   egress:
+    {{- if .Values.airgap.isolatePlatformDb }}
+    {{- include "ar.platformDbEgress" . | nindent 4 }}
+    {{- include "ar.tenantDbEgress" . | nindent 4 }}
+    - to:
+        - podSelector: {}
+      ports:
+        - {port: 6379, protocol: TCP}
+        - {port: 8003, protocol: TCP}
+        - {port: 8010, protocol: TCP}
+        - {port: 8011, protocol: TCP}
+        - {port: 8181, protocol: TCP}
+        - {port: 3128, protocol: TCP}
+        - {port: 8200, protocol: TCP}
+        - {port: 8333, protocol: TCP}
+    {{- else }}
     - to:
         - podSelector: {}
       ports:
@@ -166,6 +203,7 @@ spec:
         - {port: 3128, protocol: TCP}
         - {port: 8200, protocol: TCP}
         - {port: 8333, protocol: TCP}
+    {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:
@@ -201,18 +239,95 @@ spec:
         - port: 8003
           protocol: TCP
   egress:
+    {{- if .Values.airgap.isolatePlatformDb }}
+    {{- include "ar.platformDbEgress" . | nindent 4 }}
+    - to:
+        - podSelector: {}
+      ports:
+        - {port: 6443, protocol: TCP}
+        - {port: 443, protocol: TCP}
+    {{- else }}
     - to:
         - podSelector: {}
       ports:
         - {port: 5432, protocol: TCP}
         - {port: 6443, protocol: TCP}
         - {port: 443, protocol: TCP}
+    {{- end }}
     - to:
         - namespaceSelector:
             matchLabels:
               ar.io/purpose: sandboxes
       ports:
         - {port: 8080, protocol: TCP}
+{{- if .Values.airgap.isolatePlatformDb }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-system-worker
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: system-worker
+  policyTypes: ["Ingress", "Egress"]
+  egress:
+    {{- include "ar.platformDbEgress" . | nindent 4 }}
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: cnpg.io/podRole
+                operator: NotIn
+                values: ["instance", "pooler"]
+    {{- if not .Values.airgap.lockdown }}
+    - ports:
+        - {port: 443, protocol: TCP}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-ingest-worker
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: ingest-worker
+  policyTypes: ["Ingress", "Egress"]
+  egress:
+    {{- include "ar.platformDbEgress" . | nindent 4 }}
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: cnpg.io/podRole
+                operator: NotIn
+                values: ["instance", "pooler"]
+    {{- if not .Values.airgap.lockdown }}
+    - ports:
+        - {port: 443, protocol: TCP}
+    {{- end }}
+{{- end }}
+{{- if and (not .Values.postgres.bundled) (.Values.postgres.externalCidrs) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-external-db
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - api
+          - runtime-worker
+          - mcp-gateway
+          - sandbox-manager
+          - system-worker
+          - ingest-worker
+  policyTypes: ["Egress"]
+  egress:
+    {{- include "ar.externalDbEgress" . | nindent 4 }}
+{{- end }}
 {{- if .Values.airgap.lockdown }}
 {{- if .Values.airgap.egressCIDRs }}
 ---
@@ -228,12 +343,21 @@ spec:
         values: ["api", "runtime-worker", "mcp-gateway"]
   policyTypes: ["Egress"]
   egress:
+    {{- $ports := .Values.airgap.egressPorts | default (list 443 80) }}
+    {{- $opensDb := include "ar.egressOpensDatabase" . | trim }}
+    {{- if and (eq $opensDb "yes") (not .Values.cluster.podCIDR) }}
+    {{- fail "airgap.egressPorts includes a database port but cluster.podCIDR is empty, so those CIDRs would reopen platform database pods. Set cluster.podCIDR or remove the database ports from airgap.egressPorts." }}
+    {{- end }}
     {{- range .Values.airgap.egressCIDRs }}
     - to:
         - ipBlock:
             cidr: {{ . | quote }}
+            {{- if and (eq $opensDb "yes") $.Values.cluster.podCIDR }}
+            except:
+              - {{ $.Values.cluster.podCIDR | quote }}
+            {{- end }}
       ports:
-        {{- range $.Values.airgap.egressPorts | default (list 443 80) }}
+        {{- range $ports }}
         - {port: {{ . }}, protocol: TCP}
         {{- end }}
     {{- end }}

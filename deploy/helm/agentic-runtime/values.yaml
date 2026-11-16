@@ -348,12 +348,19 @@ networkPolicy:
   enabled: true
 airgap:
   lockdown: false
-  # When true, the API and the runtime worker may open 5432 only to the
-  # platform database (CNPG pooler, the StatefulSet, or postgres.externalCidrs)
-  # plus airgap.tenantDbCidrs. A vector read DSN must use that same path.
+  # When true, api, runtime-worker, mcp-gateway, sandbox-manager,
+  # system-worker and ingest-worker open 5432 only to the platform path
+  # (CNPG pooler, the StatefulSet, or postgres.externalCidrs). api,
+  # runtime-worker and mcp-gateway also open tenantDbPorts to tenantDbCidrs.
+  # Other pods cannot reach the platform database. A vector read DSN must
+  # use the pooler or the StatefulSet service, not a CNPG instance pod.
   isolatePlatformDb: false
-  # Customer database networks the API may dial when it tests a connection.
+  # Customer database networks the API and mcp-gateway may dial.
   tenantDbCidrs: []
+  # Ports opened for those networks. Postgres and MySQL by default.
+  tenantDbPorts:
+    - 5432
+    - 3306
   # Appended to otel-collector and any AR_EGRESS_HOSTS already in config.
   egressHosts: []
   # Extra NetworkPolicy egress, for an on-prem model or connector.
