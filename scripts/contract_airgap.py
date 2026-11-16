@@ -45,7 +45,7 @@ def _session(response: httpx.Response) -> dict[str, str]:
     return {"cookie": cookie, "x-csrf-token": csrf}
 
 
-def _agent_token(base: str, headers: dict[str, str]) -> str:
+def _assistant_id(base: str, headers: dict[str, str]) -> str:
     agents = httpx.get(f"{base}/api/v1/agents", headers=headers, timeout=30)
     if agents.status_code != 200:
         raise SystemExit(f"agents list failed: {agents.status_code} {agents.text[:200]}")
@@ -57,18 +57,47 @@ def _agent_token(base: str, headers: dict[str, str]) -> str:
     )
     if not isinstance(assistant, dict):
         raise SystemExit("the tenant has no assistant agent")
-    created = httpx.post(
-        f"{base}/api/v1/agents/{assistant['id']}/api-keys",
-        json={"label": "airgap", "scope": "agent"},
-        headers=headers,
-        timeout=30,
+    return str(assistant["id"])
+
+
+def _sql(statement: str) -> str:
+    """Read Postgres directly. A second API replica does not see the writer's memory."""
+    pod = kubectl(
+        "-n",
+        NAMESPACE,
+        "get",
+        "pods",
+        "-l",
+        "cnpg.io/podRole=instance,cnpg.io/instanceRole=primary",
+        "-o",
+        "jsonpath={.items[0].metadata.name}",
+    ).strip()
+    if not pod:
+        pod = kubectl(
+            "-n",
+            NAMESPACE,
+            "get",
+            "pods",
+            "-l",
+            "cnpg.io/podRole=instance",
+            "-o",
+            "jsonpath={.items[0].metadata.name}",
+        ).strip()
+    return kubectl(
+        "-n",
+        NAMESPACE,
+        "exec",
+        pod,
+        "-c",
+        "postgres",
+        "--",
+        "psql",
+        "-d",
+        "ar",
+        "-tA",
+        "-c",
+        statement,
     )
-    if created.status_code not in {200, 201}:
-        raise SystemExit(f"api key failed: {created.status_code} {created.text[:300]}")
-    token = str(created.json().get("key") or created.json().get("secret") or "")
-    if not token:
-        raise SystemExit("api key response had no secret")
-    return token
 
 
 def tool_turn(base: str) -> None:
@@ -80,40 +109,43 @@ def tool_turn(base: str) -> None:
     if response.status_code != 200:
         raise SystemExit(f"login failed: {response.status_code} {response.text[:200]}")
     headers = _session(response)
-    token = _agent_token(base, headers)
-    started = httpx.post(
-        f"{base}/v1/agents/assistant:run",
-        json={"text": "/tool general__list_files {}", "stream": False},
-        headers={"authorization": f"Bearer {token}"},
-        timeout=180,
-    )
-    if started.status_code != 200:
-        raise SystemExit(f"run failed: {started.status_code} {started.text[:400]}")
-    body = started.json()
-    run_id = str(body.get("id") or body.get("runId") or "")
-    if not run_id:
-        raise SystemExit(f"run response had no id: {list(body)[:8]}")
-    calls = httpx.get(
-        f"{base}/api/v1/runs/{run_id}/tool-calls",
+    opened = httpx.post(
+        f"{base}/api/v1/conversations",
+        json={"agentId": _assistant_id(base, headers)},
         headers=headers,
         timeout=30,
     )
-    if calls.status_code != 200:
-        raise SystemExit(f"tool calls failed: {calls.status_code} {calls.text[:300]}")
-    payload = calls.json()
-    rows = (
-        payload if isinstance(payload, list) else payload.get("items") or payload.get("calls") or []
+    if opened.status_code not in {200, 201}:
+        raise SystemExit(f"conversation failed: {opened.status_code} {opened.text[:300]}")
+    conversation_id = str(opened.json().get("id") or "")
+    posted = httpx.post(
+        f"{base}/api/v1/conversations/{conversation_id}/messages",
+        json={"text": "/tool general__list_files {}"},
+        headers=headers,
+        timeout=30,
     )
-    if not rows:
-        raise SystemExit(f"the run recorded no tool call: {str(payload)[:300]}")
-    failed = [
-        row
-        for row in rows
-        if isinstance(row, dict) and (row.get("isError") is True or row.get("status") == "error")
-    ]
-    if failed:
-        raise SystemExit(f"tool call failed: {str(failed[0])[:300]}")
-    print(f"tool call ok run={run_id} calls={len(rows)}", flush=True)
+    if posted.status_code not in {200, 202}:
+        raise SystemExit(f"message failed: {posted.status_code} {posted.text[:300]}")
+    run = posted.json().get("run") if isinstance(posted.json().get("run"), dict) else {}
+    run_id = str(run.get("id") or "")
+    if not run_id or any(char not in "0123456789abcdef-" for char in run_id.lower()):
+        raise SystemExit(f"message response had no run id: {list(posted.json())[:8]}")
+    # The chat route starts the Temporal workflow. The worker writes tool_calls.
+    for _ in range(45):
+        recorded = _sql(
+            "SELECT status || '|' || is_error::text FROM tool_calls "  # noqa: S608
+            f"WHERE run_id = '{run_id}'"
+        ).strip()
+        if recorded:
+            status, _, flag = recorded.splitlines()[0].partition("|")
+            if flag in {"t", "true"} or status in {"failed", "denied", "rejected"}:
+                raise SystemExit(f"tool call failed: {recorded.splitlines()[0]}")
+            if status == "succeeded":
+                print(f"tool call ok run={run_id}", flush=True)
+                return
+        time.sleep(2)
+    state = _sql(f"SELECT status FROM runs WHERE id = '{run_id}'").strip()  # noqa: S608
+    raise SystemExit(f"the run recorded no tool call: run={run_id} status={state}")
 
 
 def database_edges() -> None:
