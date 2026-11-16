@@ -23,9 +23,20 @@ const settled = new Set([
   "signed",
   "connected",
   "enabled",
+  "indexed",
+  "ready",
+  "accepted",
+  "supported",
 ]);
 const moving = new Set(["running", "queued", "in_progress", "started"]);
-const waiting = new Set(["draft", "paused", "pending", "waiting_input", "waiting_approval"]);
+const waiting = new Set([
+  "draft",
+  "paused",
+  "pending",
+  "proposed",
+  "waiting_input",
+  "waiting_approval",
+]);
 const broken = new Set([
   "failed",
   "error",
@@ -34,6 +45,7 @@ const broken = new Set([
   "timed_out",
   "rejected",
   "revoked",
+  "not_supported",
 ]);
 
 /** The tone for a status word the API returns. A word it does not know is neutral. */

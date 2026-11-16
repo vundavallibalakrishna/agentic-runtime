@@ -13,6 +13,10 @@ describe("Badge", () => {
     expect(statusTone("waiting_approval")).toBe("warning");
     expect(statusTone("draft")).toBe("warning");
     expect(statusTone("failed")).toBe("danger");
+    expect(statusTone("indexed")).toBe("success");
+    expect(statusTone("supported")).toBe("success");
+    expect(statusTone("proposed")).toBe("warning");
+    expect(statusTone("not_supported")).toBe("danger");
   });
 
   it("keeps a status it does not know neutral", () => {

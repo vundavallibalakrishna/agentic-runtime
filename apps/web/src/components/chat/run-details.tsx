@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
-
+import { Facts } from "@/components/common/facts";
 import { durationLabel, liveStatuses } from "@/components/runs/format";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,27 +100,37 @@ export function RunDetails({
       ) : null}
       {!error && current ? (
         <>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-sm">
-            <dt className="text-[var(--muted-foreground)]">{t("runStatus")}</dt>
-            <dd className="text-right">
-              <Badge tone={statusTone(current.status)}>{current.status}</Badge>
-            </dd>
-            <dt className="text-[var(--muted-foreground)]">{t("agent")}</dt>
-            <dd className="truncate text-right font-medium">
-              {agent?.name ? String(agent.name) : "—"}
-            </dd>
-            <dt className="text-[var(--muted-foreground)]">{t("runModel")}</dt>
-            <dd className="truncate text-right">{current.answeredModel || "—"}</dd>
-            <dt className="text-[var(--muted-foreground)]">{t("runDuration")}</dt>
-            <dd className="text-right tabular-nums">{durationLabel(current) || "—"}</dd>
-            <dt className="text-[var(--muted-foreground)]">{t("runSteps")}</dt>
-            <dd className="text-right tabular-nums">{steps.length}</dd>
-            <dt className="text-[var(--muted-foreground)]">{t("runToolCalls")}</dt>
-            <dd className="text-right tabular-nums">{tools.length}</dd>
-          </dl>
-          <h3 className="mb-2 mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
-            {t("runToolCalls")}
-          </h3>
+          <Facts
+            align="end"
+            items={[
+              {
+                label: t("runStatus"),
+                value: <Badge tone={statusTone(current.status)}>{current.status}</Badge>,
+              },
+              {
+                label: t("agent"),
+                value: (
+                  <span className="block truncate font-medium">
+                    {agent?.name ? String(agent.name) : "—"}
+                  </span>
+                ),
+              },
+              {
+                label: t("runModel"),
+                value: <span className="block truncate">{current.answeredModel || "—"}</span>,
+              },
+              {
+                label: t("runDuration"),
+                value: <span className="tabular-nums">{durationLabel(current) || "—"}</span>,
+              },
+              { label: t("runSteps"), value: <span className="tabular-nums">{steps.length}</span> },
+              {
+                label: t("runToolCalls"),
+                value: <span className="tabular-nums">{tools.length}</span>,
+              },
+            ]}
+          />
+          <h3 className="panel-title mb-2 mt-5">{t("runToolCalls")}</h3>
           {tools.length === 0 ? (
             <p className="text-sm text-[var(--muted-foreground)]">{t("runNoTools")}</p>
           ) : (

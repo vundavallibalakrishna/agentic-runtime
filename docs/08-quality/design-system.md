@@ -83,6 +83,12 @@ The builder is two columns from 1280 px: on the left the description box, the pr
 
 A long form carries the `form-sections` class: each `fieldset` directly inside it starts under a hairline with its legend as the section title. Checkboxes and radio buttons take the accent colour. The model picker on both screens lists the chat aliases the tenant has, read through `lib/model-aliases`; chat uses the same reader.
 
+## Detail screens
+
+A detail screen shows one record. Its status is a badge beside the back button in the page header. The facts about the record (trigger, type, pages, embedding model) are a label column and a value column through `common/Facts`, which leaves out a fact with no value; the chat run panel uses the same component. A block inside a panel starts with a small upper-case heading, the `panel-title` class. Lists inside a detail screen follow Record lists.
+
+The routine screen puts the instructions and actions on the left and the facts on the right, with events below as a record list. The approval screen is one panel: the tool name, status and risk badges, then the request, the reasons and the decision, each under a hairline. A knowledge collection shows its facts above the tabs, groups the three ways of adding a document in one panel, and lists documents, passages found, sources and jobs as record lists. A library document keeps its facts and outline in a column that stays in view, shows passages as one divided panel, and puts Judge and Rewrite side by side. Comparison, check and rewrite results use badges for the kind of change, the verdict and the decision.
+
 ## Sign-in
 
 The sign-in page offers the organisation account and the four seeded roles (`admin`, `builder`, `member`, `approver` at `@dev.local`). The Keycloak login theme under `deploy/compose/keycloak/themes/agentic` uses the same paper, ink and teal. Those theme files are CSS for Keycloak and are the one place a hex value is expected, because Keycloak does not read the web tokens.

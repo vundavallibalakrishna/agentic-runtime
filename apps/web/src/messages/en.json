@@ -300,7 +300,9 @@
     "status": "Status",
     "hidden": "hidden from you",
     "listTitle": "Collections",
-    "closeness": "{percent}% close to the question"
+    "closeness": "{percent}% close to the question",
+    "addTitle": "Add to this collection",
+    "hits": "Passages found"
   },
   "computer": {
     "title": "Computer",
@@ -888,7 +890,8 @@
     "reasons": "Why this needs a decision",
     "emptyHelp": "New requests will appear here when an action needs your approval.",
     "refresh": "Refresh",
-    "scopeLabel": "Approval filters"
+    "scopeLabel": "Approval filters",
+    "request": "Request"
   },
   "policies": {
     "activated": "Policy activated. Changes can take up to 15 seconds to reach tool checks.",
@@ -1010,7 +1013,11 @@
     "events": "Events",
     "noEvents": "No events yet.",
     "seedDescription": "A scheduled task for this workspace.",
-    "listTitle": "Scheduled routines"
+    "listTitle": "Scheduled routines",
+    "trigger": "Trigger",
+    "status": "Status",
+    "webhook": "Webhook address",
+    "webhookSecret": "Webhook secret"
   },
   "runs": {
     "title": "Runs",
