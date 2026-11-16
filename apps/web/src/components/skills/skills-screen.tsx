@@ -8,6 +8,7 @@ import { AppShell } from "@/components/app-shell";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -192,19 +193,16 @@ export function SkillsScreen() {
           </div>
         ) : null}
         {!loading && !error && rows.length === 0 ? <EmptyState title={t("empty")} /> : null}
-        <ul className="space-y-2">
+        <ul className="row-list">
           {rows.map((skill) => (
-            <li
-              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
-              key={skill.id}
-            >
+            <li className="p-4" key={skill.id}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="font-medium">{skill.name}</p>
                   <p className="text-sm text-[var(--muted-foreground)]">{skill.description}</p>
-                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                    {skill.status}
-                    {skill.publishedVersion ? ` · v${skill.publishedVersion}` : ""}
+                  <p className="mt-2 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                    <Badge tone={statusTone(skill.status)}>{skill.status}</Badge>
+                    {skill.publishedVersion ? `v${skill.publishedVersion}` : ""}
                   </p>
                 </div>
                 <Button asChild variant="outline">

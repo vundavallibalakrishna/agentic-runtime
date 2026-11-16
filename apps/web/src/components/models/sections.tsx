@@ -4,6 +4,15 @@ import { useTranslations } from "next-intl";
 
 import { EmptyState } from "@/components/common/management-layout";
 import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableScroll,
+} from "@/components/ui/table";
 
 import { RowActions, Select, SmallButton, TestLine } from "./parts";
 import {
@@ -48,88 +57,110 @@ export function UsesSection({
       <p className="mb-4 mt-1 max-w-2xl text-sm leading-relaxed text-[var(--muted-foreground)]">
         {t("usesBody")}
       </p>
-      <ul className={`${CARD} divide-y divide-[var(--border)]`}>
-        {standard.map((item) => {
-          const choices = modelsFor(item, models);
-          const own = item.set && !item.platform;
-          return (
-            <li className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_16rem]" key={item.alias}>
-              <div className="min-w-0">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  {t(`uses.${item.alias}.title`)}
-                  <code className="text-xs font-normal text-[var(--muted-foreground)]">
-                    {item.alias}
-                  </code>
-                  {item.set ? <Badge>{t("set")}</Badge> : null}
-                  {!item.set && item.required ? (
-                    <Badge className="border-[var(--destructive)]">{t("notSetRequired")}</Badge>
-                  ) : null}
-                  {!item.set && !item.required ? (
-                    <Badge className="text-[var(--muted-foreground)]">{t("notSet")}</Badge>
-                  ) : null}
-                  {item.set && item.platform ? <Badge>{t("platform")}</Badge> : null}
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-[var(--muted-foreground)]">
-                  {t(`uses.${item.alias}.body`)}
-                </p>
-                {item.aliasId ? <TestLine result={tests[`alias:${item.aliasId}`]} /> : null}
-              </div>
-              <div className="grid content-start gap-2">
-                <Select
-                  disabled={!canManage || choices.length === 0}
-                  id={`use-${item.alias}`}
-                  label={t("modelFor", { use: t(`uses.${item.alias}.title`) })}
-                  onChange={(next) => (next ? onPoint(item, next) : undefined)}
-                  value={item.modelId ?? ""}
-                >
-                  <option value="">{t("chooseModel")}</option>
-                  {choices.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name}
-                    </option>
-                  ))}
-                </Select>
-                {choices.length === 0 ? (
-                  <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-                    {item.capability
-                      ? t(`needs.${item.capability}`)
-                      : t("noModelOfKind", { kind: t(`kindNames.${item.kind}`) })}
-                  </p>
-                ) : null}
-                {item.aliasId ? (
-                  <RowActions>
-                    <SmallButton
-                      disabled={!canManage}
-                      label={t("testNamed", { name: t(`uses.${item.alias}.title`) })}
-                      onClick={() => onTest(item.aliasId as string)}
+      <TableScroll className={CARD} label={t("usesTable")}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">{t("useColumn")}</TableHead>
+              <TableHead scope="col">{t("modelColumn")}</TableHead>
+              <TableHead scope="col">{t("statusColumn")}</TableHead>
+              <TableHead scope="col">
+                <span className="sr-only">{t("actionsColumn")}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {standard.map((item) => {
+              const choices = modelsFor(item, models);
+              const own = item.set && !item.platform;
+              return (
+                <TableRow key={item.alias}>
+                  <TableCell className="min-w-56 align-top">
+                    <p className="flex flex-wrap items-center gap-2 font-medium">
+                      {t(`uses.${item.alias}.title`)}
+                      <code className="text-xs font-normal text-[var(--muted-foreground)]">
+                        {item.alias}
+                      </code>
+                    </p>
+                    <p className="mt-1 leading-relaxed text-[var(--muted-foreground)]">
+                      {t(`uses.${item.alias}.body`)}
+                    </p>
+                    {item.aliasId ? <TestLine result={tests[`alias:${item.aliasId}`]} /> : null}
+                  </TableCell>
+                  <TableCell className="min-w-56 align-top">
+                    <Select
+                      disabled={!canManage || choices.length === 0}
+                      id={`use-${item.alias}`}
+                      label={t("modelFor", { use: t(`uses.${item.alias}.title`) })}
+                      onChange={(next) => (next ? onPoint(item, next) : undefined)}
+                      value={item.modelId ?? ""}
                     >
-                      {t("test")}
-                    </SmallButton>
-                    {own && advanced && item.kind === "chat" ? (
-                      <SmallButton
-                        disabled={!canManage}
-                        label={t("optionsNamed", { name: t(`uses.${item.alias}.title`) })}
-                        onClick={() => onOptions(item.aliasId as string)}
-                      >
-                        {t("options")}
-                      </SmallButton>
+                      <option value="">{t("chooseModel")}</option>
+                      {choices.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}
+                        </option>
+                      ))}
+                    </Select>
+                    {choices.length === 0 ? (
+                      <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                        {item.capability
+                          ? t(`needs.${item.capability}`)
+                          : t("noModelOfKind", { kind: t(`kindNames.${item.kind}`) })}
+                      </p>
                     ) : null}
-                    {own ? (
-                      <SmallButton
-                        disabled={!canManage}
-                        label={t("clearNamed", { name: t(`uses.${item.alias}.title`) })}
-                        onClick={() => onClear(item)}
-                      >
-                        {t("clear")}
-                      </SmallButton>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <div className="flex flex-wrap gap-1.5 pt-2">
+                      {item.set ? <Badge tone="success">{t("set")}</Badge> : null}
+                      {!item.set && item.required ? (
+                        <Badge tone="danger">{t("notSetRequired")}</Badge>
+                      ) : null}
+                      {!item.set && !item.required ? (
+                        <Badge className="text-[var(--muted-foreground)]">{t("notSet")}</Badge>
+                      ) : null}
+                      {item.set && item.platform ? <Badge>{t("platform")}</Badge> : null}
+                    </div>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    {item.aliasId ? (
+                      <div className="flex justify-end pt-1">
+                        <RowActions>
+                          <SmallButton
+                            disabled={!canManage}
+                            label={t("testNamed", { name: t(`uses.${item.alias}.title`) })}
+                            onClick={() => onTest(item.aliasId as string)}
+                          >
+                            {t("test")}
+                          </SmallButton>
+                          {own && advanced && item.kind === "chat" ? (
+                            <SmallButton
+                              disabled={!canManage}
+                              label={t("optionsNamed", { name: t(`uses.${item.alias}.title`) })}
+                              onClick={() => onOptions(item.aliasId as string)}
+                            >
+                              {t("options")}
+                            </SmallButton>
+                          ) : null}
+                          {own ? (
+                            <SmallButton
+                              disabled={!canManage}
+                              label={t("clearNamed", { name: t(`uses.${item.alias}.title`) })}
+                              onClick={() => onClear(item)}
+                            >
+                              {t("clear")}
+                            </SmallButton>
+                          ) : null}
+                        </RowActions>
+                      </div>
                     ) : null}
-                  </RowActions>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableScroll>
     </section>
   );
 }
@@ -183,7 +214,9 @@ export function ProvidersSection({
                     <h3 className="text-sm font-semibold">{provider.name}</h3>
 
                     {provider.platform ? <Badge>{t("platform")}</Badge> : null}
-                    <Badge>{provider.hasApiKey ? t("keyStored") : t("noKey")}</Badge>
+                    <Badge tone={provider.hasApiKey ? "success" : "warning"}>
+                      {provider.hasApiKey ? t("keyStored") : t("noKey")}
+                    </Badge>
                     {advanced ? (
                       <Badge>
                         {t.has(`providerKinds.${provider.kind}`)

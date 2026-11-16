@@ -6,8 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { ActionStatus, BackButton, DetailState } from "@/components/common/detail-state";
+import { Facts } from "@/components/common/facts";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 
@@ -99,7 +101,14 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
       <PageHeader
         body={t("detailBody")}
         title={routine?.name || t("title")}
-        actions={<BackButton href="/routines">{t("back")}</BackButton>}
+        actions={
+          <>
+            {routine?.status ? (
+              <Badge tone={statusTone(routine.status)}>{routine.status}</Badge>
+            ) : null}
+            <BackButton href="/routines">{t("back")}</BackButton>
+          </>
+        }
       />
       <DetailState loading={loading} error={error} onRetry={() => void load()} />
       <ActionStatus busy={busy} notice={notice} />
@@ -109,70 +118,98 @@ export function RoutineDetail({ routineId }: { routineId: string }) {
         </Button>
       ) : null}
       {routine ? (
-        <fieldset disabled={busy} className="detail-panel">
-          <p className="text-sm text-[var(--muted-foreground)]">{routine.triggerSummary}</p>
-          <p className="mt-2 text-sm">
-            {routine.status}
-            {routine.pausedReason ? ` · ${routine.pausedReason}` : ""}
-          </p>
-          <p className="mt-3 whitespace-pre-wrap text-sm">{routine.instructions}</p>
-          {routine.webhookUrl ? (
-            <p className="mt-3 break-all text-sm text-[var(--muted-foreground)]">
-              {routine.webhookUrl}
-            </p>
-          ) : null}
-          {secret ? (
-            <p className="mt-2 break-all text-sm" data-testid="webhook-secret">
-              {secret}
-            </p>
-          ) : null}
-          {routine.nextFires && routine.nextFires.length > 0 ? (
-            <ul className="mt-3 list-disc pl-5 text-sm text-[var(--muted-foreground)]">
-              {routine.nextFires.map((stamp) => (
-                <li key={stamp}>{new Date(stamp).toLocaleString()}</li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--border)] pt-5">
-            <Button onClick={() => void act(":run", t("ran"))} type="button">
-              {t("runNow")}
-            </Button>
-            <Button
-              onClick={() =>
-                void act(
-                  routine.status === "paused" ? ":resume" : ":pause",
-                  routine.status === "paused" ? t("resumed") : t("paused"),
-                )
-              }
-              type="button"
-              variant="outline"
-            >
-              {routine.status === "paused" ? t("resume") : t("pause")}
-            </Button>
-            {routine.webhookUrl ? (
+        <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <fieldset disabled={busy} className="detail-panel">
+            <h2 className="panel-title">{t("instructions")}</h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm">{routine.instructions}</p>
+            <div className="mt-6 flex flex-wrap gap-2 border-t border-[var(--border)] pt-5">
+              <Button onClick={() => void act(":run", t("ran"))} type="button">
+                {t("runNow")}
+              </Button>
               <Button
-                onClick={() => void act(":rotate-webhook-secret", t("rotated"))}
+                onClick={() =>
+                  void act(
+                    routine.status === "paused" ? ":resume" : ":pause",
+                    routine.status === "paused" ? t("resumed") : t("paused"),
+                  )
+                }
                 type="button"
                 variant="outline"
               >
-                {t("rotate")}
+                {routine.status === "paused" ? t("resume") : t("pause")}
               </Button>
-            ) : null}
-          </div>
-        </fieldset>
+              {routine.webhookUrl ? (
+                <Button
+                  onClick={() => void act(":rotate-webhook-secret", t("rotated"))}
+                  type="button"
+                  variant="outline"
+                >
+                  {t("rotate")}
+                </Button>
+              ) : null}
+            </div>
+          </fieldset>
+          <section className="detail-panel">
+            <Facts
+              items={[
+                { label: t("trigger"), value: routine.triggerSummary },
+                {
+                  label: t("status"),
+                  value: routine.pausedReason
+                    ? `${routine.status} · ${routine.pausedReason}`
+                    : null,
+                },
+                {
+                  label: t("webhook"),
+                  value: routine.webhookUrl ? (
+                    <span className="break-all font-mono text-xs">{routine.webhookUrl}</span>
+                  ) : null,
+                },
+                {
+                  label: t("webhookSecret"),
+                  value: secret ? (
+                    <span className="break-all font-mono text-xs" data-testid="webhook-secret">
+                      {secret}
+                    </span>
+                  ) : null,
+                },
+                {
+                  label: detail("upcoming"),
+                  value:
+                    routine.nextFires && routine.nextFires.length > 0 ? (
+                      <ul className="space-y-1 tabular-nums">
+                        {routine.nextFires.map((stamp) => (
+                          <li key={stamp}>{new Date(stamp).toLocaleString()}</li>
+                        ))}
+                      </ul>
+                    ) : null,
+                },
+              ]}
+            />
+          </section>
+        </div>
       ) : null}
       {!loading && routine ? (
-        <section className="detail-panel mt-6">
-          <h2 className="text-sm font-medium">{t("events")}</h2>
+        <section className="mt-8">
+          <h2 className="panel-title mb-3">{t("events")}</h2>
           {events.length === 0 ? (
             <EmptyState title={t("noEvents")} />
           ) : (
-            <ul className="mt-2 space-y-2">
+            <ul className="row-list">
               {events.map((event) => (
-                <li className="rounded-xl border border-[var(--border)] p-3 text-sm" key={event.id}>
-                  {event.source} · {event.status}
+                <li
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-sm"
+                  key={event.id}
+                >
+                  <span className="font-medium">{event.source}</span>
+                  <Badge tone={statusTone(event.status)}>{event.status}</Badge>
+                  {event.receivedAt ? (
+                    <span className="tabular-nums text-[var(--muted-foreground)]">
+                      {new Date(event.receivedAt).toLocaleString()}
+                    </span>
+                  ) : null}
                   {event.runId ? (
-                    <Link className="ml-3 underline" href={`/runs/${event.runId}`}>
+                    <Link className="ml-auto underline" href={`/runs/${event.runId}`}>
                       {detail("openRun")}
                     </Link>
                   ) : null}

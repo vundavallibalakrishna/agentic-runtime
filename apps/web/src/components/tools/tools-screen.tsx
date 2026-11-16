@@ -8,7 +8,7 @@ import { ActionStatus } from "@/components/common/detail-state";
 import { EmptyState, ManagementLayout } from "@/components/common/management-layout";
 import { SettingsMode } from "@/components/common/settings-mode";
 import { PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
+import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -302,15 +302,13 @@ export function ToolsScreen() {
           ) : null}
           {!loading && !error && servers.length === 0 ? <EmptyState title={t("empty")} /> : null}
           {!loading && servers.length > 0 ? (
-            <ul className="mb-8 grid gap-3">
+            <ul className="row-list mb-8">
               {servers.map((server) => (
-                <li
-                  className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
-                  key={String(server.id)}
-                >
-                  <h2 className="text-lg font-medium">{String(server.name)}</h2>
-                  <p className="text-sm text-[var(--muted-foreground)]">
-                    {String(server.slug)} · {String(server.kind)} · {String(server.status)}
+                <li className="px-4 py-3" key={String(server.id)}>
+                  <h2 className="text-base font-semibold">{String(server.name)}</h2>
+                  <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                    {String(server.slug)} · {String(server.kind)}
+                    <Badge tone={statusTone(String(server.status))}>{String(server.status)}</Badge>
                   </p>
                 </li>
               ))}
@@ -382,12 +380,9 @@ export function ToolsScreen() {
             {calls.length === 0 ? (
               <p className="text-sm text-[var(--muted-foreground)]">{t("noCalls")}</p>
             ) : null}
-            <ul className="space-y-2">
+            <ul className="row-list">
               {calls.slice(0, 8).map((call) => (
-                <li
-                  className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm"
-                  key={String(call.id)}
-                >
+                <li className="px-3 py-2 text-sm" key={String(call.id)}>
                   <p>{String(call.qualifiedName ?? "")}</p>
                   <p className="text-[var(--muted-foreground)]">{String(call.status ?? "")}</p>
                   <p>{String(call.resultPreview ?? "")}</p>

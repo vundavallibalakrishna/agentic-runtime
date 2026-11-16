@@ -15,12 +15,21 @@ All colour, type, radius, shadow and motion values live in `apps/web/src/app/glo
 | `--primary`, `--primary-hover`, `--primary-foreground` | The one accent, its hovered shade and the label on it |
 | `--border`, `--ring` | Hairlines and the focus ring |
 | `--destructive` | A failed action |
+| `--success`, `--warning` | A settled status and a waiting status, used through badge tones |
 | `--scrim` | The layer behind a menu or the command palette |
 | `--shadow`, `--shadow-xs`, `--shadow-composer`, `--radius` | Menus, subtle card elevation, composer elevation and corners |
 | `--nav-active`, `--nav-active-foreground` | The selected navigation row and its text |
 | `--motion` | Short transitions |
 
 Light and dark are both specified. The theme choice is `system`, `light` or `dark`, stored in `localStorage` under `ar-theme`. The default is `system`. A small script in the document head applies the choice before paint. `prefers-reduced-motion: reduce` shortens animation and transitions.
+
+## Status badges
+
+`ui/Badge` takes a `tone`: `neutral`, `success`, `warning`, `danger` or `info`. A tone tints the badge with one token (a faint fill, a soft border, text in that colour) through the `.tone` classes in `globals.css`, so both themes follow. `statusTone` maps a status word from the API to a tone: published and completed are success, running and queued are info, draft and waiting are warning, failed and disabled are danger. A word it does not know stays neutral. Screens use `statusTone` and do not choose status colours themselves.
+
+## Record lists
+
+A list of records is one panel with a hairline between rows: the `row-list` class on the `ul`. Rows do not carry their own border, corner or background. An empty list draws nothing, so the screen's empty state stands alone. Tools, skills, routines, schedules, knowledge, memory, inbox, approvals, reviews, policies, quotas, channels, computers and evaluations use it. A status word in a row is a badge through `statusTone`. Card grids stay for things a person picks from side by side, such as connectors.
 
 ## Type
 
@@ -56,11 +65,29 @@ Detail screens put their Back action in the page header. Approvals, reviews and 
 
 ## Chat
 
-The thread sits in a centred column. The welcome state pairs a display heading with three starter cards. Conversation history has a separate quiet column on desktop and a disclosure on mobile. The composer uses subtle elevation and a labelled send control that is disabled for an empty message. The composer grows with the text, accepts a file, and sends on Enter. Shift+Enter inserts a line. Streaming keeps a caret, announces text through `aria-live="polite"` about twice a second, and does not pull the scroll position when the reader has moved up. Markdown, including fenced code with a copy control, is rendered in the thread. Copy and regenerate sit on the message.
+The thread sits in a centred column. The welcome state pairs a display heading with three starter cards. Conversation history has a separate quiet column on desktop and a disclosure on mobile. The composer uses subtle elevation and a labelled send control that is disabled for an empty message. The composer grows with the text, accepts a file, and sends on Enter. Shift+Enter inserts a line. Streaming keeps a caret, announces text through `aria-live="polite"` about twice a second, and does not pull the scroll position when the reader has moved up. Markdown, including fenced code with a copy control, is rendered in the thread. Copy and regenerate sit on the message. From the tablet width up, a right column holds the run-details panel (status badge, agent, model, duration, step and tool-call counts, each tool call with its status, and the trace link) above the Computer panel. The panel reads the latest run of the conversation, refreshes while the run is live and when the reply ends, and has loading and error states. Below that width the trace link sits above the composer.
 
 ## Agent catalogue
 
-A prominent description-based builder entry appears only for users with `agents:create`. Agent cards show their description, status, version, owner, favourite toggle and available chat action. Search and status filters share one toolbar. Loading uses card-shaped skeletons, an empty filtered result offers Clear filters, and an error offers Try again. Disabled agents do not offer chat.
+The catalogue is a table, one agent per row: name and description, status badge, owner, published version, then the chat action and the favourite toggle. The New agent button in the page header appears only for users with `agents:create`. Search and status filters share one toolbar. Loading uses row-shaped skeletons, an empty filtered result offers Clear filters, and an error offers Try again. Disabled agents do not offer chat. The table scrolls sideways in its own region on a narrow screen. The runs list is a table in the same style, with the run status as a badge.
+
+## Documents and models
+
+The document library is a table: title and file name, media type as the library recorded it, page count, a status badge and an Open action. Upload is a primary button in the page header that wraps the file input, so the input keeps its label and keyboard focus. The compare form sits under the table.
+
+On Models, "What the product uses" is a table: the use with its name and explanation, the model picker, status badges (set is success, not set and needed is danger) and the row actions. A test result names its outcome in the success or failure colour. A provider shows whether its key is stored as a success or warning badge. A scroll region nested in a named section takes its own name, so the two landmarks stay distinct.
+
+## Agent builder and editor
+
+The builder is two columns from 1280 px: on the left the description box, the preview of the draft and the templates; on the right the form for filling in the agent by hand. Below that width they stack in the same order. The preview lists the draft's tools as badges. The editor shows the agent's status as a badge in the page header, and its publish, versions and test-chat panels stay in view while the form scrolls.
+
+A long form carries the `form-sections` class: each `fieldset` directly inside it starts under a hairline with its legend as the section title. Checkboxes and radio buttons take the accent colour. The model picker on both screens lists the chat aliases the tenant has, read through `lib/model-aliases`; chat uses the same reader.
+
+## Detail screens
+
+A detail screen shows one record. Its status is a badge beside the back button in the page header. The facts about the record (trigger, type, pages, embedding model) are a label column and a value column through `common/Facts`, which leaves out a fact with no value; the chat run panel uses the same component. A block inside a panel starts with a small upper-case heading, the `panel-title` class. Lists inside a detail screen follow Record lists.
+
+The routine screen puts the instructions and actions on the left and the facts on the right, with events below as a record list. The approval screen is one panel: the tool name, status and risk badges, then the request, the reasons and the decision, each under a hairline. A knowledge collection shows its facts above the tabs, groups the three ways of adding a document in one panel, and lists documents, passages found, sources and jobs as record lists. A library document keeps its facts and outline in a column that stays in view, shows passages as one divided panel, and puts Judge and Rewrite side by side. Comparison, check and rewrite results use badges for the kind of change, the verdict and the decision.
 
 ## Sign-in
 

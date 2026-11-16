@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ActionStatus, BackButton } from "@/components/common/detail-state";
 import { PageHeader } from "@/components/page-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { chatAliases } from "@/lib/model-aliases";
 
 import type { Definition } from "./types";
 
@@ -50,11 +52,16 @@ export function BuilderScreen() {
   const [formName, setFormName] = useState("");
   const [formInstructions, setFormInstructions] = useState("");
   const [formModel, setFormModel] = useState("reasoning");
+  const [aliases, setAliases] = useState<string[]>([]);
   const [enabledTools, setEnabledTools] = useState<string[]>([...GENERAL_TOOLS]);
   const [dataTools, setDataTools] = useState<string[]>([]);
   const [rowLimit, setRowLimit] = useState(1000);
   const [toolTimeout, setToolTimeout] = useState(30);
   const [toolNetwork, setToolNetwork] = useState(false);
+
+  useEffect(() => {
+    void chatAliases().then(setAliases);
+  }, []);
 
   const spec = view?.proposal?.resources?.[0]?.spec;
 
@@ -209,93 +216,125 @@ export function BuilderScreen() {
         actions={<BackButton href="/agents">{detail("back")}</BackButton>}
       />
       <ActionStatus busy={busy} />
-      <fieldset disabled={busy} className="min-w-0">
-        <section className="detail-panel">
-          <label className="block text-sm font-medium" htmlFor="instruction">
-            {t("instruction")}
-          </label>
-          <textarea
-            className="mt-2 min-h-28 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
-            id="instruction"
-            onChange={(event) => setInstruction(event.target.value)}
-            placeholder={t("instructionPlaceholder")}
-            value={instruction}
-          />
-          <Button
-            className="mt-3"
-            disabled={busy || instruction.trim().length < 8}
-            onClick={() => void draft()}
-            type="button"
-          >
-            {t("draft")}
-          </Button>
-        </section>
-        {error ? (
-          <p className="mt-3 text-sm text-[var(--destructive)]" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {spec ? (
-          <section className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
-            <h2 className="text-base font-medium">{t("preview")}</h2>
-            <p className="mt-2 text-sm">
-              {t("persona")}: {spec.persona?.displayName}
-            </p>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">{spec.persona?.greeting}</p>
-            <p className="mt-3 text-sm">{spec.instructions}</p>
-            <ul className="mt-3 text-sm">
-              {(spec.tools ?? []).map((tool) => (
-                <li key={tool.server}>
-                  {t("toolSlot")}: {tool.server}
-                </li>
-              ))}
-            </ul>
-            <section aria-label={t("validation")} className="mt-3">
-              <p className="text-sm font-medium">{t("validation")}</p>
-              {(view?.validation?.warnings ?? []).map((item) => (
-                <p className="text-sm text-[var(--muted-foreground)]" key={item.msg}>
-                  {item.msg}
-                </p>
-              ))}
-              {(view?.validation?.errors ?? []).map((item) => (
-                <p className="text-sm text-[var(--destructive)]" key={item.msg}>
-                  {item.msg}
-                </p>
-              ))}
-              {(view?.validation?.errors ?? []).length === 0 ? (
-                <p className="text-sm">{t("noErrors")}</p>
-              ) : null}
-            </section>
-            <label className="mt-4 block text-sm font-medium" htmlFor="follow-up">
-              {t("followUp")}
+      <fieldset
+        disabled={busy}
+        className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]"
+      >
+        <div className="min-w-0 space-y-6">
+          <section className="detail-panel">
+            <label className="block text-sm font-medium" htmlFor="instruction">
+              {t("instruction")}
             </label>
             <textarea
-              className="mt-2 min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm"
-              id="follow-up"
-              onChange={(event) => setFollowUp(event.target.value)}
-              value={followUp}
+              className="mt-2 min-h-28 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] p-3 text-sm"
+              id="instruction"
+              onChange={(event) => setInstruction(event.target.value)}
+              placeholder={t("instructionPlaceholder")}
+              value={instruction}
             />
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                disabled={busy || !followUp.trim()}
-                onClick={() => void revise()}
-                type="button"
-                variant="outline"
-              >
-                {t("updateDraft")}
-              </Button>
-              <Button
-                disabled={busy || !!error || !!view?.validation?.errors?.length}
-                onClick={() => void apply()}
-                type="button"
-              >
-                {t("apply")}
-              </Button>
+            <Button
+              className="mt-3"
+              disabled={busy || instruction.trim().length < 8}
+              onClick={() => void draft()}
+              type="button"
+            >
+              {t("draft")}
+            </Button>
+          </section>
+          {error ? (
+            <p className="mt-3 text-sm text-[var(--destructive)]" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {spec ? (
+            <section className="detail-panel">
+              <h2 className="text-base font-semibold">{t("preview")}</h2>
+              <p className="mt-2 text-sm">
+                {t("persona")}: {spec.persona?.displayName}
+              </p>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                {spec.persona?.greeting}
+              </p>
+              <p className="mt-3 text-sm">{spec.instructions}</p>
+              <ul aria-label={t("toolsAndConnectors")} className="mt-3 flex flex-wrap gap-1.5">
+                {(spec.tools ?? []).map((tool) => (
+                  <li key={tool.server}>
+                    <Badge>
+                      {t("toolSlot")}: {tool.server}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+              <section aria-label={t("validation")} className="mt-3">
+                <p className="text-sm font-medium">{t("validation")}</p>
+                {(view?.validation?.warnings ?? []).map((item) => (
+                  <p className="text-sm text-[var(--muted-foreground)]" key={item.msg}>
+                    {item.msg}
+                  </p>
+                ))}
+                {(view?.validation?.errors ?? []).map((item) => (
+                  <p className="text-sm text-[var(--destructive)]" key={item.msg}>
+                    {item.msg}
+                  </p>
+                ))}
+                {(view?.validation?.errors ?? []).length === 0 ? (
+                  <p className="text-sm">{t("noErrors")}</p>
+                ) : null}
+              </section>
+              <label className="mt-4 block text-sm font-medium" htmlFor="follow-up">
+                {t("followUp")}
+              </label>
+              <textarea
+                className="mt-2 min-h-20 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-sm"
+                id="follow-up"
+                onChange={(event) => setFollowUp(event.target.value)}
+                value={followUp}
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  disabled={busy || !followUp.trim()}
+                  onClick={() => void revise()}
+                  type="button"
+                  variant="outline"
+                >
+                  {t("updateDraft")}
+                </Button>
+                <Button
+                  disabled={busy || !!error || !!view?.validation?.errors?.length}
+                  onClick={() => void apply()}
+                  type="button"
+                >
+                  {t("apply")}
+                </Button>
+              </div>
+            </section>
+          ) : null}
+          <section className="detail-panel">
+            <h2 className="text-sm font-semibold">{t("templates")}</h2>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {TEMPLATES.map((template) => (
+                <Button
+                  key={template}
+                  onClick={() => void fromTemplate(template)}
+                  type="button"
+                  variant="outline"
+                >
+                  {template === "blank"
+                    ? t("template_blank")
+                    : template === "assistant"
+                      ? t("template_assistant")
+                      : template === "researcher"
+                        ? t("template_researcher")
+                        : template === "analyst"
+                          ? t("template_analyst")
+                          : t("template_support")}
+                </Button>
+              ))}
             </div>
           </section>
-        ) : null}
-        <section className="detail-panel mt-8">
-          <h2 className="text-sm font-medium">{t("createForm")}</h2>
+        </div>
+        <section className="detail-panel form-sections">
+          <h2 className="text-base font-semibold">{t("createForm")}</h2>
           <label className="mt-3 block text-sm font-medium" htmlFor="agent-form-name">
             {t("name")}
           </label>
@@ -323,8 +362,11 @@ export function BuilderScreen() {
             onChange={(event) => setFormModel(event.target.value)}
             value={formModel}
           >
-            <option value="reasoning">reasoning</option>
-            <option value="fast">fast</option>
+            {(aliases.includes(formModel) ? aliases : [formModel, ...aliases]).map((alias) => (
+              <option key={alias} value={alias}>
+                {alias}
+              </option>
+            ))}
           </select>
           <fieldset className="mt-4">
             <legend className="text-sm font-medium">{t("generalTools")}</legend>
@@ -350,7 +392,7 @@ export function BuilderScreen() {
             <label className="mt-3 block text-sm" htmlFor="create-timeout">
               {t("toolTimeout")}
               <input
-                className="mt-1 w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                className="mt-1 block w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
                 id="create-timeout"
                 min={1}
                 max={120}
@@ -393,7 +435,7 @@ export function BuilderScreen() {
             <label className="mt-3 block text-sm" htmlFor="create-row-limit">
               {t("rowLimit")}
               <input
-                className="mt-1 w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+                className="mt-1 block w-full max-w-xs rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
                 id="create-row-limit"
                 max={5000}
                 min={1}
@@ -411,29 +453,6 @@ export function BuilderScreen() {
           >
             {t("createUse")}
           </Button>
-        </section>
-        <section className="mt-8">
-          <h2 className="text-sm font-medium text-[var(--muted-foreground)]">{t("templates")}</h2>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {TEMPLATES.map((template) => (
-              <Button
-                key={template}
-                onClick={() => void fromTemplate(template)}
-                type="button"
-                variant="outline"
-              >
-                {template === "blank"
-                  ? t("template_blank")
-                  : template === "assistant"
-                    ? t("template_assistant")
-                    : template === "researcher"
-                      ? t("template_researcher")
-                      : template === "analyst"
-                        ? t("template_analyst")
-                        : t("template_support")}
-              </Button>
-            ))}
-          </div>
         </section>
       </fieldset>
     </div>
