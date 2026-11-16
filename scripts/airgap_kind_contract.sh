@@ -134,6 +134,7 @@ if ! helm upgrade --install agentic-runtime "$chart" \
   kubectl -n "$namespace" get pods -o wide || true
   kubectl -n "$namespace" describe cluster agentic-runtime-pg || true
   kubectl -n "$namespace" logs -l cnpg.io/cluster=agentic-runtime-pg --all-containers --tail=80 || true
+  kubectl -n "$namespace" logs -l app.kubernetes.io/name=temporal --tail=40 || true
   kubectl -n "$namespace" logs job/agentic-runtime-migrate --tail=80 || true
   rm -f "$api_cidrs"
   exit 1

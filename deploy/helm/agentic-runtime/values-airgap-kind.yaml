@@ -30,7 +30,10 @@ airgap:
     - agentic-runtime-temporal
     - agentic-runtime-sandbox-manager
 temporal:
-  ha: true
+  # The bundled HA deployment starts temporal-server with no persistence file,
+  # so those pods crash. This contract uses the dev server. Two CNPG instances
+  # still exercise replication.
+  ha: false
   workerVersioning: false
 workloads:
   api:
