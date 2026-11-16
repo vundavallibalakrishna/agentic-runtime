@@ -9,3 +9,5 @@ Enable the pack for a tenant, then call `grc.import_catalogue`, `grc.judge_catal
 `grc.judge_catalogue` uses `ar_domain.documents.judgement.judge_items`. A statement that is a substring of a supplied passage is `supported`. Overlap is not a verdict.
 
 Production loads packs from `AR_PACKS_DIR`. When signatures are required, add this pack's key id (`grc-pack`) to `AR_PACK_TRUSTED_KEYS` before the directory is loaded.
+
+`key.pub` is the public key. `signature.b64` is an Ed25519 signature over the JCS SHA-256 of `manifest.json`. The private key is not in the repository. To re-sign after a manifest change, sign that digest with the private key, replace `signature.b64`, and keep `key.pub` as the trusted public key.
