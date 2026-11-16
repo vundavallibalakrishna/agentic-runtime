@@ -148,6 +148,8 @@ echo "waiting for workloads"
 # The API starts before Postgres is ready and can trip its progress deadline.
 kubectl -n "$namespace" rollout restart deploy/agentic-runtime-api
 kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=3m || true
+# The owner password comes from the chart secret. A SASL failure here means
+# the pooler is still using a generated password.
 echo "probing the API database connection"
 kubectl -n "$namespace" exec deploy/agentic-runtime-api -- python -c '
 import asyncio, os
