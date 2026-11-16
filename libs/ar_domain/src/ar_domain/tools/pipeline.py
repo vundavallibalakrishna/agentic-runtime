@@ -262,6 +262,7 @@ class ToolPipeline:
         call_args = dict(arguments)
         if endpoint.startswith("builtin://"):
             call_args.update(self._sandbox_context(request))
+            call_args["_permissions"] = self._caller_permissions(request)
         if endpoint == "builtin://browser" and str(version.get("name")) in {
             "navigate",
             "submit_form",
@@ -506,6 +507,25 @@ class ToolPipeline:
         if context.get("_agent_id") is None:
             context["_agent_id"] = run.get("agent_id")
         return context
+
+    def _caller_permissions(self, request: dict[str, object]) -> list[str]:
+        """The caller's real permissions, including pack grants for a tenant admin."""
+        from ar_domain.identity.permissions import (  # noqa: PLC0415
+            PERMISSION_KEYS,
+            SYSTEM_ROLE_PERMISSIONS,
+        )
+        from ar_domain.packs.registry import permissions_for  # noqa: PLC0415
+
+        user_id = request.get("user_id")
+        roles = set(getattr(self.store, "user_roles", {}).get(user_id, set()))
+        if "tenant_admin" in roles:
+            permissions = set(PERMISSION_KEYS)
+        else:
+            permissions = set()
+            for role in roles:
+                permissions.update(SYSTEM_ROLE_PERMISSIONS.get(role, ()))
+        permissions.update(permissions_for(self.store, request.get("tenant_id"), roles))
+        return sorted(permissions)
 
     def _emit_streams(self, request: dict[str, object], outcome: dict[str, object]) -> None:
         streams = outcome.get("streams")

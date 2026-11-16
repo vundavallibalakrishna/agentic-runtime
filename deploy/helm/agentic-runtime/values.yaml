@@ -332,6 +332,11 @@ airgap:
   egressHosts: []
   # Extra NetworkPolicy egress, for an on-prem model or connector.
   egressCIDRs: []
+  # Ports opened for those CIDRs. Add 25, 587, 993, 389 or 8000 when the
+  # connector or the in-cluster model needs them.
+  egressPorts:
+    - 443
+    - 80
 observability:
   enabled: false
 fakeLlm:

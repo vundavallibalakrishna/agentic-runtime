@@ -21,6 +21,10 @@ def test_airgap_overlay_appends_hosts_and_renders_cidrs(tmp_path: Path) -> None:
                 "    - vllm.internal",
                 "  egressCIDRs:",
                 "    - 10.8.0.0/16",
+                "  egressPorts:",
+                "    - 443",
+                "    - 8000",
+                "    - 587",
                 "config:",
                 "  AR_EGRESS_HOSTS: embed.internal",
             ]
@@ -58,3 +62,5 @@ def test_airgap_overlay_appends_hosts_and_renders_cidrs(tmp_path: Path) -> None:
         and str(doc["metadata"]["name"]).endswith("airgap-cidrs")
     )
     assert cidr["spec"]["egress"][0]["to"][0]["ipBlock"]["cidr"] == "10.8.0.0/16"
+    ports = [item["port"] for item in cidr["spec"]["egress"][0]["ports"]]
+    assert ports == [443, 8000, 587]

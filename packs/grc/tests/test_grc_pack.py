@@ -5,6 +5,8 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 
+import pytest
+
 from ar_domain.agents.access import Actor
 from grc_pack import enable
 from grc_pack.book import CatalogueBook
@@ -74,6 +76,52 @@ def test_import_judge_link_risk_and_finding() -> None:
         pass
     else:
         raise AssertionError("another tenant must not see the catalogue")
+    import orjson
+
+    stored = store.extension_rows[uuid.UUID(str(imported["id"]))]
+    stored["payload"] = orjson.loads(orjson.dumps(stored["payload"], default=str))
+    reloaded = book.items(actor, uuid.UUID(str(imported["id"])))
+    assert reloaded and reloaded[0]["catalogue_id"] == uuid.UUID(str(imported["id"]))
+
+
+def test_link_requires_evidence_read() -> None:
+    from ar_common.errors import ForbiddenError
+    from ar_testing.demo import demo_store
+
+    store = demo_store()
+    actor = _actor()
+    enable(store, actor.tenant_id, owner=actor.user_id)
+    book = CatalogueBook(store)
+    imported = book.import_csv(actor, "House rules", _CSV)
+    item_id = uuid.UUID(str(book.items(actor, uuid.UUID(str(imported["id"])))[0]["id"]))
+    sealed = EvidenceBook(store).capture(actor, {"collection_method": "upload"}, b"photo")
+    limited = Actor(
+        actor.tenant_id,
+        actor.user_id,
+        frozenset({"grc.evidence:link", "grc.catalogues:manage"}),
+    )
+    with pytest.raises(ForbiddenError):
+        book.link_evidence(limited, item_id, uuid.UUID(str(sealed["id"])))
+
+
+def test_the_pipeline_injects_real_permissions() -> None:
+    from ar_domain.tools.pipeline import ToolPipeline
+    from ar_testing.demo import demo_store
+
+    store = demo_store()
+    actor = _actor()
+    enable(store, actor.tenant_id, owner=actor.user_id)
+    store.user_roles[actor.user_id] = {"tenant_admin"}
+    granted = ToolPipeline(store)._caller_permissions(
+        {"user_id": actor.user_id, "tenant_id": actor.tenant_id}
+    )
+    assert "grc.catalogues:manage" in granted
+    member = uuid.uuid4()
+    store.user_roles[member] = {"member"}
+    withheld = ToolPipeline(store)._caller_permissions(
+        {"user_id": member, "tenant_id": actor.tenant_id}
+    )
+    assert "grc.catalogues:manage" not in withheld
 
 
 def test_the_sql_migration_is_reversible_and_has_rls() -> None:

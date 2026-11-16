@@ -47,6 +47,16 @@ async def complete_upstream(
 
     profiles = {}
     settings = {}
+    if target.tenant_id is not None and target.data_residency == "unread":
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "egress_denied",
+                    "message": "the tenant row could not be read",
+                }
+            },
+        )
     if target.tenant_id is not None:
         profiles[target.tenant_id] = {"data_residency": target.data_residency}
         settings[target.tenant_id] = {"egress_allowlist": list(target.egress_allow)}
@@ -59,7 +69,9 @@ async def complete_upstream(
             status_code=502,
             content={"error": {"code": "egress_denied", "message": problem}},
         )
-    async with async_client(timeout=float(target.timeout_s)) as client:
+    async with async_client(
+        timeout=float(target.timeout_s), allow=list(target.egress_allow)
+    ) as client:
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
     parsed = response.json()

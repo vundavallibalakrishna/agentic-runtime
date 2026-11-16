@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import io
+import uuid
 from typing import TYPE_CHECKING, Any
 
 from ar_common.errors import NotFoundError, ValidationFailedError
@@ -19,8 +20,6 @@ from ar_domain.records.access import audit, require
 from ar_domain.records.memory import bucket
 
 if TYPE_CHECKING:
-    import uuid
-
     from ar_domain.agents.access import Actor
 
 _HEADERS = ("key", "title", "statement")
@@ -86,6 +85,7 @@ class CatalogueBook:
     ) -> dict[str, object]:
         """Point a catalogue item at a sealed record. The record must exist."""
         require(actor, "grc.evidence:link")
+        require(actor, "evidence:read")
         item = self._item(actor, item_id)
         evidence = bucket(self.store, "evidence").get(evidence_id)
         if not isinstance(evidence, dict) or evidence.get("tenant_id") != actor.tenant_id:
@@ -243,7 +243,7 @@ def _scan(store: Any, name: str, tenant_id: object) -> list[dict[str, object]]:
             continue
         payload = item.get("payload")
         if isinstance(payload, dict):
-            found.append(payload)
+            found.append(_restore(payload))
     return found
 
 
@@ -258,7 +258,23 @@ def _one(store: Any, name: str, tenant_id: object, row_id: uuid.UUID) -> dict[st
         or not isinstance(payload, dict)
     ):
         raise NotFoundError()
-    return payload
+    return _restore(payload)
+
+
+_UUID_FIELDS = ("id", "tenant_id", "catalogue_id", "item_id", "evidence_id")
+
+
+def _restore(payload: dict[str, object]) -> dict[str, object]:
+    """JSON storage returns identifiers as strings. Callers compare UUIDs."""
+    restored = dict(payload)
+    for key in _UUID_FIELDS:
+        value = restored.get(key)
+        if isinstance(value, str):
+            try:
+                restored[key] = uuid.UUID(value)
+            except ValueError:
+                continue
+    return restored
 
 
 def _rows(text: str) -> list[dict[str, str]]:

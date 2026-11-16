@@ -568,7 +568,8 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
                             """
                         SELECT p.id, p.base_url, p.kind, p.timeout_s, p.tenant_id,
                                m.upstream_model, m.request_options,
-                               COALESCE(t.data_residency, 'in') AS data_residency,
+                               t.id AS tenant_row_id,
+                               t.data_residency AS data_residency,
                                t.settings AS tenant_settings
                         FROM models m
                         JOIN model_providers p ON p.id = m.provider_id
@@ -618,9 +619,19 @@ async def lookup_upstream(model_name: str) -> UpstreamTarget | None:
         kind=str(found["kind"]),
         request_options=request_options_of(found),
         tenant_id=tenant,
-        data_residency=str(found.get("data_residency") or "in"),
+        data_residency=_residency(found, tenant),
         egress_allow=allow,
     )
+
+
+def _residency(found: Any, tenant: uuid.UUID | None) -> str:
+    """A tenant whose row cannot be read is not treated as unrestricted."""
+    if tenant is not None and found.get("tenant_row_id") is None:
+        return "unread"
+    row = found.get("data_residency")
+    if isinstance(row, str) and row:
+        return row
+    return "in"
 
 
 def _shared_engine() -> AsyncEngine | None:

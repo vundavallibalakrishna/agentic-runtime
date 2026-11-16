@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import uuid  # noqa: TC003
+import uuid
 from typing import Any  # noqa: TC003
 
 import orjson
@@ -24,6 +24,12 @@ _UPSERT = text(
 )
 
 
+def _json(value: object) -> str:
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    raise TypeError(f"unsupported extension value {type(value).__name__}")
+
+
 async def save_extension_rows(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
     """Write dirty pack rows. Deleted rows are removed by the shared deletion pass."""
     for row in rows:
@@ -37,7 +43,7 @@ async def save_extension_rows(session: AsyncSession, rows: list[dict[str, Any]])
                 "tenant_id": row.get("tenant_id"),
                 "pack_id": str(row.get("pack_id") or ""),
                 "bucket": str(row.get("bucket") or ""),
-                "payload": orjson.dumps(payload).decode(),
+                "payload": orjson.dumps(payload, default=_json).decode(),
             },
         )
 

@@ -206,8 +206,9 @@ spec:
         - ipBlock:
             cidr: {{ . | quote }}
       ports:
-        - {port: 443, protocol: TCP}
-        - {port: 80, protocol: TCP}
+        {{- range $.Values.airgap.egressPorts | default (list 443 80) }}
+        - {port: {{ . }}, protocol: TCP}
+        {{- end }}
     {{- end }}
 {{- end }}
 ---

@@ -25,7 +25,11 @@ def test_execute_operation_does_not_allow_its_own_host() -> None:
         result = execute_operation(
             type("Store", (), {})(),
             {
-                "_operation": {"method": "GET", "url": "https://evil.test/x"},
+                "_operation": {
+                    "method": "GET",
+                    "url": "https://evil.test/x",
+                    "allow_hosts": ["evil.test"],
+                },
                 "_tenant_id": uuid.uuid4(),
             },
         )
@@ -33,6 +37,14 @@ def test_execute_operation_does_not_allow_its_own_host() -> None:
         set_settings(previous)
     assert result["code"] == "egress_denied"
     assert "evil.test" in str(result["text"])
+
+
+def test_a_missing_tenant_row_is_not_treated_as_unrestricted() -> None:
+    from ar_domain.models.registry import _residency
+
+    tenant = uuid.uuid4()
+    assert _residency({"tenant_row_id": None, "data_residency": None}, tenant) == "unread"
+    assert _residency({"tenant_row_id": tenant, "data_residency": "cluster"}, tenant) == "cluster"
 
 
 def test_saving_a_route_refuses_a_metadata_address() -> None:
