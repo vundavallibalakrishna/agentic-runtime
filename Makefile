@@ -40,8 +40,12 @@ bootstrap:
 	@if [ ! -f .env ]; then cp .env.example .env; fi
 	uv run python scripts/dev_keys.py
 
+# One-shots exit 0. `up --wait` treats that as a failure, so wait only on
+# the processes that keep running, then register the Temporal namespace.
 up:
-	$(COMPOSE) $(PROFILES) up -d --wait --wait-timeout 180
+	$(COMPOSE) $(PROFILES) up -d --wait --wait-timeout 180 \
+		postgres valkey temporal seaweedfs openbao opa mailpit greenmail squid fake-llm
+	$(COMPOSE) $(PROFILES) run --rm --no-deps temporal-namespace
 
 down:
 	$(COMPOSE) --profile dev --profile production --profile obs --profile scan --profile qdrant down
