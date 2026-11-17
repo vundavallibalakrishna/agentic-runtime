@@ -21,8 +21,9 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # Extensions first. A session that is about to drop SUPERUSER from ar_owner
-    # can still create them, and a non-superuser owner can create the trusted ones.
+    # The image superuser installs these during init. vector is not trusted,
+    # so ar_owner cannot create it. IF NOT EXISTS is a no-op once they exist,
+    # and a superuser session (the CI database) still installs them here.
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
     op.execute("CREATE EXTENSION IF NOT EXISTS citext")
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")

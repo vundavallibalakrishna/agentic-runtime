@@ -58,6 +58,13 @@ spec:
         - GRANT ar_app TO ar_owner WITH ADMIN OPTION
         - GRANT ar_readonly TO ar_owner WITH ADMIN OPTION
       postInitApplicationSQL:
+        # vector is not a trusted extension. The operator runs these as
+        # superuser; ar_owner cannot create them later.
+        - CREATE EXTENSION IF NOT EXISTS pgcrypto
+        - CREATE EXTENSION IF NOT EXISTS citext
+        - CREATE EXTENSION IF NOT EXISTS pg_trgm
+        - CREATE EXTENSION IF NOT EXISTS vector
+        - CREATE EXTENSION IF NOT EXISTS btree_gin
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
         - CREATE DATABASE langfuse

@@ -199,6 +199,8 @@ def assert_init_script(rendered: str) -> None:
             script = str(data["01-roles.sh"])
     if "NOSUPERUSER" not in script or "BYPASSRLS" not in script:
         raise SystemExit("statefulset init script does not set the role attributes")
+    if "CREATE EXTENSION IF NOT EXISTS vector" not in script:
+        raise SystemExit("statefulset init script does not install extensions")
     if "helm-owner-secret" in script or "PASSWORD '" in script:
         raise SystemExit("statefulset init script contains a password")
 
@@ -207,6 +209,8 @@ def assert_roles(rendered: str) -> None:
     """Application roles are not superuser, and the init script has no password literal."""
     if "PASSWORD 'ar_" in rendered or "\n        superuser: true" in rendered:
         raise SystemExit("rendered manifest still has a public superuser role")
+    if "CREATE EXTENSION IF NOT EXISTS vector" not in rendered:
+        raise SystemExit("CloudNativePG init does not install extensions")
     roles: dict[str, dict[str, object]] = {}
     for doc in docs(rendered):
         if doc.get("kind") != "Cluster":

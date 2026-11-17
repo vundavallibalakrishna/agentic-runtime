@@ -4,7 +4,7 @@ This is the **single source of truth** for tables, columns, types, constraints a
 
 ## 0. Conventions
 
-- PostgreSQL 18. Extensions: `vector` (pgvector 0.8.7), `pg_trgm`, `citext`, `btree_gin`.
+- PostgreSQL 18. Extensions: `vector` (pgvector 0.8.7), `pg_trgm`, `citext`, `btree_gin`. The image superuser installs them before Alembic, because `vector` is not a trusted extension.
 - Primary keys: `id uuid PRIMARY KEY DEFAULT uuidv7()` (the application also generates UUIDv7 via `ar_common.ids.new_id()` so ids are known before insert).
 - Every tenant-owned table has `tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE`, an index whose leading column is `tenant_id`, and RLS enabled + forced ([rls.md](rls.md)). Tables marked **(global)** have no tenant RLS. Tables with a nullable `tenant_id` (platform-provided rows) use the "platform-or-own" RLS policy.
 - Timestamps are `timestamptz`. `created_at DEFAULT now()`, `updated_at DEFAULT now()` maintained by trigger `set_updated_at()`.

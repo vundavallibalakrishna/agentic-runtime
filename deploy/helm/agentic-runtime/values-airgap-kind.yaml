@@ -9,7 +9,6 @@ postgres:
   mode: cnpg
   instances: 1
   storage: 1Gi
-  password: airgap-kind-fixture
   # The operator reads the major version from the tag. The pgvector tag does not.
   image:
     repository: ghcr.io/cloudnative-pg/postgresql
