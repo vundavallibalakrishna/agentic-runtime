@@ -51,12 +51,9 @@ spec:
       secret:
         name: {{ include "ar.roleSecret" (list . "ar_owner") }}
       postInitSQL:
-        - CREATE ROLE ar_platform LOGIN NOSUPERUSER BYPASSRLS
-        - CREATE ROLE ar_app LOGIN NOSUPERUSER NOBYPASSRLS
-        - CREATE ROLE ar_readonly LOGIN NOSUPERUSER NOBYPASSRLS
-        - GRANT ar_platform TO ar_owner WITH ADMIN OPTION
-        - GRANT ar_app TO ar_owner WITH ADMIN OPTION
-        - GRANT ar_readonly TO ar_owner WITH ADMIN OPTION
+        - CREATE ROLE ar_platform LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS
+        - CREATE ROLE ar_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS
+        - CREATE ROLE ar_readonly LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS
       postInitApplicationSQL:
         # vector is not a trusted extension. The operator runs these as
         # superuser; ar_owner cannot create them later.
@@ -68,21 +65,26 @@ spec:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
         - CREATE DATABASE langfuse
+        # ADMIN OPTION is this GRANT. inRoles only records membership so the
+        # reconciler does not revoke it; the list itself does not set ADMIN.
+        - GRANT ar_platform TO ar_owner WITH ADMIN OPTION
+        - GRANT ar_app TO ar_owner WITH ADMIN OPTION
+        - GRANT ar_readonly TO ar_owner WITH ADMIN OPTION
   managed:
     roles:
       # plans has FORCE ROW LEVEL SECURITY and no INSERT policy, and bootstrap
       # inserts system roles with a null tenant. BYPASSRLS is that write.
-      # CREATEDB creates the extra databases above. CREATEROLE is not SUPERUSER.
+      # The image superuser creates the extra databases. ar_owner is not CREATEDB
+      # and not CREATEROLE.
       - name: ar_owner
         ensure: present
         login: true
         superuser: false
-        createdb: true
-        createrole: true
+        createdb: false
+        createrole: false
         bypassrls: true
-        # The reconciler revokes memberships that are not listed here, including
-        # a GRANT from postInitSQL. PostgreSQL 16 requires ADMIN OPTION, which
-        # this list grants, before ar_owner can set the other passwords.
+        # Membership only. The operator drops memberships that are not listed.
+        # ADMIN OPTION is the GRANT in postInitApplicationSQL, not this list.
         inRoles:
           - ar_app
           - ar_platform

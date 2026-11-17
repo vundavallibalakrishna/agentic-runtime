@@ -1,10 +1,15 @@
 """Role passwords are install-time values, never the role name."""
 
+from pathlib import Path
+
 import pytest
 
 from ar_common.database_roles import (
+    PLACEHOLDERS,
     ROLE_ATTRIBUTES,
     assert_application_url,
+    assert_installed_database_secrets,
+    refuse_set_password,
     reject_database_password,
     role_password,
 )
@@ -20,8 +25,11 @@ def test_attributes_are_not_superuser() -> None:
     assert "BYPASSRLS" in ROLE_ATTRIBUTES["ar_platform"]
     assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_app"]
     assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_readonly"]
-    assert "CREATEDB" in ROLE_ATTRIBUTES["ar_owner"]
-    assert "CREATEROLE" in ROLE_ATTRIBUTES["ar_owner"]
+    owner = set(ROLE_ATTRIBUTES["ar_owner"].split())
+    assert "NOCREATEDB" in owner
+    assert "NOCREATEROLE" in owner
+    assert "CREATEDB" not in owner
+    assert "CREATEROLE" not in owner
 
 
 def test_password_rejects_placeholders_and_role_names(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -68,8 +76,8 @@ class _Connection:
         self.flags = {
             role: {
                 "rolsuper": False,
-                "rolcreatedb": role == "ar_owner",
-                "rolcreaterole": role == "ar_owner",
+                "rolcreatedb": False,
+                "rolcreaterole": False,
                 "rolbypassrls": role in {"ar_owner", "ar_platform"},
                 "rolcanlogin": True,
             }
@@ -117,7 +125,7 @@ def test_superuser_session_creates_roles(monkeypatch: pytest.MonkeyPatch) -> Non
     assert any(item.startswith("CREATE ROLE ar_owner") for item in connection.statements)
 
 
-def test_owner_session_checks_attributes_and_sets_passwords(
+def test_owner_session_checks_attributes_and_does_not_set_passwords(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     for key, value in {
@@ -131,7 +139,7 @@ def test_owner_session_checks_attributes_and_sets_passwords(
     from ar_domain.db.role_admin import apply_database_roles
 
     apply_database_roles(connection)  # type: ignore[arg-type]
-    assert any(item.startswith("ALTER ROLE ar_app PASSWORD") for item in connection.statements)
+    assert not any("PASSWORD" in item for item in connection.statements)
 
 
 def test_owner_session_refuses_a_missing_role(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -141,3 +149,87 @@ def test_owner_session_refuses_a_missing_role(monkeypatch: pytest.MonkeyPatch) -
 
     with pytest.raises(RuntimeError, match="ar_owner is missing"):
         apply_database_roles(connection)  # type: ignore[arg-type]
+
+
+def test_installed_secrets_refuse_placeholders_outside_dev(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AR_DB_OWNER_PASSWORD", "owner-secret")
+    monkeypatch.setenv("AR_DB_APP_PASSWORD", "app-secret")
+    monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
+    monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    url = "postgresql+asyncpg://ar_app:app-secret@localhost/ar"
+    assert_installed_database_secrets("dev", url)
+    assert_installed_database_secrets("ci", "postgresql://postgres:ar_owner@localhost/ar")
+    assert_installed_database_secrets("staging", url)
+    monkeypatch.setenv("AR_DB_APP_PASSWORD", "ar_app")
+    with pytest.raises(RuntimeError, match="AR_DB_APP_PASSWORD"):
+        assert_installed_database_secrets("prod", url)
+    monkeypatch.setenv("AR_DB_APP_PASSWORD", "app-secret")
+    with pytest.raises(RuntimeError, match="database URL password"):
+        assert_installed_database_secrets(
+            "staging", "postgresql://postgres:ar_owner@localhost/agentic_runtime"
+        )
+
+
+def test_refuse_set_password_allows_a_passwordless_url() -> None:
+    refuse_set_password(None)
+    refuse_set_password("")
+    with pytest.raises(RuntimeError):
+        refuse_set_password("ar_owner")
+
+
+def test_placeholder_copies_match() -> None:
+    """Helm and the init script refuse the same values as PLACEHOLDERS."""
+    root = Path(__file__).resolve().parents[4]
+    shell = (root / "deploy/helm/agentic-runtime/files/init-roles.sh").read_text(encoding="utf-8")
+    case = shell.split("case $folded in", 1)[1].split(")", 1)[0]
+    shell_tokens = {item.strip() for item in case.split("|") if item.strip()}
+    helm = (root / "deploy/helm/agentic-runtime/templates/_helpers.tpl").read_text(encoding="utf-8")
+    listed = helm.split("$bad := list ", 1)[1].split(" -}}", 1)[0]
+    helm_tokens = {item.strip().strip('"') for item in listed.split() if item.startswith('"')}
+    assert shell_tokens == PLACEHOLDERS - {""}
+    assert helm_tokens == PLACEHOLDERS
+
+
+def test_create_app_refuses_a_staging_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    from ar_common.web.app import _refuse_database_password
+
+    monkeypatch.setenv("AR_DB_OWNER_PASSWORD", "owner-secret")
+    monkeypatch.setenv("AR_DB_APP_PASSWORD", "ar_app")
+    monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
+    monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    settings = SimpleNamespace(
+        env="staging", database_url="postgresql://ar_app:ar_app@localhost/ar"
+    )
+    with pytest.raises(RuntimeError, match="AR_DB_APP_PASSWORD"):
+        _refuse_database_password(settings)  # type: ignore[arg-type]
+
+
+def test_migration_entrypoint_refuses_a_staging_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.db.installed_secrets import check_migration_secrets
+
+    monkeypatch.setenv("AR_ENV", "staging")
+    monkeypatch.setenv("AR_DB_OWNER_PASSWORD", "owner-secret")
+    monkeypatch.setenv("AR_DB_APP_PASSWORD", "app-secret")
+    monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
+    monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    with pytest.raises(RuntimeError, match="database URL password"):
+        check_migration_secrets("postgresql+asyncpg://postgres:ar_owner@localhost/ar")
+
+
+def test_bootstrap_entrypoint_refuses_a_staging_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain import bootstrap as bootstrap_module
+
+    monkeypatch.setenv("AR_ENV", "prod")
+    monkeypatch.setenv("AR_DB_OWNER_PASSWORD", "ar_owner")
+    monkeypatch.setenv("AR_DB_APP_PASSWORD", "app-secret")
+    monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
+    monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    monkeypatch.setattr(
+        bootstrap_module,
+        "app_database_url",
+        lambda: "postgresql+asyncpg://ar_app:app-secret@localhost/ar",
+    )
+    with pytest.raises(RuntimeError, match="AR_DB_OWNER_PASSWORD"):
+        bootstrap_module.check_bootstrap_secrets()

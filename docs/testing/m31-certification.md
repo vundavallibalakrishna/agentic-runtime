@@ -15,9 +15,9 @@ Database `m31_fresh` was created empty and migrated to `0031`. `information_sche
 ```bash
 [ -n "$AR_CERT_LLM_API_KEY" ] && echo present || echo absent
 docker exec agentic-runtime-postgres-1 psql -U ar_owner -d postgres -c "CREATE DATABASE m31_fresh OWNER ar_owner;"
-AR_DATABASE_URL='postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5432/m31_fresh' \
+AR_DATABASE_URL='postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5432/m31_fresh' \
   uv run alembic -c libs/ar_domain/alembic.ini upgrade head
-AR_DATABASE_URL='postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5432/m31_fresh' \
+AR_DATABASE_URL='postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5432/m31_fresh' \
   uv run python scripts/seed.py
 # API and gateway. AR_WEB_HOST_PORT must match the browser origin or CSRF fails.
 AR_DATABASE_URL='postgresql+asyncpg://ar_app:ar_app@127.0.0.1:5432/m31_fresh' \

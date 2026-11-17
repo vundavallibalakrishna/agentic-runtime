@@ -48,6 +48,7 @@ down:
 
 migrate:
 	@set -a; [ -f .env ] && . ./.env; set +a; \
+	uv run python -m ar_domain.db.reconcile_roles; \
 	if ls libs/ar_domain/src/ar_domain/migrations/versions/*.py >/dev/null 2>&1; then \
 		uv run alembic -c libs/ar_domain/alembic.ini upgrade head; \
 	else \

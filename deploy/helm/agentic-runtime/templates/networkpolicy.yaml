@@ -355,7 +355,7 @@ spec:
     matchExpressions:
       - key: app.kubernetes.io/name
         operator: In
-        values: ["temporal", "migrate", "bootstrap"]
+        values: ["temporal", "migrate", "bootstrap", "reconcile-roles"]
   policyTypes: ["Egress"]
   egress:
     {{- include "ar.platformDbEgress" . | nindent 4 }}
@@ -468,6 +468,7 @@ spec:
           - temporal
           - migrate
           - bootstrap
+          - reconcile-roles
   policyTypes: ["Egress"]
   egress:
     {{- include "ar.externalDbEgress" . | nindent 4 }}

@@ -334,7 +334,7 @@ async def test_pgvector_conformance(database_url: str) -> None:
         plan = "\n".join(str(row[0]) for row in explained)
     await engine.dispose()
     assert "ix_chunk_emb_hnsw_1024" in plan
-    dead = PgVectorStore("postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:1/none")
+    dead = PgVectorStore("postgresql+asyncpg://ar_owner:closed-port@127.0.0.1:1/none")
     started = time.perf_counter()
     with pytest.raises(StoreUnavailable):
         await dead.count("pg:1024", tenant_a, collection, 1)

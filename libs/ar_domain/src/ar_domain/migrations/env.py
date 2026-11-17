@@ -41,6 +41,7 @@ import ar_domain.usage.tables  # noqa: F401
 from ar_common.host_ports import find_env_file, parse_env
 from ar_domain.db import metadata
 from ar_domain.db.engine import owner_database_url
+from ar_domain.db.installed_secrets import check_migration_secrets
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
@@ -75,6 +76,7 @@ if database_url:
 
 def run_migrations_offline() -> None:
     """Run migrations without a live connection."""
+    check_migration_secrets(_database_url())
     context.configure(
         url=config.get_main_option("sqlalchemy.url"),
         target_metadata=target_metadata,
@@ -93,6 +95,7 @@ def _run_sync(connection: Connection) -> None:
 
 async def run_migrations_online() -> None:
     """Run migrations with an async engine."""
+    check_migration_secrets(_database_url())
     section = config.get_section(config.config_ini_section, {})
     connectable = async_engine_from_config(
         section,

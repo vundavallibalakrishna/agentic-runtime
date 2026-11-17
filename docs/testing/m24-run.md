@@ -4,7 +4,7 @@ The API and web processes for this proof use ports that are not 8000, 8001 or 80
 
 ```bash
 # isolated database and API, after the image dependencies are installed
-export AR_DATABASE_URL=postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:55448/agentic_runtime
+export AR_DATABASE_URL=postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:55448/agentic_runtime
 export AR_PORT=18124
 uv run alembic -c libs/ar_domain/alembic.ini upgrade head
 uv run ar-api

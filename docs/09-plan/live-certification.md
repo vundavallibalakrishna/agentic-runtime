@@ -26,7 +26,7 @@ The API listens on `AR_API_PORT` when that is set, otherwise `AR_PORT` (default 
 From a checkout, with the stack already up and a real document on disk:
 
 ```bash
-export AR_DATABASE_URL=postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5433/agentic_runtime
+export AR_DATABASE_URL=postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5433/agentic_runtime
 export AR_VALKEY_URL=redis://127.0.0.1:6380/0
 export AR_TEMPORAL_ADDRESS=127.0.0.1:7234
 export AR_API_PORT=18010          # omit to use AR_PORT (8000). Do not use 8010 (mcp-sql).

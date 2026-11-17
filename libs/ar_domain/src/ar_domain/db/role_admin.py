@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 _EXPECTED_FLAGS: dict[str, dict[str, bool]] = {
     "ar_owner": {
         "rolsuper": False,
-        "rolcreatedb": True,
-        "rolcreaterole": True,
+        "rolcreatedb": False,
+        "rolcreaterole": False,
         "rolbypassrls": True,
         "rolcanlogin": True,
     },
@@ -47,24 +47,26 @@ _EXPECTED_FLAGS: dict[str, dict[str, bool]] = {
 }
 
 
-def apply_database_roles(connection: Connection) -> None:
+def apply_database_roles(connection: Connection, *, require_superuser: bool = False) -> None:
     """Create or check the four roles and set their passwords from the environment.
 
-    A superuser session writes the attributes. A later session as ``ar_owner``
-    cannot grant ``BYPASSRLS``, so it only checks the attributes and sets the
-    passwords. PostgreSQL also requires ``ADMIN OPTION`` for that password change.
+    A superuser session writes the attributes and the passwords. ``ar_owner`` has
+    no ``CREATEROLE``, so a later session only checks the attributes. The upgrade
+    command passes ``require_superuser`` so a non-superuser login cannot look like
+    a successful reconciliation of an old ``SUPERUSER`` role.
     """
     superuser = connection.execute(
         text("SELECT rolsuper FROM pg_roles WHERE rolname = current_user")
     ).scalar()
+    if require_superuser and not superuser:
+        message = "role reconciliation requires the database superuser"
+        raise RuntimeError(message)
     if superuser:
         for role in APPLICATION_ROLES:
             _create_or_alter(connection, role)
         _grant_admin(connection)
         return
     _require_attributes(connection)
-    for role in APPLICATION_ROLES:
-        _set_password(connection, role)
 
 
 def _grant_admin(connection: Connection) -> None:
@@ -90,21 +92,6 @@ def _create_or_alter(connection: Connection, role: str) -> None:
     ).scalar()
     if not isinstance(statement, str) or not statement.startswith(verb):
         message = f"could not build the role statement for {role}"
-        raise RuntimeError(message)
-    connection.execute(text(statement))
-
-
-def _set_password(connection: Connection, role: str) -> None:
-    password = role_password(role)
-    statement = connection.execute(
-        text(
-            "SELECT format('ALTER ROLE %I PASSWORD %L', "
-            "CAST(:role AS text), CAST(:password AS text))"
-        ),
-        {"role": role, "password": password},
-    ).scalar()
-    if not isinstance(statement, str) or "PASSWORD" not in statement:
-        message = f"could not build the password statement for {role}"
         raise RuntimeError(message)
     connection.execute(text(statement))
 

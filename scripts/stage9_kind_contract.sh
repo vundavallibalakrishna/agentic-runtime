@@ -58,6 +58,7 @@ fi
 # The migrate Job is a pre-install hook, so it would run before Postgres exists.
 # Install the workloads first, migrate once Postgres answers, then bootstrap.
 passwords="$(mktemp)"
+trap 'rm -f "$passwords"' EXIT
 uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
 helm upgrade --install agentic-runtime deploy/helm/agentic-runtime \
   --namespace "$namespace" --create-namespace \
