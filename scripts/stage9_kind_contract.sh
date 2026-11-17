@@ -55,76 +55,35 @@ if ! kind load docker-image ar-api:dev ar-runtime:dev ar-mcp-gateway:dev \
   rm -f "${tar}"
 fi
 
-# The migrate Job is a pre-install hook, so it would run before Postgres exists.
-# Install the workloads first, migrate once Postgres answers, then bootstrap.
+# Fresh install with hooks. Migrate and the Temporal schema job are post-install:
+# they wait until Postgres accepts the role password, so they do not run first.
 passwords="$(mktemp)"
 trap 'rm -f "$passwords"' EXIT
 uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
+chart_args=(
+  -f deploy/helm/agentic-runtime/values-dev.yaml
+  -f deploy/helm/agentic-runtime/values-stage9-contract.yaml
+  -f deploy/helm/agentic-runtime/values-temporal-ha-kind.yaml
+  -f "$passwords"
+)
+echo "pulling the pinned Temporal images"
+docker pull temporalio/server:1.32.1
+docker pull temporalio/admin-tools:1.32.1
+kind load docker-image temporalio/server:1.32.1 temporalio/admin-tools:1.32.1 --name "$name" || true
+dump_hooks() {
+  kubectl -n "$namespace" get jobs,pods -o wide || true
+  for job in agentic-runtime-migrate agentic-runtime-temporal-schema agentic-runtime-bootstrap; do
+    kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
+  done
+}
 helm upgrade --install agentic-runtime deploy/helm/agentic-runtime \
   --namespace "$namespace" --create-namespace \
-  -f deploy/helm/agentic-runtime/values-dev.yaml \
-  -f deploy/helm/agentic-runtime/values-stage9-contract.yaml \
-  -f "$passwords" \
-  --timeout 15m --no-hooks --wait=false
+  "${chart_args[@]}" \
+  --timeout 20m --wait=false || { dump_hooks; exit 1; }
 
 echo "waiting for Postgres and Valkey"
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-postgres --timeout=10m
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-valkey --timeout=5m
-
-echo "migrating and bootstrapping"
-helm template agentic-runtime deploy/helm/agentic-runtime \
-  --namespace "$namespace" \
-  -f deploy/helm/agentic-runtime/values-dev.yaml \
-  -f deploy/helm/agentic-runtime/values-stage9-contract.yaml \
-  -f "$passwords" \
-  -s templates/jobs.yaml > /tmp/stage9-jobs.yaml
-helm template agentic-runtime deploy/helm/agentic-runtime \
-  --namespace "$namespace" \
-  -f deploy/helm/agentic-runtime/values-dev.yaml \
-  -f deploy/helm/agentic-runtime/values-stage9-contract.yaml \
-  -f "$passwords" \
-  -s templates/secret.yaml > /tmp/stage9-secrets.yaml
-python3 - << 'PY'
-from pathlib import Path
-text = Path("/tmp/stage9-jobs.yaml").read_text(encoding="utf-8")
-docs = [item for item in text.split("---\n") if item.strip()]
-for doc in docs:
-    if "name: agentic-runtime-migrate" in doc:
-        Path("/tmp/stage9-migrate.yaml").write_text("---\n" + doc, encoding="utf-8")
-    if "name: agentic-runtime-bootstrap" in doc:
-        Path("/tmp/stage9-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
-secrets = Path("/tmp/stage9-secrets.yaml").read_text(encoding="utf-8")
-for doc in secrets.split("---\n"):
-    if "name: agentic-runtime-secrets-hook" in doc and doc.strip():
-        Path("/tmp/stage9-hook-secret.yaml").write_text("---\n" + doc, encoding="utf-8")
-PY
-# --no-hooks skips the pre-upgrade Secret. Migrate reads that hook Secret.
-kubectl apply -n "$namespace" -f /tmp/stage9-hook-secret.yaml
-job_logs() {
-  local job="$1"
-  kubectl -n "$namespace" get pods -l "job-name=${job}" -o wide || true
-  kubectl -n "$namespace" describe "job/${job}" || true
-  kubectl -n "$namespace" logs "job/${job}" --tail=200 --request-timeout=20s || true
-}
-
-kubectl apply -n "$namespace" -f /tmp/stage9-migrate.yaml
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
-  job_logs agentic-runtime-migrate
-  exit 1
-fi
-kubectl apply -n "$namespace" -f /tmp/stage9-bootstrap.yaml
-# The job controller deletes the pod once the backoff limit is hit, so follow
-# the log while the wait is in progress.
-kubectl -n "$namespace" logs -f job/agentic-runtime-bootstrap --pod-running-timeout=2m \
-  > /tmp/stage9-bootstrap.log 2>&1 &
-log_pid=$!
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
-  wait "$log_pid" || true
-  cat /tmp/stage9-bootstrap.log || true
-  job_logs agentic-runtime-bootstrap
-  exit 1
-fi
-kill "$log_pid" >/dev/null 2>&1 || true
 
 echo "waiting for api and worker deployments"
 rollout() {
@@ -141,6 +100,19 @@ rollout() {
 }
 rollout agentic-runtime-api
 rollout agentic-runtime-runtime-worker
+for component in frontend history matching worker; do
+  rollout "agentic-runtime-temporal-${component}"
+done
 kubectl -n "$namespace" get deploy agentic-runtime-mcp-gateway agentic-runtime-sandbox-manager
+
+echo "upgrading the same release"
+helm upgrade agentic-runtime deploy/helm/agentic-runtime \
+  --namespace "$namespace" \
+  "${chart_args[@]}" \
+  --timeout 20m --wait=false || { dump_hooks; exit 1; }
+rollout agentic-runtime-api
+rollout agentic-runtime-runtime-worker
+rollout agentic-runtime-temporal-frontend
+bash "$root/scripts/temporal_restart_proof.sh" "$namespace"
 
 uv run python scripts/contract_stage9.py --namespace "$namespace"

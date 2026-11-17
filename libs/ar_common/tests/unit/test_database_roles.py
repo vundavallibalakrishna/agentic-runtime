@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from ar_common.database_roles import (
+    APPLICATION_ROLES,
     PLACEHOLDERS,
     ROLE_ATTRIBUTES,
     assert_application_url,
@@ -25,6 +26,7 @@ def test_attributes_are_not_superuser() -> None:
     assert "BYPASSRLS" in ROLE_ATTRIBUTES["ar_platform"]
     assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_app"]
     assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_readonly"]
+    assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_temporal"]
     owner = set(ROLE_ATTRIBUTES["ar_owner"].split())
     assert "NOCREATEDB" in owner
     assert "NOCREATEROLE" in owner
@@ -81,7 +83,7 @@ class _Connection:
                 "rolbypassrls": role in {"ar_owner", "ar_platform"},
                 "rolcanlogin": True,
             }
-            for role in ("ar_owner", "ar_app", "ar_platform", "ar_readonly")
+            for role in APPLICATION_ROLES
         }
         self.statements: list[str] = []
 

@@ -2,6 +2,7 @@
 pgvector/pgvector:0.8.7-pg18-trixie pgvector/pgvector:0.8.7-pg18-trixie
 valkey/valkey:9.1.2 valkey/valkey:9.1.2
 temporalio/server:1.32.1 temporalio/server:1.32.1
+temporalio/admin-tools:1.32.1 temporalio/admin-tools:1.32.1
 temporalio/temporal:1.9.1 temporalio/temporal:1.9.1
 qdrant/qdrant:v1.19.2 qdrant/qdrant:v1.19.2
 quay.io/keycloak/keycloak:26.8.1 quay.io/keycloak/keycloak:26.8.1

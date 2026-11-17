@@ -1,0 +1,19 @@
+# Kind overlay for a fresh install and upgrade of Temporal HA on Postgres.
+# Four history shards is the dev cluster size. Production stays on 512.
+# required forces workflows onto Temporal even when global.env is not prod.
+temporal:
+  ha: true
+  required: true
+  numHistoryShards: 4
+  replicas:
+    frontend: 1
+    history: 3
+    matching: 1
+    worker: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

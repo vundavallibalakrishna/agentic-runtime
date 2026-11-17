@@ -43,6 +43,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_DB_OWNER_PASSWORD",
         "AR_DB_PLATFORM_PASSWORD",
         "AR_DB_READONLY_PASSWORD",
+        "AR_DB_TEMPORAL_PASSWORD",
         "AR_DB_STRICT_TLS",
         "AR_DB_STRICT_TLS_FLOOR",
         "AR_DB_ENCRYPTION_KEYS",

@@ -136,6 +136,50 @@ other
 {{- end -}}
 {{- end -}}
 {{- end }}
+{{- define "ar.temporalDbSeed" -}}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") -}}
+{{- printf "%s-postgres" .Release.Name -}}
+{{- else if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") -}}
+{{- printf "%s-pg-rw" .Release.Name -}}
+{{- else -}}
+{{- $host := .Values.postgres.host | default "postgres:5432" -}}
+{{- index (splitList ":" $host) 0 -}}
+{{- end -}}
+{{- end }}
+{{- define "ar.temporalDbPort" -}}
+5432
+{{- end }}
+{{/*
+  Temporal uses the primary, not the transaction-mode pooler. PgBouncer in
+  transaction mode drops the session state the server keeps.
+*/}}
+{{- define "ar.temporalDbEgress" -}}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
+- to:
+    - podSelector:
+        matchLabels:
+          cnpg.io/cluster: {{ .Release.Name }}-pg
+          cnpg.io/podRole: instance
+  ports:
+    - {port: 5432, protocol: TCP}
+{{- else if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") }}
+- to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgres
+          app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - {port: 5432, protocol: TCP}
+{{- else if not .Values.postgres.bundled }}
+{{- $cidrs := .Values.postgres.externalCidrs | default list }}
+{{- if not $cidrs }}
+{{- fail "temporal is bundled and Postgres is external, but postgres.externalCidrs is empty. Set the database CIDR so the Temporal pods can reach it." }}
+{{- end }}
+{{- include "ar.externalDbEgress" . }}
+{{- else }}
+{{- fail (printf "temporal persistence does not know postgres.mode %q" .Values.postgres.mode) }}
+{{- end }}
+{{- end }}
 {{- define "ar.externalDbEgress" -}}
 {{- range (.Values.postgres.externalCidrs | default list) }}
 - to:

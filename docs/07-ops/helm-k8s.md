@@ -19,7 +19,7 @@ One umbrella chart `deploy/helm/agentic-runtime` installs every deployable for b
 | `opa` | Deployment | 2 / 3 | `/health?bundles` | fixed | Sidecar-free; bundle from `api` |
 | `squid` (egress proxy) | Deployment | 2 / 3–10 | TCP 3128 | HPA CPU | Only path to the internet for sandboxes and tools |
 | `fake-llm` | Deployment | dev / CI only | | | Disabled unless `fakeLlm.enabled` |
-| `migrate` | Job (pre-install/pre-upgrade hook) | — | | | `alembic upgrade head`, then OPA bundle warmup |
+| `migrate` | Job (post-install/post-upgrade hook) | — | | | `python -m ar_domain.db.schema_gate`: wait until Postgres accepts `ar_owner`, then `alembic upgrade head` under an advisory lock. The same command is the init container on database workloads. |
 | `bootstrap` | Job (post-install, single_tenant) | — | | | `python -m ar_domain.bootstrap` |
 | Sandboxes | Pods created by sandbox-manager | per run | | warm pool | Namespace `ar-sandboxes` (or `ar-sbx-{tenant_slug}` for dedicated tenants); `runtimeClassName` gVisor/Kata |
 
@@ -30,7 +30,7 @@ All pods: `runAsNonRoot`, UID 10001, `readOnlyRootFilesystem: true` (writable `e
 ## 2. Networking
 
 - Gateway API `HTTPRoute`s: `/` → web, `/api/` → api (also `/scim/v2/`, `/api/v1/hooks/`), `/channels/` → channels (Slack/Teams callbacks). TLS via cert-manager.
-- NetworkPolicies (default deny per namespace): web → api; api → Postgres, Valkey, Temporal, Qdrant (only when `qdrant.enabled`), S3, Keycloak, OPA, model-gateway, mcp-gateway, sandbox-manager, OpenBao; workers → same + model/mcp gateways; mcp-gateway → squid, mcp-sql, mcp-openapi, internal tool servers (`AR_MCP_INTERNAL_HTTP_ALLOWED_CIDRS`); model-gateway → model endpoints (CIDR allowlist from values); sandboxes → squid + DNS only (no cluster access, no metadata IP).
+- NetworkPolicies (default deny per namespace): web and channels → api, plus `gateway.namespace` and `networkPolicy.apiIngress` (a namespace list or labels). There is no match of every namespace. api → Postgres, Valkey, Temporal, Qdrant (only when `qdrant.enabled`), S3, OPA, model-gateway, mcp-gateway, sandbox-manager, OpenBao; workers → same. With `airgap.lockdown` off, `api` and `runtime-worker` also open TCP 443 to any destination, the same rule `mcp-gateway` uses for model calls. With lockdown on, that rule is absent and `airgap.egressCIDRs` is the only allowlist; the render fails when the list is empty and `config.AR_DEV_MODEL_BASE_URL` is outside the cluster. Squid stays the sandbox egress path. Sandboxes → squid + DNS only (no cluster access, no metadata IP).
 - Internal mTLS is optional (service mesh); internal JWTs are always required ([authn-authz §8](../06-security/authn-authz.md#8-internal-service-authorisation)).
 
 ## 3. Stateful dependencies
@@ -39,9 +39,9 @@ Each dependency is either **bundled** (installed by the chart/operator) or **ext
 
 | Dependency | Bundled option | HA (large) | Backups | External settings |
 |---|---|---|---|---|
-| Postgres 18 + pgvector | CloudNativePG `Cluster` (3 instances, synchronous replica), PgBouncer pooler (transaction mode; app uses `statement_cache_size=0`). `values-dev` uses a single StatefulSet instead of the operator. Both init paths create `ar_owner` (and `ar_app`, `ar_platform`, `ar_readonly`) and install `vector` and the other extensions as the image superuser before the migrate Job connects. None of those roles is a superuser. `ar_owner` is `LOGIN` and `BYPASSRLS` only and is not a member of the other roles. Alembic logs in as `ar_owner`. `<release>-secrets-hook` is a pre-install,pre-upgrade hook at weight -20. `<release>-secrets` is the release Secret pods mount, with the same bytes. A StatefulSet upgrade then runs `reconcile-roles` at weight -10, as `postgres.superuserUsername`, and migrate at weight -5. Both read the hook Secret with `secretKeyRef`. After the one-time upgrade, point `postgres.superuserUsername` at the image `postgres` role. Every hook Job sets `AR_ENV` from `global.env`. `secrets.create: false` is enforced when the API, Alembic and bootstrap start. CloudNativePG with `secrets.create: false` also fails the render until `postgres.existingRoleSecrets` is true. Passwords are the `AR_DB_*_PASSWORD` keys of the install secret. | yes | Barman to S3: base backup daily, WAL continuous ([backup-dr](backup-dr.md)) | `AR_DATABASE_URL`, `AR_DB_OWNER_PASSWORD`, `AR_DB_APP_PASSWORD`, `AR_DB_PLATFORM_PASSWORD`, `AR_DB_READONLY_PASSWORD`. Separate DBs: `ar` (app), `temporal`, `temporal_visibility`, `keycloak`, `langfuse` |
+| Postgres 18 + pgvector | CloudNativePG `Cluster` (3 instances, synchronous replica), PgBouncer pooler (transaction mode; app uses `statement_cache_size=0`). `values-dev` uses a single StatefulSet instead of the operator. Both init paths create `ar_owner` (and `ar_app`, `ar_platform`, `ar_readonly`) and install `vector` and the other extensions as the image superuser before the migrate Job connects. None of those roles is a superuser. `ar_owner` is `LOGIN` and `BYPASSRLS` only and is not a member of the other roles. Alembic logs in as `ar_owner`. `<release>-secrets-hook` is a pre-install,pre-upgrade hook at weight -20. `<release>-secrets` is the release Secret pods mount, with the same bytes. A StatefulSet upgrade then runs `reconcile-roles` at weight -10, as `postgres.superuserUsername`, reading the hook Secret. Migrate is post-install,post-upgrade and reads the release Secret. The init paths also create `ar_temporal`. After the one-time upgrade, point `postgres.superuserUsername` at the image `postgres` role. Every hook Job sets `AR_ENV` from `global.env`. `secrets.create: false` is enforced when the API, Alembic and bootstrap start. CloudNativePG with `secrets.create: false` also fails the render until `postgres.existingRoleSecrets` is true. Passwords are the `AR_DB_*_PASSWORD` keys of the install secret. | yes | Barman to S3: base backup daily, WAL continuous ([backup-dr](backup-dr.md)) | `AR_DATABASE_URL`, `AR_DB_OWNER_PASSWORD`, `AR_DB_APP_PASSWORD`, `AR_DB_PLATFORM_PASSWORD`, `AR_DB_READONLY_PASSWORD`. Separate DBs: `ar` (app), `temporal`, `temporal_visibility`, `keycloak`, `langfuse` |
 | Valkey | Primary + replica + Sentinel (or cluster mode via values) | yes | Not backed up (cache/streams; loss tolerated) | `AR_VALKEY_URL` |
-| Temporal | Official Temporal chart (frontend, history ×3, matching, worker), Postgres persistence | yes | Via Postgres backups | `AR_TEMPORAL_ADDRESS`, `AR_TEMPORAL_NAMESPACE` |
+| Temporal | In-chart Deployments of `temporalio/server:1.32.1`. `temporal.ha: true` runs frontend, history × `temporal.replicas.history` (default 3), matching and worker. `temporal.ha: false` runs all four services in one pod. Both persist to Postgres (`temporal` and `temporal.visibilityDatabase`) as `ar_temporal`. Schema setup is `temporalio/admin-tools:1.32.1` (`temporal-sql-tool` setup then update), as an init container and as a post-install job. `temporal.numHistoryShards` (default 512) is fixed for the life of the cluster. CloudNativePG dials `<release>-pg-rw` (the primary), not the transaction-mode pooler. Compose still uses `temporal server start-dev` (SQLite). | yes | Via Postgres backups | `AR_TEMPORAL_ADDRESS`, `AR_TEMPORAL_NAMESPACE`, `AR_DB_TEMPORAL_PASSWORD` |
 | Qdrant (**optional**, disabled by default) | Subchart `qdrant` (official chart) with `qdrant.enabled: false` by default; when enabled: StatefulSet 3 replicas, replication factor 2. Needed only for the optional qdrant retrieval adapter ([ADR-0009](../02-architecture/adr/ADR-0009-retrieval-stores.md)); the default pgvector adapter keeps knowledge in Postgres | yes | Snapshots to S3 every 6 h; re-indexable from Postgres `document_chunks` | `AR_VECTOR_BACKEND=qdrant`, `AR_QDRANT_URL`, `AR_QDRANT_API_KEY` |
 | Object storage | SeaweedFS (master ×3, volume ×3, filer, S3 gateway) | yes | Versioning + replication to DR bucket; audit bucket with Object Lock | `AR_S3_*` |
 | Keycloak | 2+ replicas, Infinispan cache, realm import Job | yes | Realm export nightly + Postgres | `AR_OIDC_*` |
@@ -67,7 +67,7 @@ secrets:
 bootstrap: {tenantSlug, tenantName, adminEmail}   # → AR_BOOTSTRAP_*
 postgres: {bundled: true, instances: 3, storage: 200Gi, externalUrlSecretKey: AR_DATABASE_URL}
 valkey: {bundled: true, mode: sentinel}
-temporal: {bundled: true, namespace: agentic-runtime}
+temporal: {bundled: true, ha: true, namespace: agentic-runtime, numHistoryShards: 512, database: temporal, visibilityDatabase: temporal_visibility}
 retrieval: {backend: pgvector, pgReadDsnSecretKey: "", efSearch: 100}   # → AR_VECTOR_BACKEND, AR_VECTOR_PG_READ_DSN, AR_VECTOR_PG_EF_SEARCH
 qdrant: {enabled: false, external: false, url: "", replicas: 3, storage: 200Gi}   # optional subchart; enabled → AR_QDRANT_URL from the subchart service; external → url
 objectStorage: {bundled: true, bucket: ar-files, auditBucket: ar-audit-archive}
@@ -89,7 +89,16 @@ Dedicated node pool (label `ar.io/pool=sandbox`, taint `ar.io/sandbox=true:NoSch
 
 ## 6. Upgrades
 
-`helm upgrade --atomic --wait --timeout 20m`. Order enforced by hooks: migrate Job → stateless rollouts (maxUnavailable 0, maxSurge 25 %) → workers drain (Temporal workers stop polling on SIGTERM and finish in-flight activities within `terminationGracePeriodSeconds: 300`). See [ci-cd §6](ci-cd.md#6-releases-and-upgrades).
+`helm upgrade --atomic --wait --timeout 20m`. Hook order, for every database shape:
+
+| Shape | Fresh install | Upgrade |
+|---|---|---|
+| Secret | pre-install `<release>-secrets-hook` at weight -20, then the release Secret is created with the same bytes. The hook copy is deleted when the pre-install phase finishes. | pre-upgrade hook at -20 writes the new bytes. The release Secret is updated after that phase. |
+| Roles | StatefulSet init script, or CloudNativePG `postInitSQL` plus managed roles. External Postgres is the operator's job: create `ar_temporal` and the two databases before install. | StatefulSet `reconcile-roles` at pre-upgrade weight -10, as the image superuser, sets every role password including `ar_temporal` and creates the Temporal databases if they are missing. CloudNativePG reconciles managed role secrets itself. Migrate and Temporal retry until the new password is accepted, so it is not used before that reconciliation. |
+| Schema | post-install `migrate` and `temporal-schema` wait for the login, then upgrade. Database pods run the same schema gate as an init container, so `--wait` becomes Ready only after the head revision. `/readyz` checks `alembic_version`. | post-upgrade jobs repeat the upgrade. New pods do not start the process until their init container finishes. Rolling update keeps `maxUnavailable: 0`. |
+| External Postgres | Same post-install jobs. Set `postgres.host` and, when NetworkPolicy is on, `postgres.externalCidrs`. | Same. There is no in-chart superuser reconcile unless `AR_DB_RECONCILE=run` is pointed at one. |
+
+Workers drain on SIGTERM and finish in-flight activities within `terminationGracePeriodSeconds: 300`. See [ci-cd §6](ci-cd.md#6-releases-and-upgrades) and [OQ-139](../open-questions.md).
 
 Worker probes listen on 8012, 8013 and 8014 ([OQ-21](../open-questions.md)). The web probe is `/healthz`. Model and MCP gateways expose `/healthz` for both liveness and readiness.
 

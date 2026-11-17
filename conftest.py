@@ -13,6 +13,7 @@ os.environ.setdefault("AR_DB_OWNER_PASSWORD", "test-owner-password")
 os.environ.setdefault("AR_DB_PLATFORM_PASSWORD", "test-platform-password")
 os.environ.setdefault("AR_DB_APP_PASSWORD", "test-app-password")
 os.environ.setdefault("AR_DB_READONLY_PASSWORD", "test-readonly-password")
+os.environ.setdefault("AR_DB_TEMPORAL_PASSWORD", "test-temporal-password")
 
 pytest_plugins = [
     "ar_testing.containers",

@@ -1,4 +1,7 @@
 {{- include "ar.assertDatabasePasswords" . }}
+{{- if and .Values.airgap.lockdown (not .Values.airgap.egressCIDRs) (eq (include "ar.remoteModel" . | trim) "yes") }}
+{{- fail "airgap.lockdown is on and airgap.egressCIDRs is empty, but config.AR_DEV_MODEL_BASE_URL is outside the cluster. Set airgap.egressCIDRs to that model network. In-cluster models and fakeLlm do not need a CIDR. Tenant model rows are not visible at render time." }}
+{{- end }}
 {{- if and (eq .Values.global.deploymentMode "single_tenant") (not .Values.bootstrap.adminEmail) }}
 {{- fail "bootstrap.adminEmail is required when global.deploymentMode=single_tenant" }}
 {{- end }}
@@ -72,6 +75,9 @@
 {{- $_ := set $overrides "AR_FILES_SCANNER" "none" }}
 {{- $_ := set $overrides "AR_PACK_SIGNATURE_REQUIRED" "false" }}
 {{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" "false" }}
+{{- end }}
+{{- if hasKey .Values.temporal "required" }}
+{{- $_ := set $overrides "AR_TEMPORAL_REQUIRED" (ternary "true" "false" .Values.temporal.required) }}
 {{- end }}
 {{- $deny := list }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}

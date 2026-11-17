@@ -12,7 +12,7 @@ stringData:
   password: {{ .Values.postgres.superuserPassword | quote }}
 {{- end }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") .Values.secrets.create }}
-{{- range $role, $key := dict "ar_owner" "AR_DB_OWNER_PASSWORD" "ar_platform" "AR_DB_PLATFORM_PASSWORD" "ar_app" "AR_DB_APP_PASSWORD" "ar_readonly" "AR_DB_READONLY_PASSWORD" }}
+{{- range $role, $key := dict "ar_owner" "AR_DB_OWNER_PASSWORD" "ar_platform" "AR_DB_PLATFORM_PASSWORD" "ar_app" "AR_DB_APP_PASSWORD" "ar_readonly" "AR_DB_READONLY_PASSWORD" "ar_temporal" "AR_DB_TEMPORAL_PASSWORD" }}
 ---
 apiVersion: v1
 kind: Secret
@@ -28,7 +28,7 @@ stringData:
 {{- end }}
 {{- end }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") (not .Values.secrets.create) (not .Values.postgres.existingRoleSecrets) }}
-{{- fail "CloudNativePG does not create <release>-db-role-ar-owner, -ar-app, -ar-platform, or -ar-readonly when secrets.create is false. Create those four basic-auth secrets, then set postgres.existingRoleSecrets true." }}
+{{- fail "CloudNativePG does not create <release>-db-role-ar-owner, -ar-app, -ar-platform, -ar-readonly, or -ar-temporal when secrets.create is false. Create those five basic-auth secrets, then set postgres.existingRoleSecrets true." }}
 {{- end }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
 ---
@@ -57,6 +57,7 @@ spec:
         - CREATE ROLE ar_platform LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS
         - CREATE ROLE ar_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS
         - CREATE ROLE ar_readonly LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS
+        - CREATE ROLE ar_temporal LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS
       postInitApplicationSQL:
         # vector is not a trusted extension. The operator runs these as
         # superuser; ar_owner cannot create them later.
@@ -65,8 +66,8 @@ spec:
         - CREATE EXTENSION IF NOT EXISTS pg_trgm
         - CREATE EXTENSION IF NOT EXISTS vector
         - CREATE EXTENSION IF NOT EXISTS btree_gin
-        - CREATE DATABASE temporal
-        - CREATE DATABASE temporal_visibility
+        - CREATE DATABASE {{ .Values.temporal.database }} OWNER ar_temporal
+        - CREATE DATABASE {{ .Values.temporal.visibilityDatabase }} OWNER ar_temporal
         - CREATE DATABASE langfuse
   managed:
     roles:
@@ -105,6 +106,15 @@ spec:
         bypassrls: false
         passwordSecret:
           name: {{ include "ar.roleSecret" (list . "ar_readonly") }}
+      - name: ar_temporal
+        ensure: present
+        login: true
+        superuser: false
+        createdb: false
+        createrole: false
+        bypassrls: false
+        passwordSecret:
+          name: {{ include "ar.roleSecret" (list . "ar_temporal") }}
   storage:
     size: {{ .Values.postgres.storage }}
   {{- if .Values.backup.enabled }}
@@ -202,6 +212,15 @@ spec:
                 secretKeyRef:
                   name: {{ include "ar.installSecret" . }}
                   key: AR_DB_READONLY_PASSWORD
+            - name: AR_DB_TEMPORAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ar.installSecret" . }}
+                  key: AR_DB_TEMPORAL_PASSWORD
+            - name: TEMPORAL_DBNAME
+              value: {{ .Values.temporal.database | quote }}
+            - name: TEMPORAL_VISIBILITY_DBNAME
+              value: {{ .Values.temporal.visibilityDatabase | quote }}
           readinessProbe:
             tcpSocket:
               port: 5432

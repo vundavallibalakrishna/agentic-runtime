@@ -73,6 +73,29 @@ spec:
             matchLabels:
               app.kubernetes.io/name: {{ $name }}
               app.kubernetes.io/instance: {{ $.Release.Name }}
+      {{- if $workload.schemaGate }}
+      initContainers:
+        - name: schema
+          image: {{ $image }}
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "ar_domain.db.schema_gate"]
+          env:
+            - name: AR_SCHEMA_WAIT_S
+              value: {{ $.Values.temporal.schemaWaitSeconds | quote }}
+          envFrom:
+            - configMapRef:
+                name: {{ $.Release.Name }}-config
+            - secretRef:
+                name: {{ $secretName }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      {{- end }}
       containers:
         - name: {{ $name }}
           image: {{ $image }}

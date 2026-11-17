@@ -1,0 +1,104 @@
+{{- if .Values.temporal.bundled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-temporal-scripts
+  labels:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  schema.sh: |
+    #!/bin/sh
+    # Idempotent Temporal schema setup. The password stays in SQL_PASSWORD.
+    set -eu
+    if [ -z "${POSTGRES_SEEDS:-}" ] || [ -z "${POSTGRES_USER:-}" ] || [ -z "${POSTGRES_PWD:-}" ]; then
+      echo "temporal schema: database connection is incomplete" >&2
+      exit 1
+    fi
+    export SQL_PASSWORD="${POSTGRES_PWD}"
+    export SQL_PLUGIN="${DB:-postgres12}"
+    export SQL_HOST="${POSTGRES_SEEDS}"
+    export SQL_PORT="${DB_PORT:-5432}"
+    export SQL_USER="${POSTGRES_USER}"
+    db_name="${DBNAME:-temporal}"
+    visibility="${VISIBILITY_DBNAME:-temporal_visibility}"
+    schema_dir="${TEMPORAL_SCHEMA_DIR:-/etc/temporal/schema/postgresql/v12/temporal/versioned}"
+    visibility_dir="${TEMPORAL_VISIBILITY_SCHEMA_DIR:-/etc/temporal/schema/postgresql/v12/visibility/versioned}"
+    apply() {
+      db="$1"
+      dir="$2"
+      err="/tmp/temporal-schema.err"
+      if temporal-sql-tool --db "$db" setup-schema -v 0.0 >"$err" 2>&1; then
+        rm -f "$err"
+      elif grep -q "already exists" "$err"; then
+        rm -f "$err"
+      else
+        rm -f "$err"
+        echo "temporal schema setup failed for ${db}" >&2
+        exit 1
+      fi
+      n=0
+      while [ "$n" -lt 30 ]; do
+        if temporal-sql-tool --db "$db" update-schema -d "$dir" >"$err" 2>&1; then
+          rm -f "$err"
+          return 0
+        fi
+        rm -f "$err"
+        n=$((n + 1))
+        sleep 2
+      done
+      echo "temporal schema update failed for ${db}" >&2
+      exit 1
+    }
+    apply "$db_name" "$schema_dir"
+    apply "$visibility" "$visibility_dir"
+  start.sh: |
+    #!/bin/bash
+    # Render the server image config, point cluster metadata at the frontend
+    # Service, then start the process. The rendered file contains the database
+    # password and is not printed.
+    set -eu
+    export BIND_ON_IP="${BIND_ON_IP:-0.0.0.0}"
+    if [ "$BIND_ON_IP" = "0.0.0.0" ] || [ "$BIND_ON_IP" = "::0" ]; then
+      export TEMPORAL_BROADCAST_ADDRESS="$(getent hosts "$(hostname)" | awk '{print $1; exit}')"
+    fi
+    if [ -z "${TEMPORAL_ADDRESS:-}" ]; then
+      echo "TEMPORAL_ADDRESS is required" >&2
+      exit 1
+    fi
+    export TEMPORAL_CLI_ADDRESS="${TEMPORAL_ADDRESS}"
+    dockerize -template /etc/temporal/config/config_template.yaml:/etc/temporal/config/docker.yaml
+    grpc="${FRONTEND_GRPC_PORT:-7233}"
+    http="${FRONTEND_HTTP_PORT:-7243}"
+    sed -i "s#rpcAddress: 127.0.0.1:${grpc}#rpcAddress: ${TEMPORAL_ADDRESS}#" /etc/temporal/config/docker.yaml
+    host="${TEMPORAL_ADDRESS%%:*}"
+    sed -i "s#httpAddress: 127.0.0.1:${http}#httpAddress: ${host}:${http}#" /etc/temporal/config/docker.yaml
+    if [ "${REGISTER_NAMESPACE:-}" != "true" ]; then
+      exec /etc/temporal/start-temporal.sh
+    fi
+    /etc/temporal/start-temporal.sh &
+    child=$!
+    trap 'kill "$child" 2>/dev/null || true' TERM INT
+    ready=0
+    for _ in $(seq 1 180); do
+      if temporal --address "127.0.0.1:${grpc}" operator cluster health 2>/dev/null | grep -q SERVING; then
+        ready=1
+        break
+      fi
+      if ! kill -0 "$child" 2>/dev/null; then
+        wait "$child"
+        exit $?
+      fi
+      sleep 2
+    done
+    if [ "$ready" -ne 1 ]; then
+      echo "temporal frontend did not serve" >&2
+      exit 1
+    fi
+    ns="${TEMPORAL_NAMESPACE:-default}"
+    retention="${TEMPORAL_NAMESPACE_RETENTION:-72h}"
+    if ! temporal --address "127.0.0.1:${grpc}" operator namespace describe --namespace "$ns" >/dev/null 2>&1; then
+      temporal --address "127.0.0.1:${grpc}" operator namespace create --namespace "$ns" --retention "$retention"
+    fi
+    wait "$child"
+{{- end }}

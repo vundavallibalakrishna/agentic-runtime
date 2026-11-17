@@ -58,6 +58,7 @@ SECRET_PASSWORDS = {
     "AR_DB_PLATFORM_PASSWORD",
     "AR_DB_APP_PASSWORD",
     "AR_DB_READONLY_PASSWORD",
+    "AR_DB_TEMPORAL_PASSWORD",
 }
 
 
@@ -193,6 +194,18 @@ def main() -> None:
     assert_fails(["-f", str(PASSWORDS), "--set", "process.shared=false"], "stay at 1")
     assert_stage6(default)
     assert_stage8(default)
+    assert_core(default, dev)
+    assert_fails(
+        [
+            "-f",
+            str(PASSWORDS),
+            "--set",
+            "airgap.lockdown=true",
+            "--set",
+            "config.AR_DEV_MODEL_BASE_URL=https://api.example.com/v1",
+        ],
+        "egressCIDRs",
+    )
     sys.stdout.write("helm render checks ok\n")
 
 
@@ -251,7 +264,8 @@ def assert_hook_env(rendered: str) -> None:
         names = {str(item.get("name")) for item in env if isinstance(item, dict)}
         if "AR_ENV" not in names:
             raise SystemExit(f"{name} does not set AR_ENV")
-        pre_hook = name.endswith("-migrate") or name.endswith("-reconcile-roles")
+        reconcile = name.endswith("-reconcile-roles")
+        migrate = name.endswith("-migrate")
         for item in env:
             if not isinstance(item, dict):
                 continue
@@ -261,12 +275,12 @@ def assert_hook_env(rendered: str) -> None:
             ref = item.get("valueFrom", {})
             key_ref = ref.get("secretKeyRef", {}) if isinstance(ref, dict) else {}
             referenced = str(key_ref.get("name", "")) if isinstance(key_ref, dict) else ""
-            if (
-                item.get("name") == "AR_DB_OWNER_PASSWORD"
-                and pre_hook
-                and not referenced.endswith("-secrets-hook")
-            ):
+            owner = item.get("name") == "AR_DB_OWNER_PASSWORD"
+            if owner and reconcile and not referenced.endswith("-secrets-hook"):
                 raise SystemExit(f"{name} does not read the hook secret")
+            if owner and migrate and referenced.endswith("-secrets-hook"):
+                message = f"{name} must read the release secret"
+                raise SystemExit(message)
             owner_key = item.get("name") == "AR_DB_OWNER_PASSWORD"
             bootstrap_secret = owner_key and name.endswith("-bootstrap")
             release_secret = referenced.endswith("-secrets") and not referenced.endswith(
@@ -304,6 +318,11 @@ def assert_roles(rendered: str) -> None:
         raise SystemExit("ar_owner must bypass row security and must not be superuser")
     if roles["ar_platform"].get("bypassrls") is not True:
         raise SystemExit("ar_platform must bypass row security")
+    temporal_role = roles.get("ar_temporal")
+    bypass = temporal_role.get("bypassrls") if temporal_role else None
+    superuser = temporal_role.get("superuser") if temporal_role else None
+    if bypass is not False or superuser is not False:
+        raise SystemExit("ar_temporal must be a normal login with no bypass")
     if (
         roles["ar_app"].get("bypassrls") is not False
         or roles["ar_readonly"].get("bypassrls") is not False
@@ -381,6 +400,165 @@ def assert_stage8(rendered: str) -> None:
         found = _replicas(rendered, short)
         if found < minimum:
             raise SystemExit(f"{short} replicas are {found}; a second replica must be able to read")
+
+
+def _pod_spec(doc: dict[str, object]) -> dict[str, object]:
+    spec = doc.get("spec")
+    template = spec.get("template") if isinstance(spec, dict) else None
+    pod = template.get("spec") if isinstance(template, dict) else None
+    return pod if isinstance(pod, dict) else {}
+
+
+def _env_names(container: dict[str, object]) -> set[str]:
+    env = container.get("env")
+    if not isinstance(env, list):
+        return set()
+    return {str(item.get("name")) for item in env if isinstance(item, dict)}
+
+
+def assert_core(ha: str, dev: str) -> None:
+    """Temporal persistence, model egress, API ingress, and migrate ordering."""
+    assert_temporal(ha, dev)
+    assert_model_egress(ha)
+    assert_api_ingress(ha)
+    assert_migrate_order(ha)
+
+
+def assert_temporal(ha: str, dev: str) -> None:
+    """Bundled Temporal, HA or not, persists to Postgres. SQLite is not a chart mode."""
+    for rendered, shards in ((ha, "512"), (dev, "4")):
+        if "start-dev" in rendered or "temporal.db" in rendered:
+            raise SystemExit("chart Temporal must not use the SQLite dev server")
+        servers = [
+            doc
+            for doc in docs(rendered)
+            if doc.get("kind") == "Deployment"
+            and str((doc.get("metadata") or {}).get("name", "")).find("-temporal") >= 0
+        ]
+        if not servers:
+            raise SystemExit("temporal deployment missing")
+        for doc in servers:
+            pod = _pod_spec(doc)
+            containers = pod.get("containers")
+            if not isinstance(containers, list) or not containers:
+                raise SystemExit("temporal pod has no server container")
+            present = _env_names(containers[0])
+            required_env = (
+                "DB",
+                "POSTGRES_SEEDS",
+                "POSTGRES_PWD",
+                "NUM_HISTORY_SHARDS",
+                "DBNAME",
+            )
+            for required in required_env:
+                if required not in present:
+                    raise SystemExit(f"temporal pod is missing {required}")
+            shard_value = _env_value(containers[0], "NUM_HISTORY_SHARDS")
+            if shard_value != shards:
+                raise SystemExit(f"NUM_HISTORY_SHARDS is {shard_value}, expected {shards}")
+            inits = pod.get("initContainers")
+            init_names = (
+                {str(item.get("name")) for item in inits if isinstance(item, dict)}
+                if isinstance(inits, list)
+                else set()
+            )
+            if "temporal-schema" not in init_names or "ensure-temporal-db" not in init_names:
+                raise SystemExit("temporal pod does not set up its schema before serving")
+        if not any(name.endswith("-temporal-schema") for name in names(rendered, "Job")):
+            raise SystemExit("temporal schema job missing")
+
+
+def _env_value(container: dict[str, object], key: str) -> str:
+    env = container.get("env")
+    if not isinstance(env, list):
+        return ""
+    for item in env:
+        if isinstance(item, dict) and item.get("name") == key:
+            return str(item.get("value", ""))
+    return ""
+
+
+def assert_model_egress(rendered: str) -> None:
+    """With lockdown off, api and runtime-worker get the same any-443 rule as mcp-gateway."""
+    for short in ("api", "runtime-worker", "mcp-gateway"):
+        if not _has_open_443(rendered, short):
+            raise SystemExit(f"{short} has no model egress on 443 while lockdown is off")
+
+
+def _has_open_443(rendered: str, short: str) -> bool:
+    for doc in docs(rendered):
+        if doc.get("kind") != "NetworkPolicy":
+            continue
+        meta = doc.get("metadata")
+        name = str(meta.get("name")) if isinstance(meta, dict) else ""
+        if not name.endswith(f"-{short}"):
+            continue
+        spec = doc.get("spec")
+        for rule in spec.get("egress", []) if isinstance(spec, dict) else []:
+            if not isinstance(rule, dict) or rule.get("to"):
+                continue
+            ports = rule.get("ports") or []
+            if any(isinstance(item, dict) and item.get("port") == 443 for item in ports):
+                return True
+    return False
+
+
+def assert_api_ingress(rendered: str) -> None:
+    """API ingress is web, channels, and the configured controller. Not every namespace."""
+    for doc in docs(rendered):
+        if doc.get("kind") != "NetworkPolicy":
+            continue
+        meta = doc.get("metadata")
+        name = str(meta.get("name")) if isinstance(meta, dict) else ""
+        if not name.endswith("-api"):
+            continue
+        spec = doc.get("spec")
+        for rule in spec.get("ingress", []) if isinstance(spec, dict) else []:
+            if not isinstance(rule, dict):
+                continue
+            for peer in rule.get("from") or []:
+                if not isinstance(peer, dict):
+                    continue
+                selector = peer.get("namespaceSelector")
+                if selector == {}:
+                    raise SystemExit("API ingress matches every namespace")
+                if isinstance(selector, dict) and selector.get("matchLabels") == {}:
+                    raise SystemExit("API ingress matches every namespace")
+
+
+def assert_migrate_order(rendered: str) -> None:
+    """Migrate is post-install and waits, so it cannot run before the database exists."""
+    found = False
+    for doc in docs(rendered):
+        if doc.get("kind") != "Job":
+            continue
+        meta = doc.get("metadata")
+        if not isinstance(meta, dict) or not str(meta.get("name", "")).endswith("-migrate"):
+            continue
+        found = True
+        annotations = meta.get("annotations")
+        hook = str(annotations.get("helm.sh/hook")) if isinstance(annotations, dict) else ""
+        if "pre-install" in hook or "pre-upgrade" in hook:
+            raise SystemExit("migrate hook can run before the database exists")
+        if "post-install" not in hook or "post-upgrade" not in hook:
+            raise SystemExit("migrate hook is not post-install,post-upgrade")
+        pod = _pod_spec(doc)
+        containers = pod.get("containers")
+        command = None
+        if isinstance(containers, list) and containers and isinstance(containers[0], dict):
+            command = containers[0].get("command")
+        if not isinstance(command, list) or "ar_domain.db.schema_gate" not in command:
+            raise SystemExit("migrate does not wait for the database before upgrading")
+        inits = [
+            doc
+            for doc in docs(rendered)
+            if doc.get("kind") == "Deployment"
+            and "schema" in str(_pod_spec(doc).get("initContainers"))
+        ]
+        if not inits:
+            raise SystemExit("workloads do not wait for the schema before serving")
+    if not found:
+        raise SystemExit("migrate job missing")
 
 
 def _replicas(rendered: str, short: str) -> int:

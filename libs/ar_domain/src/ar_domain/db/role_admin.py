@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
-from ar_common.database_roles import APPLICATION_ROLES, ROLE_ATTRIBUTES, role_password
+from ar_common.database_roles import (
+    APPLICATION_ROLES,
+    ROLE_ATTRIBUTES,
+    TEMPORAL_DATABASE,
+    TEMPORAL_VISIBILITY_DATABASE,
+    role_password,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
@@ -44,11 +50,18 @@ _EXPECTED_FLAGS: dict[str, dict[str, bool]] = {
         "rolbypassrls": False,
         "rolcanlogin": True,
     },
+    "ar_temporal": {
+        "rolsuper": False,
+        "rolcreatedb": False,
+        "rolcreaterole": False,
+        "rolbypassrls": False,
+        "rolcanlogin": True,
+    },
 }
 
 
 def apply_database_roles(connection: Connection, *, require_superuser: bool = False) -> None:
-    """Create or check the four roles and set their passwords from the environment.
+    """Create or check the application roles and set their passwords from the environment.
 
     A superuser session writes the attributes and the passwords. ``ar_owner`` has
     no ``CREATEROLE``, so a later session only checks the attributes. The upgrade
@@ -115,3 +128,53 @@ def _require_attributes(connection: Connection) -> None:
             if bool(row[flag]) is not want:
                 message = f"{role} has {flag}={row[flag]!s}; expected {want}"
                 raise RuntimeError(message)
+
+
+def temporal_database_names() -> tuple[str, str]:
+    """The persistence and visibility database names, from the environment when set."""
+    import os  # noqa: PLC0415
+
+    database = os.environ.get("TEMPORAL_DBNAME", "").strip() or TEMPORAL_DATABASE
+    visibility = (
+        os.environ.get("TEMPORAL_VISIBILITY_DBNAME", "").strip() or TEMPORAL_VISIBILITY_DATABASE
+    )
+    _identifier(database)
+    _identifier(visibility)
+    return database, visibility
+
+
+def ensure_temporal_databases(connection: Connection) -> None:
+    """Create ``ar_temporal`` and its databases. The connection must be the superuser.
+
+    ``CREATE DATABASE`` cannot run inside a transaction. Callers pass an
+    autocommit connection. The password is bound as a parameter and is not
+    interpolated into the statement text by this function.
+    """
+    _create_or_alter(connection, "ar_temporal")
+    database, visibility = temporal_database_names()
+    for name in (database, visibility):
+        _ensure_database(connection, name)
+
+
+def _identifier(name: str) -> None:
+    letters = set("abcdefghijklmnopqrstuvwxyz0123456789_")
+    if not name or name[0].isdigit() or any(character not in letters for character in name):
+        message = "temporal database name must be a lowercase identifier"
+        raise RuntimeError(message)
+
+
+def _ensure_database(connection: Connection, name: str) -> None:
+    _identifier(name)
+    exists = connection.execute(
+        text("SELECT 1 FROM pg_database WHERE datname = :name"),
+        {"name": name},
+    ).scalar()
+    if not exists:
+        try:
+            connection.execute(text(f"CREATE DATABASE {name} OWNER ar_temporal"))
+        except Exception as exc:
+            if "already exists" not in str(exc).lower():
+                raise
+    connection.execute(text(f"ALTER DATABASE {name} OWNER TO ar_temporal"))
+    connection.execute(text(f"REVOKE ALL ON DATABASE {name} FROM PUBLIC"))
+    connection.execute(text(f"GRANT ALL ON DATABASE {name} TO ar_temporal"))

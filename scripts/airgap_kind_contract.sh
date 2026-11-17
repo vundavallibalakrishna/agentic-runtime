@@ -96,13 +96,27 @@ fi
 passwords="$(mktemp)"
 trap 'rm -f "$passwords"' EXIT
 uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
+echo "pulling the pinned Temporal images"
+docker pull temporalio/server:1.32.1
+docker pull temporalio/admin-tools:1.32.1
+kind load docker-image temporalio/server:1.32.1 temporalio/admin-tools:1.32.1 --name "$name" || true
+chart_args=(
+  -f "$chart/values-stage9-contract.yaml"
+  -f "$chart/values-airgap.yaml"
+  -f "$chart/values-airgap-kind.yaml"
+  -f "$chart/values-temporal-ha-kind.yaml"
+  -f "$passwords"
+)
+dump_hooks() {
+  kubectl -n "$namespace" get jobs,pods -o wide || true
+  for job in agentic-runtime-migrate agentic-runtime-temporal-schema agentic-runtime-bootstrap; do
+    kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
+  done
+}
 helm upgrade --install agentic-runtime "$chart" \
   --namespace "$namespace" --create-namespace \
-  -f "$chart/values-stage9-contract.yaml" \
-  -f "$chart/values-airgap.yaml" \
-  -f "$chart/values-airgap-kind.yaml" \
-  -f "$passwords" \
-  --timeout 15m --no-hooks --wait=false
+  "${chart_args[@]}" \
+  --timeout 20m --wait=false || { dump_hooks; exit 1; }
 
 echo "waiting for the database"
 if ! kubectl -n "$namespace" wait --for=condition=Ready "cluster/agentic-runtime-pg" --timeout=15m; then
@@ -114,60 +128,6 @@ if ! kubectl -n "$namespace" wait --for=condition=Ready "cluster/agentic-runtime
 fi
 kubectl -n "$namespace" wait --for=condition=Ready pod -l cnpg.io/podRole=pooler --timeout=10m
 kubectl -n "$namespace" rollout status statefulset/agentic-runtime-valkey --timeout=5m
-
-echo "migrating and bootstrapping"
-helm template agentic-runtime "$chart" \
-  --namespace "$namespace" \
-  -f "$chart/values-stage9-contract.yaml" \
-  -f "$chart/values-airgap.yaml" \
-  -f "$chart/values-airgap-kind.yaml" \
-  -f "$passwords" \
-  -s templates/jobs.yaml > /tmp/airgap-jobs.yaml
-helm template agentic-runtime "$chart" \
-  --namespace "$namespace" \
-  -f "$chart/values-stage9-contract.yaml" \
-  -f "$chart/values-airgap.yaml" \
-  -f "$chart/values-airgap-kind.yaml" \
-  -f "$passwords" \
-  -s templates/secret.yaml > /tmp/airgap-secrets.yaml
-python3 - <<'PY'
-from pathlib import Path
-text = Path("/tmp/airgap-jobs.yaml").read_text(encoding="utf-8")
-docs = [item for item in text.split("---\n") if item.strip()]
-for doc in docs:
-    if "name: agentic-runtime-migrate" in doc:
-        Path("/tmp/airgap-migrate.yaml").write_text("---\n" + doc, encoding="utf-8")
-    if "name: agentic-runtime-bootstrap" in doc:
-        Path("/tmp/airgap-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
-secrets = Path("/tmp/airgap-secrets.yaml").read_text(encoding="utf-8")
-for doc in secrets.split("---\n"):
-    if "name: agentic-runtime-secrets-hook" in doc and doc.strip():
-        Path("/tmp/airgap-hook-secret.yaml").write_text("---\n" + doc, encoding="utf-8")
-PY
-# --no-hooks skips the pre-upgrade Secret. Migrate reads that hook Secret.
-kubectl apply -n "$namespace" -f /tmp/airgap-hook-secret.yaml
-job_logs() {
-  local job="$1"
-  kubectl -n "$namespace" get pods -l "job-name=${job}" -o wide || true
-  kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
-}
-kubectl apply -n "$namespace" -f /tmp/airgap-migrate.yaml
-# The job controller deletes the pod once the backoff limit is hit.
-kubectl -n "$namespace" logs -f job/agentic-runtime-migrate --pod-running-timeout=2m \
-  > /tmp/airgap-migrate.log 2>&1 &
-log_pid=$!
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
-  wait "$log_pid" || true
-  cat /tmp/airgap-migrate.log || true
-  job_logs agentic-runtime-migrate
-  exit 1
-fi
-kill "$log_pid" >/dev/null 2>&1 || true
-kubectl apply -n "$namespace" -f /tmp/airgap-bootstrap.yaml
-if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
-  job_logs agentic-runtime-bootstrap
-  exit 1
-fi
 
 echo "waiting for workloads"
 # The API starts before Postgres is ready and can trip its progress deadline.
@@ -197,7 +157,7 @@ asyncio.run(main())
   kubectl -n "$namespace" logs -l cnpg.io/podRole=pooler --tail=40 || true
   exit 1
 }
-for deploy in api runtime-worker mcp-gateway sandbox-manager model-gateway fake-llm temporal; do
+for deploy in api runtime-worker mcp-gateway sandbox-manager model-gateway fake-llm temporal-frontend temporal-history temporal-matching temporal-worker; do
   if ! kubectl -n "$namespace" rollout status "deploy/agentic-runtime-${deploy}" --timeout=15m; then
     kubectl -n "$namespace" get pods -o wide || true
     kubectl -n "$namespace" exec "deploy/agentic-runtime-${deploy}" -- \
@@ -213,4 +173,12 @@ except Exception as exc:
   fi
 done
 
+echo "upgrading the same release"
+helm upgrade agentic-runtime "$chart" \
+  --namespace "$namespace" \
+  "${chart_args[@]}" \
+  --timeout 20m --wait=false || { dump_hooks; exit 1; }
+kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=10m
+kubectl -n "$namespace" rollout status deploy/agentic-runtime-temporal-frontend --timeout=10m
+bash "$root/scripts/temporal_restart_proof.sh" "$namespace"
 AIRGAP_NAMESPACE="$namespace" uv run python scripts/contract_airgap.py

@@ -311,9 +311,21 @@ def test_each_pod_reaches_only_its_database_targets() -> None:
         str(_CHART),
         "--set",
         "postgres.bundled=false",
+        "--set",
+        "temporal.bundled=false",
         check=False,
     )
     assert bare.returncode == 0
+    temporal_external = _helm(
+        "template",
+        "r",
+        str(_CHART),
+        "--set",
+        "postgres.bundled=false",
+        check=False,
+    )
+    assert temporal_external.returncode != 0
+    assert "externalCidrs" in temporal_external.stderr
 
 
 def test_egress_cidrs_do_not_reopen_platform_pods() -> None:
@@ -394,9 +406,14 @@ def test_required_database_and_service_edges() -> None:
     assert _can_reach(docs, "instance", source=_INSTANCE, labels=_INSTANCE, port=8000)
     assert _can_ingress(docs, _INSTANCE, port=8000, namespace="cnpg-system")
     assert _can_ingress(docs, _INSTANCE, port=5432, source=_POOLER)
-    for name in ("temporal", "migrate", "bootstrap"):
+    for name in ("migrate", "bootstrap"):
         assert _can_reach(docs, name, labels=_POOLER, port=5432)
         assert not _can_reach(docs, name, labels=_INSTANCE, port=5432)
+    # Temporal keeps session state, so it uses the primary rather than the pooler.
+    assert _can_reach(docs, "temporal", labels=_INSTANCE, port=5432)
+    assert not _can_reach(docs, "temporal", labels=_POOLER, port=5432)
+    assert not _can_reach(docs, "api", ip="1.1.1.1", port=443)
+    assert not _can_reach(docs, "runtime-worker", ip="1.1.1.1", port=443)
     stateful = _render(
         _CHART / "values-airgap.yaml",
         sets=["postgres.mode=statefulset", "cluster.podCIDR=10.244.0.0/16"],

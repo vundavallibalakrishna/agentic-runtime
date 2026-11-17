@@ -24,17 +24,18 @@ Outbound HTTP goes through `ar_common.egress_http`. `http_get` and `http_post` p
 `deploy/helm/agentic-runtime/values-airgap.yaml` sets `airgap.lockdown: true`. The chart then:
 
 - sets `AR_EGRESS_CLOSED=true` and `AR_EGRESS_HOSTS=otel-collector`
-- removes the port 443 egress rules on the shared pod policy and on mcp-gateway
+- removes the port 443 egress rules on the shared pod policy, on `api`, on `runtime-worker` and on mcp-gateway
 
-Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-separated) or to the tenant allowlist before saving those providers. The API and the runtime worker already have no port 443 rule. `airgap.egressPorts` is the port list opened for `airgap.egressCIDRs`. The default is 443 and 80. Add 25, 587, 993, 389 or 8000 when mail, a directory or an in-cluster model needs them.
+Add the in-cluster model and embedding hostnames to `AR_EGRESS_HOSTS` (comma-separated) or to the tenant allowlist before saving those providers. With lockdown off, `api` and `runtime-worker` open TCP 443 with no destination selector, the same rule mcp-gateway uses, because the agent loop calls the model directly. With lockdown on, that rule is absent and `airgap.egressCIDRs` is the allowlist. The chart fails the render when lockdown is on, the list is empty, and `config.AR_DEV_MODEL_BASE_URL` names a host outside the cluster. `fakeLlm` and a single-label or `*.svc` host do not count as remote. A model row stored for a tenant is not visible at render time, so set the CIDRs before pointing a tenant at a public model. Squid remains the path for sandboxes. `airgap.egressPorts` is the port list opened for `airgap.egressCIDRs`. The default is 443 and 80. Add 25, 587, 993, 389 or 8000 when mail, a directory or an in-cluster model needs them.
 
-`airgap.isolatePlatformDb` is set by the air-gap overlay. It limits who may open port 5432 to the platform database. The platform path is the CloudNativePG pooler (`cnpg.io/podRole: pooler`) in `cnpg` mode, the `app.kubernetes.io/name: postgres` pods in `statefulset` mode, or `postgres.externalCidrs` when Postgres is not bundled. Temporal's persistence uses that same host. A vector read DSN must use it too. `postgres.externalCidrs` is also granted when isolation is off. Isolation with an external database and an empty CIDR list fails `helm template`.
+`airgap.isolatePlatformDb` is set by the air-gap overlay. It limits who may open port 5432 to the platform database. The platform path is the CloudNativePG pooler (`cnpg.io/podRole: pooler`) in `cnpg` mode, the `app.kubernetes.io/name: postgres` pods in `statefulset` mode, or `postgres.externalCidrs` when Postgres is not bundled. Temporal does not use the pooler: transaction pooling drops the session state the server keeps. It dials the CloudNativePG primary (instance pods, service `<release>-pg-rw`), the StatefulSet, or `postgres.externalCidrs`. A vector read DSN must use the pooler or the StatefulSet. `postgres.externalCidrs` is also granted when isolation is off. Isolation with an external database and an empty CIDR list fails `helm template`.
 
 | Source | May reach | May not reach |
 | --- | --- | --- |
 | `api`, `runtime-worker`, `mcp-gateway` | Platform path on 5432, and `airgap.tenantDbCidrs` on `airgap.tenantDbPorts` (default 5432 and 3306) | CNPG instance pods |
 | `sandbox-manager`, `system-worker`, `ingest-worker` | Platform path on 5432, plus their other in-cluster services | CNPG instance pods and tenant CIDRs |
-| `temporal`, `migrate`, `bootstrap` | Platform path on 5432 | CNPG instance pods |
+| `migrate`, `bootstrap` | Platform path (pooler) on 5432 | CNPG instance pods |
+| `temporal` | CNPG instance pods, the StatefulSet, or `postgres.externalCidrs` on 5432 | The transaction-mode pooler |
 | CNPG pooler pods | Instance pods on 5432 | |
 | CNPG instance pods | Other instance pods on 5432 and 8000, the API server on 443 and 6443, object storage on 8333 | |
 | CNPG operator (`cnpg-system`) | Instance pods on 8000 (ingress) | |

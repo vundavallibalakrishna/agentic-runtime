@@ -1,10 +1,10 @@
 """Readiness checks for the API process.
 
 ``/healthz`` stays a liveness probe and does not connect. ``/readyz`` checks
-Postgres, Valkey when sessions and the limiter are shared, and Temporal when
-``AR_TEMPORAL_REQUIRED`` is set. A platform-database deny name that has never
-resolved is a ``degraded`` detail, not a failure. A check is cached for ten
-seconds.
+Postgres (including that ``alembic_version`` is the head revision), Valkey when
+sessions and the limiter are shared, and Temporal when ``AR_TEMPORAL_REQUIRED``
+is set. A platform-database deny name that has never resolved is a ``degraded``
+detail, not a failure. A check is cached for ten seconds.
 """
 
 from __future__ import annotations
@@ -97,10 +97,12 @@ def _cached(ping: Ping) -> ReadinessCheck:
 
 
 async def ping_postgres(url: str) -> None:
-    """``SELECT 1`` on the application database."""
+    """``SELECT 1`` and the Alembic head on the application database."""
     from ar_domain.db.engine import ping_database  # noqa: PLC0415
+    from ar_domain.db.schema_gate import assert_schema_current  # noqa: PLC0415
 
     await ping_database(url)
+    await assert_schema_current(url)
 
 
 async def ping_valkey(url: str) -> None:

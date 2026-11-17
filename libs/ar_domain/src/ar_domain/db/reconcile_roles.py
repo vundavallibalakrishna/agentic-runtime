@@ -24,7 +24,7 @@ from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.pool import StaticPool
 
 from ar_common.database_roles import APPLICATION_ROLES, PASSWORD_ENV, role_password
-from ar_domain.db.role_admin import apply_database_roles
+from ar_domain.db.role_admin import apply_database_roles, ensure_temporal_databases
 
 
 class _Login(TypedDict):
@@ -94,11 +94,17 @@ def _engine() -> Engine:
 
 def _run() -> None:
     engine = _engine()
+    # CREATE DATABASE cannot run in the role transaction. Do it first, while
+    # the login is still a superuser (an upgrade demotes that login next).
+    autocommit = create_engine(engine.url, isolation_level="AUTOCOMMIT", poolclass=StaticPool)
     try:
+        with autocommit.connect() as connection:
+            ensure_temporal_databases(connection)
         with engine.connect() as connection:
             _apply(connection)
             connection.commit()
     finally:
+        autocommit.dispose()
         engine.dispose()
 
 

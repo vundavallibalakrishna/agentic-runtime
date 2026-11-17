@@ -167,7 +167,7 @@ Rules:
 | PostgreSQL + pgvector | 18.6 + 0.8.7 (image `pgvector/pgvector:0.8.7-pg18-trixie`) | System of record; default retrieval store for knowledge (HNSW on `halfvec`, iterative index scans, full-text `tsvector` for hybrid search), memory and tool search; RLS for tenancy. |
 | CloudNativePG operator | 1.30.1 | HA Postgres on Kubernetes, PITR backups to S3. |
 | Valkey | 9.1.2 | BSD-licensed Redis-compatible store: sessions, rate limits, streams, caches. |
-| Temporal server | 1.32.1 (`temporalio/server:1.32.1`, Helm chart from `temporalio/helm-charts`); CLI image `temporalio/temporal:1.9.1` for `temporal server start-dev` locally | Durable execution backbone. Docker Hub has no tag `temporalio/temporal:1.32.1`; the server image is `temporalio/server`. Local dev uses the CLI image, which vendors the dev server (SQLite). |
+| Temporal server | 1.32.1 (`temporalio/server:1.32.1`); schema tools `temporalio/admin-tools:1.32.1`; CLI image `temporalio/temporal:1.9.1` for `temporal server start-dev` in Compose | Durable execution backbone. The chart runs the server image against Postgres. Docker Hub has no tag `temporalio/temporal:1.32.1`. Compose keeps the CLI image, which vendors the dev server (SQLite). |
 | Qdrant (optional) | 1.19.2 | Optional retrieval backend (`AR_VECTOR_BACKEND=qdrant`) for very large knowledge corpora; not deployed by default (compose profile `qdrant`, Helm `qdrant.enabled=false`). |
 | Open Policy Agent | 1.21.3 | Policy-as-code (Rego v1) for runtime tool decisions; bundles served by `api`. |
 | OpenBao | 2.7.1 | Open-source (MPL-2.0) Vault-API-compatible secrets store; avoids BSL constraints for a SaaS offering. HashiCorp Vault 2.2.0 also supported (same API). |

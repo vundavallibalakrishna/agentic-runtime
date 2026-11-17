@@ -251,6 +251,7 @@ secrets:
     AR_DB_PLATFORM_PASSWORD: ""
     AR_DB_APP_PASSWORD: ""
     AR_DB_READONLY_PASSWORD: ""
+    AR_DB_TEMPORAL_PASSWORD: ""
 postgres:
   bundled: true
   mode: cnpg
@@ -261,7 +262,7 @@ postgres:
   # CloudNativePG keeps its own operator superuser (enableSuperuserAccess).
   superuserUsername: postgres
   superuserPassword: ""
-  # Set true only when the four <release>-db-role-ar-* secrets already exist
+  # Set true only when the five <release>-db-role-ar-* secrets already exist
   # and secrets.create is false. CloudNativePG reads those secrets.
   existingRoleSecrets: false
   # Extra platform database names, appended to the bundled CNPG services.
@@ -284,10 +285,37 @@ temporal:
   bundled: true
   ha: true
   namespace: agentic-runtime
+  namespaceRetention: 72h
+  # Fixed for the life of the cluster. Kind and dev presets use 4.
+  numHistoryShards: 512
+  schemaWaitSeconds: "600"
+  database: temporal
+  visibilityDatabase: temporal_visibility
   workerVersioning: true
+  persistence:
+    plugin: postgres12
+    tls: "false"
+    schemaDir: /etc/temporal/schema/postgresql/v12/temporal/versioned
+    visibilitySchemaDir: /etc/temporal/schema/postgresql/v12/visibility/versioned
+  replicas:
+    frontend: 1
+    history: 3
+    matching: 1
+    worker: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
   image:
     repository: temporalio/server
     tag: 1.32.1
+  adminImage:
+    repository: temporalio/admin-tools
+    tag: 1.32.1
+  # Compose only. The chart does not start the SQLite dev server.
   devImage:
     repository: temporalio/temporal
     tag: 1.9.1
@@ -361,6 +389,12 @@ gateway:
   issuer: letsencrypt
 networkPolicy:
   enabled: true
+  # Cross-namespace callers of the API. Empty admits only web and channels
+  # in this namespace. Set the ingress-controller namespace, or labels, when
+  # the Gateway lives somewhere else. gateway.namespace is added when set.
+  apiIngress:
+    namespaces: []
+    labels: {}
 airgap:
   lockdown: false
   # When true, api, runtime-worker, mcp-gateway, sandbox-manager,
@@ -437,6 +471,7 @@ workloads:
         memory: 1Gi
   api:
     enabled: true
+    schemaGate: true
     appModule: ar_api.main
     tag: ''
     probe: http
@@ -469,6 +504,7 @@ workloads:
         memory: 2Gi
   runtime-worker:
     enabled: true
+    schemaGate: true
     command: ["tini", "--", "ar-runtime"]
     tag: ''
     probe: http
@@ -502,6 +538,7 @@ workloads:
         memory: 2Gi
   system-worker:
     enabled: true
+    schemaGate: true
     command: ["tini", "--", "ar-system"]
     tag: ''
     probe: http
@@ -536,6 +573,7 @@ workloads:
         memory: 2Gi
   ingest-worker:
     enabled: true
+    schemaGate: true
     command: ["tini", "--", "ar-ingest"]
     tag: ''
     probe: http
@@ -569,6 +607,7 @@ workloads:
         memory: 4Gi
   model-gateway:
     enabled: true
+    schemaGate: true
     appModule: ar_model_gateway.main
     tag: ''
     probe: http
@@ -601,6 +640,7 @@ workloads:
         memory: 1Gi
   mcp-gateway:
     enabled: true
+    schemaGate: true
     appModule: ar_mcp_gateway.main
     tag: ''
     probe: http
@@ -633,6 +673,7 @@ workloads:
         memory: 1Gi
   sandbox-manager:
     enabled: true
+    schemaGate: true
     appModule: ar_sandbox_manager.main
     tag: ''
     probe: http
@@ -665,6 +706,7 @@ workloads:
         memory: 1Gi
   channels:
     enabled: true
+    schemaGate: true
     appModule: ar_channels.main
     tag: ''
     probe: http

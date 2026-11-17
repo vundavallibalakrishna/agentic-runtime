@@ -12,8 +12,11 @@ def test_upgrade_hooks_and_rollout() -> None:
     assert "maxUnavailable: 0" in workloads
     assert "maxSurge: 25%" in workloads
     assert "PodDisruptionBudget" in workloads
-    assert "pre-install,pre-upgrade" in jobs
-    assert "alembic" in jobs
+    secret = (CHART / "templates/secret.yaml").read_text(encoding="utf-8")
+    assert "pre-install,pre-upgrade" in secret
+    assert "pre-upgrade" in jobs
+    assert "post-install,post-upgrade" in jobs
+    assert "ar_domain.db.schema_gate" in jobs
     assert "TEMPORAL_WORKER_BUILD_ID" in workloads
     assert "preStop" in workloads
 

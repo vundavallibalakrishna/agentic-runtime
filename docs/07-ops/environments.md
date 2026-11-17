@@ -45,6 +45,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DB_APP_PASSWORD` | (required) | Password for `ar_app`, also the user in `AR_DATABASE_URL`. | [rls](../04-data/rls.md) |
 | `AR_DB_PLATFORM_PASSWORD` | (required) | Password for `ar_platform`. | [rls](../04-data/rls.md) |
 | `AR_DB_READONLY_PASSWORD` | (required) | Password for `ar_readonly`. | [rls](../04-data/rls.md) |
+| `AR_DB_TEMPORAL_PASSWORD` | (required) | Password for `ar_temporal`, the Temporal persistence login. It owns `temporal` and `temporal_visibility` only. | [rls](../04-data/rls.md) |
 | `AR_DB_ENCRYPTION_ACTIVE_KEY` | `k1` | Active KEK id | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DB_ENCRYPTION_KEYS` | (secret) | KEKs for `db_encrypted` | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DEV_MODEL_BASE_URL` | (empty) | Dev only: `make seed` registers this OpenAI-compatible endpoint instead of `fake-llm` | [local-dev](local-dev.md) |

@@ -161,6 +161,7 @@ def main() -> None:
     text = _ensure_password(text, "AR_DB_PLATFORM_PASSWORD", generated_password())
     text = _ensure_password(text, "AR_DB_APP_PASSWORD", generated_password())
     text = _ensure_password(text, "AR_DB_READONLY_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_TEMPORAL_PASSWORD", generated_password())
     text = _ensure_password(text, "POSTGRES_PASSWORD", generated_password())
     text = _install_app_password(text)
     escaped_pem = private_pem.replace("\n", "\\n")

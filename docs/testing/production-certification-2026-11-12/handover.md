@@ -68,7 +68,7 @@ From the certification report's open list and OQ-132 to OQ-136. All are recorded
 10. In dev mode a turn longer than about a minute shows as stuck.
 11. A replayed tool call returns a preview and no structured result.
 12. Eval conversations appear in the recent chats of the person who started the eval.
-13. A long tool shows no card in chat until it ends, because `tool_call.started` is stored when the step commits (OQ-136).
+13. A long tool shows no card in chat until it ends, because `tool_call.started` is stored when the step commits (OQ-138).
 14. The document library has no delete (OQ-134).
 15. Sums written between dollar signs show as plain text, and the chat column is squeezed at narrow widths.
 16. Sandbox, from OQ-132: suspend does not stop a container; the docker driver does not confine the network and a clicked link is not checked against the allowed hosts; the whole run folder is copied into the container on each call and deletions there are not carried back; the sandbox manager routes carry no service token; the computer panel lists a host folder, so it shows no files for a container.

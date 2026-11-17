@@ -1,3 +1,25 @@
+{{- define "ar.remoteModel" -}}
+{{- if not .Values.fakeLlm.enabled -}}
+{{- $url := "" -}}
+{{- if .Values.config -}}
+{{- $url = index .Values.config "AR_DEV_MODEL_BASE_URL" | default "" | toString | trim -}}
+{{- end -}}
+{{- if $url -}}
+{{- $bare := $url | trimPrefix "https://" | trimPrefix "http://" -}}
+{{- $hostport := index (splitList "/" $bare) 0 -}}
+{{- $host := index (splitList ":" $hostport) 0 | lower -}}
+{{- if and $host (contains "." $host) (not (hasSuffix ".svc" $host)) (not (hasSuffix ".cluster.local" $host)) (ne $host "localhost") -}}
+yes
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+{{- define "ar.modelEgress" -}}
+{{- if not .Values.airgap.lockdown }}
+- ports:
+    - {port: 443, protocol: TCP}
+{{- end }}
+{{- end }}
 {{- define "ar.thirdPartyImage" -}}
 {{- $root := index . 0 -}}
 {{- $repo := index . 1 -}}
@@ -43,7 +65,7 @@
 {{- $value := index . 0 | toString | lower | trim -}}
 {{- $role := index . 1 | toString | lower -}}
 {{- $label := index . 2 -}}
-{{- $bad := list "" "ar-install-db" "airgap-set-a-real-password" "changeme" "change-me" "password" "placeholder" "postgres" "install-time" "ar_owner" "ar_app" "ar_platform" "ar_readonly" -}}
+{{- $bad := list "" "ar-install-db" "airgap-set-a-real-password" "changeme" "change-me" "password" "placeholder" "postgres" "install-time" "ar_owner" "ar_app" "ar_platform" "ar_readonly" "ar_temporal" -}}
 {{- if or (has $value $bad) (eq $value $role) -}}
 {{- fail (printf "%s is unset, a placeholder, or the role name" $label) -}}
 {{- end -}}
@@ -57,12 +79,12 @@
   assert_installed_database_secrets, which the API, Alembic and bootstrap call.
   A bundled CloudNativePG install with secrets.create false does not create
   the <release>-db-role-ar-* basic-auth secrets the cluster references. Create
-  those four secrets, or the role passwords and POSTGRES_PASSWORD in the
+  those five secrets, or the role passwords and POSTGRES_PASSWORD in the
   install secret, before install.
 */}}
 {{- define "ar.assertDatabasePasswords" -}}
 {{- if .Values.secrets.create -}}
-{{- range $key, $role := dict "AR_DB_OWNER_PASSWORD" "ar_owner" "AR_DB_PLATFORM_PASSWORD" "ar_platform" "AR_DB_APP_PASSWORD" "ar_app" "AR_DB_READONLY_PASSWORD" "ar_readonly" -}}
+{{- range $key, $role := dict "AR_DB_OWNER_PASSWORD" "ar_owner" "AR_DB_PLATFORM_PASSWORD" "ar_platform" "AR_DB_APP_PASSWORD" "ar_app" "AR_DB_READONLY_PASSWORD" "ar_readonly" "AR_DB_TEMPORAL_PASSWORD" "ar_temporal" -}}
 {{- include "ar.refuseDatabasePassword" (list (index $.Values.secrets.data $key | default "") $role $key) -}}
 {{- end -}}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") -}}
@@ -75,7 +97,7 @@
 
 {{- define "ar.rolePasswordEnv" -}}
 {{- $secret := index . 1 -}}
-{{- range $key := list "AR_DB_OWNER_PASSWORD" "AR_DB_PLATFORM_PASSWORD" "AR_DB_APP_PASSWORD" "AR_DB_READONLY_PASSWORD" }}
+{{- range $key := list "AR_DB_OWNER_PASSWORD" "AR_DB_PLATFORM_PASSWORD" "AR_DB_APP_PASSWORD" "AR_DB_READONLY_PASSWORD" "AR_DB_TEMPORAL_PASSWORD" }}
 - name: {{ $key }}
   valueFrom:
     secretKeyRef:
