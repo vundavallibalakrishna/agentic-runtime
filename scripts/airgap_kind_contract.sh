@@ -138,10 +138,17 @@ job_logs() {
   kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
 }
 kubectl apply -n "$namespace" -f /tmp/airgap-migrate.yaml
+# The job controller deletes the pod once the backoff limit is hit.
+kubectl -n "$namespace" logs -f job/agentic-runtime-migrate --pod-running-timeout=2m \
+  > /tmp/airgap-migrate.log 2>&1 &
+log_pid=$!
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
+  wait "$log_pid" || true
+  cat /tmp/airgap-migrate.log || true
   job_logs agentic-runtime-migrate
   exit 1
 fi
+kill "$log_pid" >/dev/null 2>&1 || true
 kubectl apply -n "$namespace" -f /tmp/airgap-bootstrap.yaml
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
   job_logs agentic-runtime-bootstrap

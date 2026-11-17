@@ -80,6 +80,13 @@ spec:
         createdb: true
         createrole: true
         bypassrls: true
+        # The reconciler revokes memberships that are not listed here, including
+        # a GRANT from postInitSQL. PostgreSQL 16 requires ADMIN OPTION, which
+        # this list grants, before ar_owner can set the other passwords.
+        inRoles:
+          - ar_app
+          - ar_platform
+          - ar_readonly
         passwordSecret:
           name: {{ include "ar.roleSecret" (list . "ar_owner") }}
       # platform_session runs before a tenant is known.

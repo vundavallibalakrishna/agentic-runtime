@@ -13,7 +13,7 @@ RLS is **defence in depth**. The primary control is that every repository functi
 
 `ALTER TABLE ... FORCE ROW LEVEL SECURITY` is set on every tenant table. A table owner that does not have `BYPASSRLS` is subject to the policies. `ar_owner` has `BYPASSRLS` and is not a tenant session. `ar_app` does not.
 
-The image superuser installs `pgcrypto`, `citext`, `pg_trgm`, `vector` and `btree_gin` before Alembic runs. That is the StatefulSet and compose init scripts, and CloudNativePG `postInitApplicationSQL`. `vector` is not a trusted extension, so `ar_owner` cannot create it.
+The image superuser installs `pgcrypto`, `citext`, `pg_trgm`, `vector` and `btree_gin` before Alembic runs. That is the StatefulSet and compose init scripts, and CloudNativePG `postInitApplicationSQL`. `vector` is not a trusted extension, so `ar_owner` cannot create it. CloudNativePG lists `ar_app`, `ar_platform` and `ar_readonly` in `ar_owner`'s `inRoles`. The operator drops memberships it does not manage, and PostgreSQL 16 requires that admin option before `ar_owner` can set the other passwords.
 
 ## 2. Session variables
 

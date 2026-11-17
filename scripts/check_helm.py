@@ -211,6 +211,8 @@ def assert_roles(rendered: str) -> None:
         raise SystemExit("rendered manifest still has a public superuser role")
     if "CREATE EXTENSION IF NOT EXISTS vector" not in rendered:
         raise SystemExit("CloudNativePG init does not install extensions")
+    if "inRoles:" not in rendered:
+        raise SystemExit("CloudNativePG does not keep ar_owner's admin option")
     roles: dict[str, dict[str, object]] = {}
     for doc in docs(rendered):
         if doc.get("kind") != "Cluster":
