@@ -58,7 +58,8 @@ services:
 
   temporal:
     profiles: [deps]
-    # Production chart uses temporalio/server:1.32.1. Local dev uses the CLI image.
+    # Production chart uses temporalio/server:1.32.1 and temporalio/admin-tools:1.32.1.
+    # Local dev uses the CLI image.
     image: temporalio/temporal:1.9.1
     command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-port", "8233"]
     ports: ["${AR_TEMPORAL_HOST_PORT:-7233}:7233", "${AR_TEMPORAL_UI_HOST_PORT:-8233}:8233"]
