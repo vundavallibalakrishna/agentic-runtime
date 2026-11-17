@@ -199,7 +199,8 @@ services:
       <<: *app-env
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
-      POSTGRES_USER: postgres
+      POSTGRES_USER: ${AR_DB_SUPERUSER_USER:-postgres}
+      AR_DB_RECONCILE: run
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: agentic_runtime
     depends_on:

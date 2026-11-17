@@ -62,16 +62,15 @@ def apply_database_roles(connection: Connection, *, require_superuser: bool = Fa
         message = "role reconciliation requires the database superuser"
         raise RuntimeError(message)
     if superuser:
-        for role in APPLICATION_ROLES:
+        # Altering the session role to NOSUPERUSER first would make the rest fail.
+        current = connection.execute(text("SELECT current_user")).scalar()
+        ordered = [role for role in APPLICATION_ROLES if role != current]
+        if current in APPLICATION_ROLES:
+            ordered.append(str(current))
+        for role in ordered:
             _create_or_alter(connection, role)
-        _grant_admin(connection)
         return
     _require_attributes(connection)
-
-
-def _grant_admin(connection: Connection) -> None:
-    for role in ("ar_app", "ar_platform", "ar_readonly"):
-        connection.execute(text(f"GRANT {role} TO ar_owner WITH ADMIN OPTION"))
 
 
 def _create_or_alter(connection: Connection, role: str) -> None:

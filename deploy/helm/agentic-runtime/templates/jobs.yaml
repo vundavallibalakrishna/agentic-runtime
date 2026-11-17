@@ -35,27 +35,16 @@ spec:
               value: "5432"
             - name: POSTGRES_DB
               value: ar
+            - name: AR_DB_RECONCILE
+              value: run
             - name: POSTGRES_USER
               value: {{ .Values.postgres.superuserUsername | default "postgres" | quote }}
-            {{- if .Values.secrets.create }}
-            - name: POSTGRES_PASSWORD
-              value: {{ .Values.postgres.superuserPassword | quote }}
-            - name: AR_DB_OWNER_PASSWORD
-              value: {{ index .Values.secrets.data "AR_DB_OWNER_PASSWORD" | quote }}
-            - name: AR_DB_PLATFORM_PASSWORD
-              value: {{ index .Values.secrets.data "AR_DB_PLATFORM_PASSWORD" | quote }}
-            - name: AR_DB_APP_PASSWORD
-              value: {{ index .Values.secrets.data "AR_DB_APP_PASSWORD" | quote }}
-            - name: AR_DB_READONLY_PASSWORD
-              value: {{ index .Values.secrets.data "AR_DB_READONLY_PASSWORD" | quote }}
-            {{- else }}
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "ar.installSecret" . }}
+                  name: {{ include "ar.jobSecret" . }}
                   key: POSTGRES_PASSWORD
-            {{- include "ar.rolePasswordEnv" . | nindent 12 }}
-            {{- end }}
+            {{- include "ar.rolePasswordEnv" (list . (include "ar.jobSecret" .)) | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -97,13 +86,15 @@ spec:
           image: {{ include "ar.thirdPartyImage" (list . "ar-migrate" .Values.global.imageTag) }}
           command: ["alembic", "-c", "/app/libs/ar_domain/alembic.ini", "upgrade", "head"]
           env:
+            - name: AR_ENV
+              value: {{ .Values.global.env | quote }}
             - name: AR_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "ar.installSecret" . }}
+                  name: {{ include "ar.jobSecret" . }}
                   key: AR_DATABASE_URL
                   optional: true
-            {{- include "ar.rolePasswordEnv" . | nindent 12 }}
+            {{- include "ar.rolePasswordEnv" (list . (include "ar.jobSecret" .)) | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -151,7 +142,7 @@ spec:
                   name: {{ include "ar.installSecret" . }}
                   key: AR_DATABASE_URL
                   optional: true
-            {{- include "ar.rolePasswordEnv" . | nindent 12 }}
+            {{- include "ar.rolePasswordEnv" (list . (include "ar.installSecret" .)) | nindent 12 }}
             - name: AR_BOOTSTRAP_TENANT_SLUG
               value: {{ .Values.bootstrap.tenantSlug | quote }}
             - name: AR_BOOTSTRAP_TENANT_NAME

@@ -27,6 +27,9 @@ stringData:
   password: {{ index $.Values.secrets.data $key | quote }}
 {{- end }}
 {{- end }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") (not .Values.secrets.create) (not .Values.postgres.existingRoleSecrets) }}
+{{- fail "CloudNativePG does not create <release>-db-role-ar-owner, -ar-app, -ar-platform, or -ar-readonly when secrets.create is false. Create those four basic-auth secrets, then set postgres.existingRoleSecrets true." }}
+{{- end }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
 ---
 apiVersion: postgresql.cnpg.io/v1
@@ -65,11 +68,6 @@ spec:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
         - CREATE DATABASE langfuse
-        # ADMIN OPTION is this GRANT. inRoles only records membership so the
-        # reconciler does not revoke it; the list itself does not set ADMIN.
-        - GRANT ar_platform TO ar_owner WITH ADMIN OPTION
-        - GRANT ar_app TO ar_owner WITH ADMIN OPTION
-        - GRANT ar_readonly TO ar_owner WITH ADMIN OPTION
   managed:
     roles:
       # plans has FORCE ROW LEVEL SECURITY and no INSERT policy, and bootstrap
@@ -83,12 +81,6 @@ spec:
         createdb: false
         createrole: false
         bypassrls: true
-        # Membership only. The operator drops memberships that are not listed.
-        # ADMIN OPTION is the GRANT in postInitApplicationSQL, not this list.
-        inRoles:
-          - ar_app
-          - ar_platform
-          - ar_readonly
         passwordSecret:
           name: {{ include "ar.roleSecret" (list . "ar_owner") }}
       # platform_session runs before a tenant is known.

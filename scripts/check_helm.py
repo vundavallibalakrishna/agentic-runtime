@@ -91,6 +91,8 @@ def assert_rollout(rendered: str) -> None:
         raise SystemExit("rolling update must keep maxUnavailable at 0")
     if "helm.sh/hook: pre-install,pre-upgrade" not in text:
         raise SystemExit("migrate hook missing")
+    if 'helm.sh/hook-weight: "-20"' not in text:
+        raise SystemExit("install secret hook is not weight -20")
     if "TEMPORAL_WORKER_BUILD_ID" not in text:
         raise SystemExit("worker build id missing")
     if "PodDisruptionBudget" not in kinds(rendered):
@@ -149,8 +151,22 @@ def main() -> None:
         ["-f", str(PASSWORDS), "--set", "secrets.data.AR_DB_APP_PASSWORD=ChangeMe"],
         "AR_DB_APP_PASSWORD",
     )
+    assert_fails(
+        ["-f", str(PASSWORDS), "--set", "secrets.create=false"],
+        "existingRoleSecrets",
+    )
+    template(
+        "-f",
+        str(PASSWORDS),
+        "--set",
+        "secrets.create=false",
+        "--set",
+        "postgres.existingRoleSecrets=true",
+    )
     assert_roles(default)
     assert_cnpg_contract(default)
+    assert_hook_env(default)
+    assert_hook_env(dev)
     assert_init_script(dev)
     if "reconcile-roles" not in dev:
         raise SystemExit("statefulset upgrade does not reconcile roles")
@@ -211,15 +227,55 @@ def assert_init_script(rendered: str) -> None:
 
 
 def assert_cnpg_contract(rendered: str) -> None:
-    """Extensions, membership, and the GRANT that actually sets ADMIN OPTION."""
-    required = (
-        "CREATE EXTENSION IF NOT EXISTS vector",
-        "inRoles:",
-        "GRANT ar_app TO ar_owner WITH ADMIN OPTION",
-    )
-    missing = [item for item in required if item not in rendered]
-    if missing or "this list grants" in rendered:
+    """Extensions are installed. ar_owner is not a member of the other roles."""
+    if "CREATE EXTENSION IF NOT EXISTS vector" not in rendered:
         raise SystemExit("CloudNativePG role contract is incomplete")
+    if "inRoles:" in rendered or "WITH ADMIN OPTION" in rendered:
+        raise SystemExit("ar_owner must not be granted the other roles")
+
+
+def assert_hook_env(rendered: str) -> None:
+    """Every hook Job carries AR_ENV, and role passwords come from the Secret."""
+    found = False
+    for doc in docs(rendered):
+        if doc.get("kind") != "Job":
+            continue
+        found = True
+        meta = doc.get("metadata")
+        name = str(meta.get("name")) if isinstance(meta, dict) else "job"
+        spec = doc.get("spec")
+        template = spec.get("template", {}) if isinstance(spec, dict) else {}
+        pod = template.get("spec", {}) if isinstance(template, dict) else {}
+        containers = pod.get("containers", []) if isinstance(pod, dict) else []
+        env = containers[0].get("env", []) if containers and isinstance(containers[0], dict) else []
+        names = {str(item.get("name")) for item in env if isinstance(item, dict)}
+        if "AR_ENV" not in names:
+            raise SystemExit(f"{name} does not set AR_ENV")
+        pre_hook = name.endswith("-migrate") or name.endswith("-reconcile-roles")
+        for item in env:
+            if not isinstance(item, dict):
+                continue
+            secret_name = item.get("name") in {"POSTGRES_PASSWORD", "AR_DB_OWNER_PASSWORD"}
+            if secret_name and "value" in item:
+                raise SystemExit(f"{name} embeds a database password")
+            ref = item.get("valueFrom", {})
+            key_ref = ref.get("secretKeyRef", {}) if isinstance(ref, dict) else {}
+            referenced = str(key_ref.get("name", "")) if isinstance(key_ref, dict) else ""
+            if (
+                item.get("name") == "AR_DB_OWNER_PASSWORD"
+                and pre_hook
+                and not referenced.endswith("-secrets-hook")
+            ):
+                raise SystemExit(f"{name} does not read the hook secret")
+            owner_key = item.get("name") == "AR_DB_OWNER_PASSWORD"
+            bootstrap_secret = owner_key and name.endswith("-bootstrap")
+            release_secret = referenced.endswith("-secrets") and not referenced.endswith(
+                "-secrets-hook"
+            )
+            if bootstrap_secret and not release_secret:
+                raise SystemExit(f"{name} must read the release secret")
+    if not found:
+        raise SystemExit("render has no hook jobs")
 
 
 def assert_roles(rendered: str) -> None:
@@ -237,9 +293,13 @@ def assert_roles(rendered: str) -> None:
             for role in listed:
                 if isinstance(role, dict):
                     roles[str(role.get("name"))] = role
+    owner = roles["ar_owner"]
     if (
-        roles["ar_owner"].get("superuser") is not False
-        or roles["ar_owner"].get("bypassrls") is not True
+        owner.get("superuser") is not False
+        or owner.get("bypassrls") is not True
+        or owner.get("createdb") is not False
+        or owner.get("createrole") is not False
+        or owner.get("inRoles")
     ):
         raise SystemExit("ar_owner must bypass row security and must not be superuser")
     if roles["ar_platform"].get("bypassrls") is not True:

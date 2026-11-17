@@ -87,14 +87,16 @@ def role_password(role: str) -> str:
 
 
 def refuse_set_password(password: str | None) -> None:
-    """Refuse a password that was supplied and is a placeholder or a role name.
+    """Refuse an empty, placeholder, or role-name password.
 
-    An empty password is a passwordless URL, which dev fixtures use. A set
-    password of ``postgres`` or ``ar_owner`` is refused for every login,
-    including the image superuser and the ``test`` role.
+    ``None`` is a passwordless URL, which dev fixtures use. An empty string is
+    a password that was set to nothing, and staging and production refuse it.
     """
-    if password is None or password == "":
+    if password is None:
         return
+    if password == "":
+        message = "database URL password is unset, a placeholder, or a role name"
+        raise RuntimeError(message)
     folded = unquote(password).strip().casefold()
     if folded in PLACEHOLDERS or folded in {role.casefold() for role in APPLICATION_ROLES}:
         message = "database URL password is unset, a placeholder, or a role name"
