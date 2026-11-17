@@ -10,7 +10,7 @@ import orjson
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from ar_common.database_roles import assert_application_url, role_password
+from ar_common.database_roles import assert_application_url, refuse_set_password, role_password
 from ar_common.settings import get_settings
 
 # PgBouncer transaction pooling: asyncpg must not cache prepared statements.
@@ -52,9 +52,11 @@ def owner_database_url(url: str | None = None) -> str:
         assert_application_url(current)
         return current
     if parsed.username in {"postgres", "test"}:
+        refuse_set_password(parsed.password)
         return current
     if parsed.username == "ar_app":
         return swap_user(current, "ar_owner", role_password("ar_owner"))
+    refuse_set_password(parsed.password)
     return current
 
 

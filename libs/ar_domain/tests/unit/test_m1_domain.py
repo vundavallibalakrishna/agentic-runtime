@@ -817,6 +817,11 @@ def test_engine_routing(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "ar_platform:test-platform-password@" in platform_database_url(url)
     with pytest.raises(RuntimeError):
         owner_database_url("postgresql+asyncpg://ar_owner:ar_owner@localhost/ar")
+    with pytest.raises(RuntimeError):
+        owner_database_url("postgresql+asyncpg://postgres:ar_owner@localhost/ar")
+    assert "postgres:ci-image-superuser@" in owner_database_url(
+        "postgresql+asyncpg://postgres:ci-image-superuser@localhost/ar"
+    )
     assert swap_user(url, "custom", "pw").startswith("postgresql+asyncpg://custom:pw@")
     tenant = uuid.uuid4()
     monkeypatch.setenv("AR_TENANT_DB_ROUTES", f'{{"{tenant}": "{url}"}}')

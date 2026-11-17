@@ -15,7 +15,7 @@ docker run -d --name m23-platform-pg \
 Wait until it accepts connections, then from the repository root:
 
 ```bash
-AR_DATABASE_URL=postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:55440/agentic_runtime \
+AR_DATABASE_URL=postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:55440/agentic_runtime \
   uv run alembic -c libs/ar_domain/alembic.ini upgrade head
 ```
 
@@ -23,7 +23,7 @@ Seed with the host port set so settings do not rewrite the URL back to 5432:
 
 ```bash
 AR_PG_HOST_PORT=55440 \
-AR_DATABASE_URL=postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:55440/agentic_runtime \
+AR_DATABASE_URL=postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:55440/agentic_runtime \
   uv run --no-env-file python scripts/seed.py
 ```
 

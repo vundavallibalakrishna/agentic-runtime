@@ -184,20 +184,6 @@ jobs:
 
   migrations:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.7-pg18-trixie
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ci-image-superuser
-          POSTGRES_DB: agentic_runtime
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d agentic_runtime"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -206,14 +192,14 @@ jobs:
           enable-cache: true
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
+      - run: sh scripts/ci_postgres.sh
       - name: Upgrade, single head, model check, round trip
-        env:
-          AR_DATABASE_URL: postgresql+asyncpg://postgres:ci-image-superuser@localhost:5432/agentic_runtime
-          AR_DB_OWNER_PASSWORD: ci-owner-password
-          AR_DB_PLATFORM_PASSWORD: ci-platform-password
-          AR_DB_APP_PASSWORD: ci-app-password
-          AR_DB_READONLY_PASSWORD: ci-readonly-password
         run: |
+          set -a
+          # shellcheck disable=SC1091
+          . ./.env
+          set +a
+          export AR_DATABASE_URL="postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@127.0.0.1:5432/agentic_runtime"
           uv run alembic -c libs/ar_domain/alembic.ini upgrade head
           test "$(uv run alembic -c libs/ar_domain/alembic.ini heads | wc -l)" -eq 1
           uv run alembic -c libs/ar_domain/alembic.ini check
@@ -437,19 +423,6 @@ jobs:
   conformance-qdrant:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: pgvector/pgvector:0.8.7-pg18-trixie
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ci-image-superuser
-          POSTGRES_DB: agentic_runtime
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d agentic_runtime"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
       qdrant:
         image: qdrant/qdrant:v1.19.2
         ports:
@@ -467,15 +440,16 @@ jobs:
           enable-cache: true
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --all-extras --frozen
+      - run: sh scripts/ci_postgres.sh
       - name: Qdrant conformance and backend round trip
-        env:
-          AR_QDRANT_URL: http://127.0.0.1:6333
-          AR_DATABASE_URL: postgresql+asyncpg://postgres:ci-image-superuser@127.0.0.1:5432/agentic_runtime
-          AR_DB_OWNER_PASSWORD: ci-owner-password
-          AR_DB_PLATFORM_PASSWORD: ci-platform-password
-          AR_DB_APP_PASSWORD: ci-app-password
-          AR_DB_READONLY_PASSWORD: ci-readonly-password
-        run: uv run pytest -m qdrant -q
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          . ./.env
+          set +a
+          export AR_QDRANT_URL=http://127.0.0.1:6333
+          export AR_DATABASE_URL="postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@127.0.0.1:5432/agentic_runtime"
+          uv run pytest -m qdrant -q
 
   security:
     runs-on: ubuntu-latest

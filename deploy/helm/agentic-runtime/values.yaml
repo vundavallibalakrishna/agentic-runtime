@@ -259,6 +259,7 @@ postgres:
   username: ar_app
   # Image init user for the StatefulSet only. Not an application role.
   # CloudNativePG keeps its own operator superuser (enableSuperuserAccess).
+  superuserUsername: postgres
   superuserPassword: ""
   # Extra platform database names, appended to the bundled CNPG services.
   denyHosts: []

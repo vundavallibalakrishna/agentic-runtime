@@ -150,7 +150,12 @@ def main() -> None:
         "AR_DB_APP_PASSWORD",
     )
     assert_roles(default)
+    assert_cnpg_contract(default)
     assert_init_script(dev)
+    if "reconcile-roles" not in dev:
+        raise SystemExit("statefulset upgrade does not reconcile roles")
+    if "reconcile-roles" in default:
+        raise SystemExit("cnpg render includes the statefulset role job")
     again = template()
     if _role_secret(default, "ar-owner") != _role_secret(again, "ar-owner"):
         raise SystemExit("role password changed between two renders of the same values")
@@ -205,14 +210,22 @@ def assert_init_script(rendered: str) -> None:
         raise SystemExit("statefulset init script contains a password")
 
 
+def assert_cnpg_contract(rendered: str) -> None:
+    """Extensions, membership, and the GRANT that actually sets ADMIN OPTION."""
+    required = (
+        "CREATE EXTENSION IF NOT EXISTS vector",
+        "inRoles:",
+        "GRANT ar_app TO ar_owner WITH ADMIN OPTION",
+    )
+    missing = [item for item in required if item not in rendered]
+    if missing or "this list grants" in rendered:
+        raise SystemExit("CloudNativePG role contract is incomplete")
+
+
 def assert_roles(rendered: str) -> None:
     """Application roles are not superuser, and the init script has no password literal."""
     if "PASSWORD 'ar_" in rendered or "\n        superuser: true" in rendered:
         raise SystemExit("rendered manifest still has a public superuser role")
-    if "CREATE EXTENSION IF NOT EXISTS vector" not in rendered:
-        raise SystemExit("CloudNativePG init does not install extensions")
-    if "inRoles:" not in rendered:
-        raise SystemExit("CloudNativePG does not keep ar_owner's admin option")
     roles: dict[str, dict[str, object]] = {}
     for doc in docs(rendered):
         if doc.get("kind") != "Cluster":

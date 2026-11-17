@@ -20,7 +20,7 @@ from sign_in import sign_in
 
 BASE = os.environ.get("AR_PROOF_API", "http://127.0.0.1:18131")
 ROOT = Path(os.environ.get("M31_ROOT", "/tmp/m31-proof"))
-DSN = os.environ.get("M31_DSN", "postgresql://ar_owner:ar_owner@127.0.0.1:5432/m31_fresh")
+DSN = os.environ["M31_DSN"]
 ALIAS = "qwenm31"
 PDF = Path("/workspace/docs/architecture/agentic-runtime-architecture.pdf")
 PHASE = os.environ.get("M31_PHASE", "all")

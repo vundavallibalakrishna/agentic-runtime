@@ -7,9 +7,9 @@ variable supplied at install time. Dev and CI generate values with
 ``ar_owner`` is the migration, bootstrap and seed login. ``plans`` has
 ``FORCE ROW LEVEL SECURITY`` and only a ``SELECT`` policy, and system ``roles``
 are inserted with ``tenant_id`` NULL, so that login cannot write the catalogue
-unless it bypasses row security. It is not a superuser. ``CREATEDB`` is how the
-CloudNativePG owner creates ``temporal`` and ``langfuse``. ``CREATEROLE`` is how
-the first revision creates the other logins when it is connected as a superuser.
+unless it bypasses row security. It is not a superuser and it cannot create
+databases or roles. The image superuser creates ``temporal`` and ``langfuse``
+and reconciles an existing volume before Alembic runs.
 
 ``ar_platform`` bypasses row security because ``platform_session`` runs before a
 tenant is known. ``ar_app`` and ``ar_readonly`` do not.
@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 import secrets
 from typing import TYPE_CHECKING
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -55,7 +55,7 @@ PLACEHOLDERS: frozenset[str] = frozenset(
 
 # Attributes a superuser must leave on the role. Bootstrap and migrate both read these.
 ROLE_ATTRIBUTES: dict[str, str] = {
-    "ar_owner": "LOGIN NOSUPERUSER CREATEDB CREATEROLE BYPASSRLS",
+    "ar_owner": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS",
     "ar_platform": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS",
     "ar_app": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS",
     "ar_readonly": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS",
@@ -86,6 +86,21 @@ def role_password(role: str) -> str:
     return raw.strip()
 
 
+def refuse_set_password(password: str | None) -> None:
+    """Refuse a password that was supplied and is a placeholder or a role name.
+
+    An empty password is a passwordless URL, which dev fixtures use. A set
+    password of ``postgres`` or ``ar_owner`` is refused for every login,
+    including the image superuser and the ``test`` role.
+    """
+    if password is None or password == "":
+        return
+    folded = unquote(password).strip().casefold()
+    if folded in PLACEHOLDERS or folded in {role.casefold() for role in APPLICATION_ROLES}:
+        message = "database URL password is unset, a placeholder, or a role name"
+        raise RuntimeError(message)
+
+
 def assert_application_url(url: str) -> None:
     """Refuse an application-role URL whose password is a placeholder or the role name."""
     if not url or "://" not in url:
@@ -95,6 +110,50 @@ def assert_application_url(url: str) -> None:
     if user not in PASSWORD_ENV:
         return
     reject_database_password(user, unquote(parts.password or ""))
+
+
+def assert_installed_database_secrets(env: str, database_url: str) -> None:
+    """Staging and production require real role passwords and real database URLs.
+
+    Dev and CI return without checking. Every other environment checks the four
+    ``AR_DB_*_PASSWORD`` values, the given URL, and the owner and platform URLs
+    derived from it. Helm does not render ``secrets.existingSecret``; this is
+    the check those installs get.
+    """
+    if str(env).strip().casefold() in {"dev", "ci"}:
+        return
+    for role in APPLICATION_ROLES:
+        role_password(role)
+    _assert_any_url(database_url)
+    parts = urlsplit(database_url)
+    user = unquote(parts.username or "")
+    if user in {"ar_app", "ar_owner", "ar_platform", "ar_readonly"}:
+        for role in ("ar_owner", "ar_platform"):
+            _assert_any_url(_swap_url(database_url, role, role_password(role)))
+
+
+def _assert_any_url(url: str) -> None:
+    if not url or "://" not in url:
+        message = "database URL is unset"
+        raise RuntimeError(message)
+    parts = urlsplit(url)
+    user = unquote(parts.username or "")
+    password = unquote(parts.password or "")
+    if user in PASSWORD_ENV:
+        reject_database_password(user, password)
+        return
+    folded = password.strip().casefold()
+    if folded in PLACEHOLDERS or folded in {role.casefold() for role in APPLICATION_ROLES}:
+        message = "database URL password is unset, a placeholder, or a role name"
+        raise RuntimeError(message)
+
+
+def _swap_url(url: str, username: str, password: str) -> str:
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    port = f":{parts.port}" if parts.port else ""
+    netloc = f"{quote(username, safe='')}:{quote(password, safe='')}@{host}{port}"
+    return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
 
 
 def write_helm_passwords(path: Path) -> None:

@@ -19,6 +19,7 @@ if ! kind get clusters | grep -qx "$name"; then
 fi
 kubectl config use-context "kind-${name}"
 passwords="$(mktemp)"
+trap 'rm -f "$passwords"' EXIT
 uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
 helm upgrade --install agentic-runtime "$root/deploy/helm/agentic-runtime" \
   --namespace agentic-runtime --create-namespace \

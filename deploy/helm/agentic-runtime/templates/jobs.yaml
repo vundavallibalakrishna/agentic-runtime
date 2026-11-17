@@ -1,3 +1,74 @@
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-reconcile-roles
+  annotations:
+    helm.sh/hook: pre-upgrade
+    helm.sh/hook-weight: "-10"
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: reconcile-roles
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: reconcile-roles
+          image: {{ include "ar.thirdPartyImage" (list . "ar-migrate" .Values.global.imageTag) }}
+          command: ["python", "-m", "ar_domain.db.reconcile_roles"]
+          env:
+            - name: AR_ENV
+              value: {{ .Values.global.env | quote }}
+            - name: POSTGRES_HOST
+              value: {{ printf "%s-postgres" .Release.Name | quote }}
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              value: ar
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.superuserUsername | default "postgres" | quote }}
+            {{- if .Values.secrets.create }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.superuserPassword | quote }}
+            - name: AR_DB_OWNER_PASSWORD
+              value: {{ index .Values.secrets.data "AR_DB_OWNER_PASSWORD" | quote }}
+            - name: AR_DB_PLATFORM_PASSWORD
+              value: {{ index .Values.secrets.data "AR_DB_PLATFORM_PASSWORD" | quote }}
+            - name: AR_DB_APP_PASSWORD
+              value: {{ index .Values.secrets.data "AR_DB_APP_PASSWORD" | quote }}
+            - name: AR_DB_READONLY_PASSWORD
+              value: {{ index .Values.secrets.data "AR_DB_READONLY_PASSWORD" | quote }}
+            {{- else }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ar.installSecret" . }}
+                  key: POSTGRES_PASSWORD
+            {{- include "ar.rolePasswordEnv" . | nindent 12 }}
+            {{- end }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+---
 apiVersion: batch/v1
 kind: Job
 metadata:

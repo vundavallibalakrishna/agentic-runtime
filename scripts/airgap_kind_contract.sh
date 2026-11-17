@@ -94,6 +94,7 @@ if ! kind load docker-image ar-api:dev ar-runtime:dev ar-mcp-gateway:dev \
 fi
 
 passwords="$(mktemp)"
+trap 'rm -f "$passwords"' EXIT
 uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
 helm upgrade --install agentic-runtime "$chart" \
   --namespace "$namespace" --create-namespace \

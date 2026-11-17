@@ -37,8 +37,14 @@
 
 {{/*
   Refuses placeholder and role-name passwords wherever the chart is the one
-  writing the Secret. External installs keep the same keys in secrets.existingSecret;
-  the process and the migration refuse a bad value at startup.
+  writing the Secret. When secrets.create is false (values-large, values-saas,
+  values-external, and any existingSecret install) this render check does not
+  run. Staging and production then refuse the same values in
+  assert_installed_database_secrets, which the API, Alembic and bootstrap call.
+  A bundled CloudNativePG install with secrets.create false does not create
+  the <release>-db-role-ar-* basic-auth secrets the cluster references. Create
+  those four secrets, or the role passwords and POSTGRES_PASSWORD in the
+  install secret, before install.
 */}}
 {{- define "ar.assertDatabasePasswords" -}}
 {{- if .Values.secrets.create -}}

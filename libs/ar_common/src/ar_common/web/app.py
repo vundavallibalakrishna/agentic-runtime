@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, FastAPI
 from fastapi.exceptions import RequestValidationError
 
-from ar_common.database_roles import assert_application_url
+from ar_common.database_roles import assert_installed_database_secrets
 from ar_common.logging import get_logger, setup_logging
 from ar_common.settings import BaseServiceSettings, EnvName, unknown_env_names
 from ar_common.telemetry import setup as setup_telemetry
@@ -65,8 +65,8 @@ def _refuse_database_password(settings: BaseServiceSettings) -> None:
     Dev and CI keep going so unit tests can boot without a generated secret.
     Compose and Helm still have to supply the password before anything connects.
     """
+    url = str(getattr(settings, "database_url", "") or "")
     if settings.env in {EnvName.DEV, EnvName.CI}:
-        url = str(getattr(settings, "database_url", "") or "")
         if _state["password_warned"] or "ar-install-db" not in url.casefold():
             return
         _state["password_warned"] = True
@@ -75,4 +75,4 @@ def _refuse_database_password(settings: BaseServiceSettings) -> None:
             detail="AR_DATABASE_URL still uses a placeholder database password.",
         )
         return
-    assert_application_url(str(getattr(settings, "database_url", "") or ""))
+    assert_installed_database_secrets(str(settings.env), url)

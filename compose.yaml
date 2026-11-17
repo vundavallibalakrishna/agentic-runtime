@@ -191,8 +191,27 @@ services:
     image: clickhouse/clickhouse-server:25.3
     ports: ["${AR_CLICKHOUSE_HOST_PORT:-8123}:8123"]
 
+  reconcile-roles:
+    profiles: [apps]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: api } }
+    entrypoint: ["python", "-m", "ar_domain.db.reconcile_roles"]
+    environment:
+      <<: *app-env
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: agentic_runtime
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   api:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: api } }
     environment:
       <<: *app-env
@@ -202,6 +221,9 @@ services:
 
   model-gateway:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: model_gateway } }
     environment:
       <<: *app-env
@@ -211,6 +233,9 @@ services:
 
   mcp-gateway:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_gateway } }
     environment:
       <<: *app-env
@@ -220,6 +245,9 @@ services:
 
   sandbox-manager:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: sandbox_manager } }
     environment:
       <<: *app-env
@@ -229,6 +257,9 @@ services:
 
   channels:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: channels } }
     environment:
       <<: *app-env
@@ -238,6 +269,9 @@ services:
 
   mcp-sql:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_sql } }
     environment:
       <<: *app-env
@@ -247,6 +281,9 @@ services:
 
   mcp-openapi:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_openapi } }
     environment:
       <<: *app-env
@@ -256,6 +293,9 @@ services:
 
   runtime-worker:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: runtime } }
     environment:
       <<: *app-env
@@ -265,6 +305,9 @@ services:
 
   system-worker:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: system } }
     environment:
       <<: *app-env
@@ -274,6 +317,9 @@ services:
 
   ingest-worker:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/ingest/Dockerfile }
     environment:
       <<: *app-env
@@ -283,6 +329,9 @@ services:
 
   sandbox-agent:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: sandbox_agent } }
     environment:
       <<: *app-env
@@ -292,6 +341,9 @@ services:
 
   fake-llm:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: fake_llm } }
     environment:
       <<: *app-env
@@ -301,6 +353,9 @@ services:
 
   web:
     profiles: [apps]
+    depends_on:
+      reconcile-roles:
+        condition: service_completed_successfully
     build: { context: ., dockerfile: images/web.Dockerfile }
     environment:
       PORT: "3000"

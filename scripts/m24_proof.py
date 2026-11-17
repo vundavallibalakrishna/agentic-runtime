@@ -16,7 +16,7 @@ from sign_in import sign_in
 
 BASE = os.environ.get("M24_API", "http://127.0.0.1:18124")
 ROOT = Path(os.environ.get("M24_ROOT", str(Path(tempfile.gettempdir()) / "m24-proof")))
-DSN = os.environ.get("M24_DSN", "postgresql://ar_owner:ar_owner@127.0.0.1:55448/agentic_runtime")
+DSN = os.environ["M24_DSN"]
 DOWNLOADS = {
     "gpl-3.0.txt": "https://www.gnu.org/licenses/gpl-3.0.txt",
     "gpl-2.0.txt": "https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt",

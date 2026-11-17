@@ -9,7 +9,7 @@ import orjson
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from ar_common.database_roles import generated_password
+from ar_common.database_roles import PLACEHOLDERS, generated_password
 from ar_common.internal_jwt import public_jwk
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,30 +94,21 @@ def ensure_jwks(text: str) -> str:
     return "\n".join([*lines, f"AR_INTERNAL_JWT_JWKS={value}"]) + "\n"
 
 
+def _password_is_placeholder(current: str) -> bool:
+    """Same set as ``PLACEHOLDERS``, plus the dev-file sentinel ``generate``."""
+    folded = current.strip().casefold()
+    return folded in PLACEHOLDERS or folded == "generate"
+
+
 def _ensure_password(text: str, key: str, value: str) -> str:
     """Replace a missing, placeholder, or role-name password. Keep a real one."""
-    bad = {
-        "",
-        "change-me",
-        "generate",
-        "ar_owner",
-        "ar_app",
-        "ar_platform",
-        "ar_readonly",
-        "postgres",
-        "install-time",
-        "changeme",
-        "password",
-        "placeholder",
-        "ar-install-db",
-    }
     prefix = f"{key}="
     lines = text.splitlines()
     replaced = False
     for index, line in enumerate(lines):
         if line.startswith(prefix):
             current = line.split("=", 1)[1].strip().strip("'\"")
-            if current.casefold() in bad:
+            if _password_is_placeholder(current):
                 lines[index] = f"{key}={value}"
             replaced = True
             break
@@ -143,14 +134,7 @@ def _install_app_password(text: str) -> str:
         updated = marker + ":" + app + url[len(marker) :]
     elif url.startswith(marker + ":") and "@" in url:
         secret, host = url[len(marker) + 1 :].split("@", 1)
-        if secret.casefold() not in {
-            "",
-            "ar_app",
-            "ar-install-db",
-            "install-time",
-            "password",
-            "changeme",
-        }:
+        if not _password_is_placeholder(secret):
             return text
         updated = marker + ":" + app + "@" + host
     else:
