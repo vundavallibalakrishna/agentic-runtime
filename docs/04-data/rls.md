@@ -6,12 +6,12 @@ RLS is **defence in depth**. The primary control is that every repository functi
 
 | Role | Login | Used by | Privileges |
 |---|---|---|---|
-| `ar_owner` | yes (migrations only) | `migrate` job | Owns all objects. `BYPASSRLS`. Never used by running services. |
+| `ar_owner` | yes (migrate, bootstrap, seed) | `migrate` job and bootstrap | `CREATEDB`, `CREATEROLE`, `BYPASSRLS`. Not a superuser. Owns objects. The bypass is required because `plans` has `FORCE ROW LEVEL SECURITY` and only a `SELECT` policy, and system roles are inserted with no tenant. Running services do not use this login. |
 | `ar_app` | yes | `api`, all workers, `model-gateway`, `mcp-gateway`, `sandbox-manager` | `SELECT, INSERT, UPDATE, DELETE` on all tables except: `audit_events` (`SELECT, INSERT` only). **Not** owner, **no** `BYPASSRLS`. |
-| `ar_platform` | yes | platform-admin code paths (tenant provisioning, cross-tenant usage reports, outbox relay, reapers) | Same grants as `ar_app` plus `BYPASSRLS`. Used only through `ar_domain.db.platform_session()`, which writes an audit event `platform.session_opened` with the reason. |
-| `ar_readonly` | yes | BI / support break-glass | `SELECT` on all tables, subject to RLS. |
+| `ar_platform` | yes | platform-admin code paths (tenant provisioning, cross-tenant usage reports, outbox relay, reapers) | Same grants as `ar_app` plus `BYPASSRLS`, because `platform_session` runs before a tenant is known. Used only through `ar_domain.db.platform_session()`, which writes an audit event `platform.session_opened` with the reason. |
+| `ar_readonly` | yes | BI / support break-glass | `SELECT` on all tables, subject to RLS. No `BYPASSRLS`. |
 
-`ALTER TABLE ... FORCE ROW LEVEL SECURITY` is set on every tenant table so even the owner is subject to policies outside migrations.
+`ALTER TABLE ... FORCE ROW LEVEL SECURITY` is set on every tenant table. A table owner that does not have `BYPASSRLS` is subject to the policies. `ar_owner` has `BYPASSRLS` and is not a tenant session. `ar_app` does not.
 
 ## 2. Session variables
 

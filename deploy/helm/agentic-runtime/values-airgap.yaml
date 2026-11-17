@@ -1,9 +1,7 @@
 # Air-gapped overlay. Combine with values-small.yaml.
+# Role passwords are the install secret keys, not a password in this file.
 global:
   imageRegistry: registry.example.internal/ar
-postgres:
-  # The chart default ar-install-db is refused while isolation or lockdown is on.
-  password: airgap-set-a-real-password
 airgap:
   lockdown: true
   isolatePlatformDb: true

@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 from alembic import op
 
+from ar_common.database_roles import apply_database_roles
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -19,25 +21,8 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
-        DO $$
-        BEGIN
-          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_owner') THEN
-            CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_app') THEN
-            CREATE ROLE ar_app LOGIN PASSWORD 'ar_app' NOSUPERUSER NOBYPASSRLS;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_platform') THEN
-            CREATE ROLE ar_platform LOGIN PASSWORD 'ar_platform' NOSUPERUSER BYPASSRLS;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_readonly') THEN
-            CREATE ROLE ar_readonly LOGIN PASSWORD 'ar_readonly' NOSUPERUSER NOBYPASSRLS;
-          END IF;
-        END $$;
-        """
-    )
+    # Extensions first. A session that is about to drop SUPERUSER from ar_owner
+    # can still create them, and a non-superuser owner can create the trusted ones.
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
     op.execute("CREATE EXTENSION IF NOT EXISTS citext")
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
@@ -78,6 +63,7 @@ def upgrade() -> None:
         END $$;
         """
     )
+    apply_database_roles(op.get_bind())
     op.execute("GRANT USAGE ON SCHEMA public TO ar_app, ar_platform, ar_readonly")
     op.execute(
         "ALTER DEFAULT PRIVILEGES IN SCHEMA public "

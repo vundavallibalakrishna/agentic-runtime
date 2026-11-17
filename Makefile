@@ -55,7 +55,7 @@ migrate:
 	fi
 
 seed:
-	uv run python scripts/seed.py
+	@set -a; [ -f .env ] && . ./.env; set +a; uv run python scripts/seed.py
 
 ports-check:
 	AUTO_PORTS="$(AUTO_PORTS)" DEV_MIN="$(DEV_MIN)" OBS="$(OBS)" SCAN="$(SCAN)" QDRANT="$(QDRANT)" \
@@ -63,12 +63,12 @@ ports-check:
 
 dev: ports-check
 	$(MAKE) up migrate seed
-	uv run honcho start -f Procfile.dev
+	@set -a; [ -f .env ] && . ./.env; set +a; uv run honcho start -f Procfile.dev
 
 dev-min:
 	$(MAKE) ports-check DEV_MIN=1
 	$(MAKE) up migrate seed
-	uv run honcho start -f Procfile.dev-min
+	@set -a; [ -f .env ] && . ./.env; set +a; uv run honcho start -f Procfile.dev-min
 
 fmt:
 	uv run ruff format .

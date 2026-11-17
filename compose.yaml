@@ -9,7 +9,11 @@ x-app-env: &app-env
   AR_SANDBOX_ALLOW_UNISOLATED: "true"
   AR_FILES_SCANNER: "none"
   AR_DEPLOYMENT_MODE: single_tenant
-  AR_DATABASE_URL: postgresql+asyncpg://ar_app:ar_app@postgres:5432/agentic_runtime
+  AR_DATABASE_URL: postgresql+asyncpg://ar_app:${AR_DB_APP_PASSWORD}@postgres:5432/agentic_runtime
+  AR_DB_OWNER_PASSWORD: ${AR_DB_OWNER_PASSWORD:?set AR_DB_OWNER_PASSWORD}
+  AR_DB_PLATFORM_PASSWORD: ${AR_DB_PLATFORM_PASSWORD:?set AR_DB_PLATFORM_PASSWORD}
+  AR_DB_APP_PASSWORD: ${AR_DB_APP_PASSWORD:?set AR_DB_APP_PASSWORD}
+  AR_DB_READONLY_PASSWORD: ${AR_DB_READONLY_PASSWORD:?set AR_DB_READONLY_PASSWORD}
   AR_VALKEY_URL: redis://valkey:6379/0
   AR_MODEL_GATEWAY_URL: http://model-gateway:8001
   AR_TEMPORAL_ADDRESS: temporal:7233
@@ -20,17 +24,22 @@ services:
     profiles: [deps]
     image: pgvector/pgvector:0.8.7-pg18-trixie
     environment:
-      POSTGRES_USER: ar_owner
-      POSTGRES_PASSWORD: ar_owner
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: agentic_runtime
+      AR_DB_OWNER_PASSWORD: ${AR_DB_OWNER_PASSWORD:?set AR_DB_OWNER_PASSWORD}
+      AR_DB_PLATFORM_PASSWORD: ${AR_DB_PLATFORM_PASSWORD:?set AR_DB_PLATFORM_PASSWORD}
+      AR_DB_APP_PASSWORD: ${AR_DB_APP_PASSWORD:?set AR_DB_APP_PASSWORD}
+      AR_DB_READONLY_PASSWORD: ${AR_DB_READONLY_PASSWORD:?set AR_DB_READONLY_PASSWORD}
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     ports: ["${AR_PG_HOST_PORT:-5432}:5432"]
     volumes:
       # Postgres 18 images reject a mount on /var/lib/postgresql/data.
       - pgdata:/var/lib/postgresql
-      - ./deploy/compose/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./deploy/helm/agentic-runtime/files/init-roles.sh:/docker-entrypoint-initdb.d/01-roles.sh:ro
+      - ./deploy/compose/postgres/init.sql:/docker-entrypoint-initdb.d/02-extensions.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ar_owner -d agentic_runtime"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d agentic_runtime"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -170,7 +179,7 @@ services:
       NEXTAUTH_URL: http://localhost:${AR_LANGFUSE_HOST_PORT:-3100}
       NEXTAUTH_SECRET: dev-langfuse-secret
       SALT: dev-langfuse-salt
-      DATABASE_URL: postgresql://ar_owner:ar_owner@postgres:5432/langfuse
+      DATABASE_URL: postgresql://ar_owner:${AR_DB_OWNER_PASSWORD}@postgres:5432/langfuse
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
       REDIS_CONNECTION_STRING: redis://valkey:6379

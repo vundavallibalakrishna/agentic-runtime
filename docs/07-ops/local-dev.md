@@ -19,7 +19,7 @@ Exact versions: [stack.md](../stack.md).
 
 | Target | Does |
 |---|---|
-| `make bootstrap` | `uv sync --all-packages`, `pnpm install`, `lefthook install`, copies `.env.example` → `.env` if missing, generates dev keys into `.env` (`AR_SESSION_ENCRYPTION_KEY`, `AR_CURSOR_SECRET`, `AR_DB_ENCRYPTION_KEYS`, `AR_TOKEN_CACHE_KEY`, internal JWT key pair) with `scripts/dev_keys.py` |
+| `make bootstrap` | `uv sync --all-packages`, `pnpm install`, `lefthook install`, copies `.env.example` → `.env` if missing, generates dev keys into `.env` (`AR_SESSION_ENCRYPTION_KEY`, `AR_CURSOR_SECRET`, `AR_DB_ENCRYPTION_KEYS`, the four `AR_DB_*_PASSWORD` values, `POSTGRES_PASSWORD`, `AR_TOKEN_CACHE_KEY`, internal JWT key pair) with `scripts/dev_keys.py` |
 | `make up` / `make down` | Start/stop dependency containers from `compose.yaml` (profile `deps`; add `OBS=1`, `SCAN=1`, `QDRANT=1` for the optional `obs`, `scan`, `qdrant` profiles). `make up` waits until the health checks pass before it returns, so `make migrate` does not race Postgres |
 | `make migrate` | `uv run alembic -c libs/ar_domain/alembic.ini upgrade head` |
 | `make seed` | `uv run python scripts/seed.py`: tenant `dev` (plan `enterprise`), users `admin@dev.local` (tenant_admin), `builder@dev.local` (builder, tool_owner, knowledge_manager), `member@dev.local` (member), `approver@dev.local` (approver), all with password `dev-password`; model provider `fake-llm` with aliases `reasoning`, `fast`, `vision`, `embed`, `rerank`; team `everyone`; published agent `assistant`. Sample knowledge and the Helpdesk agent arrive with later milestones. |

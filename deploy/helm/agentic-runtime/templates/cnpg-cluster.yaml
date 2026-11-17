@@ -1,15 +1,31 @@
-{{- if .Values.postgres.bundled }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") .Values.secrets.create }}
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ .Release.Name }}-pg-credentials
+  name: {{ .Release.Name }}-pg-superuser
   labels:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/instance: {{ .Release.Name }}
-type: Opaque
+type: kubernetes.io/basic-auth
 stringData:
-  username: {{ .Values.postgres.username | quote }}
-  password: {{ .Values.postgres.password | quote }}
+  username: postgres
+  password: {{ .Values.postgres.superuserPassword | quote }}
+{{- end }}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") .Values.secrets.create }}
+{{- range $role, $key := dict "ar_owner" "AR_DB_OWNER_PASSWORD" "ar_platform" "AR_DB_PLATFORM_PASSWORD" "ar_app" "AR_DB_APP_PASSWORD" "ar_readonly" "AR_DB_READONLY_PASSWORD" }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "ar.roleSecret" (list $ $role) }}
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+type: kubernetes.io/basic-auth
+stringData:
+  username: {{ $role | quote }}
+  password: {{ index $.Values.secrets.data $key | quote }}
+{{- end }}
 {{- end }}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "cnpg") }}
 ---
@@ -31,20 +47,56 @@ spec:
   bootstrap:
     initdb:
       database: ar
-      owner: {{ .Values.postgres.username }}
+      owner: ar_owner
       secret:
-        name: {{ .Release.Name }}-pg-credentials
+        name: {{ include "ar.roleSecret" (list . "ar_owner") }}
       postInitSQL:
-        # One statement each. CloudNativePG splits on semicolons, so a DO block
-        # with dollar quotes never reaches Postgres intact. The owner password
-        # comes from the credentials secret above.
-        - CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS
-        - CREATE ROLE ar_platform LOGIN PASSWORD 'ar_platform' NOSUPERUSER BYPASSRLS
-        - CREATE ROLE ar_readonly LOGIN PASSWORD 'ar_readonly' NOSUPERUSER NOBYPASSRLS
+        - CREATE ROLE ar_platform LOGIN NOSUPERUSER BYPASSRLS
+        - CREATE ROLE ar_app LOGIN NOSUPERUSER NOBYPASSRLS
+        - CREATE ROLE ar_readonly LOGIN NOSUPERUSER NOBYPASSRLS
+        - GRANT ar_platform TO ar_owner WITH ADMIN OPTION
+        - GRANT ar_app TO ar_owner WITH ADMIN OPTION
+        - GRANT ar_readonly TO ar_owner WITH ADMIN OPTION
       postInitApplicationSQL:
         - CREATE DATABASE temporal
         - CREATE DATABASE temporal_visibility
         - CREATE DATABASE langfuse
+  managed:
+    roles:
+      # plans has FORCE ROW LEVEL SECURITY and no INSERT policy, and bootstrap
+      # inserts system roles with a null tenant. BYPASSRLS is that write.
+      # CREATEDB creates the extra databases above. CREATEROLE is not SUPERUSER.
+      - name: ar_owner
+        ensure: present
+        login: true
+        superuser: false
+        createdb: true
+        createrole: true
+        bypassrls: true
+        passwordSecret:
+          name: {{ include "ar.roleSecret" (list . "ar_owner") }}
+      # platform_session runs before a tenant is known.
+      - name: ar_platform
+        ensure: present
+        login: true
+        superuser: false
+        bypassrls: true
+        passwordSecret:
+          name: {{ include "ar.roleSecret" (list . "ar_platform") }}
+      - name: ar_app
+        ensure: present
+        login: true
+        superuser: false
+        bypassrls: false
+        passwordSecret:
+          name: {{ include "ar.roleSecret" (list . "ar_app") }}
+      - name: ar_readonly
+        ensure: present
+        login: true
+        superuser: false
+        bypassrls: false
+        passwordSecret:
+          name: {{ include "ar.roleSecret" (list . "ar_readonly") }}
   storage:
     size: {{ .Values.postgres.storage }}
   {{- if .Values.backup.enabled }}
@@ -114,14 +166,34 @@ spec:
             - containerPort: 5432
           env:
             - name: POSTGRES_USER
-              value: {{ .Values.postgres.username | quote }}
+              value: postgres
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Release.Name }}-pg-credentials
+                  name: {{ .Release.Name }}-pg-superuser
                   key: password
             - name: POSTGRES_DB
               value: ar
+            - name: AR_DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ar.installSecret" . }}
+                  key: AR_DB_OWNER_PASSWORD
+            - name: AR_DB_PLATFORM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ar.installSecret" . }}
+                  key: AR_DB_PLATFORM_PASSWORD
+            - name: AR_DB_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ar.installSecret" . }}
+                  key: AR_DB_APP_PASSWORD
+            - name: AR_DB_READONLY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ar.installSecret" . }}
+                  key: AR_DB_READONLY_PASSWORD
           readinessProbe:
             tcpSocket:
               port: 5432
@@ -129,8 +201,8 @@ spec:
             - name: data
               mountPath: /var/lib/postgresql
             - name: init
-              mountPath: /docker-entrypoint-initdb.d/01-roles.sql
-              subPath: 01-roles.sql
+              mountPath: /docker-entrypoint-initdb.d/01-roles.sh
+              subPath: 01-roles.sh
       volumes:
         - name: init
           configMap:
@@ -152,8 +224,8 @@ metadata:
     app.kubernetes.io/name: postgres
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
-  01-roles.sql: |
-{{ include "ar.postgresRolesSql" . | indent 4 }}
+  01-roles.sh: |
+{{ .Files.Get "files/init-roles.sh" | indent 4 }}
 ---
 apiVersion: v1
 kind: Service
