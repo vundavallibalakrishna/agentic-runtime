@@ -17,7 +17,7 @@ AR_DATABASE_URL='postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1
   uv run alembic -c libs/ar_domain/alembic.ini upgrade head
 AR_DATABASE_URL='postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5432/m30_fresh' \
   uv run python scripts/seed.py
-AR_DATABASE_URL='postgresql+asyncpg://ar_app:ar_app@127.0.0.1:5432/m30_fresh' \
+AR_DATABASE_URL='postgresql+asyncpg://ar_app:${AR_DB_APP_PASSWORD}@127.0.0.1:5432/m30_fresh' \
   AR_PORT=18131 AR_TEMPORAL_ADDRESS=127.0.0.1:1 uv run ar-api
 # web, from apps/web, so it does not take the server already on 3000
 API_PROXY_URL=http://127.0.0.1:18131 AR_NEXT_DIST=.next-m30 pnpm exec next dev --port 18132

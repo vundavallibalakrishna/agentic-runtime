@@ -119,9 +119,7 @@ def test_superuser_session_creates_roles(monkeypatch: pytest.MonkeyPatch) -> Non
     from ar_domain.db.role_admin import apply_database_roles
 
     apply_database_roles(connection)  # type: ignore[arg-type]
-    assert any(
-        "GRANT ar_app TO ar_owner WITH ADMIN OPTION" in item for item in connection.statements
-    )
+    assert not any("GRANT" in item for item in connection.statements)
     assert any(item.startswith("CREATE ROLE ar_owner") for item in connection.statements)
 
 
@@ -172,9 +170,93 @@ def test_installed_secrets_refuse_placeholders_outside_dev(monkeypatch: pytest.M
 
 def test_refuse_set_password_allows_a_passwordless_url() -> None:
     refuse_set_password(None)
-    refuse_set_password("")
+    with pytest.raises(RuntimeError):
+        refuse_set_password("")
     with pytest.raises(RuntimeError):
         refuse_set_password("ar_owner")
+
+
+def test_reconcile_skips_only_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.db.reconcile_roles import main
+
+    monkeypatch.setenv("AR_DB_RECONCILE", "cnpg")
+    main()
+    monkeypatch.setenv("AR_DB_RECONCILE", "skip")
+    main()
+    monkeypatch.setenv("AR_DB_RECONCILE", "external")
+    main()
+    monkeypatch.setenv("AR_DB_RECONCILE", "run")
+    monkeypatch.setenv("AR_DATABASE_URL", "postgresql+asyncpg://ar_app:app-secret@db.internal/ar")
+    monkeypatch.delenv("POSTGRES_HOST", raising=False)
+    monkeypatch.delenv("AR_DB_SUPERUSER_URL", raising=False)
+    with pytest.raises(SystemExit):
+        main()
+
+
+def test_reconcile_login_redacts_and_does_not_connect(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from ar_domain.db.reconcile_roles import _engine, _login, _redact, _target_configured, main
+
+    monkeypatch.setenv("AR_DB_RECONCILE", "nope")
+    with pytest.raises(SystemExit):
+        main()
+    assert "must be run" in capsys.readouterr().err
+
+    monkeypatch.delenv("AR_DB_SUPERUSER_URL", raising=False)
+    monkeypatch.setenv("POSTGRES_HOST", "127.0.0.1")
+    monkeypatch.setenv("POSTGRES_USER", "postgres")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "image-secret")
+    monkeypatch.setenv("POSTGRES_PORT", "")
+    monkeypatch.setenv("POSTGRES_DB", "")
+    monkeypatch.setenv("AR_PG_HOST_PORT", "55439")
+    login = _login()
+    assert login["user"] == "postgres"
+    assert login["port"] == 55439
+    assert login["database"] == "agentic_runtime"
+    assert _redact(f"failed {login['password']}") == "failed [redacted]"
+    assert _redact("") == ""
+    engine = _engine()
+    engine.dispose()
+
+    monkeypatch.setenv(
+        "AR_DB_SUPERUSER_URL",
+        "postgresql://ar_app:old-secret@db.example:5433/agentic_runtime",
+    )
+    explicit = _login()
+    assert explicit["host"] == "db.example"
+    assert explicit["port"] == 5433
+    assert explicit["user"] == "ar_app"
+    monkeypatch.setenv("AR_DB_SUPERUSER_URL", "postgresql://db.example/agentic_runtime")
+    with pytest.raises(RuntimeError, match="username and password"):
+        _login()
+
+    monkeypatch.delenv("AR_DB_SUPERUSER_URL")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "")
+    with pytest.raises(RuntimeError, match="POSTGRES_PASSWORD"):
+        _login()
+
+    monkeypatch.setenv("AR_DB_RECONCILE", "run")
+    monkeypatch.setenv("POSTGRES_HOST", "127.0.0.1")
+    monkeypatch.setenv("POSTGRES_PASSWORD", "image-secret")
+    for name in (
+        "AR_DB_OWNER_PASSWORD",
+        "AR_DB_APP_PASSWORD",
+        "AR_DB_PLATFORM_PASSWORD",
+        "AR_DB_READONLY_PASSWORD",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    assert _target_configured() is True
+    with pytest.raises(SystemExit):
+        main()
+    error = capsys.readouterr().err
+    assert "role reconciliation failed" in error
+    assert "image-secret" not in error
+
+    monkeypatch.delenv("POSTGRES_HOST")
+    monkeypatch.setenv("AR_DATABASE_URL", "postgresql://ar_app:app-secret@localhost/ar")
+    assert _target_configured() is True
 
 
 def test_placeholder_copies_match() -> None:

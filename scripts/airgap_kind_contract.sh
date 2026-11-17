@@ -123,6 +123,13 @@ helm template agentic-runtime "$chart" \
   -f "$chart/values-airgap-kind.yaml" \
   -f "$passwords" \
   -s templates/jobs.yaml > /tmp/airgap-jobs.yaml
+helm template agentic-runtime "$chart" \
+  --namespace "$namespace" \
+  -f "$chart/values-stage9-contract.yaml" \
+  -f "$chart/values-airgap.yaml" \
+  -f "$chart/values-airgap-kind.yaml" \
+  -f "$passwords" \
+  -s templates/secret.yaml > /tmp/airgap-secrets.yaml
 python3 - <<'PY'
 from pathlib import Path
 text = Path("/tmp/airgap-jobs.yaml").read_text(encoding="utf-8")
@@ -132,7 +139,13 @@ for doc in docs:
         Path("/tmp/airgap-migrate.yaml").write_text("---\n" + doc, encoding="utf-8")
     if "name: agentic-runtime-bootstrap" in doc:
         Path("/tmp/airgap-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
+secrets = Path("/tmp/airgap-secrets.yaml").read_text(encoding="utf-8")
+for doc in secrets.split("---\n"):
+    if "name: agentic-runtime-secrets-hook" in doc and doc.strip():
+        Path("/tmp/airgap-hook-secret.yaml").write_text("---\n" + doc, encoding="utf-8")
 PY
+# --no-hooks skips the pre-upgrade Secret. Migrate reads that hook Secret.
+kubectl apply -n "$namespace" -f /tmp/airgap-hook-secret.yaml
 job_logs() {
   local job="$1"
   kubectl -n "$namespace" get pods -l "job-name=${job}" -o wide || true

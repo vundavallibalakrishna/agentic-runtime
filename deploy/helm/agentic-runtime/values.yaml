@@ -261,6 +261,9 @@ postgres:
   # CloudNativePG keeps its own operator superuser (enableSuperuserAccess).
   superuserUsername: postgres
   superuserPassword: ""
+  # Set true only when the four <release>-db-role-ar-* secrets already exist
+  # and secrets.create is false. CloudNativePG reads those secrets.
+  existingRoleSecrets: false
   # Extra platform database names, appended to the bundled CNPG services.
   denyHosts: []
   # Extra pod CIDRs. The chart cannot discover the cluster pod CIDR; set

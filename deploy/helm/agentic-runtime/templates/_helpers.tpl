@@ -19,6 +19,20 @@
 {{- .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) -}}
 {{- end -}}
 
+{{/*
+  Pre-install and pre-upgrade jobs read this. When the chart creates the
+  Secret, that is the hook copy, which exists before Helm updates the release
+  Secret. An external secret is updated by the operator before upgrade, so
+  jobs and pods share it.
+*/}}
+{{- define "ar.jobSecret" -}}
+{{- if .Values.secrets.create -}}
+{{- printf "%s-secrets-hook" .Release.Name -}}
+{{- else -}}
+{{- include "ar.installSecret" . -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "ar.roleSecret" -}}
 {{- $root := index . 0 -}}
 {{- $role := index . 1 -}}
@@ -52,13 +66,15 @@
 {{- include "ar.refuseDatabasePassword" (list (index $.Values.secrets.data $key | default "") $role $key) -}}
 {{- end -}}
 {{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") -}}
-{{- include "ar.refuseDatabasePassword" (list (.Values.postgres.superuserPassword | default "") "postgres" "postgres.superuserPassword") -}}
+{{- if not .Values.postgres.superuserPassword -}}
+{{- fail "postgres.superuserPassword is unset. It is the current image superuser password, including the previous chart's password on a one-time upgrade." -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
 
 {{- define "ar.rolePasswordEnv" -}}
-{{- $secret := include "ar.installSecret" . -}}
+{{- $secret := index . 1 -}}
 {{- range $key := list "AR_DB_OWNER_PASSWORD" "AR_DB_PLATFORM_PASSWORD" "AR_DB_APP_PASSWORD" "AR_DB_READONLY_PASSWORD" }}
 - name: {{ $key }}
   valueFrom:

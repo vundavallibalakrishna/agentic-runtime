@@ -60,7 +60,4 @@ SELECT format(
   END, :'readonly_pw') \gexec
 SELECT format('ALTER DATABASE %I OWNER TO ar_owner', current_database()) \gexec
 SELECT format('GRANT CONNECT ON DATABASE %I TO ar_app, ar_platform, ar_readonly', current_database()) \gexec
-GRANT ar_app TO ar_owner WITH ADMIN OPTION;
-GRANT ar_platform TO ar_owner WITH ADMIN OPTION;
-GRANT ar_readonly TO ar_owner WITH ADMIN OPTION;
 SQL

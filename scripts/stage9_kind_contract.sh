@@ -78,6 +78,12 @@ helm template agentic-runtime deploy/helm/agentic-runtime \
   -f deploy/helm/agentic-runtime/values-stage9-contract.yaml \
   -f "$passwords" \
   -s templates/jobs.yaml > /tmp/stage9-jobs.yaml
+helm template agentic-runtime deploy/helm/agentic-runtime \
+  --namespace "$namespace" \
+  -f deploy/helm/agentic-runtime/values-dev.yaml \
+  -f deploy/helm/agentic-runtime/values-stage9-contract.yaml \
+  -f "$passwords" \
+  -s templates/secret.yaml > /tmp/stage9-secrets.yaml
 python3 - << 'PY'
 from pathlib import Path
 text = Path("/tmp/stage9-jobs.yaml").read_text(encoding="utf-8")
@@ -87,7 +93,13 @@ for doc in docs:
         Path("/tmp/stage9-migrate.yaml").write_text("---\n" + doc, encoding="utf-8")
     if "name: agentic-runtime-bootstrap" in doc:
         Path("/tmp/stage9-bootstrap.yaml").write_text("---\n" + doc, encoding="utf-8")
+secrets = Path("/tmp/stage9-secrets.yaml").read_text(encoding="utf-8")
+for doc in secrets.split("---\n"):
+    if "name: agentic-runtime-secrets-hook" in doc and doc.strip():
+        Path("/tmp/stage9-hook-secret.yaml").write_text("---\n" + doc, encoding="utf-8")
 PY
+# --no-hooks skips the pre-upgrade Secret. Migrate reads that hook Secret.
+kubectl apply -n "$namespace" -f /tmp/stage9-hook-secret.yaml
 job_logs() {
   local job="$1"
   kubectl -n "$namespace" get pods -l "job-name=${job}" -o wide || true
