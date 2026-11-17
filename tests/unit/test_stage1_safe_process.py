@@ -553,6 +553,11 @@ async def test_readiness_checks_and_cache(monkeypatch: pytest.MonkeyPatch) -> No
             self.closed = True
 
     live = _Valkey(True)
+
+    async def schema_current(_url: str) -> None:
+        return None
+
+    monkeypatch.setattr("ar_domain.db.schema_gate.assert_schema_current", schema_current)
     monkeypatch.setattr("ar_domain.db.engine.ping_database", ping_database)
     monkeypatch.setattr("ar_common.valkey.valkey_client", lambda *_a, **_k: live)
     await ping_postgres("postgresql+asyncpg://unused")

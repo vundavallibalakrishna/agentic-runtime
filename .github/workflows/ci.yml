@@ -208,6 +208,7 @@ jobs:
 
   compose-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -215,12 +216,10 @@ jobs:
           version: "0.13.3"
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
-      - run: uv run python scripts/dev_keys.py
-      - run: docker compose --profile deps --profile apps up -d --build
-      - run: uv run python scripts/smoke.py --health-only
+      - run: bash scripts/compose_install.sh
       - name: Compose logs
         if: failure()
-        run: docker compose --profile deps --profile apps logs --no-color --tail 100
+        run: docker compose --profile production logs --no-color --tail 120
 
   docs:
     runs-on: ubuntu-latest
@@ -253,106 +252,6 @@ jobs:
             echo "placeholder markers are not allowed; record the item in docs/open-questions.md"
             exit 1
           fi
-
-  helm:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.3.1
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.13.3"
-          enable-cache: true
-      - run: uv python install 3.14.8
-      - run: uv sync --all-packages --all-groups --frozen
-      - run: bash scripts/check_helm.sh
-
-  kind-contract:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: helm/kind-action@v1.12.0
-        with:
-          cluster_name: ar-stage6
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.13.3"
-          enable-cache: true
-      - run: uv python install 3.14.8
-      - run: uv sync --all-packages --all-groups --frozen
-      - name: Sandbox pod contract
-        run: uv run python scripts/contract_k8s_pods.py --apply
-
-  kind-stage9:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - uses: helm/kind-action@v1.12.0
-        with:
-          cluster_name: ar-stage9
-          version: v0.30.0
-          node_image: kindest/node:v1.33.1
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.3.1
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.13.3"
-          enable-cache: true
-      - run: uv python install 3.14.8
-      - run: uv sync --all-packages --all-groups --frozen
-      - name: Stage 9 two-replica contract
-        run: bash scripts/stage9_kind_contract.sh
-
-  kind-airgap:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.3.1
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.13.3"
-          enable-cache: true
-      - run: uv python install 3.14.8
-      - run: uv sync --all-packages --all-groups --frozen
-      - name: Isolated install on Calico
-        run: bash scripts/airgap_kind_contract.sh
-
-  kind-pitr:
-    if: github.event_name == 'pull_request'
-    # CloudNativePG plus MinIO is too slow for every pull request. The job
-    # runs when the restore script, the runbook, or the chart backup changes,
-    # and the nightly workflow runs it as well.
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: gate
-        run: |
-          set -euo pipefail
-          git fetch origin "${{ github.base_ref }}"
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -Eq 'cnpg_pitr_kind|cnpg-pitr|cnpg-cluster.yaml'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.gate.outputs.run == 'true'
-        uses: helm/kind-action@v1.12.0
-        with:
-          cluster_name: ar-pitr
-          version: v0.30.0
-          node_image: kindest/node:v1.33.1
-      - if: steps.gate.outputs.run == 'true'
-        name: CloudNativePG point-in-time restore
-        run: bash scripts/cnpg_pitr_kind.sh
 
   fresh-clone:
     runs-on: ubuntu-latest

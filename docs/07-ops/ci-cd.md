@@ -5,7 +5,7 @@ CI runs on the repository's hosted CI (workflow files in `.github/workflows/`; a
 ## 1. Branching and merge rules
 
 - Trunk-based: short-lived branches → pull request → squash merge to `main`. Conventional Commits in PR titles (`feat(runtime): …`), checked by CI.
-- Required checks: all jobs in §2 marked **required**; one approving review; CODEOWNERS for `policies/`, `libs/ar_domain/src/ar_domain/migrations/`, `deploy/helm/`, `docs/06-security/`.
+- Required checks: all jobs in §2 marked **required**; one approving review; CODEOWNERS for `policies/`, `libs/ar_domain/src/ar_domain/migrations/`, `deploy/compose/`, `docs/06-security/`.
 - `main` is always releasable; feature flags (`tenants.settings.features.*`, plan features) hide incomplete features.
 
 ## 2. Jobs
@@ -20,12 +20,11 @@ CI runs on the repository's hosted CI (workflow files in `.github/workflows/`; a
 | `codegen-drift` | PR, main | yes | `make gen` then `git diff --exit-code` | 3 min |
 | `opa-test` | PR, main | yes | `opa fmt --diff`, `opa check --strict --ignore fixtures`, `opa test --ignore fixtures policies/ --coverage` (≥ 90 %). Fixture JSON is cross-check input, not Rego data. | 1 min |
 | `migrations` | PR, main | yes | `alembic upgrade head` on empty DB → `alembic check` (no autogenerate diff) → downgrade one → upgrade; RLS coverage test (every tenant table has RLS + policy, [rls](../04-data/rls.md)); squawk lint for locking migrations | 3 min |
-| `compose-smoke` | PR, main | yes | `docker compose --profile deps --profile apps up -d`, wait for `/healthz` on every service, run `scripts/smoke.py` (login with seeded user via password grant, create conversation, run against fake-llm, receive `run.completed`) | 8 min |
+| `compose-smoke` | PR, main | yes | `scripts/compose_install.sh`: production profile from scratch, migrate, `/readyz`, one fake-llm chat turn, restart Temporal and the runtime worker, workflow still present, then reconcile a main-style volume | 45 min |
 | `conformance-qdrant` | PR touching `libs/ar_domain/src/ar_domain/knowledge/store*`, nightly | yes when triggered | `RetrievalStore` conformance suite with the `qdrant` param (Qdrant testcontainer) plus the pgvector → qdrant → pgvector migration round trip ([spec 10 §10](../03-specs/10-knowledge.md#10-retrievalstore-conformance-suite)) | 10 min |
 | `e2e` | PR (label `e2e`), main, nightly | main: yes | Playwright + axe against compose stack ([testing-strategy §6](../08-quality/testing-strategy.md#6-end-to-end-tests)) | 15 min |
 | `security` | PR, main | yes | §5 scanners | 4 min |
 | `images` | PR (build only), main (build+push+sign) | yes | §3 | 10 min |
-| `helm` | PR touching `deploy/`, main | yes | `helm lint`, `helm template` for each preset, kubeconform, kind install with `values-dev.yaml` + smoke (main only) | 12 min |
 | `eval-gate` | PR touching `ar_runtime/prompts/**`, `ar_runtime/context/**`, model aliases; nightly | yes when triggered | `make eval` golden + red-team suites against staging models; thresholds in [eval-strategy §5](../08-quality/eval-strategy.md#5-gates) | 20 min |
 | `nightly` | cron 02:00 IST | — | Full e2e, isolation suite, fuzz (`schemathesis` against openapi.json), dependency audit, 30-min soak with Locust on kind | 90 min |
 | `docs` | PR touching `docs/` | yes | Link/anchor check, Mermaid render check (`mmdc`), `scripts/check_env_catalogue.py`, `scripts/check_audit_catalogue.py` | 2 min |

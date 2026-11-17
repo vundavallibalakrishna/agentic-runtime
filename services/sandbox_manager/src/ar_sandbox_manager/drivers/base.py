@@ -1,30 +1,34 @@
-"""Driver selection. An unisolated driver is refused unless the install allows it."""
+"""Driver selection. The docker driver is the install default."""
 
 import os
 
-# Drivers that run a sandbox without kernel isolation. The docker driver shares the host
-# kernel; an empty name runs the sandbox on the host itself.
-_UNISOLATED = {"", "docker", "host"}
-
 
 def selected_driver(*, allow_unisolated: bool) -> str:
-    """``AR_SANDBOX_DRIVER`` when set, otherwise the isolated default.
+    """``AR_SANDBOX_DRIVER`` when set, otherwise ``docker``.
 
-    The isolated default is ``kubernetes`` (gVisor or Kata per the chart). Only an install
-    that allows an unisolated sandbox (``AR_SANDBOX_ALLOW_UNISOLATED``) falls back to
-    ``docker`` when no driver is named.
+    ``host`` runs the sandbox on the host and is refused unless the install sets
+    ``AR_SANDBOX_ALLOW_UNISOLATED``. The docker driver is the supported driver.
     """
-    raw = os.environ.get("AR_SANDBOX_DRIVER", "").strip()
-    if raw:
-        return raw
-    return "docker" if allow_unisolated else "kubernetes"
+    del allow_unisolated
+    raw = os.environ.get("AR_SANDBOX_DRIVER", "").strip().lower()
+    if raw in {"", "docker"}:
+        return "docker"
+    return raw
 
 
 def assert_driver_allowed(driver: str, *, allow_unisolated: bool) -> None:
-    """Fail closed when an unisolated driver is asked for and the install forbids it."""
-    if driver.strip().lower() in _UNISOLATED and not allow_unisolated:
+    """Fail closed for an unknown driver, and for the host driver unless it is allowed."""
+    name = driver.strip().lower()
+    if name == "docker":
+        return
+    if name in {"", "host"} and allow_unisolated:
+        return
+    if name in {"", "host"}:
         raise RuntimeError(
-            f"the {driver or 'host'!r} sandbox driver runs without kernel isolation; "
-            "set AR_SANDBOX_ALLOW_UNISOLATED to allow it, or name an isolated driver "
-            "in AR_SANDBOX_DRIVER"
+            "the host sandbox driver runs without a container; "
+            "set AR_SANDBOX_ALLOW_UNISOLATED to allow it, or leave AR_SANDBOX_DRIVER unset "
+            "to use the docker driver"
         )
+    raise RuntimeError(
+        f"the {driver!r} sandbox driver is not supported; the install uses the docker driver"
+    )

@@ -24,7 +24,7 @@ from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.pool import StaticPool
 
 from ar_common.database_roles import APPLICATION_ROLES, PASSWORD_ENV, role_password
-from ar_domain.db.role_admin import apply_database_roles
+from ar_domain.db.role_admin import apply_database_roles, ensure_temporal_databases
 
 
 class _Login(TypedDict):
@@ -94,11 +94,16 @@ def _engine() -> Engine:
 
 def _run() -> None:
     engine = _engine()
+    # CREATE DATABASE cannot run in the role transaction. Do it first.
+    autocommit = create_engine(engine.url, isolation_level="AUTOCOMMIT", poolclass=StaticPool)
     try:
+        with autocommit.connect() as connection:
+            ensure_temporal_databases(connection)
         with engine.connect() as connection:
             _apply(connection)
             connection.commit()
     finally:
+        autocommit.dispose()
         engine.dispose()
 
 
@@ -106,7 +111,7 @@ def _apply(connection: object) -> None:
     apply_database_roles(connection, require_superuser=True)  # type: ignore[arg-type]
 
 
-_SKIP = frozenset({"skip", "external", "cnpg"})
+_SKIP = frozenset({"skip", "external"})
 
 
 def _target_configured() -> bool:
@@ -121,21 +126,20 @@ def _target_configured() -> bool:
 def main() -> None:
     """Console entry. Failures name the error type and never the password.
 
-    ``AR_DB_RECONCILE=skip``, ``external``, or ``cnpg`` is the only successful
-    no-op. A remote database without that setting fails.
+    ``AR_DB_RECONCILE=skip`` or ``external`` is the only successful no-op. A
+    remote database without that setting fails.
     """
     mode = os.environ.get("AR_DB_RECONCILE", "run").strip().casefold() or "run"
     if mode in _SKIP:
         return
     if mode != "run":
-        message = "AR_DB_RECONCILE must be run, skip, external, or cnpg\n"
+        message = "AR_DB_RECONCILE must be run, skip, or external\n"
         sys.stderr.write(message)
         raise SystemExit(1)
     if not _target_configured():
         message = (
             "role reconciliation did not run: set POSTGRES_HOST or "
-            "AR_DB_SUPERUSER_URL, or AR_DB_RECONCILE=skip for an external "
-            "or CloudNativePG database\n"
+            "AR_DB_SUPERUSER_URL, or AR_DB_RECONCILE=skip for an external database\n"
         )
         sys.stderr.write(message)
         raise SystemExit(1)

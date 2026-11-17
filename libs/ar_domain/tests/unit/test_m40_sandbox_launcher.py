@@ -21,7 +21,8 @@ class _StubLauncher:
         self.started: list[tuple[str, str]] = []
         self.stopped: list[str] = []
 
-    def start(self, name: str, token: str) -> dict[str, object]:
+    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+        del sandbox_id
         self.started.append((name, token))
         if self.fail:
             raise RuntimeError("daemon unreachable")

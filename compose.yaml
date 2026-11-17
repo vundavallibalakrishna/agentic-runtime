@@ -1,27 +1,71 @@
-# Host ports are ${AR_*:-default} from .env. See docs/07-ops/local-dev.md.
+# One install, development and production. Profile `dev` is the data plane for a
+# host process. Profile `production` is the single-node install.
+# Order: postgres, reconcile-roles, migrate, temporal-schema, temporal, apps.
+# Host ports except web and api bind to 127.0.0.1. See docs/07-ops/compose.md.
 name: agentic-runtime
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-run: &run
+  restart: unless-stopped
+  logging: *logging
+  networks: [app]
+  env_file: .env
+
 x-app-env: &app-env
-  AR_ENV: dev
-  # The local stack's model and tool servers are on this machine's own addresses.
-  AR_EGRESS_ALLOW_LOOPBACK: "true"
-  AR_EGRESS_ALLOW_WILDCARD: "true"
-  AR_SANDBOX_ALLOW_UNISOLATED: "true"
-  AR_FILES_SCANNER: "none"
-  AR_DEPLOYMENT_MODE: single_tenant
+  AR_ENV: ${AR_ENV:-dev}
+  AR_EGRESS_ALLOW_LOOPBACK: ${AR_EGRESS_ALLOW_LOOPBACK:-true}
+  AR_EGRESS_ALLOW_WILDCARD: ${AR_EGRESS_ALLOW_WILDCARD:-true}
+  AR_FILES_SCANNER: ${AR_FILES_SCANNER:-none}
+  AR_DEPLOYMENT_MODE: ${AR_DEPLOYMENT_MODE:-single_tenant}
+  AR_AUTH_MODE: ${AR_AUTH_MODE:-}
+  AR_PASSWORD_LOGIN: ${AR_PASSWORD_LOGIN:-false}
   AR_DATABASE_URL: postgresql+asyncpg://ar_app:${AR_DB_APP_PASSWORD}@postgres:5432/agentic_runtime
   AR_DB_OWNER_PASSWORD: ${AR_DB_OWNER_PASSWORD:?set AR_DB_OWNER_PASSWORD}
   AR_DB_PLATFORM_PASSWORD: ${AR_DB_PLATFORM_PASSWORD:?set AR_DB_PLATFORM_PASSWORD}
   AR_DB_APP_PASSWORD: ${AR_DB_APP_PASSWORD:?set AR_DB_APP_PASSWORD}
   AR_DB_READONLY_PASSWORD: ${AR_DB_READONLY_PASSWORD:?set AR_DB_READONLY_PASSWORD}
+  AR_DB_TEMPORAL_PASSWORD: ${AR_DB_TEMPORAL_PASSWORD:?set AR_DB_TEMPORAL_PASSWORD}
   AR_VALKEY_URL: redis://valkey:6379/0
   AR_MODEL_GATEWAY_URL: http://model-gateway:8001
   AR_TEMPORAL_ADDRESS: temporal:7233
+  AR_TEMPORAL_REQUIRED: ${AR_TEMPORAL_REQUIRED:-false}
+  AR_TEMPORAL_NUM_HISTORY_SHARDS: ${AR_TEMPORAL_NUM_HISTORY_SHARDS:-4}
+  AR_SANDBOX_DRIVER: docker
+  AR_SANDBOX_MANAGER_URL: http://sandbox-manager:8003
+  AR_SANDBOX_DOCKER_NETWORK: agentic-runtime_sandbox
+  AR_SANDBOX_EGRESS_PROXY: http://squid:3128
+  AR_SANDBOX_IMAGE: ${AR_SANDBOX_IMAGE:-ar-sandbox:dev}
+  AR_FAKE_LLM_BASE_URL: http://fake-llm:8099/v1
   AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+
+x-app-depends: &app-depends
+  migrate:
+    condition: service_completed_successfully
+  temporal-namespace:
+    condition: service_completed_successfully
+  valkey:
+    condition: service_healthy
+
+x-py-health: &py-health
+  test:
+    [
+      "CMD-SHELL",
+      "python -c \"import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('AR_PORT','8000')+'/healthz', timeout=3)\"",
+    ]
+  interval: 10s
+  timeout: 5s
+  retries: 18
+  start_period: 40s
 
 services:
   postgres:
-    profiles: [deps]
+    <<: *run
+    profiles: [dev, production]
     image: pgvector/pgvector:0.8.7-pg18-trixie
     environment:
       POSTGRES_USER: postgres
@@ -31,12 +75,12 @@ services:
       AR_DB_PLATFORM_PASSWORD: ${AR_DB_PLATFORM_PASSWORD:?set AR_DB_PLATFORM_PASSWORD}
       AR_DB_APP_PASSWORD: ${AR_DB_APP_PASSWORD:?set AR_DB_APP_PASSWORD}
       AR_DB_READONLY_PASSWORD: ${AR_DB_READONLY_PASSWORD:?set AR_DB_READONLY_PASSWORD}
+      AR_DB_TEMPORAL_PASSWORD: ${AR_DB_TEMPORAL_PASSWORD:?set AR_DB_TEMPORAL_PASSWORD}
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
-    ports: ["${AR_PG_HOST_PORT:-5432}:5432"]
+    ports: ["127.0.0.1:${AR_PG_HOST_PORT:-5432}:5432"]
     volumes:
-      # Postgres 18 images reject a mount on /var/lib/postgresql/data.
       - pgdata:/var/lib/postgresql
-      - ./deploy/helm/agentic-runtime/files/init-roles.sh:/docker-entrypoint-initdb.d/01-roles.sh:ro
+      - ./deploy/compose/postgres/init-roles.sh:/docker-entrypoint-initdb.d/01-roles.sh:ro
       - ./deploy/compose/postgres/init.sql:/docker-entrypoint-initdb.d/02-extensions.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d agentic_runtime"]
@@ -45,156 +89,24 @@ services:
       retries: 20
 
   valkey:
-    profiles: [deps]
+    <<: *run
+    profiles: [dev, production]
     image: valkey/valkey:9.1.2
-    ports: ["${AR_VALKEY_HOST_PORT:-6379}:6379"]
+    ports: ["127.0.0.1:${AR_VALKEY_HOST_PORT:-6379}:6379"]
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 20
 
-  temporal:
-    profiles: [deps]
-    # Production chart uses temporalio/server:1.32.1. Local dev uses the CLI image.
-    image: temporalio/temporal:1.9.1
-    command: ["server", "start-dev", "--ip", "0.0.0.0", "--ui-port", "8233"]
-    ports: ["${AR_TEMPORAL_HOST_PORT:-7233}:7233", "${AR_TEMPORAL_UI_HOST_PORT:-8233}:8233"]
-    healthcheck:
-      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-
-  seaweedfs:
-    profiles: [deps]
-    image: chrislusf/seaweedfs:4.48
-    command: ["server", "-s3", "-s3.port=8333", "-dir=/data"]
-    ports: ["${AR_S3_HOST_PORT:-8333}:8333"]
-    volumes:
-      - seaweed:/data
-
-  openbao:
-    profiles: [deps]
-    image: openbao/openbao:2.7.1
-    cap_add: [IPC_LOCK]
-    command: ["server", "-dev", "-dev-root-token-id=dev-root-token", "-dev-listen-address=0.0.0.0:8200"]
-    environment:
-      BAO_DEV_ROOT_TOKEN_ID: dev-root-token
-    ports: ["${AR_VAULT_HOST_PORT:-8200}:8200"]
-
-  opa:
-    profiles: [deps]
-    image: openpolicyagent/opa:1.21.3-static
-    command: ["run", "--server", "--addr", "0.0.0.0:8181", "--config-file", "/etc/opa/config.yaml"]
-    environment:
-      AR_PORT: ${AR_PORT:-8000}
-      AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
-    extra_hosts: ["host.docker.internal:host-gateway"]
-    volumes:
-      - ./deploy/compose/opa/config.yaml:/etc/opa/config.yaml:ro
-    ports: ["${AR_OPA_HOST_PORT:-8181}:8181"]
-
-  mailpit:
-    profiles: [deps]
-    image: axllent/mailpit:v1.31.6
-    ports: ["${AR_SMTP_PORT:-1025}:1025", "${AR_MAILPIT_UI_HOST_PORT:-8025}:8025"]
-
-  greenmail:
-    profiles: [deps]
-    image: greenmail/standalone:2.1.3
-    environment:
-      GREENMAIL_OPTS: -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled
-    ports:
-      - "${AR_GREENMAIL_SMTP_PORT:-3025}:3025"
-      - "${AR_GREENMAIL_API_HOST_PORT:-8082}:8080"
-
-  squid:
-    profiles: [deps]
-    build:
-      context: .
-      dockerfile: images/squid/Dockerfile
-    ports: ["${AR_EGRESS_HOST_PORT:-3128}:3128"]
-
-  clamav:
-    profiles: [scan]
-    image: clamav/clamav:1.5.4
-    ports: ["${AR_CLAMAV_HOST_PORT:-3310}:3310"]
-
-  qdrant:
-    profiles: [qdrant]
-    image: qdrant/qdrant:v1.19.2
-    ports:
-      - "${AR_QDRANT_HTTP_HOST_PORT:-6333}:6333"
-      - "${AR_QDRANT_GRPC_HOST_PORT:-6334}:6334"
-
-  otel:
-    profiles: [obs]
-    image: otel/opentelemetry-collector-contrib:0.163.1
-    command: ["--config=/etc/otel/collector.yaml"]
-    volumes:
-      - ./deploy/compose/otel/collector.yaml:/etc/otel/collector.yaml:ro
-    ports:
-      - "${AR_OTEL_GRPC_HOST_PORT:-4317}:4317"
-      - "${AR_OTEL_HTTP_HOST_PORT:-4318}:4318"
-    depends_on: [tempo]
-
-  prometheus:
-    profiles: [obs]
-    image: prom/prometheus:v3.15.0
-    volumes:
-      - ./deploy/compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports: ["${AR_PROMETHEUS_HOST_PORT:-9090}:9090"]
-
-  tempo:
-    profiles: [obs]
-    image: grafana/tempo:3.1.0
-    command: ["-config.file=/etc/tempo.yaml"]
-    volumes:
-      - ./deploy/compose/tempo/tempo.yaml:/etc/tempo.yaml:ro
-    ports: ["${AR_TEMPO_HOST_PORT:-3200}:3200"]
-
-  loki:
-    profiles: [obs]
-    image: grafana/loki:3.7.8
-    command: ["-config.file=/etc/loki/loki.yaml"]
-    volumes:
-      - ./deploy/compose/loki/loki.yaml:/etc/loki/loki.yaml:ro
-
-  grafana:
-    profiles: [obs]
-    image: grafana/grafana:13.2.4
-    environment:
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
-      GF_AUTH_DISABLE_LOGIN_FORM: "true"
-    volumes:
-      - ./deploy/compose/grafana/provisioning:/etc/grafana/provisioning:ro
-    ports: ["${AR_GRAFANA_HOST_PORT:-3001}:3000"]
-
-  langfuse:
-    profiles: [obs]
-    image: langfuse/langfuse:4.64.0
-    environment:
-      NEXTAUTH_URL: http://localhost:${AR_LANGFUSE_HOST_PORT:-3100}
-      NEXTAUTH_SECRET: dev-langfuse-secret
-      SALT: dev-langfuse-salt
-      DATABASE_URL: postgresql://ar_owner:${AR_DB_OWNER_PASSWORD}@postgres:5432/langfuse
-      CLICKHOUSE_URL: http://clickhouse:8123
-      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
-      REDIS_CONNECTION_STRING: redis://valkey:6379
-    ports: ["${AR_LANGFUSE_HOST_PORT:-3100}:3000"]
-    depends_on: [postgres, valkey, clickhouse]
-
-  clickhouse:
-    profiles: [obs]
-    image: clickhouse/clickhouse-server:25.3
-    ports: ["${AR_CLICKHOUSE_HOST_PORT:-8123}:8123"]
-
   reconcile-roles:
-    profiles: [apps]
+    profiles: [dev, production]
+    restart: "no"
+    logging: *logging
+    networks: [app]
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: api } }
     entrypoint: ["python", "-m", "ar_domain.db.reconcile_roles"]
+    env_file: .env
     environment:
       <<: *app-env
       POSTGRES_HOST: postgres
@@ -206,13 +118,238 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: "no"
 
-  api:
-    profiles: [apps]
+  migrate:
+    profiles: [dev, production]
+    restart: "no"
+    logging: *logging
+    networks: [app]
+    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: api } }
+    entrypoint: ["python", "-m", "ar_domain.db.schema_gate"]
+    env_file: .env
+    environment: *app-env
     depends_on:
       reconcile-roles:
         condition: service_completed_successfully
+
+  temporal-schema:
+    profiles: [dev, production]
+    restart: "no"
+    logging: *logging
+    networks: [app]
+    image: temporalio/admin-tools:1.32.1
+    entrypoint: ["/bin/sh", "/etc/ar/schema.sh"]
+    environment:
+      POSTGRES_SEEDS: postgres
+      DB_PORT: "5432"
+      POSTGRES_USER: ar_temporal
+      POSTGRES_PWD: ${AR_DB_TEMPORAL_PASSWORD:?set AR_DB_TEMPORAL_PASSWORD}
+    volumes:
+      - ./deploy/compose/temporal/schema.sh:/etc/ar/schema.sh:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  temporal:
+    <<: *run
+    profiles: [dev, production]
+    image: temporalio/server:1.32.1
+    entrypoint: ["/bin/sh", "/etc/ar/start.sh"]
+    environment:
+      POSTGRES_SEEDS: postgres
+      DB_PORT: "5432"
+      POSTGRES_USER: ar_temporal
+      POSTGRES_PWD: ${AR_DB_TEMPORAL_PASSWORD:?set AR_DB_TEMPORAL_PASSWORD}
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      NUM_HISTORY_SHARDS: ${AR_TEMPORAL_NUM_HISTORY_SHARDS:-4}
+      BIND_ON_IP: 0.0.0.0
+    volumes:
+      - ./deploy/compose/temporal/start.sh:/etc/ar/start.sh:ro
+      - ./deploy/compose/temporal/dynamicconfig.yaml:/etc/temporal/dynamicconfig.yaml:ro
+    ports: ["127.0.0.1:${AR_TEMPORAL_HOST_PORT:-7233}:7233"]
+    depends_on:
+      temporal-schema:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O /dev/null --timeout=2 http://127.0.0.1:7233; code=$$?; test \"$$code\" -ne 4",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  temporal-namespace:
+    profiles: [dev, production]
+    restart: "no"
+    logging: *logging
+    networks: [app]
+    image: temporalio/admin-tools:1.32.1
+    entrypoint: ["/bin/sh", "/etc/ar/namespace.sh"]
+    environment:
+      TEMPORAL_NAMESPACE: ${AR_TEMPORAL_NAMESPACE:-default}
+    volumes:
+      - ./deploy/compose/temporal/namespace.sh:/etc/ar/namespace.sh:ro
+    depends_on:
+      temporal:
+        condition: service_healthy
+
+  seaweedfs:
+    <<: *run
+    profiles: [dev, production]
+    image: chrislusf/seaweedfs:4.48
+    command: ["server", "-s3", "-s3.port=8333", "-dir=/data"]
+    ports: ["127.0.0.1:${AR_S3_HOST_PORT:-8333}:8333"]
+    volumes:
+      - seaweed:/data
+
+  openbao:
+    <<: *run
+    profiles: [dev, production]
+    image: openbao/openbao:2.7.1
+    cap_add: [IPC_LOCK]
+    command: ["server", "-dev", "-dev-root-token-id=dev-root-token", "-dev-listen-address=0.0.0.0:8200"]
+    environment:
+      BAO_DEV_ROOT_TOKEN_ID: dev-root-token
+    ports: ["127.0.0.1:${AR_VAULT_HOST_PORT:-8200}:8200"]
+
+  opa:
+    <<: *run
+    profiles: [dev, production]
+    image: openpolicyagent/opa:1.21.3-static
+    command: ["run", "--server", "--addr", "0.0.0.0:8181", "--config-file", "/etc/opa/config.yaml"]
+    environment:
+      AR_PORT: ${AR_PORT:-8000}
+      AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - ./deploy/compose/opa/config.yaml:/etc/opa/config.yaml:ro
+    ports: ["127.0.0.1:${AR_OPA_HOST_PORT:-8181}:8181"]
+
+  mailpit:
+    <<: *run
+    profiles: [dev]
+    image: axllent/mailpit:v1.31.6
+    ports:
+      - "127.0.0.1:${AR_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${AR_MAILPIT_UI_HOST_PORT:-8025}:8025"
+
+  greenmail:
+    <<: *run
+    profiles: [dev]
+    image: greenmail/standalone:2.1.3
+    environment:
+      GREENMAIL_OPTS: -Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled
+    ports:
+      - "127.0.0.1:${AR_GREENMAIL_SMTP_PORT:-3025}:3025"
+      - "127.0.0.1:${AR_GREENMAIL_API_HOST_PORT:-8082}:8080"
+
+  squid:
+    restart: unless-stopped
+    logging: *logging
+    profiles: [dev, production]
+    networks: [app, sandbox]
+    build:
+      context: .
+      dockerfile: images/squid/Dockerfile
+    environment:
+      AR_SANDBOX_MANAGER_URL: http://sandbox-manager:8003
+    volumes:
+      - ./deploy/compose/squid/allowlist.txt:/etc/squid/allowlist.txt:ro
+    ports: ["127.0.0.1:${AR_EGRESS_HOST_PORT:-3128}:3128"]
+
+  clamav:
+    <<: *run
+    profiles: [scan]
+    image: clamav/clamav:1.5.4
+    ports: ["127.0.0.1:${AR_CLAMAV_HOST_PORT:-3310}:3310"]
+
+  qdrant:
+    <<: *run
+    profiles: [qdrant]
+    image: qdrant/qdrant:v1.19.2
+    ports:
+      - "127.0.0.1:${AR_QDRANT_HTTP_HOST_PORT:-6333}:6333"
+      - "127.0.0.1:${AR_QDRANT_GRPC_HOST_PORT:-6334}:6334"
+
+  otel:
+    <<: *run
+    profiles: [obs]
+    image: otel/opentelemetry-collector-contrib:0.163.1
+    command: ["--config=/etc/otel/collector.yaml"]
+    volumes:
+      - ./deploy/compose/otel/collector.yaml:/etc/otel/collector.yaml:ro
+    ports:
+      - "127.0.0.1:${AR_OTEL_GRPC_HOST_PORT:-4317}:4317"
+      - "127.0.0.1:${AR_OTEL_HTTP_HOST_PORT:-4318}:4318"
+    depends_on: [tempo]
+
+  prometheus:
+    <<: *run
+    profiles: [obs]
+    image: prom/prometheus:v3.15.0
+    volumes:
+      - ./deploy/compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports: ["127.0.0.1:${AR_PROMETHEUS_HOST_PORT:-9090}:9090"]
+
+  tempo:
+    <<: *run
+    profiles: [obs]
+    image: grafana/tempo:3.1.0
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./deploy/compose/tempo/tempo.yaml:/etc/tempo.yaml:ro
+    ports: ["127.0.0.1:${AR_TEMPO_HOST_PORT:-3200}:3200"]
+
+  loki:
+    <<: *run
+    profiles: [obs]
+    image: grafana/loki:3.7.8
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    volumes:
+      - ./deploy/compose/loki/loki.yaml:/etc/loki/loki.yaml:ro
+
+  grafana:
+    <<: *run
+    profiles: [obs]
+    image: grafana/grafana:13.2.4
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./deploy/compose/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports: ["127.0.0.1:${AR_GRAFANA_HOST_PORT:-3001}:3000"]
+
+  langfuse:
+    <<: *run
+    profiles: [obs]
+    image: langfuse/langfuse:4.64.0
+    environment:
+      NEXTAUTH_URL: http://localhost:${AR_LANGFUSE_HOST_PORT:-3100}
+      NEXTAUTH_SECRET: dev-langfuse-secret
+      SALT: dev-langfuse-salt
+      DATABASE_URL: postgresql://ar_owner:${AR_DB_OWNER_PASSWORD}@postgres:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      REDIS_CONNECTION_STRING: redis://valkey:6379
+    ports: ["127.0.0.1:${AR_LANGFUSE_HOST_PORT:-3100}:3000"]
+    depends_on: [postgres, valkey, clickhouse]
+
+  clickhouse:
+    <<: *run
+    profiles: [obs]
+    image: clickhouse/clickhouse-server:25.3
+    ports: ["127.0.0.1:${AR_CLICKHOUSE_HOST_PORT:-8123}:8123"]
+
+  api:
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: api } }
     environment:
       <<: *app-env
@@ -221,147 +358,174 @@ services:
     ports: ["${AR_PORT:-8000}:${AR_PORT:-8000}"]
 
   model-gateway:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: model_gateway } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_model_gateway.main
       AR_PORT: ${AR_MG_PORT:-8001}
-    ports: ["${AR_MG_PORT:-8001}:${AR_MG_PORT:-8001}"]
+    ports: ["127.0.0.1:${AR_MG_PORT:-8001}:${AR_MG_PORT:-8001}"]
 
   mcp-gateway:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_gateway } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_mcp_gateway.main
       AR_PORT: ${AR_MCPG_PORT:-8002}
-    ports: ["${AR_MCPG_PORT:-8002}:${AR_MCPG_PORT:-8002}"]
+    ports: ["127.0.0.1:${AR_MCPG_PORT:-8002}:${AR_MCPG_PORT:-8002}"]
 
   sandbox-manager:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    user: "0:0"
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: sandbox_manager } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_sandbox_manager.main
       AR_PORT: ${AR_SANDBOX_MANAGER_HOST_PORT:-8003}
-    ports: ["${AR_SANDBOX_MANAGER_HOST_PORT:-8003}:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports: ["127.0.0.1:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}"]
 
   channels:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: channels } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_channels.main
       AR_PORT: ${AR_CHANNELS_PORT:-8004}
-    ports: ["${AR_CHANNELS_PORT:-8004}:${AR_CHANNELS_PORT:-8004}"]
+    ports: ["127.0.0.1:${AR_CHANNELS_PORT:-8004}:${AR_CHANNELS_PORT:-8004}"]
 
   mcp-sql:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_sql } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_mcp_sql.main
       AR_PORT: ${AR_MCP_SQL_HOST_PORT:-8010}
-    ports: ["${AR_MCP_SQL_HOST_PORT:-8010}:${AR_MCP_SQL_HOST_PORT:-8010}"]
+    ports: ["127.0.0.1:${AR_MCP_SQL_HOST_PORT:-8010}:${AR_MCP_SQL_HOST_PORT:-8010}"]
 
   mcp-openapi:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: mcp_openapi } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_mcp_openapi.main
       AR_PORT: ${AR_MCP_OPENAPI_HOST_PORT:-8011}
-    ports: ["${AR_MCP_OPENAPI_HOST_PORT:-8011}:${AR_MCP_OPENAPI_HOST_PORT:-8011}"]
+    ports: ["127.0.0.1:${AR_MCP_OPENAPI_HOST_PORT:-8011}:${AR_MCP_OPENAPI_HOST_PORT:-8011}"]
 
   runtime-worker:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: runtime } }
+    entrypoint: ["tini", "--", "python", "-m", "ar_runtime.main"]
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_runtime.main
       AR_PORT: ${AR_RUNTIME_HOST_PORT:-8012}
-    ports: ["${AR_RUNTIME_HOST_PORT:-8012}:${AR_RUNTIME_HOST_PORT:-8012}"]
+      AR_RUNTIME_HOST_PORT: ${AR_RUNTIME_HOST_PORT:-8012}
+    ports: ["127.0.0.1:${AR_RUNTIME_HOST_PORT:-8012}:${AR_RUNTIME_HOST_PORT:-8012}"]
 
   system-worker:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: system } }
+    entrypoint: ["tini", "--", "python", "-m", "ar_system.main"]
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_system.main
       AR_PORT: ${AR_SYSTEM_HOST_PORT:-8013}
-    ports: ["${AR_SYSTEM_HOST_PORT:-8013}:${AR_SYSTEM_HOST_PORT:-8013}"]
+      AR_SYSTEM_HOST_PORT: ${AR_SYSTEM_HOST_PORT:-8013}
+    ports: ["127.0.0.1:${AR_SYSTEM_HOST_PORT:-8013}:${AR_SYSTEM_HOST_PORT:-8013}"]
 
   ingest-worker:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/ingest/Dockerfile }
+    entrypoint: ["tini", "--", "python", "-m", "ar_ingest.main"]
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_ingest.main
       AR_PORT: ${AR_INGEST_HOST_PORT:-8014}
-    ports: ["${AR_INGEST_HOST_PORT:-8014}:${AR_INGEST_HOST_PORT:-8014}"]
+      AR_INGEST_HOST_PORT: ${AR_INGEST_HOST_PORT:-8014}
+    ports: ["127.0.0.1:${AR_INGEST_HOST_PORT:-8014}:${AR_INGEST_HOST_PORT:-8014}"]
 
   sandbox-agent:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: sandbox_agent } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_sandbox_agent.main
       AR_PORT: ${AR_SANDBOX_AGENT_HOST_PORT:-8080}
-    ports: ["${AR_SANDBOX_AGENT_HOST_PORT:-8080}:${AR_SANDBOX_AGENT_HOST_PORT:-8080}"]
+    ports: ["127.0.0.1:${AR_SANDBOX_AGENT_HOST_PORT:-8080}:${AR_SANDBOX_AGENT_HOST_PORT:-8080}"]
 
   fake-llm:
-    profiles: [apps]
+    <<: *run
+    profiles: [dev, production]
     depends_on:
-      reconcile-roles:
+      migrate:
         condition: service_completed_successfully
+    healthcheck: *py-health
     build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: fake_llm } }
     environment:
       <<: *app-env
       AR_APP_MODULE: ar_fake_llm.app
       AR_PORT: ${AR_FAKE_LLM_HOST_PORT:-8099}
-    ports: ["${AR_FAKE_LLM_HOST_PORT:-8099}:${AR_FAKE_LLM_HOST_PORT:-8099}"]
+    ports: ["127.0.0.1:${AR_FAKE_LLM_HOST_PORT:-8099}:${AR_FAKE_LLM_HOST_PORT:-8099}"]
 
   web:
-    profiles: [apps]
-    depends_on:
-      reconcile-roles:
-        condition: service_completed_successfully
+    <<: *run
+    profiles: [production]
+    depends_on: *app-depends
     build: { context: ., dockerfile: images/web.Dockerfile }
     environment:
       PORT: "3000"
       API_PROXY_URL: http://api:${AR_PORT:-8000}
     ports: ["${AR_WEB_HOST_PORT:-3000}:3000"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:3000').then(r=>process.exit(0)).catch(()=>process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 40s
+
+networks:
+  app:
+    name: agentic-runtime_app
+  sandbox:
+    name: agentic-runtime_sandbox
+    internal: true
 
 volumes:
   pgdata:

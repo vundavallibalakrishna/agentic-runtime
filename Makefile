@@ -9,7 +9,7 @@ QDRANT ?= 0
 AUTO_PORTS ?= 0
 DEV_MIN ?= 0
 COMPOSE := docker compose -f compose.yaml
-PROFILES := --profile deps
+PROFILES := --profile dev
 ifeq ($(OBS),1)
 PROFILES += --profile obs
 endif
@@ -26,7 +26,7 @@ PY_PKGS := libs/ar_common libs/ar_contracts libs/ar_domain libs/ar_connector_sdk
 	connectors/mcp_sql connectors/mcp_openapi
 
 .PHONY: help bootstrap up down migrate seed ports-check dev dev-min fmt lint typecheck test \
-	test-unit test-integration test-e2e check gen eval reset-db kind-up kind-down images \
+	test-unit test-integration test-e2e check gen eval reset-db images \
 	images-bundle deptry
 
 help:
@@ -44,7 +44,7 @@ up:
 	$(COMPOSE) $(PROFILES) up -d --wait --wait-timeout 180
 
 down:
-	$(COMPOSE) --profile deps --profile obs --profile scan --profile qdrant --profile apps down
+	$(COMPOSE) --profile dev --profile production --profile obs --profile scan --profile qdrant down
 
 migrate:
 	@set -a; [ -f .env ] && . ./.env; set +a; \
@@ -84,10 +84,6 @@ lint:
 	pnpm exec biome check .
 	pnpm exec knip
 	opa fmt --diff policies/
-	helm lint deploy/helm/agentic-runtime
-	@for preset in values-dev values-small values-large values-saas values-loadtest values-external values-airgap; do \
-		helm lint deploy/helm/agentic-runtime -f deploy/helm/agentic-runtime/$$preset.yaml; \
-	done
 
 deptry:
 	@fail=0; \
@@ -138,15 +134,9 @@ live-pack:
 	uv run python -m ar_domain.connectors.live_pack
 
 reset-db:
-	$(COMPOSE) --profile deps exec -T postgres dropdb -U ar_owner --if-exists agentic_runtime
-	$(COMPOSE) --profile deps exec -T postgres createdb -U ar_owner agentic_runtime
+	$(COMPOSE) --profile dev exec -T postgres dropdb -U postgres --if-exists agentic_runtime
+	$(COMPOSE) --profile dev exec -T postgres createdb -U postgres agentic_runtime
 	$(MAKE) migrate seed
-
-kind-up:
-	KEEP_CLUSTER=1 bash scripts/kind_install.sh
-
-kind-down:
-	kind delete cluster --name "$${KIND_CLUSTER:-ar-m15}"
 
 images:
 	./scripts/build_images.sh

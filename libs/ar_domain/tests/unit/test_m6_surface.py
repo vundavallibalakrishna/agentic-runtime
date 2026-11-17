@@ -263,7 +263,8 @@ def test_manager_routes_and_docker_probe() -> None:
     assert "AR_SANDBOX_IMAGE" in refused.text
 
     class _Started:
-        def start(self, name: str, token: str) -> dict[str, object]:
+        def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+            del sandbox_id
             return {"container_id": name, "endpoint_url": "http://127.0.0.1:1", "token": token}
 
         def stop(self, container_id: str) -> None:

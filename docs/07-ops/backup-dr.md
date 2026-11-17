@@ -1,6 +1,6 @@
 # Backup and disaster recovery
 
-Objectives (production presets `small`, `large`, `saas`): **RPO 15 minutes, RTO 4 hours** for a full-region/cluster loss; single-component failures recover automatically via HA (see [helm-k8s §3](helm-k8s.md#3-stateful-dependencies)).
+Objectives (production presets `small`, `large`, `saas`): **RPO 15 minutes, RTO 4 hours** for a full-region/cluster loss; single-component failures recover automatically via HA (see [helm-k8s §3](compose.md#3-stateful-dependencies)).
 
 ## 1. What is backed up
 

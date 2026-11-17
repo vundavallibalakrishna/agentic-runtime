@@ -1,4 +1,4 @@
-"""Pod spec, network policy, warm pool and the production docker refusal."""
+"""Docker confinement, warm pool and the host-driver refusal."""
 
 import subprocess
 import sys
@@ -6,60 +6,51 @@ from pathlib import Path
 
 import pytest
 
+from ar_common.sandbox_docker import confined_host_config, proxy_url
 from ar_sandbox_manager.drivers.base import assert_driver_allowed, selected_driver
-from ar_sandbox_manager.drivers.kubernetes import network_policy, pod_spec
 from ar_sandbox_manager.warm_pool import claim
 
 _SQUID = Path(__file__).resolve().parents[4] / "images" / "squid"
 
 
-def test_pod_and_policy() -> None:
-    pod = pod_spec(
-        sandbox_id="12345678-aaaa-bbbb-cccc-ddddeeeeffff",
-        tenant_id="tenant",
-        template="browser",
-        runtime_class="gvisor",
-        cpu_millis=500,
-        memory_mb=1024,
-        disk_gb=2,
-        lifetime_s=3600,
-        token="abc123",  # noqa: S106 - fixture credential, not a secret
-        image="registry.example/ar-sandbox:1.2.3",
+def test_confined_container_has_no_host_network() -> None:
+    host = confined_host_config("ar-sandbox", cpu_millis=500, memory_mb=512, pids_limit=128)
+    assert host["NetworkMode"] == "ar-sandbox"
+    assert host["NetworkMode"] != "host"
+    assert host["ReadonlyRootfs"] is True
+    assert host["CapDrop"] == ["ALL"]
+    assert host["Memory"] == 512 * 1024 * 1024
+    assert host["NanoCpus"] == 500 * 1_000_000
+    assert "/workspace" in host["Tmpfs"]
+    with pytest.raises(RuntimeError):
+        confined_host_config("host", cpu_millis=500, memory_mb=512, pids_limit=128)
+    proxied = proxy_url(
+        "http://squid:3128",
+        "12345678-aaaa-bbbb-cccc-ddddeeeeffff",
+        "abc123",
     )
-    spec = pod["spec"]
-    assert spec["containers"][0]["image"] == "registry.example/ar-sandbox:1.2.3"
-    assert spec["runtimeClassName"] == "gvisor"
-    assert spec["automountServiceAccountToken"] is False
-    container = spec["containers"][0]
-    assert container["securityContext"]["allowPrivilegeEscalation"] is False
-    assert container["securityContext"]["capabilities"]["drop"] == ["ALL"]
-    proxy = "http://sbx-12345678-aaaa-bbbb-cccc-ddddeeeeffff:abc123@squid.ar-system:3128"
-    assert container["env"][0]["value"] == proxy
-    assert container["env"][1]["value"] == proxy
-    policy = network_policy()
-    egress = policy["spec"]["egress"]
-    ports = [port["port"] for rule in egress for port in rule["ports"]]
-    assert 3128 in ports and 53 in ports
+    assert proxied.startswith("http://sbx-12345678-aaaa-bbbb-cccc-ddddeeeeffff:")
+    assert proxied.endswith("@squid:3128")
 
 
-def test_warm_pool_and_prod_docker() -> None:
+def test_warm_pool_and_driver_selection() -> None:
     available = {"default": 4, "browser": 2}
     assert claim("default=4,browser=2", "browser", available) == "browser"
     assert available["browser"] == 1
     assert claim("default=4,browser=0", "missing", available) is None
-    # An unisolated driver is refused unless the install allows it; the name of the
-    # environment is not the switch (F60).
-    with pytest.raises(RuntimeError):
-        assert_driver_allowed("docker", allow_unisolated=False)
     with pytest.raises(RuntimeError):
         assert_driver_allowed("", allow_unisolated=False)
-    assert_driver_allowed("docker", allow_unisolated=True)
-    assert_driver_allowed("kubernetes", allow_unisolated=False)
-    assert selected_driver(allow_unisolated=False) == "kubernetes"
+    with pytest.raises(RuntimeError):
+        assert_driver_allowed("host", allow_unisolated=False)
+    with pytest.raises(RuntimeError):
+        assert_driver_allowed("kubernetes", allow_unisolated=True)
+    assert_driver_allowed("docker", allow_unisolated=False)
+    assert_driver_allowed("host", allow_unisolated=True)
+    assert selected_driver(allow_unisolated=False) == "docker"
     assert selected_driver(allow_unisolated=True) == "docker"
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setenv("AR_SANDBOX_DRIVER", "kubernetes")
-    assert selected_driver(allow_unisolated=True) == "kubernetes"
+    monkeypatch.setenv("AR_SANDBOX_DRIVER", "docker")
+    assert selected_driver(allow_unisolated=False) == "docker"
     monkeypatch.undo()
 
 
@@ -112,46 +103,8 @@ def test_egress_helper_reads_the_auth_note() -> None:
     assert host == "example.com"
 
 
-class _Api:
-    def __init__(self) -> None:
-        self.pods: list[dict[str, object]] = []
+def test_no_image_says_which_setting_to_change(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ar_domain.sandboxes.manager_launch import NoSandboxImage, docker_launcher
 
-    async def create_pod(self, namespace: str, body: dict[str, object]) -> None:
-        del namespace
-        self.pods.append(body)
-
-    async def apply_policy(self, namespace: str, body: dict[str, object]) -> None:
-        del namespace, body
-
-    async def delete_pod(self, namespace: str, name: str) -> None:
-        del namespace, name
-
-
-def _start(pods: object) -> dict[str, object]:
-    return pods.start(  # type: ignore[attr-defined, no-any-return]
-        sandbox_id="12345678-aaaa-bbbb-cccc-ddddeeeeffff",
-        tenant_id="tenant",
-        template="default",
-        token="abc123",  # noqa: S106 - fixture credential, not a secret
-        cpu_millis=500,
-        memory_mb=512,
-        disk_gb=1,
-        lifetime_s=3600,
-        runtime_class="gvisor",
-    )
-
-
-def test_a_pod_starts_from_the_installs_image(monkeypatch: pytest.MonkeyPatch) -> None:
-    from ar_sandbox_manager.drivers.kubernetes import KubernetesPods
-
-    api = _Api()
-    pods = KubernetesPods(api, namespace="ar-sandboxes")
-    # No image named: the start fails and says which setting to change.
     monkeypatch.delenv("AR_SANDBOX_IMAGE", raising=False)
-    with pytest.raises(RuntimeError, match="AR_SANDBOX_IMAGE"):
-        _start(pods)
-    assert api.pods == []
-    monkeypatch.setenv("AR_SANDBOX_IMAGE", "registry.example/ar-sandbox:1.2.3")
-    _start(pods)
-    container = api.pods[0]["spec"]["containers"][0]  # type: ignore[index]
-    assert container["image"] == "registry.example/ar-sandbox:1.2.3"
+    assert isinstance(docker_launcher(), NoSandboxImage)

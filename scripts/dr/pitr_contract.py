@@ -1,6 +1,6 @@
 """Logical restore contract for the CloudNativePG PITR runbook.
 
-The operator restore is documented in docs/07-ops/cnpg-pitr.md. This script checks
+The operator restore is documented in docs/07-ops/compose.md. This script checks
 the same rule on a database URL: a marker from before the target is present and
 a marker from after the target is not. Without a URL it prints the plan and exits 0.
 

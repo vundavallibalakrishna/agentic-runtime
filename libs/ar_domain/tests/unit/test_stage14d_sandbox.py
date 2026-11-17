@@ -38,7 +38,8 @@ class _Computer:
     def __init__(self) -> None:
         self.stopped: list[str] = []
 
-    def start(self, name: str, token: str) -> dict[str, object]:
+    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+        del sandbox_id
         return {"container_id": name, "endpoint_url": _ENDPOINT, "token": token}
 
     def stop(self, container_id: str) -> None:
@@ -184,7 +185,8 @@ def test_a_lost_container_is_started_again(computer: Path) -> None:
     started: list[str] = []
     original = launcher.start
 
-    def start(name: str, token: str) -> dict[str, object]:
+    def start(name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+        del sandbox_id
         started.append(name)
         return original(name, token)
 
@@ -266,8 +268,8 @@ def test_every_process_but_the_manager_is_told_where_computers_come_from(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://manager.test")
-    monkeypatch.setenv("AR_SANDBOX_DRIVER", "kubernetes")
-    settings = BaseServiceSettings(_env_file=None, env=EnvName.DEV)
+    monkeypatch.setenv("AR_SANDBOX_DRIVER", "docker")
+    settings = BaseServiceSettings(_env_file=None, env=EnvName.DEV, sandbox_allow_unisolated=False)
     client = build_product_store(settings)
     assert isinstance(client.sandbox_launcher, SandboxManagerLauncher)
     manager = build_product_store(settings, starts_sandboxes=True)
@@ -326,56 +328,38 @@ def test_a_computer_that_does_not_answer_is_reported(monkeypatch: pytest.MonkeyP
     assert result["code"] == "sandbox_unavailable"
 
 
-class _Pods:
-    """The sandbox manager's pod creator, as the kubernetes driver presents it."""
+class _FailingLauncher:
+    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+        del name, token, sandbox_id
+        raise RuntimeError("no sandbox image is configured: set AR_SANDBOX_IMAGE")
 
-    def __init__(self, *, fail: bool = False) -> None:
-        self.fail = fail
-        self.started: list[dict[str, object]] = []
-        self.stopped: list[str] = []
-
-    def start(self, **spec: object) -> dict[str, object]:
-        if self.fail:
-            raise RuntimeError("no sandbox image is configured: set AR_SANDBOX_IMAGE")
-        self.started.append(spec)
-        return {
-            "pod_name": "sbx-test",
-            "endpoint_url": "http://sbx-test.ar-sandboxes:8080",
-            "driver_ref": "kubernetes:sbx-test",
-        }
-
-    def stop(self, pod_name: str) -> None:
-        self.stopped.append(pod_name)
+    def stop(self, container_id: str) -> None:
+        del container_id
 
 
-def test_the_manager_starts_and_stops_a_pod_for_a_computer() -> None:
+def test_the_manager_starts_and_stops_a_container_for_a_computer() -> None:
     store = demo_store()
-    pods = _Pods()
-    store.pod_creator = pods
+    launcher = _Computer()
+    store.sandbox_launcher = launcher
     row = _ensure(store, "conv:pod")
-    assert row["driver"] == "kubernetes"
-    assert row["endpoint_url"] == "http://sbx-test.ar-sandboxes:8080"
-    assert row["driver_ref"] == "kubernetes:sbx-test"
-    spec = pods.started[0]
-    assert spec["token"] == row["token"]
-    assert (spec["cpu_millis"], spec["memory_mb"]) == (2000, 4096)
-    # Another request has only the stored row: the pod is still found by its reference.
+    assert row["driver"] == "docker"
+    assert row["endpoint_url"] == _ENDPOINT
+    assert str(row["driver_ref"]).startswith("docker:")
     row.pop("container_id")
     terminate_row(store, row, actor=demo_id("admin"))
-    assert pods.stopped == ["sbx-test"]
+    assert launcher.stopped
     assert row["status"] == "terminated"
     assert row["endpoint_url"] is None
 
 
-def test_a_pod_that_cannot_start_fails_the_computer_in_words() -> None:
+def test_a_container_that_cannot_start_fails_the_computer_in_words() -> None:
     store = demo_store()
-    store.pod_creator = _Pods(fail=True)
+    store.sandbox_launcher = _FailingLauncher()
     with pytest.raises(SandboxStartError, match="AR_SANDBOX_IMAGE"):
         _ensure(store, "conv:no-pod")
     failed = [r for r in store.sandboxes.values() if r.get("scope_key") == "conv:no-pod"]
     assert failed[0]["status"] == "failed"
     assert failed[0]["endpoint_url"] is None
-    # The tool says why, and does not fall back to the host.
     result = runtime.run_tool(store, "exec", {"command": "true", **_who()})
     assert result["code"] == "sandbox_unavailable"
     assert "AR_SANDBOX_IMAGE" in result["text"]

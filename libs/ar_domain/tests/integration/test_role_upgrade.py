@@ -19,6 +19,7 @@ _OWNER = "owner-upgrade-secret"
 _APP = "app-upgrade-secret"
 _PLATFORM = "platform-upgrade-secret"
 _READONLY = "readonly-upgrade-secret"
+_TEMPORAL = "temporal-upgrade-secret"
 
 
 def _docker(*args: str) -> subprocess.CompletedProcess[str]:
@@ -133,6 +134,7 @@ def test_old_superuser_login_is_reconciled_in_prod(
             "AR_DB_APP_PASSWORD": _APP,
             "AR_DB_PLATFORM_PASSWORD": _PLATFORM,
             "AR_DB_READONLY_PASSWORD": _READONLY,
+            "AR_DB_TEMPORAL_PASSWORD": _TEMPORAL,
         }
         command = [sys.executable, "-c", "from ar_domain.db.reconcile_roles import main; main()"]
         first = subprocess.run(command, check=False, capture_output=True, env=env, text=True)  # noqa: S603

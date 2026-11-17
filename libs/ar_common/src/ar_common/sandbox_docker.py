@@ -11,12 +11,17 @@ Spec: docs/03-specs/12-sandbox-manager.md §4.2.
 from __future__ import annotations
 
 import asyncio
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote, urlsplit
 
 import httpx
 
 from ar_common.egress_http import async_client
+
+_HOST_NETWORKS = frozenset({"", "host"})
+_TMP = "/" + "tmp"
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine
@@ -53,6 +58,74 @@ async def image_present(image: str) -> bool:
         await docker.close()
 
 
+def sandbox_limits() -> tuple[int, int, int]:
+    """CPU millis, memory mebibytes and pid limit for a confined sandbox."""
+    return (
+        _positive("AR_SANDBOX_CPU_MILLIS", 500),
+        _positive("AR_SANDBOX_MEMORY_MB", 512),
+        _positive("AR_SANDBOX_PIDS_LIMIT", 256),
+    )
+
+
+def confined_host_config(
+    network: str, *, cpu_millis: int, memory_mb: int, pids_limit: int
+) -> dict[str, Any]:
+    """Docker HostConfig for a sandbox that cannot reach the host network.
+
+    The root filesystem is read-only. Writable paths are tmpfs mounts. Capabilities
+    are dropped. The named network is the only interface.
+    """
+    if network.strip().lower() in _HOST_NETWORKS:
+        raise RuntimeError("a sandbox container cannot use the host network")
+    if cpu_millis <= 0 or memory_mb <= 0 or pids_limit <= 0:
+        raise RuntimeError("a sandbox container needs a cpu, memory and pid limit")
+    return {
+        "NetworkMode": network,
+        "ReadonlyRootfs": True,
+        "CapDrop": ["ALL"],
+        "SecurityOpt": ["no-new-privileges:true"],
+        "Memory": memory_mb * 1024 * 1024,
+        "NanoCpus": cpu_millis * 1_000_000,
+        "PidsLimit": pids_limit,
+        "Tmpfs": {
+            _TMP: "rw,nosuid,size=64m,mode=1777",
+            "/workspace": "rw,nosuid,size=1g,mode=1777",
+            "/home/sandbox": "rw,nosuid,size=256m,mode=1777",
+            "/run": "rw,noexec,nosuid,size=16m,mode=1777",
+        },
+    }
+
+
+def proxy_url(base: str, sandbox_id: str, token: str) -> str:
+    """Basic-auth proxy URL the sandbox presents to Squid. Empty when unset."""
+    if not base.strip() or not sandbox_id.strip() or not token:
+        return ""
+    parts = urlsplit(base.strip())
+    host = parts.hostname or ""
+    if not host:
+        return ""
+    port = f":{parts.port}" if parts.port else ""
+    user = quote(f"sbx-{sandbox_id}", safe="")
+    secret = quote(token, safe="")
+    scheme = parts.scheme or "http"
+    return f"{scheme}://{user}:{secret}@{host}{port}"
+
+
+def _positive(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        message = f"{name} must be a positive integer"
+        raise RuntimeError(message) from exc
+    if value <= 0:
+        message = f"{name} must be a positive integer"
+        raise RuntimeError(message)
+    return value
+
+
 async def start_sandbox(
     image: str,
     name: str,
@@ -61,27 +134,42 @@ async def start_sandbox(
     network: str | None = None,
     port: int = 8080,
     wait_s: float = 30.0,
+    proxy: str | None = None,
+    sandbox_id: str = "",
 ) -> dict[str, object]:
     """Start a sandbox container from ``image`` and return once its agent is healthy.
 
-    On a named internal network the agent is reached at ``http://<name>:<port>``; without
-    one the port is published and reached on loopback (development and the test).
+    A named network confines the container: no host network, dropped capabilities,
+    a read-only root, resource limits, and HTTP(S) egress through the proxy. Without
+    a network the port is published on loopback for a test that opts into that path.
     """
     import aiodocker  # noqa: PLC0415
 
     docker = aiodocker.Docker()
     try:
-        host_config: dict[str, Any] = {}
+        env = [
+            f"AR_SANDBOX_TOKEN={token}",
+            f"AR_SANDBOX_AGENT_HOST_PORT={port}",
+            "PYTHONDONTWRITEBYTECODE=1",
+            "HOME=/home/sandbox",
+        ]
         config: dict[str, Any] = {
             "Image": image,
-            "Env": [f"AR_SANDBOX_TOKEN={token}", f"AR_SANDBOX_AGENT_HOST_PORT={port}"],
+            "Env": env,
             "ExposedPorts": {f"{port}/tcp": {}},
-            "HostConfig": host_config,
         }
         if network:
-            host_config["NetworkMode"] = network
+            cpu_millis, memory_mb, pids_limit = sandbox_limits()
+            host_config = confined_host_config(
+                network, cpu_millis=cpu_millis, memory_mb=memory_mb, pids_limit=pids_limit
+            )
+            config["User"] = "10001:10001"
+            config["HostConfig"] = host_config
+            proxied = proxy_url(proxy or "", sandbox_id, token)
+            if proxied:
+                env.extend([f"HTTP_PROXY={proxied}", f"HTTPS_PROXY={proxied}", "NO_PROXY="])
         else:
-            host_config["PublishAllPorts"] = True
+            config["HostConfig"] = {"PublishAllPorts": True}
         container = await docker.containers.create_or_replace(name=name, config=config)
         await container.start()
         endpoint = await _endpoint(container, network, port)
@@ -165,13 +253,15 @@ class DockerSandboxLauncher:
         network: str | None = None,
         port: int = 8080,
         wait_s: float = 30.0,
+        proxy: str | None = None,
     ) -> None:
         self._image = image
         self._network = network
         self._port = port
         self._wait_s = wait_s
+        self._proxy = proxy
 
-    def start(self, name: str, token: str) -> dict[str, object]:
+    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
         """Start a container and return ``{container_id, endpoint_url, token}``."""
         return _run_blocking(
             start_sandbox(
@@ -181,6 +271,8 @@ class DockerSandboxLauncher:
                 network=self._network,
                 port=self._port,
                 wait_s=self._wait_s,
+                proxy=self._proxy,
+                sandbox_id=sandbox_id,
             )
         )
 
