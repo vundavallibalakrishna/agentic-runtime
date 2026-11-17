@@ -44,7 +44,7 @@ bootstrap:
 # the processes that keep running, then register the Temporal namespace.
 up:
 	$(COMPOSE) $(PROFILES) up -d --wait --wait-timeout 180 \
-		postgres valkey temporal seaweedfs openbao opa mailpit greenmail squid fake-llm
+		postgres valkey temporal seaweedfs openbao opa mailpit greenmail squid
 	$(COMPOSE) $(PROFILES) run --rm --no-deps temporal-namespace
 
 down:

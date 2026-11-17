@@ -486,9 +486,11 @@ services:
       AR_PORT: ${AR_SANDBOX_AGENT_HOST_PORT:-8080}
     ports: ["127.0.0.1:${AR_SANDBOX_AGENT_HOST_PORT:-8080}:${AR_SANDBOX_AGENT_HOST_PORT:-8080}"]
 
+  # `make dev` starts fake-llm from Procfile.dev. This container is only for the
+  # production profile, so the two do not both bind the host port.
   fake-llm:
     <<: *run
-    profiles: [dev, production]
+    profiles: [production]
     depends_on:
       migrate:
         condition: service_completed_successfully
