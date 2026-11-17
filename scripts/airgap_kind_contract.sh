@@ -93,11 +93,14 @@ if ! kind load docker-image ar-api:dev ar-runtime:dev ar-mcp-gateway:dev \
   rm -f "${tar}"
 fi
 
+passwords="$(mktemp)"
+uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
 helm upgrade --install agentic-runtime "$chart" \
   --namespace "$namespace" --create-namespace \
   -f "$chart/values-stage9-contract.yaml" \
   -f "$chart/values-airgap.yaml" \
   -f "$chart/values-airgap-kind.yaml" \
+  -f "$passwords" \
   --timeout 15m --no-hooks --wait=false
 
 echo "waiting for the database"
@@ -117,6 +120,7 @@ helm template agentic-runtime "$chart" \
   -f "$chart/values-stage9-contract.yaml" \
   -f "$chart/values-airgap.yaml" \
   -f "$chart/values-airgap-kind.yaml" \
+  -f "$passwords" \
   -s templates/jobs.yaml > /tmp/airgap-jobs.yaml
 python3 - <<'PY'
 from pathlib import Path

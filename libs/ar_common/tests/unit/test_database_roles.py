@@ -108,7 +108,7 @@ def test_superuser_session_creates_roles(monkeypatch: pytest.MonkeyPatch) -> Non
     }.items():
         monkeypatch.setenv(key, value)
     connection = _Connection(superuser=True)
-    from ar_common.database_roles import apply_database_roles
+    from ar_domain.db.role_admin import apply_database_roles
 
     apply_database_roles(connection)  # type: ignore[arg-type]
     assert any(
@@ -128,7 +128,7 @@ def test_owner_session_checks_attributes_and_sets_passwords(
     }.items():
         monkeypatch.setenv(key, value)
     connection = _Connection(superuser=False, exists=True)
-    from ar_common.database_roles import apply_database_roles
+    from ar_domain.db.role_admin import apply_database_roles
 
     apply_database_roles(connection)  # type: ignore[arg-type]
     assert any(item.startswith("ALTER ROLE ar_app PASSWORD") for item in connection.statements)
@@ -137,7 +137,7 @@ def test_owner_session_checks_attributes_and_sets_passwords(
 def test_owner_session_refuses_a_missing_role(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_DB_OWNER_PASSWORD", "owner-secret")
     connection = _Connection(superuser=False)
-    from ar_common.database_roles import apply_database_roles
+    from ar_domain.db.role_admin import apply_database_roles
 
     with pytest.raises(RuntimeError, match="ar_owner is missing"):
         apply_database_roles(connection)  # type: ignore[arg-type]

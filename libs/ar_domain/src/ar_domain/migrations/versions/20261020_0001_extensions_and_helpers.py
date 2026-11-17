@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 from alembic import op
 
-from ar_common.database_roles import apply_database_roles
+from ar_domain.db.role_admin import apply_database_roles
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

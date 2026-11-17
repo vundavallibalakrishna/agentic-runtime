@@ -229,6 +229,7 @@ jobs:
           version: "0.13.3"
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
+      - run: uv run python scripts/dev_keys.py
       - run: docker compose --profile deps --profile apps up -d --build
       - run: uv run python scripts/smoke.py --health-only
       - name: Compose logs

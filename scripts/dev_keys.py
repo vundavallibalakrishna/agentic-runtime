@@ -9,6 +9,7 @@ import orjson
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from ar_common.database_roles import generated_password
 from ar_common.internal_jwt import public_jwk
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -172,11 +173,11 @@ def main() -> None:
     text = _ensure(text, "AR_DB_ENCRYPTION_KEYS", shell_value(encryption_keyring()))
     text = _ensure(text, "AR_DB_ENCRYPTION_ACTIVE_KEY", "k1")
     text = _ensure(text, "AR_TOKEN_CACHE_KEY", session_key())
-    text = _ensure_password(text, "AR_DB_OWNER_PASSWORD", secrets.token_urlsafe(24))
-    text = _ensure_password(text, "AR_DB_PLATFORM_PASSWORD", secrets.token_urlsafe(24))
-    text = _ensure_password(text, "AR_DB_APP_PASSWORD", secrets.token_urlsafe(24))
-    text = _ensure_password(text, "AR_DB_READONLY_PASSWORD", secrets.token_urlsafe(24))
-    text = _ensure_password(text, "POSTGRES_PASSWORD", secrets.token_urlsafe(24))
+    text = _ensure_password(text, "AR_DB_OWNER_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_PLATFORM_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_APP_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_READONLY_PASSWORD", generated_password())
+    text = _ensure_password(text, "POSTGRES_PASSWORD", generated_password())
     text = _install_app_password(text)
     escaped_pem = private_pem.replace("\n", "\\n")
     text = _ensure(text, "AR_INTERNAL_JWT_PRIVATE_KEY", shell_value(escaped_pem))
