@@ -245,13 +245,21 @@ secrets:
     AR_TOKEN_CACHE_KEY: install-time
     AR_VAULT_TOKEN: install-time
     AR_VECTOR_PG_READ_DSN: install-time
+    # Role passwords. Empty is refused. Set these, or set secrets.existingSecret
+    # to a secret that already holds the same keys. Helm does not generate them.
+    AR_DB_OWNER_PASSWORD: ""
+    AR_DB_PLATFORM_PASSWORD: ""
+    AR_DB_APP_PASSWORD: ""
+    AR_DB_READONLY_PASSWORD: ""
 postgres:
   bundled: true
   mode: cnpg
   instances: 3
   storage: 200Gi
   username: ar_app
-  password: ar-install-db
+  # Image init user for the StatefulSet only. Not an application role.
+  # CloudNativePG keeps its own operator superuser (enableSuperuserAccess).
+  superuserPassword: ""
   # Extra platform database names, appended to the bundled CNPG services.
   denyHosts: []
   # Extra pod CIDRs. The chart cannot discover the cluster pod CIDR; set

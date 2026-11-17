@@ -10,6 +10,7 @@ import orjson
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+from ar_common.database_roles import assert_application_url, role_password
 from ar_common.settings import get_settings
 
 # PgBouncer transaction pooling: asyncpg must not cache prepared statements.
@@ -34,22 +35,26 @@ def app_database_url() -> str:
 
 
 def platform_database_url(url: str | None = None) -> str:
-    """DSN for ``ar_platform`` (BYPASSRLS). Dev passwords match the role name."""
+    """DSN for ``ar_platform`` (BYPASSRLS). The password is ``AR_DB_PLATFORM_PASSWORD``."""
     current = app_database_url() if url is None else url
     parsed = make_url(current)
     if parsed.username == "ar_platform":
+        assert_application_url(current)
         return current
-    return swap_user(current, "ar_platform", "ar_platform")
+    return swap_user(current, "ar_platform", role_password("ar_platform"))
 
 
 def owner_database_url(url: str | None = None) -> str:
     """DSN for migrations and seed. ``ar_app`` URLs are rewritten to ``ar_owner``."""
     current = app_database_url() if url is None else url
     parsed = make_url(current)
-    if parsed.username in {"ar_owner", "postgres", "test"}:
+    if parsed.username == "ar_owner":
+        assert_application_url(current)
+        return current
+    if parsed.username in {"postgres", "test"}:
         return current
     if parsed.username == "ar_app":
-        return swap_user(current, "ar_owner", "ar_owner")
+        return swap_user(current, "ar_owner", role_password("ar_owner"))
     return current
 
 

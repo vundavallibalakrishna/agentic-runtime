@@ -34,11 +34,15 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CURSOR_SECRET",
         "AR_DATA_RESIDENCY",
         "AR_DATABASE_URL",
+        "AR_DB_APP_PASSWORD",
         "AR_DB_CERT_DIR",
         "AR_DB_CONNECT_DEADLINE_S",
         "AR_DB_ENCRYPTION_ACTIVE_KEY",
         "AR_DB_MAX_ADDRESSES",
         "AR_DB_MIN_SSLMODE",
+        "AR_DB_OWNER_PASSWORD",
+        "AR_DB_PLATFORM_PASSWORD",
+        "AR_DB_READONLY_PASSWORD",
         "AR_DB_STRICT_TLS",
         "AR_DB_STRICT_TLS_FLOOR",
         "AR_DB_ENCRYPTION_KEYS",
@@ -327,7 +331,7 @@ class BaseServiceSettings(BaseSettings):
     max_json_body_bytes: int = 1_048_576
     trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     valkey_url: str = "redis://localhost:6379/0"
-    database_url: str = "postgresql+asyncpg://ar_app:ar_app@localhost:5432/agentic_runtime"
+    database_url: str = "postgresql+asyncpg://ar_app@localhost:5432/agentic_runtime"
     model_gateway_url: str = ""
     temporal_address: str = ""
     temporal_namespace: str = ""

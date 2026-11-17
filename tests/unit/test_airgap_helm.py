@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 _CHART = Path("deploy/helm/agentic-runtime")
+_PASSWORDS = Path("tests/fixtures/helm-db-passwords.yaml")
 
 
 def test_airgap_overlay_appends_hosts_and_renders_cidrs(tmp_path: Path) -> None:
@@ -66,7 +67,7 @@ _KUBE_VERSION = "1.33.0"
 
 def _helm(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
-        ["helm", *args, "--kube-version", _KUBE_VERSION],  # noqa: S607
+        ["helm", *args, "-f", str(_PASSWORDS), "--kube-version", _KUBE_VERSION],  # noqa: S607
         check=check,
         capture_output=True,
         text=True,

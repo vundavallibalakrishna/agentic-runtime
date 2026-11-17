@@ -18,9 +18,12 @@ if ! kind get clusters | grep -qx "$name"; then
   kind create cluster --name "$name"
 fi
 kubectl config use-context "kind-${name}"
+passwords="$(mktemp)"
+uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
 helm upgrade --install agentic-runtime "$root/deploy/helm/agentic-runtime" \
   --namespace agentic-runtime --create-namespace \
   -f "$root/deploy/helm/agentic-runtime/values-dev.yaml" \
+  -f "$passwords" \
   --no-hooks
 kubectl -n agentic-runtime get deploy,sts,job,cm
 if [[ "${KEEP_CLUSTER:-0}" != "1" ]]; then

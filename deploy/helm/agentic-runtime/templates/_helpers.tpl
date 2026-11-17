@@ -11,26 +11,53 @@
 {{- end -}}
 
 {{/*
-  Cluster roles the migrate Job logs in as. The bundled superuser is
-  postgres.username (ar_app). Alembic rewrites that URL to ar_owner, and the
-  first revision only creates ar_owner when it can already connect. This
-  statement runs as the image superuser during database init, before migrate.
-  The ar_owner password is the one owner_database_url rewrites to.
+  Install secret. Role passwords are keys in this secret. Helm never generates them:
+  a render without a caller-supplied value fails, and `secrets.existingSecret`
+  is the same keys created outside the chart (GitOps / external secrets).
 */}}
-{{- define "ar.postgresRolesSql" -}}
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_owner') THEN
-    CREATE ROLE ar_owner LOGIN PASSWORD 'ar_owner' SUPERUSER BYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_app') THEN
-    CREATE ROLE ar_app LOGIN PASSWORD 'ar_app' NOSUPERUSER NOBYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_platform') THEN
-    CREATE ROLE ar_platform LOGIN PASSWORD 'ar_platform' NOSUPERUSER BYPASSRLS;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'ar_readonly') THEN
-    CREATE ROLE ar_readonly LOGIN PASSWORD 'ar_readonly' NOSUPERUSER NOBYPASSRLS;
-  END IF;
-END $$;
+{{- define "ar.installSecret" -}}
+{{- .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) -}}
+{{- end -}}
+
+{{- define "ar.roleSecret" -}}
+{{- $root := index . 0 -}}
+{{- $role := index . 1 -}}
+{{- printf "%s-db-role-%s" $root.Release.Name ($role | replace "_" "-") -}}
+{{- end -}}
+
+{{- define "ar.refuseDatabasePassword" -}}
+{{- $value := index . 0 | toString | lower | trim -}}
+{{- $role := index . 1 | toString | lower -}}
+{{- $label := index . 2 -}}
+{{- $bad := list "" "ar-install-db" "airgap-set-a-real-password" "changeme" "change-me" "password" "placeholder" "postgres" "install-time" "ar_owner" "ar_app" "ar_platform" "ar_readonly" -}}
+{{- if or (has $value $bad) (eq $value $role) -}}
+{{- fail (printf "%s is unset, a placeholder, or the role name" $label) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+  Refuses placeholder and role-name passwords wherever the chart is the one
+  writing the Secret. External installs keep the same keys in secrets.existingSecret;
+  the process and the migration refuse a bad value at startup.
+*/}}
+{{- define "ar.assertDatabasePasswords" -}}
+{{- if .Values.secrets.create -}}
+{{- range $key, $role := dict "AR_DB_OWNER_PASSWORD" "ar_owner" "AR_DB_PLATFORM_PASSWORD" "ar_platform" "AR_DB_APP_PASSWORD" "ar_app" "AR_DB_READONLY_PASSWORD" "ar_readonly" -}}
+{{- include "ar.refuseDatabasePassword" (list (index $.Values.secrets.data $key | default "") $role $key) -}}
+{{- end -}}
+{{- if and .Values.postgres.bundled (eq .Values.postgres.mode "statefulset") -}}
+{{- include "ar.refuseDatabasePassword" (list (.Values.postgres.superuserPassword | default "") "postgres" "postgres.superuserPassword") -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "ar.rolePasswordEnv" -}}
+{{- $secret := include "ar.installSecret" . -}}
+{{- range $key := list "AR_DB_OWNER_PASSWORD" "AR_DB_PLATFORM_PASSWORD" "AR_DB_APP_PASSWORD" "AR_DB_READONLY_PASSWORD" }}
+- name: {{ $key }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ $secret }}
+      key: {{ $key }}
+{{- end }}
 {{- end -}}

@@ -188,13 +188,13 @@ jobs:
       postgres:
         image: pgvector/pgvector:0.8.7-pg18-trixie
         env:
-          POSTGRES_USER: ar_owner
-          POSTGRES_PASSWORD: ar_owner
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-image-superuser
           POSTGRES_DB: agentic_runtime
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ar_owner -d agentic_runtime"
+          --health-cmd "pg_isready -U postgres -d agentic_runtime"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -208,7 +208,11 @@ jobs:
       - run: uv sync --all-packages --all-groups --frozen
       - name: Upgrade, single head, model check, round trip
         env:
-          AR_DATABASE_URL: postgresql+asyncpg://ar_owner:ar_owner@localhost:5432/agentic_runtime
+          AR_DATABASE_URL: postgresql+asyncpg://postgres:ci-image-superuser@localhost:5432/agentic_runtime
+          AR_DB_OWNER_PASSWORD: ci-owner-password
+          AR_DB_PLATFORM_PASSWORD: ci-platform-password
+          AR_DB_APP_PASSWORD: ci-app-password
+          AR_DB_READONLY_PASSWORD: ci-readonly-password
         run: |
           uv run alembic -c libs/ar_domain/alembic.ini upgrade head
           test "$(uv run alembic -c libs/ar_domain/alembic.ini heads | wc -l)" -eq 1
@@ -225,6 +229,7 @@ jobs:
           version: "0.13.3"
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
+      - run: uv run python scripts/dev_keys.py
       - run: docker compose --profile deps --profile apps up -d --build
       - run: uv run python scripts/smoke.py --health-only
       - name: Compose logs
@@ -435,13 +440,13 @@ jobs:
       postgres:
         image: pgvector/pgvector:0.8.7-pg18-trixie
         env:
-          POSTGRES_USER: ar_owner
-          POSTGRES_PASSWORD: ar_owner
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-image-superuser
           POSTGRES_DB: agentic_runtime
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U ar_owner -d agentic_runtime"
+          --health-cmd "pg_isready -U postgres -d agentic_runtime"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -465,7 +470,11 @@ jobs:
       - name: Qdrant conformance and backend round trip
         env:
           AR_QDRANT_URL: http://127.0.0.1:6333
-          AR_DATABASE_URL: postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5432/agentic_runtime
+          AR_DATABASE_URL: postgresql+asyncpg://postgres:ci-image-superuser@127.0.0.1:5432/agentic_runtime
+          AR_DB_OWNER_PASSWORD: ci-owner-password
+          AR_DB_PLATFORM_PASSWORD: ci-platform-password
+          AR_DB_APP_PASSWORD: ci-app-password
+          AR_DB_READONLY_PASSWORD: ci-readonly-password
         run: uv run pytest -m qdrant -q
 
   security:

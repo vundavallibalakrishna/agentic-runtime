@@ -21,9 +21,9 @@ for preset in "${presets[@]}"; do
 done
 render() {
   if [ "$#" -eq 0 ]; then
-    helm template agentic-runtime "$chart"
+    helm template agentic-runtime "$chart" -f "$root/tests/fixtures/helm-db-passwords.yaml"
   else
-    helm template agentic-runtime "$chart" "$@"
+    helm template agentic-runtime "$chart" -f "$root/tests/fixtures/helm-db-passwords.yaml" "$@"
   fi
 }
 render | kubeconform -kubernetes-version 1.33.0 -ignore-missing-schemas -summary -skip CustomResourceDefinition

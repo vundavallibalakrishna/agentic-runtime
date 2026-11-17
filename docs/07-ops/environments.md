@@ -41,6 +41,10 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_CONSECUTIVE_TOOL_ERROR_LIMIT` | `8` | Run fails after this many consecutive tool errors | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_CURSOR_SECRET` | (secret) | HMAC for pagination cursors. Outside `dev` and `ci`, startup fails when this is missing or equal to `dev-cursor-secret` | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_DATABASE_URL` | (required) | Read registry | [spec 04](../03-specs/04-model-gateway.md) |
+| `AR_DB_OWNER_PASSWORD` | (required) | Password for `ar_owner`. Unset, a placeholder, or the role name is refused. | [rls](../04-data/rls.md) |
+| `AR_DB_APP_PASSWORD` | (required) | Password for `ar_app`, also the user in `AR_DATABASE_URL`. | [rls](../04-data/rls.md) |
+| `AR_DB_PLATFORM_PASSWORD` | (required) | Password for `ar_platform`. | [rls](../04-data/rls.md) |
+| `AR_DB_READONLY_PASSWORD` | (required) | Password for `ar_readonly`. | [rls](../04-data/rls.md) |
 | `AR_DB_ENCRYPTION_ACTIVE_KEY` | `k1` | Active KEK id | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DB_ENCRYPTION_KEYS` | (secret) | KEKs for `db_encrypted` | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DEV_MODEL_BASE_URL` | (empty) | Dev only: `make seed` registers this OpenAI-compatible endpoint instead of `fake-llm` | [local-dev](local-dev.md) |

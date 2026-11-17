@@ -93,11 +93,14 @@ if ! kind load docker-image ar-api:dev ar-runtime:dev ar-mcp-gateway:dev \
   rm -f "${tar}"
 fi
 
+passwords="$(mktemp)"
+uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
 helm upgrade --install agentic-runtime "$chart" \
   --namespace "$namespace" --create-namespace \
   -f "$chart/values-stage9-contract.yaml" \
   -f "$chart/values-airgap.yaml" \
   -f "$chart/values-airgap-kind.yaml" \
+  -f "$passwords" \
   --timeout 15m --no-hooks --wait=false
 
 echo "waiting for the database"
@@ -117,6 +120,7 @@ helm template agentic-runtime "$chart" \
   -f "$chart/values-stage9-contract.yaml" \
   -f "$chart/values-airgap.yaml" \
   -f "$chart/values-airgap-kind.yaml" \
+  -f "$passwords" \
   -s templates/jobs.yaml > /tmp/airgap-jobs.yaml
 python3 - <<'PY'
 from pathlib import Path
@@ -134,10 +138,17 @@ job_logs() {
   kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
 }
 kubectl apply -n "$namespace" -f /tmp/airgap-migrate.yaml
+# The job controller deletes the pod once the backoff limit is hit.
+kubectl -n "$namespace" logs -f job/agentic-runtime-migrate --pod-running-timeout=2m \
+  > /tmp/airgap-migrate.log 2>&1 &
+log_pid=$!
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-migrate --timeout=8m; then
+  wait "$log_pid" || true
+  cat /tmp/airgap-migrate.log || true
   job_logs agentic-runtime-migrate
   exit 1
 fi
+kill "$log_pid" >/dev/null 2>&1 || true
 kubectl apply -n "$namespace" -f /tmp/airgap-bootstrap.yaml
 if ! kubectl -n "$namespace" wait --for=condition=complete job/agentic-runtime-bootstrap --timeout=8m; then
   job_logs agentic-runtime-bootstrap

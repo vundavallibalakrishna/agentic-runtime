@@ -55,7 +55,7 @@ Application calls that must stay open while isolation is on:
 
 The chart sets `AR_PLATFORM_DB_DENY_HOSTS` to `<release>-pg-rw`, `-ro`, `-r` and `-pooler` for CloudNativePG, and to `<release>-postgres` for the StatefulSet. Until every deny name has resolved at least once, customer database dials fail with that reason. A later lookup failure keeps the last addresses. `/readyz` stays ready and lists the miss under `degraded`. The lookup runs off the event loop and times out after two seconds. The gauge `ar_platform_db_deny_unresolved` is 1 while a name is unresolved.
 
-The air-gap overlay sets `postgres.password`. `helm template` fails when `airgap.isolatePlatformDb` or `airgap.lockdown` is on and the password is still the chart default `ar-install-db`. A process whose `AR_DATABASE_URL` still contains that password logs `default_database_password` once at startup. Large, SaaS and external presets use an external database, so combining them with this overlay also requires `postgres.externalCidrs`.
+The chart refuses an empty, placeholder, or role-name database password on every render that creates the install secret, in any case. An external database uses the same keys in `secrets.existingSecret`. Staging and production refuse to start when `AR_DATABASE_URL` still uses one of those passwords. Large, SaaS and external presets use an external database, so combining them with this overlay also requires `postgres.externalCidrs`.
 
 ## Default assistant
 

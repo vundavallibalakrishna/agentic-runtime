@@ -92,7 +92,7 @@ URL_BINDINGS: tuple[UrlBinding, ...] = (
     UrlBinding(
         "AR_DATABASE_URL",
         "AR_PG_HOST_PORT",
-        "postgresql+asyncpg://ar_app:ar_app@localhost:{port}/agentic_runtime",
+        "postgresql+asyncpg://ar_app@localhost:{port}/agentic_runtime",
         "database_url",
     ),
     UrlBinding(

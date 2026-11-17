@@ -29,9 +29,10 @@ spec:
             - name: AR_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) }}
+                  name: {{ include "ar.installSecret" . }}
                   key: AR_DATABASE_URL
                   optional: true
+            {{- include "ar.rolePasswordEnv" . | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -76,9 +77,10 @@ spec:
             - name: AR_DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) }}
+                  name: {{ include "ar.installSecret" . }}
                   key: AR_DATABASE_URL
                   optional: true
+            {{- include "ar.rolePasswordEnv" . | nindent 12 }}
             - name: AR_BOOTSTRAP_TENANT_SLUG
               value: {{ .Values.bootstrap.tenantSlug | quote }}
             - name: AR_BOOTSTRAP_TENANT_NAME
@@ -92,7 +94,7 @@ spec:
             - name: AR_CURSOR_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" .Release.Name) }}
+                  name: {{ include "ar.installSecret" . }}
                   key: AR_CURSOR_SECRET
             - name: AR_BOOTSTRAP_WRITER
               value: "1"

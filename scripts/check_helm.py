@@ -12,6 +12,7 @@ from ar_common.settings import CATALOGUE_ENV
 
 ROOT = Path(__file__).resolve().parents[1]
 CHART = ROOT / "deploy/helm/agentic-runtime"
+PASSWORDS = ROOT / "tests/fixtures/helm-db-passwords.yaml"
 PRESETS = (
     "values-dev.yaml",
     "values-small.yaml",
@@ -25,7 +26,7 @@ PRESETS = (
 
 def template(*extra: str) -> str:
     result = subprocess.run(  # noqa: S603
-        ["helm", "template", "agentic-runtime", str(CHART), *extra],  # noqa: S607
+        ["helm", "template", "agentic-runtime", str(CHART), "-f", str(PASSWORDS), *extra],  # noqa: S607
         check=True,
         capture_output=True,
         text=True,
@@ -52,17 +53,36 @@ def names(rendered: str, kind: str) -> set[str]:
     return found
 
 
+SECRET_PASSWORDS = {
+    "AR_DB_OWNER_PASSWORD",
+    "AR_DB_PLATFORM_PASSWORD",
+    "AR_DB_APP_PASSWORD",
+    "AR_DB_READONLY_PASSWORD",
+}
+
+
 def assert_catalogue(rendered: str) -> None:
     keys: set[str] = set()
+    secret_keys: set[str] = set()
+    created_install_secret = False
     for doc in docs(rendered):
         if doc.get("kind") not in {"ConfigMap", "Secret"}:
             continue
         data = doc.get("data") or doc.get("stringData") or {}
         if isinstance(data, dict):
             keys.update(str(key) for key in data)
-    missing = sorted(CATALOGUE_ENV - keys)
+        meta = doc.get("metadata")
+        name = str(meta.get("name")) if isinstance(meta, dict) else ""
+        if doc.get("kind") == "Secret" and name.endswith("-secrets") and isinstance(data, dict):
+            created_install_secret = True
+            secret_keys.update(str(key) for key in data)
+    missing = sorted((CATALOGUE_ENV - SECRET_PASSWORDS) - keys)
     if missing:
         raise SystemExit("rendered config is missing " + ", ".join(missing))
+    if created_install_secret:
+        absent = sorted(SECRET_PASSWORDS - secret_keys)
+        if absent:
+            raise SystemExit("install secret is missing " + ", ".join(absent))
 
 
 def assert_rollout(rendered: str) -> None:
@@ -113,15 +133,109 @@ def main() -> None:
         raise SystemExit("dev preset must not install RuntimeClass")
     for preset in PRESETS:
         template("-f", str(CHART / preset))
-    assert_fails(["--set", "bootstrap.adminEmail="], "bootstrap.adminEmail")
     assert_fails(
-        ["--set", "global.env=prod", "--set", "sandboxes.driver=docker"], "sandboxes.driver"
+        ["-f", str(PASSWORDS), "--set", "bootstrap.adminEmail="],
+        "bootstrap.adminEmail",
     )
-    assert_fails(["--set", "global.env=prod", "--set", "sandboxes.driver=host"], "must be one of")
-    assert_fails(["--set", "process.shared=false"], "stay at 1")
+    assert_fails(
+        ["-f", str(PASSWORDS), "--set", "secrets.data.AR_DB_OWNER_PASSWORD="],
+        "AR_DB_OWNER_PASSWORD",
+    )
+    assert_fails(
+        ["-f", str(PASSWORDS), "--set", "secrets.data.AR_DB_OWNER_PASSWORD=Ar_Owner"],
+        "AR_DB_OWNER_PASSWORD",
+    )
+    assert_fails(
+        ["-f", str(PASSWORDS), "--set", "secrets.data.AR_DB_APP_PASSWORD=ChangeMe"],
+        "AR_DB_APP_PASSWORD",
+    )
+    assert_roles(default)
+    assert_init_script(dev)
+    again = template()
+    if _role_secret(default, "ar-owner") != _role_secret(again, "ar-owner"):
+        raise SystemExit("role password changed between two renders of the same values")
+    assert_fails(
+        [
+            "-f",
+            str(PASSWORDS),
+            "--set",
+            "global.env=prod",
+            "--set",
+            "sandboxes.driver=docker",
+        ],
+        "sandboxes.driver",
+    )
+    assert_fails(
+        ["-f", str(PASSWORDS), "--set", "global.env=prod", "--set", "sandboxes.driver=host"],
+        "must be one of",
+    )
+    assert_fails(["-f", str(PASSWORDS), "--set", "process.shared=false"], "stay at 1")
     assert_stage6(default)
     assert_stage8(default)
     sys.stdout.write("helm render checks ok\n")
+
+
+def _role_secret(rendered: str, suffix: str) -> str:
+    for doc in docs(rendered):
+        if doc.get("kind") != "Secret":
+            continue
+        meta = doc.get("metadata")
+        name = str(meta.get("name")) if isinstance(meta, dict) else ""
+        if not name.endswith(f"-db-role-{suffix}"):
+            continue
+        data = doc.get("stringData")
+        if isinstance(data, dict):
+            return str(data.get("password"))
+    raise SystemExit(f"missing role secret {suffix}")
+
+
+def assert_init_script(rendered: str) -> None:
+    script = ""
+    for doc in docs(rendered):
+        if doc.get("kind") != "ConfigMap":
+            continue
+        data = doc.get("data")
+        if isinstance(data, dict) and "01-roles.sh" in data:
+            script = str(data["01-roles.sh"])
+    if "NOSUPERUSER" not in script or "BYPASSRLS" not in script:
+        raise SystemExit("statefulset init script does not set the role attributes")
+    if "CREATE EXTENSION IF NOT EXISTS vector" not in script:
+        raise SystemExit("statefulset init script does not install extensions")
+    if "helm-owner-secret" in script or "PASSWORD '" in script:
+        raise SystemExit("statefulset init script contains a password")
+
+
+def assert_roles(rendered: str) -> None:
+    """Application roles are not superuser, and the init script has no password literal."""
+    if "PASSWORD 'ar_" in rendered or "\n        superuser: true" in rendered:
+        raise SystemExit("rendered manifest still has a public superuser role")
+    if "CREATE EXTENSION IF NOT EXISTS vector" not in rendered:
+        raise SystemExit("CloudNativePG init does not install extensions")
+    if "inRoles:" not in rendered:
+        raise SystemExit("CloudNativePG does not keep ar_owner's admin option")
+    roles: dict[str, dict[str, object]] = {}
+    for doc in docs(rendered):
+        if doc.get("kind") != "Cluster":
+            continue
+        spec = doc.get("spec")
+        managed = spec.get("managed", {}) if isinstance(spec, dict) else {}
+        listed = managed.get("roles", []) if isinstance(managed, dict) else []
+        if isinstance(listed, list):
+            for role in listed:
+                if isinstance(role, dict):
+                    roles[str(role.get("name"))] = role
+    if (
+        roles["ar_owner"].get("superuser") is not False
+        or roles["ar_owner"].get("bypassrls") is not True
+    ):
+        raise SystemExit("ar_owner must bypass row security and must not be superuser")
+    if roles["ar_platform"].get("bypassrls") is not True:
+        raise SystemExit("ar_platform must bypass row security")
+    if (
+        roles["ar_app"].get("bypassrls") is not False
+        or roles["ar_readonly"].get("bypassrls") is not False
+    ):
+        raise SystemExit("ar_app and ar_readonly must not bypass row security")
 
 
 def assert_bootstrap_secret(rendered: str) -> None:
@@ -145,8 +259,8 @@ def assert_bootstrap_secret(rendered: str) -> None:
             names_in_env = {
                 str(item.get("name")) for item in env if isinstance(item, dict) and item.get("name")
             }
-            if "AR_CURSOR_SECRET" not in names_in_env:
-                raise SystemExit(f"{name} must receive AR_CURSOR_SECRET")
+            if "AR_CURSOR_SECRET" not in names_in_env or "AR_DB_OWNER_PASSWORD" not in names_in_env:
+                raise SystemExit(f"{name} must receive the cursor secret and the owner password")
 
 
 def assert_stage6(rendered: str) -> None:
