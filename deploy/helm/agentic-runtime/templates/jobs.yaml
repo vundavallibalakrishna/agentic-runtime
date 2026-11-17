@@ -88,8 +88,6 @@ spec:
           env:
             - name: AR_ENV
               value: {{ .Values.global.env | quote }}
-            - name: AR_SCHEMA_WAIT_S
-              value: {{ .Values.temporal.schemaWaitSeconds | quote }}
             - name: AR_DATABASE_URL
               valueFrom:
                 secretKeyRef:

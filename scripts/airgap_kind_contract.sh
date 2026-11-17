@@ -104,12 +104,11 @@ chart_args=(
   -f "$chart/values-stage9-contract.yaml"
   -f "$chart/values-airgap.yaml"
   -f "$chart/values-airgap-kind.yaml"
-  -f "$chart/values-temporal-ha-kind.yaml"
   -f "$passwords"
 )
 dump_hooks() {
   kubectl -n "$namespace" get jobs,pods -o wide || true
-  for job in agentic-runtime-migrate agentic-runtime-temporal-schema agentic-runtime-bootstrap; do
+  for job in agentic-runtime-migrate agentic-runtime-bootstrap; do
     kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
   done
 }
@@ -157,7 +156,7 @@ asyncio.run(main())
   kubectl -n "$namespace" logs -l cnpg.io/podRole=pooler --tail=40 || true
   exit 1
 }
-for deploy in api runtime-worker mcp-gateway sandbox-manager model-gateway fake-llm temporal-frontend temporal-history temporal-matching temporal-worker; do
+for deploy in api runtime-worker mcp-gateway sandbox-manager model-gateway fake-llm temporal; do
   if ! kubectl -n "$namespace" rollout status "deploy/agentic-runtime-${deploy}" --timeout=15m; then
     kubectl -n "$namespace" get pods -o wide || true
     kubectl -n "$namespace" exec "deploy/agentic-runtime-${deploy}" -- \
@@ -179,6 +178,6 @@ helm upgrade agentic-runtime "$chart" \
   "${chart_args[@]}" \
   --timeout 20m --wait=false || { dump_hooks; exit 1; }
 kubectl -n "$namespace" rollout status deploy/agentic-runtime-api --timeout=10m
-kubectl -n "$namespace" rollout status deploy/agentic-runtime-temporal-frontend --timeout=10m
+kubectl -n "$namespace" rollout status deploy/agentic-runtime-temporal --timeout=10m
 bash "$root/scripts/temporal_restart_proof.sh" "$namespace"
 AIRGAP_NAMESPACE="$namespace" uv run python scripts/contract_airgap.py

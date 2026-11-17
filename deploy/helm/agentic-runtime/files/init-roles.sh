@@ -27,19 +27,6 @@ refuse ar_app "${AR_DB_APP_PASSWORD:?AR_DB_APP_PASSWORD is required}"
 refuse ar_readonly "${AR_DB_READONLY_PASSWORD:?AR_DB_READONLY_PASSWORD is required}"
 refuse ar_temporal "${AR_DB_TEMPORAL_PASSWORD:?AR_DB_TEMPORAL_PASSWORD is required}"
 
-export TEMPORAL_DBNAME="${TEMPORAL_DBNAME:-temporal}"
-export TEMPORAL_VISIBILITY_DBNAME="${TEMPORAL_VISIBILITY_DBNAME:-temporal_visibility}"
-identifier() {
-  case $1 in
-    ""|*[!a-z0-9_]*|[0-9]*)
-      echo "temporal database name must be a lowercase identifier" >&2
-      exit 1
-      ;;
-  esac
-}
-identifier "$TEMPORAL_DBNAME"
-identifier "$TEMPORAL_VISIBILITY_DBNAME"
-
 # \getenv reads the process environment. Passwords are not psql argv, so they
 # do not show up in the process list.
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
@@ -48,8 +35,6 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'S
 \getenv app_pw AR_DB_APP_PASSWORD
 \getenv readonly_pw AR_DB_READONLY_PASSWORD
 \getenv temporal_pw AR_DB_TEMPORAL_PASSWORD
-\getenv temporal_db TEMPORAL_DBNAME
-\getenv visibility_db TEMPORAL_VISIBILITY_DBNAME
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS citext;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
@@ -82,14 +67,14 @@ SELECT format(
   END, :'temporal_pw') \gexec
 SELECT format('ALTER DATABASE %I OWNER TO ar_owner', current_database()) \gexec
 SELECT format('GRANT CONNECT ON DATABASE %I TO ar_app, ar_platform, ar_readonly', current_database()) \gexec
-SELECT format('CREATE DATABASE %I OWNER ar_temporal', :'temporal_db')
-WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'temporal_db') \gexec
-SELECT format('ALTER DATABASE %I OWNER TO ar_temporal', :'temporal_db') \gexec
-SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'temporal_db') \gexec
-SELECT format('GRANT ALL ON DATABASE %I TO ar_temporal', :'temporal_db') \gexec
-SELECT format('CREATE DATABASE %I OWNER ar_temporal', :'visibility_db')
-WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'visibility_db') \gexec
-SELECT format('ALTER DATABASE %I OWNER TO ar_temporal', :'visibility_db') \gexec
-SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', :'visibility_db') \gexec
-SELECT format('GRANT ALL ON DATABASE %I TO ar_temporal', :'visibility_db') \gexec
+SELECT 'CREATE DATABASE temporal OWNER ar_temporal'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'temporal') \gexec
+ALTER DATABASE temporal OWNER TO ar_temporal;
+REVOKE ALL ON DATABASE temporal FROM PUBLIC;
+GRANT ALL ON DATABASE temporal TO ar_temporal;
+SELECT 'CREATE DATABASE temporal_visibility OWNER ar_temporal'
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'temporal_visibility') \gexec
+ALTER DATABASE temporal_visibility OWNER TO ar_temporal;
+REVOKE ALL ON DATABASE temporal_visibility FROM PUBLIC;
+GRANT ALL ON DATABASE temporal_visibility TO ar_temporal;
 SQL

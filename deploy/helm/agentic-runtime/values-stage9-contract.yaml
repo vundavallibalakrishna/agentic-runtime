@@ -36,8 +36,6 @@ valkey:
   mode: standalone
 temporal:
   bundled: true
-  ha: false
-  numHistoryShards: 4
   workerVersioning: false
 openbao:
   bundled: false

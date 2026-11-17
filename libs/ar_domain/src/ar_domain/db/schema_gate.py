@@ -1,11 +1,8 @@
 """Apply the application schema once Postgres accepts the owner login.
 
-The migrate Job and each database workload's init container run ``main``.
-A session advisory lock serialises concurrent upgrades. ``/readyz`` calls
-``assert_schema_current`` so a process does not serve an old schema.
-
-Failures name the error type. The database URL and the role passwords are
-removed from anything written to stderr.
+The migrate Job runs ``main``. ``/readyz`` calls ``assert_schema_current`` so a
+process does not serve an old schema. Failures name the error type. The
+database URL and the role passwords are removed from anything written to stderr.
 """
 
 from __future__ import annotations
@@ -23,7 +20,6 @@ from sqlalchemy.pool import NullPool
 from ar_common.database_roles import PASSWORD_ENV
 from ar_domain.db.engine import owner_database_url
 
-_LOCK_KEY = 872641
 _DEFAULT_WAIT_S = 600.0
 
 
@@ -65,16 +61,14 @@ async def assert_schema_current(url: str) -> None:
 
 
 def main() -> None:
-    """Wait for the owner login, then upgrade to head under the advisory lock."""
+    """Wait for the owner login, then upgrade to head."""
     url = os.environ.get("AR_DATABASE_URL", "").strip()
     if not url:
         sys.stderr.write("schema gate: AR_DATABASE_URL is unset\n")
         raise SystemExit(1)
-    wait_s = _wait_seconds()
     try:
-        _wait_until_ready(url, wait_s)
-        _upgrade_locked(url)
-        assert_schema_current_sync(url)
+        _wait_until_ready(url, _wait_seconds())
+        _run_alembic()
     except SystemExit:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -113,21 +107,6 @@ def _wait_until_ready(url: str, wait_s: float) -> None:
         return
     sys.stderr.write(f"schema gate: database was not ready: {last[:300]}\n")
     raise SystemExit(1)
-
-
-def _upgrade_locked(url: str) -> None:
-    engine = create_engine(_sync_url(url), poolclass=NullPool)
-    try:
-        with engine.connect() as connection:
-            connection.execute(text("SELECT pg_advisory_lock(:key)"), {"key": _LOCK_KEY})
-            connection.commit()
-            try:
-                _run_alembic()
-            finally:
-                connection.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": _LOCK_KEY})
-                connection.commit()
-    finally:
-        engine.dispose()
 
 
 def _run_alembic() -> None:

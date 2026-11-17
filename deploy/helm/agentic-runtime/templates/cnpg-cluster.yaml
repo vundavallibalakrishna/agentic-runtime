@@ -66,8 +66,8 @@ spec:
         - CREATE EXTENSION IF NOT EXISTS pg_trgm
         - CREATE EXTENSION IF NOT EXISTS vector
         - CREATE EXTENSION IF NOT EXISTS btree_gin
-        - CREATE DATABASE {{ .Values.temporal.database }} OWNER ar_temporal
-        - CREATE DATABASE {{ .Values.temporal.visibilityDatabase }} OWNER ar_temporal
+        - CREATE DATABASE temporal OWNER ar_temporal
+        - CREATE DATABASE temporal_visibility OWNER ar_temporal
         - CREATE DATABASE langfuse
   managed:
     roles:
@@ -217,10 +217,6 @@ spec:
                 secretKeyRef:
                   name: {{ include "ar.installSecret" . }}
                   key: AR_DB_TEMPORAL_PASSWORD
-            - name: TEMPORAL_DBNAME
-              value: {{ .Values.temporal.database | quote }}
-            - name: TEMPORAL_VISIBILITY_DBNAME
-              value: {{ .Values.temporal.visibilityDatabase | quote }}
           readinessProbe:
             tcpSocket:
               port: 5432

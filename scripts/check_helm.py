@@ -424,48 +424,38 @@ def assert_core(ha: str, dev: str) -> None:
     assert_migrate_order(ha)
 
 
-def assert_temporal(ha: str, dev: str) -> None:
-    """Bundled Temporal, HA or not, persists to Postgres. SQLite is not a chart mode."""
-    for rendered, shards in ((ha, "512"), (dev, "4")):
+def assert_temporal(default: str, dev: str) -> None:
+    """The chart runs one Temporal server on Postgres. SQLite is not a chart mode."""
+    for rendered in (default, dev):
         if "start-dev" in rendered or "temporal.db" in rendered:
             raise SystemExit("chart Temporal must not use the SQLite dev server")
         servers = [
             doc
             for doc in docs(rendered)
             if doc.get("kind") == "Deployment"
-            and str((doc.get("metadata") or {}).get("name", "")).find("-temporal") >= 0
+            and str((doc.get("metadata") or {}).get("name", "")).endswith("-temporal")
         ]
-        if not servers:
-            raise SystemExit("temporal deployment missing")
-        for doc in servers:
-            pod = _pod_spec(doc)
-            containers = pod.get("containers")
-            if not isinstance(containers, list) or not containers:
-                raise SystemExit("temporal pod has no server container")
-            present = _env_names(containers[0])
-            required_env = (
-                "DB",
-                "POSTGRES_SEEDS",
-                "POSTGRES_PWD",
-                "NUM_HISTORY_SHARDS",
-                "DBNAME",
-            )
-            for required in required_env:
-                if required not in present:
-                    raise SystemExit(f"temporal pod is missing {required}")
-            shard_value = _env_value(containers[0], "NUM_HISTORY_SHARDS")
-            if shard_value != shards:
-                raise SystemExit(f"NUM_HISTORY_SHARDS is {shard_value}, expected {shards}")
-            inits = pod.get("initContainers")
-            init_names = (
-                {str(item.get("name")) for item in inits if isinstance(item, dict)}
-                if isinstance(inits, list)
-                else set()
-            )
-            if "temporal-schema" not in init_names or "ensure-temporal-db" not in init_names:
-                raise SystemExit("temporal pod does not set up its schema before serving")
-        if not any(name.endswith("-temporal-schema") for name in names(rendered, "Job")):
-            raise SystemExit("temporal schema job missing")
+        if len(servers) != 1:
+            raise SystemExit("chart must run one Temporal deployment")
+        pod = _pod_spec(servers[0])
+        containers = pod.get("containers")
+        server = containers[0] if isinstance(containers, list) and containers else None
+        if not isinstance(server, dict):
+            raise SystemExit("temporal pod has no server container")
+        present = _env_names(server)
+        for required in ("DB", "POSTGRES_SEEDS", "POSTGRES_PWD", "NUM_HISTORY_SHARDS", "DBNAME"):
+            if required not in present:
+                raise SystemExit(f"temporal pod is missing {required}")
+        if _env_value(server, "NUM_HISTORY_SHARDS") != "4":
+            raise SystemExit("NUM_HISTORY_SHARDS default is 4")
+        inits = pod.get("initContainers")
+        init_names = (
+            {str(item.get("name")) for item in inits if isinstance(item, dict)}
+            if isinstance(inits, list)
+            else set()
+        )
+        if "temporal-schema" not in init_names:
+            raise SystemExit("temporal pod does not set up its schema before serving")
 
 
 def _env_value(container: dict[str, object], key: str) -> str:
@@ -549,14 +539,6 @@ def assert_migrate_order(rendered: str) -> None:
             command = containers[0].get("command")
         if not isinstance(command, list) or "ar_domain.db.schema_gate" not in command:
             raise SystemExit("migrate does not wait for the database before upgrading")
-        inits = [
-            doc
-            for doc in docs(rendered)
-            if doc.get("kind") == "Deployment"
-            and "schema" in str(_pod_spec(doc).get("initContainers"))
-        ]
-        if not inits:
-            raise SystemExit("workloads do not wait for the schema before serving")
     if not found:
         raise SystemExit("migrate job missing")
 

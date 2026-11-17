@@ -63,7 +63,6 @@ uv run python "$root/scripts/write_helm_passwords.py" "$passwords"
 chart_args=(
   -f deploy/helm/agentic-runtime/values-dev.yaml
   -f deploy/helm/agentic-runtime/values-stage9-contract.yaml
-  -f deploy/helm/agentic-runtime/values-temporal-ha-kind.yaml
   -f "$passwords"
 )
 echo "pulling the pinned Temporal images"
@@ -72,7 +71,7 @@ docker pull temporalio/admin-tools:1.32.1
 kind load docker-image temporalio/server:1.32.1 temporalio/admin-tools:1.32.1 --name "$name" || true
 dump_hooks() {
   kubectl -n "$namespace" get jobs,pods -o wide || true
-  for job in agentic-runtime-migrate agentic-runtime-temporal-schema agentic-runtime-bootstrap; do
+  for job in agentic-runtime-migrate agentic-runtime-bootstrap; do
     kubectl -n "$namespace" logs "job/${job}" --tail=200 || true
   done
 }
@@ -100,9 +99,7 @@ rollout() {
 }
 rollout agentic-runtime-api
 rollout agentic-runtime-runtime-worker
-for component in frontend history matching worker; do
-  rollout "agentic-runtime-temporal-${component}"
-done
+rollout agentic-runtime-temporal
 kubectl -n "$namespace" get deploy agentic-runtime-mcp-gateway agentic-runtime-sandbox-manager
 
 echo "upgrading the same release"
@@ -112,7 +109,7 @@ helm upgrade agentic-runtime deploy/helm/agentic-runtime \
   --timeout 20m --wait=false || { dump_hooks; exit 1; }
 rollout agentic-runtime-api
 rollout agentic-runtime-runtime-worker
-rollout agentic-runtime-temporal-frontend
+rollout agentic-runtime-temporal
 bash "$root/scripts/temporal_restart_proof.sh" "$namespace"
 
 uv run python scripts/contract_stage9.py --namespace "$namespace"

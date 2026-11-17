@@ -13,7 +13,6 @@ valkey:
   mode: standalone
 temporal:
   bundled: true
-  ha: false
   workerVersioning: true
 monitoring:
   enabled: false

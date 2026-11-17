@@ -17,7 +17,6 @@ valkey:
   mode: sentinel
 temporal:
   bundled: true
-  ha: true
   workerVersioning: true
 qdrant:
   enabled: false

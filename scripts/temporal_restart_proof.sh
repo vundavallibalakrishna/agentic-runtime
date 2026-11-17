@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
-# Show a Temporal workflow is still there after a history pod is replaced.
-# The workflow is one Temporal itself runs in the temporal-system namespace,
-# stored in Postgres. Proof label: contract.
+# One Temporal server on Postgres. A system workflow is still there after the pod restarts.
 set -euo pipefail
 namespace="${1:?namespace}"
-frontend="agentic-runtime-temporal-frontend"
-history="agentic-runtime-temporal-history"
+deploy="agentic-runtime-temporal"
 
-frontend_exec() {
-  kubectl -n "$namespace" exec "deploy/${frontend}" -- "$@"
+exec_temporal() {
+  kubectl -n "$namespace" exec "deploy/${deploy}" -- "$@"
 }
 
 echo "waiting for a temporal-system workflow"
 workflow_id=""
 for _ in $(seq 1 36); do
-  raw="$(frontend_exec temporal --address 127.0.0.1:7233 workflow list \
+  raw="$(exec_temporal temporal --address 127.0.0.1:7233 workflow list \
     --namespace temporal-system --limit 20 --output json 2>/dev/null || true)"
   workflow_id="$(printf '%s' "$raw" | python3 -c '
 import json, sys
@@ -42,17 +39,16 @@ for row in rows:
 done
 if [ -z "$workflow_id" ]; then
   echo "no temporal-system workflow was listed" >&2
-  frontend_exec temporal --address 127.0.0.1:7233 workflow list --namespace temporal-system --limit 5 || true
+  exec_temporal temporal --address 127.0.0.1:7233 workflow list --namespace temporal-system --limit 5 || true
   exit 1
 fi
-echo "workflow ${workflow_id}"
 
-pod="$(kubectl -n "$namespace" get pods -l app.kubernetes.io/component=history -o jsonpath='{.items[0].metadata.name}')"
+pod="$(kubectl -n "$namespace" get pods -l app.kubernetes.io/name=temporal -o jsonpath='{.items[0].metadata.name}')"
 echo "restarting ${pod}"
 kubectl -n "$namespace" delete "pod/${pod}" --wait=false
-kubectl -n "$namespace" rollout status "deploy/${history}" --timeout=10m
-frontend_exec temporal --address 127.0.0.1:7233 operator cluster health
-described="$(frontend_exec temporal --address 127.0.0.1:7233 workflow describe \
+kubectl -n "$namespace" rollout status "deploy/${deploy}" --timeout=10m
+exec_temporal temporal --address 127.0.0.1:7233 operator cluster health
+described="$(exec_temporal temporal --address 127.0.0.1:7233 workflow describe \
   --namespace temporal-system --workflow-id "$workflow_id")"
 printf '%s\n' "$described" | grep -q "$workflow_id"
-echo "workflow survived the history restart"
+echo "workflow survived the restart"

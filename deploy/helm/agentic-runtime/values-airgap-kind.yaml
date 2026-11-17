@@ -30,8 +30,6 @@ airgap:
     - agentic-runtime-temporal
     - agentic-runtime-sandbox-manager
 temporal:
-  ha: false
-  numHistoryShards: 4
   workerVersioning: false
 valkey:
   mode: standalone

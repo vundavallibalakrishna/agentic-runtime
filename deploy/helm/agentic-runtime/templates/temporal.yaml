@@ -1,22 +1,12 @@
-{{- if not (regexMatch "^[a-z_][a-z0-9_]{0,62}$" (.Values.temporal.database | toString)) }}
-{{- fail "temporal.database must be a lowercase identifier" }}
-{{- end }}
-{{- if not (regexMatch "^[a-z_][a-z0-9_]{0,62}$" (.Values.temporal.visibilityDatabase | toString)) }}
-{{- fail "temporal.visibilityDatabase must be a lowercase identifier" }}
-{{- end }}
 {{- if .Values.temporal.bundled }}
 {{- $shards := .Values.temporal.numHistoryShards | int }}
 {{- if lt $shards 1 }}
 {{- fail "temporal.numHistoryShards must be a positive integer. It is fixed for the life of the cluster." }}
 {{- end }}
-{{- $plugin := .Values.temporal.persistence.plugin | toString }}
-{{- if not (or (eq $plugin "postgres12") (eq $plugin "postgres12_pgx")) }}
-{{- fail "temporal.persistence.plugin must be postgres12 or postgres12_pgx" }}
 {{- end }}
-{{- end }}
-{{- define "ar.temporalPersistenceEnv" -}}
+{{- define "ar.temporalEnv" -}}
 - name: DB
-  value: {{ .Values.temporal.persistence.plugin | quote }}
+  value: postgres12
 - name: DB_PORT
   value: {{ include "ar.temporalDbPort" . | trim | quote }}
 - name: POSTGRES_SEEDS
@@ -29,235 +19,41 @@
       name: {{ include "ar.installSecret" . }}
       key: AR_DB_TEMPORAL_PASSWORD
 - name: DBNAME
-  value: {{ .Values.temporal.database | quote }}
+  value: temporal
 - name: VISIBILITY_DBNAME
-  value: {{ .Values.temporal.visibilityDatabase | quote }}
+  value: temporal_visibility
 - name: NUM_HISTORY_SHARDS
   value: {{ .Values.temporal.numHistoryShards | quote }}
 - name: BIND_ON_IP
   value: "0.0.0.0"
+- name: SERVICES
+  value: frontend,history,matching,worker
 - name: TEMPORAL_ADDRESS
   value: {{ printf "%s-temporal:7233" .Release.Name | quote }}
 - name: TEMPORAL_NAMESPACE
   value: {{ .Values.temporal.namespace | quote }}
-- name: TEMPORAL_NAMESPACE_RETENTION
-  value: {{ .Values.temporal.namespaceRetention | quote }}
-- name: SQL_TLS_ENABLED
-  value: {{ .Values.temporal.persistence.tls | quote }}
-- name: TEMPORAL_SCHEMA_DIR
-  value: {{ .Values.temporal.persistence.schemaDir | quote }}
-- name: TEMPORAL_VISIBILITY_SCHEMA_DIR
-  value: {{ .Values.temporal.persistence.visibilitySchemaDir | quote }}
-- name: TEMPORAL_DBNAME
-  value: {{ .Values.temporal.database | quote }}
-- name: TEMPORAL_VISIBILITY_DBNAME
-  value: {{ .Values.temporal.visibilityDatabase | quote }}
-- name: AR_SCHEMA_WAIT_S
-  value: {{ .Values.temporal.schemaWaitSeconds | quote }}
-{{- end }}
-{{- define "ar.temporalEnsureEnv" -}}
-- name: AR_SCHEMA_WAIT_S
-  value: {{ .Values.temporal.schemaWaitSeconds | quote }}
-- name: TEMPORAL_DBNAME
-  value: {{ .Values.temporal.database | quote }}
-- name: TEMPORAL_VISIBILITY_DBNAME
-  value: {{ .Values.temporal.visibilityDatabase | quote }}
-- name: POSTGRES_HOST
-  value: {{ include "ar.temporalDbSeed" . | trim | quote }}
-- name: POSTGRES_PORT
-  value: {{ include "ar.temporalDbPort" . | trim | quote }}
-- name: AR_DB_TEMPORAL_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: {{ include "ar.installSecret" . }}
-      key: AR_DB_TEMPORAL_PASSWORD
-{{- if .Values.postgres.bundled }}
-- name: AR_TEMPORAL_ENSURE
-  value: superuser
-- name: POSTGRES_DB
-  value: postgres
-- name: POSTGRES_USER
-  valueFrom:
-    secretKeyRef:
-      name: {{ printf "%s-pg-superuser" .Release.Name }}
-      key: username
-- name: POSTGRES_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: {{ printf "%s-pg-superuser" .Release.Name }}
-      key: password
-{{- else }}
-- name: AR_TEMPORAL_ENSURE
-  value: check
-{{- end }}
-{{- end }}
-{{- define "ar.temporalPodSpec" -}}
-{{- $root := index . 0 -}}
-{{- $services := index . 1 -}}
-{{- $port := index . 2 -}}
-{{- $register := index . 3 -}}
-automountServiceAccountToken: false
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
-  fsGroup: 1000
-  seccompProfile:
-    type: RuntimeDefault
-initContainers:
-  - name: ensure-temporal-db
-    image: {{ include "ar.thirdPartyImage" (list $root "ar-migrate" $root.Values.global.imageTag) }}
-    command: ["python", "-m", "ar_domain.db.ensure_temporal_db"]
-    env:
-      {{- include "ar.temporalEnsureEnv" $root | nindent 6 }}
-    securityContext:
-      runAsNonRoot: true
-      runAsUser: 10001
-      runAsGroup: 10001
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop: ["ALL"]
-    volumeMounts:
-      - name: tmp
-        mountPath: /tmp
-  - name: temporal-schema
-    image: {{ include "ar.thirdPartyImage" (list $root $root.Values.temporal.adminImage.repository $root.Values.temporal.adminImage.tag) }}
-    command: ["/bin/sh", "/etc/temporal/scripts/schema.sh"]
-    env:
-      {{- include "ar.temporalPersistenceEnv" $root | nindent 6 }}
-    securityContext:
-      allowPrivilegeEscalation: false
-      readOnlyRootFilesystem: true
-      capabilities:
-        drop: ["ALL"]
-    volumeMounts:
-      - name: scripts
-        mountPath: /etc/temporal/scripts
-      - name: tmp
-        mountPath: /tmp
-containers:
-  - name: temporal
-    image: {{ include "ar.thirdPartyImage" (list $root $root.Values.temporal.image.repository $root.Values.temporal.image.tag) }}
-    command: ["/bin/bash", "/etc/temporal/scripts/start.sh"]
-    ports:
-      - name: rpc
-        containerPort: {{ $port }}
-    env:
-      {{- include "ar.temporalPersistenceEnv" $root | nindent 6 }}
-      - name: SERVICES
-        value: {{ $services | quote }}
-      - name: REGISTER_NAMESPACE
-        value: {{ $register | quote }}
-    readinessProbe:
-      tcpSocket:
-        port: rpc
-      initialDelaySeconds: 5
-      periodSeconds: 5
-      failureThreshold: 36
-    livenessProbe:
-      tcpSocket:
-        port: rpc
-      initialDelaySeconds: 40
-      periodSeconds: 10
-      failureThreshold: 6
-    resources:
-      {{- toYaml $root.Values.temporal.resources | nindent 6 }}
-    securityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop: ["ALL"]
-    volumeMounts:
-      - name: scripts
-        mountPath: /etc/temporal/scripts
-      - name: tmp
-        mountPath: /tmp
-volumes:
-  - name: tmp
-    emptyDir: {}
-  - name: scripts
-    configMap:
-      name: {{ $root.Release.Name }}-temporal-scripts
-      defaultMode: 0555
 {{- end }}
 {{- if .Values.temporal.bundled }}
-{{- $components := list }}
-{{- if .Values.temporal.ha }}
-{{- $components = list
-  (dict "name" "frontend" "replicas" (.Values.temporal.replicas.frontend | int) "port" 7233 "services" "frontend" "register" "true")
-  (dict "name" "history" "replicas" (.Values.temporal.replicas.history | int) "port" 7234 "services" "history" "register" "false")
-  (dict "name" "matching" "replicas" (.Values.temporal.replicas.matching | int) "port" 7235 "services" "matching" "register" "false")
-  (dict "name" "worker" "replicas" (.Values.temporal.replicas.worker | int) "port" 7239 "services" "worker" "register" "false")
-}}
-{{- else }}
-{{- $components = list (dict "name" "all" "replicas" 1 "port" 7233 "services" "frontend,history,matching,worker" "register" "true") }}
-{{- end }}
-{{- range $component := $components }}
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata:
-  name: {{ $.Release.Name }}-temporal{{ if ne $component.name "all" }}-{{ $component.name }}{{ end }}
-  labels:
-    app.kubernetes.io/name: temporal
-    app.kubernetes.io/component: {{ $component.name }}
-    app.kubernetes.io/instance: {{ $.Release.Name }}
-spec:
-  replicas: {{ $component.replicas }}
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: temporal
-      app.kubernetes.io/component: {{ $component.name }}
-      app.kubernetes.io/instance: {{ $.Release.Name }}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: temporal
-        app.kubernetes.io/component: {{ $component.name }}
-        app.kubernetes.io/instance: {{ $.Release.Name }}
-    spec:
-      {{- include "ar.temporalPodSpec" (list $ $component.services $component.port $component.register) | nindent 6 }}
-{{- end }}
----
-apiVersion: v1
-kind: Service
 metadata:
   name: {{ .Release.Name }}-temporal
   labels:
     app.kubernetes.io/name: temporal
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
+  replicas: 1
   selector:
-    app.kubernetes.io/name: temporal
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: {{ ternary "frontend" "all" .Values.temporal.ha }}
-  ports:
-    - name: grpc
-      port: 7233
-      targetPort: rpc
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{ .Release.Name }}-temporal-schema
-  labels:
-    app.kubernetes.io/name: temporal
-    app.kubernetes.io/component: schema
-    app.kubernetes.io/instance: {{ .Release.Name }}
-  annotations:
-    helm.sh/hook: post-install,post-upgrade
-    helm.sh/hook-weight: "0"
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
-spec:
-  backoffLimit: 6
+    matchLabels:
+      app.kubernetes.io/name: temporal
+      app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: temporal
-        app.kubernetes.io/component: schema
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
-      restartPolicy: OnFailure
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -267,33 +63,42 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       initContainers:
-        - name: ensure-temporal-db
-          image: {{ include "ar.thirdPartyImage" (list . "ar-migrate" .Values.global.imageTag) }}
-          command: ["python", "-m", "ar_domain.db.ensure_temporal_db"]
+        - name: temporal-schema
+          image: {{ include "ar.thirdPartyImage" (list . .Values.temporal.adminImage.repository .Values.temporal.adminImage.tag) }}
+          command: ["/bin/sh", "/etc/temporal/scripts/schema.sh"]
           env:
-            {{- include "ar.temporalEnsureEnv" . | nindent 12 }}
+            {{- include "ar.temporalEnv" . | nindent 12 }}
           securityContext:
-            runAsNonRoot: true
-            runAsUser: 10001
-            runAsGroup: 10001
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           volumeMounts:
+            - name: scripts
+              mountPath: /etc/temporal/scripts
             - name: tmp
               mountPath: /tmp
       containers:
-        - name: temporal-schema
-          image: {{ include "ar.thirdPartyImage" (list . .Values.temporal.adminImage.repository .Values.temporal.adminImage.tag) }}
-          command: ["/bin/sh", "/etc/temporal/scripts/schema.sh"]
+        - name: temporal
+          image: {{ include "ar.thirdPartyImage" (list . .Values.temporal.image.repository .Values.temporal.image.tag) }}
+          command: ["/bin/bash", "/etc/temporal/scripts/start.sh"]
+          ports:
+            - name: rpc
+              containerPort: 7233
           env:
-            - name: AR_ENV
-              value: {{ .Values.global.env | quote }}
-            {{- include "ar.temporalPersistenceEnv" . | nindent 12 }}
+            {{- include "ar.temporalEnv" . | nindent 12 }}
+          readinessProbe:
+            tcpSocket:
+              port: rpc
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            tcpSocket:
+              port: rpc
+            initialDelaySeconds: 30
+            periodSeconds: 10
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           volumeMounts:
@@ -308,4 +113,20 @@ spec:
           configMap:
             name: {{ .Release.Name }}-temporal-scripts
             defaultMode: 0555
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-temporal
+  labels:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: grpc
+      port: 7233
+      targetPort: rpc
 {{- end }}

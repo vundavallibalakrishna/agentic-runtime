@@ -130,41 +130,18 @@ def _require_attributes(connection: Connection) -> None:
                 raise RuntimeError(message)
 
 
-def temporal_database_names() -> tuple[str, str]:
-    """The persistence and visibility database names, from the environment when set."""
-    import os  # noqa: PLC0415
-
-    database = os.environ.get("TEMPORAL_DBNAME", "").strip() or TEMPORAL_DATABASE
-    visibility = (
-        os.environ.get("TEMPORAL_VISIBILITY_DBNAME", "").strip() or TEMPORAL_VISIBILITY_DATABASE
-    )
-    _identifier(database)
-    _identifier(visibility)
-    return database, visibility
-
-
 def ensure_temporal_databases(connection: Connection) -> None:
-    """Create ``ar_temporal`` and its databases. The connection must be the superuser.
+    """Create ``ar_temporal`` and its two databases. The connection is the superuser.
 
     ``CREATE DATABASE`` cannot run inside a transaction. Callers pass an
-    autocommit connection. The password is bound as a parameter and is not
-    interpolated into the statement text by this function.
+    autocommit connection.
     """
     _create_or_alter(connection, "ar_temporal")
-    database, visibility = temporal_database_names()
-    for name in (database, visibility):
+    for name in (TEMPORAL_DATABASE, TEMPORAL_VISIBILITY_DATABASE):
         _ensure_database(connection, name)
 
 
-def _identifier(name: str) -> None:
-    letters = set("abcdefghijklmnopqrstuvwxyz0123456789_")
-    if not name or name[0].isdigit() or any(character not in letters for character in name):
-        message = "temporal database name must be a lowercase identifier"
-        raise RuntimeError(message)
-
-
 def _ensure_database(connection: Connection, name: str) -> None:
-    _identifier(name)
     exists = connection.execute(
         text("SELECT 1 FROM pg_database WHERE datname = :name"),
         {"name": name},
