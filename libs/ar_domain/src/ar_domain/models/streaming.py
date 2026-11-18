@@ -121,7 +121,8 @@ class Coalescer:
         self._send = send
         self._window = coalesce_window_s() if window_s is None else window_s
         self._waiting: list[str] = []
-        self._last = 0.0
+        # No piece has been sent yet, so the first one goes at once whatever the clock reads.
+        self._last = float("-inf")
         self.sent = False
 
     def feed(self, piece: str) -> None:
