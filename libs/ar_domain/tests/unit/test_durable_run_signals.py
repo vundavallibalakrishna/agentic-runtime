@@ -356,6 +356,9 @@ def test_signal_and_budget_without_a_running_loop(monkeypatch: pytest.MonkeyPatc
     chat = workflow_payload(store, {"agent_version_id": uuid.uuid4()}, run_id, "hi")
     assert chat["history_steps"] == 24
     assert chat["wait_s"] == 86400
+    # Activities, not model calls: the default budget is 8 model calls and 8 tool calls,
+    # and a tool call that waits for approval takes one more activity.
+    assert chat["max_steps"] == 8 + 2 * 8
     from ar_domain.tools.resume import _approval_row, _resume, apply_decision, settle_approval
 
     settle_approval(store, {"id": uuid.uuid4(), "run_id": uuid.uuid4(), "status": "approved"})

@@ -22,7 +22,11 @@ def workflow_id(run_id: object) -> str:
 
 
 def workflow_payload(store: object, run: object, run_id: uuid.UUID, text: str) -> dict[str, object]:
-    """What the worker needs. Step caps come from the run budget and install settings."""
+    """What the worker needs. Step caps come from the run budget and install settings.
+
+    ``max_steps`` here is how many activities the workflow may run, not the budget's count
+    of model calls: see ``_max_steps``.
+    """
     payload: dict[str, object] = {
         "run_id": str(run_id),
         "steps": True,
@@ -118,7 +122,12 @@ def _max_steps(store: object, run: object, text: str) -> int:
     from ar_domain.tools.agent_loop import read_budget  # noqa: PLC0415
 
     budget = read_budget(definition, run if isinstance(run, dict) else None)
-    return max(1, int(budget["max_steps"]))
+    # The workflow counts activities, and a model call and a tool call are one each. The
+    # budget counts them apart: max_steps model calls and max_tool_calls tool calls, and a
+    # tool call that waits for approval takes one more activity to resume. The loop stops
+    # the run on its own budget and says which limit was reached; this is the outer bound
+    # that lets it get there.
+    return max(1, int(budget["max_steps"]) + 2 * int(budget["max_tool_calls"]))
 
 
 def _setting(name: str, default: int) -> int:
