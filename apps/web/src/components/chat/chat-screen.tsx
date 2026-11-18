@@ -32,8 +32,9 @@ import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
+import { api, isRateLimited } from "@/lib/api";
 import { chatAliases } from "@/lib/model-aliases";
+import { loadSession } from "@/lib/session";
 import { LATE_MEMORY_WAITS_MS, lateMemoryEvents } from "@/lib/stream/late";
 import {
   shouldResumeStatus,
@@ -128,7 +129,7 @@ export function ChatScreen() {
     setLoading(true);
     setLoadError("");
     try {
-      const me = await api<Session>("/api/v1/auth/session");
+      const me = await loadSession();
       void api<{ mimeTypes: string[] }>("/api/v1/files:limits")
         .then((limits) => setAccept((limits.mimeTypes ?? []).join(",")))
         .catch(() => setAccept(""));
@@ -173,7 +174,13 @@ export function ChatScreen() {
         }
       }
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : t("error"));
+      setLoadError(
+        isRateLimited(error)
+          ? t("rateLimited")
+          : error instanceof Error
+            ? error.message
+            : t("error"),
+      );
     } finally {
       setLoading(false);
     }
@@ -736,7 +743,7 @@ export function ChatScreen() {
             <div className="sr-only" aria-atomic="false" aria-live="polite">
               {live ? `${t("streaming")}. ${live}` : ""}
             </div>
-            {loading ? (
+            {loading && !loadError ? (
               <div aria-busy="true" className="mx-auto w-full max-w-2xl space-y-3 px-6 py-8">
                 <p className="sr-only">{t("loading")}</p>
                 <Skeleton className="h-4 w-2/3" />

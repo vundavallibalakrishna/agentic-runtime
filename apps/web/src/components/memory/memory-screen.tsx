@@ -12,7 +12,8 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, type Session } from "@/lib/api";
+import { api } from "@/lib/api";
+import { loadSession } from "@/lib/session";
 
 type Fact = {
   id: string;
@@ -52,7 +53,7 @@ export function MemoryScreen() {
   useEffect(() => {
     setAdvanced(window.localStorage.getItem(MODE_KEY) === "advanced");
     // The organisation's settings are shown to someone who may change them.
-    void api<Session>("/api/v1/auth/session")
+    void loadSession()
       .then((session) => setCanManageTenant((session.permissions ?? []).includes("tenant:manage")))
       .catch(() => setCanManageTenant(false));
   }, []);

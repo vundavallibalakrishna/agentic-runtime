@@ -6,9 +6,9 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { loadSession } from "@/lib/session";
 
 type Tenant = { settings?: { egressAllowlist?: string[] } };
-type Session = { permissions?: string[] };
 
 /**
  * The hosts the organisation's tools may reach. A host that is not listed is refused
@@ -27,7 +27,7 @@ export function WebAccess() {
   const load = useCallback(async () => {
     setLoadError("");
     try {
-      const session = await api<Session>("/api/v1/auth/session");
+      const session = await loadSession();
       setCanManage((session.permissions ?? []).includes("tenant:manage"));
       const tenant = await api<Tenant>("/api/v1/tenant");
       setHosts(tenant.settings?.egressAllowlist ?? []);

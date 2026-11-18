@@ -16,7 +16,7 @@ Promotion: the same image digests move `ci → staging → prod`; only values di
 - All backend configuration is environment variables with prefix `AR_`, loaded by one `pydantic-settings` class per deployable that composes shared fragments from `ar_common.settings` (`DatabaseSettings`, `ValkeySettings`, `TemporalSettings`, `TelemetrySettings`, `S3Settings`, `SecretsSettings`, `InternalAuthSettings`). Unknown `AR_` variables log a warning at startup; missing required variables fail startup with a list of all missing names.
 - Secrets (keys, passwords, tokens) come from Kubernetes Secrets (Helm `existingSecret` references) or files (`AR_*_FILE` variant accepted for every secret variable: the value is read from that path).
 - Tenant-level behaviour is **not** configured by env vars; it lives in `tenants.settings` ([spec 02](../03-specs/02-identity-tenancy.md)). Env vars are platform/operator knobs.
-- The web app reads only `AR_PUBLIC_URL`, `AR_API_INTERNAL_URL` and `NEXT_PUBLIC_*` build-time values ([spec 19](../03-specs/19-web-app.md)).
+- The web app reads only `AR_PUBLIC_URL`, `AR_API_INTERNAL_URL`, `AR_SESSION_GATE_TTL_S` and `NEXT_PUBLIC_*` build-time values ([spec 19](../03-specs/19-web-app.md)).
 - `.env.example` at the repo root lists every variable. CI checks it against this catalogue (`scripts/check_env_catalogue.py`). Compose is the install ([compose](compose.md)).
 
 ## 3. Variable catalogue
@@ -159,6 +159,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SECRET_CACHE_TTL_S` | `60` | In-process cache | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_SESSION_ENCRYPTION_KEY` | (secret, 32 bytes b64) | Encrypt tokens stored in sessions | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_SESSION_ENCRYPTION_KEY_PREVIOUS` | (empty) | Previous session key accepted for decryption during rotation | [secrets](../06-security/secrets.md) |
+| `AR_SESSION_GATE_TTL_S` | `15` | How long the web session gate reuses one confirmed session. A prefetch does not start a session call | [spec 19](../03-specs/19-web-app.md) |
 | `AR_SESSION_MAX_AGE_S` | `604800` | Absolute session max | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_SESSION_TTL_S` | `43200` | Sliding session TTL | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_AUTH_MODE` | empty (`password` in dev and ci, `oidc` otherwise) | `password` or `oidc`. Password is not the Helm default | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |

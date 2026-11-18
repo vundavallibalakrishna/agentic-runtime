@@ -4,7 +4,8 @@ Deployable `web` (`apps/web`, package `@ar/web`, port 3000): Next.js 16 App Rout
 
 ## 1. Architecture
 
-- **Routing/rendering**: App Router with route groups `(auth)`, `(app)`, `(admin)`, `(platform)`, `widget`. Pages are React Server Components only for the shell/layout and static parts; data-heavy views are client components using TanStack Query. No server-side data fetching with user credentials except `GET /api/v1/auth/session` in the root layout (forwarding the cookie) to decide redirects and render the shell.
+- **Routing/rendering**: App Router with route groups `(auth)`, `(app)`, `(admin)`, `(platform)`, `widget`. Pages are React Server Components only for the shell/layout and static parts; data-heavy views are client components using TanStack Query. No server-side data fetching with user credentials except the session gate in `src/proxy.ts`.
+- **Session gate**: a workspace request with no `ar_session` cookie is redirected to `/login`. A request that carries one is confirmed with `GET /api/v1/auth/session` at most once per `AR_SESSION_GATE_TTL_S` (default 15 seconds); concurrent requests share that confirmation. A Next.js prefetch (`next-router-prefetch`, `next-router-segment-prefetch`, or `Purpose: prefetch`) does not start a session call. A `401` redirects to sign-in. A `429`, a `5xx`, or an unreachable API lets the page load so the client can show a retry; it is not a sign-out. The cookie stays the opaque server-side session id. The shell and the open page share one client read of that session for the same interval.
 - **API access**: same-origin. In production the ingress routes `/api/*`, `/scim/*`, `/channels/*` to their services and everything else to `web`. In dev, `next.config.ts` rewrites `/api/:path*` → `http://localhost:8000/api/:path*`.
 - **Client**: `src/lib/api.ts` creates the hey-api client with `credentials: "include"`, injects `X-CSRF-Token` from the `ar_csrf` cookie on unsafe methods, `Idempotency-Key` (uuid v4) on POSTs that create things or post messages, and maps RFC 9457 errors to `ApiError {status, code, title, detail, errors[]}`. 401 → redirect to `/login?return_to=…`; 403 `tenant_suspended` → `/suspended`.
 - **Query keys**: `src/lib/query-keys.ts` (one factory per resource: `qk.agents.list(filters)`, `qk.agents.detail(id)`, …). Mutations invalidate by prefix. Default `staleTime` 30 s; lists use `keepPreviousData`.
@@ -203,6 +204,7 @@ LCP < 2.0 s on `/chat` (cold, desktop, 4G fast), INP < 200 ms, JS ≤ 250 KB gzi
 |---|---|---|
 | `AR_PUBLIC_URL` | `http://localhost:3000` | Canonical URL |
 | `AR_API_INTERNAL_URL` | `http://localhost:8000` | Server-side session fetch and dev rewrites |
+| `AR_SESSION_GATE_TTL_S` | `15` | How long a confirmed session satisfies the web gate without another API call. `0` confirms on every real navigation. Prefetches still do not start a call |
 | `NEXT_PUBLIC_AR_BUILD_SHA` | from CI | Shown in About |
 
 ## 9. Test plan
