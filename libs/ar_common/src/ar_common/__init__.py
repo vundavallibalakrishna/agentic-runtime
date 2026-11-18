@@ -1,4 +1,4 @@
-"""Shared process utilities for every Agentic Runtime deployable."""
+"""Shared process utilities for every Cura Works deployable."""
 
 __all__ = ["__version__"]
 

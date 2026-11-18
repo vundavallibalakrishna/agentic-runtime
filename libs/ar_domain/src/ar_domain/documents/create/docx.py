@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ar_domain.documents.create.spec import FONT, MUTED, RULE, SECOND
 from ar_domain.documents.create.xmlpack import pack, xml_escape
 
 if TYPE_CHECKING:
@@ -73,14 +74,14 @@ def _title(text: str, half_points: int) -> str:
 def _subtitle(text: str) -> str:
     return (
         '<w:p><w:pPr><w:pStyle w:val="Subtitle"/></w:pPr>'
-        f'<w:r><w:rPr><w:i/><w:color w:val="5B6775"/><w:sz w:val="22"/></w:rPr>'
+        f'<w:r><w:rPr><w:i/><w:color w:val="{MUTED}"/><w:sz w:val="22"/></w:rPr>'
         f"{_t(text)}</w:r></w:p>"
     )
 
 
 def _meta(author: str) -> str:
     return (
-        '<w:p><w:r><w:rPr><w:color w:val="5B6775"/><w:sz w:val="18"/></w:rPr>'
+        f'<w:p><w:r><w:rPr><w:color w:val="{MUTED}"/><w:sz w:val="18"/></w:rPr>'
         f"{_t(author)}</w:r></w:p>"
     )
 
@@ -108,7 +109,7 @@ def _bullet(text: str) -> str:
 
 def _caption(text: str) -> str:
     return (
-        '<w:p><w:r><w:rPr><w:i/><w:color w:val="5B6775"/><w:sz w:val="18"/></w:rPr>'
+        f'<w:p><w:r><w:rPr><w:i/><w:color w:val="{MUTED}"/><w:sz w:val="18"/></w:rPr>'
         f"{_t(text)}</w:r></w:p>"
     )
 
@@ -119,7 +120,7 @@ def _table(table: Table) -> str:
     header = _row(table.columns, header=True)
     body = "".join(_row(tuple(cell.text for cell in row), header=False) for row in table.rows)
     borders = "".join(
-        f'<w:{edge} w:val="single" w:sz="4" w:space="0" w:color="D0D7E2"/>'
+        f'<w:{edge} w:val="single" w:sz="4" w:space="0" w:color="{RULE}"/>'
         for edge in ("top", "left", "bottom", "right", "insideH", "insideV")
     )
     return (
@@ -177,7 +178,7 @@ def _styles(spec: DocumentSpec) -> str:
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         f'<w:styles xmlns:w="{_W}">'
         "<w:docDefaults><w:rPrDefault><w:rPr>"
-        '<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>'
+        f'<w:rFonts w:ascii="{FONT}" w:hAnsi="{FONT}" w:cs="{FONT}"/>'
         '<w:sz w:val="22"/><w:szCs w:val="22"/>'
         "</w:rPr></w:rPrDefault></w:docDefaults>"
         '<w:style w:type="paragraph" w:default="1" w:styleId="Normal">'
@@ -188,14 +189,14 @@ def _styles(spec: DocumentSpec) -> str:
         f'<w:sz w:val="{title}"/><w:szCs w:val="{title}"/></w:rPr></w:style>'
         '<w:style w:type="paragraph" w:styleId="Subtitle">'
         '<w:name w:val="Subtitle"/><w:basedOn w:val="Normal"/>'
-        '<w:rPr><w:i/><w:color w:val="5B6775"/></w:rPr></w:style>'
+        f'<w:rPr><w:i/><w:color w:val="{MUTED}"/></w:rPr></w:style>'
         '<w:style w:type="paragraph" w:styleId="Heading1">'
         '<w:name w:val="heading 1"/><w:basedOn w:val="Normal"/><w:qFormat/>'
         f'<w:rPr><w:b/><w:color w:val="{accent}"/>'
         f'<w:sz w:val="{heading}"/><w:szCs w:val="{heading}"/></w:rPr></w:style>'
         '<w:style w:type="paragraph" w:styleId="Heading2">'
         '<w:name w:val="heading 2"/><w:basedOn w:val="Normal"/><w:qFormat/>'
-        f'<w:rPr><w:b/><w:color w:val="2E75B6"/>'
+        f'<w:rPr><w:b/><w:color w:val="{SECOND}"/>'
         f'<w:sz w:val="{second}"/><w:szCs w:val="{second}"/></w:rPr></w:style>'
         '<w:style w:type="paragraph" w:styleId="ListBullet">'
         '<w:name w:val="List Bullet"/><w:basedOn w:val="Normal"/>'
@@ -280,7 +281,7 @@ def _core(spec: DocumentSpec) -> str:
         f"<dc:title>{xml_escape(spec.title)}</dc:title>"
         f"<dc:creator>{xml_escape(spec.author)}</dc:creator>"
         f"<dc:description>{xml_escape(spec.subtitle)}</dc:description>"
-        "<cp:lastModifiedBy>Agentic Runtime</cp:lastModifiedBy>"
+        "<cp:lastModifiedBy>Cura Works</cp:lastModifiedBy>"
         "</cp:coreProperties>"
     )
 
@@ -288,5 +289,5 @@ def _core(spec: DocumentSpec) -> str:
 def _app() -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        f'<Properties xmlns="{_APP}"><Application>Agentic Runtime</Application></Properties>'
+        f'<Properties xmlns="{_APP}"><Application>Cura Works</Application></Properties>'
     )

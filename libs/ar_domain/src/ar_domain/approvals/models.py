@@ -22,7 +22,7 @@ from ar_domain.db.types import created_at_col, jsonb_col, text_array, updated_at
 
 _SUBJECTS = (
     "('artifact','file','message','evidence_item','sealed_record','run_record',"
-    "'agent_card','binder','packet','pack_record')"
+    "'agent_card','binder','packet','pack_record','saved_query')"
 )
 REVIEW_SUBJECTS = frozenset(
     {
@@ -36,9 +36,18 @@ REVIEW_SUBJECTS = frozenset(
         "binder",
         "packet",
         "pack_record",
+        "saved_query",
     }
 )
 OWNER_BLOCK_SUBJECTS = frozenset({"message", "artifact", "run_record", "binder", "packet"})
+# Who can be the preparer of a review item. ``agent`` is the agent that wrote a reply.
+PREPARER_TYPES = ("user", "service_account", "guest", "agent")
+
+
+def preparer_check_sql(kinds: tuple[str, ...] = PREPARER_TYPES) -> str:
+    """The check on ``review_items.preparer_principal_type``."""
+    listed = ",".join(f"'{kind}'" for kind in kinds)
+    return f"preparer_principal_type IN ({listed})"
 
 
 class Approval(Base):
@@ -195,10 +204,7 @@ class ReviewItem(Base):
             "status IN ('pending','in_review','signed','rejected','expired','superseded')",
             name="status",
         ),
-        CheckConstraint(
-            "preparer_principal_type IN ('user','service_account','guest')",
-            name="preparer_principal_type",
-        ),
+        CheckConstraint(preparer_check_sql(), name="preparer_principal_type"),
         Index("ix_review_items_queue", "tenant_id", "queue_id", "status"),
         Index("ix_review_items_subject", "tenant_id", "subject_type", "subject_id"),
     )

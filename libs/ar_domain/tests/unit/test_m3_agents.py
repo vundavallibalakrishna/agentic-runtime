@@ -347,7 +347,7 @@ def test_prompt_blocks_and_history_budget() -> None:
         }
     )
     system = bundle.messages[0]["content"]
-    assert system.startswith("You are running inside Agentic Runtime")
+    assert system.startswith("You are running inside Cura Works")
     assert "You are Helpdesk." in system
     assert "Today is 2026-10-22" in system
     assert len(bundle.messages) < len(history) + 2

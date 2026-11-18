@@ -22,7 +22,7 @@ from ar_domain.sandboxes.runtime import chart_command
 DEMO_CHAT_SET = "demo-chat"
 
 # The builder's system prompt carries this phrase; a turn that has it is an agent draft.
-_BUILDER_SYSTEM = "agent definition for Agentic Runtime"
+_BUILDER_SYSTEM = "agent definition for Cura Works"
 
 
 def _agent_definition(instructions: str) -> str:

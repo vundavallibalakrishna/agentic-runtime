@@ -58,7 +58,7 @@ from ar_domain.runs.logic import budget_exceeded
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
     from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -395,6 +395,7 @@ class ChatBehaviour:
     review_queues: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     review_items: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     signoffs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    saved_queries: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     sod_constraints: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     user_roles: dict[uuid.UUID, set[str]] = field(default_factory=dict)
     user_groups: dict[uuid.UUID, list[str]] = field(default_factory=dict)
@@ -1486,10 +1487,20 @@ class ChatBehaviour:
         conversation_id: uuid.UUID,
         *,
         read_all: bool,
+        reviewer: Actor | None = None,
     ) -> dict[str, object]:
+        """One conversation with its messages. ``reviewer`` is the caller, when known.
+
+        Each assistant message carries ``review``: whether a person accepted that exact
+        text, who and when, and whether ``reviewer`` may accept it now.
+        """
         row = self._conversation(tenant_id, user_id, conversation_id, read_all=read_all)
         body = self._public(row)
-        body["messages"] = self._visible_messages(conversation_id)
+        messages = self._visible_messages(conversation_id)
+        from ar_domain.approvals.reply_review import attach_reviews  # noqa: PLC0415
+
+        attach_reviews(self, reviewer, messages)
+        body["messages"] = messages
         from ar_domain.jobs.progress import jobs_for  # noqa: PLC0415
 
         body["jobs"] = jobs_for(self, conversation_id)
@@ -2663,6 +2674,33 @@ class ChatBehaviour:
                 parsed["model_id"] = registry
         return parsed
 
+    async def _streamed_completion(  # noqa: PLR0917
+        self,
+        url: str,
+        body: dict[str, object],
+        headers: dict[str, str],
+        timeout_s: float,
+        tenant_id: uuid.UUID,
+        sink: Callable[[str], None],
+    ) -> dict[str, object] | None:
+        """One model round read as a stream. None when the provider did not stream it."""
+        from ar_domain.models.streaming import read_completion_stream  # noqa: PLC0415
+
+        request = {**body, "stream": True, "stream_options": {"include_usage": True}}
+        try:
+            async with (
+                async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client,
+                client.stream(
+                    "POST", url, json=request, headers={**headers, "accept": "text/event-stream"}
+                ) as response,
+            ):
+                kind = response.headers.get("content-type", "")
+                if response.status_code >= 300 or "text/event-stream" not in kind:
+                    return None
+                return await read_completion_stream(response, sink)
+        except httpx.HTTPError:
+            return None
+
     async def _complete_upstream(  # noqa: PLR0911, PLR0912, PLR0915
         self,
         target: dict[str, object],
@@ -2717,18 +2755,19 @@ class ChatBehaviour:
             options=self._options_for(model_row),
             response_format=shaped,
         )
-        allow = self._dial_allow(tenant_id)
-        response, transport_error = await _post_json(url, body, headers, timeout_s, allow)
-        if transport_error or response is None:
-            return _provider_failure("The model provider did not answer.", retryable=True)
-        error_text = _safe_body(response)
-        if context_length_error(response.status_code, error_text):
-            failed = _provider_failure("", retryable=False)
-            failed["context_length_exceeded"] = True
-            failed["text"] = ""
-            return failed
-        if shaped is not None and response_format_rejected(response.status_code, error_text):
-            body.pop("response_format", None)
+        from ar_domain.models.streaming import listener  # noqa: PLC0415
+
+        # A caller that is listening gets the answer as it is written. A provider that does
+        # not stream, or refuses the request, is asked again in one piece below, where every
+        # refusal is told apart.
+        sink = listener() if target.get("real") else None
+        payload: object = None
+        if sink is not None:
+            payload = await self._streamed_completion(
+                url, body, headers, timeout_s, tenant_id, sink
+            )
+        if payload is None:
+            allow = self._dial_allow(tenant_id)
             response, transport_error = await _post_json(url, body, headers, timeout_s, allow)
             if transport_error or response is None:
                 return _provider_failure("The model provider did not answer.", retryable=True)
@@ -2738,17 +2777,28 @@ class ChatBehaviour:
                 failed["context_length_exceeded"] = True
                 failed["text"] = ""
                 return failed
-        if retryable_status(response.status_code):
-            return _provider_failure("The model provider returned an error.", retryable=True)
-        if response.status_code >= 300:
-            return _provider_failure("The model provider returned an error.", retryable=False)
-        try:
-            payload = response.json()
-        except ValueError:
-            failed = _provider_failure("", retryable=False)
-            failed["text"] = ""
-            failed["parse_error"] = "The model provider returned malformed JSON."
-            return failed
+            if shaped is not None and response_format_rejected(response.status_code, error_text):
+                body.pop("response_format", None)
+                response, transport_error = await _post_json(url, body, headers, timeout_s, allow)
+                if transport_error or response is None:
+                    return _provider_failure("The model provider did not answer.", retryable=True)
+                error_text = _safe_body(response)
+                if context_length_error(response.status_code, error_text):
+                    failed = _provider_failure("", retryable=False)
+                    failed["context_length_exceeded"] = True
+                    failed["text"] = ""
+                    return failed
+            if retryable_status(response.status_code):
+                return _provider_failure("The model provider returned an error.", retryable=True)
+            if response.status_code >= 300:
+                return _provider_failure("The model provider returned an error.", retryable=False)
+            try:
+                payload = response.json()
+            except ValueError:
+                failed = _provider_failure("", retryable=False)
+                failed["text"] = ""
+                failed["parse_error"] = "The model provider returned malformed JSON."
+                return failed
         parsed = completion_message(payload, strip_thinking="preserve_thinking" not in capabilities)
         parsed["real"] = True
         parsed["retryable"] = False
@@ -3459,6 +3509,34 @@ class ChatBehaviour:
         ):
             raise NotFoundError()
         return row
+
+    def accept_reply(
+        self,
+        actor: Actor,
+        message_id: uuid.UUID,
+        *,
+        statement: str | None,
+        comment: str,
+        stepped_up: bool,
+    ) -> dict[str, object]:
+        """Record that ``actor`` reviewed and accepts one assistant reply they can read."""
+        message = self.messages.get(message_id)
+        if message is None or message["tenant_id"] != actor.tenant_id:
+            raise NotFoundError()
+        conversation_id = message.get("conversation_id")
+        if not isinstance(conversation_id, uuid.UUID):
+            raise NotFoundError()
+        self._conversation(
+            actor.tenant_id,
+            actor.user_id,
+            conversation_id,
+            read_all="conversations:read_all" in actor.permissions,
+        )
+        from ar_domain.approvals.reply_review import accept_reply  # noqa: PLC0415
+
+        return accept_reply(
+            self, actor, message, statement=statement, comment=comment, stepped_up=stepped_up
+        )
 
     def set_feedback(
         self,

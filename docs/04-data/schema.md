@@ -1549,7 +1549,7 @@ CREATE TABLE review_items (
   statement_hash          text NOT NULL,
   status                  text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','in_review','signed','rejected','expired','superseded')),
   current_level           int NOT NULL DEFAULT 1,
-  preparer_principal_type text NOT NULL CHECK (preparer_principal_type IN ('user','service_account','guest')),
+  preparer_principal_type text NOT NULL CHECK (preparer_principal_type IN ('user','service_account','guest','agent')),
   preparer_principal_id   uuid NOT NULL,
   expires_at              timestamptz,
   created_at              timestamptz NOT NULL DEFAULT now(),
@@ -1997,3 +1997,25 @@ CREATE TABLE document_rewrites (
 | Tables | Module | Section |
 |---|---|---|
 | library_documents, document_checks, document_comparisons, document_rewrites | documents | 31 |
+
+## 32. Saved table queries (`ar_domain.spreadsheet`)
+
+Revision `0051`. Tenant owned, with the RLS policy from [rls §3](rls.md). One row is one version of a named query that `general.save_query` wrote. A version is written once: the table is append-only, so the statement a reviewer signed cannot change under the sign-off. Saving under an existing name adds the next version. `content_hash` is the SHA-256 of the canonical JSON of `{name, version, sql, description}`. Sign-off is a `review_items` row with `subject_type='saved_query'` and `subject_id` set to the version's id ([spec 09 §11](../03-specs/09-policy-approvals.md)); the same revision adds `saved_query` to the `review_queues.subject_type` check.
+
+```sql
+CREATE TABLE saved_queries (                              -- append-only
+  id                  uuid PRIMARY KEY DEFAULT uuidv7(),
+  tenant_id           uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name                text NOT NULL,
+  version             int NOT NULL,
+  sql                 text NOT NULL,
+  description         text NOT NULL,
+  content_hash        text NOT NULL,
+  created_by_user_id  uuid NOT NULL,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, name, version)
+);
+CREATE INDEX ix_saved_queries_tenant ON saved_queries(tenant_id, name);
+```
+
+Trigger `append_only` on `saved_queries`.

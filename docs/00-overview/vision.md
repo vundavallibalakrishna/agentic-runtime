@@ -1,6 +1,6 @@
 # Vision
 
-**Agentic Runtime** is a self-hosted platform on which a company builds, governs and operates AI agents for its employees, running entirely on the company's own infrastructure and models. The design follows `docs/architecture/agentic-runtime-architecture.(docx|pdf)` (the reference architecture, not duplicated here).
+**Cura Works** is a self-hosted platform on which a company builds, governs and operates AI agents for its employees, running entirely on the company's own infrastructure and models. The design follows `docs/architecture/agentic-runtime-architecture.(docx|pdf)` (the reference architecture, not duplicated here).
 
 ## Problem
 

@@ -63,7 +63,13 @@ class SodBook:
                 action="sod.violation_blocked",
                 target_type="review_item",
                 target_id=item.get("id"),
-                detail={"violations": violations},
+                # The subject is named too: a blocked attempt may be on an item that was
+                # checked before it was filed, and so has no stored row to look up.
+                detail={
+                    "violations": violations,
+                    "subject_type": str(item.get("subject_type") or ""),
+                    "subject_id": str(item.get("subject_id") or ""),
+                },
                 outcome="failure",
             )
             raise ValidationFailedError("sod_violation")

@@ -204,10 +204,14 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `general.http` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.inspect_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.list_files` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `general.list_saved_queries` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.move` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.pivot_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.query_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.read_file` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `general.run_saved_query` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `general.sample_table` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `general.save_query` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.search` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.shell` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `general.write_file` | `unit` | yes | In-process tool. Not a recorded live model run. |

@@ -23,14 +23,14 @@
   --success: oklch(0.43 0.11 152);
   --warning: oklch(0.46 0.1 70);
   --ring: var(--primary);
-  --sidebar: oklch(0.24 0.06 255);
-  --sidebar-foreground: oklch(0.9 0.02 255);
-  --sidebar-strong: oklch(1 0 0);
-  --sidebar-muted: oklch(0.78 0.035 255);
-  --sidebar-hover: oklch(0.31 0.07 255);
-  --sidebar-border: oklch(0.33 0.05 255);
-  --nav-active: var(--primary);
-  --nav-active-foreground: var(--primary-foreground);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-strong: var(--foreground);
+  --sidebar-muted: var(--muted-foreground);
+  --sidebar-hover: var(--muted);
+  --sidebar-border: var(--border);
+  --nav-active: var(--muted);
+  --nav-active-foreground: var(--foreground);
   --shadow-xs: 0 1px 2px oklch(0.2 0.03 260 / 0.06);
   --shadow-composer: 0 4px 20px oklch(0.2 0.03 260 / 0.07);
   --scrim: oklch(0.18 0.02 260 / 0.4);
@@ -71,14 +71,14 @@
   --success: oklch(0.8 0.13 152);
   --warning: oklch(0.82 0.12 80);
   --ring: var(--primary);
-  --sidebar: oklch(0.14 0.022 260);
-  --sidebar-foreground: oklch(0.9 0.015 255);
-  --sidebar-strong: oklch(0.98 0.005 255);
-  --sidebar-muted: oklch(0.74 0.025 255);
-  --sidebar-hover: oklch(0.23 0.03 260);
-  --sidebar-border: oklch(0.27 0.025 260);
-  --nav-active: var(--primary);
-  --nav-active-foreground: var(--primary-foreground);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--muted-foreground);
+  --sidebar-strong: var(--foreground);
+  --sidebar-muted: var(--muted-foreground);
+  --sidebar-hover: var(--muted);
+  --sidebar-border: var(--border);
+  --nav-active: var(--muted);
+  --nav-active-foreground: var(--foreground);
   --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.25);
   --shadow-composer: 0 4px 20px oklch(0 0 0 / 0.25);
   --scrim: oklch(0 0 0 / 0.6);
@@ -127,6 +127,11 @@ body {
   outline-offset: 2px;
 }
 
+/* The composer card shows focus on its own border, so the field inside draws no ring. */
+.composer-field:focus-visible {
+  outline: none;
+}
+
 button,
 a,
 input,
@@ -143,11 +148,6 @@ textarea {
 .font-display {
   font-weight: 700;
   letter-spacing: -0.01em;
-}
-
-/* On the dark navigation column the blue ring is hard to see, so focus uses its text colour. */
-.console-sidebar :focus-visible {
-  outline-color: var(--sidebar-foreground);
 }
 
 .console-sidebar {
@@ -250,6 +250,27 @@ input[type="radio"] {
 .markdown ol,
 .markdown pre {
   margin: 0.6rem 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.35rem;
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown li::marker {
+  color: var(--muted-foreground);
 }
 
 .markdown h2,

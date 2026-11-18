@@ -10,6 +10,8 @@ import zipfile
 from html.parser import HTMLParser
 from xml.etree import ElementTree as ET
 
+from ar_domain.documents.extract import slide_names
+
 _XML = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 _PPT = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
 _XLS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
@@ -136,7 +138,7 @@ def _docx(data: bytes) -> str:
 def _pptx(data: bytes) -> str:
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as book:
-            slides = sorted(name for name in book.namelist() if name.startswith("ppt/slides/slide"))
+            slides = slide_names(book.namelist())
             pages = []
             for index, name in enumerate(slides, start=1):
                 root = ET.fromstring(book.read(name))  # noqa: S314

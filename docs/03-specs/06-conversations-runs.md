@@ -59,7 +59,7 @@ Owner. `{title?, pinned?, status?, classification?, retention_class?}`. `retenti
 Owner. Soft delete (`deleted_at`); hard delete by `RetentionSweepWorkflow` after `tenant.settings.retention.deleted_conversation_days` (default 30). Active run cancelled.
 
 #### GET /api/v1/conversations/{conversation_id}/messages
-Query `branch` (`active` default | `all`), `include` (`tool` adds role `tool` messages), cursor pagination ascending by `created_at`, `limit` ≤ 200. Item `Message {id, role, content: ContentPart[], status, parent_message_id, is_active_branch, sibling_ids: uuid[], run_id, model_alias, author: {id, display_name}|null, feedback: {rating}|null, created_at}`.
+Query `branch` (`active` default | `all`), `include` (`tool` adds role `tool` messages), cursor pagination ascending by `created_at`, `limit` ≤ 200. Item `Message {id, role, content: ContentPart[], status, parent_message_id, is_active_branch, sibling_ids: uuid[], run_id, model_alias, author: {id, display_name}|null, feedback: {rating}|null, created_at}`. An assistant message also carries `review`, whether a person accepted that exact text ([spec 09 §11.1](09-policy-approvals.md#111-accepting-an-assistant-reply)).
 
 #### POST /api/v1/conversations/{conversation_id}/messages
 Permission `chat:use` + owner. Header `Idempotency-Key` recommended (the web app always sends one). Body `PostMessageBody {content: ContentPart[] (text ≤ 100,000 chars total), attachments?: uuid[] (≤ 20), parent_message_id?: uuid, interrupt?: bool, client_context?: {timezone, locale}}`. Response `202 {message: Message, run: RunSummary}`. Errors: 409 `run_in_progress`, 423 `resource_disabled`, 429 `quota_exceeded`, 403 `forbidden`.

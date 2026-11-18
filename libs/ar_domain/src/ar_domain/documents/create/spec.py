@@ -8,6 +8,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ar_common.sandboxkit import sanitise_name
+from ar_domain.documents.create.xmlpack import PRODUCER
 
 MAX_SECTIONS = 40
 MAX_SHEETS = 12
@@ -19,14 +20,21 @@ MAX_TEXT = 4_000
 MAX_TITLE = 200
 MAX_FILE_BYTES = 5_242_880
 MAX_PAGES = 30
+MAX_SLIDES = 60
 
-FORMATS = frozenset({"docx", "pdf", "xlsx"})
+FORMATS = frozenset({"docx", "pdf", "pptx", "xlsx"})
 TEMPLATES = frozenset({"report", "brief", "sheet"})
 MEDIA = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "pdf": "application/pdf",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
+# Shared by the Word and slide writers: the body font and the colours beside the accent.
+FONT = "Calibri"
+MUTED = "5B6775"
+RULE = "D0D7E2"
+SECOND = "2E75B6"
 _SLUG = re.compile(r"[^a-z0-9]+")
 
 
@@ -99,7 +107,7 @@ def parse(arguments: dict[str, object]) -> DocumentSpec:
     """Read one create call. Missing optional fields use the template default."""
     fmt = str(arguments.get("format") or "").strip().lower()
     if fmt not in FORMATS:
-        raise CreateError("format must be docx, pdf or xlsx.")
+        raise CreateError("format must be docx, pdf, pptx or xlsx.")
     title = _short(arguments.get("title"), MAX_TITLE)
     if not title:
         raise CreateError("title is required.")
@@ -110,7 +118,7 @@ def parse(arguments: dict[str, object]) -> DocumentSpec:
         format=fmt,
         title=title,
         subtitle=_short(arguments.get("subtitle"), MAX_TITLE),
-        author=_short(arguments.get("author"), 120) or "Agentic Runtime",
+        author=_short(arguments.get("author"), 120) or PRODUCER,
         template=template,
         filename=_filename(arguments, title, fmt),
         sections=_sections(arguments.get("sections")),
@@ -123,7 +131,7 @@ def parse(arguments: dict[str, object]) -> DocumentSpec:
 def _fill(spec: DocumentSpec) -> DocumentSpec:
     sections = spec.sections
     sheets = spec.sheets
-    if spec.format in {"docx", "pdf"} and not sections and sheets:
+    if spec.format in {"docx", "pdf", "pptx"} and not sections and sheets:
         sections = tuple(_section_from_sheet(sheet) for sheet in sheets)
     if spec.format == "xlsx" and not sheets:
         sheets = _sheets_from_sections(spec)

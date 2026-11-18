@@ -267,6 +267,8 @@ BUCKETS = (
     "standing_approvals",
     "review_queues",
     "review_items",
+    "signoffs",
+    "saved_queries",
     "extension_rows",
 )
 

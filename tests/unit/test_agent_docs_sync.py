@@ -21,7 +21,7 @@ def test_claude_file_matches_agents() -> None:
     claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
     assert claude == render(agents)
     assert agents in claude
-    assert "Agentic Runtime" in claude
+    assert "Cura Works" in claude
 
 
 def test_instructions_import_nothing() -> None:

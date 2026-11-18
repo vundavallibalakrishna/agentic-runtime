@@ -1,6 +1,6 @@
 # System context and containers
 
-Product: **Agentic Runtime**, a web platform where companies define agents (persona, instructions, model, tools, knowledge, memory, policies, routines, skills, channels, sandboxes) and their people chat with them. Agents plan, call tools, run code, browse, create files, remember, delegate to subagents and run unattended routines, all on the company's infrastructure and models. Names of deployables are canonical in [service-decomposition.md](service-decomposition.md).
+Product: **Cura Works**, a web platform where companies define agents (persona, instructions, model, tools, knowledge, memory, policies, routines, skills, channels, sandboxes) and their people chat with them. Agents plan, call tools, run code, browse, create files, remember, delegate to subagents and run unattended routines, all on the company's infrastructure and models. Names of deployables are canonical in [service-decomposition.md](service-decomposition.md).
 
 ## 1. System context
 
@@ -11,7 +11,7 @@ flowchart TB
   AD[Tenant admin / approver / auditor]
   PA[Platform operator<br/>SaaS or install owner]
   DEV[Developer systems<br/>REST API, SDKs, webhooks]
-  subgraph AR[Agentic Runtime]
+  subgraph AR[Cura Works]
     P[Web app + API + workers + gateways]
   end
   IDP[Company IdP<br/>OIDC / SAML / SCIM]

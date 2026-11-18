@@ -45,7 +45,7 @@ describe("AppShell", () => {
       http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
     );
     render(wrap(<AppShell>Hello</AppShell>));
-    expect(screen.getByText("Agentic Runtime")).toBeTruthy();
+    expect(screen.getByText("Cura Works")).toBeTruthy();
     expect(screen.getByRole("navigation", { name: "Primary" })).toBeTruthy();
     expect(screen.getByText("Hello")).toBeTruthy();
     expect(await screen.findByText("Acme")).toBeTruthy();

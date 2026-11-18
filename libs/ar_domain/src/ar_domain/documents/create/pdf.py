@@ -169,7 +169,7 @@ def _assemble(pages: list[bytes], spec: DocumentSpec) -> bytes:
         + _literal(spec.author)
         + b" /Subject "
         + _literal(spec.subtitle)
-        + b" /Creator (Agentic Runtime) /Producer (Agentic Runtime) >>"
+        + b" /Creator (Cura Works) /Producer (Cura Works) >>"
     )
     if len(objects) != info_id:
         raise CreateError("The PDF could not be assembled.")

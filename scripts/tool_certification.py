@@ -250,6 +250,35 @@ def general_cases() -> list[Case]:
             has("North"),
         ),
         Case(
+            "general.sample_table",
+            "draw a seeded sample to a CSV",
+            fixed(path="data/regions.csv", method="random", size=2, seed=7),
+            wrote(".csv"),
+        ),
+        Case(
+            "general.save_query",
+            "save a query under a name",
+            fixed(
+                name="cert_region_total",
+                sql="SELECT SUM(count) AS total FROM regions",
+                description="Total of the count column",
+                path="data/regions.csv",
+            ),
+            has("the query cert_region_total as version"),
+        ),
+        Case(
+            "general.list_saved_queries",
+            "list the saved query",
+            fixed(),
+            has("cert_region_total"),
+        ),
+        Case(
+            "general.run_saved_query",
+            "run the saved query where no sign-off queue is chosen",
+            fixed(name="cert_region_total", path="data/regions.csv"),
+            has("53"),
+        ),
+        Case(
             "general.export_table",
             "export to XLSX",
             fixed(

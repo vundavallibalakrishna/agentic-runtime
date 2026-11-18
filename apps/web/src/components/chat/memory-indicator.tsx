@@ -17,7 +17,7 @@ export function MemoryIndicator({ memories, recalled, compacted, onUndo }: Props
     return null;
   }
   return (
-    <div className="mt-2 space-y-1 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm">
+    <div className="mb-2 space-y-0.5 px-1 text-xs text-[var(--muted-foreground)]">
       {memories.map((memory) => (
         <p className="flex flex-wrap items-center gap-2" key={memory.factId} role="status">
           <span>{t("memorySaved", { content: memory.content })}</span>

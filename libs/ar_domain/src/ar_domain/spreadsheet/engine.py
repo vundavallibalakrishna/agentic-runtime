@@ -35,13 +35,13 @@ def query_loaded(
         try:
             connection.execute(sql)
         except duckdb.Error as exc:
-            raise _failed(exc) from exc
+            raise _failed(exc, [name for name, _columns, _rows in sheets]) from exc
         description = connection.description or []
         columns = [str(item[0]) for item in description]
         try:
             raw = connection.fetchmany(row_limit + 1)
         except duckdb.Error as exc:
-            raise _failed(exc) from exc
+            raise _failed(exc, [name for name, _columns, _rows in sheets]) from exc
     finally:
         connection.close()
     truncated = len(raw) > row_limit
@@ -123,13 +123,29 @@ def _floaty(value: object) -> bool:
     return True
 
 
+def _advice(lowered: str, tables: list[str]) -> str:
+    """What to change, for the two errors a statement over table files most often meets."""
+    if "table with name" in lowered and "does not exist" in lowered:
+        return (
+            f" The tables loaded are: {', '.join(tables) or 'none'}. A statement that reads "
+            "another file needs that file in paths as well."
+        )
+    if "varchar" in lowered and "candidate function" in lowered:
+        return (
+            " A column read from a file is text unless every value is a number. Cast it "
+            "first, for example CAST(posted AS DATE) for a date."
+        )
+    return ""
+
+
 def _quote(name: str) -> str:
     return name.replace('"', "")[:_MAX_IDENT]
 
 
-def _failed(exc: duckdb.Error) -> SheetQueryError:
+def _failed(exc: duckdb.Error, tables: list[str]) -> SheetQueryError:
     message = str(exc).split("\n", maxsplit=1)[0][:300]
     lowered = message.lower()
+    message = f"{message}{_advice(lowered, tables)}"
     rejected = (
         type(exc).__name__ == "PermissionException"
         or "file system" in lowered

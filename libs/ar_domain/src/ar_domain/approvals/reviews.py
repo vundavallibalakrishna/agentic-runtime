@@ -104,6 +104,21 @@ class ReviewBook:
         ]
         if open_items:
             raise ConflictError("the queue still has open items")
+        from ar_domain.approvals.reply_review import reply_queue_id  # noqa: PLC0415
+
+        if reply_queue_id(self.store, actor.tenant_id) == queue_id:
+            raise ConflictError(
+                "This queue is where accepted replies are signed. "
+                "Choose another queue for reply acceptance first."
+            )
+        from ar_domain.spreadsheet.saved import SETTING as SAVED_QUERY_SETTING  # noqa: PLC0415
+
+        chosen = _settings(self.store, actor.tenant_id).get("approvals")
+        if isinstance(chosen, dict) and str(chosen.get(SAVED_QUERY_SETTING) or "") == str(queue_id):
+            raise ConflictError(
+                "This queue is where saved queries are signed off. "
+                "Choose another queue for saved queries first."
+            )
         del self.store.review_queues[queue_id]
         remember(
             self.store,
@@ -142,30 +157,60 @@ class ReviewBook:
         digest = _hash_subject(self.store, subject_type, subject_id, body.get("subject_ref"))
         if str(body.get("content_hash") or "") != digest:
             raise ValidationFailedError("hash_mismatch")
-        statement = str(body.get("statement_text") or "")
-        self._supersede_open(actor, subject_type, subject_id, digest)
-        row = {
+        row = self.draft(
+            actor,
+            queue,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            subject_ref=body.get("subject_ref"),
+            statement=str(body.get("statement_text") or ""),
+            preparer=("user", actor.user_id),
+        )
+        return self.file(actor, row)
+
+    def draft(
+        self,
+        actor: Actor,
+        queue: dict[str, object],
+        *,
+        subject_type: str,
+        subject_id: uuid.UUID,
+        subject_ref: object,
+        statement: str,
+        preparer: tuple[str, uuid.UUID],
+    ) -> dict[str, object]:
+        """A review item that is not stored yet, so a caller can check it before filing it.
+
+        ``preparer`` is who made the subject: the person who opened the item, or the agent
+        that wrote a reply. The preparer can never sign the item.
+        """
+        return {
             "id": new_id(),
             "tenant_id": actor.tenant_id,
             "queue_id": queue["id"],
             "subject_type": subject_type,
             "subject_id": subject_id,
-            "subject_ref": body.get("subject_ref")
-            if isinstance(body.get("subject_ref"), dict)
-            else {},
-            "content_hash": digest,
+            "subject_ref": subject_ref if isinstance(subject_ref, dict) else {},
+            "content_hash": _hash_subject(self.store, subject_type, subject_id, subject_ref),
             "statement_text": statement,
             "statement_hash": hashlib.sha256(statement.encode()).hexdigest(),
             "status": "pending",
             "current_level": 1,
             "levels": as_list(queue.get("levels")),
-            "preparer_principal_type": "user",
-            "preparer_principal_id": actor.user_id,
+            "preparer_principal_type": preparer[0],
+            "preparer_principal_id": preparer[1],
             "agent_id": _agent_of(self.store, subject_type, subject_id),
             "expires_at": None,
             "created_at": utcnow(),
             "updated_at": utcnow(),
         }
+
+    def file(self, actor: Actor, row: dict[str, object]) -> dict[str, object]:
+        """Store a drafted item, retiring open items for older content of the same subject."""
+        digest = str(row["content_hash"])
+        self._supersede_open(
+            actor, str(row["subject_type"]), as_uuid(row.get("subject_id")), digest
+        )
         self.store.review_items[row["id"]] = row
         remember(
             self.store,
@@ -181,7 +226,7 @@ class ReviewBook:
                 "topic": "review_item.requested",
                 "payload": {
                     "review_item_id": str(row["id"]),
-                    "queue_id": str(queue["id"]),
+                    "queue_id": str(row["queue_id"]),
                     "level": 1,
                 },
                 "at": utcnow().isoformat(),
@@ -199,21 +244,13 @@ class ReviewBook:
         self, actor: Actor, item_id: uuid.UUID, body: dict[str, object], *, stepped_up: bool
     ) -> dict[str, object]:
         row = self._item(actor, item_id)
-        if not self._eligible(actor, row):
-            raise ForbiddenError("you cannot sign this item")
-        if "reviews:decide" not in actor.permissions:
-            raise ForbiddenError()
+        self.assert_may_sign(actor, row)
         choice = str(body.get("decision") or "")
         if choice not in {"approve", "reject", "delegate"}:
             raise ValidationFailedError("decision is invalid")
         self._hashes(row, body)
         level = self._level(row)
-        needs_step = bool(level.get("step_up")) or self._final_step(row, level)
-        if needs_step and actor.auth_method == "api_key":
-            raise StepUpRequiredError()
-        if needs_step and not stepped_up:
-            raise StepUpRequiredError()
-        SodBook(self.store).assert_signoff(actor, row, decision=choice)
+        self.assert_cleared(actor, row, choice, stepped_up=stepped_up)
         if choice == "delegate":
             return self._delegate(actor, row, body, level)
         self._sign(actor, row, choice, str(body.get("comment") or ""), level, stepped_up)
@@ -248,6 +285,34 @@ class ReviewBook:
             }
         )
         return self._detail(row)
+
+    def assert_may_sign(self, actor: Actor, row: dict[str, object]) -> None:
+        """The caller is eligible at the item's current level and may decide reviews."""
+        if not self._eligible(actor, row):
+            raise ForbiddenError("you cannot sign this item")
+        if "reviews:decide" not in actor.permissions:
+            raise ForbiddenError()
+
+    def needs_step_up(self, row: dict[str, object]) -> bool:
+        """The item's current level asks the signer to confirm who they are first."""
+        level = self._level(row)
+        return bool(level.get("step_up")) or self._final_step(row, level)
+
+    def assert_cleared(
+        self, actor: Actor, row: dict[str, object], choice: str, *, stepped_up: bool
+    ) -> None:
+        """Step-up and segregation of duties, checked before any sign-off is written."""
+        if self.needs_step_up(row) and (actor.auth_method == "api_key" or not stepped_up):
+            raise StepUpRequiredError()
+        SodBook(self.store).assert_signoff(actor, row, decision=choice)
+
+    def may_sign(self, actor: Actor, row: dict[str, object]) -> bool:
+        """Whether the caller could sign this item now, without recording anything."""
+        return (
+            "reviews:decide" in actor.permissions
+            and self._eligible(actor, row)
+            and not SodBook(self.store).signoff_violations(actor, row)
+        )
 
     def bulk(self, actor: Actor, body: dict[str, object], *, stepped_up: bool) -> dict[str, object]:
         items = body.get("items")
@@ -457,6 +522,8 @@ class ReviewBook:
         body["statement_text"] = row["statement_text"]
         body["statement_hash"] = row["statement_hash"]
         body["preparer_principal_id"] = row["preparer_principal_id"]
+        # What the signer is asked to read, when the subject carries its own text.
+        body["subject_ref"] = as_dict(row.get("subject_ref"))
         body["signoffs"] = [
             {
                 "level": sign.get("level"),
@@ -495,6 +562,10 @@ def _hash_subject(store: Any, subject_type: str, subject_id: uuid.UUID, ref: obj
         return hashlib.sha256(blob).hexdigest()
     if subject_type == "pack_record" and isinstance(ref, dict) and ref.get("content_hash"):
         return str(ref["content_hash"])
+    if subject_type == "saved_query":
+        from ar_domain.spreadsheet.saved import subject_hash  # noqa: PLC0415
+
+        return subject_hash(store, subject_id)
     if subject_type in _SUBJECTS:
         extra = store.blobs.get(subject_id)
         if isinstance(extra, bytes) and extra:

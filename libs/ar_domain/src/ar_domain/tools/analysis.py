@@ -34,11 +34,22 @@ def dispatch_analysis(
     store: Store, name: str, arguments: dict[str, object]
 ) -> dict[str, object] | None:
     """Return a result for analysis tools, or None when the name belongs elsewhere."""
+    from ar_domain.tools.sampling import sample  # noqa: PLC0415
+    from ar_domain.tools.saved_queries import (  # noqa: PLC0415
+        list_saved_queries,
+        run_saved_query,
+        save_query,
+    )
+
     handler = {
         "inspect_table": _inspect,
         "query_table": _query,
         "export_table": _export,
         "pivot_table": _pivot,
+        "sample_table": sample,
+        "save_query": save_query,
+        "list_saved_queries": list_saved_queries,
+        "run_saved_query": run_saved_query,
     }.get(name)
     if handler is None:
         return None
@@ -111,26 +122,49 @@ def _export(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         sql = str(arguments.get("sql") or "")
         if not sql.strip():
             return _error("validation_failed", "pass rows or a sql query over a workspace file")
-        checked = _checked(store, arguments, sql)
+        # ``path`` is where the file is written. What the statement reads is ``paths``.
+        reads = {**arguments, "path": ""} if arguments.get("paths") else arguments
+        if not arguments.get("paths") and not _exists(store, arguments):
+            return _error(
+                "validation_failed",
+                "Nothing was written. path is the file to write. Name the table files the "
+                "statement reads in paths.",
+            )
+        checked = _checked(store, reads, sql)
         columns, rows, _truncated = query_loaded(
-            _load_requested(store, arguments), checked, row_limit=_MAX_ROWS
+            _load_requested(store, reads), checked, row_limit=_MAX_ROWS
         )
     kind = "xlsx" if str(arguments.get("format") or "csv").lower() == "xlsx" else "csv"
     name = Path(str(arguments.get("path") or f"outputs/result.{kind}")).name
     if not name.endswith(f".{kind}"):
         name = f"{name}.{kind}"
     data = _xlsx(columns, rows) if kind == "xlsx" else _csv(columns, rows)
+    saved = write_output(store, arguments, name=name, data=data)
+    return _ok(
+        f"Wrote {saved['name']}.",
+        {"kind": "file", "files": [saved], "columns": columns, "truncated": False},
+    )
+
+
+def _exists(store: Store, arguments: dict[str, object]) -> bool:
+    """Whether the file ``path`` names is already in the working folder."""
+    from ar_domain.tools.general import _prepare  # noqa: PLC0415
+
+    named = str(arguments.get("path") or "").strip()
+    return bool(named) and _open_path(_prepare(store, arguments), named) is not None
+
+
+def write_output(
+    store: Store, arguments: dict[str, object], *, name: str, data: bytes
+) -> dict[str, str]:
+    """Write a file to the run's outputs folder and store it, so the reply can offer it."""
     from ar_domain.tools.general import _prepare, _store_file  # noqa: PLC0415
 
     root = _prepare(store, arguments)
     target = confine(root, f"/workspace/outputs/{name}")
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
-    saved = _store_file(store, arguments, name=name, data=data)
-    return _ok(
-        f"Wrote {saved['name']}.",
-        {"kind": "file", "files": [saved], "columns": columns, "truncated": False},
-    )
+    return _store_file(store, arguments, name=name, data=data)
 
 
 def _pivot(store: Store, arguments: dict[str, object]) -> dict[str, object]:

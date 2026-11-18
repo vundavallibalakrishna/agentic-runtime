@@ -90,7 +90,7 @@ def _validate(
 
 
 _BUILDER_SYSTEM = (
-    "You turn a plain-language request into an agent definition for Agentic Runtime.\n"
+    "You turn a plain-language request into an agent definition for Cura Works.\n"
     "Return one JSON object and nothing else, with these keys:\n"
     '- "persona": {"display_name": string of at most 80 characters, "greeting": one sentence}\n'
     '- "instructions": what the agent does, how it answers, and what it must not do\n'

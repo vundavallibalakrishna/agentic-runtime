@@ -1,6 +1,6 @@
 # Handover: what to develop and what to test before production certification
 
-Written 12 November 2026 for whoever takes this work next, person or coding agent. It lists what must be built and what must be tested before Agentic Runtime can be certified for production. Speed is out of scope: the owner treats the model as replaceable.
+Written 12 November 2026 for whoever takes this work next, person or coding agent. It lists what must be built and what must be tested before Cura Works can be certified for production. Speed is out of scope: the owner treats the model as replaceable.
 
 The target the owner set: a working platform with no known issue, on which any agent can be built. That means two things. Every rule in [AGENTS.md](../../../AGENTS.md) holds in the running product. Every capability is proven on the real product, with a real database and a real model, not by a unit test.
 

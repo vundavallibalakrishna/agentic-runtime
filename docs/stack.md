@@ -43,7 +43,7 @@ Rules:
 | fastembed | 0.9.0 | **Optional** extra `ar-domain[qdrant]`: CPU BM25 sparse vectors (`Qdrant/bm25`) for the Qdrant adapter's lexical signal (the default pgvector adapter uses Postgres full-text search). |
 | docling | 2.140.0 | Layout-aware parsing of PDF, Office and HTML to Markdown with structure. |
 | sqlglot | 30.23.0 | SQL parsing and validation for the read-only SQL connector. |
-| duckdb | 2.0.0 | In-process spreadsheet SQL for `general.query_table` and `general.pivot_table`. The connection is memory-only and external file access is disabled. The published wheel is `cp312-abi3` and runs on Python 3.14. |
+| duckdb | 2.0.0 | In-process spreadsheet SQL for `general.query_table`, `general.pivot_table` and `general.run_saved_query`. The connection is memory-only and external file access is disabled. The published wheel is `cp312-abi3` and runs on Python 3.14. |
 | pymysql | 1.2.3 | MySQL driver for the read-only database tool. |
 | greenlet | 3.5.6 | Lets a synchronous tool handler stay on the event loop's thread while its network call or command waits on a worker thread (`ar_common.offload`). Already installed by SQLAlchemy's asyncio support; now also used directly. |
 | presidio-analyzer | 2.2.364 | Personal-data detection for masking, with recognisers for Aadhaar, PAN and Indian phone numbers beside its own. A dependency of `ar_domain`, not an extra, so every install has it. `presidio-anonymizer` was never called and is no longer installed. |

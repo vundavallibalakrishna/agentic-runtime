@@ -149,7 +149,7 @@ def test_rate_limit_mcp_and_a2a_card() -> None:
     assert limited.headers.get("retry-after")
     document = client.get("/v1/openapi.json").json()
     assert "/v1/agents/{slug}/conversations" in document["paths"]
-    assert document["info"]["title"] == "Agentic Runtime Agent API"
+    assert document["info"]["title"] == "Cura Works Agent API"
     fresh = client.post(
         f"/api/v1/agents/{agent_id}/api-keys",
         json={"label": "MCP", "rateLimitRpm": 20},

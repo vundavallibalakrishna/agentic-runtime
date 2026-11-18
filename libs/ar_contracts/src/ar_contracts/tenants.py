@@ -76,6 +76,12 @@ class MemorySettings(_Model):
 
 class ApprovalSettings(_Model):
     default_ttl_s: int = 86400
+    # The review queue that signs a saved table query before it may run. None means a
+    # saved query runs at once and the tool says no sign-off is configured.
+    saved_query_review_queue_id: str | None = None
+    # The review queue an accepted assistant reply is signed in. None means a reply cannot
+    # be accepted yet: it is still labelled as AI-generated, and nobody is offered Accept.
+    reply_review_queue_id: str | None = None
 
 
 class SecuritySettings(_Model):

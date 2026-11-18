@@ -71,8 +71,11 @@ async def get_masking(identity: IdentityDep) -> MaskingView:
 async def patch_tenant(
     body: TenantPatch, identity: TenantWriterDep, request: Request
 ) -> dict[str, object]:
-    tenant = await identity.update_tenant(name=body.name, settings_patch=body.settings)
-    from ar_api.actors import chat_of  # noqa: PLC0415
+    from ar_api.actors import chat_of, principal_of  # noqa: PLC0415
+    from ar_domain.approvals.reply_review import check_queue_setting  # noqa: PLC0415
 
+    # The queue named for accepting replies must be one of this tenant's message queues.
+    check_queue_setting(chat_of(request), principal_of(request).tenant_id, body.settings)
+    tenant = await identity.update_tenant(name=body.name, settings_patch=body.settings)
     chat_of(request).tenant_settings[tenant.id] = tenant.settings
     return {"id": str(tenant.id), "name": tenant.name, "settings": tenant.settings}

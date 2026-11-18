@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -147,6 +147,20 @@ def _client(script: list[dict[str, object]], seen: list[dict[str, object]]) -> A
             seen.append({"timeout": self.timeout, "body": json})
             item = pending.pop(0) if pending else script[-1]
             return _Response(int(item["status"]), item["payload"])  # type: ignore[arg-type]
+
+        def stream(self, *_args: object, **_kwargs: object) -> _Unstreamed:
+            # This provider answers in one piece, so a caller that is listening asks again.
+            return _Unstreamed()
+
+    class _Unstreamed:
+        status_code = 200
+        headers: ClassVar[dict[str, str]] = {"content-type": "application/json"}
+
+        async def __aenter__(self) -> _Unstreamed:
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            return None
 
     def factory(*_args: object, **kwargs: object) -> _Client:
         return _Client(**kwargs)

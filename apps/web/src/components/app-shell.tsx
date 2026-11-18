@@ -3,15 +3,15 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
-  ArrowUpRight,
+  Bot,
   Check,
   ChevronDown,
-  ChevronRight,
   Layers2,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  Settings,
   ShieldCheck,
   UserRound,
   X,
@@ -19,10 +19,19 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { CommandPalette, type PaletteCommand } from "@/components/command-palette";
-import { primaryNav } from "@/components/nav";
+import { type NavItem, navSectionLabels, navSections, primaryNav } from "@/components/nav";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { ApiError, api, isRateLimited, type Session } from "@/lib/api";
@@ -31,13 +40,22 @@ import { cn } from "@/lib/utils";
 
 const SIDEBAR_KEY = "ar-sidebar";
 let rememberedSession: Session | null = null;
-const sections = ["work", "build", "data", "admin"] as const;
-const sectionLabels = {
-  work: "sectionWork",
-  build: "sectionBuild",
-  data: "sectionData",
-  admin: "sectionAdmin",
-} as const;
+const SETTINGS_HREF = "/settings";
+
+type ShellNav = {
+  /** The screens this person may open, signed-in permissions and tenant features applied. */
+  items: NavItem[];
+  /** Links that installed packs add. */
+  packLinks: { href: string; label: string }[];
+  ready: boolean;
+};
+
+const ShellNavContext = createContext<ShellNav>({ items: [], packLinks: [], ready: false });
+
+/** What the signed-in person may open. Read by the Settings screen, which lists it. */
+export function useShellNav(): ShellNav {
+  return useContext(ShellNavContext);
+}
 // One look for every row in the dark navigation column.
 const navRow = "group flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-[13px]";
 const navRowIdle =
@@ -145,8 +163,10 @@ export function AppShell({
     [session],
   );
   const current = items.find((item) => path === item.href || path.startsWith(`${item.href}/`));
-  const packCurrent = packLinks.find(
-    (item) => path === item.href || path.startsWith(`${item.href}/`),
+  const homeItems = useMemo(() => items.filter((item) => item.home), [items]);
+  const shellNav = useMemo(
+    () => ({ items, packLinks, ready: check === "signed-in" }),
+    [check, items, packLinks],
   );
 
   function newChat() {
@@ -204,16 +224,14 @@ export function AppShell({
   }
 
   const brand = (
-    <Link className="flex min-w-0 items-center gap-2.5" href="/chat">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--nav-active)] text-[var(--nav-active-foreground)]">
+    <Link className="flex min-w-0 shrink-0 items-center gap-2.5" href="/chat">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--primary)] text-[var(--primary-foreground)]">
         <Layers2 size={18} aria-hidden="true" strokeWidth={1.8} />
       </span>
-      <span className={cn("min-w-0", collapsed && "lg:sr-only")}>
-        <span className="block truncate text-sm font-semibold text-[var(--sidebar-strong)]">
-          {t("product")}
-        </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold">{t("product")}</span>
         {session?.tenant?.name ? (
-          <span className="block truncate text-xs text-[var(--sidebar-muted)]">
+          <span className="block truncate text-xs text-[var(--muted-foreground)]">
             {session.tenant.name}
           </span>
         ) : null}
@@ -221,271 +239,283 @@ export function AppShell({
     </Link>
   );
 
-  const nav = (
-    <nav
-      aria-label={t("primaryNavigation")}
-      className="min-h-0 flex-1 space-y-5 overflow-y-auto py-2"
-    >
-      {packLinks.length ? (
-        <div>
-          <p className={cn(navHeading, collapsed && "lg:sr-only")}>{t("sectionPacks")}</p>
-          <div className="space-y-0.5">
-            {packLinks.map((item) => {
-              const active = path === item.href || path.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  aria-current={active ? "page" : undefined}
-                  className={cn(
-                    navRow,
-                    active ? navRowActive : navRowIdle,
-                    collapsed && "lg:justify-center lg:px-2",
-                  )}
-                  href={item.href}
-                  key={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  title={item.label}
-                >
-                  <ShieldCheck aria-hidden="true" size={17} strokeWidth={1.7} />
-                  <span className={cn("flex-1", collapsed && "lg:sr-only")}>{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-      {sections.map((section) => {
-        const entries = items.filter((item) => item.section === section);
+  const packCurrent = packLinks.find(
+    (item) => path === item.href || path.startsWith(`${item.href}/`),
+  );
+  const inSettings =
+    path === SETTINGS_HREF ||
+    path.startsWith(`${SETTINGS_HREF}/`) ||
+    Boolean(packCurrent) ||
+    Boolean(current && !current.home);
+  const moreItems = items.filter((item) => !item.home);
+
+  // The top bar holds what a person came for: a chat and the agents. Everything else is
+  // under Settings, which brings its own side column.
+  const topLink = "flex h-9 items-center gap-2 rounded-md px-3 text-[13px]";
+  const topLinkIdle =
+    "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]";
+  const topLinkActive = "bg-[var(--muted)] font-semibold text-[var(--foreground)]";
+  const homeLinks = (vertical: boolean) => (
+    <>
+      {homeItems.map((item) => {
+        const Icon = item.icon;
+        const active = path === item.href || path.startsWith(`${item.href}/`);
+        return (
+          <Link
+            aria-current={active ? "page" : undefined}
+            className={
+              vertical
+                ? cn(navRow, active ? navRowActive : navRowIdle)
+                : cn(topLink, active ? topLinkActive : topLinkIdle)
+            }
+            href={item.href}
+            key={item.href}
+            onClick={() => setMobileOpen(false)}
+          >
+            <Icon aria-hidden="true" size={16} strokeWidth={1.7} />
+            {t(item.labelKey)}
+          </Link>
+        );
+      })}
+      <Link
+        aria-current={inSettings ? "page" : undefined}
+        className={
+          vertical
+            ? cn(navRow, path === SETTINGS_HREF ? navRowActive : navRowIdle)
+            : cn(topLink, inSettings ? topLinkActive : topLinkIdle)
+        }
+        href={SETTINGS_HREF}
+        onClick={() => setMobileOpen(false)}
+      >
+        <Settings aria-hidden="true" size={16} strokeWidth={1.7} />
+        {t("navSettings")}
+      </Link>
+    </>
+  );
+
+  const settingsRow = (href: string, label: string, icon: ReactNode) => {
+    const active = path === href || path.startsWith(`${href}/`);
+    return (
+      <Link
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          navRow,
+          active ? navRowActive : navRowIdle,
+          collapsed && "lg:justify-center lg:px-2",
+        )}
+        href={href}
+        key={href}
+        onClick={() => setMobileOpen(false)}
+        title={label}
+      >
+        {icon}
+        <span className={cn("flex-1", collapsed && "lg:sr-only")}>{label}</span>
+      </Link>
+    );
+  };
+  const settingsNav = (
+    <div className="space-y-5">
+      {navSections.map((section) => {
+        const entries = moreItems.filter((item) => item.section === section);
         if (!entries.length) return null;
         return (
           <div key={section}>
-            <p className={cn(navHeading, collapsed && "lg:sr-only")}>{t(sectionLabels[section])}</p>
+            <p className={cn(navHeading, collapsed && "lg:sr-only")}>
+              {t(navSectionLabels[section])}
+            </p>
             <div className="space-y-0.5">
               {entries.map((item) => {
                 const Icon = item.icon;
-                const active = path === item.href || path.startsWith(`${item.href}/`);
-                return (
-                  <Link
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      navRow,
-                      active ? navRowActive : navRowIdle,
-                      collapsed && "lg:justify-center lg:px-2",
-                    )}
-                    href={item.href}
-                    key={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    title={t(item.labelKey)}
-                  >
-                    <Icon aria-hidden="true" size={17} strokeWidth={1.7} />
-                    <span className={cn("flex-1", collapsed && "lg:sr-only")}>
-                      {t(item.labelKey)}
-                    </span>
-                    {item.soon ? (
-                      <span className={cn("text-[10px]", collapsed && "lg:hidden")}>
-                        {t("soon")}
-                      </span>
-                    ) : null}
-                  </Link>
+                return settingsRow(
+                  item.href,
+                  t(item.labelKey),
+                  <Icon aria-hidden="true" size={17} strokeWidth={1.7} />,
                 );
               })}
             </div>
           </div>
         );
       })}
-    </nav>
+      {packLinks.length ? (
+        <div>
+          <p className={cn(navHeading, collapsed && "lg:sr-only")}>{t("sectionPacks")}</p>
+          <div className="space-y-0.5">
+            {packLinks.map((item) =>
+              settingsRow(
+                item.href,
+                item.label,
+                <ShieldCheck aria-hidden="true" size={17} strokeWidth={1.7} />,
+              ),
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 
   const blocked = check === "failed" || check === "limited";
   return (
-    <div className="flex h-dvh bg-[var(--background)] text-[var(--foreground)]">
+    <div className="flex h-dvh flex-col bg-[var(--background)] text-[var(--foreground)]">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[var(--card)] focus:p-3"
       >
         {t("skipToContent")}
       </a>
-      <aside
-        aria-label={t("sidebar")}
-        className={cn(
-          "console-sidebar hidden shrink-0 flex-col bg-[var(--sidebar)] px-3 py-4 text-[var(--sidebar-foreground)] lg:flex",
-          collapsed ? "w-[68px]" : "w-[232px]",
-        )}
-      >
-        <div className="mb-4 px-1">{brand}</div>
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 md:px-5">
+        <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
+          <Dialog.Trigger asChild>
+            <button
+              aria-label={t("openMenu")}
+              className="rounded-lg p-2 hover:bg-[var(--muted)] lg:hidden"
+              type="button"
+            >
+              <Menu size={18} />
+            </button>
+          </Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-40 bg-[var(--scrim)]" />
+            <Dialog.Content className="console-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col overflow-y-auto bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)] shadow-[var(--shadow)]">
+              <Dialog.Title className="sr-only">{t("sidebar")}</Dialog.Title>
+              <Dialog.Description className="sr-only">{t("primaryNavigation")}</Dialog.Description>
+              <div className="mb-4 flex items-center justify-end">
+                <Dialog.Close
+                  aria-label={t("closeMenu")}
+                  className="rounded-md p-2 hover:bg-[var(--sidebar-hover)]"
+                >
+                  <X size={18} />
+                </Dialog.Close>
+              </div>
+              <div className="mb-5 space-y-0.5">{homeLinks(true)}</div>
+              {settingsNav}
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+        {brand}
+        <nav
+          aria-label={t("primaryNavigation")}
+          className="ml-3 hidden min-w-0 items-center gap-1 lg:flex"
+        >
+          {homeLinks(false)}
+        </nav>
+        <div className="min-w-0 flex-1" />
         {session?.permissions?.includes("chat:use") ? (
-          <button
+          <Button
             aria-label={`${t("newChat")} ⌘⇧O`}
-            className={cn(
-              "mb-4 flex h-10 items-center gap-2 rounded-md border border-[var(--sidebar-border)] px-3 text-[13px] font-medium text-[var(--sidebar-strong)] hover:bg-[var(--sidebar-hover)]",
-              collapsed && "justify-center px-0",
-            )}
+            className="hidden h-9 gap-1.5 px-3 text-[13px] sm:inline-flex"
             onClick={newChat}
             type="button"
+            variant="outline"
           >
-            <Plus size={16} aria-hidden="true" />
-            <span className={cn(collapsed && "sr-only")}>{t("newChat")}</span>
-            <kbd
-              className={cn(
-                "ml-auto text-[10px] text-[var(--sidebar-muted)]",
-                collapsed && "hidden",
-              )}
+            <Plus size={15} aria-hidden="true" />
+            {t("newChat")}
+          </Button>
+        ) : null}
+        {session?.permissions?.includes("agents:create") ? (
+          <Button asChild className="hidden h-9 gap-1.5 px-3 text-[13px] md:inline-flex">
+            <Link href="/agents/new">
+              <Bot size={15} aria-hidden="true" />
+              {t("createAgent")}
+            </Link>
+          </Button>
+        ) : null}
+        <CommandPalette commands={commands} />
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              className="flex shrink-0 items-center gap-2 rounded-lg p-1.5 hover:bg-[var(--muted)]"
+              type="button"
             >
-              ⌘⇧O
-            </kbd>
-          </button>
-        ) : null}
-        {nav}
-        {session?.permissions?.includes("agents:create") && !collapsed ? (
-          <Link
-            href="/agents/new"
-            className="mt-3 flex min-h-10 items-center justify-between rounded-md border border-[var(--sidebar-border)] px-3 py-2 text-xs font-medium text-[var(--sidebar-strong)] hover:bg-[var(--sidebar-hover)]"
-          >
-            {t("createAgent")}
-            <ArrowUpRight size={15} aria-hidden="true" />
-          </Link>
-        ) : null}
-        <button
-          aria-label={collapsed ? t("expand") : t("collapse")}
-          className="mt-3 flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-xs text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-strong)]"
-          onClick={() =>
-            setCollapsed((value) => {
-              window.localStorage.setItem(SIDEBAR_KEY, value ? "expanded" : "collapsed");
-              return !value;
-            })
-          }
-          type="button"
-        >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          <span className={cn(collapsed && "sr-only")}>{t("collapse")}</span>
-        </button>
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--border)] bg-[var(--card)] px-4 md:px-6">
-          <Dialog.Root open={mobileOpen} onOpenChange={setMobileOpen}>
-            <Dialog.Trigger asChild>
-              <button
-                aria-label={t("openMenu")}
-                className="rounded-lg p-2 hover:bg-[var(--muted)] lg:hidden"
-                type="button"
+              <span
+                aria-hidden="true"
+                className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--muted)] text-xs font-semibold"
               >
-                <Menu size={18} />
-              </button>
-            </Dialog.Trigger>
-            <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 z-40 bg-[var(--scrim)]" />
-              <Dialog.Content className="console-sidebar fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)] shadow-[var(--shadow)]">
-                <Dialog.Title className="sr-only">{t("sidebar")}</Dialog.Title>
-                <Dialog.Description className="sr-only">
-                  {t("primaryNavigation")}
-                </Dialog.Description>
-                <div className="mb-6 flex items-center justify-between">
-                  {brand}
-                  <Dialog.Close
-                    aria-label={t("closeMenu")}
-                    className="rounded-md p-2 hover:bg-[var(--sidebar-hover)]"
-                  >
-                    <X size={18} />
-                  </Dialog.Close>
-                </div>
-                {nav}
-              </Dialog.Content>
-            </Dialog.Portal>
-          </Dialog.Root>
-          <div className="flex min-w-0 flex-1 items-center gap-2 text-xs md:text-[13px]">
-            <span className="truncate text-[var(--muted-foreground)]">
-              {current
-                ? t(sectionLabels[current.section])
-                : (session?.tenant?.name ?? t("workspace"))}
-            </span>
-            {current ? (
-              <>
-                <ChevronRight
-                  size={12}
-                  className="shrink-0 text-[var(--muted-foreground)]"
-                  aria-hidden="true"
-                />
-                <span className="truncate font-medium">{t(current.labelKey)}</span>
-              </>
-            ) : packCurrent ? (
-              <>
-                <ChevronRight
-                  size={12}
-                  className="shrink-0 text-[var(--muted-foreground)]"
-                  aria-hidden="true"
-                />
-                <span className="truncate font-medium">{packCurrent.label}</span>
-              </>
-            ) : null}
-          </div>
-          <CommandPalette commands={commands} />
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button
-                className="flex shrink-0 items-center gap-2 rounded-lg p-1.5 hover:bg-[var(--muted)]"
-                type="button"
-              >
-                <span
-                  aria-hidden="true"
-                  className="flex size-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--muted)] text-xs font-semibold"
-                >
-                  <UserRound size={16} aria-hidden="true" />
+                <UserRound size={16} aria-hidden="true" />
+              </span>
+              <span className="sr-only text-left xl:not-sr-only xl:block">
+                <span className="block text-xs font-medium">
+                  {session?.user?.displayName ?? t("account")}
                 </span>
-                <span className="sr-only text-left xl:not-sr-only xl:block">
-                  <span className="block text-xs font-medium">
-                    {session?.user?.displayName ?? t("account")}
-                  </span>
-                  <span className="block text-[11px] text-[var(--muted-foreground)]">
-                    {session?.user?.email}
-                  </span>
+                <span className="block text-[11px] text-[var(--muted-foreground)]">
+                  {session?.user?.email}
                 </span>
-                <ChevronDown size={12} aria-hidden="true" />
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content
-                align="end"
-                sideOffset={8}
-                className="z-50 min-w-56 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1.5 shadow-[var(--shadow)]"
-              >
-                <DropdownMenu.Label className="border-b border-[var(--border)] px-2 py-2 text-xs text-[var(--muted-foreground)]">
-                  {session?.user?.email ?? t("account")}
-                </DropdownMenu.Label>
-                <DropdownMenu.Label className="px-2 pb-1 pt-3 text-[10px] uppercase tracking-widest text-[var(--muted-foreground)]">
-                  {t("theme")}
-                </DropdownMenu.Label>
-                {(["system", "light", "dark"] as const).map((option) => (
-                  <DropdownMenu.Item
-                    key={option}
-                    onSelect={() => setChoice(option)}
-                    className="flex cursor-pointer items-center justify-between rounded-md px-2 py-2 text-sm outline-none focus:bg-[var(--muted)]"
-                  >
-                    {t(option)}
-                    {choice === option ? <Check size={14} aria-hidden="true" /> : null}
-                  </DropdownMenu.Item>
-                ))}
-                <DropdownMenu.Separator className="my-1 h-px bg-[var(--border)]" />
-                <DropdownMenu.Item asChild>
-                  <Link
-                    href="/settings/profile"
-                    className="block rounded-md px-2 py-2 text-sm outline-none focus:bg-[var(--muted)]"
-                  >
-                    {t("profile")}
-                  </Link>
-                </DropdownMenu.Item>
+              </span>
+              <ChevronDown size={12} aria-hidden="true" />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              sideOffset={8}
+              className="z-50 min-w-56 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1.5 shadow-[var(--shadow)]"
+            >
+              <DropdownMenu.Label className="border-b border-[var(--border)] px-2 py-2 text-xs text-[var(--muted-foreground)]">
+                {session?.user?.email ?? t("account")}
+              </DropdownMenu.Label>
+              <DropdownMenu.Label className="px-2 pb-1 pt-3 text-[10px] uppercase tracking-widest text-[var(--muted-foreground)]">
+                {t("theme")}
+              </DropdownMenu.Label>
+              {(["system", "light", "dark"] as const).map((option) => (
                 <DropdownMenu.Item
-                  onSelect={() => void signOut()}
-                  className="cursor-pointer rounded-md px-2 py-2 text-sm outline-none focus:bg-[var(--muted)]"
+                  key={option}
+                  onSelect={() => setChoice(option)}
+                  className="flex cursor-pointer items-center justify-between rounded-md px-2 py-2 text-sm outline-none focus:bg-[var(--muted)]"
                 >
-                  {t("signOut")}
+                  {t(option)}
+                  {choice === option ? <Check size={14} aria-hidden="true" /> : null}
                 </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
-        </header>
+              ))}
+              <DropdownMenu.Separator className="my-1 h-px bg-[var(--border)]" />
+              <DropdownMenu.Item asChild>
+                <Link
+                  href="/settings/profile"
+                  className="block rounded-md px-2 py-2 text-sm outline-none focus:bg-[var(--muted)]"
+                >
+                  {t("profile")}
+                </Link>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                onSelect={() => void signOut()}
+                className="cursor-pointer rounded-md px-2 py-2 text-sm outline-none focus:bg-[var(--muted)]"
+              >
+                {t("signOut")}
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      </header>
+      <div className="flex min-h-0 flex-1">
+        {inSettings ? (
+          <aside
+            aria-label={t("navSettings")}
+            className={cn(
+              "console-sidebar hidden shrink-0 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] px-3 py-4 text-[var(--sidebar-foreground)] lg:flex",
+              collapsed ? "w-[68px]" : "w-[232px]",
+            )}
+          >
+            <nav aria-label={t("navSettings")} className="min-h-0 flex-1 overflow-y-auto">
+              {settingsNav}
+            </nav>
+            <button
+              aria-label={collapsed ? t("expand") : t("collapse")}
+              className="mt-3 flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-xs text-[var(--sidebar-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-strong)]"
+              onClick={() =>
+                setCollapsed((value) => {
+                  window.localStorage.setItem(SIDEBAR_KEY, value ? "expanded" : "collapsed");
+                  return !value;
+                })
+              }
+              type="button"
+            >
+              {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              <span className={cn(collapsed && "sr-only")}>{t("collapse")}</span>
+            </button>
+          </aside>
+        ) : null}
         <main
           id="main-content"
           tabIndex={-1}
-          className={cn("min-h-0 flex-1", flush ? "overflow-hidden" : "overflow-auto")}
+          className={cn("min-h-0 min-w-0 flex-1", flush ? "overflow-hidden" : "overflow-auto")}
         >
           {blocked ? (
             <div className="mx-auto w-full max-w-xl p-5 md:p-10">
@@ -508,10 +538,14 @@ export function AppShell({
                 </div>
               </div>
             </div>
-          ) : flush ? (
-            children
           ) : (
-            <div className="mx-auto w-full max-w-7xl p-5 md:p-8">{children}</div>
+            <ShellNavContext.Provider value={shellNav}>
+              {flush ? (
+                children
+              ) : (
+                <div className="mx-auto w-full max-w-7xl p-5 md:p-8">{children}</div>
+              )}
+            </ShellNavContext.Provider>
           )}
         </main>
       </div>

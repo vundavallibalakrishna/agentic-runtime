@@ -12,6 +12,29 @@ import { confirmStepUp } from "@/lib/step-up";
 
 type Row = Record<string, unknown>;
 
+/** The statement a saved-query item asks the signer to approve, shown in full. */
+function SubjectQuery({ subject }: { subject: unknown }) {
+  const t = useTranslations("reviews");
+  const ref = subject && typeof subject === "object" ? (subject as Row) : {};
+  if (typeof ref.sql !== "string" || !ref.sql) {
+    return null;
+  }
+  return (
+    <section className="mt-4" aria-label={t("queryText")}>
+      <h3 className="text-sm font-medium">{t("queryText")}</h3>
+      <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+        {t("queryVersion", { name: String(ref.name ?? ""), version: String(ref.version ?? "") })}
+      </p>
+      {typeof ref.description === "string" && ref.description ? (
+        <p className="mt-1 text-sm">{ref.description}</p>
+      ) : null}
+      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-3 text-xs">
+        {ref.sql}
+      </pre>
+    </section>
+  );
+}
+
 export function ReviewDetail({ reviewId }: { reviewId: string }) {
   const t = useTranslations("reviews");
   const [row, setRow] = useState<Row | null>(null);
@@ -75,6 +98,7 @@ export function ReviewDetail({ reviewId }: { reviewId: string }) {
         <article className="mx-auto max-w-3xl rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8">
           <h2 className="font-medium">{String(row.subjectType)}</h2>
           <p className="mt-2">{String(row.statementText ?? "")}</p>
+          <SubjectQuery subject={row.subjectRef} />
           <p className="mt-2 text-sm text-[var(--muted-foreground)]">{String(row.status)}</p>
           {row.status === "pending" || row.status === "in_review" ? (
             <fieldset disabled={busy} className="mt-6 border-t border-[var(--border)] pt-2">

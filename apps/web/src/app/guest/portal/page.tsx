@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { AuthAlert, AuthCard } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 import { ApiError, api } from "@/lib/api";
 
@@ -27,36 +28,39 @@ export default function GuestRecordsPage() {
   }, []);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Shared records</h1>
-      <p className="mt-2 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
-        Items shared with this guest. A download carries your name.
-      </p>
-      {error ? (
-        <p className="mt-6 text-sm text-[var(--destructive)]" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {signedOut ? (
-        <Button asChild className="mt-8 w-fit">
-          <Link href="/guest">Request a guest link</Link>
-        </Button>
-      ) : null}
-      {rows && rows.length === 0 && !signedOut ? (
-        <p className="mt-8 text-sm text-[var(--muted-foreground)]">
-          Nothing has been shared with this guest yet.
-        </p>
-      ) : null}
-      {rows && rows.length > 0 ? (
-        <ul className="mt-8 divide-y divide-[var(--border)] rounded-xl border border-[var(--border)] bg-[var(--card)]">
-          {rows.map((row) => (
-            <li className="px-4 py-3" key={row.id}>
-              <p className="font-medium">{row.title || row.id}</p>
-              <p className="text-sm text-[var(--muted-foreground)]">{row.status || "open"}</p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </main>
+    <AuthCard
+      body="Items shared with this guest. A download carries your name."
+      title="Shared records"
+      wide
+    >
+      <div className="space-y-4">
+        {error ? <AuthAlert>{error}</AuthAlert> : null}
+        {rows === null && !error ? (
+          <p className="text-center text-sm text-[var(--muted-foreground)]" role="status">
+            Loading the shared records.
+          </p>
+        ) : null}
+        {signedOut ? (
+          <Button asChild className="h-10 w-full">
+            <Link href="/guest">Request a guest link</Link>
+          </Button>
+        ) : null}
+        {rows && rows.length === 0 && !signedOut ? (
+          <p className="text-center text-sm text-[var(--muted-foreground)]">
+            Nothing has been shared with this guest yet.
+          </p>
+        ) : null}
+        {rows && rows.length > 0 ? (
+          <ul className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
+            {rows.map((row) => (
+              <li className="px-4 py-3" key={row.id}>
+                <p className="font-medium">{row.title || row.id}</p>
+                <p className="text-sm text-[var(--muted-foreground)]">{row.status || "open"}</p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </AuthCard>
   );
 }

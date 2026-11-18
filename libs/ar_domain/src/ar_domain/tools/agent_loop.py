@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 from ar_common.offload import run_sync
 from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
+from ar_domain.models.streaming import Coalescer, listening
 from ar_domain.runs.failure import fail_run
 from ar_domain.runs.logic import budget_exceeded
 from ar_domain.runs.request import asked, permissions_of
@@ -240,6 +241,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
     repair_cap = output_repair_limit(definition)
     _tell_schema(messages, schema)
     failure_cap = tool_failure_limit(definition)
+    deltas = _deltas(store, run, assistant)
     while True:
         if isinstance(saved_loop, dict) and saved_loop.get("phase") == "tools":
             kind = await consume_one_tool(
@@ -304,17 +306,24 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             )
             _stop_budget(store, run, assistant, "max_wall_clock_s")
             return True
-        turn = await _ask(
-            store,
-            messages,
-            openai_tools,
-            run=run,
-            alias=alias,
-            limits=limits,
-            started=started,
-            definition=definition,
-            response_format=schema,
-        )
+        if deltas.sent:
+            # An earlier round wrote text and then called a tool or was asked again. The
+            # reader's copy of the message starts over with this round.
+            _restart_message(store, run, assistant, alias)
+            deltas = _deltas(store, run, assistant)
+        with listening(deltas.feed):
+            turn = await _ask(
+                store,
+                messages,
+                openai_tools,
+                run=run,
+                alias=alias,
+                limits=limits,
+                started=started,
+                definition=definition,
+                response_format=schema,
+            )
+        deltas.flush()
         if isinstance(turn, dict):
             _note_endpoint(store, run, turn, steps)
             _emit_reasoning(store, run, assistant, definition, turn)
@@ -1539,6 +1548,29 @@ def _emit_trace(store: Any, run: dict[str, object], assistant_id: object) -> Non
                 "reason": loaded.get("reason"),
             },
         )
+
+
+def _deltas(store: Any, run: dict[str, object], assistant: dict[str, object]) -> Coalescer:
+    """Sends the answer's text to the run's stream as the model writes it."""
+    message_id = str(assistant.get("id"))
+    return Coalescer(
+        lambda text: store._emit(run, "message.delta", {"message_id": message_id, "text": text})
+    )
+
+
+def _restart_message(
+    store: Any, run: dict[str, object], assistant: dict[str, object], alias: str
+) -> None:
+    store._emit(
+        run,
+        "message.started",
+        {
+            "message_id": str(assistant.get("id")),
+            "role": "assistant",
+            "model_alias": alias,
+            "reset": True,
+        },
+    )
 
 
 def _emit_repair(store: Any, run: dict[str, object], reason: str) -> None:

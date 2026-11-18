@@ -280,7 +280,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           ) : null}
         </div>
       ) : null}
-      {kind === "query" || kind === "table" ? (
+      {kind === "query" || kind === "table" || kind === "pivot" || kind === "sample" ? (
         <div className="mt-2">
           {text(presentation.sql) ? (
             <Block className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-[var(--muted)] p-2 text-xs">

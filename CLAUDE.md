@@ -1,8 +1,8 @@
 <!-- Generated from AGENTS.md by scripts/sync_agent_docs.py. Edit AGENTS.md, then run make gen. -->
 
-# AGENTS.md — Agentic Runtime
+# AGENTS.md — Cura Works
 
-Agentic Runtime is a self-hosted platform on which a company builds, governs and runs AI agents on its own infrastructure and models. Balakrishna Vundavalli designed and built it and owns its product decisions. The platform exists and was certified end to end in M31 ([report](docs/testing/m31-certification.md)). Work now hardens and extends it, so read the code before assuming what a spec says is how it behaves.
+Cura Works is a self-hosted platform on which a company builds, governs and runs AI agents on its own infrastructure and models. Balakrishna Vundavalli designed and built it and owns its product decisions. The platform exists and was certified end to end in M31 ([report](docs/testing/m31-certification.md)). Work now hardens and extends it, so read the code before assuming what a spec says is how it behaves.
 
 These are the instructions for anyone changing this repository, person or coding agent. This file is complete on its own: it imports nothing, and instructions from any folder above this repository do not apply here. `CLAUDE.md` is generated from it, so edit this file and run `make gen`. When anything here conflicts with a lower-level document, this file wins for *process*; the specs win for *behaviour*.
 
@@ -11,7 +11,7 @@ These are the instructions for anyone changing this repository, person or coding
 Full text: [docs/00-overview/principles.md](docs/00-overview/principles.md). The goals are **CLEAN CODE**, **CUSTOMISABLE**, **EXTENSIBLE**, **SIMPLE UI/UX**, **OUTSTANDING PRESENTATION**.
 
 1. **camelCase on the wire.** Public JSON (REST, SSE, webhooks, definition files the UI shows) uses camelCase properties. Python stays snake_case via `ar_contracts.api_model.ApiModel` (`alias_generator=to_camel`, `populate_by_name=True`, `serialize_by_alias=True`). Database columns and env vars are unchanged. CI runs `scripts/check_public_camel_case.py`.
-2. **Demo-grade UI.** The primary create-agent path is a natural-language instruction handled by the built-in `builder` agent, with a reviewable preview and a form/YAML escape hatch. Empty, loading, and error states are mandatory. Bar: [ux-quality](docs/08-quality/ux-quality.md). Visual design follows [design-system](docs/08-quality/design-system.md): tokens in `apps/web/src/app/globals.css`, no new hex colours in feature code, light and dark both finished, theme defaults to the system preference.
+2. **Demo-grade UI.** The primary create-agent path is a natural-language instruction handled by the built-in `builder` agent, with a reviewable preview and a form/YAML escape hatch. Empty, loading, and error states are mandatory. Bar: [ux-quality](docs/08-quality/ux-quality.md). Visual design follows [design-system](docs/08-quality/design-system.md): tokens in `apps/web/src/app/globals.css`, no new hex colours in feature code, light and dark both finished, theme defaults to light and follows the system preference only when a person chooses it.
 3. **Agnostic core.** Core has no industry in it. Records-as-a-product (the evidence vault, legal holds, binders, the AI register, guest packets, and the questionnaire product) ships only as an optional signed pack. Four-eyes and the security audit log stay in core. New capabilities are packs or connector plugins ([extension-framework](docs/05-contracts/extension-framework.md)). Decisions: [ADR-0028](docs/02-architecture/adr/ADR-0028-agnostic-core.md) and the [production plan](docs/09-plan/agnostic-production-plan.md).
 4. **The product is the generic platform.** A customer connects a model, builds agents, and gives them tools, connectors, skills and files.
 5. **Defaults.** A tenant works after secrets and identity. Every other setting has a default. Settings UI has Simple and Advanced modes.

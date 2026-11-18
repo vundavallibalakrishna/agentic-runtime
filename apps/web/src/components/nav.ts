@@ -31,6 +31,7 @@ export type NavItem = {
     | "navConnectors"
     | "navCatalog"
     | "navSettings"
+    | "navProfile"
     | "navAgents"
     | "navTools"
     | "navDocuments"
@@ -51,6 +52,8 @@ export type NavItem = {
     | "navUsers"
     | "navComputers";
   section: "work" | "build" | "data" | "admin";
+  /** Shown in the sidebar. Every other screen is reached from Settings. */
+  home?: boolean;
   permission: string;
   /** A tenant feature flag that must be on for the item to show. */
   feature?: string;
@@ -61,6 +64,7 @@ export type NavItem = {
 export const primaryNav: NavItem[] = [
   {
     href: "/chat",
+    home: true,
     section: "work",
     labelKey: "navChat",
     permission: "chat:use",
@@ -68,6 +72,7 @@ export const primaryNav: NavItem[] = [
   },
   {
     href: "/agents",
+    home: true,
     section: "build",
     labelKey: "navAgents",
     permission: "agents:read",
@@ -104,7 +109,7 @@ export const primaryNav: NavItem[] = [
   {
     href: "/settings/profile",
     section: "admin",
-    labelKey: "navSettings",
+    labelKey: "navProfile",
     permission: "chat:use",
     icon: Settings,
   },
@@ -215,3 +220,12 @@ export const primaryNav: NavItem[] = [
     icon: Shield,
   },
 ];
+
+/** The groups Settings is laid out in, in order, and the message key of each heading. */
+export const navSections = ["work", "build", "data", "admin"] as const;
+export const navSectionLabels = {
+  work: "sectionWork",
+  build: "sectionBuild",
+  data: "sectionData",
+  admin: "sectionAdmin",
+} as const;
