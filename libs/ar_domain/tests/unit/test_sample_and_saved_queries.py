@@ -703,3 +703,27 @@ def test_comparing_a_document_with_its_own_copy_is_refused_in_words() -> None:
     book._own = lambda _actor, document_id: rows[document_id]  # type: ignore[method-assign]
     with pytest.raises(ValidationFailedError, match="same document"):
         book.compare(Actor(tenant, uuid.uuid4(), frozenset()), one, two)
+
+
+def test_a_query_that_names_a_file_not_loaded_is_told_which_tables_exist() -> None:
+    store, arguments = _saving()
+    asked = dispatch_general(
+        store,
+        "query_table",
+        {**arguments, "path": "items.csv", "sql": "SELECT * FROM owners"},
+    )
+    assert asked["is_error"] is True
+    assert "The tables loaded are: items" in str(asked["text"])
+    assert "paths" in str(asked["text"])
+
+
+def test_a_date_function_on_a_text_column_is_told_to_cast() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "days.csv", "id,posted\n1,2026-07-01\n2,2026-08-02\n")
+    asked = dispatch_general(
+        store,
+        "query_table",
+        {**arguments, "path": "days.csv", "sql": "SELECT strftime('%Y-%m', posted) FROM days"},
+    )
+    assert asked["is_error"] is True
+    assert "CAST(" in str(asked["text"])
