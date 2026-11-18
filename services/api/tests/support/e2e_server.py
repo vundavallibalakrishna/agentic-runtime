@@ -13,9 +13,12 @@ the workspace. The product has no such door.
 """
 
 import os
+import time
 
 # Say "no database" before the application reads its settings.
 os.environ["AR_DURABLE_STATE"] = "memory"
+# No collector runs beside the browser tests. An export to localhost wedges the API.
+os.environ["AR_OTEL_EXPORTER_OTLP_ENDPOINT"] = "off"
 # The stand-in model server and the fixture pages are on this machine's own addresses.
 os.environ.setdefault("AR_EGRESS_ALLOW_LOOPBACK", "true")
 os.environ.setdefault("AR_EGRESS_ALLOW_WILDCARD", "true")
@@ -34,6 +37,51 @@ from ar_testing.demo_people import catalogue
 
 SIGN_IN_PATH = "/api/v1/test/sign-in"
 RESET_PATH = "/api/v1/test/reset"
+TRAFFIC_PATH = "/api/v1/test/traffic"
+# Probes the harness and the product do not bill to a person.
+_UNCOUNTED = frozenset({"/healthz", "/readyz", "/metrics", SIGN_IN_PATH, RESET_PATH, TRAFFIC_PATH})
+_WINDOW_S = 60.0
+
+
+class RequestTraffic:
+    """Timestamps of product requests, so a browser walk can be checked against the limit."""
+
+    def __init__(self) -> None:
+        self._hits: list[tuple[float, str]] = []
+
+    def reset(self) -> None:
+        self._hits.clear()
+
+    def record(self, path: str) -> None:
+        self._hits.append((time.time(), path))
+
+    def snapshot(self) -> dict[str, object]:
+        moments = [moment for moment, _path in self._hits]
+        counts: dict[str, int] = {}
+        for _moment, path in self._hits:
+            counts[path] = counts.get(path, 0) + 1
+        top = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:12]
+        return {
+            "total": len(self._hits),
+            "peakPerMinute": peak_per_minute(moments),
+            "windowSeconds": int(_WINDOW_S),
+            "sessionChecks": counts.get("/api/v1/auth/session", 0),
+            "topPaths": [{"path": path, "count": count} for path, count in top],
+        }
+
+
+def peak_per_minute(moments: list[float], window_s: float = _WINDOW_S) -> int:
+    """The most requests in any sliding window. Empty is zero."""
+    if not moments:
+        return 0
+    ordered = sorted(moments)
+    peak = 1
+    start = 0
+    for end, moment in enumerate(ordered):
+        while ordered[start] <= moment - window_s:
+            start += 1
+        peak = max(peak, end - start + 1)
+    return peak
 
 
 class DemoSignIn:
@@ -42,6 +90,7 @@ class DemoSignIn:
     def __init__(self, app: ASGIApp, product: object) -> None:
         self.app = app
         self.product = product
+        self.traffic = RequestTraffic()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http" and scope["path"] == SIGN_IN_PATH:
@@ -54,7 +103,19 @@ class DemoSignIn:
             rebuild_demo_store(self.product)
             await JSONResponse({"reset": True})(scope, receive, send)
             return
+        if scope["type"] == "http" and scope["path"] == TRAFFIC_PATH:
+            response = self._traffic(Request(scope, receive))
+            await response(scope, receive, send)
+            return
+        if scope["type"] == "http" and scope["path"] not in _UNCOUNTED:
+            self.traffic.record(str(scope["path"]))
         await self.app(scope, receive, send)
+
+    def _traffic(self, request: Request) -> Response:
+        if request.method == "POST":
+            self.traffic.reset()
+            return JSONResponse({"reset": True})
+        return JSONResponse(self.traffic.snapshot())
 
     async def _sign_in(self, request: Request) -> Response:
         email = (request.query_params.get("email") or await _posted_email(request)).strip().lower()
@@ -82,14 +143,24 @@ async def _posted_email(request: Request) -> str:
 
 
 def build() -> ASGIApp:
-    """The product application over the demo tenant, behind the test sign-in."""
+    """The product application over the demo tenant, behind the test sign-in.
+
+    The rate limit stays the product's own 600 requests a minute. A browser walk has to fit.
+    """
     app = serve_demo_tenant(create_application())
     return DemoSignIn(app, app)
 
 
 def main() -> None:
-    """Listen on ``AR_PORT``."""
-    uvicorn.run(build(), host="127.0.0.1", port=api_listen_port(LISTEN_PORT))
+    """Listen on ``AR_PORT``. Turns run on the test Temporal server."""
+    from ar_testing.runtime import boot_test_runtime
+
+    bridge = boot_test_runtime()
+    app = build()
+    settings = app.product.state.settings
+    settings.temporal_address = bridge.address
+    settings.temporal_namespace = bridge.namespace
+    uvicorn.run(app, host="127.0.0.1", port=api_listen_port(LISTEN_PORT))
 
 
 if __name__ == "__main__":

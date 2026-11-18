@@ -25,10 +25,15 @@ class SandboxManagerLauncher:
     def release(self, sandbox_id: object) -> None:
         """Ask the manager to stop the container or pod behind a computer."""
 
+        from ar_common.internal_auth import headers_from_env  # noqa: PLC0415
         from ar_common.offload import blocking  # noqa: PLC0415
 
         address = f"{self.url}/internal/v1/sandboxes/{sandbox_id}:release"
-        blocking(lambda: http_post(address, timeout=30.0).close())
+        blocking(
+            lambda: http_post(
+                address, timeout=30.0, headers=headers_from_env("POST", address)
+            ).close()
+        )
 
 
 def sandbox_image() -> str:
@@ -39,8 +44,8 @@ def sandbox_image() -> str:
 class NoSandboxImage:
     """The docker driver with no image named. Starting a computer says what to set."""
 
-    def start(self, name: str, token: str) -> dict[str, object]:
-        del name, token
+    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+        del name, token, sandbox_id
         raise RuntimeError(
             "no sandbox image is configured: set AR_SANDBOX_IMAGE to the ar-sandbox image"
         )
@@ -53,7 +58,9 @@ def docker_launcher() -> Any:
     """The docker launcher for the configured image.
 
     With no image named the launcher still registers, and a start fails with the setting
-    to change. The computer tools never fall back to the host because an image is missing.
+    to change. A confined install names ``AR_SANDBOX_DOCKER_NETWORK``. Without that
+    network, publishing the agent port is allowed only when the install sets
+    ``AR_SANDBOX_ALLOW_UNISOLATED``.
     """
     from ar_common.sandbox_docker import DockerSandboxLauncher  # noqa: PLC0415
 
@@ -61,7 +68,15 @@ def docker_launcher() -> Any:
     if not image:
         return NoSandboxImage()
     network = os.environ.get("AR_SANDBOX_DOCKER_NETWORK", "").strip() or None
-    return DockerSandboxLauncher(image, network=network)
+    proxy = os.environ.get("AR_SANDBOX_EGRESS_PROXY", "").strip() or None
+    if network is None and not unisolated_sandbox_allowed():
+        raise RuntimeError(
+            "the docker sandbox driver needs AR_SANDBOX_DOCKER_NETWORK, "
+            "an internal network whose egress is the proxy"
+        )
+    if network and not proxy:
+        proxy = "http://squid:3128"
+    return DockerSandboxLauncher(image, network=network, proxy=proxy)
 
 
 def register_sandbox_client(store: Any, settings: BaseServiceSettings) -> None:
@@ -76,15 +91,14 @@ def register_sandbox_client(store: Any, settings: BaseServiceSettings) -> None:
     from ar_domain.process_state import ProcessLocalStateRefusedError  # noqa: PLC0415
 
     url = os.environ.get("AR_SANDBOX_MANAGER_URL", "").strip()
-    driver = os.environ.get("AR_SANDBOX_DRIVER", "").strip().lower()
     shared = uses_shared_process_state(settings.env)
     if shared and not url:
         raise ProcessLocalStateRefusedError(
             "staging and production run sandbox tools through the sandbox manager: "
             "set AR_SANDBOX_MANAGER_URL"
         )
-    if url and (shared or driver == "kubernetes"):
+    if url and (shared or not unisolated_sandbox_allowed(settings)):
         store.sandbox_launcher = SandboxManagerLauncher(url)
         return
-    if sandbox_image() and unisolated_sandbox_allowed(settings):
+    if sandbox_image():
         store.sandbox_launcher = docker_launcher()

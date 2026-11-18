@@ -540,7 +540,7 @@ async def save_sandboxes(session: AsyncSession, rows: list[dict[str, Any]]) -> N
         if scope not in {"conversation", "agent_user", "agent"}:
             scope = "conversation"
         driver = as_text(row.get("driver"), "docker")
-        if driver not in {"docker", "kubernetes"}:
+        if driver != "docker":
             driver = "docker"
         now = utcnow()
         await session.execute(

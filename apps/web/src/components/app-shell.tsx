@@ -34,7 +34,8 @@ import { CommandPalette, type PaletteCommand } from "@/components/command-palett
 import { type NavItem, navSectionLabels, navSections, primaryNav } from "@/components/nav";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
-import { ApiError, api, type Session } from "@/lib/api";
+import { ApiError, api, isRateLimited, type Session } from "@/lib/api";
+import { clearCachedSession, loadSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 const SIDEBAR_KEY = "ar-sidebar";
@@ -79,7 +80,7 @@ export function AppShell({
   const [session, setSession] = useState<Session | null>(null);
   // "failed" is any answer to the session check other than a session or "not signed in".
   // The page is then replaced by an error with a retry: a failed check is not a sign-in.
-  const [check, setCheck] = useState<"unknown" | "signed-in" | "failed">("unknown");
+  const [check, setCheck] = useState<"unknown" | "signed-in" | "failed" | "limited">("unknown");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [packLinks, setPackLinks] = useState<{ href: string; label: string }[]>([]);
@@ -90,7 +91,7 @@ export function AppShell({
 
   const checkSession = useCallback(() => {
     let cancelled = false;
-    void api<Session>("/api/v1/auth/session")
+    void loadSession()
       .then((body) => {
         rememberedSession = body;
         if (cancelled || typeof window === "undefined") return;
@@ -98,13 +99,21 @@ export function AppShell({
         setCheck("signed-in");
       })
       .catch((error: unknown) => {
-        rememberedSession = null;
         if (cancelled || typeof window === "undefined") return;
-        setSession(null);
         if (error instanceof ApiError && error.status === 401) {
+          rememberedSession = null;
+          clearCachedSession();
+          setSession(null);
           replaceRoute("/login");
           return;
         }
+        // A rate limit is a pause. The cookie is still a session, so this is not a sign-out.
+        if (isRateLimited(error)) {
+          setCheck("limited");
+          return;
+        }
+        rememberedSession = null;
+        setSession(null);
         setCheck("failed");
       });
     return () => {
@@ -206,6 +215,7 @@ export function AppShell({
 
   async function signOut() {
     rememberedSession = null;
+    clearCachedSession();
     try {
       await api("/api/v1/auth/logout", { method: "POST", body: "{}" });
     } finally {
@@ -343,6 +353,7 @@ export function AppShell({
     </div>
   );
 
+  const blocked = check === "failed" || check === "limited";
   return (
     <div className="flex h-dvh flex-col bg-[var(--background)] text-[var(--foreground)]">
       <a
@@ -506,22 +517,24 @@ export function AppShell({
           tabIndex={-1}
           className={cn("min-h-0 min-w-0 flex-1", flush ? "overflow-hidden" : "overflow-auto")}
         >
-          {check === "failed" ? (
+          {blocked ? (
             <div className="mx-auto w-full max-w-xl p-5 md:p-10">
               <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
                 <div role="alert">
                   <h1 className="font-display text-2xl tracking-tight">
-                    {t("sessionProblemTitle")}
+                    {check === "limited" ? t("rateLimitTitle") : t("sessionProblemTitle")}
                   </h1>
                   <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
-                    {t("sessionProblemBody")}
+                    {check === "limited" ? t("rateLimitBody") : t("sessionProblemBody")}
                   </p>
                 </div>
                 <div className="mt-6 flex flex-wrap gap-2">
                   <Button onClick={() => checkSession()}>{t("sessionRetry")}</Button>
-                  <Button asChild variant="outline">
-                    <a href="/login">{t("sessionSignIn")}</a>
-                  </Button>
+                  {check === "failed" ? (
+                    <Button asChild variant="outline">
+                      <a href="/login">{t("sessionSignIn")}</a>
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -12,7 +12,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
 from ar_common.settings import BaseServiceSettings, EnvName, get_settings, set_settings
@@ -84,7 +83,9 @@ def test_gateway_audit_joins_the_chain_the_verifier_checks() -> None:
     )
     server = store.tool_server_versions[version["tool_server_version_id"]]
     server["endpoint_url"] = "https://blocked.example/mcp"
-    client = TestClient(app)
+    from ar_testing.internal_client import signed_client
+
+    client = signed_client(app)
     called = client.post(
         "/internal/v1/tool-calls:execute",
         json={
@@ -130,7 +131,7 @@ def test_single_alembic_head_is_stage5_revision() -> None:
             revisions[revision] = down
     pointed = {item for item in revisions.values() if item}
     heads = sorted(rev for rev in revisions if rev not in pointed)
-    assert heads == ["0050"]
+    assert heads == ["0051"]
 
 
 class _Result:
@@ -597,7 +598,7 @@ def test_waiting_runs_cancel_and_accept_input() -> None:
         "status": "running",
     }
     assert store.cancel_run(tenant, user, running)["status"] == "running"
-    assert running in store.cancel_flags
+    assert store.runs[running].get("cancel_requested") is True
     answered = uuid.uuid4()
     message = uuid.uuid4()
     store.messages[message] = {

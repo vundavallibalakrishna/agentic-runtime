@@ -10,7 +10,8 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, type Session } from "@/lib/api";
+import { api } from "@/lib/api";
+import { loadSession } from "@/lib/session";
 
 import {
   type AliasChange,
@@ -90,7 +91,7 @@ export function ModelsAdmin() {
     setLoading(true);
     setLoadError("");
     try {
-      const session = await api<Session>("/api/v1/auth/session");
+      const session = await loadSession();
       setCanManage((session.permissions ?? []).includes("models:manage"));
       await refresh();
     } catch (caught) {

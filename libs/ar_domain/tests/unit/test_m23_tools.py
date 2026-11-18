@@ -57,11 +57,12 @@ def test_read_only_session_and_dsn_hygiene(monkeypatch: pytest.MonkeyPatch) -> N
     mysql: list[str] = []
     apply_read_only(mysql.append, 1000, mysql=True)
     assert any("READ ONLY" in item for item in mysql)
-    cleaned = clean_dsn(
-        "postgresql://user:secret@db:5432/app?options=-cdefault_transaction_read_only%3Doff&sslmode=require"
-    )
-    assert "options" not in cleaned
+    cleaned = clean_dsn("postgresql://user:secret@db:5432/app?sslmode=require")
     assert "sslmode=require" in cleaned
+    with pytest.raises(SqlRejected, match="options"):
+        clean_dsn(
+            "postgresql://user:secret@db:5432/app?options=-cdefault_transaction_read_only%3Doff"
+        )
     monkeypatch.setenv("AR_DATABASE_URL", "postgresql://ar:pw@127.0.0.1:55440/agentic_runtime")
     with pytest.raises(SqlRejected, match="platform"):
         _refuse_unsafe("postgres://reader:pw@localhost:55440/agentic_runtime", {})

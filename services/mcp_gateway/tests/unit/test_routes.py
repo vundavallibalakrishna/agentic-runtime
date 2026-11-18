@@ -5,11 +5,21 @@ from fastapi.testclient import TestClient
 from ar_domain.chat.service import demo_id
 from ar_mcp_gateway.main import create_application
 from ar_testing.demo_tenant import seed_demo_tenant
+from ar_testing.internal_client import signed_client
+
+
+def test_internal_routes_reject_a_missing_token() -> None:
+    client = TestClient(create_application())
+    refused = client.post(
+        "/internal/v1/catalog:resolve",
+        json={"agentVersionId": "00000000-0000-0000-0000-000000000001", "userId": "u"},
+    )
+    assert refused.status_code == 401
 
 
 def test_execute_lists_and_calls_a_seeded_tool() -> None:
     app = create_application()
-    client = TestClient(app)
+    client = signed_client(app)
     store = app.state.chat
     # The gateway holds no tenant of its own. This test puts the demo tenant in.
     seed_demo_tenant(store)
@@ -59,7 +69,7 @@ def test_execute_lists_and_calls_a_seeded_tool() -> None:
     )
     assert discovered.status_code in {200, 409, 422}
     app.state.chat = None
-    missing = TestClient(app, raise_server_exceptions=False).post(
+    missing = signed_client(app, raise_server_exceptions=False).post(
         "/internal/v1/catalog:resolve",
         json={"agentVersionId": str(desk["published_version_id"]), "userId": str(demo_id("admin"))},
     )

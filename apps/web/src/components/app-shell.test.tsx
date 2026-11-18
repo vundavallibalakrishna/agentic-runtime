@@ -81,4 +81,29 @@ describe("AppShell", () => {
     expect(await screen.findByText("Hello")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
+
+  it("stays signed in and offers a retry when the session check is rate limited", async () => {
+    let answers = 0;
+    server.use(
+      http.get("*/api/v1/auth/session", () => {
+        answers += 1;
+        return answers === 1
+          ? HttpResponse.json(
+              { code: "rate_limited", detail: "rate limit exceeded" },
+              { status: 429 },
+            )
+          : signedIn();
+      }),
+      http.get("*/api/v1/tenant/packs", () => HttpResponse.json({ items: [] })),
+    );
+    render(wrap(<AppShell>Hello</AppShell>));
+    expect(await screen.findByRole("heading", { name: "Too many requests" })).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("You are still signed in");
+    expect(screen.queryByText("Hello")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Sign in again" })).toBeNull();
+    expect(navigation.replace).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Hello")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Too many requests" })).toBeNull();
+  });
 });

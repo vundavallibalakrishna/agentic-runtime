@@ -225,17 +225,13 @@ def _launch(store: Any, row: dict[str, object], token: str) -> None:
     manager's pod creator has opted into isolation, so a failure to start is surfaced.
     Only the sandbox manager holds a pod creator.
     """
-    creator = getattr(store, "pod_creator", None)
-    if creator is not None:
-        _launch_pod(store, row, token, creator)
-        return
     launcher = getattr(store, "sandbox_launcher", None)
     if launcher is None or row.get("driver") != "docker":
         return
     sandbox_id = cast("uuid.UUID", row["id"])
     name = f"ar-sbx-{sandbox_id.hex[:12]}"
     try:
-        info = launcher.start(name, token)
+        info = launcher.start(name, token, sandbox_id=str(sandbox_id))
     except Exception as exc:  # any start failure fails the sandbox cleanly
         row["status"] = "failed"
         row["error"] = str(exc)
@@ -246,50 +242,6 @@ def _launch(store: Any, row: dict[str, object], token: str) -> None:
     row["agent_token"] = token
     row["driver_ref"] = f"docker:{info.get('container_id')}"
     row["updated_at"] = utcnow()
-
-
-def _launch_pod(store: Any, row: dict[str, object], token: str, creator: Any) -> None:
-    """Ask the sandbox manager's pod creator for one Kubernetes pod."""
-    del store
-    template = row.get("template_slug") or "default"
-    limits = _pod_limits(row)
-    try:
-        info = creator.start(
-            sandbox_id=str(row.get("id") or ""),
-            tenant_id=str(row.get("tenant_id") or ""),
-            template=str(template),
-            token=token,
-            cpu_millis=limits[0],
-            memory_mb=limits[1],
-            disk_gb=limits[2],
-            lifetime_s=limits[3],
-            runtime_class=str(row.get("runtime_class") or "gvisor"),
-        )
-    except Exception as exc:  # a missing cluster fails the sandbox; it does not run on the host
-        row["status"] = "failed"
-        row["error"] = str(exc)
-        row["endpoint_url"] = None
-        row["updated_at"] = utcnow()
-        raise SandboxStartError(str(exc)) from exc
-    row["driver"] = "kubernetes"
-    row["container_id"] = info.get("pod_name")
-    row["endpoint_url"] = str(info.get("endpoint_url") or "") or None
-    row["agent_token"] = token
-    row["driver_ref"] = str(info.get("driver_ref") or "")
-    row["updated_at"] = utcnow()
-
-
-def _pod_limits(row: dict[str, object]) -> tuple[int, int, int, int]:
-    cpu = row.get("cpu_millis")
-    memory = row.get("memory_mb")
-    disk = row.get("disk_gb")
-    life = row.get("max_lifetime_s")
-    return (
-        int(cpu) if isinstance(cpu, int) and cpu > 0 else 500,
-        int(memory) if isinstance(memory, int) and memory > 0 else 512,
-        int(disk) if isinstance(disk, int) and disk > 0 else 1,
-        int(life) if isinstance(life, int) and life > 0 else 3600,
-    )
 
 
 def _stop_container(store: Any, row: dict[str, object]) -> None:
@@ -306,12 +258,10 @@ def _stop_container(store: Any, row: dict[str, object]) -> None:
         row["endpoint_url"] = None
         return
     name = _container_of(row)
-    creator = getattr(store, "pod_creator", None)
-    stopper = creator if row.get("driver") == "kubernetes" else launcher
-    if not name or stopper is None or not hasattr(stopper, "stop"):
+    if not name or launcher is None or not hasattr(launcher, "stop"):
         return
     with contextlib.suppress(Exception):  # a container already gone must not block teardown
-        stopper.stop(name)
+        launcher.stop(name)
     row["container_id"] = None
     row["endpoint_url"] = None
 
@@ -341,7 +291,7 @@ def _revive(store: Any, row: dict[str, object]) -> None:
     Only a process that starts computers does this. The files that were only in the lost
     container are gone; the row's error says so until the next start succeeds.
     """
-    starts = getattr(store, "pod_creator", None) or getattr(store, "sandbox_launcher", None)
+    starts = getattr(store, "sandbox_launcher", None)
     if starts is None or not hasattr(starts, "start") or _answers(row):
         return
     token = agent_token(store, row)
@@ -381,9 +331,11 @@ def _delegate_ensure(
 
     def _post() -> dict[str, object]:
 
-        response = blocking(
-            lambda: http_post(f"{url}/internal/v1/sandboxes:ensure", json=body, timeout=60.0)
-        )
+        from ar_common.internal_auth import headers_from_env  # noqa: PLC0415
+
+        address = f"{url}/internal/v1/sandboxes:ensure"
+        headers = headers_from_env("POST", address)
+        response = blocking(lambda: http_post(address, json=body, timeout=60.0, headers=headers))
         try:
             response.raise_for_status()
             payload = response.json()
@@ -423,7 +375,7 @@ def _delegate_ensure(
                 "conversation_id": conversation_id,
                 "agent_id": agent_id,
                 "user_id": user_id,
-                "driver": str(payload.get("driver") or "kubernetes"),
+                "driver": str(payload.get("driver") or "docker"),
                 "driver_ref": payload.get("driver_ref") or payload.get("driverRef"),
                 "workspace_volume": payload.get("workspace_volume"),
             },
@@ -435,10 +387,10 @@ def _delegate_ensure(
 
 
 def _delegate_to_manager(store: Any) -> bool:
-    """The kubernetes driver creates pods only inside the sandbox manager."""
-    if getattr(store, "pod_creator", None) is not None:
+    """Another process asks the sandbox manager when that is where containers start."""
+    if getattr(store, "sandbox_launcher", None) is not None:
         return False
-    return os.environ.get("AR_SANDBOX_DRIVER", "").strip().lower() == "kubernetes"
+    return bool(os.environ.get("AR_SANDBOX_MANAGER_URL", "").strip())
 
 
 def ensure_scope(

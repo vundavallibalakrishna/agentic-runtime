@@ -231,6 +231,7 @@ BUCKETS = (
     "memory_facts",
     "knowledge_collections",
     "knowledge_sources",
+    "ingestion_jobs",
     "knowledge_documents",
     "document_chunks",
     "tool_servers",

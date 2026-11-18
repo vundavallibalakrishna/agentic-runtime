@@ -340,7 +340,13 @@ async def test_skill_edits_republish_and_runtime_wrappers(stand_in: StandIn) -> 
     assert missing["is_error"] is True
     writer = next(row for row in store.agents.values() if row["slug"] == "writer")
     definition = store.versions[writer["published_version_id"]]["definition"]
-    assert "brand-guidelines" in capabilities_block(store, definition, tenant_id=demo_id("tenant"))
+    block = capabilities_block(store, definition, tenant_id=demo_id("tenant"))
+    assert "brand-guidelines" in block
+    skill = next(row for row in store.skills.values() if row.get("slug") == "brand-guidelines")
+    version = store.skill_versions.get(skill.get("published_version_id"))
+    instructions = str(version.get("instructions_md") or "") if isinstance(version, dict) else ""
+    assert instructions
+    assert instructions not in block
     refused = runtime_plan(
         {
             "run_id": "parent",

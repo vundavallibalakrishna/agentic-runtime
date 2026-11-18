@@ -30,6 +30,8 @@ export const readyzReadyzGet = <ThrowOnError extends boolean = false>(options?: 
 
 /**
  * Metrics
+ *
+ * Scrapes need the install HMAC. The route is not anonymous.
  */
 export const metricsMetricsGet = <ThrowOnError extends boolean = false>(options?: Options<MetricsMetricsGetData, ThrowOnError>): RequestResult<MetricsMetricsGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<MetricsMetricsGetResponses, unknown, ThrowOnError>({ url: '/metrics', ...options });
 

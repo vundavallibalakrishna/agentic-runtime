@@ -9,6 +9,7 @@ import orjson
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from ar_common.database_roles import PLACEHOLDERS, generated_password
 from ar_common.internal_jwt import public_jwk
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,6 +94,56 @@ def ensure_jwks(text: str) -> str:
     return "\n".join([*lines, f"AR_INTERNAL_JWT_JWKS={value}"]) + "\n"
 
 
+def _password_is_placeholder(current: str) -> bool:
+    """Same set as ``PLACEHOLDERS``, plus the dev-file sentinel ``generate``."""
+    folded = current.strip().casefold()
+    return folded in PLACEHOLDERS or folded == "generate"
+
+
+def _ensure_password(text: str, key: str, value: str) -> str:
+    """Replace a missing, placeholder, or role-name password. Keep a real one."""
+    prefix = f"{key}="
+    lines = text.splitlines()
+    replaced = False
+    for index, line in enumerate(lines):
+        if line.startswith(prefix):
+            current = line.split("=", 1)[1].strip().strip("'\"")
+            if _password_is_placeholder(current):
+                lines[index] = f"{key}={value}"
+            replaced = True
+            break
+    if not replaced:
+        lines.append(f"{key}={value}")
+    return "\n".join(lines) + "\n"
+
+
+def _install_app_password(text: str) -> str:
+    """Put AR_DB_APP_PASSWORD into a passwordless or role-name database URL."""
+    values: dict[str, str] = {}
+    for line in text.splitlines():
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, raw = line.split("=", 1)
+        values[key] = raw.strip().strip("'\"")
+    app = values.get("AR_DB_APP_PASSWORD", "")
+    url = values.get("AR_DATABASE_URL", "")
+    marker = "postgresql+asyncpg://ar_app"
+    if not app or not url.startswith(marker):
+        return text
+    if url.startswith(marker + "@"):
+        updated = marker + ":" + app + url[len(marker) :]
+    elif url.startswith(marker + ":") and "@" in url:
+        secret, host = url[len(marker) + 1 :].split("@", 1)
+        if not _password_is_placeholder(secret):
+            return text
+        updated = marker + ":" + app + "@" + host
+    else:
+        return text
+    lines = [line for line in text.splitlines() if not line.startswith("AR_DATABASE_URL=")]
+    lines.append(f"AR_DATABASE_URL={updated}")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     private = Ed25519PrivateKey.generate()
     private_pem = private.private_bytes(
@@ -103,9 +154,17 @@ def main() -> None:
     text = ENV.read_text(encoding="utf-8") if ENV.exists() else ""
     text = _ensure(text, "AR_SESSION_ENCRYPTION_KEY", session_key())
     text = _ensure(text, "AR_CURSOR_SECRET", secrets.token_urlsafe(32))
+    text = _ensure(text, "AR_INTERNAL_AUTH_SECRET", secrets.token_urlsafe(32))
     text = _ensure(text, "AR_DB_ENCRYPTION_KEYS", shell_value(encryption_keyring()))
     text = _ensure(text, "AR_DB_ENCRYPTION_ACTIVE_KEY", "k1")
     text = _ensure(text, "AR_TOKEN_CACHE_KEY", session_key())
+    text = _ensure_password(text, "AR_DB_OWNER_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_PLATFORM_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_APP_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_READONLY_PASSWORD", generated_password())
+    text = _ensure_password(text, "AR_DB_TEMPORAL_PASSWORD", generated_password())
+    text = _ensure_password(text, "POSTGRES_PASSWORD", generated_password())
+    text = _install_app_password(text)
     escaped_pem = private_pem.replace("\n", "\\n")
     text = _ensure(text, "AR_INTERNAL_JWT_PRIVATE_KEY", shell_value(escaped_pem))
     text = ensure_jwks(quote_json_settings(text))

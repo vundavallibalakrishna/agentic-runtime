@@ -1,8 +1,20 @@
 """Prometheus registry helpers. Spec: docs/03-specs/18-observability-eval.md §1."""
 
-from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, generate_latest
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    generate_latest,
+)
 
 REGISTRY = CollectorRegistry(auto_describe=True)
+
+PLATFORM_DB_DENY_UNRESOLVED = Gauge(
+    "ar_platform_db_deny_unresolved",
+    "1 when a platform database deny name has never resolved.",
+    registry=REGISTRY,
+)
 
 REQUESTS = Counter(
     "ar_http_requests_total",

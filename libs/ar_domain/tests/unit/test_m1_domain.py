@@ -810,9 +810,18 @@ async def test_identity_service_flows() -> None:
 
 
 def test_engine_routing(monkeypatch: pytest.MonkeyPatch) -> None:
-    url = "postgresql+asyncpg://ar_app:ar_app@localhost:5432/agentic_runtime"
-    assert "ar_owner" in owner_database_url(url)
-    assert "ar_platform" in platform_database_url(url)
+    monkeypatch.setenv("AR_DB_OWNER_PASSWORD", "test-owner-password")
+    monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "test-platform-password")
+    url = "postgresql+asyncpg://ar_app:test-app-password@localhost:5432/agentic_runtime"
+    assert "ar_owner:test-owner-password@" in owner_database_url(url)
+    assert "ar_platform:test-platform-password@" in platform_database_url(url)
+    with pytest.raises(RuntimeError):
+        owner_database_url("postgresql+asyncpg://ar_owner:ar_owner@localhost/ar")
+    with pytest.raises(RuntimeError):
+        owner_database_url("postgresql+asyncpg://postgres:ar_owner@localhost/ar")
+    assert "postgres:ci-image-superuser@" in owner_database_url(
+        "postgresql+asyncpg://postgres:ci-image-superuser@localhost/ar"
+    )
     assert swap_user(url, "custom", "pw").startswith("postgresql+asyncpg://custom:pw@")
     tenant = uuid.uuid4()
     monkeypatch.setenv("AR_TENANT_DB_ROUTES", f'{{"{tenant}": "{url}"}}')

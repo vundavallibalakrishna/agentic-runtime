@@ -4,7 +4,6 @@ import uuid
 from datetime import timedelta
 
 import pytest
-from fastapi.testclient import TestClient
 
 from ar_common.errors import ConflictError, NotFoundError, ValidationFailedError
 from ar_common.time import utcnow
@@ -244,7 +243,9 @@ def test_manager_routes_and_docker_probe() -> None:
 
     assert docker_available() in {True, False}
     assert claim("default=4,browser=2", "browser", {"browser": 0}) is None
-    client = TestClient(create_application())
+    from ar_testing.internal_client import signed_client
+
+    client = signed_client(create_application())
     store = client.app.state.chat
     # A suspended computer stores a snapshot. No object store runs in a unit test.
     store.objects = MemoryObjectStore()
@@ -263,7 +264,8 @@ def test_manager_routes_and_docker_probe() -> None:
     assert "AR_SANDBOX_IMAGE" in refused.text
 
     class _Started:
-        def start(self, name: str, token: str) -> dict[str, object]:
+        def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+            del sandbox_id
             return {"container_id": name, "endpoint_url": "http://127.0.0.1:1", "token": token}
 
         def stop(self, container_id: str) -> None:

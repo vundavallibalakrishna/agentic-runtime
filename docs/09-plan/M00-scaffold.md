@@ -89,7 +89,7 @@ Exit criteria: `make bootstrap && make dev` starts the local stack; `make check`
 ### M0-T11 · Container images
 - **Depends on:** M0-T05, M0-T08
 - **Areas:** `images/python-service.Dockerfile`, `images/web.Dockerfile`, `images/sandbox/Dockerfile` (placeholder), `images/squid/`, `images/ingest/` (placeholder), `.dockerignore`
-- **Spec:** [ci-cd §3](../07-ops/ci-cd.md#3-images), [helm-k8s](../07-ops/helm-k8s.md)
+- **Spec:** [ci-cd §3](../07-ops/ci-cd.md#3-images), [helm-k8s](../07-ops/compose.md)
 - **Do:** Multi-stage uv build parameterised by `SERVICE` (one Dockerfile builds `api`, `runtime`, `system`, `ingest`, `model_gateway`, `mcp_gateway`, `sandbox_manager`, `channels`, `mcp_sql`, `mcp_openapi`, `fake_llm`, plus `migrate` = `ar_domain` with the Alembic entrypoint; image names per ci-cd §3), non-root UID 10001, read-only root FS compatible, `tini` entrypoint; web image with Next standalone output. SBOM (syft) and cosign signing in `images.yml` on main.
 - **Done when:** all images build; each container passes `/healthz` in compose `apps` profile; images < 400 MB (ingest and sandbox excepted).
 - **Tests:** CI image build + container smoke.

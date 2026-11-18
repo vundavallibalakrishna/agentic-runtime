@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Squid external ACL helper. Anything other than a 200 from the manager is a deny."""
 
+import hashlib
+import hmac
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -24,10 +27,16 @@ def verdict(login: str, host: str) -> str:
         return "ERR"
     sandbox_id, token = login.split(":", 1)
     query = urllib.parse.urlencode({"sandbox_id": sandbox_id, "host": host, "token": token})
+    path = "/internal/v1/egress/check"
+    secret = os.environ.get("AR_INTERNAL_AUTH_SECRET", "")
+    stamp = str(int(time.time()))
+    digest = hmac.new(secret.encode(), f"{stamp}.GET.{path}".encode(), hashlib.sha256).hexdigest()
+    request = urllib.request.Request(  # noqa: S310 - manager URL is operator config
+        f"{base}{path}?{query}",
+        headers={"X-AR-Internal": f"{stamp}.{digest}"},
+    )
     try:
-        with urllib.request.urlopen(  # noqa: S310 - the manager URL is operator configuration
-            f"{base}/internal/v1/egress/check?{query}", timeout=2
-        ) as response:
+        with urllib.request.urlopen(request, timeout=2) as response:  # noqa: S310
             return "OK" if response.status == 200 else "ERR"
     except OSError:
         return "ERR"

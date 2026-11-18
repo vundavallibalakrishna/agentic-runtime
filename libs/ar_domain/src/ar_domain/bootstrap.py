@@ -12,6 +12,7 @@ import os
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ar_common.database_roles import assert_installed_database_secrets
 from ar_domain.db.engine import app_database_url, get_engine, owner_database_url
 from ar_domain.db.registry import import_models
 from ar_domain.identity.seed import apply_catalogue, ensure_admin
@@ -34,6 +35,7 @@ async def bootstrap(
     When ``admin_password`` is given, the admin can sign in with it: sign-in is in-app and
     the password is stored as an argon2id hash on the user row.
     """
+    check_bootstrap_secrets()
     tenant_slug = slug or os.environ.get("AR_BOOTSTRAP_TENANT_SLUG") or "default"
     tenant_name = name or os.environ.get("AR_BOOTSTRAP_TENANT_NAME") or "Default"
     email = admin_email or os.environ.get("AR_BOOTSTRAP_ADMIN_EMAIL") or ""
@@ -131,6 +133,11 @@ async def _second_user(
         password=secret,
         role_key=role,
     )
+
+
+def check_bootstrap_secrets() -> None:
+    """Staging and production refuse placeholder role passwords before bootstrap connects."""
+    assert_installed_database_secrets(os.environ.get("AR_ENV", "dev"), app_database_url())
 
 
 def main() -> None:

@@ -115,6 +115,93 @@ def _parent_text(row: dict[str, object]) -> str | None:
     return str(parent)
 
 
+def _positive_int(value: object) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
+def _as_uuid(value: object) -> uuid.UUID | None:
+    if isinstance(value, uuid.UUID):
+        return value
+    try:
+        return uuid.UUID(str(value))
+    except ValueError, TypeError:
+        return None
+
+
+def _token_usage(usage: object) -> dict[str, int] | None:
+    if not isinstance(usage, dict):
+        return None
+    counts: dict[str, int] = {}
+    for key, value in usage.items():
+        if isinstance(value, int) and not isinstance(value, bool):
+            counts[str(key)] = value
+    return counts
+
+
+def _provider_failure(text: str, *, retryable: bool) -> dict[str, object]:
+    return {
+        "text": text,
+        "tool_calls": [],
+        "usage": {"tokens_in": 0, "tokens_out": 0, "usage_source": "unknown"},
+        "real": True,
+        "retryable": retryable,
+    }
+
+
+def _capability_set(model: dict[str, object]) -> set[str]:
+    raw = model.get("capabilities")
+    if not isinstance(raw, list):
+        return set()
+    return {str(item) for item in raw}
+
+
+def _shaped_format(
+    schema: dict[str, object] | None, capabilities: set[str]
+) -> dict[str, object] | None:
+    if not schema:
+        return None
+    from ar_domain.models.request import response_format_body  # noqa: PLC0415
+
+    if "json_schema" in capabilities:
+        return response_format_body(schema, mode="json_schema")
+    if "json_object" in capabilities:
+        return response_format_body(schema, mode="json_object")
+    return None
+
+
+def _requested_max_tokens(requested: int | None, params: object) -> object:
+    if isinstance(requested, int) and not isinstance(requested, bool) and requested > 0:
+        return requested
+    if isinstance(params, dict):
+        raw = params.get("max_tokens")
+        if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+            return raw
+    return None
+
+
+def _safe_body(response: httpx.Response) -> str:
+    try:
+        return response.text[:2000]
+    except Exception:  # noqa: BLE001 — an unreadable body is not a context-length error
+        return ""
+
+
+async def _post_json(
+    url: str,
+    body: dict[str, object],
+    headers: dict[str, str],
+    timeout_s: float,
+    allow: list[str] | None,
+) -> tuple[httpx.Response | None, bool]:
+    try:
+        async with async_client(timeout=timeout_s, allow=allow) as client:
+            return await client.post(url, json=body, headers=headers), False
+    except httpx.HTTPError:
+        return None, True
+
+
 def _capabilities(value: list[str]) -> list[str]:
     """What a tenant says a model can do, from the known set and without repeats."""
     from ar_domain.models.aliases import CAPABILITIES  # noqa: PLC0415
@@ -231,7 +318,6 @@ class ChatBehaviour:
     subscribers: dict[uuid.UUID, list[asyncio.Queue[dict[str, object]]]] = field(
         default_factory=dict
     )
-    cancel_flags: set[uuid.UUID] = field(default_factory=set)
     sse_counts: dict[str, int] = field(default_factory=dict)
     temporal_up: bool = False
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
@@ -337,8 +423,6 @@ class ChatBehaviour:
     model_gateway_url: str = ""
     sandbox_launcher: object | None = None
     temporal_client: object | None = None
-    # When set, a missing worker is a refusal. The turn is not run in this process.
-    temporal_required: bool = False
     # Production posts every tool call to mcp-gateway. Dev and unit tests stay in process.
     tool_gateway_http: bool = False
     # Set only on the sandbox manager. No other process may create pods.
@@ -723,6 +807,8 @@ class ChatBehaviour:
         request_options: dict[str, object] | None = None,
         embedding_dimensions: int | None = None,
         capabilities: list[str] | None = None,
+        context_window: int | None = None,
+        max_output_tokens: int | None = None,
     ) -> dict[str, object]:
         self._registry_row(self.providers, provider_id, tenant_id)
         model_id = new_id()
@@ -730,6 +816,8 @@ class ChatBehaviour:
         row["upstream_model"] = upstream_model
         if capabilities is not None:
             row["capabilities"] = _capabilities(capabilities)
+        row["context_window"] = _positive_int(context_window)
+        row["max_output_tokens"] = _positive_int(max_output_tokens)
         row["embedding_dimensions"] = _vector_length(kind, embedding_dimensions)
         row["price_input_micros_per_mtok"] = max(0, int(price_input_micros_per_mtok))
         row["price_output_micros_per_mtok"] = max(0, int(price_output_micros_per_mtok))
@@ -810,12 +898,24 @@ class ChatBehaviour:
         embedding_dimensions: int | None = None,
         clear_embedding_dimensions: bool = False,
         capabilities: list[str] | None = None,
+        context_window: int | None = None,
+        max_output_tokens: int | None = None,
+        clear_context_window: bool = False,
+        clear_max_output_tokens: bool = False,
     ) -> dict[str, object]:
         """Change what a registered model is called, which upstream model it is, its prices,
         or the vector length an embedding model is asked for."""
         row = self._writable(self.models, model_id, tenant_id, platform=platform)
         if capabilities is not None:
             row["capabilities"] = _capabilities(capabilities)
+        if clear_context_window:
+            row["context_window"] = None
+        elif context_window is not None:
+            row["context_window"] = _positive_int(context_window)
+        if clear_max_output_tokens:
+            row["max_output_tokens"] = None
+        elif max_output_tokens is not None:
+            row["max_output_tokens"] = _positive_int(max_output_tokens)
         if clear_embedding_dimensions:
             row["embedding_dimensions"] = None
         elif embedding_dimensions is not None:
@@ -1836,16 +1936,6 @@ class ChatBehaviour:
 
         schedule_flush(self)
 
-    def _schedule_resume(self, run_id: uuid.UUID) -> None:
-        from ar_domain.orchestration.engine import resume_run  # noqa: PLC0415
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            asyncio.run(resume_run(self, run_id))
-            return
-        self.tasks.append(loop.create_task(resume_run(self, run_id)))
-
     def _schedule(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         try:
             loop = asyncio.get_running_loop()
@@ -1853,55 +1943,62 @@ class ChatBehaviour:
             return
         self.tasks.append(loop.create_task(self._start_turn(run_id, text, names)))
 
-    async def _start_turn(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
-        """Run on the runtime worker when Temporal is connected."""
+    async def _start_turn(
+        self,
+        run_id: uuid.UUID,
+        text: str,
+        names: list[str],
+        *,
+        decision: dict[str, object] | None = None,
+    ) -> None:
+        """Run on the runtime worker. A missing client fails the turn."""
         client = self.temporal_client
         if client is None:
-            await self._run_here_or_stop(run_id, text, names)
+            self.mark_not_resumed(run_id)
             return
         from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
         await flush_store(self)
         start = getattr(client, "start_workflow", None)
         if not callable(start):
-            await self._run_here_or_stop(run_id, text, names)
+            self.mark_not_resumed(run_id)
             return
         run = self.runs.get(run_id)
-        research = isinstance(run, dict) and run.get("trigger") == "research"
         workflow_id = f"run-{run_id}"
-        if isinstance(run, dict) and isinstance(run.get("temporal_workflow_id"), str):
-            workflow_id = str(run["temporal_workflow_id"])
+        if isinstance(run, dict):
+            run["temporal_workflow_id"] = workflow_id
+        payload = self._workflow_input(run, run_id, text, decision)
+        if names:
+            payload["names"] = names
         try:
             await start(
-                "ResearchWorkflow" if research else "AgentRunWorkflow",
-                self._workflow_input(run, run_id, text),
+                "AgentRunWorkflow",
+                payload,
                 id=workflow_id,
                 task_queue="ar-runtime",
             )
-        except Exception as exc:  # noqa: BLE001 — required Temporal does not run the turn here
+        except Exception as exc:  # noqa: BLE001 — a missing worker does not run the turn here
             if type(exc).__name__ == "WorkflowAlreadyStartedError":
-                await self._watch(run_id)
+                await self._watch(run_id, until_moved=decision is not None)
                 return
-            await self._run_here_or_stop(run_id, text, names)
-            return
-        await self._watch(run_id)
-
-    @staticmethod
-    def _workflow_input(run: object, run_id: uuid.UUID, text: str) -> dict[str, object]:
-        """What the worker needs to start. A research run carries its own step limit."""
-        payload: dict[str, object] = {"run_id": str(run_id), "steps": True, "text": text}
-        if isinstance(run, dict) and run.get("trigger") == "research":
-            from ar_domain.research.engine import max_steps, state_of  # noqa: PLC0415
-
-            payload["max_steps"] = max_steps(state_of(run, text))
-        return payload
-
-    async def _run_here_or_stop(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
-        """Dev runs the turn here. A required worker that is missing does not."""
-        if self.temporal_required:
             self.mark_not_resumed(run_id)
             return
-        await self.generate(run_id, text, names)
+        await self._watch(run_id, until_moved=decision is not None)
+
+    def _workflow_input(
+        self,
+        run: object,
+        run_id: uuid.UUID,
+        text: str,
+        decision: dict[str, object] | None = None,
+    ) -> dict[str, object]:
+        """What the worker needs to start. Caps come from the run budget and settings."""
+        from ar_domain.runs.dispatch import workflow_payload  # noqa: PLC0415
+
+        payload = workflow_payload(self, run, run_id, text)
+        if isinstance(decision, dict):
+            payload["decision"] = decision
+        return payload
 
     def mark_not_resumed(self, run_id: uuid.UUID) -> None:
         """The worker lost this turn. It is failed, not run in this process."""
@@ -1918,8 +2015,13 @@ class ChatBehaviour:
             message="The worker lost this turn. It was not resumed.",
         )
 
-    async def _watch(self, run_id: uuid.UUID) -> None:
-        """Copy worker events into the SSE queues for this process."""
+    async def _watch(self, run_id: uuid.UUID, *, until_moved: bool = False) -> None:
+        """Copy worker events into the SSE queues for this process.
+
+        A decision start keeps polling through the pause it is about to clear.
+        A turn that is waiting for a person returns, so the request does not sit
+        on that wait.
+        """
         from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
         seen = max((_seq(event) for event in self.events.get(run_id, [])), default=0)
@@ -1934,7 +2036,9 @@ class ChatBehaviour:
                     queue.put_nowait(event)
             run = self.runs.get(run_id)
             status = str(run.get("status") if isinstance(run, dict) else "completed")
-            if not run_is_active(status):
+            if not run_is_working(status) and (
+                not until_moved or status not in {"waiting_approval", "waiting_input"}
+            ):
                 return
             if poll % 20 == 0 and await self._workflow_gone(run_id):
                 self.mark_not_resumed(run_id)
@@ -2065,14 +2169,58 @@ class ChatBehaviour:
 
     async def advance_turn(self, run_id: uuid.UUID, text: str, names: list[str]) -> str:
         """One model call or one tool call. The worker activity is this method."""
+        run = self.runs[run_id]
+        if run.get("cancel_requested") is True:
+            from ar_domain.tools.resume import mark_cancelled  # noqa: PLC0415
+
+            mark_cancelled(self, run)
+            return "final"
+        held = self._apply_stored_wait(run)
+        stepped = held if held is not None else await self._stubbed_step(run_id, text, names)
+        if stepped is not None:
+            return stepped
         await self._generate(run_id, text, names, one_step=True)
         run = self.runs[run_id]
+        if str(run.get("status")) in {"waiting_approval", "waiting_input"}:
+            return "paused"
         if not run_is_active(str(run.get("status"))):
             return "final"
         kind = str(run.get("step_kind") or "")
-        if kind in {"tools", "model", "paused"}:
+        if kind in {"tools", "model", "paused", "fanout"}:
             return kind
         return "model"
+
+    def _apply_stored_wait(self, run: dict[str, object]) -> str | None:
+        """Apply a decision already stored on a paused run. None means keep stepping."""
+        status = str(run.get("status"))
+        if status == "waiting_input":
+            return "paused"
+        if status != "waiting_approval":
+            return None
+        from ar_domain.tools.resume import apply_decision, stored_approval_choice  # noqa: PLC0415
+
+        choice = stored_approval_choice(self, run)
+        if choice not in {"approved", "rejected", "expired", "cancelled"}:
+            return "paused"
+        applied = apply_decision(self, run, {"status": choice})
+        if applied == "continue":
+            return None
+        return "final" if applied == "final" else "paused"
+
+    async def _stubbed_step(self, run_id: uuid.UUID, text: str, names: list[str]) -> str | None:
+        """A test that replaced ``generate`` is the model. The workflow still calls this."""
+        impl = self.generate
+        current = getattr(impl, "__func__", impl)
+        if current is ChatService.generate:
+            return None
+        await self.generate(run_id, text, names)
+        run = self.runs[run_id]
+        if str(run.get("status")) in {"waiting_approval", "waiting_input"}:
+            return "paused"
+        if not run_is_active(str(run.get("status"))):
+            return "final"
+        kind = str(run.get("step_kind") or "")
+        return kind or "final"
 
     async def _generate(  # noqa: PLR0911, PLR0912, PLR0915
         self, run_id: uuid.UUID, text: str, names: list[str], *, one_step: bool = False
@@ -2082,7 +2230,7 @@ class ChatBehaviour:
         if str(run.get("trigger") or "") == "research":
             from ar_domain.research.driver import advance_research  # noqa: PLC0415
 
-            await advance_research(self, run, text, one_step=one_step)
+            run["step_kind"] = await advance_research(self, run, text, one_step=one_step)
             return
         if one_step:
             from ar_domain.tools.worker_loop import worker_loop_open  # noqa: PLC0415
@@ -2161,7 +2309,7 @@ class ChatBehaviour:
         )
         built: list[str] = []
         for token in tokens:
-            if run_id in self.cancel_flags:
+            if run.get("cancel_requested") is True:
                 assistant["status"] = "cancelled"
                 assistant["text"] = "".join(built)
                 run["status"] = "cancelled"
@@ -2289,11 +2437,14 @@ class ChatBehaviour:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": text})
         if real:
+            found = self._model_by_upstream(model)
             body: dict[str, object] = chat_completion_body(
                 model=model,
                 messages=messages,
-                max_tokens=700,
                 model_limit=self._output_limit(model),
+                context_window=_positive_int(
+                    found.get("context_window") if isinstance(found, dict) else None
+                ),
                 options=options or {},
             )
         else:
@@ -2313,11 +2464,7 @@ class ChatBehaviour:
                 from ar_domain.models.logic import completion_message  # noqa: PLC0415
 
                 parsed_usage = completion_message(payload)["usage"]
-                self.last_remote_usage = (
-                    {str(key): int(value) for key, value in parsed_usage.items()}
-                    if isinstance(parsed_usage, dict)
-                    else None
-                )
+                self.last_remote_usage = _token_usage(parsed_usage)
             if text_out:
                 return text_out
         except httpx.HTTPError:
@@ -2325,37 +2472,116 @@ class ChatBehaviour:
         else:
             return "The model provider returned an empty answer." if real else None
 
-    async def complete_turn(  # noqa: PLR0911, PLR0912
+    async def complete_turn(
         self,
         messages: list[dict[str, object]],
         tools: list[dict[str, object]],
         *,
         tenant_id: uuid.UUID,
         model_alias: str,
+        budget_s: float | None = None,
+        max_tokens: int | None = None,
+        response_format: dict[str, object] | None = None,
     ) -> dict[str, object] | None:
-        """One model round, including tool calls. None when a fake provider is silent."""
+        """One model round, including tool calls. None when a fake provider is silent.
+
+        A real alias tries its primary model, then ``fallback_model_ids``, on a
+        timeout, a connection error, HTTP 429 or HTTP 5xx. ``budget_s`` clamps
+        the provider timeout to the run's remaining wall clock.
+        """
         from ar_domain.loop.routing import routed_completion, routes_for  # noqa: PLC0415
-        from ar_domain.models.logic import completion_message  # noqa: PLC0415
 
         routes = routes_for(self, tenant_id)
         if routes:
             return await routed_completion(
-                self, messages, tools, tenant_id=tenant_id, routes=routes
+                self,
+                messages,
+                tools,
+                tenant_id=tenant_id,
+                routes=routes,
+                budget_s=budget_s,
+                max_tokens=max_tokens,
+                response_format=response_format,
             )
+        targets = [item for item in self._chat_targets(tenant_id, model_alias) if item["real"]]
+        _model, _headers, _timeout, reported_real = self._completion_call(tenant_id, model_alias)
+        if not targets or not reported_real:
+            # A test may mark the call real without a registry row. Production uses the row.
+            return await self._complete_reported(
+                messages,
+                tools,
+                tenant_id=tenant_id,
+                model_alias=model_alias,
+                budget_s=budget_s,
+                max_tokens=max_tokens,
+                response_format=response_format,
+            )
+        for target in targets:
+            provider = target.get("provider")
+            if isinstance(provider, dict):
+                await self._load_provider_key(provider)
+        last: dict[str, object] | None = None
+        for index, target in enumerate(targets):
+            if index:
+                from ar_domain.models.call import fallback_backoff_s  # noqa: PLC0415
+
+                await asyncio.sleep(fallback_backoff_s(index))
+            outcome = await self._complete_upstream(
+                target,
+                messages,
+                tools,
+                tenant_id=tenant_id,
+                budget_s=budget_s,
+                max_tokens=max_tokens,
+                response_format=response_format,
+            )
+            outcome["fallback"] = index > 0
+            if outcome.get("retryable") and index + 1 < len(targets):
+                last = outcome
+                continue
+            return outcome
+        return last
+
+    async def _complete_reported(  # noqa: PLR0911, PLR0912
+        self,
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        *,
+        tenant_id: uuid.UUID,
+        model_alias: str,
+        budget_s: float | None,
+        max_tokens: int | None,
+        response_format: dict[str, object] | None,
+    ) -> dict[str, object] | None:
+        """One call as ``_completion_call`` describes it. A silent fake returns None."""
+        from ar_domain.models.call import clamp_timeout  # noqa: PLC0415
+        from ar_domain.models.logic import completion_message  # noqa: PLC0415
+        from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
+
         model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
         if real:
             await self._ensure_provider_key(tenant_id, model_alias)
             model, headers, timeout_s, real = self._completion_call(tenant_id, model_alias)
+        timeout_s = clamp_timeout(timeout_s, budget_s)
+        if real and timeout_s <= 0:
+            failed = _provider_failure("The model provider did not answer.", retryable=False)
+            failed["budget_exhausted"] = True
+            return failed
         if real:
-            from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
-
-            body = chat_completion_body(
+            found = self._model_by_upstream(model)
+            body: dict[str, object] = chat_completion_body(
                 model=model,
                 messages=messages,
                 tools=tools,
-                max_tokens=1500 if tools else 800,
+                max_tokens=_requested_max_tokens(max_tokens, None),
                 model_limit=self._output_limit(model),
+                context_window=_positive_int(
+                    found.get("context_window") if isinstance(found, dict) else None
+                ),
                 options=self.request_options(tenant_id, model_alias),
+                response_format=_shaped_format(
+                    response_format, _capability_set(found) if isinstance(found, dict) else set()
+                ),
             )
         else:
             body = {"model": model, "messages": messages}
@@ -2363,52 +2589,26 @@ class ChatBehaviour:
                 body["tools"] = tools
                 body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
-        from ar_domain.models.streaming import listener  # noqa: PLC0415
-
-        # A caller that is listening gets the answer as it is written. A provider that does
-        # not stream is asked again in one piece.
-        sink = listener() if real else None
-        payload: object = None
-        if sink is not None:
-            payload = await self._streamed_completion(
-                url, body, headers, timeout_s, tenant_id, sink
-            )
-        if payload is None:
-            try:
-                async with async_client(
-                    timeout=timeout_s, allow=self._dial_allow(tenant_id)
-                ) as client:
-                    response = await client.post(url, json=body, headers=headers)
-            except httpx.HTTPError:
-                if not real:
-                    return None
-                return {
-                    "text": "The model provider did not answer.",
-                    "tool_calls": [],
-                    "usage": {"tokens_in": 0, "tokens_out": 0},
-                    "real": True,
-                }
-            if response.status_code >= 300:
-                if not real:
-                    return None
-                return {
-                    "text": "The model provider returned an error.",
-                    "tool_calls": [],
-                    "usage": {"tokens_in": 0, "tokens_out": 0},
-                    "real": True,
-                }
-            try:
-                payload = response.json()
-            except ValueError:
-                if not real:
-                    return None
-                return {
-                    "text": "",
-                    "tool_calls": [],
-                    "usage": {"tokens_in": 0, "tokens_out": 0},
-                    "real": True,
-                    "parse_error": "The model provider returned malformed JSON.",
-                }
+        try:
+            async with async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client:
+                response = await client.post(url, json=body, headers=headers)
+        except httpx.HTTPError:
+            if not real:
+                return None
+            return _provider_failure("The model provider did not answer.", retryable=True)
+        if response.status_code >= 300:
+            if not real:
+                return None
+            return _provider_failure("The model provider returned an error.", retryable=True)
+        try:
+            payload = response.json()
+        except ValueError:
+            if not real:
+                return None
+            failed = _provider_failure("", retryable=False)
+            failed["text"] = ""
+            failed["parse_error"] = "The model provider returned malformed JSON."
+            return failed
         parsed = completion_message(payload)
         parsed["real"] = real
         if real and model and model != "reasoning":
@@ -2447,6 +2647,244 @@ class ChatBehaviour:
                 return await read_completion_stream(response, sink)
         except httpx.HTTPError:
             return None
+
+    async def _complete_upstream(  # noqa: PLR0911, PLR0912, PLR0915
+        self,
+        target: dict[str, object],
+        messages: list[dict[str, object]],
+        tools: list[dict[str, object]],
+        *,
+        tenant_id: uuid.UUID,
+        budget_s: float | None,
+        max_tokens: int | None,
+        response_format: dict[str, object] | None,
+    ) -> dict[str, object]:
+        """One provider call. ``retryable`` means the alias may try its next model."""
+        from ar_domain.loop.routing import retryable_status  # noqa: PLC0415
+        from ar_domain.models.call import (  # noqa: PLC0415
+            clamp_timeout,
+            context_length_error,
+            response_format_rejected,
+        )
+        from ar_domain.models.logic import completion_message, resolved_model_label  # noqa: PLC0415
+        from ar_domain.models.request import (  # noqa: PLC0415
+            chat_completion_body,
+            model_output_limit,
+        )
+
+        provider = target["provider"]
+        model_row = target["model"]
+        if not isinstance(provider, dict) or not isinstance(model_row, dict):
+            return _provider_failure("The model provider did not answer.", retryable=True)
+        upstream = str(target.get("upstream") or model_row.get("upstream_model") or "")
+        headers: dict[str, str] = {}
+        url = self._url_for_provider(tenant_id, provider, headers)
+        raw_timeout = target.get("timeout_s")
+        configured = (
+            float(raw_timeout)
+            if isinstance(raw_timeout, int | float) and not isinstance(raw_timeout, bool)
+            else 30.0
+        )
+        timeout_s = clamp_timeout(configured, budget_s)
+        if timeout_s <= 0:
+            failed = _provider_failure("The model provider did not answer.", retryable=False)
+            failed["budget_exhausted"] = True
+            return failed
+        capabilities = _capability_set(model_row)
+        shaped = _shaped_format(response_format, capabilities)
+        body = chat_completion_body(
+            model=upstream,
+            messages=messages,
+            tools=tools,
+            max_tokens=_requested_max_tokens(max_tokens, target.get("default_params")),
+            model_limit=model_output_limit(model_row),
+            context_window=_positive_int(model_row.get("context_window")),
+            options=self._options_for(model_row),
+            response_format=shaped,
+        )
+        from ar_domain.models.streaming import listener  # noqa: PLC0415
+
+        # A caller that is listening gets the answer as it is written. A provider that does
+        # not stream, or refuses the request, is asked again in one piece below, where every
+        # refusal is told apart.
+        sink = listener() if target.get("real") else None
+        payload: object = None
+        if sink is not None:
+            payload = await self._streamed_completion(
+                url, body, headers, timeout_s, tenant_id, sink
+            )
+        if payload is None:
+            allow = self._dial_allow(tenant_id)
+            response, transport_error = await _post_json(url, body, headers, timeout_s, allow)
+            if transport_error or response is None:
+                return _provider_failure("The model provider did not answer.", retryable=True)
+            error_text = _safe_body(response)
+            if context_length_error(response.status_code, error_text):
+                failed = _provider_failure("", retryable=False)
+                failed["context_length_exceeded"] = True
+                failed["text"] = ""
+                return failed
+            if shaped is not None and response_format_rejected(response.status_code, error_text):
+                body.pop("response_format", None)
+                response, transport_error = await _post_json(url, body, headers, timeout_s, allow)
+                if transport_error or response is None:
+                    return _provider_failure("The model provider did not answer.", retryable=True)
+                error_text = _safe_body(response)
+                if context_length_error(response.status_code, error_text):
+                    failed = _provider_failure("", retryable=False)
+                    failed["context_length_exceeded"] = True
+                    failed["text"] = ""
+                    return failed
+            if retryable_status(response.status_code):
+                return _provider_failure("The model provider returned an error.", retryable=True)
+            if response.status_code >= 300:
+                return _provider_failure("The model provider returned an error.", retryable=False)
+            try:
+                payload = response.json()
+            except ValueError:
+                failed = _provider_failure("", retryable=False)
+                failed["text"] = ""
+                failed["parse_error"] = "The model provider returned malformed JSON."
+                return failed
+        parsed = completion_message(payload, strip_thinking="preserve_thinking" not in capabilities)
+        parsed["real"] = True
+        parsed["retryable"] = False
+        if shaped is not None and "response_format" not in body:
+            parsed["response_format_fallback"] = True
+        elif shaped is not None:
+            parsed["response_format_sent"] = True
+        if upstream and upstream != "reasoning":
+            parsed["resolved_model_id"] = upstream
+            parsed["answered_model"] = resolved_model_label(upstream)
+            registry = model_row.get("id")
+            if registry is not None:
+                parsed["model_id"] = str(registry)
+        return parsed
+
+    def _model_by_upstream(self, upstream: str) -> dict[str, object] | None:
+        for row in self.models.values():
+            if isinstance(row, dict) and str(row.get("upstream_model") or "") == upstream:
+                return row
+        return None
+
+    def _options_for(self, model: dict[str, object]) -> dict[str, object]:
+        from ar_domain.models.options import request_options_of  # noqa: PLC0415
+
+        return request_options_of(model)
+
+    def _chat_targets(self, tenant_id: uuid.UUID, alias: str) -> list[dict[str, object]]:
+        """Primary model, then configured fallbacks, skipping disabled rows."""
+        from ar_domain.models.call import max_fallback_hops  # noqa: PLC0415
+
+        row = self._preferred_alias(tenant_id, alias)
+        if row is None:
+            return []
+        raw_ids: list[object] = [row.get("primary_model_id")]
+        fallbacks = row.get("fallback_model_ids")
+        if isinstance(fallbacks, list):
+            raw_ids.extend(fallbacks[: max_fallback_hops()])
+        params = row.get("default_params")
+        default_params = params if isinstance(params, dict) else {}
+        targets: list[dict[str, object]] = []
+        for index, raw in enumerate(raw_ids):
+            model_id = raw if isinstance(raw, uuid.UUID) else _as_uuid(raw)
+            model = self.models.get(model_id) if model_id is not None else None
+            if not isinstance(model, dict) or str(model.get("status") or "active") != "active":
+                continue
+            provider_id = model.get("provider_id")
+            provider_uuid = (
+                provider_id if isinstance(provider_id, uuid.UUID) else _as_uuid(provider_id)
+            )
+            provider = self.providers.get(provider_uuid) if provider_uuid is not None else None
+            if (
+                not isinstance(provider, dict)
+                or str(provider.get("status") or "active") != "active"
+            ):
+                continue
+            real = str(provider.get("kind")) != "fake"
+            targets.append(
+                {
+                    "provider": provider,
+                    "model": model,
+                    "real": real,
+                    "fallback": index > 0,
+                    "default_params": default_params,
+                    "timeout_s": self._configured_timeout(provider, real=real),
+                    "upstream": str(model.get("upstream_model") or "reasoning"),
+                }
+            )
+        return targets
+
+    def _preferred_alias(self, tenant_id: uuid.UUID, alias: str) -> dict[str, object] | None:
+        """The alias row ``_alias_target`` would use: a real provider, then the tenant's own."""
+        ranked: list[tuple[int, int, dict[str, object]]] = []
+        for row in self.aliases.values():
+            if row.get("alias") != alias or row.get("status") != "active":
+                continue
+            owner = row.get("tenant_id")
+            if owner is not None and owner != tenant_id:
+                continue
+            model_id = row.get("primary_model_id")
+            model_key = model_id if isinstance(model_id, uuid.UUID) else _as_uuid(model_id)
+            model = self.models.get(model_key) if model_key is not None else None
+            if not isinstance(model, dict):
+                continue
+            provider_id = model.get("provider_id")
+            provider_key = (
+                provider_id if isinstance(provider_id, uuid.UUID) else _as_uuid(provider_id)
+            )
+            provider = self.providers.get(provider_key) if provider_key is not None else None
+            if not isinstance(provider, dict):
+                continue
+            fake_rank = 1 if str(provider.get("kind")) == "fake" else 0
+            tenant_rank = 0 if owner == tenant_id else 1
+            ranked.append((fake_rank, tenant_rank, row))
+        if not ranked:
+            return None
+        ranked.sort(key=lambda item: (item[0], item[1]))
+        return ranked[0][2]
+
+    def _configured_timeout(self, provider: dict[str, object], *, real: bool) -> float:
+        raw = provider.get("timeout_s")
+        timeout = 120.0
+        if isinstance(raw, int | float) and not isinstance(raw, bool):
+            timeout = float(raw)
+        if not real:
+            return timeout
+        return max(timeout, 30.0)
+
+    def _url_for_provider(
+        self, tenant_id: uuid.UUID, provider: dict[str, object], headers: dict[str, str]
+    ) -> str:
+        base = provider.get("base_url")
+        if not isinstance(base, str) or not base or str(provider.get("kind")) == "fake":
+            return self.completion_url()
+        key = provider.get("api_key")
+        if isinstance(key, str) and key:
+            headers["Authorization"] = f"Bearer {key}"
+        from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
+
+        url = chat_completions_url(base)
+        self._refuse_model_url(tenant_id, url, at_call=True)
+        return url
+
+    async def _load_provider_key(self, provider: dict[str, object]) -> None:
+        if isinstance(provider.get("api_key"), str) and provider.get("api_key"):
+            return
+        if self.durable_engine is None:
+            return
+        provider_id = provider.get("id")
+        if not isinstance(provider_id, uuid.UUID):
+            return
+        from ar_domain.models.registry import read_api_key  # noqa: PLC0415
+
+        try:
+            key = await read_api_key(self.durable_engine, provider_id)
+        except Exception:  # noqa: BLE001 — a missing key ring cannot unlock the provider
+            return
+        if key:
+            provider["api_key"] = key
+            provider["has_api_key"] = True
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
         """Meter a single-call turn: tokens priced from the resolved model (spec 17 §2)."""
@@ -2769,6 +3207,9 @@ class ChatBehaviour:
                 from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
 
                 ApprovalBook(self).cancel(Actor(tenant_id, user_id, frozenset()), approval_id)
+            from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+
+            request_signal(self, run_id, "cancel", {})
             return self._public(self.runs[run_id])
         if status == "waiting_input":
             run["status"] = "cancelled"
@@ -2782,10 +3223,15 @@ class ChatBehaviour:
             if isinstance(conversation, dict):
                 conversation["active_run_id"] = None
             self._emit(run, "run.cancelled", {"by": "user"})
+            from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+
+            request_signal(self, run_id, "cancel", {})
             return self._public(run)
-        self.cancel_flags.add(run_id)
+        run["cancel_requested"] = True
+        from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
         from ar_domain.skills.delegate import cancel_children  # noqa: PLC0415
 
+        request_signal(self, run_id, "cancel", {})
         cancel_children(self, run_id)
         return self._public(run)
 
@@ -2803,8 +3249,33 @@ class ChatBehaviour:
             raise ArError(ErrorCode.INVALID_STATE, "run has no checkpoint")
         run["status"] = "running"
         run["ended_at"] = None
-        self._emit(run, "run.resumed", {"checkpoint": "present"})
+        run["cancel_requested"] = False
+        message_id = run.get("input_message_id")
+        message = self.messages.get(message_id) if isinstance(message_id, uuid.UUID) else None
+        text = str(message.get("text") or "") if isinstance(message, dict) else ""
+        from ar_domain.runs.dispatch import workflow_id  # noqa: PLC0415
+
+        run["temporal_workflow_id"] = workflow_id(run_id)
+        self._emit(run, "run.resumed", {"checkpoint": "present", "workflowId": workflow_id(run_id)})
+        self._resume_on_worker(run_id, text)
         return self._public(run)
+
+    def _resume_on_worker(self, run_id: uuid.UUID, text: str) -> None:
+        """Start the workflow again. A stub run with no client is left running."""
+
+        async def _go() -> None:
+            client = self.temporal_client
+            if not callable(getattr(client, "start_workflow", None)):
+                self.mark_not_resumed(run_id)
+                return
+            await self._start_turn(run_id, text, [])
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_go())
+            return
+        self.tasks.append(loop.create_task(_go()))
 
     def submit_input(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, run_id: uuid.UUID, text: str
@@ -2819,7 +3290,16 @@ class ChatBehaviour:
             from ar_domain.orchestration.ask import accept_human_answer  # noqa: PLC0415
 
             accept_human_answer(self, tenant_id, user_id, run, text)
-            self._schedule_resume(run_id)
+            from ar_domain.durable.after import after_commit  # noqa: PLC0415
+            from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+
+            def _wake() -> None:
+                request_signal(self, run_id, "user_input", {"text": text})
+                from ar_domain.runs.dispatch import continue_on_worker  # noqa: PLC0415
+
+                continue_on_worker(self, run_id, text, {"status": "input", "text": text})
+
+            after_commit(self, _wake)
             return self._public(run)
         answer = text.strip() or "Using what you sent."
         self.input_responses[run_id] = answer
@@ -2912,10 +3392,6 @@ class ChatBehaviour:
         run = self.runs[uuid.UUID(str(posted["run"]["id"]))]  # type: ignore[index]
         run["trigger"] = "api"
         run["callback_url"] = callback_url
-        if permissions is not None:
-            from ar_domain.runs.request import ask  # noqa: PLC0415
-
-            ask(run, "permissions", list(permissions))
         return posted
 
     def regenerate(

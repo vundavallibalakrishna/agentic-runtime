@@ -26,9 +26,6 @@ _ENOUGH = 8
 # The lowest cosine at which a library passage counts as about the question, when a real
 # embedding model ranks it. The tenant may raise or lower it with ``research.minScore``.
 _DEFAULT_MIN_SCORE = 0.3
-# A tenant library larger than this is not embedded on every query. Word matching still
-# finds its passages, and the production path is embeddings stored at ingest (OQ-130).
-_MAX_EMBED = 400
 
 
 def search(store: Any, tenant_id: object, query: str, *, limit: int = 4) -> list[dict[str, str]]:
@@ -136,8 +133,9 @@ def _semantic_hits(
 ) -> list[dict[str, str]]:
     """Passages closest to the query in meaning, best first (the embedding signal).
 
-    Empty when the tenant has no embedding model, when the model does not answer, or when
-    the library is larger than ``_MAX_EMBED`` (word matching still covers it).
+    Uses the vectors stored when the document was ingested. Only the query is embedded
+    here. Empty when the tenant has no embedding model, when the model does not answer,
+    or when no passage has a stored vector (word matching still covers those).
     """
     from ar_domain.models.embedding import (  # noqa: PLC0415
         EmbeddingFailedError,
@@ -146,29 +144,37 @@ def _semantic_hits(
         embedding_model,
     )
 
-    passages = _library_passages(store, tenant_id)
-    if not passages or len(passages) > _MAX_EMBED:
+    passages = [row for row in _library_passages(store, tenant_id) if row["embedding"]]
+    if not passages:
         return []
     try:
         target = embedding_model(store, tenant_id)
-        vectors = embed(target, [query, *(row["text"] for row in passages)])
+        vectors = embed(target, [query])
     except EmbeddingUnconfiguredError, EmbeddingFailedError:
         return []
-    if len(vectors) != len(passages) + 1:
+    if len(vectors) != 1:
         return []
+    stored: list[list[float]] = []
+    for row in passages:
+        raw = row["embedding"]
+        stored.append([float(item) for item in raw] if isinstance(raw, list) else [])
     ranked = rank_by_similarity(
-        vectors[0], vectors[1:], min_score=_min_score(store, tenant_id), limit=limit
+        vectors[0],
+        stored,
+        min_score=_min_score(store, tenant_id),
+        limit=limit,
     )
     rows: list[dict[str, str]] = []
     for index, _score in ranked:
         passage = passages[index]
-        anchor = passage["anchor"]
-        title = passage["title"]
+        anchor = str(passage["anchor"])
+        title = str(passage["title"])
+        text = str(passage["text"])
         rows.append(
             {
                 "url": f"{LIBRARY}{passage['document_id']}#{anchor}",
                 "title": f"{title} ({anchor})" if anchor else title,
-                "snippet": passage["text"][:200],
+                "snippet": text[:200],
             }
         )
     return rows
@@ -189,9 +195,9 @@ def rank_by_similarity(
     return kept[: max(1, limit)]
 
 
-def _library_passages(store: Any, tenant_id: uuid.UUID) -> list[dict[str, str]]:
-    """Every library passage of the tenant, as ``document_id``/``anchor``/``title``/``text``."""
-    passages: list[dict[str, str]] = []
+def _library_passages(store: Any, tenant_id: uuid.UUID) -> list[dict[str, object]]:
+    """Every library passage, including the vector stored at ingest."""
+    passages: list[dict[str, object]] = []
     for document_id, row in getattr(store, "library_documents", {}).items():
         if not isinstance(row, dict) or row.get("tenant_id") != tenant_id:
             continue
@@ -203,12 +209,19 @@ def _library_passages(store: Any, tenant_id: uuid.UUID) -> list[dict[str, str]]:
             text = str(passage.get("text") or "")
             if not text:
                 continue
+            embedding = passage.get("embedding")
+            vector = (
+                [float(item) for item in embedding]
+                if isinstance(embedding, list) and embedding
+                else []
+            )
             passages.append(
                 {
                     "document_id": str(document_id),
                     "anchor": str(passage.get("anchor") or ""),
                     "title": title,
                     "text": text,
+                    "embedding": vector,
                 }
             )
     return passages

@@ -1,4 +1,4 @@
-"""Saved queries and sign-offs survive a database round trip, and 0049 and 0050 go up and down."""
+"""Saved queries and sign-offs survive a database round trip, and 0050 and 0051 go up and down."""
 
 from __future__ import annotations
 
@@ -117,14 +117,14 @@ async def test_a_signed_saved_query_reloads_from_postgres(postgres_url: str) -> 
     await reloaded.durable_engine.dispose()
 
 
-async def test_0049_and_0050_upgrade_and_downgrade_on_seeded_data(postgres_url: str) -> None:
+async def test_0050_and_0051_upgrade_and_downgrade_on_seeded_data(postgres_url: str) -> None:
     url = _async_url(postgres_url)
     _alembic(url, "upgrade", "head")
     engine = create_async_engine(url)
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await apply(session)
     await engine.dispose()
-    _alembic(url, "downgrade", "0048")
+    _alembic(url, "downgrade", "0049")
     import psycopg
 
     definition: dict[str, object] = {
@@ -182,7 +182,7 @@ async def test_0049_and_0050_upgrade_and_downgrade_on_seeded_data(postgres_url: 
         grants = {item["server"]: item["include"] for item in row[1]["tools"]}
         assert _NEW <= set(grants["general"])
         assert grants["knowledge"] == ["search"]
-        _alembic(url, "downgrade", "0048")
+        _alembic(url, "downgrade", "0049")
         with psycopg.connect(libpq) as conn:
             row = conn.execute(published, (agent,)).fetchone()
         assert row is not None

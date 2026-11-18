@@ -14,10 +14,8 @@ sys.path.insert(0, str(ROOT))
 
 os.environ.setdefault("AR_PROOF_API", "http://127.0.0.1:18131")
 os.environ.setdefault("M31_ROOT", "/tmp/fresh-pass-proof")
-os.environ.setdefault(
-    "M31_DSN",
-    "postgresql://ar_owner:ar_owner@127.0.0.1:5433/agentic_runtime",
-)
+if not os.environ.get("M31_DSN"):
+    raise SystemExit("M31_DSN is required")
 
 import scripts.m31_proof as proof  # noqa: E402
 

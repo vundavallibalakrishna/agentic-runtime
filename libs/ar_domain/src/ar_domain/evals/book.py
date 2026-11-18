@@ -14,7 +14,6 @@ from ar_contracts.evals import parse_assertions, parse_gate, parse_input, parse_
 from ar_domain.audit.memory import remember
 from ar_domain.durable.tracking import keep
 from ar_domain.evals.metrics import RUNS
-from ar_domain.evals.runner import execute_eval_run
 
 if TYPE_CHECKING:
     from typing import Any
@@ -267,8 +266,8 @@ class EvalBook:
         self.store.eval_runs[run_id] = row
         self._audit(actor, "eval_run.started", run_id, {"suite_id": str(suite_id)})
         RUNS.labels(status="queued", trigger=trigger).inc()
-        if _inline(self.store):
-            _start(self.store, run_id)
+        if not getattr(self.store, "defer_eval_runs", False):
+            _schedule_eval(self.store, run_id)
         stored = self.store.eval_runs.get(run_id)
         return self._run_view(stored if isinstance(stored, dict) else row)
 
@@ -537,23 +536,37 @@ class EvalBook:
         return isinstance(row, dict) and row.get("tenant_id") == tenant_id
 
 
-def _start(store: Any, run_id: uuid.UUID) -> None:
-    """Run the suite in the background of a serving process, or to the end when there is no loop.
+def _schedule_eval(store: Any, run_id: uuid.UUID) -> bool:
+    """Start EvalRunWorkflow. False when this process has no Temporal client."""
+    client = getattr(store, "temporal_client", None)
+    start = getattr(client, "start_workflow", None)
+    if not callable(start):
+        return False
 
-    A case calls the model, so a request that starts a run gets ``queued`` back and reads
-    the result later. A command-line caller has no loop and waits for the result.
-    """
+    async def _go() -> None:
+        try:
+            handle = await start(
+                "EvalRunWorkflow",
+                {"eval_run_id": str(run_id)},
+                id=f"eval-{run_id}",
+                task_queue="ar-eval",
+            )
+        except Exception:  # noqa: BLE001 - a refused frontend leaves the run queued
+            return
+        waiter = getattr(handle, "result", None)
+        if callable(waiter):
+            await waiter()
+
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
-        asyncio.run(execute_eval_run(store, run_id))
-        return
-    store.tasks.append(loop.create_task(execute_eval_run(store, run_id)))
-
-
-def _inline(store: Any) -> bool:
-    """Score in this process unless a test is driving EvalRunWorkflow itself."""
-    return not getattr(store, "defer_eval_runs", False)
+        asyncio.run(_go())
+        return True
+    task = loop.create_task(_go())
+    tasks = getattr(store, "tasks", None)
+    if isinstance(tasks, list):
+        tasks.append(task)
+    return True
 
 
 def _optional_uuid(value: object) -> uuid.UUID | None:

@@ -6,12 +6,14 @@ RLS is **defence in depth**. The primary control is that every repository functi
 
 | Role | Login | Used by | Privileges |
 |---|---|---|---|
-| `ar_owner` | yes (migrations only) | `migrate` job | Owns all objects. `BYPASSRLS`. Never used by running services. |
+| `ar_owner` | yes (migrate, bootstrap, seed) | `migrate` job and bootstrap | `LOGIN` and `BYPASSRLS` only. Not a superuser, and not `CREATEDB` or `CREATEROLE`. Owns objects. The bypass is required because `plans` has `FORCE ROW LEVEL SECURITY` and only a `SELECT` policy, and system roles are inserted with no tenant. Running services do not use this login. |
 | `ar_app` | yes | `api`, all workers, `model-gateway`, `mcp-gateway`, `sandbox-manager` | `SELECT, INSERT, UPDATE, DELETE` on all tables except: `audit_events` (`SELECT, INSERT` only). **Not** owner, **no** `BYPASSRLS`. |
-| `ar_platform` | yes | platform-admin code paths (tenant provisioning, cross-tenant usage reports, outbox relay, reapers) | Same grants as `ar_app` plus `BYPASSRLS`. Used only through `ar_domain.db.platform_session()`, which writes an audit event `platform.session_opened` with the reason. |
-| `ar_readonly` | yes | BI / support break-glass | `SELECT` on all tables, subject to RLS. |
+| `ar_platform` | yes | platform-admin code paths (tenant provisioning, cross-tenant usage reports, outbox relay, reapers) | Same grants as `ar_app` plus `BYPASSRLS`, because `platform_session` runs before a tenant is known. Used only through `ar_domain.db.platform_session()`, which writes an audit event `platform.session_opened` with the reason. |
+| `ar_readonly` | yes | BI / support break-glass | `SELECT` on all tables, subject to RLS. No `BYPASSRLS`. |
 
-`ALTER TABLE ... FORCE ROW LEVEL SECURITY` is set on every tenant table so even the owner is subject to policies outside migrations.
+`ALTER TABLE ... FORCE ROW LEVEL SECURITY` is set on every tenant table. A table owner that does not have `BYPASSRLS` is subject to the policies. `ar_owner` has `BYPASSRLS` and is not a tenant session. `ar_app` does not.
+
+The image superuser installs `pgcrypto`, `citext`, `pg_trgm`, `vector` and `btree_gin` and creates `temporal`, `temporal_visibility` and `langfuse` before Alembic runs. That is the StatefulSet and compose init scripts, and CloudNativePG `postInitApplicationSQL`. `vector` is not a trusted extension, so `ar_owner` cannot create it. `ar_owner` is not a member of the other roles and cannot grant them. A volume created by the previous chart is reconciled by `python -m ar_domain.db.reconcile_roles`, which connects as the current superuser (`postgres.superuserUsername` / `postgres.superuserPassword`, which may be the previous chart's login) and sets the new role passwords from the install secret. The chart writes those bytes to the release Secret and to `<release>-secrets-hook`, a pre-install,pre-upgrade hook at weight -20. Reconcile is weight -10 and migrate is weight -5, so both read the hook Secret. Bootstrap reads the release Secret after Helm updates it. `helm upgrade --no-hooks` installs only the release Secret; kind applies the hook Secret before migrate. Set `AR_DB_RECONCILE=skip` for an external or CloudNativePG database; otherwise a non-local URL without `POSTGRES_HOST` fails. `secrets.create: false` does not render the password check; staging and production enforce it in the API, Alembic and bootstrap. A bundled CloudNativePG install with `secrets.create: false` fails the render until `postgres.existingRoleSecrets` is true, which means the four `<release>-db-role-ar-*` secrets already exist.
 
 ## 2. Session variables
 

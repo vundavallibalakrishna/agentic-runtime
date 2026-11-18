@@ -9,10 +9,16 @@ os.environ.setdefault("AR_EGRESS_ALLOW_LOOPBACK", "true")
 os.environ.setdefault("AR_EGRESS_ALLOW_WILDCARD", "true")
 os.environ.setdefault("AR_SANDBOX_ALLOW_UNISOLATED", "true")
 os.environ.setdefault("AR_FILES_SCANNER", "none")
+os.environ.setdefault("AR_DB_OWNER_PASSWORD", "test-owner-password")
+os.environ.setdefault("AR_DB_PLATFORM_PASSWORD", "test-platform-password")
+os.environ.setdefault("AR_DB_APP_PASSWORD", "test-app-password")
+os.environ.setdefault("AR_DB_READONLY_PASSWORD", "test-readonly-password")
+os.environ.setdefault("AR_DB_TEMPORAL_PASSWORD", "test-temporal-password")
 
 pytest_plugins = [
     "ar_testing.containers",
     "ar_testing.temporal",
+    "ar_testing.runtime",
     "ar_testing.fake_llm",
     "ar_testing.stand_in",
     "ar_testing.auth",

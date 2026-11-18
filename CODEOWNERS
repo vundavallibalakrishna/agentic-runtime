@@ -1,4 +1,4 @@
 policies/ @vundavallibalakrishna
 libs/ar_domain/src/ar_domain/migrations/ @vundavallibalakrishna
-deploy/helm/ @vundavallibalakrishna
+deploy/compose/ @vundavallibalakrishna
 docs/06-security/ @vundavallibalakrishna

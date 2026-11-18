@@ -119,7 +119,7 @@ After Stage 0. Parallel with Stages 2, 4, and 7.
 
 - Production refuses host exec. An empty `endpoint_url` returns `sandbox_unavailable`.
 - Helm replicas stay 1, and the horizontal pod autoscaler minimum stays 1, until Valkey sessions, Postgres or Valkey idempotency (the existing `idempotency_keys` table), and a run-event bus exist.
-- `/readyz` checks Postgres, and Temporal when `AR_TEMPORAL_REQUIRED` is set.
+- `/readyz` checks Postgres and Temporal. A turn is not run in the API process.
 - There is no in-process generate fallback when Temporal is required.
 - A turn that the worker lost is marked `interrupted` / `not_resumed`.
 - Boot refuses a missing `AR_CURSOR_SECRET` and refuses the default `dev-cursor-secret`.

@@ -17,7 +17,6 @@ from ar_domain.connectors.dispatch import dispatch_connector
 from ar_domain.conversations.summary import read_summary, refresh_summary, write_summary
 from ar_domain.documents.ocr_cloud import read_cloud
 from ar_domain.exposure import a2a
-from ar_domain.exposure.grpc_a2a import grpc_call
 from ar_domain.identity.guests import open_agent_turn
 from ar_domain.identity.membership import memberships, password_matches
 from ar_domain.identity.passwords import hash_password, verify_password
@@ -215,14 +214,7 @@ def test_resubscribe_and_grpc_return_the_task() -> None:
         )
     )
     assert again["result"]["resubscribed"] is True
-    payload, status = asyncio.run(
-        grpc_call(store, key, "assistant", "a2a.v1.A2AService/ResubscribeToTask", {"id": task_id})
-    )
-    assert status == 0
-    assert payload["id"] == task_id
-    missing, code = asyncio.run(grpc_call(store, key, "assistant", "a2a.v1.A2AService/Nope", {}))
-    assert code == 12
-    assert "unimplemented" in str(missing["message"])
+    assert again["result"]["id"] == task_id
 
 
 def test_agent_can_create_a_scheduled_routine() -> None:
@@ -319,7 +311,11 @@ def test_a_failed_run_with_a_checkpoint_can_resume() -> None:
         "checkpoint": {"worker_loop": {"step": 1}},
     }
     resumed = store.resume_run(tenant, user, run_id)
-    assert resumed["status"] == "running"
+    assert resumed["temporal_workflow_id"] == f"run-{run_id}"
+    assert any(
+        isinstance(event, dict) and event.get("type") == "run.resumed"
+        for event in store.events.get(run_id, [])
+    )
 
 
 def test_reset_rejects_unknown_short_expired_and_spent_tokens() -> None:
@@ -492,17 +488,6 @@ def test_push_resubscribe_and_a_vapid_secret_marks_delivery() -> None:
     assert note["email"] is False
     assert unsubscribe(store, tenant_id=tenant, subscription_id=subscription_id) is True
     assert unsubscribe(store, tenant_id=tenant, subscription_id=uuid.uuid4()) is False
-
-
-def test_grpc_maps_a_task_error_to_status_three() -> None:
-    import asyncio
-
-    store = demo_store()
-    payload, status = asyncio.run(
-        grpc_call(store, {}, "assistant", "a2a.v1.A2AService/GetTask", {})
-    )
-    assert status == 3
-    assert payload["message"]
 
 
 def test_office_artifacts_have_download_types() -> None:

@@ -186,7 +186,10 @@ a tenant's default agents. What is left, one pull request for each:
   in. The API, the static files, the sign-in page, the public guest page and the health check are not gated.
   A brief API outage fails open (the page loads and the client check and error page of T05c take over), so
   the UI does not lock out. This was blocked on M38-T09 (now merged): tool calls no longer hold the API's
-  event loop, so the session endpoint answers quickly under load.
+  event loop, so the session endpoint answers quickly under load. A later change keeps that
+  gate but stops it calling the API once per prefetch: one confirmed session is reused for
+  `AR_SESSION_GATE_TTL_S`, and a prefetch does not start a call (OQ-144). A `429` is a retry,
+  not a sign-out.
 
 **Done when:** the product has one way to sign in, and an unauthenticated visitor sees only the sign-in page
 or an error page, whatever the API returns.

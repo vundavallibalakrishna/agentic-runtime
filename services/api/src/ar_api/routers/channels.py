@@ -228,7 +228,7 @@ async def internal_inbound(body: InboundBody, request: Request) -> dict[str, obj
     result = handle_inbound(service, dump(body), schedule=not await_runs)
     run_id = result.get("run_id")
     if await_runs and isinstance(run_id, str) and result.get("action") is None:
-        await service.generate(uuid.UUID(run_id), body.text, [])
+        await service._start_turn(uuid.UUID(run_id), body.text, [])
     return result
 
 

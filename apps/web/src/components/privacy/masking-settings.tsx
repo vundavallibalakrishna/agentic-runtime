@@ -6,6 +6,7 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { loadSession } from "@/lib/session";
 
 type Kind = { name: string; source: string; masked: boolean; default: boolean };
 type View = {
@@ -15,8 +16,6 @@ type View = {
   defaultMinScore: number;
   kinds: Kind[];
 };
-type Session = { permissions?: string[] };
-
 const SOURCES = ["format", "language"] as const;
 
 /**
@@ -45,7 +44,7 @@ export function MaskingSettings({ advanced }: { advanced: boolean }) {
   const load = useCallback(async () => {
     setLoadError("");
     try {
-      const session = await api<Session>("/api/v1/auth/session");
+      const session = await loadSession();
       setCanManage((session.permissions ?? []).includes("tenant:manage"));
       show(await api<View>("/api/v1/tenant/masking"));
     } catch (caught) {

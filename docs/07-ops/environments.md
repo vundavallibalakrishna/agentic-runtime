@@ -7,7 +7,7 @@
 | `dev` (local) | Developer laptops | Docker Compose (`make up`) + services via `uv run`/`pnpm dev` ([local-dev](local-dev.md)) | Seed data (`make seed`) | `fake-llm` or a local OpenAI-compatible endpoint |
 | `ci` | Pull-request checks | Testcontainers + Temporal test server; `kind` cluster for e2e/Helm ([ci-cd](ci-cd.md)) | Ephemeral | `fake-llm` |
 | `staging` | Release candidates, eval gates, load tests | Helm, preset `small` (single-tenant) and `saas` (multi-tenant) | Synthetic tenants; anonymised copies never used | Company staging model endpoints |
-| `prod` | Customers | Helm, preset `large` or `saas` ([helm-k8s](helm-k8s.md)) | Real | Company model endpoints |
+| `prod` | Customers | Helm, preset `large` or `saas` ([helm-k8s](compose.md)) | Real | Company model endpoints |
 
 Promotion: the same image digests move `ci → staging → prod`; only values differ ([ci-cd §6](ci-cd.md#6-releases-and-upgrades)).
 
@@ -16,8 +16,8 @@ Promotion: the same image digests move `ci → staging → prod`; only values di
 - All backend configuration is environment variables with prefix `AR_`, loaded by one `pydantic-settings` class per deployable that composes shared fragments from `ar_common.settings` (`DatabaseSettings`, `ValkeySettings`, `TemporalSettings`, `TelemetrySettings`, `S3Settings`, `SecretsSettings`, `InternalAuthSettings`). Unknown `AR_` variables log a warning at startup; missing required variables fail startup with a list of all missing names.
 - Secrets (keys, passwords, tokens) come from Kubernetes Secrets (Helm `existingSecret` references) or files (`AR_*_FILE` variant accepted for every secret variable: the value is read from that path).
 - Tenant-level behaviour is **not** configured by env vars; it lives in `tenants.settings` ([spec 02](../03-specs/02-identity-tenancy.md)). Env vars are platform/operator knobs.
-- The web app reads only `AR_PUBLIC_URL`, `AR_API_INTERNAL_URL` and `NEXT_PUBLIC_*` build-time values ([spec 19](../03-specs/19-web-app.md)).
-- Helm maps `values.yaml` keys to these variables ([helm-k8s §4](helm-k8s.md#4-values-to-environment-mapping)); `.env.example` at the repo root lists every variable with its dev default and is checked by CI against this catalogue (`scripts/check_env_catalogue.py`).
+- The web app reads only `AR_PUBLIC_URL`, `AR_API_INTERNAL_URL`, `AR_SESSION_GATE_TTL_S` and `NEXT_PUBLIC_*` build-time values ([spec 19](../03-specs/19-web-app.md)).
+- `.env.example` at the repo root lists every variable. CI checks it against this catalogue (`scripts/check_env_catalogue.py`). Compose is the install ([compose](compose.md)).
 
 ## 3. Variable catalogue
 
@@ -41,6 +41,10 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_CONSECUTIVE_TOOL_ERROR_LIMIT` | `8` | Run fails after this many consecutive tool errors | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_CURSOR_SECRET` | (secret) | HMAC for pagination cursors. Outside `dev` and `ci`, startup fails when this is missing or equal to `dev-cursor-secret` | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_DATABASE_URL` | (required) | Read registry | [spec 04](../03-specs/04-model-gateway.md) |
+| `AR_DB_OWNER_PASSWORD` | (required) | Password for `ar_owner`. Unset, a placeholder, or the role name is refused. | [rls](../04-data/rls.md) |
+| `AR_DB_APP_PASSWORD` | (required) | Password for `ar_app`, also the user in `AR_DATABASE_URL`. | [rls](../04-data/rls.md) |
+| `AR_DB_PLATFORM_PASSWORD` | (required) | Password for `ar_platform`. | [rls](../04-data/rls.md) |
+| `AR_DB_READONLY_PASSWORD` | (required) | Password for `ar_readonly`. | [rls](../04-data/rls.md) |
 | `AR_DB_ENCRYPTION_ACTIVE_KEY` | `k1` | Active KEK id | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DB_ENCRYPTION_KEYS` | (secret) | KEKs for `db_encrypted` | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_DEV_MODEL_BASE_URL` | (empty) | Dev only: `make seed` registers this OpenAI-compatible endpoint instead of `fake-llm` | [local-dev](local-dev.md) |
@@ -49,7 +53,15 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DELTA_COALESCE_MS` | `50` | Token delta coalescing window for stream events | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_DEPLOYMENT_MODE` | `single_tenant` | `saas` or `single_tenant` | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_EGRESS_ALLOW_LOOPBACK` | `false` | Whether a tool, a connector, a sandbox or a model provider may reach this machine's own addresses (`127.0.0.0/8`, `localhost`). Every process and every check reads this one setting; it does not follow from `AR_ENV`. The local stack (`.env.example`, `compose.yaml`) and the test run set it to `true`, because their model and tool servers are local | [tenancy and isolation](../02-architecture/tenancy-isolation.md) |
-| `AR_CA_BUNDLE` | empty | Path of a PEM file added to outbound TLS trust, for a private certificate authority. `SSL_CERT_FILE` is used when this is empty. | [egress](egress-closed.md) |
+| `AR_CA_BUNDLE` | empty | Path of a PEM file added to outbound TLS trust, for a private certificate authority. `SSL_CERT_FILE` is used when this is empty. A customer database in `verify-ca` or `verify-full` uses this file when the URL does not set `sslrootcert`. | [egress](egress-closed.md) |
+| `AR_DB_CERT_DIR` | empty | Directory for customer-database TLS files. `sslcert` and `sslkey` must realpath under `<dir>/<tenant id>/`. A shared `sslrootcert` may realpath anywhere under `<dir>` that is not another tenant's folder. Empty refuses client certificates. `sslrootcert=system` and the `AR_CA_BUNDLE` file stay allowed. `/`, `/tmp`, `/etc` and `/proc` are refused as the directory. | [egress](egress-closed.md) |
+| `AR_DB_CONNECT_DEADLINE_S` | `15` | Overall budget for dialling a customer database. Each address still uses `connect_timeout`, and at most `AR_DB_MAX_ADDRESSES` addresses are tried. | [egress](egress-closed.md) |
+| `AR_DB_MAX_ADDRESSES` | `4` | How many resolved addresses a customer-database dial will try. Every address is still screened before the first connect. | [egress](egress-closed.md) |
+| `AR_DB_MIN_SSLMODE` | empty | Lowest libpq `sslmode` for a customer database. Empty imposes no floor except closed egress. | [egress](egress-closed.md) |
+| `AR_DB_STRICT_TLS` | `true` | When true and `AR_EGRESS_CLOSED` is true, the floor is `AR_DB_STRICT_TLS_FLOOR`, so `require` is rejected. Set `false` to allow `require` (encrypted, unverified) on a closed install. | [egress](egress-closed.md) |
+| `AR_DB_STRICT_TLS_FLOOR` | `verify-full` | `verify-full` or `verify-ca`. The default checks the server name. `verify-ca` applies only when the host is an IP literal. A hostname stays on `verify-full`. An invalid value stops the process. | [egress](egress-closed.md) |
+| `AR_PLATFORM_DB_DENY_HOSTS` | empty | Comma-separated platform database service names. A customer DSN whose host is one of these, or whose resolved address matches one of them, is refused on any port. The chart fills the bundled CNPG `-rw`, `-ro`, `-r` and `-pooler` names. | [egress](egress-closed.md) |
+| `AR_PLATFORM_DB_DENY_CIDRS` | empty | Comma-separated CIDRs of the platform database pods and services. A resolved address inside one of them is refused. The chart copies `cluster.podCIDR` and `cluster.serviceCIDR`. | [egress](egress-closed.md) |
 | `AR_EGRESS_CLOSED` | `false` | When `true`, model calls, embeddings, connectors, knowledge fetches, web search, outbound mail, SIEM URLs, web push and the OTEL exporter may only dial a host on the tenant allowlist or `AR_EGRESS_HOSTS`. An empty list means no outbound. Default `false`, so an existing cloud model provider keeps working. The air-gap Helm overlay sets it to `true`. | [egress](egress-closed.md) |
 | `AR_EGRESS_HOSTS` | empty | Comma-separated hosts the install may reach while `AR_EGRESS_CLOSED` is on, even when a tenant list is empty. The air-gap overlay starts from `otel-collector` and appends this value and `airgap.egressHosts`. | [egress](egress-closed.md) |
 | `AR_EGRESS_ALLOW_NAMED_PRIVATE` | `false` | When `true`, a host named exactly on the allowlist may resolve to a private address. Metadata, unspecified, and decimal or mapped forms of those addresses stay denied. The air-gap overlay sets it to `true`. | [egress](egress-closed.md) |
@@ -92,16 +104,19 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_MEMORY_RECALL_MIN_SIM` | `0.25` | Minimum similarity for memory recall | [spec 11](../03-specs/11-memory.md) |
 | `AR_MG_CB_FAILURES` | `5` | Consecutive failures to open | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_CB_OPEN_S` | `30` | Circuit-breaker open duration | [spec 04](../03-specs/04-model-gateway.md) |
+| `AR_MG_FALLBACK_BACKOFF_S` | `0.2` | Seconds times the attempt number before the next fallback model | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_HEALTH_INTERVAL_S` | `30` | Provider health probe interval | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_MAX_FALLBACKS` | `2` | Maximum fallback hops per request | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_PORT` | `8001` | Listen port of `model-gateway` | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_SEMAPHORE_WAIT_S` | `10` | Max wait for a concurrency slot before 429 | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MODEL_GATEWAY_URL` | `http://localhost:8001` | Internal URL of `model-gateway` | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_MODEL_PROVIDER_DENY_CIDRS` | RFC1918 + link-local + cluster CIDRs (SaaS) | SSRF guard for tenant providers | [spec 04](../03-specs/04-model-gateway.md) |
+| `AR_INTERNAL_AUTH_SECRET` | (unset) | Shared HMAC for `sandbox-manager`, `mcp-gateway`, and `/metrics`. Empty fails closed | [internal-apis](../05-contracts/internal-apis.md) |
+| `AR_KNOWLEDGE_MIN_SCORE` | (unset) | Install default for chat retrieval. A chunk must clear this rerank or similarity score. The agent and the tenant can override it | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_OPA_BUNDLE_TOKEN` | secret | Bearer token OPA uses to fetch policy bundles from `api` | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_OPA_TIMEOUT_MS` | `200` | Policy decision timeout (fail closed) | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_OPA_URL` | `http://opa:8181` | OPA decision API URL | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 09](../03-specs/09-policy-approvals.md) |
-| `AR_OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint of the collector | [spec 18](../03-specs/18-observability-eval.md) |
+| `AR_OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint. Empty, `off`, or `none` disables export. Export is batched, timed out, and dropped when the collector is absent | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_OUTBOX_BATCH_SIZE` | `500` | Rows per outbox relay batch | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_PGVECTOR_DIMENSIONS` | `1024` (memory and tool-search embeddings only; knowledge supports 384/768/1024/1536/3072, [spec 10 §7.1](../03-specs/10-knowledge.md#71-storage); fixed; changing requires a migration and re-embed job `scripts/reembed_memory.py`) |  | [spec 11](../03-specs/11-memory.md) |
 | `AR_CSRF_ALLOWED_ORIGINS` | empty | Comma-separated origins that may send the session cookie, besides `AR_PUBLIC_URL`. Loopback names match each other only when `AR_ENV` is `dev` or `ci` | [spec 01](../03-specs/01-api-bff.md) |
@@ -113,7 +128,9 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` | `200` | Per worker process | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS` | `100` | Temporal worker workflow-task slots | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS` | `50` (plan `max_concurrent_runs` takes precedence when lower) | Per-tenant cap of concurrently executing runs (excess runs stay `queued`) | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |
+| `AR_RUN_HISTORY_STEPS` | `24` | Activities one `AgentRunWorkflow` execution records before continue-as-new. The run budget's `max_steps` is still the cap on work | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUN_STREAM_TTL_S` | `86400` | TTL of Valkey run event streams | [spec 07](../03-specs/07-agent-runtime.md) |
+| `AR_APPROVAL_WAIT_S` | `86400` | How long a run waits for an approval or a person's answer before the workflow expires the wait | [spec 07](../03-specs/07-agent-runtime.md), [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_S3_ACCESS_KEY_ID` | (empty → IRSA/instance role) | Object store credentials | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_S3_BUCKET` | `ar-files` | Bucket for files and artifacts | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_S3_ENDPOINT` | `http://localhost:8333` | Internal endpoint | [spec 13](../03-specs/13-files-artifacts.md) |
@@ -124,7 +141,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_S3_SSE` | `AES256` | `none` to disable | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_SAAS_SELF_SIGNUP` | `false` | Unused. Self-serve signup was removed in Stage 7 and this flag does not mount a route | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_SANDBOX_ALLOWED_REGISTRIES` | `registry.local/ar` | Registries sandbox template images may come from | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_DEFAULT_RUNTIME_CLASS` | `gvisor` | Kubernetes RuntimeClass for sandboxes | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal Docker network for sandbox containers. Compose sets `agentic-runtime_sandbox`. | [compose](compose.md) |
 | `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal docker network the in-process launcher attaches a sandbox container to; empty publishes the agent port to loopback (dev) | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_RUNTIME` | `runc` | `runsc` if installed | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DRIVER` | `kubernetes`; `docker` when `AR_SANDBOX_ALLOW_UNISOLATED` is on and none is named | `kubernetes`, or `docker` for one machine. The docker driver shares the host kernel and does not confine the network, so it needs `AR_SANDBOX_ALLOW_UNISOLATED` | [spec 12](../03-specs/12-sandbox-manager.md) |
@@ -132,7 +149,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SANDBOX_ENSURE_TIMEOUT_S` | `30` | Max time to obtain a ready sandbox | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | Internal URL of `sandbox-manager` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_SANDBOX_MAX_PER_TENANT` | plan `max_concurrent_sandboxes` (default 50) | Hard cap of concurrent sandboxes per tenant | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_NAMESPACE` | `ar-sandboxes` | Namespace for sandbox pods (shared tier) | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_EGRESS_PROXY` | empty | Squid URL for a confined sandbox. Compose sets `http://squid:3128`. | [compose](compose.md) |
 | `AR_SANDBOX_PACKAGE_MIRRORS` | empty | JSON `{pypi,npm,apt}` mirror URLs | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_SNAPSHOT_INTERVAL_S` | `600` | Periodic workspace snapshot interval while active | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_WARM_POOL` | `default=4,browser=2` | Warm pods per template | [spec 12](../03-specs/12-sandbox-manager.md) |
@@ -142,6 +159,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SECRET_CACHE_TTL_S` | `60` | In-process cache | [spec 03](../03-specs/03-secrets-credentials.md) |
 | `AR_SESSION_ENCRYPTION_KEY` | (secret, 32 bytes b64) | Encrypt tokens stored in sessions | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_SESSION_ENCRYPTION_KEY_PREVIOUS` | (empty) | Previous session key accepted for decryption during rotation | [secrets](../06-security/secrets.md) |
+| `AR_SESSION_GATE_TTL_S` | `15` | How long the web session gate reuses one confirmed session. A prefetch does not start a session call | [spec 19](../03-specs/19-web-app.md) |
 | `AR_SESSION_MAX_AGE_S` | `604800` | Absolute session max | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_SESSION_TTL_S` | `43200` | Sliding session TTL | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_AUTH_MODE` | empty (`password` in dev and ci, `oidc` otherwise) | `password` or `oidc`. Password is not the Helm default | [ADR-0031](../02-architecture/adr/ADR-0031-oidc-production-identity.md) |
@@ -166,9 +184,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SMTP_USERNAME` | (empty) | SMTP auth user | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SSE_MAX_PER_USER` | `20` | Concurrent SSE streams per user | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_STEP_UP_TTL_S` | `600` | Step-up validity | [spec 01](../03-specs/01-api-bff.md), [spec 09](../03-specs/09-policy-approvals.md) |
-| `AR_TEMPORAL_ADDRESS` | `localhost:7233` | Temporal frontend host:port | [spec 07](../03-specs/07-agent-runtime.md) |
+| `AR_TEMPORAL_ADDRESS` | `localhost:7233` | Temporal frontend host:port. `/readyz` always checks it. A turn is not run in the API process when the worker cannot take it (`interrupted` / `not_resumed`) | [spec 01](../03-specs/01-api-bff.md), [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_TEMPORAL_NAMESPACE` | `agentic-runtime` | One namespace per environment; dedicated tenants may get their own (`AR_TENANT_TEMPORAL_NAMESPACES`) | [spec 07](../03-specs/07-agent-runtime.md) |
-| `AR_TEMPORAL_REQUIRED` | `false` (`true` in the production chart) | When set, `/readyz` checks Temporal and a turn is not run in the API process if the worker cannot take it. The turn is marked `interrupted` / `not_resumed` | [spec 01](../03-specs/01-api-bff.md), [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_TENANT_DB_ROUTES` | `{}` | JSON map `tenant_id → database URL` for `dedicated_db` tenants | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |
 | `AR_TENANT_DELETE_GRACE_DAYS` | `7` | Grace period before tenant data deletion | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_TENANT_TEMPORAL_NAMESPACES` | `{}` | JSON map `tenant_id → Temporal namespace` for dedicated tenants | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |

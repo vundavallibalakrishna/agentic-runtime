@@ -54,7 +54,6 @@ Rules:
 | cryptography | 48.0.1 | AES-256-GCM envelope encryption for the `db_encrypted` secrets backend; Ed25519 keys. 50.0.2 is the newest release. The pin was held at 48 by presidio-anonymizer, which is no longer installed (M38b-T09), so the upgrade is open (OQ-108). |
 | hvac | 2.4.0 | Vault/OpenBao client (KV v2, Transit, Kubernetes auth). |
 | boto3 / aiobotocore | 1.43.106 / 3.9.2 | S3-compatible object storage (presigned URLs via boto3, async I/O via aiobotocore). boto3 1.43.115 requires botocore ≥ 1.43.115, which the current aiobotocore 3.9.2 rejects (`botocore>=1.43.101,<1.43.107`); 1.43.106 is the newest boto3 that resolves. |
-| kubernetes-asyncio | 36.1.0 | Sandbox manager Kubernetes driver (pods, PVCs, network policies). |
 | aiodocker | 0.27.0 | Docker driver (`ar_common.sandbox_docker`) the manager and the in-process launcher use to start a sandbox container in local development. |
 | slack-bolt | 1.30.0 | Slack app (Socket Mode by default, HTTP events optional). |
 | microsoft-agents-hosting-core / -aiohttp | 1.9.0 | Current Microsoft SDK for Teams bots (successor of Bot Framework SDK). |
@@ -165,10 +164,9 @@ Rules:
 | Component | Version | Reason |
 |---|---|---|
 | PostgreSQL + pgvector | 18.6 + 0.8.7 (image `pgvector/pgvector:0.8.7-pg18-trixie`) | System of record; default retrieval store for knowledge (HNSW on `halfvec`, iterative index scans, full-text `tsvector` for hybrid search), memory and tool search; RLS for tenancy. |
-| CloudNativePG operator | 1.30.1 | HA Postgres on Kubernetes, PITR backups to S3. |
 | Valkey | 9.1.2 | BSD-licensed Redis-compatible store: sessions, rate limits, streams, caches. |
-| Temporal server | 1.32.1 (`temporalio/server:1.32.1`, Helm chart from `temporalio/helm-charts`); CLI image `temporalio/temporal:1.9.1` for `temporal server start-dev` locally | Durable execution backbone. Docker Hub has no tag `temporalio/temporal:1.32.1`; the server image is `temporalio/server`. Local dev uses the CLI image, which vendors the dev server (SQLite). |
-| Qdrant (optional) | 1.19.2 | Optional retrieval backend (`AR_VECTOR_BACKEND=qdrant`) for very large knowledge corpora; not deployed by default (compose profile `qdrant`, Helm `qdrant.enabled=false`). |
+| Temporal server | 1.32.1 (`temporalio/server:1.32.1`); schema tools `temporalio/admin-tools:1.32.1` | Durable execution backbone. One server process on the install Postgres. `numHistoryShards` defaults to 4 and is fixed for that database. |
+| Qdrant (optional) | 1.19.2 | Optional retrieval backend (`AR_VECTOR_BACKEND=qdrant`) for very large knowledge corpora; not deployed by default (compose profile `qdrant`). |
 | Open Policy Agent | 1.21.3 | Policy-as-code (Rego v1) for runtime tool decisions; bundles served by `api`. |
 | OpenBao | 2.7.1 | Open-source (MPL-2.0) Vault-API-compatible secrets store; avoids BSL constraints for a SaaS offering. HashiCorp Vault 2.2.0 also supported (same API). |
 | S3-compatible object store | SeaweedFS 4.48 (default self-host), any S3 API (Ceph RGW, cloud S3) | MinIO community edition was archived in April 2026; SeaweedFS is Apache-2.0, supports versioning and Object Lock (needed for the audit bucket). |
@@ -178,22 +176,13 @@ Rules:
 | Langfuse (server) | 4.64.0 | Self-hosted LLM observability and evaluation datasets. |
 | Prometheus | 3.15.0 | Metrics. |
 | Grafana Tempo / Loki / Grafana | 3.1.0 / 3.7.8 / 13.2.4 | Traces / logs backends and the local dashboards UI (profile `obs`). |
-| Kubernetes | 1.34 to 1.37 supported | Standard APIs only (Deployments, StatefulSets via operators, NetworkPolicy, RuntimeClass). |
-| Helm | 4.3.1 | Packaging of the umbrella chart `agentic-runtime`. |
-| Argo CD | 3.5.5 | GitOps delivery for SaaS and recommended for customer installs. |
-| cert-manager | 1.21.2 | Internal PKI and ingress certificates. |
-| KEDA | 2.21.0 | Scale workers on Temporal task-queue backlog. |
-| Envoy Gateway | 1.9.2 | Gateway API ingress (TLS, rate limits, request size limits); any Gateway API implementation works. |
-| gVisor | release-20261012.0 | Default sandbox runtime (`RuntimeClass gvisor`). |
-| Kata Containers | 4.2.0 | VM-grade sandbox runtime (`RuntimeClass kata`) for high-assurance tenants. |
 | ClamAV (clamd) | 1.5.4 | Malware scanning of uploads (`AR_FILES_SCANNER=clamav`). |
 | Mailpit | 1.31.6 | Local-dev SMTP capture with web UI (ports 1025/8025); never used in production. |
 | GreenMail | 2.1 | SMTP + IMAP test server for email-channel integration tests (Mailpit has no IMAP). |
 | Squid | 7.7 | Sandbox egress proxy with per-sandbox domain allowlists. |
-| Falco | 0.45.1 | Runtime threat detection on the sandbox node pool. |
 | `ar-sandbox` toolbox | pinned in `images/sandbox/sandbox-tools.txt` | The computer's Python set (pandas, numpy, polars, scipy, matplotlib, seaborn, openpyxl, python-docx, python-pptx, reportlab, pypdf, pdfplumber, duckdb, pillow, pytesseract) plus LibreOffice headless, poppler-utils, tesseract (`SANDBOX_TESSERACT_LANGS`), ffmpeg and Noto fonts, baked by `images/sandbox/Dockerfile`. |
 | `ar-sandbox` browser | Node 24.22.2, Playwright 1.64.1 (`ar-sandbox-agent[browser]`), Chromium | Added only with `--build-arg WITH_BROWSER=1` (the `browser` template): Node with pnpm for user JavaScript, and Playwright-driven Chromium the agent's browser tools use (installed from the lock via `uv sync --extra browser`). CI's default image omits it (OQ-37, OQ-87). |
-| Docker Engine + Compose v2 | Engine 28+ / Compose 2.40+ | Local development stack (`compose.yaml`). |
+| Docker Engine + Compose v2 | Engine 28+ / Compose 2.40+ | The install, for development and production (`compose.yaml`). |
 
 ### CI and supply-chain tools
 
@@ -204,12 +193,11 @@ Pinned at M0-T02/M0-T10 (2026-10-20) to the latest stable GitHub release. Used o
 | gitleaks | 8.30.1 | Secret scanning of diffs and history |
 | osv-scanner | 2.7.0 | Dependency vulnerability scanning |
 | pip-audit | 2.10.1 | Python dependency vulnerability scanning (`pnpm audit` covers the JS lockfile) |
-| Trivy | 0.76.0 | Image and Helm misconfiguration scanning |
+| Trivy | 0.76.0 | Image scanning |
 | Semgrep | 1.181.0 | Static analysis (OSS rules) with custom rules |
 | zizmor | 1.31.1 | CI workflow security linting |
 | OWASP ZAP | 2.17.0 | Nightly DAST of the web app |
 | squawk | 2.70.0 | Lint SQL migrations for locking hazards |
-| kubeconform | 0.8.0 | Helm chart validation |
 | syft | 1.55.0 | SBOM generation |
 | cosign | 3.1.3 | Image signing |
 | @mermaid-js/mermaid-cli (`mmdc`) | 12.0.0 | Render-check Mermaid diagrams in docs |

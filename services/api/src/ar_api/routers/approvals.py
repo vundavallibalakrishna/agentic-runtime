@@ -1,5 +1,6 @@
 """Approvals inbox. Spec: docs/03-specs/09-policy-approvals.md §5."""
 
+import asyncio
 import uuid
 from typing import Annotated
 
@@ -11,6 +12,19 @@ from ar_contracts.api_model import ApiModel
 from ar_domain.approvals.service import ApprovalBook
 
 router = APIRouter()
+
+
+async def _await_worker(request: Request) -> None:
+    """Tests that set ``await_runs`` wait until the worker applies the decision."""
+    if not getattr(request.app.state, "await_runs", False):
+        return
+    pending = [
+        task
+        for task in getattr(chat(request), "tasks", [])
+        if not getattr(task, "done", lambda: True)()
+    ]
+    if pending:
+        await asyncio.gather(*pending)
 
 
 class ApprovalDecideBody(ApiModel):
@@ -56,9 +70,11 @@ async def get_approval(approval_id: uuid.UUID, request: Request) -> dict[str, ob
 async def decide_approval(
     approval_id: uuid.UUID, body: ApprovalDecideBody, request: Request
 ) -> dict[str, object]:
-    return ApprovalBook(chat(request)).decide(
+    result = ApprovalBook(chat(request)).decide(
         actor(request), approval_id, dump(body), stepped_up=stepped_up(request)
     )
+    await _await_worker(request)
+    return result
 
 
 @router.post(

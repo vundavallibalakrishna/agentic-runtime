@@ -1,7 +1,6 @@
-"""Stage 6 gateway, worker steps, and sandbox pods.
+"""Stage 6 gateway, worker steps, and sandbox confinement.
 
 Proof labels: the cases in this file are unit (no cluster and no model).
-``scripts/contract_k8s_pods.py --apply`` on kind is contract, not live.
 """
 
 from __future__ import annotations
@@ -9,19 +8,21 @@ from __future__ import annotations
 import asyncio
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pytest
-from fastapi.testclient import TestClient
-
+from ar_common.sandbox_docker import confined_host_config
 from ar_domain.chat.service import demo_id
 from ar_domain.sandboxes import runtime
 from ar_domain.sandboxes.service import SandboxBook
 from ar_domain.tools.agent_loop import run_agent_loop
 from ar_domain.tools.gateway_client import execute_tool
 from ar_mcp_gateway.main import create_application
-from ar_sandbox_manager.drivers.kubernetes import KubernetesPods
 from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo_tenant
+from ar_testing.internal_client import signed_client
+
+if TYPE_CHECKING:
+    import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -85,7 +86,7 @@ def test_gateway_audits_and_denies_a_host_off_the_allowlist() -> None:
     )
     server = store.tool_server_versions[version["tool_server_version_id"]]
     server["endpoint_url"] = "https://blocked.example/mcp"
-    client = TestClient(app)
+    client = signed_client(app)
     called = client.post(
         "/internal/v1/tool-calls:execute",
         json={
@@ -118,7 +119,7 @@ def test_gateway_records_a_builtin_call(monkeypatch: pytest.MonkeyPatch) -> None
     version = next(
         row for row in store.tool_versions.values() if row.get("qualified_name") == "files.list"
     )
-    client = TestClient(app)
+    client = signed_client(app)
     called = client.post(
         "/internal/v1/tool-calls:execute",
         json={
@@ -185,66 +186,17 @@ def test_one_activity_is_one_step() -> None:
     assert pending == []
 
 
-class _Pods:
-    def __init__(self) -> None:
-        self.pods: list[tuple[str, dict[str, object]]] = []
-        self.policies: list[tuple[str, dict[str, object]]] = []
-
-    async def create_pod(self, namespace: str, body: dict[str, object]) -> None:
-        self.pods.append((namespace, body))
-
-    async def apply_policy(self, namespace: str, body: dict[str, object]) -> None:
-        self.policies.append((namespace, body))
-
-    async def delete_pod(self, namespace: str, name: str) -> None:
-        del namespace, name
-
-
-def test_only_the_sandbox_manager_submits_a_limited_pod(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("AR_SANDBOX_IMAGE", "registry.example/ar-sandbox:1.2.3")
-    fake = _Pods()
-    creator = KubernetesPods(fake, namespace="ar-sandboxes")
-    created = asyncio.run(
-        creator.create(
-            sandbox_id="12345678-aaaa-bbbb-cccc-ddddeeeeffff",
-            tenant_id="tenant",
-            template="browser",
-            token="tok",  # noqa: S106
-            cpu_millis=500,
-            memory_mb=512,
-            disk_gb=1,
-            lifetime_s=600,
-            runtime_class="gvisor",
-        )
+def test_only_the_sandbox_manager_starts_a_confined_container() -> None:
+    host = confined_host_config(
+        "agentic-runtime_sandbox", cpu_millis=500, memory_mb=512, pids_limit=64
     )
-    assert created["namespace"] == "ar-sandboxes"
-    assert str(created["endpoint_url"]).startswith("http://sbx-")
-    namespace, pod = fake.pods[0]
-    assert namespace == "ar-sandboxes"
-    limits = pod["spec"]["containers"][0]["resources"]["limits"]  # type: ignore[index]
-    assert limits["cpu"] == "500m"
-    assert limits["memory"] == "512Mi"
-    image = pod["spec"]["containers"][0]["image"]  # type: ignore[index]
-    assert image == "registry.example/ar-sandbox:1.2.3"
-    assert fake.policies and fake.policies[0][0] == "ar-sandboxes"
-    refused = KubernetesPods(fake, namespace="default")
-    with pytest.raises(RuntimeError):
-        asyncio.run(
-            refused.create(
-                sandbox_id="12345678-aaaa-bbbb-cccc-ddddeeeeffff",
-                tenant_id="tenant",
-                template="browser",
-                token="tok",  # noqa: S106
-                cpu_millis=500,
-                memory_mb=512,
-                disk_gb=1,
-                lifetime_s=600,
-                runtime_class="gvisor",
-            )
-        )
+    assert host["Memory"] == 512 * 1024 * 1024
+    assert host["CapDrop"] == ["ALL"]
     for folder in ("services/api", "services/runtime", "services/mcp_gateway"):
         for path in (ROOT / folder).rglob("*.py"):
-            assert "create_namespaced_pod" not in path.read_text(encoding="utf-8")
+            text = path.read_text(encoding="utf-8")
+            assert "create_namespaced_pod" not in text
+            assert "kubernetes_asyncio" not in text
 
 
 def test_production_screenshot_needs_chromium() -> None:
@@ -276,22 +228,8 @@ def test_production_screenshot_needs_chromium() -> None:
     assert result["code"] == "sandbox_unavailable"
 
 
-def test_contract_manifest_is_namespaced_and_limited() -> None:
-    import importlib.util
-
-    path = ROOT / "scripts" / "contract_k8s_pods.py"
-    spec = importlib.util.spec_from_file_location("contract_k8s_pods", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    docs = module.documents()
-    assert docs[0]["metadata"]["name"] == "ar-sandboxes"  # type: ignore[index]
-    kinds = {doc["kind"] for doc in docs}
-    assert "RuntimeClass" in kinds
-    policy = next(doc for doc in docs if doc["kind"] == "NetworkPolicy")
-    assert policy["kind"] == "NetworkPolicy"
-    pod = next(doc for doc in docs if doc["kind"] == "Pod")
-    assert pod["metadata"]["namespace"] == "ar-sandboxes"  # type: ignore[index]
-    limits = pod["spec"]["containers"][0]["resources"]["limits"]  # type: ignore[index]
-    assert limits["cpu"] == "500m"
-    assert limits["memory"] == "512Mi"
+def test_compose_confines_sandbox_egress() -> None:
+    text = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+    assert "name: agentic-runtime_sandbox" in text
+    assert "internal: true" in text
+    assert "AR_SANDBOX_DOCKER_NETWORK: agentic-runtime_sandbox" in text

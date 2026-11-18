@@ -13,6 +13,35 @@ if TYPE_CHECKING:
     import uuid
 
 
+def stage_named_secret(tenant_id: uuid.UUID, name: str, value: str) -> dict[str, Any]:
+    """A secret row that is not stored until the caller commits it."""
+    now = utcnow()
+    return {
+        "id": new_id(),
+        "tenant_id": tenant_id,
+        "name": name,
+        "ciphertext": seal(connection_key(), value.encode()),
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
+def install_named_secret(store: Any, row: dict[str, Any]) -> None:
+    """Remember a row that a transaction has already committed."""
+    book = _book(store)
+    tenant = str(row.get("tenant_id"))
+    name = str(row.get("name"))
+    for key, existing in list(book.items()):
+        if (
+            isinstance(existing, dict)
+            and str(existing.get("tenant_id")) == tenant
+            and str(existing.get("name")) == name
+        ):
+            book.pop(key, None)
+            break
+    book[row.get("id")] = row
+
+
 def write_named_secret(store: Any, tenant_id: uuid.UUID, name: str, value: str) -> None:
     book = _book(store)
     sealed = seal(connection_key(), value.encode())

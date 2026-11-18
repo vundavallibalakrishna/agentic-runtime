@@ -9,7 +9,7 @@ QDRANT ?= 0
 AUTO_PORTS ?= 0
 DEV_MIN ?= 0
 COMPOSE := docker compose -f compose.yaml
-PROFILES := --profile deps
+PROFILES := --profile dev
 ifeq ($(OBS),1)
 PROFILES += --profile obs
 endif
@@ -26,7 +26,7 @@ PY_PKGS := libs/ar_common libs/ar_contracts libs/ar_domain libs/ar_connector_sdk
 	connectors/mcp_sql connectors/mcp_openapi
 
 .PHONY: help bootstrap up down migrate seed ports-check dev dev-min fmt lint typecheck test \
-	test-unit test-integration test-e2e check gen eval reset-db kind-up kind-down images \
+	test-unit test-integration test-e2e check gen eval reset-db images \
 	images-bundle deptry
 
 help:
@@ -40,14 +40,19 @@ bootstrap:
 	@if [ ! -f .env ]; then cp .env.example .env; fi
 	uv run python scripts/dev_keys.py
 
+# One-shots exit 0. `up --wait` treats that as a failure, so wait only on
+# the processes that keep running, then register the Temporal namespace.
 up:
-	$(COMPOSE) $(PROFILES) up -d --wait --wait-timeout 180
+	$(COMPOSE) $(PROFILES) up -d --wait --wait-timeout 180 \
+		postgres valkey temporal seaweedfs openbao opa mailpit greenmail squid
+	$(COMPOSE) $(PROFILES) run --rm --no-deps temporal-namespace
 
 down:
-	$(COMPOSE) --profile deps --profile obs --profile scan --profile qdrant --profile apps down
+	$(COMPOSE) --profile dev --profile production --profile obs --profile scan --profile qdrant down
 
 migrate:
 	@set -a; [ -f .env ] && . ./.env; set +a; \
+	uv run python -m ar_domain.db.reconcile_roles; \
 	if ls libs/ar_domain/src/ar_domain/migrations/versions/*.py >/dev/null 2>&1; then \
 		uv run alembic -c libs/ar_domain/alembic.ini upgrade head; \
 	else \
@@ -55,7 +60,7 @@ migrate:
 	fi
 
 seed:
-	uv run python scripts/seed.py
+	@set -a; [ -f .env ] && . ./.env; set +a; uv run python scripts/seed.py
 
 ports-check:
 	AUTO_PORTS="$(AUTO_PORTS)" DEV_MIN="$(DEV_MIN)" OBS="$(OBS)" SCAN="$(SCAN)" QDRANT="$(QDRANT)" \
@@ -63,12 +68,12 @@ ports-check:
 
 dev: ports-check
 	$(MAKE) up migrate seed
-	uv run honcho start -f Procfile.dev
+	@set -a; [ -f .env ] && . ./.env; set +a; uv run honcho start -f Procfile.dev
 
 dev-min:
 	$(MAKE) ports-check DEV_MIN=1
 	$(MAKE) up migrate seed
-	uv run honcho start -f Procfile.dev-min
+	@set -a; [ -f .env ] && . ./.env; set +a; uv run honcho start -f Procfile.dev-min
 
 fmt:
 	uv run ruff format .
@@ -83,10 +88,6 @@ lint:
 	pnpm exec biome check .
 	pnpm exec knip
 	opa fmt --diff policies/
-	helm lint deploy/helm/agentic-runtime
-	@for preset in values-dev values-small values-large values-saas values-loadtest values-external values-airgap; do \
-		helm lint deploy/helm/agentic-runtime -f deploy/helm/agentic-runtime/$$preset.yaml; \
-	done
 
 deptry:
 	@fail=0; \
@@ -137,15 +138,9 @@ live-pack:
 	uv run python -m ar_domain.connectors.live_pack
 
 reset-db:
-	$(COMPOSE) --profile deps exec -T postgres dropdb -U ar_owner --if-exists agentic_runtime
-	$(COMPOSE) --profile deps exec -T postgres createdb -U ar_owner agentic_runtime
+	$(COMPOSE) --profile dev exec -T postgres dropdb -U postgres --if-exists agentic_runtime
+	$(COMPOSE) --profile dev exec -T postgres createdb -U postgres agentic_runtime
 	$(MAKE) migrate seed
-
-kind-up:
-	KEEP_CLUSTER=1 bash scripts/kind_install.sh
-
-kind-down:
-	kind delete cluster --name "$${KIND_CLUSTER:-ar-m15}"
 
 images:
 	./scripts/build_images.sh

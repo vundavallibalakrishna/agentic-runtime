@@ -107,7 +107,7 @@ async def start_research(body: ResearchBody, request: Request) -> dict[str, obje
         if isinstance(checkpoint, dict) and isinstance(checkpoint.get("research"), dict):
             checkpoint["research"].update(run["research_bounds"])
     if getattr(request.app.state, "await_runs", False) and isinstance(run, dict):
-        await service.generate(uuid.UUID(str(run["id"])), body.question, [])
+        await service._start_turn(uuid.UUID(str(run["id"])), body.question, [])
     view = public_research(run if isinstance(run, dict) else {})
     view["conversationId"] = str(conversation_id)
     return view
@@ -152,8 +152,13 @@ async def resume_research(run_id: uuid.UUID, request: Request) -> dict[str, obje
             question = str(checkpoint["research"].get("question") or "")
             if checkpoint["research"].get("phase") == "done":
                 checkpoint["research"]["phase"] = "plan"
-        run["temporal_workflow_id"] = f"research-{run_id}-resume"
-        service._schedule(run_id, question, [])
+        from ar_domain.runs.dispatch import workflow_id  # noqa: PLC0415
+
+        run["temporal_workflow_id"] = workflow_id(run_id)
+        if getattr(request.app.state, "await_runs", False):
+            await service._start_turn(run_id, question, [])
+        else:
+            service._schedule(run_id, question, [])
     return public_research(run)
 
 
@@ -260,11 +265,10 @@ async def start_external_research(
 async def get_external_research(
     run_id: uuid.UUID, request: Request, response: Response
 ) -> dict[str, object]:
+    from ar_domain.exposure.runs import run_for_key  # noqa: PLC0415
+
     store, key = _key_store(request, response)
-    run = store.runs.get(run_id)
-    if not isinstance(run, dict) or run.get("tenant_id") != key.get("tenant_id"):
-        raise NotFoundError()
-    return public_research(run)
+    return public_research(run_for_key(store, key, run_id))
 
 
 @router.get("/v1/research/runs/{run_id}/events")
@@ -272,10 +276,10 @@ async def get_external_research(
 async def stream_external_research(
     run_id: uuid.UUID, request: Request, response: Response
 ) -> StreamingResponse:
+    from ar_domain.exposure.runs import run_for_key  # noqa: PLC0415
+
     store, key = _key_store(request, response)
-    run = store.runs.get(run_id)
-    if not isinstance(run, dict) or run.get("tenant_id") != key.get("tenant_id"):
-        raise NotFoundError()
+    run_for_key(store, key, run_id)
 
     async def frames() -> AsyncIterator[bytes]:
         async for event in store.iter_events(key["tenant_id"], run_id, 0):

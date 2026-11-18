@@ -4,7 +4,7 @@ This is the **single source of truth** for tables, columns, types, constraints a
 
 ## 0. Conventions
 
-- PostgreSQL 18. Extensions: `vector` (pgvector 0.8.7), `pg_trgm`, `citext`, `btree_gin`.
+- PostgreSQL 18. Extensions: `vector` (pgvector 0.8.7), `pg_trgm`, `citext`, `btree_gin`. The image superuser installs them before Alembic, because `vector` is not a trusted extension.
 - Primary keys: `id uuid PRIMARY KEY DEFAULT uuidv7()` (the application also generates UUIDv7 via `ar_common.ids.new_id()` so ids are known before insert).
 - Every tenant-owned table has `tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE`, an index whose leading column is `tenant_id`, and RLS enabled + forced ([rls.md](rls.md)). Tables marked **(global)** have no tenant RLS. Tables with a nullable `tenant_id` (platform-provided rows) use the "platform-or-own" RLS policy.
 - Timestamps are `timestamptz`. `created_at DEFAULT now()`, `updated_at DEFAULT now()` maintained by trigger `set_updated_at()`.
@@ -2000,7 +2000,7 @@ CREATE TABLE document_rewrites (
 
 ## 32. Saved table queries (`ar_domain.spreadsheet`)
 
-Revision `0050`. Tenant owned, with the RLS policy from [rls §3](rls.md). One row is one version of a named query that `general.save_query` wrote. A version is written once: the table is append-only, so the statement a reviewer signed cannot change under the sign-off. Saving under an existing name adds the next version. `content_hash` is the SHA-256 of the canonical JSON of `{name, version, sql, description}`. Sign-off is a `review_items` row with `subject_type='saved_query'` and `subject_id` set to the version's id ([spec 09 §11](../03-specs/09-policy-approvals.md)); the same revision adds `saved_query` to the `review_queues.subject_type` check.
+Revision `0051`. Tenant owned, with the RLS policy from [rls §3](rls.md). One row is one version of a named query that `general.save_query` wrote. A version is written once: the table is append-only, so the statement a reviewer signed cannot change under the sign-off. Saving under an existing name adds the next version. `content_hash` is the SHA-256 of the canonical JSON of `{name, version, sql, description}`. Sign-off is a `review_items` row with `subject_type='saved_query'` and `subject_id` set to the version's id ([spec 09 §11](../03-specs/09-policy-approvals.md)); the same revision adds `saved_query` to the `review_queues.subject_type` check.
 
 ```sql
 CREATE TABLE saved_queries (                              -- append-only

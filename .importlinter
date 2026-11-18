@@ -107,6 +107,29 @@ forbidden_modules =
     fastembed
 allow_indirect_imports = true
 
+[importlinter:contract:no-kubernetes]
+name = No Kubernetes client
+type = forbidden
+source_modules =
+    ar_common
+    ar_contracts
+    ar_domain
+    ar_api
+    ar_runtime
+    ar_system
+    ar_ingest
+    ar_model_gateway
+    ar_mcp_gateway
+    ar_sandbox_manager
+    ar_sandbox_agent
+    ar_channels
+    ar_mcp_sql
+    ar_mcp_openapi
+    ar_fake_llm
+forbidden_modules =
+    kubernetes
+    kubernetes_asyncio
+
 [importlinter:contract:egress-clients]
 name = Outbound client libraries stay behind the egress check
 type = forbidden

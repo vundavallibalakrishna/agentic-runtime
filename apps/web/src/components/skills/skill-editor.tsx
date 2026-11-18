@@ -10,7 +10,8 @@ import { ActionStatus, BackButton, DetailState } from "@/components/common/detai
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { api, type Session } from "@/lib/api";
+import { api } from "@/lib/api";
+import { loadSession } from "@/lib/session";
 
 type Asset = { path: string; fileId?: string; sha256?: string };
 type Version = {
@@ -67,7 +68,7 @@ export function SkillEditor() {
     try {
       const [body, session] = await Promise.all([
         api<Skill>(`/api/v1/skills/${skillId}`),
-        api<Session>("/api/v1/auth/session"),
+        loadSession(),
       ]);
       const history = await api<{ items: Version[] }>(`/api/v1/skills/${skillId}/versions`);
       const where = await api<Used>(`/api/v1/skills/${skillId}/where-used`);

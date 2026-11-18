@@ -2,6 +2,9 @@ name: ci
 
 on:
   pull_request:
+    # `edited` re-runs the title check after a rename. The other jobs skip that
+    # action so a title change does not rebuild the suite.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
@@ -17,6 +20,7 @@ jobs:
           echo "$TITLE" | grep -Eq '^(feat|fix|chore|docs|test|refactor|perf|build|ci|revert)(\([^)]+\))?: .+'
 
   domain-agnostic:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +28,7 @@ jobs:
         run: python3 scripts/check_domain_agnostic.py
 
   python-lint:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +45,7 @@ jobs:
       - run: make deptry
 
   python-unit:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +64,7 @@ jobs:
         run: uv run python scripts/eval_run.py --check
 
   python-integration:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     services:
       greenmail:
@@ -90,6 +97,7 @@ jobs:
     # tool is invoked through the real pipeline (offline, no model, no network) and the run
     # fails if any tool crashes, errors unexpectedly or has a malformed schema. See
     # docs/testing/platform-certification.md.
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,6 +117,7 @@ jobs:
         run: uv run python scripts/document_toolchain.py --check
 
   web:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -127,6 +136,7 @@ jobs:
       - run: pnpm --filter @ar/web build
 
   web-e2e:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -150,6 +160,7 @@ jobs:
           E2E_SCREENSHOT_DIR: /tmp/e2e-screenshots
 
   codegen-drift:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -171,6 +182,7 @@ jobs:
       - run: git diff --exit-code
 
   opa-test:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -183,21 +195,8 @@ jobs:
       - run: opa test --ignore fixtures policies/ --coverage
 
   migrations:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.7-pg18-trixie
-        env:
-          POSTGRES_USER: ar_owner
-          POSTGRES_PASSWORD: ar_owner
-          POSTGRES_DB: agentic_runtime
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ar_owner -d agentic_runtime"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -206,10 +205,14 @@ jobs:
           enable-cache: true
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
+      - run: sh scripts/ci_postgres.sh
       - name: Upgrade, single head, model check, round trip
-        env:
-          AR_DATABASE_URL: postgresql+asyncpg://ar_owner:ar_owner@localhost:5432/agentic_runtime
         run: |
+          set -a
+          # shellcheck disable=SC1091
+          . ./.env
+          set +a
+          export AR_DATABASE_URL="postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@127.0.0.1:5432/agentic_runtime"
           uv run alembic -c libs/ar_domain/alembic.ini upgrade head
           test "$(uv run alembic -c libs/ar_domain/alembic.ini heads | wc -l)" -eq 1
           uv run alembic -c libs/ar_domain/alembic.ini check
@@ -217,7 +220,9 @@ jobs:
           uv run alembic -c libs/ar_domain/alembic.ini upgrade head
 
   compose-smoke:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -225,13 +230,13 @@ jobs:
           version: "0.13.3"
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --frozen
-      - run: docker compose --profile deps --profile apps up -d --build
-      - run: uv run python scripts/smoke.py --health-only
+      - run: bash scripts/compose_install.sh
       - name: Compose logs
         if: failure()
-        run: docker compose --profile deps --profile apps logs --no-color --tail 100
+        run: docker compose --profile production logs --no-color --tail 120
 
   docs:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -263,90 +268,8 @@ jobs:
             exit 1
           fi
 
-  helm:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.3.1
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.13.3"
-          enable-cache: true
-      - run: uv python install 3.14.8
-      - run: uv sync --all-packages --all-groups --frozen
-      - run: bash scripts/check_helm.sh
-
-  kind-contract:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: helm/kind-action@v1.12.0
-        with:
-          cluster_name: ar-stage6
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.13.3"
-          enable-cache: true
-      - run: uv python install 3.14.8
-      - run: uv sync --all-packages --all-groups --frozen
-      - name: Sandbox pod contract
-        run: uv run python scripts/contract_k8s_pods.py --apply
-
-  kind-stage9:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - uses: helm/kind-action@v1.12.0
-        with:
-          cluster_name: ar-stage9
-          version: v0.30.0
-          node_image: kindest/node:v1.33.1
-      - uses: azure/setup-helm@v4
-        with:
-          version: v4.3.1
-      - uses: astral-sh/setup-uv@v5
-        with:
-          version: "0.13.3"
-          enable-cache: true
-      - run: uv python install 3.14.8
-      - run: uv sync --all-packages --all-groups --frozen
-      - name: Stage 9 two-replica contract
-        run: bash scripts/stage9_kind_contract.sh
-
-  kind-pitr:
-    if: github.event_name == 'pull_request'
-    # CloudNativePG plus MinIO is too slow for every pull request. The job
-    # runs when the restore script, the runbook, or the chart backup changes,
-    # and the nightly workflow runs it as well.
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: gate
-        run: |
-          set -euo pipefail
-          git fetch origin "${{ github.base_ref }}"
-          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -Eq 'cnpg_pitr_kind|cnpg-pitr|cnpg-cluster.yaml'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.gate.outputs.run == 'true'
-        uses: helm/kind-action@v1.12.0
-        with:
-          cluster_name: ar-pitr
-          version: v0.30.0
-          node_image: kindest/node:v1.33.1
-      - if: steps.gate.outputs.run == 'true'
-        name: CloudNativePG point-in-time restore
-        run: bash scripts/cnpg_pitr_kind.sh
-
   fresh-clone:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -413,21 +336,9 @@ jobs:
         run: make down
 
   conformance-qdrant:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: pgvector/pgvector:0.8.7-pg18-trixie
-        env:
-          POSTGRES_USER: ar_owner
-          POSTGRES_PASSWORD: ar_owner
-          POSTGRES_DB: agentic_runtime
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ar_owner -d agentic_runtime"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
       qdrant:
         image: qdrant/qdrant:v1.19.2
         ports:
@@ -445,13 +356,19 @@ jobs:
           enable-cache: true
       - run: uv python install 3.14.8
       - run: uv sync --all-packages --all-groups --all-extras --frozen
+      - run: sh scripts/ci_postgres.sh
       - name: Qdrant conformance and backend round trip
-        env:
-          AR_QDRANT_URL: http://127.0.0.1:6333
-          AR_DATABASE_URL: postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5432/agentic_runtime
-        run: uv run pytest -m qdrant -q
+        run: |
+          set -a
+          # shellcheck disable=SC1091
+          . ./.env
+          set +a
+          export AR_QDRANT_URL=http://127.0.0.1:6333
+          export AR_DATABASE_URL="postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@127.0.0.1:5432/agentic_runtime"
+          uv run pytest -m qdrant -q
 
   security:
+    if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -466,4 +383,32 @@ jobs:
         with:
           version: "0.13.3"
       - run: uv tool install pip-audit==2.10.1
-      - run: uv tool run pip-audit --vulnerability-service osv
+      - name: Dependency audit
+        # api.osv.dev sometimes accepts the connection and then does not answer
+        # within pip-audit's 15s read. That aborts the scan before any advisory is
+        # returned. A vulnerability report still fails this step on the first try.
+        # Only a timed-out or unreachable service is asked again.
+        run: |
+          set -eu
+          ok=0
+          for attempt in 1 2 3; do
+            set +e
+            output=$(uv tool run pip-audit --vulnerability-service osv --timeout 60 2>&1)
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              ok=1
+              break
+            fi
+            case "$output" in
+              *ReadTimeout*|*timed\ out*|*ConnectionError*|*Name\ or\ service\ not\ known*)
+                echo "vulnerability service did not answer (attempt ${attempt})"
+                sleep $((attempt * 5))
+                ;;
+              *)
+                exit "$status"
+                ;;
+            esac
+          done
+          test "$ok" = 1

@@ -84,7 +84,9 @@ async def test_the_text_arrives_piece_by_piece_and_the_whole_reads_like_one_comp
     parsed = completion_message(payload)
     assert parsed["text"] == "A kiln fires clay."
     assert parsed["reasoning"] == "plan"
-    assert parsed["usage"] == {"tokens_in": 7, "tokens_out": 5}
+    usage = parsed["usage"]
+    assert isinstance(usage, dict)
+    assert (usage["tokens_in"], usage["tokens_out"]) == (7, 5)
     assert payload["model"] == "m-1"
 
 

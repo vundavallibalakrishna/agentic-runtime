@@ -113,10 +113,10 @@ The compose dependencies are the project's usual ones (`make up`); this pass use
 # from the worktree: /Users/balakrishnavundavalli/working/talentfino/cura/agentic_runtime/.claude/worktrees/m32
 cp ../../../.env .env   # dev keys; gitignored
 docker exec agentic-runtime-postgres-1 psql -U ar_owner -d postgres -c "CREATE DATABASE m32_review OWNER ar_owner;"
-AR_DATABASE_URL='postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5433/m32_review' uv run alembic -c libs/ar_domain/alembic.ini upgrade head
-AR_DATABASE_URL='postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5433/m32_review' uv run python scripts/seed.py
-AR_DATABASE_URL='postgresql+asyncpg://ar_owner:ar_owner@127.0.0.1:5433/m32_review' AR_MG_PORT=18201 uv run ar-model-gateway
-AR_DATABASE_URL='postgresql+asyncpg://ar_app:ar_app@127.0.0.1:5433/m32_review' AR_PORT=18231 AR_TEMPORAL_ADDRESS=127.0.0.1:1 AR_OPA_URL= AR_MODEL_GATEWAY_URL=http://127.0.0.1:18201 AR_PUBLIC_URL=http://127.0.0.1:18232 AR_WEB_HOST_PORT=18232 uv run ar-api
+AR_DATABASE_URL='postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5433/m32_review' uv run alembic -c libs/ar_domain/alembic.ini upgrade head
+AR_DATABASE_URL='postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5433/m32_review' uv run python scripts/seed.py
+AR_DATABASE_URL='postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5433/m32_review' AR_MG_PORT=18201 uv run ar-model-gateway
+AR_DATABASE_URL='postgresql+asyncpg://ar_app:${AR_DB_APP_PASSWORD}@127.0.0.1:5433/m32_review' AR_PORT=18231 AR_TEMPORAL_ADDRESS=127.0.0.1:1 AR_OPA_URL= AR_MODEL_GATEWAY_URL=http://127.0.0.1:18201 AR_PUBLIC_URL=http://127.0.0.1:18232 AR_WEB_HOST_PORT=18232 uv run ar-api
 # from apps/web
 API_PROXY_URL=http://127.0.0.1:18231 AR_NEXT_DIST=.next-m32 pnpm exec next build
 API_PROXY_URL=http://127.0.0.1:18231 AR_NEXT_DIST=.next-m32 pnpm exec next start --port 18232

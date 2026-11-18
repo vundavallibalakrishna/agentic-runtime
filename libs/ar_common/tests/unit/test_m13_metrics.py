@@ -23,7 +23,7 @@ def test_spec_metrics_are_registered() -> None:
 
 
 def test_every_alert_has_a_runbook_anchor() -> None:
-    rules = yaml.safe_load((ROOT / "deploy/helm/agentic-runtime/rules/alerts.yaml").read_text())
+    rules = yaml.safe_load((ROOT / "deploy/observability/alerts.yaml").read_text())
     runbooks = (ROOT / "docs/07-ops/runbooks.md").read_text(encoding="utf-8")
     expected = {
         "ARApiHighErrorRate": "rb-01-api-errors",

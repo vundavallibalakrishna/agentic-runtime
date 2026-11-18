@@ -51,6 +51,8 @@ class ModelPatch(ApiModel):
     embedding_dimensions: int | None = Field(default=None, gt=0)
     # What the model can do, for example ``vision`` for a model that reads images.
     capabilities: list[str] | None = None
+    context_window: int | None = Field(default=None, ge=1)
+    max_output_tokens: int | None = Field(default=None, ge=1)
 
 
 class ModelBody(ApiModel):
@@ -63,6 +65,8 @@ class ModelBody(ApiModel):
     request_options: dict[str, object] | None = None
     embedding_dimensions: int | None = Field(default=None, gt=0)
     capabilities: list[str] | None = None
+    context_window: int | None = Field(default=None, ge=1)
+    max_output_tokens: int | None = Field(default=None, ge=1)
 
 
 class AliasBody(ApiModel):
@@ -197,7 +201,7 @@ async def _finish(
     request: Request, service: ChatBehaviour, run_id: str, text: str, names: list[str]
 ) -> None:
     if getattr(request.app.state, "await_runs", False):
-        await service.generate(uuid.UUID(run_id), text, names)
+        await service._start_turn(uuid.UUID(run_id), text, names)
 
 
 async def _persist_provider(
@@ -362,6 +366,8 @@ async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
         request_options=body.request_options,
         embedding_dimensions=body.embedding_dimensions,
         capabilities=body.capabilities,
+        context_window=body.context_window,
+        max_output_tokens=body.max_output_tokens,
     )
     await _persist_model(service, created, principal)
     return created
@@ -389,6 +395,14 @@ async def patch_model(model_id: uuid.UUID, body: ModelPatch, request: Request) -
             "embedding_dimensions" in body.model_fields_set and body.embedding_dimensions is None
         ),
         capabilities=body.capabilities,
+        context_window=body.context_window,
+        max_output_tokens=body.max_output_tokens,
+        clear_context_window=(
+            "context_window" in body.model_fields_set and body.context_window is None
+        ),
+        clear_max_output_tokens=(
+            "max_output_tokens" in body.model_fields_set and body.max_output_tokens is None
+        ),
     )
     await _persist_model(service, updated, principal)
     return updated
@@ -1038,8 +1052,15 @@ async def refresh_conversation_summary(
 @router.post("/api/v1/runs/{run_id}:resume", dependencies=[Depends(require_permission("chat:use"))])
 @expose(public=False, permission="chat:use")
 async def resume_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
+    import asyncio  # noqa: PLC0415
+
     principal = _principal(request)
-    return _chat(request).resume_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+    service = _chat(request)
+    view = service.resume_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+    pending = [task for task in service.tasks if not task.done()]
+    if pending:
+        await asyncio.gather(*pending)
+    return view
 
 
 @router.post("/api/v1/runs/{run_id}:cancel", dependencies=[Depends(require_permission("chat:use"))])
@@ -1052,19 +1073,23 @@ async def cancel_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
         raise NotFoundError()
     if run.get("status") in {"completed", "failed", "cancelled"}:
         raise ArError(ErrorCode.INVALID_STATE, "run is not active")
+    # The service records the cancel and signals the workflow. Awaiting the signal
+    # here surfaces a dead frontend; the flag is what the next step reads.
+    view = service.cancel_run(_tenant(principal), uuid.UUID(principal.id), run_id)
     handle_for = getattr(service.temporal_client, "get_workflow_handle", None)
-    if callable(handle_for) and run.get("temporal_workflow_id"):
+    workflow_id = run.get("temporal_workflow_id") or f"run-{run_id}"
+    if callable(handle_for) and service.temporal_client is not None:
         try:
-            await handle_for(str(run["temporal_workflow_id"])).signal("cancel")
+            await handle_for(str(workflow_id)).signal("cancel")
         except RPCError as exc:
             from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
             await reload_run(service, run_id)
-            run = service.get_run(_tenant(principal), run_id)
-            if run.get("status") not in {"completed", "failed", "cancelled"}:
+            current = service.get_run(_tenant(principal), run_id)
+            if current.get("status") not in {"completed", "failed", "cancelled"}:
                 raise UnavailableError("The agent could not be stopped. Please try again.") from exc
-        return run
-    return service.cancel_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+            return current
+    return view
 
 
 @router.get("/api/v1/runs/{run_id}/events", dependencies=[Depends(require_permission("chat:use"))])

@@ -1958,6 +1958,14 @@ export type ModelBody = {
      * Capabilities
      */
     capabilities?: Array<string> | null;
+    /**
+     * Contextwindow
+     */
+    contextWindow?: number | null;
+    /**
+     * Maxoutputtokens
+     */
+    maxOutputTokens?: number | null;
 };
 
 /**
@@ -1994,6 +2002,14 @@ export type ModelPatch = {
      * Capabilities
      */
     capabilities?: Array<string> | null;
+    /**
+     * Contextwindow
+     */
+    contextWindow?: number | null;
+    /**
+     * Maxoutputtokens
+     */
+    maxOutputTokens?: number | null;
 };
 
 /**

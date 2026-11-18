@@ -41,4 +41,3 @@ def install_process_state(app: FastAPI, settings: BaseServiceSettings, key: byte
         app.state.login_lockout = MemoryLoginLockout(max_attempts=attempts, lockout_s=lock_s)
         app.state.oidc_states = MemoryOidcState()
     app.state.chat.shared_idempotency = app.state.idempotency
-    app.state.chat.temporal_required = bool(settings.temporal_required)

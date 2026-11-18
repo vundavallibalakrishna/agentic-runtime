@@ -29,9 +29,9 @@ def _chain(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return chained
 
 
-def test_catalogue_is_in_chart_values() -> None:
-    text = (ROOT / "deploy/helm/agentic-runtime/values.yaml").read_text(encoding="utf-8")
-    missing = sorted(name for name in CATALOGUE_ENV if name not in text)
+def test_catalogue_is_in_the_env_example() -> None:
+    text = (ROOT / ".env.example").read_text(encoding="utf-8")
+    missing = sorted(name for name in CATALOGUE_ENV if f"{name}=" not in text)
     assert missing == []
 
 

@@ -606,7 +606,7 @@ def test_a_catalogue_seeded_earlier_gains_the_new_tools() -> None:
 
 def _migration() -> object:
     return importlib.import_module(
-        "ar_domain.migrations.versions.20261118_0049_assistant_sample_knowledge"
+        "ar_domain.migrations.versions.20261118_0050_assistant_sample_knowledge"
     )
 
 

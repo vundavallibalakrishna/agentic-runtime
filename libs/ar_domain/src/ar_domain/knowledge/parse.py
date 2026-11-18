@@ -193,30 +193,14 @@ def _cell(cell: ET.Element, shared: list[str]) -> str:
 
 
 def _pdf(data: bytes) -> str:
-    try:
-        from pypdf import PdfReader  # noqa: PLC0415
-    except ModuleNotFoundError:
-        return _pdf_text(data)
-    try:
-        reader = PdfReader(io.BytesIO(data))
-    except Exception:  # noqa: BLE001 - a broken PDF falls back to literal strings
-        return _pdf_text(data)
-    if len(reader.pages) > 2000:
-        raise ParseError("too_large", "document exceeds 2000 pages")
-    pages = []
-    for index, page in enumerate(reader.pages, start=1):
-        pages.append(f"<!-- page:{index} -->\n\n{page.extract_text() or ''}")
-    return "\n\n".join(pages)
+    """Markdown from the one PDF reader in ``documents.extract``."""
+    from ar_domain.documents.extract import ExtractError, pdf_markdown  # noqa: PLC0415
 
-
-def _pdf_text(data: bytes) -> str:
-    """Read literal strings from a simple PDF when pypdf is not installed."""
-    raw = data.decode("latin-1", errors="ignore")
-    found = re.findall(r"\((?:\\\)|[^)]){1,400}\)\s*Tj", raw)
-    if not found:
-        raise ParseError("unsupported_format", "pdf has no extractable text")
-    lines = [item[1:-3].replace(r"\(", "(").replace(r"\)", ")") for item in found]
-    return "<!-- page:1 -->\n\n" + "\n\n".join(lines)
+    try:
+        return pdf_markdown(data)
+    except ExtractError as exc:
+        code = "too_large" if exc.code == "too_many_pages" else "unsupported_format"
+        raise ParseError(code, exc.message) from exc
 
 
 def _docling(data: bytes, name: str) -> str | None:

@@ -1,8 +1,10 @@
 """Readiness checks for the API process.
 
 ``/healthz`` stays a liveness probe and does not connect. ``/readyz`` checks
-Postgres, Valkey when sessions and the limiter are shared, and Temporal when
-``AR_TEMPORAL_REQUIRED`` is set. A check is cached for ten seconds.
+Postgres (including that ``alembic_version`` is the head revision), Valkey when
+sessions and the limiter are shared, and Temporal. A turn is not run in this
+process. A platform-database deny name that has never resolved is a ``degraded``
+detail, not a failure. A check is cached for ten seconds.
 """
 
 from __future__ import annotations
@@ -22,13 +24,11 @@ _TTL_S = 10.0
 Ping = Callable[[], Awaitable[None]]
 
 
-def readiness_names(*, shared: bool, temporal_required: bool) -> list[str]:
+def readiness_names(*, shared: bool) -> list[str]:
     """Check names ``/readyz`` reports, in a stable order."""
-    names = ["postgres"]
+    names = ["postgres", "temporal"]
     if shared:
-        names.append("valkey")
-    if temporal_required:
-        names.append("temporal")
+        names.insert(1, "valkey")
     return names
 
 
@@ -40,11 +40,31 @@ def api_readiness(settings: BaseServiceSettings) -> dict[str, ReadinessCheck]:
     }
     if shared:
         checks["valkey"] = _cached(lambda: ping_valkey(settings.valkey_url))
-    if settings.temporal_required:
-        checks["temporal"] = _cached(
-            lambda: ping_temporal(settings.temporal_address, settings.temporal_namespace)
-        )
+    checks["temporal"] = _cached(
+        lambda: ping_temporal(settings.temporal_address, settings.temporal_namespace)
+    )
     return checks
+
+
+def api_readiness_notes(settings: BaseServiceSettings) -> dict[str, Callable[[], Awaitable[str]]]:
+    """Details that must not take the process out of service."""
+    if not settings.platform_db_deny_hosts.strip():
+        return {}
+    return {"platform_db": platform_db_deny_note}
+
+
+async def platform_db_deny_note() -> str:
+    """Resolve deny names off the event loop. A miss is logged and returned."""
+    from ar_common.logging import get_logger  # noqa: PLC0415
+    from ar_domain.tools.database import platform_db_deny_problem  # noqa: PLC0415
+
+    try:
+        problem = await asyncio.wait_for(asyncio.to_thread(platform_db_deny_problem), timeout=2)
+    except TimeoutError:
+        problem = "platform database deny list lookup timed out"
+    if problem:
+        get_logger("ar_api.readiness").error("platform_db_deny_unresolved", detail=problem)
+    return problem
 
 
 def _cached(ping: Ping) -> ReadinessCheck:
@@ -74,10 +94,12 @@ def _cached(ping: Ping) -> ReadinessCheck:
 
 
 async def ping_postgres(url: str) -> None:
-    """``SELECT 1`` on the application database."""
+    """``SELECT 1`` and the Alembic head on the application database."""
     from ar_domain.db.engine import ping_database  # noqa: PLC0415
+    from ar_domain.db.schema_gate import assert_schema_current  # noqa: PLC0415
 
     await ping_database(url)
+    await assert_schema_current(url)
 
 
 async def ping_valkey(url: str) -> None:

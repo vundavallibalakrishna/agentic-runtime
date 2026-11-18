@@ -172,6 +172,18 @@ def test_semantic_recall_finds_a_passage_with_no_shared_words(monkeypatch) -> No
 
     store = demo_store()
     tenant = demo_id("tenant")
+
+    def fake_embed(_target, texts, **_kwargs):
+        # Vectors are stored at ingest. The query is embedded on its own later.
+        return [
+            [1.0, 0.0]
+            if any(word in text.lower() for word in ("octopus", "cephalopod", "circulation"))
+            else [0.0, 1.0]
+            for text in texts
+        ]
+
+    monkeypatch.setattr("ar_domain.models.embedding.embedding_model", lambda *a, **k: object())
+    monkeypatch.setattr("ar_domain.models.embedding.embed", fake_embed)
     _ingest_note(
         store,
         tenant,
@@ -187,16 +199,8 @@ def test_semantic_recall_finds_a_passage_with_no_shared_words(monkeypatch) -> No
     query = "What is unusual about cephalopod circulation?"
     # The target passage shares no distinctive words with the question: words alone miss it.
     assert providers._lexical_hits(store, tenant, query, limit=4) == []
-
-    def fake_embed(_target, texts, **_kwargs):
-        # texts[0] is the query; give it and any octopus passage the same direction.
-        return [
-            [1.0, 0.0] if index == 0 or "octopus" in text.lower() else [0.0, 1.0]
-            for index, text in enumerate(texts)
-        ]
-
-    monkeypatch.setattr("ar_domain.models.embedding.embedding_model", lambda *a, **k: object())
-    monkeypatch.setattr("ar_domain.models.embedding.embed", fake_embed)
+    stored = providers._library_passages(store, tenant)
+    assert stored and all(row["embedding"] for row in stored)
     hits = providers.library_hits(store, tenant, query, limit=4)
     assert hits, "meaning should find the octopus passage even with no shared words"
     assert any("octopus" in row["snippet"].lower() for row in hits)
@@ -206,10 +210,16 @@ def test_semantic_recall_finds_a_passage_with_no_shared_words(monkeypatch) -> No
 
 
 def test_embedding_failure_falls_back_to_word_match(monkeypatch) -> None:
+    from ar_domain.models.embedding import EmbeddingFailedError
     from ar_domain.research import providers
 
     store = demo_store()
     tenant = demo_id("tenant")
+    monkeypatch.setattr("ar_domain.models.embedding.embedding_model", lambda *a, **k: object())
+    monkeypatch.setattr(
+        "ar_domain.models.embedding.embed",
+        lambda _target, texts, **_kwargs: [[1.0, 0.0] for _text in texts],
+    )
     _ingest_note(
         store,
         tenant,
@@ -218,12 +228,37 @@ def test_embedding_failure_falls_back_to_word_match(monkeypatch) -> None:
     )
 
     def boom(_target, _texts, **_kwargs):
-        from ar_domain.models.embedding import EmbeddingFailedError
-
         raise EmbeddingFailedError("the embedding model did not answer")
 
-    monkeypatch.setattr("ar_domain.models.embedding.embedding_model", lambda *a, **k: object())
     monkeypatch.setattr("ar_domain.models.embedding.embed", boom)
     # A failed embedding call does not break research: the word signal still finds the passage.
     hits = providers.library_hits(store, tenant, "What do octopuses have?", limit=4)
     assert hits and all(row["url"].startswith("library://") for row in hits)
+
+
+def test_stored_embeddings_are_ranked_past_the_old_cap(monkeypatch) -> None:
+    from ar_domain.research import providers
+
+    store = demo_store()
+    tenant = demo_id("tenant")
+    passages = [
+        {"anchor": f"p{index}", "text": f"filler {index}", "embedding": [0.0, 1.0]}
+        for index in range(401)
+    ]
+    passages[-1] = {
+        "anchor": "last",
+        "text": "Cephalopod circulation uses three hearts.",
+        "embedding": [1.0, 0.0],
+    }
+    store.library_documents[uuid.uuid4()] = {
+        "tenant_id": tenant,
+        "title": "Pile",
+        "passages": passages,
+    }
+    monkeypatch.setattr("ar_domain.models.embedding.embedding_model", lambda *a, **k: object())
+    monkeypatch.setattr(
+        "ar_domain.models.embedding.embed",
+        lambda _target, texts, **_kwargs: [[1.0, 0.0] for _text in texts],
+    )
+    hits = providers.library_hits(store, tenant, "cephalopod circulation", limit=1)
+    assert hits and "three hearts" in hits[0]["snippet"].lower()

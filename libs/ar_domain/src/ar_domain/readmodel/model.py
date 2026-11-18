@@ -24,7 +24,6 @@ _CONFIG = (
     "fake_models_allowed",
     "event_bus",
     "shared_idempotency",
-    "temporal_required",
     "temporal_client",
     "temporal_up",
     "model_gateway_url",
@@ -69,7 +68,6 @@ class RepositoryReadModel:
         self.fake_models_allowed = bool(options.get("fake_models_allowed", False))
         self.event_bus: object | None = None
         self.shared_idempotency: object | None = None
-        self.temporal_required = False
         self.temporal_client: object | None = None
         self.temporal_up = False
         self.model_gateway_url = ""
@@ -89,7 +87,6 @@ class RepositoryReadModel:
         url = str(getattr(settings, "database_url", "") or "")
         model = cls(database_url=url, **options)
         model.model_gateway_url = str(getattr(settings, "model_gateway_url", "") or "")
-        model.temporal_required = bool(getattr(settings, "temporal_required", False))
         return model
 
     def holds_tenant_state(self) -> bool:

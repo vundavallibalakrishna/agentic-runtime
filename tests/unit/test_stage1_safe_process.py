@@ -135,8 +135,8 @@ def test_shared_process_state_is_outside_dev_and_ci() -> None:
     assert not uses_shared_process_state(EnvName.DEV)
     assert not uses_shared_process_state(EnvName.CI)
     assert uses_shared_process_state(EnvName.PROD)
-    assert readiness_names(shared=False, temporal_required=False) == ["postgres"]
-    assert readiness_names(shared=True, temporal_required=True) == [
+    assert readiness_names(shared=False) == ["postgres", "temporal"]
+    assert readiness_names(shared=True) == [
         "postgres",
         "valkey",
         "temporal",
@@ -146,13 +146,12 @@ def test_shared_process_state_is_outside_dev_and_ci() -> None:
 @pytest.mark.unit
 def test_production_wiring_uses_shared_stores() -> None:
     app = SimpleNamespace(state=SimpleNamespace(chat=SimpleNamespace()))
-    install_process_state(app, _prod_settings(temporal_required=True), b"k" * 32)  # type: ignore[arg-type]
+    install_process_state(app, _prod_settings(), b"k" * 32)  # type: ignore[arg-type]
     assert isinstance(app.state.sessions, ValkeySessionStore)
     assert isinstance(app.state.widget_sessions, ValkeySessionStore)
     assert isinstance(app.state.idempotency, PostgresIdempotencyStore)
     assert isinstance(app.state.chat.event_bus, ValkeyRunBus)
-    assert app.state.chat.temporal_required is True
-    dev = SimpleNamespace(state=SimpleNamespace(chat=SimpleNamespace(temporal_required=False)))
+    dev = SimpleNamespace(state=SimpleNamespace(chat=SimpleNamespace()))
     install_process_state(
         dev,  # type: ignore[arg-type]
         BaseServiceSettings(_env_file=None, env=EnvName.DEV),
@@ -316,7 +315,7 @@ def _queued(service: ChatService) -> uuid.UUID:
 @pytest.mark.unit
 async def test_required_temporal_does_not_generate_in_process() -> None:
     service = ChatService(fake_models_allowed=False)
-    service.temporal_required = True
+    service.temporal_client = None
     run_id = _queued(service)
     await service._start_turn(run_id, "hello", [])
     error = service.runs[run_id]["error"]
@@ -553,6 +552,11 @@ async def test_readiness_checks_and_cache(monkeypatch: pytest.MonkeyPatch) -> No
             self.closed = True
 
     live = _Valkey(True)
+
+    async def schema_current(_url: str) -> None:
+        return None
+
+    monkeypatch.setattr("ar_domain.db.schema_gate.assert_schema_current", schema_current)
     monkeypatch.setattr("ar_domain.db.engine.ping_database", ping_database)
     monkeypatch.setattr("ar_common.valkey.valkey_client", lambda *_a, **_k: live)
     await ping_postgres("postgresql+asyncpg://unused")
@@ -580,7 +584,7 @@ async def test_readiness_checks_and_cache(monkeypatch: pytest.MonkeyPatch) -> No
     with pytest.raises(RuntimeError):
         await ping_temporal("temporal:7233", "")
 
-    settings = _prod_settings(temporal_required=True)
+    settings = _prod_settings()
     checks = api_readiness(settings)
     await checks["postgres"]()
     await checks["postgres"]()
@@ -646,7 +650,6 @@ class _Workflow:
 async def test_temporal_start_paths_do_not_run_in_process() -> None:
     service = ChatService(fake_models_allowed=False)
     service.watch_polls = 0
-    service.temporal_required = True
     started = _Workflow()
     service.temporal_client = started
     run_id = _queued(service)
@@ -671,21 +674,16 @@ async def test_temporal_start_paths_do_not_run_in_process() -> None:
     await service._start_turn(missing, "hello", [])
     assert service.runs[missing]["error"]["reason"] == "not_resumed"  # type: ignore[index]
 
-    service.temporal_required = False
-
-    async def generated(run: uuid.UUID, _text: str, _names: list[str]) -> None:
-        service.runs[run]["status"] = "generated"
-
-    service.generate = generated  # type: ignore[method-assign]
     service.temporal_client = None
     local = _queued(service)
     await service._start_turn(local, "hello", [])
-    assert service.runs[local]["status"] == "generated"
+    assert service.runs[local]["error"]["reason"] == "not_resumed"  # type: ignore[index]
 
 
 @pytest.mark.unit
 async def test_a_finished_workflow_and_the_event_bus() -> None:
     service = ChatService(fake_models_allowed=False)
+    service.temporal_client = None
     run_id = _queued(service)
     assert await service._workflow_gone(run_id) is False
     service.runs[run_id]["status"] = "completed"

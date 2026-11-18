@@ -242,6 +242,37 @@ def _pdf(  # noqa: PLR0912
     )
 
 
+def pdf_markdown(data: bytes) -> str:
+    """The one PDF reader. Ingest and the library both call this.
+
+    A file pypdf cannot open falls back to the literal strings in the content
+    stream, which is how the simple fixtures are read.
+    """
+    try:
+        extracted = _pdf(data, _tesseract, None)
+    except ExtractError as exc:
+        if exc.code not in {"corrupt", "no_text", "text_not_extracted"}:
+            raise
+        return _literal_pdf(data)
+    pages = [
+        f"<!-- page:{passage.page} -->\n\n{passage.text}"
+        for passage in extracted.passages
+        if passage.text.strip()
+    ]
+    if not pages:
+        return _literal_pdf(data)
+    return "\n\n".join(pages)
+
+
+def _literal_pdf(data: bytes) -> str:
+    raw = data.decode("latin-1", errors="ignore")
+    found = re.findall(r"\((?:\\\)|[^)]){1,400}\)\s*Tj", raw)
+    if not found:
+        raise ExtractError("unsupported_format", "pdf has no extractable text")
+    lines = [item[1:-3].replace(r"\(", "(").replace(r"\)", ")") for item in found]
+    return "<!-- page:1 -->\n\n" + "\n\n".join(lines)
+
+
 def _ocr_page(page: object, text: str, ocr: Ocr) -> str:
     parts = [text.strip()]
     failed: ExtractError | None = None

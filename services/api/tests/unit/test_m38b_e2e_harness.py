@@ -28,6 +28,37 @@ def harness(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return module
 
 
+def test_the_harness_keeps_the_product_rate_limit(harness: ModuleType) -> None:
+    built = harness.build()
+    assert built.product.state.rate_limit == 600
+
+
+def test_walk_traffic_is_a_sliding_minute(harness: ModuleType) -> None:
+    assert harness.peak_per_minute([]) == 0
+    assert harness.peak_per_minute([0, 10, 59]) == 3
+    assert harness.peak_per_minute([0, 10, 59, 60.1]) == 3
+
+
+async def test_the_harness_counts_product_requests_and_not_its_own_doors(
+    harness: ModuleType,
+) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=harness.build()), base_url="http://localhost"
+    ) as browser:
+        reset = await browser.post(harness.TRAFFIC_PATH)
+        assert reset.status_code == 200
+        assert reset.json() == {"reset": True}
+        await browser.get("/healthz")
+        await browser.get(harness.SIGN_IN_PATH, params={"email": "admin@dev.local"})
+        session = await browser.get("/api/v1/auth/session")
+        assert session.status_code == 200
+        body = (await browser.get(harness.TRAFFIC_PATH)).json()
+    assert body["total"] == 1
+    assert body["peakPerMinute"] == 1
+    assert body["sessionChecks"] == 1
+    assert body["windowSeconds"] == 60
+
+
 def test_the_harness_serves_the_product_app_over_the_demo_tenant(
     harness: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:

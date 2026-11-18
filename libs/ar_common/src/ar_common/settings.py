@@ -1,5 +1,6 @@
 """Process settings. Spec: docs/07-ops/environments.md sections 2-3."""
 
+import ipaddress
 import os
 from enum import StrEnum
 from pathlib import Path
@@ -13,6 +14,7 @@ from ar_common.host_ports import apply_host_ports
 CATALOGUE_ENV: frozenset[str] = frozenset(
     {
         "AR_API_INTERNAL_URL",
+        "AR_APPROVAL_WAIT_S",
         "AR_ASGI_SERVER",
         "AR_AUTH_MODE",
         "AR_AUDIT_ARCHIVE_BUCKET",
@@ -33,7 +35,18 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CURSOR_SECRET",
         "AR_DATA_RESIDENCY",
         "AR_DATABASE_URL",
+        "AR_DB_APP_PASSWORD",
+        "AR_DB_CERT_DIR",
+        "AR_DB_CONNECT_DEADLINE_S",
         "AR_DB_ENCRYPTION_ACTIVE_KEY",
+        "AR_DB_MAX_ADDRESSES",
+        "AR_DB_MIN_SSLMODE",
+        "AR_DB_OWNER_PASSWORD",
+        "AR_DB_PLATFORM_PASSWORD",
+        "AR_DB_READONLY_PASSWORD",
+        "AR_DB_TEMPORAL_PASSWORD",
+        "AR_DB_STRICT_TLS",
+        "AR_DB_STRICT_TLS_FLOOR",
         "AR_DB_ENCRYPTION_KEYS",
         "AR_DURABLE_STATE",
         "AR_DEV_MODEL_API_KEY",
@@ -89,6 +102,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_MG_CB_FAILURES",
         "AR_MG_CB_OPEN_S",
         "AR_MG_HEALTH_INTERVAL_S",
+        "AR_MG_FALLBACK_BACKOFF_S",
         "AR_MG_MAX_FALLBACKS",
         "AR_MG_PORT",
         "AR_MG_SEMAPHORE_WAIT_S",
@@ -107,6 +121,8 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_OPA_TIMEOUT_MS",
         "AR_OPA_URL",
         "AR_OTEL_EXPORTER_OTLP_ENDPOINT",
+        "AR_PLATFORM_DB_DENY_CIDRS",
+        "AR_PLATFORM_DB_DENY_HOSTS",
         "AR_OUTBOX_BATCH_SIZE",
         "AR_PASSWORD_LOGIN",
         "AR_PASSWORD_MFA",
@@ -122,6 +138,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES",
         "AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS",
         "AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS",
+        "AR_RUN_HISTORY_STEPS",
         "AR_RUN_RECORD_MAX_BLOB_BYTES",
         "AR_RUN_STREAM_TTL_S",
         "AR_S3_ACCESS_KEY_ID",
@@ -138,13 +155,13 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_SEARCH_PROVIDER",
         "AR_SANDBOX_ALLOW_UNISOLATED",
         "AR_SANDBOX_ALLOWED_REGISTRIES",
-        "AR_SANDBOX_DEFAULT_RUNTIME_CLASS",
+        "AR_SANDBOX_DOCKER_NETWORK",
         "AR_SANDBOX_DOCKER_RUNTIME",
         "AR_SANDBOX_DRIVER",
+        "AR_SANDBOX_EGRESS_PROXY",
         "AR_SANDBOX_ENSURE_TIMEOUT_S",
         "AR_SANDBOX_MANAGER_URL",
         "AR_SANDBOX_MAX_PER_TENANT",
-        "AR_SANDBOX_NAMESPACE",
         "AR_SANDBOX_PACKAGE_MIRRORS",
         "AR_SANDBOX_SNAPSHOT_INTERVAL_S",
         "AR_SANDBOX_WARM_POOL",
@@ -152,6 +169,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_SECRET_CACHE_TTL_S",
         "AR_SESSION_ENCRYPTION_KEY",
         "AR_SESSION_ENCRYPTION_KEY_PREVIOUS",
+        "AR_SESSION_GATE_TTL_S",
         "AR_SESSION_MAX_AGE_S",
         "AR_SESSION_TTL_S",
         "AR_SMTP_FROM",
@@ -164,7 +182,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_STEP_UP_TTL_S",
         "AR_TEMPORAL_ADDRESS",
         "AR_TEMPORAL_NAMESPACE",
-        "AR_TEMPORAL_REQUIRED",
+        "AR_TEMPORAL_NUM_HISTORY_SHARDS",
         "AR_TENANT_DB_ROUTES",
         "AR_TENANT_DELETE_GRACE_DAYS",
         "AR_TENANT_TEMPORAL_NAMESPACES",
@@ -275,6 +293,28 @@ class BaseServiceSettings(BaseSettings):
     egress_allow_named_private: bool = False
     # Extra trust anchor for outbound TLS. ``SSL_CERT_FILE`` wins when this is empty.
     ca_bundle: str = ""
+    # Directory customer-database TLS files must live under. Client certificates
+    # and keys are read only from ``<dir>/<tenant id>/``. Empty refuses client
+    # certificates. ``sslrootcert=system`` and the ``AR_CA_BUNDLE`` file stay allowed.
+    db_cert_dir: str = ""
+    # How many resolved addresses a customer database dial will try.
+    db_max_addresses: int = 4
+    # Overall budget, in seconds, for those attempts.
+    db_connect_deadline_s: float = 15
+    # Lowest libpq sslmode a customer database may use. Empty means no floor,
+    # except closed egress. With ``db_strict_tls``, closed egress requires
+    # ``verify-full``. With it off, closed egress requires ``require``.
+    db_min_sslmode: str = ""
+    # When true, closed egress rejects ``require`` and demands certificate verification.
+    db_strict_tls: bool = True
+    # ``verify-full`` checks the server name. Set ``verify-ca`` for a database
+    # addressed by IP, or whose certificate has no matching name.
+    db_strict_tls_floor: str = "verify-full"
+    # Comma-separated names of the platform database services. A customer DSN that
+    # resolves to one of them is refused on any port.
+    platform_db_deny_hosts: str = ""
+    # Comma-separated CIDRs of the platform database pods.
+    platform_db_deny_cidrs: str = ""
     # Empty leaves each tenant's data_residency column in charge. ``cluster`` forces
     # model and embedding URLs onto a private or loopback address for the whole install.
     data_residency: str = ""
@@ -289,14 +329,19 @@ class BaseServiceSettings(BaseSettings):
     # Empty means the only tenant in the database (a single-tenant install has one).
     bootstrap_tenant_slug: str = ""
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
+    # Shared HMAC secret for sandbox-manager, mcp-gateway, and /metrics.
+    # Empty fails closed: those routes reject every call.
+    internal_auth_secret: SecretStr = SecretStr("")
+    # Chat retrieval drops chunks below this score (rerank or dense similarity).
+    # Unset: the rerank model's own floor when a reranker is configured, and no
+    # numeric bar when it is not.
+    knowledge_min_score: float | None = Field(default=None, ge=0.0, le=1.0)
     log_hash_user_ids: bool = False
     cursor_secret: SecretStr = SecretStr("dev-cursor-secret")
-    # When set, a turn is not run in this process if Temporal is down.
-    temporal_required: bool = False
     max_json_body_bytes: int = 1_048_576
     trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     valkey_url: str = "redis://localhost:6379/0"
-    database_url: str = "postgresql+asyncpg://ar_app:ar_app@localhost:5432/agentic_runtime"
+    database_url: str = "postgresql+asyncpg://ar_app@localhost:5432/agentic_runtime"
     model_gateway_url: str = ""
     temporal_address: str = ""
     temporal_namespace: str = ""
@@ -332,6 +377,12 @@ class BaseServiceSettings(BaseSettings):
     pack_trusted_keys: SecretStr = SecretStr("")
     packs_dir: str = "packs"
     run_record_max_blob_bytes: int = 52_428_800
+    # Activities one workflow execution records before continue-as-new. The run's
+    # own budget (``max_steps``) is still the cap on work.
+    run_history_steps: int = Field(default=24, ge=1)
+    # How long a run waits for an approval or a person's answer. A tenant can
+    # pass a shorter ``wait_s`` on the workflow payload; this is the install default.
+    approval_wait_s: int = Field(default=86400, ge=1)
     tsa_timeout_ms: int = 2000
     tsa_url: str = ""
     guardrail_input_alias: str = "fast"
@@ -354,7 +405,23 @@ class BaseServiceSettings(BaseSettings):
             self.log_hash_user_ids = True
         apply_host_ports(self)
         self._refuse_default_cursor_secret()
+        self._refuse_bad_platform_cidrs()
         return self
+
+    def _refuse_bad_platform_cidrs(self) -> None:
+        """A malformed deny CIDR stops the process instead of being skipped."""
+        floor = self.db_strict_tls_floor.strip().lower()
+        if floor not in {"verify-ca", "verify-full"}:
+            raise ValueError("AR_DB_STRICT_TLS_FLOOR must be verify-ca or verify-full")
+        self.db_strict_tls_floor = floor
+        for raw in self.platform_db_deny_cidrs.split(","):
+            text = raw.strip()
+            if not text:
+                continue
+            try:
+                ipaddress.ip_network(text, strict=False)
+            except ValueError as exc:
+                raise ValueError(f"AR_PLATFORM_DB_DENY_CIDRS has an invalid CIDR: {text}") from exc
 
     def _refuse_default_cursor_secret(self) -> None:
         """Staging and production do not boot with a missing or well-known cursor secret."""
