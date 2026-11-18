@@ -149,11 +149,9 @@ def test_policy_lifecycle_simulation_and_bundle() -> None:
     assert deleted.status_code == 200
     from pydantic import SecretStr
 
-    from ar_common.internal_auth import sign_request
-
     path = "/internal/v1/opa/bundles/ar.tar.gz"
-    client.app.state.settings.internal_auth_secret = SecretStr("bundle-secret")
-    signed = {"X-AR-Internal": sign_request("bundle-secret", "GET", path)}
+    client.app.state.settings.opa_bundle_token = SecretStr("bundle-secret")
+    signed = {"authorization": "Bearer bundle-secret"}
     bundle = client.get(path, headers=signed)
     assert bundle.status_code == 200
     etag = bundle.headers["etag"]

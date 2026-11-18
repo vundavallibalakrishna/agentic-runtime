@@ -32,7 +32,7 @@ docker compose --profile production up -d --build
 
 `AR_ENV=staging` is the certification environment. Containers take `AR_S3_ENDPOINT=http://seaweedfs:8333` from `compose.yaml`, so a laptop `.env` that still says localhost does not apply inside a container. Telemetry export is off until `AR_OTEL_EXPORTER_OTLP_ENDPOINT` is set (`http://otel:4317` when the `obs` profile is up).
 
-If port 8000 is already taken, set `AR_PORT` before Compose starts and point the clients at it. The API container publishes that port, OPA's forwarder uses it, and the web proxy follows it:
+If port 8000 is already taken, set `AR_PORT` before Compose starts and point the clients at it. The API container listens on that port, OPA polls `http://api:$AR_PORT`, and the web proxy follows it:
 
 ```bash
 export AR_PORT=28000

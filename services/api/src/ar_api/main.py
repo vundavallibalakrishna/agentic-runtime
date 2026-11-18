@@ -130,6 +130,7 @@ class Settings(BaseServiceSettings):
     step_up_ttl_s: int = 600
     opa_url: str = ""
     opa_timeout_ms: int = 200
+    opa_bundle_token: SecretStr = SecretStr("")
     secrets_backend: str = "db_encrypted"
     db_encryption_keys: SecretStr = SecretStr("")
     db_encryption_active_key: str = "k1"
@@ -281,7 +282,10 @@ def create_application() -> FastAPI:
     assert_auth_mode(settings)
     docs = None if settings.env is EnvName.PROD else "/api/docs"
     inner: list[tuple[type, dict[str, object]]] = [
-        (InternalAuthMiddleware, {}),
+        (
+            InternalAuthMiddleware,
+            {"bearer_paths": ("/internal/v1/opa/bundles/ar.tar.gz",)},
+        ),
         (DurableMiddleware, {}),
         (AuthenticateMiddleware, {}),
         (ReadModelMiddleware, {}),

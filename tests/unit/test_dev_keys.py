@@ -33,6 +33,7 @@ def test_bootstrap_repairs_legacy_jwks_and_preserves_private_key(tmp_path: Path)
         .decode()
     )
     assert orjson.loads(values["AR_INTERNAL_JWT_JWKS"]) == {"keys": [public_jwk(public, "dev")]}
+    assert values["AR_OPA_BUNDLE_TOKEN"] not in {"", "change-me", "generate"}
     module.main()
     assert module.ENV.read_text() == first
     module.ENV.write_text(

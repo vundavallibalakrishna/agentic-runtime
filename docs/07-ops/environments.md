@@ -110,7 +110,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_MG_SEMAPHORE_WAIT_S` | `10` | Max wait for a concurrency slot before 429 | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MODEL_GATEWAY_URL` | `http://localhost:8001` | Internal URL of `model-gateway` | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_MODEL_PROVIDER_DENY_CIDRS` | RFC1918 + link-local + cluster CIDRs (SaaS) | SSRF guard for tenant providers | [spec 04](../03-specs/04-model-gateway.md) |
-| `AR_INTERNAL_AUTH_SECRET` | (unset) | Shared HMAC for internal routes, including the OPA bundle, `sandbox-manager`, `mcp-gateway`, and `/metrics`. Empty fails closed | [internal-apis](../05-contracts/internal-apis.md) |
+| `AR_INTERNAL_AUTH_SECRET` | (unset) | Shared HMAC for `sandbox-manager`, `mcp-gateway`, and `/metrics`. Empty fails closed | [internal-apis](../05-contracts/internal-apis.md) |
+| `AR_OPA_BUNDLE_TOKEN` | secret | Bearer token OPA uses to fetch the policy bundle from `api`. Empty is refused outside dev and ci. `scripts/dev_keys.py` generates it | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_KNOWLEDGE_MIN_SCORE` | (unset) | Install default for chat retrieval. A chunk must clear this rerank or similarity score. The agent and the tenant can override it | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_OPA_TIMEOUT_MS` | `200` | Policy decision timeout (fail closed) | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_OPA_URL` | `http://opa:8181` | OPA decision API URL | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 09](../03-specs/09-policy-approvals.md) |
