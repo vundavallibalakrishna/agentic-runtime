@@ -173,7 +173,7 @@ def test_a_decision_continues_or_stops_and_cancel_is_once(
     assert run["status"] == "cancelled"
     mark_cancelled(store, run)
     assert run["status"] == "cancelled"
-    store.temporal_required = True
+    store.temporal_client = None
     other = store.post_message(
         tenant, user, uuid.UUID(str(conversation["id"])), "again", schedule=False
     )
@@ -184,7 +184,10 @@ def test_a_decision_continues_or_stops_and_cancel_is_once(
     from ar_domain.tools.resume import settle_approval
 
     settle_approval(store, {"id": held_id, "run_id": waiting["id"], "status": "approved"})
-    assert waiting["status"] == "waiting_approval"
+    assert waiting["status"] == "failed"
+    error = waiting.get("error")
+    assert isinstance(error, dict)
+    assert error["reason"] == "not_resumed"
 
 
 @pytest.mark.asyncio
@@ -237,7 +240,7 @@ async def test_a_worker_step_cancels_applies_and_fans_out(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
-async def test_eval_schedule_falls_back_when_temporal_refuses() -> None:
+async def test_eval_schedule_stays_queued_when_temporal_refuses() -> None:
     store = demo_store()
     connect_chat(store, demo_id("tenant"))
 
@@ -264,7 +267,7 @@ async def test_eval_schedule_falls_back_when_temporal_refuses() -> None:
     )
     queued = book.start_run(actor, suite["id"], {"agent_version_ref": "published"})  # type: ignore[arg-type]
     await _wait(store)
-    assert store.eval_runs[uuid.UUID(str(queued["id"]))]["status"] == "completed"
+    assert store.eval_runs[uuid.UUID(str(queued["id"]))]["status"] == "queued"
 
 
 async def test_an_ingestion_job_is_written() -> None:
@@ -473,7 +476,7 @@ async def test_a_queued_step_stops_on_quota_and_reports_shape() -> None:
 
 def test_resume_without_a_worker_is_not_run_here() -> None:
     store = demo_store()
-    store.temporal_required = True
+    store.temporal_client = None
     tenant, user = demo_id("tenant"), demo_id("admin")
     run_id = uuid.uuid4()
     store.runs[run_id] = {
@@ -500,7 +503,6 @@ def test_a_sync_eval_start_survives_a_duplicate_workflow() -> None:
             raise type("WorkflowAlreadyStartedError", (Exception,), {})("dup")
 
     store.temporal_client = _Duplicate()
-    store.temporal_required = True
     actor = Actor(
         tenant_id=demo_id("tenant"),
         user_id=demo_id("admin"),

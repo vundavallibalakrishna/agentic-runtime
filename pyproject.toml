@@ -153,6 +153,8 @@ testpaths = [
 
 [tool.coverage.run]
 branch = true
+# The test worker runs activities on its own thread. Count that execution.
+concurrency = ["thread"]
 source = [
     "ar_common",
     "ar_contracts",

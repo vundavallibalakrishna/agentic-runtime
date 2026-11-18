@@ -319,7 +319,11 @@ def test_a_failed_run_with_a_checkpoint_can_resume() -> None:
         "checkpoint": {"worker_loop": {"step": 1}},
     }
     resumed = store.resume_run(tenant, user, run_id)
-    assert resumed["status"] == "running"
+    assert resumed["temporal_workflow_id"] == f"run-{run_id}"
+    assert any(
+        isinstance(event, dict) and event.get("type") == "run.resumed"
+        for event in store.events.get(run_id, [])
+    )
 
 
 def test_reset_rejects_unknown_short_expired_and_spent_tokens() -> None:

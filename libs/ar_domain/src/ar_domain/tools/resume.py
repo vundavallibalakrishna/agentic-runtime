@@ -17,8 +17,7 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
     """Record that a decision is ready and wake the run's workflow.
 
     The API does not call the tool. The next ``advance_chat_step`` does, through the
-    gateway. With no Temporal client (unit tests and a worker that is not required),
-    the same function the activity calls runs here so the run still finishes.
+    gateway. A missing workflow is started so that activity can apply the decision.
     """
     run_id = approval.get("run_id")
     if not isinstance(run_id, uuid.UUID):
@@ -32,23 +31,22 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
     status = str(approval.get("status"))
 
     def _wake() -> None:
-        from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+        from ar_domain.runs.dispatch import continue_on_worker, request_signal  # noqa: PLC0415
 
-        # The worker reads the committed row. Signal only after this unit commits.
-        if request_signal(
+        # The row is already decided. Signal a waiting workflow, and start one
+        # when nothing is waiting, so the worker applies the decision.
+        request_signal(
             store,
             run_id,
             "approval_decided",
             {"status": status, "approval_id": str(approval.get("id") or "")},
-        ):
-            return
-        if getattr(store, "temporal_required", False):
-            return
-        if status == "approved":
-            _resume(store, run, approval)
-            return
-        if status in {"rejected", "expired", "cancelled"}:
-            _stop(store, run, approval, status)
+        )
+        continue_on_worker(
+            store,
+            run_id,
+            "",
+            {"status": status, "approval_id": str(approval.get("id") or "")},
+        )
 
     after_commit(store, _wake)
 
@@ -130,6 +128,11 @@ def _approval_row(store: Any, run: dict[str, object]) -> dict[str, object] | Non
     return row if isinstance(row, dict) else None
 
 
+def stored_approval_choice(store: Any, run: dict[str, object]) -> str:
+    """The status recorded on the run's approval row, or empty when there is none."""
+    return _approval_status(store, run)
+
+
 def _approval_status(store: Any, run: dict[str, object]) -> str:
     row = _approval_row(store, run)
     return str(row.get("status") or "") if isinstance(row, dict) else ""
@@ -201,15 +204,21 @@ def _continue_loop(run: dict[str, object], text: str) -> bool:
         messages = []
         state["messages"] = messages
     pending = held(run) or {}
+    calls = state.get("pending_calls")
+    index = state.get("pending_index")
+    current = index if isinstance(index, int) and not isinstance(index, bool) else 0
+    call = calls[current] if isinstance(calls, list) and 0 <= current < len(calls) else None
+    call_name = str(call.get("name") or "") if isinstance(call, dict) else ""
+    call_id = str(call.get("id") or "") if isinstance(call, dict) else ""
     messages.append(
         {
             "role": "tool",
-            "tool_call_id": str(pending.get("model_call_id") or ""),
+            "name": call_name,
+            "tool_call_id": call_id or str(pending.get("model_call_id") or ""),
             "content": text,
         }
     )
-    index = state.get("pending_index")
-    nxt = index + 1 if isinstance(index, int) and not isinstance(index, bool) else 1
+    nxt = current + 1
     state["pending_index"] = nxt
     state["phase"] = "tools"
     write_worker_loop(run, state)

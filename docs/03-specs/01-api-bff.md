@@ -95,7 +95,7 @@ Permissions are computed by `identity.service.effective_permissions(principal)` 
 Liveness: 200 `{"status":"ok"}` if the process is up.
 
 #### GET /readyz
-Readiness, cached 10 s. Always checks Postgres (`SELECT 1`). Checks Valkey `PING` when sessions and the rate limiter are shared (not `dev` or `ci`). Checks Temporal health when `AR_TEMPORAL_REQUIRED` is set. 503 with the failing check names. `/healthz` does not connect.
+Readiness, cached 10 s. Always checks Postgres (`SELECT 1`) and Temporal health. Checks Valkey `PING` when sessions and the rate limiter are shared (not `dev` or `ci`). 503 with the failing check names. `/healthz` does not connect.
 
 #### GET /metrics
 Prometheus exposition (not routed by public ingress).
@@ -136,7 +136,7 @@ Auth: any. Returns the JSON Schema for a definition kind (`Agent`, `ToolServer`,
 |---|---|
 | Valkey down | Session auth fails → 503 `unavailable` (bearer/API-key requests still work for non-SSE endpoints). The shared rate limiter retries, then denies the request (`ar_ratelimit_unavailable_total`). It does not latch open. |
 | Postgres down | `/readyz` 503; requests 503. |
-| Temporal down | When `AR_TEMPORAL_REQUIRED` is unset, the API still runs the turn in process. When it is set, the turn is not run in process: it is marked failed with error `code` `interrupted` and `reason` `not_resumed`. `/readyz` is 503 while the check fails. |
+| Temporal down | The turn is not run in process: it is marked failed with error `code` `interrupted` and `reason` `not_resumed`. `/readyz` is 503 while the check fails. |
 | Database unreachable at sign-in | Login fails closed (`invalid_credentials`); existing sessions continue until their TTL. |
 
 Workflow start reliability: `conversations.service.post_message` inserts message + run (`queued`) + outbox `run.start_requested` in one transaction, then attempts `start_workflow` immediately (fast path). `OutboxRelayWorkflow` handles `run.start_requested` events whose run is still `queued` after 5 s by starting the workflow (idempotent: workflow id `run-{run_id}`, `WorkflowIDReusePolicy.REJECT_DUPLICATE`).

@@ -1,6 +1,13 @@
 """Poll ``ar-runtime`` for turns, delegation, approvals and tool calls."""
 
+from __future__ import annotations
+
 import asyncio
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
 
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -27,6 +34,35 @@ from ar_runtime.workflows.tool_turn import ToolTurnWorkflow
 from ar_runtime.workflows.turn import TurnWorkflow
 
 _log = get_logger(__name__)
+
+
+def runtime_workflows() -> list[type]:
+    """Workflows the runtime worker polls. Tests register this same list."""
+    return [
+        TurnWorkflow,
+        AgentRunWorkflow,
+        ChildRunWorkflow,
+        ToolTurnWorkflow,
+        ResearchWorkflow,
+        ResearchSubtaskWorkflow,
+    ]
+
+
+def runtime_activities() -> list[Callable[..., Any]]:
+    """Activities the runtime worker polls. Tests register this same list."""
+    return [
+        execute_chat_turn,
+        advance_chat_step,
+        finish_chat_turn,
+        research_step,
+        research_subtask,
+        research_cancel,
+        research_exhausted,
+        start_run,
+        create_child_run,
+        expire_approval,
+        cancel_approval,
+    ]
 
 
 def _address() -> str:
@@ -76,27 +112,8 @@ async def run_worker() -> None:
             worker = Worker(
                 client,
                 task_queue=TASK_QUEUE,
-                workflows=[
-                    TurnWorkflow,
-                    AgentRunWorkflow,
-                    ChildRunWorkflow,
-                    ToolTurnWorkflow,
-                    ResearchWorkflow,
-                    ResearchSubtaskWorkflow,
-                ],
-                activities=[
-                    execute_chat_turn,
-                    advance_chat_step,
-                    finish_chat_turn,
-                    research_step,
-                    research_subtask,
-                    research_cancel,
-                    research_exhausted,
-                    start_run,
-                    create_child_run,
-                    expire_approval,
-                    cancel_approval,
-                ],
+                workflows=runtime_workflows(),
+                activities=runtime_activities(),
                 **temporal_worker_kwargs(),
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)

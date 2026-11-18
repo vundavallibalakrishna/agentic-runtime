@@ -1,6 +1,13 @@
 """Poll ``ar-ingest`` for document, sync, reindex and audit workflows."""
 
+from __future__ import annotations
+
 import asyncio
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
 
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -29,6 +36,32 @@ from ar_ingest.workflows.retrieval_store_audit import RetrievalStoreAuditWorkflo
 from ar_ingest.workflows.source_sync import SourceSyncWorkflow
 
 _log = get_logger(__name__)
+
+
+def ingest_workflows() -> list[type]:
+    """Workflows the ingest worker polls. Tests register this same list."""
+    return [
+        IngestDocumentWorkflow,
+        DeleteDocumentWorkflow,
+        SourceSyncWorkflow,
+        AclSyncWorkflow,
+        ReindexCollectionWorkflow,
+        MigrateRetrievalStoreWorkflow,
+        RetrievalStoreAuditWorkflow,
+    ]
+
+
+def ingest_activities() -> list[Callable[..., Any]]:
+    """Activities the ingest worker polls. Tests register this same list."""
+    return [
+        ingest_document_activity,
+        sync_source_activity,
+        acl_sync_activity,
+        delete_document_activity,
+        reindex_activity,
+        migrate_activity,
+        audit_activity,
+    ]
 
 
 def _address() -> str:
@@ -71,24 +104,8 @@ async def run_worker() -> None:
             worker = Worker(
                 client,
                 task_queue=TASK_QUEUE,
-                workflows=[
-                    IngestDocumentWorkflow,
-                    DeleteDocumentWorkflow,
-                    SourceSyncWorkflow,
-                    AclSyncWorkflow,
-                    ReindexCollectionWorkflow,
-                    MigrateRetrievalStoreWorkflow,
-                    RetrievalStoreAuditWorkflow,
-                ],
-                activities=[
-                    ingest_document_activity,
-                    sync_source_activity,
-                    acl_sync_activity,
-                    delete_document_activity,
-                    reindex_activity,
-                    migrate_activity,
-                    audit_activity,
-                ],
+                workflows=ingest_workflows(),
+                activities=ingest_activities(),
                 **temporal_worker_kwargs(),
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)

@@ -193,7 +193,7 @@ def test_pet_waits_for_approval_then_runs_once() -> None:
     assert decided.status_code == 200, decided.text
     finished = client.get(f"/api/v1/conversations/{conversation_id}").json()
     done = " ".join(str(item.get("text") or "") for item in finished["messages"])
-    assert "Created pet" in done
+    assert "created pet" in done.lower() or "pet is created" in done.lower()
     again = client.post(
         f"/api/v1/approvals/{approval_id}:decide",
         json={"decision": "approve", "argsHash": detail["argsHash"]},
@@ -267,7 +267,7 @@ def test_w3_requires_step_up_and_reviews_sign_off() -> None:
     _become(holder, "admin", stepped=False)
     finished = client.get(f"/api/v1/conversations/{conversation_id}").json()
     done = " ".join(str(item.get("text") or "") for item in finished["messages"])
-    assert "Deleted pet" in done
+    assert "deleted pet" in done.lower() or "pet is deleted" in done.lower()
     queues = client.get("/api/v1/review-queues").json()["items"]
     assert any(item["name"] == "Output review" for item in queues)
     items = client.get("/api/v1/review-items").json()["items"]

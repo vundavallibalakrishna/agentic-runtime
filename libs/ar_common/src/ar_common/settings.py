@@ -181,7 +181,6 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_TEMPORAL_ADDRESS",
         "AR_TEMPORAL_NAMESPACE",
         "AR_TEMPORAL_NUM_HISTORY_SHARDS",
-        "AR_TEMPORAL_REQUIRED",
         "AR_TENANT_DB_ROUTES",
         "AR_TENANT_DELETE_GRACE_DAYS",
         "AR_TENANT_TEMPORAL_NAMESPACES",
@@ -330,8 +329,6 @@ class BaseServiceSettings(BaseSettings):
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     log_hash_user_ids: bool = False
     cursor_secret: SecretStr = SecretStr("dev-cursor-secret")
-    # When set, a turn is not run in this process if Temporal is down.
-    temporal_required: bool = False
     max_json_body_bytes: int = 1_048_576
     trace_sample_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
     valkey_url: str = "redis://localhost:6379/0"
