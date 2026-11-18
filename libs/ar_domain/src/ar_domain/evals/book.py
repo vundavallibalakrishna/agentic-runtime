@@ -267,7 +267,9 @@ class EvalBook:
         self.store.eval_runs[run_id] = row
         self._audit(actor, "eval_run.started", run_id, {"suite_id": str(suite_id)})
         RUNS.labels(status="queued", trigger=trigger).inc()
-        if _inline(self.store):
+        deferred = getattr(self.store, "defer_eval_runs", False)
+        required = getattr(self.store, "temporal_required", False)
+        if not deferred and not required and not _schedule_eval(self.store, run_id):
             _start(self.store, run_id)
         stored = self.store.eval_runs.get(run_id)
         return self._run_view(stored if isinstance(stored, dict) else row)
@@ -551,9 +553,37 @@ def _start(store: Any, run_id: uuid.UUID) -> None:
     store.tasks.append(loop.create_task(execute_eval_run(store, run_id)))
 
 
-def _inline(store: Any) -> bool:
-    """Score in this process unless a test is driving EvalRunWorkflow itself."""
-    return not getattr(store, "defer_eval_runs", False)
+def _schedule_eval(store: Any, run_id: uuid.UUID) -> bool:
+    """Start EvalRunWorkflow. False when this process has no Temporal client."""
+    client = getattr(store, "temporal_client", None)
+    start = getattr(client, "start_workflow", None)
+    if not callable(start):
+        return False
+
+    async def _go() -> None:
+        try:
+            await start(
+                "EvalRunWorkflow",
+                {"eval_run_id": str(run_id)},
+                id=f"eval-{run_id}",
+                task_queue="ar-eval",
+            )
+        except Exception as exc:  # noqa: BLE001 - a duplicate start is the same run
+            if type(exc).__name__ == "WorkflowAlreadyStartedError":
+                return
+            if not getattr(store, "temporal_required", False):
+                await execute_eval_run(store, run_id)
+
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(_go())
+        return True
+    task = loop.create_task(_go())
+    tasks = getattr(store, "tasks", None)
+    if isinstance(tasks, list):
+        tasks.append(task)
+    return True
 
 
 def _optional_uuid(value: object) -> uuid.UUID | None:

@@ -125,7 +125,9 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES` | `200` | Per worker process | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS` | `100` | Temporal worker workflow-task slots | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS` | `50` (plan `max_concurrent_runs` takes precedence when lower) | Per-tenant cap of concurrently executing runs (excess runs stay `queued`) | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |
+| `AR_RUN_HISTORY_STEPS` | `24` | Activities one `AgentRunWorkflow` execution records before continue-as-new. The run budget's `max_steps` is still the cap on work | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_RUN_STREAM_TTL_S` | `86400` | TTL of Valkey run event streams | [spec 07](../03-specs/07-agent-runtime.md) |
+| `AR_APPROVAL_WAIT_S` | `86400` | How long a run waits for an approval or a person's answer before the workflow expires the wait | [spec 07](../03-specs/07-agent-runtime.md), [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_S3_ACCESS_KEY_ID` | (empty → IRSA/instance role) | Object store credentials | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_S3_BUCKET` | `ar-files` | Bucket for files and artifacts | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_S3_ENDPOINT` | `http://localhost:8333` | Internal endpoint | [spec 13](../03-specs/13-files-artifacts.md) |

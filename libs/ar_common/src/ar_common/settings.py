@@ -14,6 +14,7 @@ from ar_common.host_ports import apply_host_ports
 CATALOGUE_ENV: frozenset[str] = frozenset(
     {
         "AR_API_INTERNAL_URL",
+        "AR_APPROVAL_WAIT_S",
         "AR_ASGI_SERVER",
         "AR_AUTH_MODE",
         "AR_AUDIT_ARCHIVE_BUCKET",
@@ -136,6 +137,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_RUNTIME_MAX_CONCURRENT_ACTIVITIES",
         "AR_RUNTIME_MAX_CONCURRENT_WORKFLOW_TASKS",
         "AR_RUNTIME_TENANT_MAX_ACTIVE_RUNS",
+        "AR_RUN_HISTORY_STEPS",
         "AR_RUN_RECORD_MAX_BLOB_BYTES",
         "AR_RUN_STREAM_TTL_S",
         "AR_S3_ACCESS_KEY_ID",
@@ -369,6 +371,12 @@ class BaseServiceSettings(BaseSettings):
     pack_trusted_keys: SecretStr = SecretStr("")
     packs_dir: str = "packs"
     run_record_max_blob_bytes: int = 52_428_800
+    # Activities one workflow execution records before continue-as-new. The run's
+    # own budget (``max_steps``) is still the cap on work.
+    run_history_steps: int = Field(default=24, ge=1)
+    # How long a run waits for an approval or a person's answer. A tenant can
+    # pass a shorter ``wait_s`` on the workflow payload; this is the install default.
+    approval_wait_s: int = Field(default=86400, ge=1)
     tsa_timeout_ms: int = 2000
     tsa_url: str = ""
     guardrail_input_alias: str = "fast"

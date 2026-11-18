@@ -14,7 +14,12 @@ if TYPE_CHECKING:
 
 
 def settle_approval(store: Any, approval: dict[str, object]) -> None:
-    """Continue, reject or cancel the run that is waiting on this approval."""
+    """Record that a decision is ready and wake the run's workflow.
+
+    The API does not call the tool. The next ``advance_chat_step`` does, through the
+    gateway. With no Temporal client (unit tests and a worker that is not required),
+    the same function the activity calls runs here so the run still finishes.
+    """
     run_id = approval.get("run_id")
     if not isinstance(run_id, uuid.UUID):
         return
@@ -25,13 +30,109 @@ def settle_approval(store: Any, approval: dict[str, object]) -> None:
     if pending is not None and str(pending.get("approval_id")) != str(approval.get("id")):
         return
     status = str(approval.get("status"))
-    if status == "approved":
-        # The approved call runs in the tool gateway, which reads the approval from the
-        # database. It must see the decision, so the call waits for this request's commit.
-        after_commit(store, lambda: _resume(store, run, approval))
+
+    def _wake() -> None:
+        from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+
+        # The worker reads the committed row. Signal only after this unit commits.
+        if request_signal(
+            store,
+            run_id,
+            "approval_decided",
+            {"status": status, "approval_id": str(approval.get("id") or "")},
+        ):
+            return
+        if getattr(store, "temporal_required", False):
+            return
+        if status == "approved":
+            _resume(store, run, approval)
+            return
+        if status in {"rejected", "expired", "cancelled"}:
+            _stop(store, run, approval, status)
+
+    after_commit(store, _wake)
+
+
+def apply_decision(store: Any, run: dict[str, object], decision: dict[str, object]) -> str:
+    """Apply a signal the workflow waited for. Return ``final``, ``continue`` or ``paused``."""
+    choice = str(decision.get("status") or "")
+    status = str(run.get("status") or "")
+    if choice == "input" or status == "waiting_input":
+        if status != "waiting_input":
+            return "continue"
+        text = str(decision.get("text") or "")
+        if run.get("pending_question_id"):
+            from ar_domain.orchestration.ask import accept_human_answer  # noqa: PLC0415
+
+            try:
+                accept_human_answer(
+                    store,
+                    run.get("tenant_id"),  # type: ignore[arg-type]
+                    run.get("user_id"),  # type: ignore[arg-type]
+                    run,
+                    text,
+                )
+            except Exception:  # noqa: BLE001 - the answer may already be stored
+                run["resume_answer"] = text
+                run["resume"] = True
+                run["status"] = "running"
+                run["pending_question_id"] = None
+        else:
+            run["resume_answer"] = text
+            run["resume"] = True
+            run["status"] = "running"
+        return "continue"
+    if status != "waiting_approval":
+        return "continue"
+    if choice in {"rejected", "expired", "cancelled"}:
+        approval = _approval_row(store, run) or {
+            "id": decision.get("approval_id"),
+            "status": choice,
+        }
+        _stop(store, run, approval, choice)
+        return "final"
+    if choice == "approved" or _approval_status(store, run) == "approved":
+        approval = _approval_row(store, run) or {
+            "id": decision.get("approval_id"),
+            "status": "approved",
+        }
+        _resume(store, run, approval)
+        return "continue" if str(run.get("status")) == "running" else "final"
+    return "paused"
+
+
+def mark_cancelled(store: Any, run: dict[str, object]) -> None:
+    """Stop a run whose cancel was requested. A second call leaves a terminal run alone."""
+    if not run_is_active(str(run.get("status"))):
         return
-    if status in {"rejected", "expired", "cancelled"}:
-        _stop(store, run, approval, status)
+    run["status"] = "cancelled"
+    run["ended_at"] = utcnow()
+    conversation = store.conversations.get(run.get("conversation_id"))
+    if isinstance(conversation, dict) and conversation.get("active_run_id") == run.get("id"):
+        conversation["active_run_id"] = None
+    assistant_id = run.get("assistant_message_id")
+    assistant = store.messages.get(assistant_id) if isinstance(assistant_id, uuid.UUID) else None
+    if isinstance(assistant, dict):
+        assistant["status"] = "cancelled"
+    if hasattr(store, "_emit"):
+        store._emit(run, "run.cancelled", {"by": "user"})
+
+
+def _approval_row(store: Any, run: dict[str, object]) -> dict[str, object] | None:
+    pending = held(run)
+    if pending is None:
+        return None
+    approval_id = pending.get("approval_id")
+    approvals = getattr(store, "approvals", None)
+    if not isinstance(approvals, dict):
+        return None
+    row = approvals.get(approval_id)
+    return row if isinstance(row, dict) else None
+
+
+def _approval_status(store: Any, run: dict[str, object]) -> str:
+    row = _approval_row(store, run)
+    return str(row.get("status") or "") if isinstance(row, dict) else ""
 
 
 def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> None:
@@ -74,7 +175,45 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
         error = result.get("error")
         detail = str(error.get("message") or "") if isinstance(error, dict) else ""
         text = f"The approved tool call did not run: {detail or text or 'no reason was given'}"
+    if _continue_loop(run, text):
+        run["status"] = "running"
+        release(run)
+        run["step_kind"] = "tools"
+        return
     _finish(store, run, text, result, status="completed")
+
+
+def _continue_loop(run: dict[str, object], text: str) -> bool:
+    """Append the approved result onto a checkpointed loop so the next step is the model."""
+    from ar_domain.tools.worker_loop import (  # noqa: PLC0415
+        read_worker_loop,
+        worker_loop_open,
+        write_worker_loop,
+    )
+
+    if not worker_loop_open(run):
+        return False
+    state = read_worker_loop(run)
+    if not isinstance(state, dict):
+        return False
+    messages = state.get("messages")
+    if not isinstance(messages, list):
+        messages = []
+        state["messages"] = messages
+    pending = held(run) or {}
+    messages.append(
+        {
+            "role": "tool",
+            "tool_call_id": str(pending.get("model_call_id") or ""),
+            "content": text,
+        }
+    )
+    index = state.get("pending_index")
+    nxt = index + 1 if isinstance(index, int) and not isinstance(index, bool) else 1
+    state["pending_index"] = nxt
+    state["phase"] = "tools"
+    write_worker_loop(run, state)
+    return True
 
 
 def _stop(store: Any, run: dict[str, object], approval: dict[str, object], status: str) -> None:

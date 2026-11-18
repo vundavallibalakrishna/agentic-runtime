@@ -127,7 +127,7 @@ async def delegate(
                 "task_brief": str(brief.get("task") or "")[:500],
             },
         )
-        if parent.get("id") in getattr(store, "cancel_flags", set()):
+        if parent.get("cancel_requested") is True:
             _finish_child(store, child, "cancelled", "")
             _emit(
                 store,

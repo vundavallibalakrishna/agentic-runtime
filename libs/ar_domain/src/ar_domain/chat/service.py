@@ -231,7 +231,6 @@ class ChatBehaviour:
     subscribers: dict[uuid.UUID, list[asyncio.Queue[dict[str, object]]]] = field(
         default_factory=dict
     )
-    cancel_flags: set[uuid.UUID] = field(default_factory=set)
     sse_counts: dict[str, int] = field(default_factory=dict)
     temporal_up: bool = False
     tasks: list[asyncio.Task[None]] = field(default_factory=list)
@@ -1825,16 +1824,6 @@ class ChatBehaviour:
 
         schedule_flush(self)
 
-    def _schedule_resume(self, run_id: uuid.UUID) -> None:
-        from ar_domain.orchestration.engine import resume_run  # noqa: PLC0415
-
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            asyncio.run(resume_run(self, run_id))
-            return
-        self.tasks.append(loop.create_task(resume_run(self, run_id)))
-
     def _schedule(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         try:
             loop = asyncio.get_running_loop()
@@ -1856,13 +1845,12 @@ class ChatBehaviour:
             await self._run_here_or_stop(run_id, text, names)
             return
         run = self.runs.get(run_id)
-        research = isinstance(run, dict) and run.get("trigger") == "research"
         workflow_id = f"run-{run_id}"
-        if isinstance(run, dict) and isinstance(run.get("temporal_workflow_id"), str):
-            workflow_id = str(run["temporal_workflow_id"])
+        if isinstance(run, dict):
+            run["temporal_workflow_id"] = workflow_id
         try:
             await start(
-                "ResearchWorkflow" if research else "AgentRunWorkflow",
+                "AgentRunWorkflow",
                 self._workflow_input(run, run_id, text),
                 id=workflow_id,
                 task_queue="ar-runtime",
@@ -1875,15 +1863,11 @@ class ChatBehaviour:
             return
         await self._watch(run_id)
 
-    @staticmethod
-    def _workflow_input(run: object, run_id: uuid.UUID, text: str) -> dict[str, object]:
-        """What the worker needs to start. A research run carries its own step limit."""
-        payload: dict[str, object] = {"run_id": str(run_id), "steps": True, "text": text}
-        if isinstance(run, dict) and run.get("trigger") == "research":
-            from ar_domain.research.engine import max_steps, state_of  # noqa: PLC0415
+    def _workflow_input(self, run: object, run_id: uuid.UUID, text: str) -> dict[str, object]:
+        """What the worker needs to start. Caps come from the run budget and settings."""
+        from ar_domain.runs.dispatch import workflow_payload  # noqa: PLC0415
 
-            payload["max_steps"] = max_steps(state_of(run, text))
-        return payload
+        return workflow_payload(self, run, run_id, text)
 
     async def _run_here_or_stop(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
         """Dev runs the turn here. A required worker that is missing does not."""
@@ -1923,7 +1907,7 @@ class ChatBehaviour:
                     queue.put_nowait(event)
             run = self.runs.get(run_id)
             status = str(run.get("status") if isinstance(run, dict) else "completed")
-            if not run_is_active(status):
+            if not run_is_working(status):
                 return
             if poll % 20 == 0 and await self._workflow_gone(run_id):
                 self.mark_not_resumed(run_id)
@@ -2054,12 +2038,22 @@ class ChatBehaviour:
 
     async def advance_turn(self, run_id: uuid.UUID, text: str, names: list[str]) -> str:
         """One model call or one tool call. The worker activity is this method."""
+        run = self.runs[run_id]
+        if run.get("cancel_requested") is True:
+            from ar_domain.tools.resume import mark_cancelled  # noqa: PLC0415
+
+            mark_cancelled(self, run)
+            return "final"
+        if str(run.get("status")) in {"waiting_approval", "waiting_input"}:
+            return "paused"
         await self._generate(run_id, text, names, one_step=True)
         run = self.runs[run_id]
+        if str(run.get("status")) in {"waiting_approval", "waiting_input"}:
+            return "paused"
         if not run_is_active(str(run.get("status"))):
             return "final"
         kind = str(run.get("step_kind") or "")
-        if kind in {"tools", "model", "paused"}:
+        if kind in {"tools", "model", "paused", "fanout"}:
             return kind
         return "model"
 
@@ -2071,7 +2065,7 @@ class ChatBehaviour:
         if str(run.get("trigger") or "") == "research":
             from ar_domain.research.driver import advance_research  # noqa: PLC0415
 
-            await advance_research(self, run, text, one_step=one_step)
+            run["step_kind"] = await advance_research(self, run, text, one_step=one_step)
             return
         if one_step:
             from ar_domain.tools.worker_loop import worker_loop_open  # noqa: PLC0415
@@ -2150,7 +2144,7 @@ class ChatBehaviour:
         )
         built: list[str] = []
         for token in tokens:
-            if run_id in self.cancel_flags:
+            if run.get("cancel_requested") is True:
                 assistant["status"] = "cancelled"
                 assistant["text"] = "".join(built)
                 run["status"] = "cancelled"
@@ -2718,6 +2712,9 @@ class ChatBehaviour:
                 from ar_domain.approvals.service import ApprovalBook  # noqa: PLC0415
 
                 ApprovalBook(self).cancel(Actor(tenant_id, user_id, frozenset()), approval_id)
+            from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+
+            request_signal(self, run_id, "cancel", {})
             return self._public(self.runs[run_id])
         if status == "waiting_input":
             run["status"] = "cancelled"
@@ -2731,10 +2728,15 @@ class ChatBehaviour:
             if isinstance(conversation, dict):
                 conversation["active_run_id"] = None
             self._emit(run, "run.cancelled", {"by": "user"})
+            from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+
+            request_signal(self, run_id, "cancel", {})
             return self._public(run)
-        self.cancel_flags.add(run_id)
+        run["cancel_requested"] = True
+        from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
         from ar_domain.skills.delegate import cancel_children  # noqa: PLC0415
 
+        request_signal(self, run_id, "cancel", {})
         cancel_children(self, run_id)
         return self._public(run)
 
@@ -2752,8 +2754,34 @@ class ChatBehaviour:
             raise ArError(ErrorCode.INVALID_STATE, "run has no checkpoint")
         run["status"] = "running"
         run["ended_at"] = None
-        self._emit(run, "run.resumed", {"checkpoint": "present"})
+        run["cancel_requested"] = False
+        message_id = run.get("input_message_id")
+        message = self.messages.get(message_id) if isinstance(message_id, uuid.UUID) else None
+        text = str(message.get("text") or "") if isinstance(message, dict) else ""
+        from ar_domain.runs.dispatch import workflow_id  # noqa: PLC0415
+
+        run["temporal_workflow_id"] = workflow_id(run_id)
+        self._emit(run, "run.resumed", {"checkpoint": "present", "workflowId": workflow_id(run_id)})
+        self._resume_on_worker(run_id, text)
         return self._public(run)
+
+    def _resume_on_worker(self, run_id: uuid.UUID, text: str) -> None:
+        """Start the workflow again. A stub run with no client is left running."""
+
+        async def _go() -> None:
+            client = self.temporal_client
+            if not callable(getattr(client, "start_workflow", None)):
+                if self.temporal_required:
+                    self.mark_not_resumed(run_id)
+                return
+            await self._start_turn(run_id, text, [])
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_go())
+            return
+        self.tasks.append(loop.create_task(_go()))
 
     def submit_input(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, run_id: uuid.UUID, text: str
@@ -2768,7 +2796,16 @@ class ChatBehaviour:
             from ar_domain.orchestration.ask import accept_human_answer  # noqa: PLC0415
 
             accept_human_answer(self, tenant_id, user_id, run, text)
-            self._schedule_resume(run_id)
+            from ar_domain.durable.after import after_commit  # noqa: PLC0415
+            from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+
+            def _wake() -> None:
+                if not request_signal(self, run_id, "user_input", {"text": text}) and (
+                    not self.temporal_required
+                ):
+                    self._schedule(run_id, text, [])
+
+            after_commit(self, _wake)
             return self._public(run)
         answer = text.strip() or "Using what you sent."
         self.input_responses[run_id] = answer

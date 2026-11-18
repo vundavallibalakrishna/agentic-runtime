@@ -132,6 +132,7 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     await _skill_versions(session, store, tenant_id)
     await _collections(session, store, tenant_id)
     await _sources(session, store, tenant_id)
+    await _ingestion_jobs(session, store, tenant_id)
     await _documents(session, store, tenant_id)
     await _chunks(session, store, tenant_id)
     await _facts(session, store, tenant_id)
@@ -517,6 +518,13 @@ async def _sources(session: AsyncSession, store: object, tenant_id: uuid.UUID) -
         session, "SELECT * FROM knowledge_sources WHERE tenant_id = :tenant_id", tenant_id
     ):
         _merge(store, "knowledge_sources", row["id"], row)
+
+
+async def _ingestion_jobs(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
+    for row in await _rows(
+        session, "SELECT * FROM ingestion_jobs WHERE tenant_id = :tenant_id", tenant_id
+    ):
+        _merge(store, "ingestion_jobs", row["id"], row)
 
 
 async def _documents(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:

@@ -363,7 +363,11 @@ async def send_message(  # noqa: PLR0917
     if replay is not None:
         return replay, True
     names = _attachment_names(store, attachment_ids)
-    await store.generate(run_id, text, names)
+    start = getattr(store, "_start_turn", None)
+    if callable(start):
+        await start(run_id, text, names)
+    else:
+        await store.generate(run_id, text, names)
     body = await finish_message(
         store,
         key,
