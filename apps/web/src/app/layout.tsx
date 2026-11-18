@@ -21,13 +21,13 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Agentic Runtime",
+  title: "Cura Works",
   description: "Build, run and govern agents on your own infrastructure.",
 };
 
 const themeBoot = `
 try {
-  var choice = localStorage.getItem("ar-theme") || "system";
+  var choice = localStorage.getItem("ar-theme") || "light";
   var dark = choice === "dark" || (choice === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.classList.toggle("dark", dark);
   document.documentElement.dataset.theme = choice;

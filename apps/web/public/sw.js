@@ -1,6 +1,6 @@
 /* Shows a Web Push. The payload is JSON {title, body} when the push is encrypted. */
 self.addEventListener("push", (event) => {
-  let title = "Agentic Runtime";
+  let title = "Cura Works";
   let body = "";
   if (event.data) {
     try {

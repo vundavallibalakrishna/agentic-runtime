@@ -158,7 +158,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_OIDC_MFA_ACR` | `mfa,otp` | `acr` values that count as MFA | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_LOGIN_MAX_ATTEMPTS` | `10` | Failed sign-ins before the shared lockout | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_LOGIN_LOCKOUT_S` | `300` | How long a locked sign-in stays locked. State is in Valkey | [spec 01](../03-specs/01-api-bff.md) |
-| `AR_SMTP_FROM` | `Agentic Runtime <no-reply@localhost>` | Sender address | [spec 20](../03-specs/20-notifications-events.md) |
+| `AR_SMTP_FROM` | `Cura Works <no-reply@localhost>` | Sender address | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SMTP_HOST` | `localhost` | SMTP host (Mailpit in dev) | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SMTP_PASSWORD` | (empty) | SMTP auth password (Secret) | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SMTP_PORT` | `1025` | SMTP port | [spec 20](../03-specs/20-notifications-events.md) |

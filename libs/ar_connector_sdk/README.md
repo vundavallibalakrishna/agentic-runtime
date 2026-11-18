@@ -1,6 +1,6 @@
 # ar-connector-sdk
 
-Helper for a tool server that Agentic Runtime calls through `mcp-gateway`.
+Helper for a tool server that Cura Works calls through `mcp-gateway`.
 
 A server registers tools with a JSON Schema, a description and annotations. `ToolContext.from_headers` reads `x-ar-tenant-id`, `x-ar-user-id` and the bearer token. The token is the user's OAuth access token when the server uses `user_oauth`. Do not log it.
 

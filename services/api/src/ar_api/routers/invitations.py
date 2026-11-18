@@ -76,7 +76,7 @@ def _send(settings: object, email: str, token: str) -> None:
             port=int(getattr(settings, "smtp_port", 1025)),
             sender=str(getattr(settings, "smtp_from", "noreply@localhost")),
             recipient=email,
-            subject="You are invited to Agentic Runtime",
+            subject="You are invited to Cura Works",
             body=f"Open /invite/{token} to join.",
             username=str(getattr(settings, "smtp_username", "")),
             password=getattr(settings, "smtp_password", ""),

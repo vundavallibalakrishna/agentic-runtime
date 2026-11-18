@@ -1,4 +1,4 @@
-# Agentic Runtime — end-to-end review and remediation plan
+# Cura Works — end-to-end review and remediation plan
 
 Review complete (read-only). Approval starts "Post-approval execution" and Phase 0.
 

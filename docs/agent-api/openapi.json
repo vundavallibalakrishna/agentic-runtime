@@ -1,7 +1,7 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Agentic Runtime Agent API",
+    "title": "Cura Works Agent API",
     "version": "1.0.0",
     "description": "Call a published agent with an agent API key. Create a conversation, send a message, stream the reply, attach a file, and read that run's trace. The same key authenticates the MCP server and A2A tasks. Send Idempotency-Key on a message so a retry returns the original run."
   },

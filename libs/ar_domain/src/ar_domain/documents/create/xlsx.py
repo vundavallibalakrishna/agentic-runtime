@@ -253,7 +253,7 @@ def _core(spec: DocumentSpec) -> str:
         f'<cp:coreProperties xmlns:cp="{_CP}" xmlns:dc="{_DC}">'
         f"<dc:title>{xml_escape(spec.title)}</dc:title>"
         f"<dc:creator>{xml_escape(spec.author)}</dc:creator>"
-        "<cp:lastModifiedBy>Agentic Runtime</cp:lastModifiedBy>"
+        "<cp:lastModifiedBy>Cura Works</cp:lastModifiedBy>"
         "</cp:coreProperties>"
     )
 
@@ -261,5 +261,5 @@ def _core(spec: DocumentSpec) -> str:
 def _app() -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-        f'<Properties xmlns="{_APP}"><Application>Agentic Runtime</Application></Properties>'
+        f'<Properties xmlns="{_APP}"><Application>Cura Works</Application></Properties>'
     )

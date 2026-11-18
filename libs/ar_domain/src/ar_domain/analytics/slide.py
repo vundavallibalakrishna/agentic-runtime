@@ -127,7 +127,7 @@ def _core(title: str) -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         f'<cp:coreProperties xmlns:cp="{_CP}" xmlns:dc="{_DC}">'
-        f"<dc:title>{_xml(title)}</dc:title><dc:creator>Agentic Runtime</dc:creator>"
+        f"<dc:title>{_xml(title)}</dc:title><dc:creator>Cura Works</dc:creator>"
         "</cp:coreProperties>"
     )
 
@@ -136,7 +136,7 @@ def _app() -> str:
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">'
-        "<Application>Agentic Runtime</Application><Slides>1</Slides></Properties>"
+        "<Application>Cura Works</Application><Slides>1</Slides></Properties>"
     )
 
 

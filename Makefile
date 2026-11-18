@@ -1,4 +1,4 @@
-# Agentic Runtime — local entry points. Spec: docs/07-ops/local-dev.md
+# Cura Works — local entry points. Spec: docs/07-ops/local-dev.md
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help

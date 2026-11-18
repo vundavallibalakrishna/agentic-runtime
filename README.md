@@ -1,4 +1,4 @@
-# Agentic Runtime
+# Cura Works
 
 A self-hosted, chat-first agentic platform, designed and built by Balakrishna Vundavalli. A customer connects their own OpenAI-compatible model, defines agents, and gives them tools: sandboxed Python and shell, workspace files, page fetch, web search, and HTTP. Agents can use documents, knowledge bases, memory, skills, and connectors. They plan, act, check, and retry. A parent agent can hand work to other agents, run them in parallel, wait for a person, or fire on a schedule or a signed webhook. A published agent is callable from outside over REST `/v1`, MCP, and A2A.
 
@@ -99,4 +99,4 @@ See [service-decomposition §4](docs/02-architecture/service-decomposition.md#4-
 
 ## Licence and naming
 
-Product name in code and docs: **Agentic Runtime** (prefix `ar` / `AR_`). The platform is generic; no customer- or vendor-specific branding.
+Product name in code and docs: **Cura Works** (prefix `ar` / `AR_`). The platform is generic; no customer- or vendor-specific branding.

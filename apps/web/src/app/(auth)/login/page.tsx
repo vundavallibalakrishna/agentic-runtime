@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+import { AuthAlert, AuthCard, AuthFooterLink } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiError, api } from "@/lib/api";
@@ -17,7 +18,6 @@ function safeReturnTo(value: string | null): string {
 
 export default function LoginPage() {
   const t = useTranslations("auth");
-  const shell = useTranslations("shell");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -80,104 +80,86 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-6 py-16">
-      <div className="w-full max-w-[22rem]">
-        <p className="text-sm font-medium tracking-tight">{shell("product")}</p>
-        <h1 className="mt-10 font-display text-[2.5rem] leading-none tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="mt-4 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
-          {method === "oidc" ? t("oidcBody") : t("body")}
-        </p>
-        {error && method === "oidc" ? (
-          <p
-            className="mt-8 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--destructive)]"
-            role="alert"
-          >
-            {error}
-          </p>
-        ) : null}
-        {method === "oidc" ? (
+    <AuthCard
+      body={method === "oidc" ? t("oidcBody") : t("body")}
+      footer={
+        method === "password" ? (
+          <AuthFooterLink href="/forgot-password">{t("forgot")}</AuthFooterLink>
+        ) : undefined
+      }
+      title={t("title")}
+    >
+      {method === "oidc" ? (
+        <div className="space-y-4">
+          {error ? <AuthAlert>{error}</AuthAlert> : null}
           <a
-            className="mt-8 flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] text-sm font-medium text-[var(--primary-foreground)]"
+            className="flex h-10 w-full items-center justify-center rounded-lg bg-[var(--primary)] text-sm font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary-hover)]"
             href={loginUrl}
           >
             {t("continueIdp")}
           </a>
-        ) : null}
-        {method === "password" ? (
-          <form
-            className="mt-8 space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void signIn();
-            }}
-          >
+        </div>
+      ) : null}
+      {method === "password" ? (
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void signIn();
+          }}
+        >
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium" htmlFor="email">
+              {t("emailLabel")}
+            </label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium" htmlFor="password">
+              {t("passwordLabel")}
+            </label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+            />
+          </div>
+          {tenants.length > 1 ? (
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium" htmlFor="email">
-                {t("emailLabel")}
+              <label className="block text-sm font-medium" htmlFor="tenant">
+                {t("tenantLabel")}
               </label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="username"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium" htmlFor="password">
-                {t("passwordLabel")}
-              </label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </div>
-            {tenants.length > 1 ? (
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium" htmlFor="tenant">
-                  {t("tenantLabel")}
-                </label>
-                <select
-                  className="block h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
-                  id="tenant"
-                  onChange={(event) => setTenantId(event.target.value)}
-                  value={tenantId}
-                >
-                  <option value="">{t("chooseTenant")}</option>
-                  {tenants.map((tenant) => (
-                    <option key={tenant.id} value={tenant.id}>
-                      {tenant.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            {error ? (
-              <p
-                className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--destructive)]"
-                role="alert"
+              <select
+                className="block h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--card)] px-3"
+                id="tenant"
+                onChange={(event) => setTenantId(event.target.value)}
+                value={tenantId}
               >
-                {error}
-              </p>
-            ) : null}
-            <Button type="submit" className="h-10 w-full" disabled={busy}>
-              {busy ? t("signingIn") : t("submit")}
-            </Button>
-            <p className="text-sm">
-              <a className="underline" href="/forgot-password">
-                {t("forgot")}
-              </a>
-            </p>
-          </form>
-        ) : null}
-      </div>
-    </main>
+                <option value="">{t("chooseTenant")}</option>
+                {tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          {error ? <AuthAlert>{error}</AuthAlert> : null}
+          <Button type="submit" className="h-10 w-full" disabled={busy}>
+            {busy ? t("signingIn") : t("submit")}
+          </Button>
+        </form>
+      ) : null}
+    </AuthCard>
   );
 }

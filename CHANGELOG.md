@@ -2,7 +2,7 @@
 
 ## 1.0.0
 
-First shippable release of Agentic Runtime.
+First shippable release of Cura Works.
 
 - Helm umbrella chart for single-tenant and SaaS, with dev, small, large, load-test, external and air-gap presets.
 - Bundled or external Postgres (CloudNativePG or a dev StatefulSet), Valkey, Temporal, Keycloak, OpenBao and SeaweedFS. Qdrant stays off unless enabled.

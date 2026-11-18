@@ -1,4 +1,4 @@
-# Umbrella values for Agentic Runtime. Spec: docs/07-ops/helm-k8s.md
+# Umbrella values for Cura Works. Spec: docs/07-ops/helm-k8s.md
 # Non-secret AR_* live under config. Secret AR_* live under secrets.data or secrets.existingSecret.
 # Sessions, idempotency, the run-event bus and the SSE cap live outside the API process.
 # Postgres is the read model. The in-memory ChatService is not booted when AR_ENV is staging or prod.
@@ -170,7 +170,7 @@ config:
   AR_SECRET_CACHE_TTL_S: '60'
   AR_SESSION_MAX_AGE_S: '604800'
   AR_SESSION_TTL_S: '43200'
-  AR_SMTP_FROM: Agentic Runtime <no-reply@localhost>
+  AR_SMTP_FROM: Cura Works <no-reply@localhost>
   AR_SMTP_HOST: localhost
   AR_SMTP_PORT: '1025'
   AR_SMTP_STARTTLS: 'false'

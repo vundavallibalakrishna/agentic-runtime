@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from typing import Any
 
 _INFO = {
-    "title": "Agentic Runtime Agent API",
+    "title": "Cura Works Agent API",
     "version": "1.0.0",
     "description": (
         "Call a published agent with an agent API key. "

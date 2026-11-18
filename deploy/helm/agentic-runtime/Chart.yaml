@@ -1,6 +1,6 @@
 apiVersion: v2
 name: agentic-runtime
-description: Umbrella chart for single-tenant and SaaS installs of Agentic Runtime.
+description: Umbrella chart for single-tenant and SaaS installs of Cura Works.
 type: application
 version: 1.0.0
 appVersion: "1.0.0"

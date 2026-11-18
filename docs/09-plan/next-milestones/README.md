@@ -104,7 +104,7 @@ Each prompt is the whole brief for one coding agent. Paste it as the task. One s
 ### Stage 15 — Computer and durable runs
 
 ```
-You are implementing Stage 15 of Agentic Runtime: a computer for the agent, and long-running runs, in one pull request.
+You are implementing Stage 15 of Cura Works: a computer for the agent, and long-running runs, in one pull request.
 
 Read first: AGENTS.md, docs/00-overview/principles.md, docs/09-plan/agnostic-production-plan.md, docs/09-plan/next-milestones/01-agent-computer.md, docs/09-plan/next-milestones/02-long-running-agents.md, docs/03-specs/12-sandbox-manager.md, docs/03-specs/07-agent-runtime.md.
 
@@ -124,7 +124,7 @@ Proof: contract for the pod, the view grant, takeover, continue-as-new, resume a
 ### Stage 16 — Budgets, routing, and enterprise trust
 
 ```
-You are implementing Stage 16 of Agentic Runtime: tenant budgets, model routing, and enterprise identity, in one pull request.
+You are implementing Stage 16 of Cura Works: tenant budgets, model routing, and enterprise identity, in one pull request.
 
 Read first: AGENTS.md, docs/00-overview/principles.md, docs/09-plan/next-milestones/06-admin-cost.md, docs/09-plan/next-milestones/09-enterprise-trust.md, story S17-09 in docs/09-plan/next-milestones/05-quality-loop.md, docs/03-specs/17-audit-usage-metering.md, docs/03-specs/02-identity-tenancy.md, docs/06-security/audit.md, docs/02-architecture/adr/ADR-0031-oidc-production-identity.md, OQ-16 and OQ-122 in docs/open-questions.md.
 
@@ -144,7 +144,7 @@ Proof: contract for quota block, cost policy, SCIM suspend, SAML rejection of an
 ### Stage 17 — Memory, skills, and the quality loop
 
 ```
-You are implementing Stage 17 of Agentic Runtime: memory, learned skills, and the quality loop, in one pull request. Start the branch only after Stage 15 has merged. Do not redo S17-09; Stage 16 owns the GenAI span attributes.
+You are implementing Stage 17 of Cura Works: memory, learned skills, and the quality loop, in one pull request. Start the branch only after Stage 15 has merged. Do not redo S17-09; Stage 16 owns the GenAI span attributes.
 
 Read first: AGENTS.md, docs/09-plan/next-milestones/03-memory-personalisation.md, docs/09-plan/next-milestones/05-quality-loop.md, docs/03-specs/11-memory.md, docs/03-specs/14-skills.md, docs/03-specs/18-observability-eval.md.
 
@@ -162,7 +162,7 @@ Proof: contract for recall, corrections, the draft skill, draft eval cases, and 
 ### Stage 18 — Multi-agent work
 
 ```
-You are implementing Stage 18 of Agentic Runtime: agent handoff, A2A, a shared plan, and a trail, in one pull request. Start after Stage 15 has merged so the wait signal and the conversation sandbox exist.
+You are implementing Stage 18 of Cura Works: agent handoff, A2A, a shared plan, and a trail, in one pull request. Start after Stage 15 has merged so the wait signal and the conversation sandbox exist.
 
 Read first: AGENTS.md, docs/09-plan/next-milestones/04-multi-agent.md, docs/agent-api/a2a.md, the A2A 1.0 spec at https://a2a-protocol.org/latest/specification/.
 
@@ -180,7 +180,7 @@ Proof: contract for the worker-backed A2A task, gRPC auth, the plan owner, and a
 ### Stage 19 — Pack and connector catalog
 
 ```
-You are implementing Stage 19 of Agentic Runtime: a browsable catalog of signed packs and connectors, in one pull request. You may start beside Stage 15.
+You are implementing Stage 19 of Cura Works: a browsable catalog of signed packs and connectors, in one pull request. You may start beside Stage 15.
 
 Read first: AGENTS.md, docs/00-overview/principles.md, docs/09-plan/next-milestones/07-marketplace.md, docs/05-contracts/extension-framework.md, docs/09-plan/agnostic-production-plan.md pack section.
 
@@ -198,7 +198,7 @@ Proof: contract for list, install, untrusted-key refusal, and a pack-provided co
 ### Stage 20 — Voice and the installable web
 
 ```
-You are implementing Stage 20 of Agentic Runtime: speech to text, spoken answers, and an installable PWA, in one pull request. You may start beside Stage 15. Do not edit loop/routing.py.
+You are implementing Stage 20 of Cura Works: speech to text, spoken answers, and an installable PWA, in one pull request. You may start beside Stage 15. Do not edit loop/routing.py.
 
 Read first: AGENTS.md, docs/09-plan/next-milestones/08-voice-mobile.md, docs/09-plan/M41-documents-media.md section M41-T07, the existing web push path in libs/ar_domain/src/ar_domain/notifications/dispatch.py and apps/web/public/sw.js.
 

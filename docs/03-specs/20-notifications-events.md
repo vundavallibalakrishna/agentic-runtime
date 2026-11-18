@@ -103,7 +103,7 @@ POST JSON envelope with headers (`X-AR-Signature`, `X-AR-Event-Id`, `X-AR-Topic`
 |---|---|
 | `AR_SMTP_HOST` / `AR_SMTP_PORT` | `localhost` / `1025` (Mailpit in dev) |
 | `AR_SMTP_USERNAME` / `AR_SMTP_PASSWORD` | |
-| `AR_SMTP_FROM` | `Agentic Runtime <no-reply@localhost>` |
+| `AR_SMTP_FROM` | `Cura Works <no-reply@localhost>` |
 | `AR_SMTP_STARTTLS` | `false` (dev) |
 | `AR_OUTBOX_BATCH_SIZE` | `500` |
 | `AR_WEBHOOK_ALLOW_PRIVATE` | `false` |

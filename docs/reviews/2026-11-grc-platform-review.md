@@ -1,4 +1,4 @@
-# Agentic Runtime — GRC platform review
+# Cura Works — GRC platform review
 
 - Date: 2026-11-15
 - Tree reviewed: `df0e45c9` (`main` at the time of this review)

@@ -1,7 +1,7 @@
 {
   "flow": {
     "chatHeading": "Chat",
-    "chatText": "Skip to content\nAgentic Runtime\nNew chat\n⌘⇧O\n\nWORKSPACE\n\nChat\nAgents\nRoutines\nSchedules\nInbox\n\nRESOURCES\n\nTools\nDocuments\nConnectors\nConnections\nKnowledge\nMemory\nSkills\n\nMANAGE\n\nSettings\nChannels\nEvaluations\nPlatform health\nUsage\nQuotas\nApprovals\nRuns\nModels\nComputers\nAssurance\nUsers\nCreate an agent\nCollapse sidebar\nDev\nChat\nSearch anything\n⌘K\nDev Admin\nadmin@dev.local\n\nRECENT CONVERSATIONS\n\nNew chat\nStart the long sleep.\nAsk me now.\nSleep for three minutes now.\nSleep now.\nStart.\nAsk for self-ap",
+    "chatText": "Skip to content\nCura Works\nNew chat\n⌘⇧O\n\nWORKSPACE\n\nChat\nAgents\nRoutines\nSchedules\nInbox\n\nRESOURCES\n\nTools\nDocuments\nConnectors\nConnections\nKnowledge\nMemory\nSkills\n\nMANAGE\n\nSettings\nChannels\nEvaluations\nPlatform health\nUsage\nQuotas\nApprovals\nRuns\nModels\nComputers\nAssurance\nUsers\nCreate an agent\nCollapse sidebar\nDev\nChat\nSearch anything\n⌘K\nDev Admin\nadmin@dev.local\n\nRECENT CONVERSATIONS\n\nNew chat\nStart the long sleep.\nAsk me now.\nSleep for three minutes now.\nSleep now.\nStart.\nAsk for self-ap",
     "sample": "Key stored was already on the provider row",
     "keyCleared": true,
     "keyStoredLabel": true,

@@ -110,7 +110,7 @@ def parse(arguments: dict[str, object]) -> DocumentSpec:
         format=fmt,
         title=title,
         subtitle=_short(arguments.get("subtitle"), MAX_TITLE),
-        author=_short(arguments.get("author"), 120) or "Agentic Runtime",
+        author=_short(arguments.get("author"), 120) or "Cura Works",
         template=template,
         filename=_filename(arguments, title, fmt),
         sections=_sections(arguments.get("sections")),
