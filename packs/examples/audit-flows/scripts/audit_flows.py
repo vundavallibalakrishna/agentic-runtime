@@ -325,7 +325,7 @@ def run_one(stack: tc.Stack, agents: dict[str, str], scenario: Scenario) -> dict
             f"{scenario.key} turn {index + 1}: {turn.status} in {turns[-1]['seconds']}s", flush=True
         )
     return {
-        "key": scenario.key,
+        "scenario": scenario.key,
         "need": scenario.need,
         "agent": scenario.agent,
         "conversation": conversation,
@@ -352,7 +352,7 @@ def main() -> None:
     workers = int(os.environ.get("AR_AUDIT_WORKERS", "3"))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for result in pool.map(lambda row: run_one(stack, agents, row), chosen):
-            kept[str(result["key"])] = result
+            kept[str(result["scenario"])] = result
             EVIDENCE.write_bytes(orjson.dumps(kept, option=orjson.OPT_INDENT_2))
 
 
