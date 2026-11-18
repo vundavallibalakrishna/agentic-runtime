@@ -107,7 +107,7 @@ Allowed caller: `mcp-gateway` and `sandbox-manager` only (NetworkPolicy + per-sa
 | Method | Path | Caller | Purpose |
 |---|---|---|---|
 | GET | `/internal/v1/.well-known/jwks.json` | all, MCP servers | Platform JWKS (internal + `internal_jwt` tool auth) |
-| GET | `/internal/v1/opa/bundles/ar.tar.gz` | `opa` | Policy bundle (Rego + data), ETag support. `X-AR-Internal`. No chat read unit. |
+| GET | `/internal/v1/opa/bundles/ar.tar.gz` | `opa` | Policy bundle (Rego + data), ETag support. `Authorization: Bearer` `AR_OPA_BUNDLE_TOKEN`. No chat read unit. |
 | POST | `/internal/v1/channels/inbound` | `channels` | Deliver a normalised inbound channel message (`ChannelInboundMessage`) → creates/continues a conversation and starts a run; returns `{conversation_id, run_id}` |
 | POST | `/internal/v1/channels/approval-decisions` | `channels` | Approve/reject from Slack/Teams buttons (`{approval_id, external_user_id, integration_id, decision, args_hash}`) |
 | POST | `/internal/v1/channels/events` | `channels` | Channel events for routines (`channel_event` trigger) |
