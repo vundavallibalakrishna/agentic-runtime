@@ -221,6 +221,17 @@ def _continue_loop(run: dict[str, object], text: str) -> bool:
     nxt = current + 1
     state["pending_index"] = nxt
     state["phase"] = "tools"
+    previews = state.get("previews")
+    if not isinstance(previews, list):
+        previews = []
+        state["previews"] = previews
+    previews.append(
+        {
+            "qualified_name": call_name.replace("__", "."),
+            "status": "succeeded",
+            "result_preview": text,
+        }
+    )
     write_worker_loop(run, state)
     return True
 
