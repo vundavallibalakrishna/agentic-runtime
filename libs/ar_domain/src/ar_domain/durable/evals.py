@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import text
+from sqlalchemy import String, bindparam, text
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from ar_common.time import utcnow
 from ar_domain.durable.codec import as_bool, as_dt, as_int, as_json, as_text, as_uuid
@@ -21,15 +22,11 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
-def _tags(value: object) -> str:
-    """A Postgres text-array literal. Tags are short labels, not SQL."""
+def _tags(value: object) -> list[str]:
+    """Tags as a list. asyncpg binds a list to ``text[]``; a literal string does not."""
     if not isinstance(value, list):
-        return "{}"
-    parts: list[str] = []
-    for item in value:
-        escaped = str(item).replace("\\", "\\\\").replace('"', '\\"')
-        parts.append(f'"{escaped}"')
-    return "{" + ",".join(parts) + "}"
+        return []
+    return [str(item) for item in value]
 
 
 async def save_eval_rows(session: AsyncSession, pending: dict[str, list[dict[str, Any]]]) -> None:
@@ -104,7 +101,7 @@ async def _cases(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             created_at, updated_at
         ) VALUES (
             :id, :tenant_id, :suite_id, :name, CAST(:input AS jsonb),
-            CAST(:assertions AS jsonb), CAST(:tool_mocks AS jsonb), CAST(:tags AS text[]),
+            CAST(:assertions AS jsonb), CAST(:tool_mocks AS jsonb), :tags,
             :created_at, :updated_at
         )
         ON CONFLICT (id) DO UPDATE SET
@@ -115,6 +112,7 @@ async def _cases(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             tags = EXCLUDED.tags,
             updated_at = EXCLUDED.updated_at
     """
+    statement = text(sql).bindparams(bindparam("tags", type_=ARRAY(String())))
     for row in rows:
         case_id = as_uuid(row.get("id"))
         tenant_id = as_uuid(row.get("tenant_id"))
@@ -123,7 +121,7 @@ async def _cases(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
             continue
         now = utcnow()
         await session.execute(
-            text(sql),
+            statement,
             {
                 "id": case_id,
                 "tenant_id": tenant_id,

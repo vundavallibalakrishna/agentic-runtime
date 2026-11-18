@@ -88,6 +88,7 @@ from ar_common.settings import (
     loopback_allowed,
 )
 from ar_common.web import create_app
+from ar_common.web.internal import InternalAuthMiddleware
 from ar_domain.audit.service import install_platform_hook
 from ar_domain.chat.service import ChatBehaviour
 from ar_domain.db.context import Principal
@@ -129,7 +130,6 @@ class Settings(BaseServiceSettings):
     step_up_ttl_s: int = 600
     opa_url: str = ""
     opa_timeout_ms: int = 200
-    opa_bundle_token: SecretStr = SecretStr("")
     secrets_backend: str = "db_encrypted"
     db_encryption_keys: SecretStr = SecretStr("")
     db_encryption_active_key: str = "k1"
@@ -281,6 +281,7 @@ def create_application() -> FastAPI:
     assert_auth_mode(settings)
     docs = None if settings.env is EnvName.PROD else "/api/docs"
     inner: list[tuple[type, dict[str, object]]] = [
+        (InternalAuthMiddleware, {}),
         (DurableMiddleware, {}),
         (AuthenticateMiddleware, {}),
         (ReadModelMiddleware, {}),

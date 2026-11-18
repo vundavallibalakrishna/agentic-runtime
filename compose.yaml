@@ -18,8 +18,8 @@ x-run: &run
 
 x-app-env: &app-env
   AR_ENV: ${AR_ENV:-dev}
-  AR_EGRESS_ALLOW_LOOPBACK: ${AR_EGRESS_ALLOW_LOOPBACK:-true}
-  AR_EGRESS_ALLOW_WILDCARD: ${AR_EGRESS_ALLOW_WILDCARD:-true}
+  AR_EGRESS_ALLOW_LOOPBACK: ${AR_EGRESS_ALLOW_LOOPBACK:-false}
+  AR_EGRESS_ALLOW_WILDCARD: ${AR_EGRESS_ALLOW_WILDCARD:-false}
   AR_FILES_SCANNER: ${AR_FILES_SCANNER:-none}
   AR_DEPLOYMENT_MODE: ${AR_DEPLOYMENT_MODE:-single_tenant}
   AR_AUTH_MODE: ${AR_AUTH_MODE:-}
@@ -48,7 +48,7 @@ x-app-env: &app-env
   # these keys are set here, not interpolated from the env file.
   AR_S3_ENDPOINT: http://seaweedfs:8333
   AR_S3_PUBLIC_ENDPOINT: http://127.0.0.1:${AR_S3_HOST_PORT:-8333}
-  AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4317
+  AR_OTEL_EXPORTER_OTLP_ENDPOINT: ${AR_OTEL_EXPORTER_OTLP_ENDPOINT:-}
   AR_INTERNAL_AUTH_SECRET: ${AR_INTERNAL_AUTH_SECRET:-}
 
 x-app-depends: &app-depends
@@ -227,11 +227,14 @@ services:
   opa:
     <<: *run
     profiles: [dev, production]
-    image: openpolicyagent/opa:1.21.3-static
-    command: ["run", "--server", "--addr", "0.0.0.0:8181", "--config-file", "/etc/opa/config.yaml"]
+    build:
+      context: .
+      dockerfile: images/opa/Dockerfile
     environment:
       AR_PORT: ${AR_PORT:-8000}
-      AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
+      AR_INTERNAL_AUTH_SECRET: ${AR_INTERNAL_AUTH_SECRET:-}
+      AR_OPA_UPSTREAM: http://host.docker.internal:${AR_PORT:-8000}
+      AR_OPA_FORWARD_URL: http://127.0.0.1:9191
     extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ./deploy/compose/opa/config.yaml:/etc/opa/config.yaml:ro

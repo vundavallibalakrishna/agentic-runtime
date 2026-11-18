@@ -247,12 +247,12 @@ After Stage 9.
 - Bounded repair retries for tool errors, schema-invalid arguments and malformed model output. A structured tool-failure notice (OQ-113).
 - Per-tenant ordered model endpoints. Timeout, 429, 5xx and bad JSON fall through. Circuit state is in Valkey outside dev and CI. The trace and the audit record the endpoint id and model id, never a key.
 - Token budgeting, rolling summary, and truncated tool output that `context.retrieve` can read back.
-- `scripts/eval_run.py` scores the 60-case assistant set and the 150-case red-team set. CI fails if the contract rates regress. A live label is written only when `AR_LLM_API_KEY` is set.
+- An eval is an eval run in the product. There is no stub model script. A live label is written only when `AR_LLM_API_KEY` is set.
 - Research mode: search, fetch, read, synthesise, verify. Temporal child workflows for the parallel reads. Bounds on depth, breadth, time and cost. Cancel and resume. Citations must appear in the stored page. Sources keep sha256 and a timestamp.
 - Research searches the tenant's document library and the web provider the tenant configured for `general.search`: Brave, Tavily or a SearXNG server. There is no built-in fixture provider; with no web provider, research searches the library alone and says so. Keys are named secrets. Page text uses readability, and the sandbox Chromium fetcher when one is configured.
 - Chat has a research toggle, a live step stream and a sources panel. `/v1`, MCP and A2A expose the same mode.
 
-Proof label: `unit` for the loop, the citation check and the workflow definition; `contract` for `scripts/eval_run.py` without a key. `live` only from `scripts/certify_live.sh` on a machine that has `AR_LLM_API_KEY`.
+Proof label: `unit` for the loop, the citation check and the workflow definition. `live` only from `scripts/certify_live.sh` on a machine that has `AR_LLM_API_KEY`.
 
 ### Stage 11: Remaining robustness (L)
 

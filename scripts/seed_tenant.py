@@ -8,7 +8,8 @@ give), and the two agents every tenant has (the assistant and the builder), owne
 admin. It creates no model provider and no example data: the admin adds those in the product.
 
 Sign-in is in-app, so the admin signs in with their email and this password. The password is
-read from standard input, or asked for on a terminal, and is stored only as an argon2id hash.
+``AR_ADMIN_PASSWORD`` when that variable is set. Otherwise it is read from standard input, or
+asked for on a terminal. It is stored only as an argon2id hash.
 """
 
 import argparse
@@ -45,6 +46,9 @@ def _arguments() -> argparse.Namespace:
 
 
 def _password() -> str:
+    supplied = os.environ.get("AR_ADMIN_PASSWORD", "")
+    if supplied:
+        return supplied
     if sys.stdin.isatty():
         first = getpass.getpass("Password for the admin: ")
         if first != getpass.getpass("Repeat the password: "):

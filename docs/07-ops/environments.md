@@ -110,12 +110,11 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_MG_SEMAPHORE_WAIT_S` | `10` | Max wait for a concurrency slot before 429 | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MODEL_GATEWAY_URL` | `http://localhost:8001` | Internal URL of `model-gateway` | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_MODEL_PROVIDER_DENY_CIDRS` | RFC1918 + link-local + cluster CIDRs (SaaS) | SSRF guard for tenant providers | [spec 04](../03-specs/04-model-gateway.md) |
-| `AR_INTERNAL_AUTH_SECRET` | (unset) | Shared HMAC for `sandbox-manager`, `mcp-gateway`, and `/metrics`. Empty fails closed | [internal-apis](../05-contracts/internal-apis.md) |
+| `AR_INTERNAL_AUTH_SECRET` | (unset) | Shared HMAC for internal routes, including the OPA bundle, `sandbox-manager`, `mcp-gateway`, and `/metrics`. Empty fails closed | [internal-apis](../05-contracts/internal-apis.md) |
 | `AR_KNOWLEDGE_MIN_SCORE` | (unset) | Install default for chat retrieval. A chunk must clear this rerank or similarity score. The agent and the tenant can override it | [spec 10](../03-specs/10-knowledge.md) |
-| `AR_OPA_BUNDLE_TOKEN` | secret | Bearer token OPA uses to fetch policy bundles from `api` | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_OPA_TIMEOUT_MS` | `200` | Policy decision timeout (fail closed) | [spec 09](../03-specs/09-policy-approvals.md) |
 | `AR_OPA_URL` | `http://opa:8181` | OPA decision API URL | [spec 08](../03-specs/08-tool-registry-mcp.md), [spec 09](../03-specs/09-policy-approvals.md) |
-| `AR_OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint. Empty, `off`, or `none` disables export. Export is batched, timed out, and dropped when the collector is absent | [spec 18](../03-specs/18-observability-eval.md) |
+| `AR_OTEL_EXPORTER_OTLP_ENDPOINT` | (empty) | OTLP gRPC endpoint. Empty, `off`, or `none` disables export. Set `http://otel:4317` when the `obs` profile is running. Export is batched and dropped when the collector is absent | [spec 18](../03-specs/18-observability-eval.md) |
 | `AR_OUTBOX_BATCH_SIZE` | `500` | Rows per outbox relay batch | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_PGVECTOR_DIMENSIONS` | `1024` (memory and tool-search embeddings only; knowledge supports 384/768/1024/1536/3072, [spec 10 §7.1](../03-specs/10-knowledge.md#71-storage); fixed; changing requires a migration and re-embed job `scripts/reembed_memory.py`) |  | [spec 11](../03-specs/11-memory.md) |
 | `AR_CSRF_ALLOWED_ORIGINS` | empty | Comma-separated origins that may send the session cookie, besides `AR_PUBLIC_URL`. Loopback names match each other only when `AR_ENV` is `dev` or `ci` | [spec 01](../03-specs/01-api-bff.md) |

@@ -10,7 +10,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ar_common.errors import PayloadTooLargeError
 from ar_common.ids import new_id
-from ar_common.json_api import camelize
+from ar_common.json_api import camelize, dumps
 from ar_common.logging import get_logger
 from ar_common.metrics import REQUESTS
 from ar_common.web.problems import problem_response
@@ -220,7 +220,7 @@ def _camel_body(body: bytes) -> bytes:
             public["nextCursor"] = None
         if "hasMore" not in public:
             public["hasMore"] = public.get("nextCursor") is not None
-    return orjson.dumps(public)
+    return dumps(public)
 
 
 def install_middleware(

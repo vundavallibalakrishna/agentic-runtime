@@ -289,6 +289,7 @@ async def routed_completion(  # noqa: PLR0912, PLR0915
                 headers=headers,
                 timeout_s=timeout_s,
                 allow=dial_allow(store, tenant_id),
+                supplied=True,
             )
         except httpx.HTTPError:
             breaker.failure(key)

@@ -45,7 +45,7 @@ Policy rules are compiled into bundle data; argument predicates (`args[]`) are e
 
 ### 3.2 Bundle
 
-- `GET /internal/v1/opa/bundles/ar.tar.gz` (caller `opa`, internal JWT not required: NetworkPolicy + static bearer `AR_OPA_BUNDLE_TOKEN`). Contents: `/ar/policy.rego`, `/ar/jsonpath.rego`, `/data.json` = `{"tenants": {"<tenant_id>": {"rules": [...], "settings": {"require_step_up_for_w3": bool}}}}`, custom tenant Rego modules, `.manifest` with `revision` = sha256 of contents.
+- `GET /internal/v1/opa/bundles/ar.tar.gz` (caller `opa`, `X-AR-Internal` HMAC, no chat read unit). The API builds the bytes from the platform role, every tenant. Contents: `/ar/policy.rego`, `/ar/jsonpath.rego`, `/data.json` = `{"tenants": {"<tenant_id>": {"rules": [...], "settings": {"require_step_up_for_w3": bool}}}}`, custom tenant Rego modules, `.manifest` with `revision` = sha256 of contents. OPA cannot sign the HMAC, so the Compose service forwards each poll through a signer in the same container.
 - ETag = revision; OPA config polls every 5–15 s. Activation therefore takes effect within ≤ 15 s (UI states this). Kill switches (agents/tools) are separate and immediate.
 - Built in-process by `api` from `policies.active_version_id` rows (platform role, all tenants), cached in Valkey `ar:opa:bundle` and rebuilt on `policy.activated|policy.disabled` events.
 
@@ -137,7 +137,7 @@ Outbox `approval.requested` → `NotificationFanoutWorkflow` ([spec 20](20-notif
 | Required approvals | 1..5 |
 | `AR_OPA_URL` | `http://localhost:8181` |
 | `AR_OPA_TIMEOUT_MS` | `200` |
-| `AR_OPA_BUNDLE_TOKEN` | secret |
+| `AR_INTERNAL_AUTH_SECRET` | (unset) |
 | `AR_STEP_UP_TTL_S` | `600` (defined in spec 01) |
 
 ## 9. Metrics

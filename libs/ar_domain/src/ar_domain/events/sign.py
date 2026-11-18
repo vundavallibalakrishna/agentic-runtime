@@ -2,11 +2,8 @@
 
 import hashlib
 import hmac
-import uuid
 
-import orjson
-
-from ar_common.json_api import camelize
+from ar_common.json_api import camelize, dumps
 
 BACKOFF_S: tuple[int, ...] = (10, 30, 60, 300, 900, 1800, 3600, 7200, 14400, 21600, 21600, 21600)
 
@@ -26,14 +23,7 @@ def next_backoff_s(attempts: int) -> int | None:
 
 def public_json_bytes(value: object) -> bytes:
     """Encode a webhook or SSE payload with camelCase keys."""
-    return orjson.dumps(camelize(value), default=_json_default)
-
-
-def _json_default(value: object) -> str:
-    # asyncpg UUIDs subclass uuid.UUID; orjson only accepts the exact builtin type.
-    if isinstance(value, uuid.UUID):
-        return str(value)
-    raise TypeError(f"Unsupported public JSON type: {type(value).__name__}")
+    return dumps(camelize(value))
 
 
 def request_fingerprint(method: str, path: str, body: bytes) -> str:

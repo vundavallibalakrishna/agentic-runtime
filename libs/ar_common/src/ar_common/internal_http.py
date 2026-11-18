@@ -1,14 +1,14 @@
 """HTTP between services of this install.
 
-Cluster egress allows the private addresses Docker assigns on the install
-network. Each call carries ``X-AR-Internal`` (empty when the install has no
-shared secret). A tenant's model or any other public host stays on the
-external client.
+A call is internal only when its scheme, host and port are one of the
+configured service URLs. That call uses the cluster client and carries
+``X-AR-Internal``. A URL a tenant saved is never internal and is never signed,
+including when its host is one of this install's service names or a loopback
+address.
 """
 
 from __future__ import annotations
 
-import ipaddress
 import os
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
@@ -21,8 +21,8 @@ if TYPE_CHECKING:
 
     import httpx
 
-# Hostnames of this install's own services. A URL whose host is one of these
-# is an internal hop even when an env file still says localhost.
+# Hostnames of this install's own services. A tenant URL on one of these
+# names is refused. It is not, by itself, an internal hop.
 _SERVICE_HOSTS = frozenset(
     {
         "api",
@@ -65,37 +65,97 @@ def service_host(url: str) -> str:
     return (urlsplit(url).hostname or "").lower()
 
 
-def _private_host(host: str) -> bool:
-    """True for loopback names and private or loopback addresses."""
-    if host in {"localhost", "localhost.localdomain"}:
+def _endpoint(url: str) -> tuple[str, str, int] | None:
+    """Scheme, host and port. A missing port is 443 for https and 80 for http."""
+    parts = urlsplit(url.strip())
+    scheme = parts.scheme.lower()
+    host = (parts.hostname or "").lower().rstrip(".")
+    if scheme not in {"http", "https"} or not host:
+        return None
+    default = 443 if scheme == "https" else 80
+    port = default if parts.port is None else parts.port
+    return scheme, host, port
+
+
+def configured_endpoints() -> frozenset[tuple[str, str, int]]:
+    """Service URLs from the environment, matched on scheme, host and port."""
+    found: set[tuple[str, str, int]] = set()
+    for name in _SERVICE_ENV:
+        configured = os.environ.get(name, "").strip()
+        if not configured:
+            continue
+        endpoint = _endpoint(configured)
+        if endpoint is not None:
+            found.add(endpoint)
+    return frozenset(found)
+
+
+def _cluster_host(host: str) -> bool:
+    """A Docker service name or a private address. A public DNS name is not."""
+    if host in _SERVICE_HOSTS:
         return True
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
+    from ar_common.egress_policy import canonical_ip  # noqa: PLC0415
+
+    address = canonical_ip(host)
+    if address is None:
         return False
-    return address.is_private or address.is_loopback or address.is_link_local
+    return bool(address.is_private or address.is_loopback or address.is_link_local)
 
 
 def is_internal_service(url: str) -> bool:
-    """True when ``url`` names a service of this install.
+    """True only when ``url`` is one configured service endpoint on the cluster.
 
-    A Docker service name is internal. A configured service URL is internal
-    only when its host is a private or loopback address. A public hostname
-    that happens to be the configured Qdrant or model host stays on the
-    external client.
+    The match is scheme, host and port. A public hostname that is configured
+    as Qdrant or a model host stays on the external client. A name that only
+    shares a label with a service, or the right host on another port, is not
+    internal and is not signed.
     """
-    host = service_host(url)
-    if not host:
+    endpoint = _endpoint(url)
+    if endpoint is None or endpoint not in configured_endpoints():
         return False
+    return _cluster_host(endpoint[1])
+
+
+def tenant_loopback_denied(url: str) -> str | None:
+    """Loopback is refused for a tenant URL outside dev and ci.
+
+    The dev and test runs reach a stand-in on this machine. Staging and
+    production do not, even when ``AR_EGRESS_ALLOW_LOOPBACK`` was left on.
+    """
+    from ar_common.egress_policy import canonical_ip  # noqa: PLC0415
+    from ar_common.settings import EnvName, get_settings  # noqa: PLC0415
+
+    if get_settings().env in {EnvName.DEV, EnvName.CI}:
+        return None
+    endpoint = _endpoint(url)
+    if endpoint is None:
+        return None
+    host = endpoint[1]
+    if host in {"localhost", "localhost.localdomain"}:
+        return "that URL is a loopback address"
+    address = canonical_ip(host)
+    if address is not None and address.is_loopback:
+        return "that URL is a loopback address"
+    return None
+
+
+def tenant_supplied_url_denied(url: str) -> str | None:
+    """Why a tenant-supplied URL must not be called, or None when it may.
+
+    Install service names and this install's configured service endpoints are
+    refused on any port. The URL is never treated as internal and never signed.
+    Loopback is refused by the egress check unless the install explicitly
+    allows it, which it does not outside dev.
+    """
+    endpoint = _endpoint(url)
+    if endpoint is None:
+        return "that URL is not an http or https URL"
+    _scheme, host, _port = endpoint
     if host in _SERVICE_HOSTS:
-        return True
-    if not _private_host(host):
-        return False
-    for name in _SERVICE_ENV:
-        configured = os.environ.get(name, "").strip()
-        if configured and service_host(configured) == host:
-            return True
-    return False
+        return "that URL names a service of this install"
+    if is_internal_service(url):
+        return "that URL is a service of this install"
+    return None
 
 
 def signed_headers(method: str, url: str, headers: dict[str, str] | None = None) -> dict[str, str]:
@@ -148,18 +208,41 @@ def internal_async_client(**kwargs: Any) -> httpx.AsyncClient:
     return async_client(**kwargs)
 
 
+def _refuse_supplied(url: str) -> None:
+    """Refuse a tenant URL before a socket is opened."""
+    from ar_common.egress_http import EgressDenied  # noqa: PLC0415
+
+    reason = tenant_supplied_url_denied(url) or tenant_loopback_denied(url)
+    if reason is not None:
+        raise EgressDenied(reason)
+
+
 def client_for(
-    url: str, *, timeout: float | None = None, allow: list[str] | None = None
+    url: str,
+    *,
+    timeout: float | None = None,
+    allow: list[str] | None = None,
+    supplied: bool = False,
 ) -> httpx.Client:
-    """Cluster client for an internal service, external client otherwise."""
+    """Cluster client for a configured service, external client otherwise.
+
+    ``supplied`` is a URL a tenant saved. It is never a cluster client and
+    never carries the install HMAC, even when it names one of our services.
+    """
+    if supplied:
+        _refuse_supplied(url)
+        return sync_client(timeout=timeout, allow=_allow_with_host(allow, url))
     if is_internal_service(url):
         return internal_sync_client(timeout=timeout)
     return sync_client(timeout=timeout, allow=_allow_with_host(allow, url))
 
 
 def post(url: str, **kwargs: Any) -> httpx.Response:
-    """POST through the internal client when ``url`` is one of our services."""
-    if is_internal_service(url):
+    """POST through the internal client when ``url`` is a configured service."""
+    supplied = bool(kwargs.pop("supplied", False))
+    if supplied:
+        _refuse_supplied(url)
+    elif is_internal_service(url):
         return internal_post(url, **kwargs)
 
     allow = _allow_with_host(kwargs.pop("allow", None), url)
@@ -173,10 +256,17 @@ async def async_post(
     *,
     allow: list[str] | None = None,
     timeout_s: float | None = None,
+    supplied: bool = False,
     **kwargs: Any,
 ) -> httpx.Response:
-    """POST to an internal service in cluster mode, or to anyone else externally."""
-    if is_internal_service(url):
+    """POST to a configured service in cluster mode, or to anyone else externally.
+
+    ``supplied`` is a tenant URL: external client, no HMAC, and refused when
+    it names an install service or a loopback address.
+    """
+    if supplied:
+        _refuse_supplied(url)
+    elif is_internal_service(url):
         headers = signed_headers("POST", url, kwargs.pop("headers", None))
         async with internal_async_client(timeout=timeout_s) as client:
             return await client.post(url, headers=headers, **kwargs)

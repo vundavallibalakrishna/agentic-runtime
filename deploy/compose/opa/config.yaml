@@ -1,11 +1,9 @@
-# Compose supports a host-run API as well as its published container port.
-# Decisions fail closed until the authenticated tenant bundle is available.
+# OPA cannot sign X-AR-Internal. It polls the forwarder in this container, which
+# signs the request and sends it to the API. Decisions fail closed until the
+# bundle arrives.
 services:
   ar:
-    url: "http://host.docker.internal:${AR_PORT}"
-    credentials:
-      bearer:
-        token: "${AR_OPA_BUNDLE_TOKEN}"
+    url: ${AR_OPA_FORWARD_URL}
 bundles:
   ar:
     service: ar

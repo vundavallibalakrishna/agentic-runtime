@@ -238,7 +238,14 @@ async def _ask_model(
     from ar_common.internal_http import async_post  # noqa: PLC0415
 
     try:
-        response = await async_post(url, json=body, headers=headers, timeout_s=max(timeout_s, 30.0))
+        response = await async_post(
+            url,
+            json=body,
+            headers=headers,
+            timeout_s=max(timeout_s, 30.0),
+            supplied=callable(getattr(store, "_alias_target", None))
+            and store._alias_target(actor.tenant_id, "reasoning") is not None,
+        )
     except httpx.HTTPError:
         return "The model provider did not answer."
     if response.status_code >= 300:

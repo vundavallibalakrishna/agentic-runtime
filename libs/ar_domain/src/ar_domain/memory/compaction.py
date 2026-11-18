@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ar_common.internal_http import internal_post, is_internal_service
+from ar_common.internal_http import tenant_loopback_denied, tenant_supplied_url_denied
 from ar_domain.memory.metrics import COMPACTIONS
 from ar_domain.prompts.budget import estimate_tokens
 
@@ -133,11 +133,11 @@ def _remote_count(url: str, text: str, model: str = "") -> int | None:
     """Ask a configured tokenizer. An unnamed model is counted locally."""
     if not model or model.startswith("fake"):
         return None
-    post = internal_post if is_internal_service(url) else None
-    if post is None:
-        from ar_common.egress_http import http_post  # noqa: PLC0415
+    if tenant_supplied_url_denied(url) is not None or tenant_loopback_denied(url) is not None:
+        return None
+    from ar_common.egress_http import http_post  # noqa: PLC0415
 
-        post = http_post
+    post = http_post
     try:
         response = post(
             url.rstrip("/") + "/v1/tokenize",

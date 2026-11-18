@@ -108,8 +108,7 @@ _CAPABILITIES: tuple[tuple[str, str, str, str], ...] = (
         "eval-harness",
         CONTRACT,
         "no",
-        "scripts/eval_run.py scores a stubbed model over HTTP. The report has no model id. "
-        "A live label is written only when AR_LLM_API_KEY is set.",
+        "An eval is an eval run in the product.",
     ),
     (
         "research",

@@ -193,17 +193,26 @@ async def _post_json(
     headers: dict[str, str],
     timeout_s: float,
     allow: list[str] | None,
+    *,
+    supplied: bool = False,
 ) -> tuple[httpx.Response | None, bool]:
     from urllib.parse import urlsplit  # noqa: PLC0415
 
+    from ar_common.egress_http import EgressDenied  # noqa: PLC0415
     from ar_common.internal_http import (  # noqa: PLC0415
         internal_async_client,
         is_internal_service,
         signed_headers,
+        tenant_loopback_denied,
+        tenant_supplied_url_denied,
     )
 
     try:
-        if is_internal_service(url):
+        if supplied:
+            reason = tenant_supplied_url_denied(url) or tenant_loopback_denied(url)
+            if reason is not None:
+                raise EgressDenied(reason)
+        if not supplied and is_internal_service(url):
             sent = signed_headers("POST", url, headers)
             async with internal_async_client(timeout=timeout_s) as client:
                 response = await client.post(url, json=body, headers=sent)
@@ -730,6 +739,7 @@ class ChatBehaviour:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         ok = False
         output = "provider test failed"
+        self._refuse_model_url(tenant_id, base_url, at_call=True)
         try:
             async with async_client(timeout=30.0, allow=self._dial_allow(tenant_id)) as client:
                 response = await client.get(base_url.rstrip("/") + "/models", headers=headers)
@@ -2456,6 +2466,7 @@ class ChatBehaviour:
             options=self.request_options(owner, alias),
             url=url,
             allow=self._dial_allow(owner),
+            supplied=self._alias_target(owner, alias) is not None,
         )
         return [prefix + (remote or "The model returned an empty answer.")]
 
@@ -2471,6 +2482,7 @@ class ChatBehaviour:
         options: dict[str, object] | None = None,
         url: str | None = None,
         allow: list[str] | None = None,
+        supplied: bool = False,
     ) -> str | None:
         from ar_domain.models.request import chat_completion_body  # noqa: PLC0415
 
@@ -2508,6 +2520,7 @@ class ChatBehaviour:
                 headers=headers or {},
                 timeout_s=timeout_s,
                 allow=allow,
+                supplied=supplied,
             )
             if response.status_code >= 300:
                 return "The model provider returned an error." if real else None
@@ -2643,7 +2656,12 @@ class ChatBehaviour:
                 body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
         response, transport_error = await _post_json(
-            url, body, headers, timeout_s, self._dial_allow(tenant_id)
+            url,
+            body,
+            headers,
+            timeout_s,
+            self._dial_allow(tenant_id),
+            supplied=self._alias_target(tenant_id, model_alias) is not None,
         )
         if transport_error or response is None:
             if not real:
@@ -2768,7 +2786,9 @@ class ChatBehaviour:
             )
         if payload is None:
             allow = self._dial_allow(tenant_id)
-            response, transport_error = await _post_json(url, body, headers, timeout_s, allow)
+            response, transport_error = await _post_json(
+                url, body, headers, timeout_s, allow, supplied=True
+            )
             if transport_error or response is None:
                 return _provider_failure("The model provider did not answer.", retryable=True)
             error_text = _safe_body(response)
@@ -2779,7 +2799,9 @@ class ChatBehaviour:
                 return failed
             if shaped is not None and response_format_rejected(response.status_code, error_text):
                 body.pop("response_format", None)
-                response, transport_error = await _post_json(url, body, headers, timeout_s, allow)
+                response, transport_error = await _post_json(
+                    url, body, headers, timeout_s, allow, supplied=True
+                )
                 if transport_error or response is None:
                     return _provider_failure("The model provider did not answer.", retryable=True)
                 error_text = _safe_body(response)
@@ -3364,14 +3386,50 @@ class ChatBehaviour:
         run = self.runs.get(run_id)
         if run is None or run["tenant_id"] != tenant_id:
             raise NotFoundError()
-        return self._public(run)
+        return self._with_answered_model(run)
+
+    def _with_answered_model(self, run: dict[str, object]) -> dict[str, object]:
+        """Public run, including the model that wrote the reply.
+
+        The label is stored on the assistant message. The run row has no column
+        for it, so a reload would otherwise show an empty model.
+        """
+        body = self._public(run)
+        label = self._answered_model(run)
+        if label:
+            body["answered_model"] = label
+        return body
+
+    def _answered_model(self, run: dict[str, object]) -> str:
+        named = run.get("answered_model")
+        if isinstance(named, str) and named.strip():
+            return named.strip()
+        run_id = run.get("id")
+        best = ""
+        stamp = ""
+        messages = getattr(self, "messages", {})
+        if not isinstance(messages, dict):
+            return ""
+        for message in messages.values():
+            if not isinstance(message, dict):
+                continue
+            if message.get("run_id") != run_id or message.get("role") != "assistant":
+                continue
+            label = message.get("answered_model")
+            if not isinstance(label, str) or not label.strip():
+                continue
+            created = str(message.get("created_at") or "")
+            if created >= stamp:
+                stamp = created
+                best = label.strip()
+        return best
 
     def list_runs(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> list[dict[str, object]]:
         listed: list[dict[str, object]] = []
         for row in self.runs.values():
             if row["tenant_id"] != tenant_id or row["user_id"] != user_id:
                 continue
-            body = self._public(row)
+            body = self._with_answered_model(row)
             conversation_id = row.get("conversation_id")
             conversation = (
                 self.conversations.get(conversation_id)
