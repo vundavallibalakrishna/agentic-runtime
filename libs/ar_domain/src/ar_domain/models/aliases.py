@@ -45,8 +45,13 @@ STANDARD_ALIASES: tuple[StandardAlias, ...] = (
 CHAT_DEFAULT_PARAMS: dict[str, object] = {"temperature": 0.2}
 
 
-# What a tenant may say a model can do. ``vision`` lets the image tool use it.
-CAPABILITIES = frozenset({"streaming", "tools", "vision"})
+# What a tenant may say a model can do. The runtime does not infer these from the name.
+# ``vision`` lets the image tool use it. ``json_schema`` and ``json_object`` are the
+# OpenAI ``response_format`` modes the provider accepts. ``preserve_thinking`` keeps
+# ``<think>`` text in the answer; otherwise that trace is removed from the answer.
+CAPABILITIES = frozenset(
+    {"streaming", "tools", "vision", "json_schema", "json_object", "preserve_thinking"}
+)
 
 
 def default_params(kind: str) -> dict[str, object]:

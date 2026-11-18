@@ -93,19 +93,53 @@ def provider_url_denied(  # noqa: PLR0911
     return any(address in ipaddress.ip_network(cidr, strict=False) for cidr in deny_cidrs)
 
 
-_THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
-_THINK_INNER = re.compile(r"<think>(.*?)</think>", re.DOTALL | re.IGNORECASE)
+_THINK_PAIR = re.compile(r"<think\b[^>]*>(.*?)</think>", re.DOTALL | re.IGNORECASE)
+_THINK_OPEN = re.compile(r"<think\b[^>]*>", re.IGNORECASE)
+_THINK_CLOSE = re.compile(r"</think>", re.IGNORECASE)
+
+
+def split_thinking(text: str) -> tuple[str, str]:
+    """Visible answer and the private trace.
+
+    Closed ``<think>`` blocks, an unclosed opening tag, and a leading
+    ``</think>`` (the chat template already opened the tag) all count. The
+    trace is not put back into the answer when it was the whole reply.
+    """
+    if not text:
+        return "", ""
+    reasoning: list[str] = []
+
+    def _keep(match: re.Match[str]) -> str:
+        inner = match.group(1).strip()
+        if inner:
+            reasoning.append(inner)
+        return ""
+
+    visible = _THINK_PAIR.sub(_keep, text)
+    opened = _THINK_OPEN.search(visible)
+    if opened is not None:
+        inner = visible[opened.end() :].strip()
+        if inner:
+            reasoning.append(inner)
+        visible = visible[: opened.start()]
+    else:
+        closed = _THINK_CLOSE.search(visible)
+        if closed is not None:
+            inner = visible[: closed.start()].strip()
+            if inner:
+                reasoning.append(inner)
+            visible = visible[closed.end() :]
+    return visible.strip(), "\n".join(reasoning)
 
 
 def strip_think(text: str) -> str:
     """Drop a reasoning model's private trace and keep the answer."""
-    stripped = _THINK.sub("", text).strip()
-    return stripped or text.strip()
+    return split_thinking(text)[0]
 
 
 def think_trace(text: str) -> str:
     """The private trace inside ``<think>`` tags, without the tags."""
-    return "\n".join(chunk.strip() for chunk in _THINK_INNER.findall(text) if chunk.strip())
+    return split_thinking(text)[1]
 
 
 def resolved_model_label(upstream_model: str) -> str:
@@ -120,19 +154,13 @@ def resolved_model_label(upstream_model: str) -> str:
     return name
 
 
-def completion_message(payload: object) -> dict[str, object]:
+def completion_message(payload: object, *, strip_thinking: bool = True) -> dict[str, object]:
     """Assistant text, tool calls and token counts from one chat completion."""
-    text = completion_text(payload)
+    text = completion_text(payload, strip_thinking=strip_thinking)
     calls: list[dict[str, object]] = []
-    usage = {"tokens_in": 0, "tokens_out": 0}
+    usage = _usage(payload if isinstance(payload, dict) else None)
     if not isinstance(payload, dict):
         return {"text": text, "tool_calls": calls, "usage": usage}
-    raw_usage = payload.get("usage")
-    if isinstance(raw_usage, dict):
-        usage = {
-            "tokens_in": int(raw_usage.get("prompt_tokens") or 0),
-            "tokens_out": int(raw_usage.get("completion_tokens") or 0),
-        }
     choices = payload.get("choices")
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         return {"text": text, "tool_calls": calls, "usage": usage}
@@ -152,23 +180,47 @@ def completion_message(payload: object) -> dict[str, object]:
                     parsed["id"] = f"{ident}:{index}"
                 seen.add(str(parsed["id"]))
                 calls.append(parsed)
-        visible = str(message.get("content") or "").strip()
-        reasoning = _reasoning_trace(message, used_as_answer=not visible)
+        reasoning = _reasoning_trace(message, strip_thinking=strip_thinking, answer=text)
     return {"text": text, "tool_calls": calls, "usage": usage, "reasoning": reasoning}
 
 
-def _reasoning_trace(message: dict[str, object], *, used_as_answer: bool) -> str:
-    """A separate thinking trace. When it is the only text, it is the answer, not a trace."""
+def _usage(payload: dict[str, object] | None) -> dict[str, object]:
+    """Provider counts when the payload has them. Omitted usage is not a zero report."""
+    raw = payload.get("usage") if isinstance(payload, dict) else None
+    if isinstance(raw, dict) and _reported(raw):
+        return {
+            "tokens_in": _whole(raw.get("prompt_tokens")),
+            "tokens_out": _whole(raw.get("completion_tokens")),
+            "usage_source": "provider",
+        }
+    return {"tokens_in": 0, "tokens_out": 0, "usage_source": "unknown"}
+
+
+def _reported(raw: dict[str, object]) -> bool:
+    return "prompt_tokens" in raw or "completion_tokens" in raw
+
+
+def _whole(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return max(0, value)
+
+
+def _reasoning_trace(message: dict[str, object], *, strip_thinking: bool, answer: str) -> str:
+    """A separate thinking trace. Text that became the answer is not repeated here."""
+    if not strip_thinking:
+        return ""
     content = message.get("content")
     chunks: list[str] = []
     if isinstance(content, str):
         found = think_trace(content)
-        if found:
+        if found and found != answer:
             chunks.append(found)
-    if not used_as_answer:
-        raw = message.get("reasoning_content")
-        if isinstance(raw, str) and raw.strip():
-            chunks.append(raw.strip())
+    raw = message.get("reasoning_content")
+    if isinstance(raw, str) and raw.strip() and raw.strip() != answer:
+        trace = think_trace(raw) or raw.strip()
+        if trace and trace != answer:
+            chunks.append(trace)
     return "\n".join(chunks)
 
 
@@ -178,28 +230,25 @@ def _tool_call(index: int, call: object) -> dict[str, object] | None:
     function = call.get("function")
     if not isinstance(function, dict):
         return None
-    raw_args = function.get("arguments")
-    arguments: dict[str, object] = {}
-    if isinstance(raw_args, dict):
-        arguments = raw_args
-    elif isinstance(raw_args, str) and raw_args.strip():
-        import orjson  # noqa: PLC0415
+    from ar_domain.models.arguments import parse_tool_arguments  # noqa: PLC0415
 
-        try:
-            parsed = orjson.loads(raw_args)
-        except orjson.JSONDecodeError:
-            parsed = {}
-        if isinstance(parsed, dict):
-            arguments = parsed
-    return {
-        "id": str(call.get("id") or f"call_{index}"),
+    parsed = parse_tool_arguments(function.get("arguments"))
+    ident = call.get("id")
+    row: dict[str, object] = {
+        "id": str(ident).strip() if isinstance(ident, str) and ident.strip() else f"call_{index}",
         "name": str(function.get("name") or ""),
-        "arguments": arguments,
+        "arguments": parsed.arguments if parsed.ok else {},
+        "arguments_raw": parsed.raw,
     }
+    if not parsed.ok:
+        row["arguments_error"] = parsed.error
+    elif parsed.repaired:
+        row["arguments_repaired"] = True
+    return row
 
 
-def completion_text(payload: object) -> str:
-    """Read assistant text, including a reasoning field when content is empty."""
+def completion_text(payload: object, *, strip_thinking: bool = True) -> str:
+    """Read assistant text. A reasoning field is the answer only when content is empty."""
     if not isinstance(payload, dict):
         return ""
     choices = payload.get("choices")
@@ -213,4 +262,6 @@ def completion_text(payload: object) -> str:
     if not text.strip():
         reasoning = message.get("reasoning_content")
         text = reasoning if isinstance(reasoning, str) else ""
+    if not strip_thinking:
+        return text.strip()
     return strip_think(text)

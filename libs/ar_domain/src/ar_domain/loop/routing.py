@@ -192,13 +192,16 @@ def breaker_for(store: Any) -> CircuitBreaker:
     return CircuitBreaker(memory)
 
 
-async def routed_completion(  # noqa: PLR0915
+async def routed_completion(  # noqa: PLR0912, PLR0915
     store: Any,
     messages: list[dict[str, object]],
     tools: list[dict[str, object]],
     *,
     tenant_id: uuid.UUID,
     routes: list[dict[str, str]],
+    budget_s: float | None = None,
+    max_tokens: int | None = None,
+    response_format: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Try each open endpoint. A timeout, 429, 5xx or bad JSON moves to the next."""
     import httpx  # noqa: PLC0415
@@ -225,32 +228,63 @@ async def routed_completion(  # noqa: PLR0915
             last = problem
             fell_back = True
             continue
+        from ar_domain.models.call import clamp_timeout  # noqa: PLC0415
         from ar_domain.models.options import request_options_of  # noqa: PLC0415
-        from ar_domain.models.request import chat_completion_body, model_output_limit  # noqa: PLC0415
+        from ar_domain.models.request import (  # noqa: PLC0415
+            chat_completion_body,
+            model_output_limit,
+            response_format_body,
+        )
 
         limit = None
+        window = None
         registry = None
         options: dict[str, object] = {}
+        capabilities: set[str] = set()
         models = getattr(store, "models", {})
         if isinstance(models, dict):
             for row in models.values():
                 if isinstance(row, dict) and str(row.get("upstream_model") or "") == route["model"]:
                     limit = model_output_limit(row)
+                    raw_window = row.get("context_window")
+                    if (
+                        isinstance(raw_window, int)
+                        and not isinstance(raw_window, bool)
+                        and raw_window > 0
+                    ):
+                        window = raw_window
                     registry = row.get("id")
                     options = request_options_of(row)
+                    raw_caps = row.get("capabilities")
+                    if isinstance(raw_caps, list):
+                        capabilities = {str(item) for item in raw_caps}
                     break
+        shaped = None
+        if response_format and "json_schema" in capabilities:
+            shaped = response_format_body(response_format, mode="json_schema")
+        elif response_format and "json_object" in capabilities:
+            shaped = response_format_body(response_format, mode="json_object")
         body = chat_completion_body(
             model=route["model"],
             messages=messages,
             tools=tools,
-            max_tokens=1500 if tools else 800,
+            max_tokens=max_tokens,
             model_limit=limit,
+            context_window=window,
             options=options,
+            response_format=shaped,
         )
         try:
             from ar_domain.egress import dial_allow  # noqa: PLC0415
 
-            async with async_client(timeout=30.0, allow=dial_allow(store, tenant_id)) as client:
+            timeout_s = clamp_timeout(30.0, budget_s)
+            if timeout_s <= 0:
+                last = "The model provider did not answer."
+                fell_back = True
+                continue
+            async with async_client(
+                timeout=timeout_s, allow=dial_allow(store, tenant_id)
+            ) as client:
                 response = await client.post(url, json=body, headers=headers)
         except httpx.HTTPError:
             breaker.failure(key)
@@ -274,13 +308,8 @@ async def routed_completion(  # noqa: PLR0915
             last = "The model provider returned malformed JSON."
             fell_back = True
             continue
-        if _arguments_unparsed(payload):
-            breaker.failure(key)
-            last = "The model provider returned malformed JSON."
-            fell_back = True
-            continue
         breaker.success(key)
-        parsed = completion_message(payload)
+        parsed = completion_message(payload, strip_thinking="preserve_thinking" not in capabilities)
         parsed["real"] = True
         parsed["endpoint_id"] = route["id"]
         from ar_domain.models.logic import resolved_model_label  # noqa: PLC0415
@@ -290,41 +319,15 @@ async def routed_completion(  # noqa: PLR0915
         if registry is not None:
             parsed["model_id"] = str(registry)
         parsed["fallback"] = fell_back
+        if shaped is not None:
+            parsed["response_format_sent"] = True
         return parsed
     return {
         "text": last,
         "tool_calls": [],
-        "usage": {"tokens_in": 0, "tokens_out": 0},
+        "usage": {"tokens_in": 0, "tokens_out": 0, "usage_source": "unknown"},
         "real": True,
     }
-
-
-def _arguments_unparsed(payload: object) -> bool:
-    if not isinstance(payload, dict):
-        return False
-    choices = payload.get("choices")
-    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
-        return False
-    message = choices[0].get("message")
-    if not isinstance(message, dict):
-        return False
-    calls = message.get("tool_calls")
-    if not isinstance(calls, list):
-        return False
-    for call in calls:
-        if not isinstance(call, dict):
-            continue
-        function = call.get("function")
-        if not isinstance(function, dict):
-            continue
-        raw = function.get("arguments")
-        if not isinstance(raw, str) or not raw.strip():
-            continue
-        try:
-            orjson.loads(raw)
-        except orjson.JSONDecodeError:
-            return True
-    return False
 
 
 def authorization_for(store: Any, tenant_id: uuid.UUID, route: dict[str, str]) -> dict[str, str]:

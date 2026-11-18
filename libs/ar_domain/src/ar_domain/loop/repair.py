@@ -77,6 +77,11 @@ def repair_prompt(kind: str, detail: str) -> str:
         )
     if kind == "parse":
         return f"The previous reply was not valid JSON: {text}. Reply with only valid JSON."
+    if kind == "empty":
+        return (
+            "The previous reply was empty. Reply with the answer, or with a tool call "
+            "whose arguments are one JSON object."
+        )
     if kind == "output":
         return (
             "That was not valid JSON for the required schema: "

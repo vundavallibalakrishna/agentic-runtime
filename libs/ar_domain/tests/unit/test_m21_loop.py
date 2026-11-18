@@ -362,10 +362,17 @@ def test_silent_provider_fails_the_run() -> None:
 
 def test_blank_model_text_is_replaced() -> None:
     store = _store()
-    _script(store, [{"text": "   ", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 0}}])
+    _script(
+        store,
+        [
+            {"text": "   ", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 0}},
+            {"text": "   ", "tool_calls": [], "usage": {"tokens_in": 1, "tokens_out": 0}},
+        ],
+    )
     run = _run(store, "Say nothing")
     text = str(store.messages[uuid.UUID(str(run["assistant_message_id"]))]["text"])
     assert "empty answer" in text
+    assert any(str(row.get("detail", {}).get("reason")) == "empty" for row in store.audit_log)
 
 
 def test_repeated_tool_failures_stop_the_run() -> None:

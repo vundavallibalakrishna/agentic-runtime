@@ -117,9 +117,13 @@ def ask_image(
     url = url_for(tenant_id, chosen, headers)
     secret = _bearer(headers) or secret
     encoded = base64.standard_b64encode(data).decode("ascii")
-    body: dict[str, object] = {
-        "model": model_name,
-        "messages": [
+    from ar_domain.models.options import request_options_of  # noqa: PLC0415
+    from ar_domain.models.request import chat_completion_body, model_output_limit  # noqa: PLC0415
+
+    model_row = _model_row(store, tenant_id, chosen)
+    body = chat_completion_body(
+        model=model_name,
+        messages=[
             {"role": "system", "content": _SYSTEM},
             {
                 "role": "user",
@@ -129,10 +133,10 @@ def ask_image(
                 ],
             },
         ],
-        "max_tokens": 800,
-    }
-    if "qwen3" in model_name.lower():
-        body["chat_template_kwargs"] = {"enable_thinking": False}
+        model_limit=model_output_limit(model_row) if model_row else None,
+        context_window=_window(model_row),
+        options=request_options_of(model_row) if model_row else {},
+    )
     try:
         with sync_client(timeout=timeout_s) as client:
             response = blocking(client.post, url, json=body, headers=headers)
@@ -153,6 +157,25 @@ def ask_image(
     if not text.strip():
         raise VisionError("vision_unavailable", "The vision model returned an empty answer.")
     return text
+
+
+def _model_row(store: Any, tenant_id: Any, alias: str) -> dict[str, object] | None:
+    finder = getattr(store, "_alias_target", None)
+    if not callable(finder):
+        return None
+    found = finder(tenant_id, alias)
+    if not isinstance(found, tuple) or len(found) < 2 or not isinstance(found[1], dict):
+        return None
+    return found[1]
+
+
+def _window(model: dict[str, object] | None) -> int | None:
+    if not isinstance(model, dict):
+        return None
+    raw = model.get("context_window")
+    if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+        return raw
+    return None
 
 
 def _target(
