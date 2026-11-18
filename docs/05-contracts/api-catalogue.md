@@ -617,6 +617,7 @@ Spec: [03-specs/09-policy-approvals.md](../03-specs/09-policy-approvals.md)
 | GET | [`/api/v1/review-items/{review_item_id}`](../03-specs/09-policy-approvals.md#get-apiv1review-itemsreview_item_id) | object-level (see spec) |
 | POST | [`/api/v1/review-items/{review_item_id}:decide`](../03-specs/09-policy-approvals.md#post-apiv1review-itemsreview_item_iddecide) | see spec |
 | POST | [`/api/v1/review-items:bulk-decide`](../03-specs/09-policy-approvals.md#post-apiv1review-itemsbulk-decide) | see spec |
+| POST | [`/api/v1/messages/{message_id}:accept`](../03-specs/09-policy-approvals.md#post-apiv1messagesmessage_idaccept) | `reviews:decide` |
 | GET | [`/api/v1/sod-constraints`](../03-specs/09-policy-approvals.md#get-apiv1sod-constraints) | `policies:read` |
 | POST | [`/api/v1/sod-constraints`](../03-specs/09-policy-approvals.md#post-apiv1sod-constraints) | `sod:manage` |
 | GET | [`/api/v1/sod-constraints/{constraint_id}`](../03-specs/09-policy-approvals.md#get-apiv1sod-constraintsconstraint_id) | `policies:read` |

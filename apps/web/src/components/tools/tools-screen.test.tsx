@@ -114,6 +114,50 @@ describe("tool screens", () => {
       wrap(
         <ToolCallCard
           call={{
+            qualifiedName: "general.pivot_table",
+            status: "succeeded",
+            presentation: {
+              kind: "pivot",
+              sql: "SELECT * FROM (PIVOT sales ON quarter USING sum(amount) GROUP BY region)",
+              columns: ["region", "Q1"],
+              rows: [["North", 417]],
+              truncated: false,
+            },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(
+      screen.getByText("SELECT * FROM (PIVOT sales ON quarter USING sum(amount) GROUP BY region)"),
+    ).toBeTruthy();
+    expect(screen.getByText("417")).toBeTruthy();
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "general.sample_table",
+            status: "succeeded",
+            presentation: {
+              kind: "sample",
+              columns: ["id", "selection", "reason"],
+              rows: [["INV-88", "judgmental", "named by the owner"]],
+              truncated: false,
+              files: [{ fileId: "file-3", name: "sample_items.csv" }],
+            },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByText("named by the owner")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Download sample_items.csv" }).getAttribute("href"),
+    ).toBe("/api/v1/files/file-3/content");
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
             qualifiedName: "documents.ocr",
             status: "succeeded",
             presentation: {

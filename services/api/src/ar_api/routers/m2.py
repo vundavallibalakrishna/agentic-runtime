@@ -583,6 +583,7 @@ async def get_conversation(conversation_id: uuid.UUID, request: Request) -> dict
         uuid.UUID(principal.id),
         conversation_id,
         read_all=read_all,
+        reviewer=actor_from(principal),
     )
     if body.get("is_preview"):
         agent_id = body.get("agent_id")

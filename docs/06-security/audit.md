@@ -46,6 +46,7 @@ Implementation: [spec 17 §1](../03-specs/17-audit-usage-metering.md#1-audit), t
 | Evals | `eval_suite.created`, `eval_suite.updated`, `eval_suite.deleted`, `eval_run.started`, `eval_run.cancelled` |
 | Content packs | `pack.installed`, `pack.upgraded`, `pack.uninstalled`, `pack.signature_rejected` (F), `tenant_pack.enabled`, `tenant_pack.disabled` |
 | Reviews and SoD | `review_queue.created`, `review_queue.updated`, `review_queue.deleted`, `review_item.created`, `review_item.decided`, `review_item.expired`, `review_item.superseded`, `signoff.recorded`, `sod_constraint.created`, `sod_constraint.updated`, `sod_constraint.deleted`, `sod.violation_blocked` (F) |
+| Saved queries | `saved_query.saved`, `saved_query.signoff_requested`, `saved_query.run` |
 | Run records | `run_record.sealed`, `run_record.seal_failed` (F), `run_record.replayed`, `run_record.replay_diverged` |
 | Evidence and holds | `evidence.captured`, `evidence.accessed`, `evidence.verified`, `evidence.exported`, `evidence.disposed`, `legal_hold.created`, `legal_hold.released`, `retention_schedule.updated`, `disposition.certified` |
 | AI governance | `agent_card.published`, `agent_card.updated`, `ai_incident.created`, `ai_incident.updated`, `ai_governance.exported` |

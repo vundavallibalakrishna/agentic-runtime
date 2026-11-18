@@ -58,6 +58,8 @@
 | 0033 | `durability` | `file_blobs`, `workspace_files`, `job_progress`, `a2a_push_configs`. RLS, grants and updated-at triggers. `file_blobs` stopped being written with M38b-T13 (bytes are in the object store, rows in `files`); a later revision drops it (OQ-112). Caps are applied in the flush, not as table checks. | M35 |
 | 0034 | `clear_tool_hash_vectors` | Sets `tool_versions.embedding` to NULL. The values were computed from a hash of the description. Nothing reads or writes the column now; a later revision drops it and its index (OQ-106). Forward-only. | M38a |
 | 0038 | `stage5_files_judgements` | Nullable `library_documents.object_key` and `document_chunks.embedding_model_id`. Append-only `rule_sets` and `judgements`, with RLS and grants. | Stage 5 |
+| 0049 | `assistant_sample_knowledge` | Data only. Publishes the seeded assistant again with `general.sample_table`, the three saved-query tools and `knowledge.search`. An assistant an administrator has published since is left alone. Downgrade publishes a version without them. | OQ-138 |
+| 0050 | `saved_queries` | Append-only `saved_queries` with RLS and grants. Adds `saved_query` to the `review_queues.subject_type` check. | OQ-138 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

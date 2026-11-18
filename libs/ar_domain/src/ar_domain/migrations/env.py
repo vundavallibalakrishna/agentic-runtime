@@ -36,6 +36,7 @@ import ar_domain.routines.tables
 import ar_domain.sandboxes.tables
 import ar_domain.secrets.models
 import ar_domain.skills.tables
+import ar_domain.spreadsheet.tables
 import ar_domain.tools.tables
 import ar_domain.usage.tables  # noqa: F401
 from ar_common.host_ports import find_env_file, parse_env

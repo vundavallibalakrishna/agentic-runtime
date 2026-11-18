@@ -1373,11 +1373,14 @@ def _general_tools() -> list[dict[str, object]]:
         ),
         _query_table_tool(),
         _pivot_tool(),
+        _sample_table_tool(),
+        *_saved_query_tools(),
         _tool(
             "export_table",
             "Export a table",
             "Write rows to a CSV or xlsx file that can be downloaded from the chat. "
-            "Pass rows as a list of objects, or sql over a workspace file.",
+            "Pass rows as a list of objects, or sql together with paths, the table files "
+            "the statement reads.",
             {
                 "type": "object",
                 "properties": {
@@ -1393,8 +1396,18 @@ def _general_tools() -> list[dict[str, object]]:
                     },
                     "sql": {
                         "type": "string",
-                        "description": "A read-only SQL statement over a workspace table file "
+                        "description": "A read-only SQL statement over the files in paths "
                         "to produce the rows. Give this or rows.",
+                    },
+                    "paths": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "description": "A table file the statement reads, as a path "
+                            "relative to the working folder.",
+                        },
+                        "description": "The table files sql reads. The table name is each "
+                        "file's or sheet's name. Needed with sql.",
                     },
                     "rows": {
                         "type": "array",
@@ -1633,8 +1646,10 @@ def _documents_server(store: Any) -> None:
                 "compare",
                 "Compare documents",
                 "Compare two library documents and report added, removed and changed passages. "
-                "Use it for two versions or two drafts of the same kind of document. To test a "
-                "document against a list of requirements, use documents.judge.",
+                "Use it for two versions or two drafts of the same kind of document. It needs "
+                "two different documents: to check one document against itself, read it with "
+                "documents.read. To test a document against a list of requirements, use "
+                "documents.judge.",
                 {
                     "type": "object",
                     "properties": {
@@ -1732,8 +1747,9 @@ def _documents_server(store: Any) -> None:
             _tool(
                 "rewrite",
                 "Rewrite a passage",
-                "Propose a rewrite of one anchor, or of the opening of the document. "
-                "Nothing is saved until a person accepts the diff.",
+                "Propose a rewrite of one anchor, or of the opening of a library document. "
+                "Nothing is saved until a person accepts the diff. For text the person typed "
+                "or pasted into the chat, write the improved text in your reply instead.",
                 {
                     "type": "object",
                     "properties": {
@@ -1792,9 +1808,10 @@ def _documents_server(store: Any) -> None:
             _tool(
                 "create",
                 "Create a document",
-                "Create a DOCX, PDF or XLSX from a title and sections or sheets. "
+                "Create a DOCX, PDF, PPTX or XLSX from a title and sections or sheets. "
                 "The file is saved in this run's workspace and can be downloaded from the chat. "
-                "format is docx, pdf or xlsx. A section has heading, paragraphs, bullets "
+                "format is docx, pdf, pptx or xlsx. Choose pptx for a slide presentation: "
+                "one section per slide. A section has heading, paragraphs, bullets "
                 "and an optional table. A sheet has name, columns and rows. "
                 "template is report, brief or sheet.",
                 {
@@ -1803,16 +1820,16 @@ def _documents_server(store: Any) -> None:
                         "format": {
                             "type": "string",
                             "description": "The file format to create.",
-                            "enum": ["docx", "pdf", "xlsx"],
+                            "enum": ["docx", "pdf", "pptx", "xlsx"],
                         },
                         "title": {
                             "type": "string",
-                            "description": "The document or workbook title.",
+                            "description": "The document, presentation or workbook title.",
                         },
                         "subtitle": {
                             "type": "string",
                             "description": "An optional subtitle shown under the title "
-                            "(docx and pdf).",
+                            "(docx, pdf and pptx).",
                         },
                         "author": {
                             "type": "string",
@@ -1861,8 +1878,9 @@ def _documents_server(store: Any) -> None:
                                     },
                                 },
                             },
-                            "description": "The sections of a docx or pdf, in order. Use this "
-                            "for a docx or pdf, not for an xlsx.",
+                            "description": "The sections of a docx or pdf, or the slides "
+                            "of a pptx, in order. Use this for a docx, pdf or pptx, "
+                            "not for an xlsx.",
                         },
                         "sheets": {
                             "type": "array",
@@ -1894,7 +1912,7 @@ def _documents_server(store: Any) -> None:
                                 },
                             },
                             "description": "The worksheets of an xlsx. Use this for an xlsx, "
-                            "not for a docx or pdf.",
+                            "not for a docx, pdf or pptx.",
                         },
                     },
                     "required": ["format", "title"],
@@ -2006,10 +2024,10 @@ def ensure_m33b(store: Any) -> None:
 
 
 def ensure_m34b(store: Any) -> None:
-    """Add sheet pivot and the chart theme arguments."""
+    """Add sheet pivot, sampling, saved queries and the chart theme arguments."""
     if not isinstance(getattr(store, "tool_servers", None), dict):
         return
-    _append_tools(store, "general", [_pivot_tool()])
+    _append_tools(store, "general", [_pivot_tool(), _sample_table_tool(), *_saved_query_tools()])
     refresh_builtins(store)
 
 
@@ -2102,6 +2120,201 @@ def _pivot_tool() -> dict[str, object]:
         },
         "R0",
     )
+
+
+def _sample_table_tool() -> dict[str, object]:
+    return _tool(
+        "sample_table",
+        "Sample a table file",
+        "Draw a sample of rows from a CSV, TSV, JSON or xlsx file and write it to a CSV "
+        "that can be downloaded from the chat. Use it only when the person asks for a "
+        "sample of the rows of a table file, never to read a document: "
+        "random, stratified (a number from each group), monetary unit (larger amounts are "
+        "more likely to be picked), the whole population, or to add hand-picked rows with "
+        "a reason. Do not sample with SQL or code. The same file, arguments and seed draw "
+        "the same rows. The result states the method, seed, population and counts; "
+        "repeat those to the person.",
+        {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "The table file to sample, as a path relative to the "
+                    "working folder.",
+                },
+                "sheet": {
+                    "type": "string",
+                    "description": "The sheet to sample, for an xlsx with more than one sheet.",
+                },
+                "method": {
+                    "type": "string",
+                    "description": "How to draw. random: size rows, each equally likely. "
+                    "stratified: size rows from each distinct value of stratify_by. "
+                    "monetary_unit: systematic selection over the running total of "
+                    "amount_column, with interval total/size and a random start. full: "
+                    "every row.",
+                    "enum": ["random", "stratified", "monetary_unit", "full"],
+                },
+                "size": {
+                    "type": "integer",
+                    "description": "How many rows to draw. For stratified, how many from "
+                    "each group. Not used by full.",
+                },
+                "seed": {
+                    "type": "integer",
+                    "description": "The seed for the random draw. Give the seed of an "
+                    "earlier draw to repeat it. Omit it and the tool picks one and "
+                    "reports it.",
+                },
+                "stratify_by": {
+                    "type": "string",
+                    "description": "The column whose distinct values are the groups, from "
+                    "inspect_table. Required for stratified.",
+                },
+                "amount_column": {
+                    "type": "string",
+                    "description": "The numeric column to weight by, from inspect_table. "
+                    "Required for monetary_unit. Absolute values are used.",
+                },
+                "include": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "description": "Rows to add by hand: a key column, the values that "
+                        "identify the rows, and why they were picked.",
+                        "properties": {
+                            "key_column": {
+                                "type": "string",
+                                "description": "The column that identifies a row, such as "
+                                "an id column from inspect_table.",
+                            },
+                            "values": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "description": "One value of the key column.",
+                                },
+                                "description": "The key values of the rows to add.",
+                            },
+                            "reason": {
+                                "type": "string",
+                                "description": "Why these rows were hand-picked. It is "
+                                "written beside each of them in the output.",
+                            },
+                        },
+                        "required": ["key_column", "values", "reason"],
+                    },
+                    "description": "Hand-picked rows to add to the sample. They are marked "
+                    "judgmental, carry the reason, and are never counted twice.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "The name of the CSV file to write. Defaults to "
+                    "sample_ followed by the table name.",
+                },
+            },
+            "required": ["path", "method"],
+        },
+        "R0",
+    )
+
+
+def _saved_query_tools() -> list[dict[str, object]]:
+    return [
+        _tool(
+            "save_query",
+            "Save a table query",
+            "Save one read-only SQL statement under a name so it can be run again later "
+            "on a new file. Use it only when the person asks to save, keep or reuse a "
+            "query, rule or filter, and save the one finished statement, not its steps. To "
+            "get an answer now, use query_table. Saving under a name that exists adds the "
+            "next version; nothing is overwritten. The result says whether it was saved "
+            "and whether it needs sign-off before it may run. Only say it was saved when "
+            "the result says so.",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "A short name to find the query by later.",
+                    },
+                    "sql": {
+                        "type": "string",
+                        "description": "One read-only SQL statement. The table name is the "
+                        "file or sheet name, as in query_table.",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "What the query finds and when to use it, in a "
+                        "sentence. A reviewer reads this beside the statement.",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "A table file to check the statement against before "
+                        "it is saved, as a path relative to the working folder.",
+                    },
+                    "paths": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "description": "A table file the statement reads, as a path "
+                            "relative to the working folder.",
+                        },
+                        "description": "Several table files to check the statement against, "
+                        "when it joins more than one. Give path or paths.",
+                    },
+                },
+                "required": ["name", "sql"],
+            },
+            "W1",
+        ),
+        _tool(
+            "list_saved_queries",
+            "List saved queries",
+            "List the queries saved in this workspace: the name, newest version, "
+            "description, statement and sign-off status of each. Use it to find a saved "
+            "query before running it.",
+            {"type": "object", "properties": {}},
+            "R0",
+        ),
+        _tool(
+            "run_saved_query",
+            "Run a saved query",
+            "Run a saved query against a table file as it is now. Nothing is cached. The "
+            "result shows the SQL, the version and who approved it. A version that needs "
+            "sign-off and has none is refused; the result says who must approve it.",
+            {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The name of the saved query, from list_saved_queries.",
+                    },
+                    "version": {
+                        "type": "integer",
+                        "description": "The version to run. Omit to run the newest.",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "The table file to run it on, as a path relative to "
+                        "the working folder. Give path or paths.",
+                    },
+                    "paths": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "description": "A table file to make available to the query, "
+                            "as a path relative to the working folder.",
+                        },
+                        "description": "Several table files, when the query joins more "
+                        "than one. Give path or paths.",
+                    },
+                },
+                "required": ["name"],
+            },
+            "R0",
+        ),
+    ]
 
 
 def _chart_tool() -> dict[str, object]:

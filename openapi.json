@@ -13147,6 +13147,66 @@
         }
       }
     },
+    "/api/v1/messages/{message_id}:accept": {
+      "post": {
+        "summary": "Accept Message",
+        "description": "Record that the caller reviewed one assistant reply and accepts it as it reads now.",
+        "operationId": "accept_message_api_v1_messages__message_id__accept_post",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AcceptBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Accept Message Api V1 Messages  Message Id  Accept Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sod-constraints": {
       "get": {
         "summary": "List Constraints",
@@ -20858,6 +20918,31 @@
   },
   "components": {
     "schemas": {
+      "AcceptBody": {
+        "properties": {
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement"
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Comment",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AcceptBody"
+      },
       "ActivateBody": {
         "properties": {
           "version": {

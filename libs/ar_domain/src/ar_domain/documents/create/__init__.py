@@ -1,4 +1,4 @@
-"""Build a DOCX, PDF or XLSX from a structured payload.
+"""Build a DOCX, PDF, PPTX or XLSX from a structured payload.
 
 Writers use the standard library (OQ-71). The tool stores the bytes as a
 workspace artifact so chat can download them.

@@ -1,4 +1,4 @@
-"""Flush and hydrate standing approvals and review queues.
+"""Flush and hydrate standing approvals, review queues, sign-offs and saved queries.
 
 These rows are durable. Two API replicas see them because each request loads
 the tenant and commits the unit. Spec: docs/04-data/schema.md §7 and §21.
@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
     from sqlalchemy.ext.asyncio import AsyncSession
 _ITEM_STATUSES = frozenset({"pending", "in_review", "signed", "rejected", "expired", "superseded"})
+_DECISIONS = frozenset({"approve", "reject", "delegate"})
+_SIGNERS = frozenset({"user", "guest"})
 _PREPARERS = frozenset({"user", "service_account", "guest"})
 
 
@@ -27,6 +29,8 @@ async def save_shared_rows(session: AsyncSession, pending: dict[str, list[dict[s
     await save_standing_approvals(session, pending.get("standing_approvals", []))
     await save_review_queues(session, pending.get("review_queues", []))
     await save_review_items(session, pending.get("review_items", []))
+    await save_signoffs(session, pending.get("signoffs", []))
+    await save_saved_queries(session, pending.get("saved_queries", []))
 
 
 async def load_shared_rows(session: AsyncSession, store: object, tenant_id: uuid.UUID) -> None:
@@ -51,6 +55,20 @@ async def load_shared_rows(session: AsyncSession, store: object, tenant_id: uuid
         store,
         "review_items",
         "SELECT * FROM review_items WHERE tenant_id = :tenant_id",
+        tenant_id,
+    )
+    await _load(
+        session,
+        store,
+        "signoffs",
+        "SELECT * FROM signoffs WHERE tenant_id = :tenant_id",
+        tenant_id,
+    )
+    await _load(
+        session,
+        store,
+        "saved_queries",
+        "SELECT * FROM saved_queries WHERE tenant_id = :tenant_id",
         tenant_id,
     )
 
@@ -202,6 +220,93 @@ async def save_review_items(session: AsyncSession, rows: list[dict[str, Any]]) -
                 "expires_at": as_dt(row.get("expires_at")),
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
+            },
+        )
+
+
+async def save_signoffs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    """Write new sign-offs. The table is append-only, so a stored row is never rewritten."""
+    sql = """
+        INSERT INTO signoffs (
+            id, tenant_id, review_item_id, level, decision, signer_principal_type,
+            signer_principal_id, signer_role_key, content_hash, statement_hash, comment,
+            step_up_at, delegated_to_user_id, created_at
+        ) VALUES (
+            :id, :tenant_id, :review_item_id, :level, :decision, :signer_principal_type,
+            :signer_principal_id, :signer_role_key, :content_hash, :statement_hash, :comment,
+            :step_up_at, :delegated_to_user_id, :created_at
+        )
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        signoff_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        item_id = as_uuid(row.get("review_item_id"))
+        signer = as_uuid(row.get("signer_principal_id"))
+        decision = as_text(row.get("decision"))
+        kind = as_text(row.get("signer_principal_type"), "user")
+        if None in {signoff_id, tenant_id, item_id, signer}:
+            continue
+        if decision not in _DECISIONS or kind not in _SIGNERS:
+            continue
+        if not await _exists(session, "review_items", item_id):
+            continue
+        role = row.get("signer_role_key")
+        await _one(
+            session,
+            sql,
+            {
+                "id": signoff_id,
+                "tenant_id": tenant_id,
+                "review_item_id": item_id,
+                "level": as_int(row.get("level"), 1),
+                "decision": decision,
+                "signer_principal_type": kind,
+                "signer_principal_id": signer,
+                "signer_role_key": as_text(role) if role else None,
+                "content_hash": as_text(row.get("content_hash"), "0"),
+                "statement_hash": as_text(row.get("statement_hash"), "0"),
+                "comment": as_text(row.get("comment"), ""),
+                "step_up_at": as_dt(row.get("step_up_at")),
+                "delegated_to_user_id": as_uuid(row.get("delegated_to_user_id")),
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
+            },
+        )
+
+
+async def save_saved_queries(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    """Write new saved-query versions. A version is written once and never rewritten."""
+    sql = """
+        INSERT INTO saved_queries (
+            id, tenant_id, name, version, sql, description, content_hash,
+            created_by_user_id, created_at
+        ) VALUES (
+            :id, :tenant_id, :name, :version, :sql, :description, :content_hash,
+            :created_by_user_id, :created_at
+        )
+        ON CONFLICT (id) DO NOTHING
+    """
+    for row in rows:
+        query_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        author = as_uuid(row.get("created_by_user_id"))
+        name = as_text(row.get("name"))
+        statement = as_text(row.get("sql"))
+        if None in {query_id, tenant_id, author} or not name or not statement:
+            continue
+        await _one(
+            session,
+            sql,
+            {
+                "id": query_id,
+                "tenant_id": tenant_id,
+                "name": name,
+                "version": as_int(row.get("version"), 1),
+                "sql": statement,
+                "description": as_text(row.get("description"), ""),
+                "content_hash": as_text(row.get("content_hash"), "0"),
+                "created_by_user_id": author,
+                "created_at": as_dt(row.get("created_at")) or utcnow(),
             },
         )
 

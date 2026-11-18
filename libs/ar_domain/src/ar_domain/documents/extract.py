@@ -537,14 +537,18 @@ def _sheet_rows(payload: bytes, shared: list[str]) -> list[list[str]]:
     return rows
 
 
+def slide_names(names: list[str]) -> list[str]:
+    """The slide parts of a presentation in slide order: slide2 before slide10."""
+    slides = [
+        name for name in names if name.startswith("ppt/slides/slide") and name.endswith(".xml")
+    ]
+    return sorted(slides, key=lambda name: (len(name), name))
+
+
 def _pptx(data: bytes) -> Extracted:
     try:
         with zipfile.ZipFile(io.BytesIO(data)) as book:
-            slides = sorted(
-                name
-                for name in book.namelist()
-                if name.startswith("ppt/slides/slide") and name.endswith(".xml")
-            )
+            slides = slide_names(book.namelist())
             texts = [book.read(name) for name in slides]
     except (zipfile.BadZipFile, KeyError) as exc:
         raise ExtractError("corrupt", "This presentation could not be read.") from exc

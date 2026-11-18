@@ -388,7 +388,16 @@ class ToolPipeline:
             }
             or (
                 endpoint == "builtin://general"
-                and tool_name in {"inspect_table", "query_table", "export_table"}
+                and tool_name
+                in {
+                    "inspect_table",
+                    "query_table",
+                    "export_table",
+                    "pivot_table",
+                    "sample_table",
+                    "list_saved_queries",
+                    "run_saved_query",
+                }
             ),
             analysis=(endpoint == "builtin://documents" and tool_name != "redact")
             or endpoint == "builtin://image",

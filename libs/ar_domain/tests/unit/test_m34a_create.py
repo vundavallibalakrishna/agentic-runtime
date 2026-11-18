@@ -1,8 +1,9 @@
-"""Office create: DOCX, PDF and XLSX smoke files, plus DOCX and PPTX read-back."""
+"""Office create: DOCX, PDF, PPTX and XLSX smoke files, plus DOCX and PPTX read-back."""
 
 from __future__ import annotations
 
 import io
+import posixpath
 import uuid
 import zipfile
 from pathlib import Path
@@ -83,6 +84,7 @@ def test_render_is_deterministic_and_matches_golden_smoke_files() -> None:
     for fmt, name in (
         ("docx", "q3-brief.docx"),
         ("pdf", "q3-brief.pdf"),
+        ("pptx", "q3-brief.pptx"),
         ("xlsx", "q3-brief.xlsx"),
     ):
         first = render(parse(_call(fmt)))
@@ -299,8 +301,9 @@ def test_documents_create_is_seeded_as_a_write() -> None:
     )
     assert row["risk_class"] == "W1"
     schema = row["input_schema"]
-    assert schema["properties"]["format"]["enum"] == ["docx", "pdf", "xlsx"]
+    assert schema["properties"]["format"]["enum"] == ["docx", "pdf", "pptx", "xlsx"]
     assert "DOCX" in str(row["description"])
+    assert "pptx for a slide presentation" in str(row["description"])
 
 
 def _pptx() -> bytes:
@@ -330,3 +333,177 @@ def test_created_package_xml_parses() -> None:
         data = render(parse(_call(fmt)))
         with zipfile.ZipFile(io.BytesIO(data)) as book:
             ET.fromstring(book.read(part))  # noqa: S314 — fixture produced by this package
+
+
+def _slide_titles(data: bytes) -> list[str]:
+    titles = []
+    with zipfile.ZipFile(io.BytesIO(data)) as book:
+        count = sum(1 for name in book.namelist() if name.startswith("ppt/slides/slide"))
+        for number in range(1, count + 1):
+            root = ET.fromstring(book.read(f"ppt/slides/slide{number}.xml"))  # noqa: S314
+            titles.append(next(node.text or "" for node in root.iter(f"{{{_A}}}t")))
+    return titles
+
+
+def test_pptx_package_is_complete_and_every_part_parses() -> None:
+    """What a strict reader checks: content types, relationship targets and well-formed XML."""
+    data = render(parse(_call("pptx")))
+    relationships = "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship"
+    types = "{http://schemas.openxmlformats.org/package/2006/content-types}"
+    with zipfile.ZipFile(io.BytesIO(data)) as book:
+        names = book.namelist()
+        parts = {name: book.read(name) for name in names}
+    assert names[0] == "[Content_Types].xml"
+    assert len(names) == len(set(names))
+    slides = [name for name in names if name.startswith("ppt/slides/slide")]
+    assert len(slides) == 3
+    for required in (
+        "_rels/.rels",
+        "docProps/core.xml",
+        "docProps/app.xml",
+        "ppt/presentation.xml",
+        "ppt/_rels/presentation.xml.rels",
+        "ppt/slideMasters/slideMaster1.xml",
+        "ppt/slideLayouts/slideLayout1.xml",
+        "ppt/slideLayouts/slideLayout2.xml",
+        "ppt/theme/theme1.xml",
+    ):
+        assert required in parts
+    listing = ET.fromstring(parts["[Content_Types].xml"])  # noqa: S314
+    defaults = {node.get("Extension") for node in listing.iter(f"{types}Default")}
+    overrides = {
+        str(node.get("PartName")): str(node.get("ContentType"))
+        for node in listing.iter(f"{types}Override")
+    }
+    assert all(name.lstrip("/") in parts for name in overrides)
+    for name, payload in parts.items():
+        assert f"/{name}" in overrides or name.rsplit(".", 1)[-1] in defaults
+        root = ET.fromstring(payload)  # noqa: S314 — produced by this package
+        if not name.endswith(".rels"):
+            continue
+        folder = posixpath.dirname(posixpath.dirname(name))
+        for node in root.iter(relationships):
+            target = posixpath.normpath(posixpath.join(folder, str(node.get("Target"))))
+            assert target in parts, f"{name} points at {target}"
+    for name in slides:
+        assert overrides[f"/{name}"].endswith("presentationml.slide+xml")
+        assert f"ppt/slides/_rels/{posixpath.basename(name)}.rels" in parts
+    presentation = parts["ppt/presentation.xml"].decode()
+    assert 'cx="12192000" cy="6858000"' in presentation
+    assert presentation.count("<p:sldId ") == 3
+    assert "<Slides>3</Slides>" in parts["docProps/app.xml"].decode()
+    second = parts["ppt/slides/slide2.xml"].decode()
+    assert "<a:buChar" in second
+    assert "<a:tbl>" in second
+    assert "R&amp;D café" in second
+
+
+def test_pptx_round_trips_through_the_reader() -> None:
+    data = render(parse(_call("pptx")))
+    deck = extract_bytes(data, filename="q3-brief.pptx")
+    assert deck.page_count == 3
+    assert deck.title == "Q3 regional brief"
+    assert deck.media_type.endswith("presentationml.presentation")
+    text = "\n".join(row.text for row in deck.passages)
+    assert "Prepared for the board" in text
+    assert "Revenue desk" in text
+    assert "Summary" in text
+    assert "EMEA added four points." in text
+    assert "4%" in text
+    assert "Next steps" in text
+    assert _slide_titles(data) == ["Q3 regional brief", "Summary", "Next steps"]
+
+
+def test_pptx_from_sheets_alone_has_a_table_slide() -> None:
+    sectionless = dict(_BRIEF)
+    sectionless.pop("sections")
+    data = render(parse({**sectionless, "format": "pptx"}))
+    assert _slide_titles(data) == ["Q3 regional brief", "Regions"]
+    text = "\n".join(row.text for row in extract_bytes(data, filename="from-sheet.pptx").passages)
+    assert "R&D café" in text
+    assert "1.5" in text
+
+
+def test_pptx_text_and_tables_that_overflow_continue_on_more_slides() -> None:
+    bullets = [f"Point {index} is on the list." for index in range(1, 31)]
+    rows = [[f"Item {index}", index] for index in range(1, 41)]
+    data = render(
+        parse(
+            {
+                "format": "pptx",
+                "title": "Long deck",
+                "sections": [
+                    {"heading": "Points", "bullets": bullets},
+                    {
+                        "heading": "Detail",
+                        "paragraphs": ["word " * 600],
+                        "table": {"columns": ["Item", "Count"], "rows": rows},
+                    },
+                    {"heading": "Ledger", "table": {"columns": ["Item", "Count"], "rows": rows}},
+                ],
+            }
+        )
+    )
+    titles = _slide_titles(data)
+    assert titles[:4] == ["Long deck", "Points", "Points (continued)", "Points (continued)"]
+    assert titles[4:6] == ["Detail", "Detail (continued)"]
+    assert "Detail (table)" in titles
+    assert "Detail (table, continued)" in titles
+    assert titles[-3:] == ["Ledger", "Ledger (continued)", "Ledger (continued)"]
+    text = "\n".join(row.text for row in extract_bytes(data, filename="long.pptx").passages)
+    assert all(bullet in text for bullet in bullets)
+    assert "Item 40" in text
+    with zipfile.ZipFile(io.BytesIO(data)) as book:
+        last = book.read(f"ppt/slides/slide{len(titles)}.xml").decode()
+    assert last.count("<a:tr ") <= 16
+    assert ">Count</a:t>" in last
+
+
+def test_pptx_refuses_a_deck_over_the_slide_limit() -> None:
+    sections = [
+        {"heading": f"Part {index}", "bullets": ["A line of text."] * 40} for index in range(1, 25)
+    ]
+    with pytest.raises(CreateError, match="60 slides"):
+        render(parse({"format": "pptx", "title": "Too long", "sections": sections}))
+
+
+def test_tool_saves_a_presentation_with_its_media_type() -> None:
+    store = _store()
+    args = {
+        "_tenant_id": uuid.uuid4(),
+        "_user_id": uuid.uuid4(),
+        "_run_id": uuid.uuid4(),
+        **_call("pptx", fileName="board deck.docx"),
+    }
+    created = dispatch(store, "builtin://documents", "create", args, "")
+    assert created["is_error"] is False
+    presentation = created["structured"]["presentation"]
+    assert presentation["format"] == "pptx"
+    assert str(presentation["path"]).endswith(".pptx")
+    file_id = uuid.UUID(str(presentation["files"][0]["file_id"]))
+    assert store.files[file_id]["mime_type"].endswith("presentationml.presentation")
+    assert extract_bytes(store.blobs[file_id], filename="deck.pptx").page_count == 3
+
+
+def test_pptx_opens_in_python_pptx() -> None:
+    """A second reader, when it is installed. The product does not depend on it."""
+    reader = pytest.importorskip("pptx")
+    deck = reader.Presentation(io.BytesIO(render(parse(_call("pptx")))))
+    assert deck.slide_width == 12192000
+    assert [slide.shapes.title.text for slide in deck.slides] == [
+        "Q3 regional brief",
+        "Summary",
+        "Next steps",
+    ]
+    assert deck.slides[0].slide_layout.name == "Title"
+    tables = [shape.table for shape in deck.slides[1].shapes if shape.has_table]
+    assert tables[0].cell(1, 0).text == "EMEA"
+    assert tables[0].cell(2, 1).text == "0%"
+
+
+def test_slides_are_read_in_slide_order_past_nine() -> None:
+    from ar_domain.documents.extract import slide_names
+
+    names = [f"ppt/slides/slide{number}.xml" for number in (10, 2, 1, 11)]
+    names.append("ppt/slides/_rels/slide1.xml.rels")
+    assert slide_names(names) == [f"ppt/slides/slide{number}.xml" for number in (1, 2, 10, 11)]

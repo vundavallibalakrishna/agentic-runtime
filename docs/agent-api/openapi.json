@@ -708,6 +708,31 @@
   },
   "components": {
     "schemas": {
+      "AcceptBody": {
+        "properties": {
+          "statement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Statement"
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Comment",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AcceptBody"
+      },
       "ActivateBody": {
         "properties": {
           "version": {

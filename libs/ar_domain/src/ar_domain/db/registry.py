@@ -36,6 +36,7 @@ TABLE_MODULES: tuple[str, ...] = (
     "ar_domain.sandboxes.tables",
     "ar_domain.secrets.models",
     "ar_domain.skills.tables",
+    "ar_domain.spreadsheet.tables",
     "ar_domain.tools.tables",
     "ar_domain.usage.tables",
 )

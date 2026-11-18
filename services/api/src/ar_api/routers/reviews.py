@@ -57,6 +57,12 @@ class BulkBody(ApiModel):
     items: list[BulkItem]
 
 
+class AcceptBody(ApiModel):
+    # What the person attests to. Left out, the queue's own statement is used.
+    statement: str | None = Field(default=None, max_length=2000)
+    comment: str = Field(default="", max_length=2000)
+
+
 @router.get("/api/v1/review-queues", dependencies=[Depends(require_permission("reviews:read"))])
 @expose(public=False, permission="reviews:read")
 async def list_queues(request: Request) -> dict[str, object]:
@@ -148,4 +154,23 @@ async def decide_item(
 async def bulk_decide(body: BulkBody, request: Request) -> dict[str, object]:
     return ReviewBook(chat(request)).bulk(
         actor(request), dump(body), stepped_up=stepped_up(request)
+    )
+
+
+@router.post(
+    "/api/v1/messages/{message_id}:accept",
+    dependencies=[Depends(require_permission("reviews:decide"))],
+)
+@expose(public=False, permission="reviews:decide")
+async def accept_message(
+    message_id: uuid.UUID, request: Request, body: AcceptBody | None = None
+) -> dict[str, object]:
+    """Record that the caller reviewed one assistant reply and accepts it as it reads now."""
+    sent = body or AcceptBody()
+    return chat(request).accept_reply(
+        actor(request),
+        message_id,
+        statement=sent.statement,
+        comment=sent.comment,
+        stepped_up=stepped_up(request),
     )

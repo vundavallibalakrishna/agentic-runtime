@@ -25,6 +25,10 @@ const GENERAL_TOOLS = [
   "http",
   "inspect_table",
   "query_table",
+  "sample_table",
+  "save_query",
+  "list_saved_queries",
+  "run_saved_query",
   "export_table",
   "chart",
 ] as const;

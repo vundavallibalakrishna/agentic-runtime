@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { EmptyState } from "@/components/common/management-layout";
 import { PageHeader } from "@/components/page-header";
+import { ReplyAcceptanceSettings } from "@/components/reviews/reply-acceptance-settings";
 import { Badge, statusTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,6 +74,7 @@ export function ReviewsScreen() {
           </li>
         ))}
       </ul>
+      <ReplyAcceptanceSettings />
     </AppShell>
   );
 }

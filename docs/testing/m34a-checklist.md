@@ -19,6 +19,14 @@ Proof date: 2026-11-05. No model call. No browser session. Labels say what actua
 - [x] Fixture PPTX canary: two slides (`Roadmap`, `Risks`) round-trip through `extract_bytes`. This does not create a PPTX
 - [x] `documents.create` is seeded at risk `W1` with `format` enum `docx`, `pdf`, `xlsx`
 
+Added 2026-11-18 (PPTX create, same unit file):
+
+- [x] `documents.create` for `pptx` matches the golden `q3-brief.pptx`, and a second render is identical
+- [x] The deck has three slides, every relationship target is in the package, every part is covered by `[Content_Types].xml`, and every XML part parses
+- [x] `extract_bytes` reads the title, a heading, a bullet and a table cell back from the created deck
+- [x] Thirty bullets and a forty-row table continue on `(continued)` and `(table)` slides. A deck over 60 slides fails closed
+- [x] `documents.create` is seeded with `format` enum `docx`, `pdf`, `pptx`, `xlsx`
+
 Command:
 
 ```bash

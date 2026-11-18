@@ -42,7 +42,7 @@ A verdict is `supported` only when `quote` is a substring of the named stored pa
 
 `redact` returns the redacted preview only.
 
-`create` builds a new DOCX, PDF or XLSX. It does not read a library row. See §5.
+`create` builds a new DOCX, PDF, PPTX or XLSX. It does not read a library row. See §5.
 
 ## 3. Long documents
 
@@ -54,15 +54,23 @@ Passages are split at about 1,000 characters with a 120-character overlap. The p
 
 ## 5. Create
 
-`documents.create` takes `format` (`docx`, `pdf` or `xlsx`), `title`, and optional `subtitle`, `author`, `template`, `fileName`, `sections` and `sheets`.
+`documents.create` takes `format` (`docx`, `pdf`, `pptx` or `xlsx`), `title`, and optional `subtitle`, `author`, `template`, `fileName`, `sections` and `sheets`.
 
 A section has `heading`, `level` (1 or 2), `paragraphs`, `bullets` and one optional `table` (`caption`, `columns`, `rows`). A sheet has `name`, `columns` and `rows`. A row is a list or an object keyed by the column names. JSON numbers stay numeric in a spreadsheet. Other values are text.
 
-Templates are `report` (default for DOCX and PDF), `brief` (tighter, no running header) and `sheet` (default for XLSX). When a DOCX or PDF call has sheets and no sections, each sheet becomes a section table. When an XLSX call has sections and no sheets, each section table becomes a sheet and the prose becomes a Notes sheet.
+Templates are `report` (default for DOCX, PDF and PPTX), `brief` (tighter, no running header) and `sheet` (default for XLSX). When a DOCX, PDF or PPTX call has sheets and no sections, each sheet becomes a section table. When an XLSX call has sections and no sheets, each section table becomes a sheet and the prose becomes a Notes sheet.
 
 The file is written to the run workspace at `outputs/<fileName>` and stored as an artifact. Chat downloads it with the same file content route as other workspace artifacts. The bytes are not a library document until something calls `ingest`. The tool result names the path and the size. It does not echo the body.
 
-Limits: 40 sections, 12 sheets, 500 rows, 32 columns, 30 PDF pages, and the workspace file size cap. A bad payload is `validation_failed`. The writers are in-process and do not call a sandbox (OQ-71).
+A PPTX is a 16:9 deck. Slide 1 carries the title, the subtitle and the author. Each section then starts a slide with its heading as the slide title; the heading level is not shown. The layout uses fixed counts, not font measurement, so the same call always gives the same slides:
+
+- Body text is 18 pt. A line holds 90 characters and a slide holds 14 lines. Paragraphs come first, then bullets. Text that does not fit moves to a next slide titled `<heading> (continued)`.
+- A table is a native slide table in 14 pt with equal-width columns. A cell shows at most six lines and longer text ends with `...`. A one-line row is 0.35 in, so a slide holds sixteen of them, header included. A long table carries on over more slides and repeats its header.
+- A section with text and a table puts both on one slide when both fit. Otherwise the text slides come first and the table follows on slides titled `<heading> (table)` and then `<heading> (table, continued)`.
+
+The chart slide of `general.chart` is written by the same PPTX writer, so there is one presentation package layout in the product.
+
+Limits: 40 sections, 12 sheets, 500 rows, 32 columns, 30 PDF pages, 60 slides, and the workspace file size cap. A bad payload is `validation_failed`. The writers are in-process and do not call a sandbox (OQ-71).
 
 ## 6. Questionnaire fill
 

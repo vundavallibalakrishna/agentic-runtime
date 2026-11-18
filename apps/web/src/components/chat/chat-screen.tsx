@@ -31,6 +31,7 @@ import { MarkdownView } from "@/components/chat/markdown-view";
 import { MemoryIndicator } from "@/components/chat/memory-indicator";
 import { MessageBody } from "@/components/chat/message-body";
 import { PlanChecklist, planItems } from "@/components/chat/plan-checklist";
+import { AcceptReply, type ReplyReview, ReplyReviewStatus } from "@/components/chat/reply-review";
 import { RunDetails } from "@/components/chat/run-details";
 import { JobList, ToolCallCard } from "@/components/chat/tool-call-card";
 import { WorkspacePanel } from "@/components/computer/workspace-panel";
@@ -1101,6 +1102,13 @@ export function ChatScreen() {
                               })}
                             </p>
                           ) : null}
+                          {!mine && !failedHere ? (
+                            <ReplyReviewStatus
+                              review={
+                                streamingHere ? null : (message.review as ReplyReview | undefined)
+                              }
+                            />
+                          ) : null}
                           {streamingHere &&
                           stream.warnings.some((item) => item.code === "embedding_unconfigured") ? (
                             <p className="mt-1 text-xs text-[var(--destructive)]" role="alert">
@@ -1151,6 +1159,20 @@ export function ChatScreen() {
                             <RefreshCw size={13} aria-hidden="true" />
                             {t("regenerate")}
                           </Button>
+                        ) : null}
+                        {message.role === "assistant" && !failedHere && !streamingHere ? (
+                          <AcceptReply
+                            disabled={stream.status === "streaming"}
+                            messageId={id}
+                            onAccepted={(review) =>
+                              setMessages((current) =>
+                                current.map((item) =>
+                                  item.id === message.id ? { ...item, review } : item,
+                                ),
+                              )
+                            }
+                            review={message.review as ReplyReview | undefined}
+                          />
                         ) : null}
                         {message.role === "assistant" &&
                         traceOf(message, id === latestAssistantId ? runId : "") ? (

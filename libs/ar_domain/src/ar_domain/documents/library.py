@@ -363,6 +363,14 @@ class DocumentLibrary:
     ) -> dict[str, object]:
         left = self._own(actor, document_id)
         right = self._own(actor, other_id)
+        if left.get("id") == right.get("id") or (
+            left.get("content_hash") and left.get("content_hash") == right.get("content_hash")
+        ):
+            raise ValidationFailedError(
+                "These are the same document, so there is nothing to compare. To check one "
+                "document against itself, read it in full and compare the places that "
+                "should agree."
+            )
         result = compare(
             left,
             right,

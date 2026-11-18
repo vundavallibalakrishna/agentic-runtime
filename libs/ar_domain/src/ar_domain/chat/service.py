@@ -292,6 +292,7 @@ class ChatBehaviour:
     review_queues: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     review_items: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     signoffs: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
+    saved_queries: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     sod_constraints: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     user_roles: dict[uuid.UUID, set[str]] = field(default_factory=dict)
     user_groups: dict[uuid.UUID, list[str]] = field(default_factory=dict)
@@ -1371,10 +1372,20 @@ class ChatBehaviour:
         conversation_id: uuid.UUID,
         *,
         read_all: bool,
+        reviewer: Actor | None = None,
     ) -> dict[str, object]:
+        """One conversation with its messages. ``reviewer`` is the caller, when known.
+
+        Each assistant message carries ``review``: whether a person accepted that exact
+        text, who and when, and whether ``reviewer`` may accept it now.
+        """
         row = self._conversation(tenant_id, user_id, conversation_id, read_all=read_all)
         body = self._public(row)
-        body["messages"] = self._visible_messages(conversation_id)
+        messages = self._visible_messages(conversation_id)
+        from ar_domain.approvals.reply_review import attach_reviews  # noqa: PLC0415
+
+        attach_reviews(self, reviewer, messages)
+        body["messages"] = messages
         from ar_domain.jobs.progress import jobs_for  # noqa: PLC0415
 
         body["jobs"] = jobs_for(self, conversation_id)
@@ -2990,6 +3001,34 @@ class ChatBehaviour:
         ):
             raise NotFoundError()
         return row
+
+    def accept_reply(
+        self,
+        actor: Actor,
+        message_id: uuid.UUID,
+        *,
+        statement: str | None,
+        comment: str,
+        stepped_up: bool,
+    ) -> dict[str, object]:
+        """Record that ``actor`` reviewed and accepts one assistant reply they can read."""
+        message = self.messages.get(message_id)
+        if message is None or message["tenant_id"] != actor.tenant_id:
+            raise NotFoundError()
+        conversation_id = message.get("conversation_id")
+        if not isinstance(conversation_id, uuid.UUID):
+            raise NotFoundError()
+        self._conversation(
+            actor.tenant_id,
+            actor.user_id,
+            conversation_id,
+            read_all="conversations:read_all" in actor.permissions,
+        )
+        from ar_domain.approvals.reply_review import accept_reply  # noqa: PLC0415
+
+        return accept_reply(
+            self, actor, message, statement=statement, comment=comment, stepped_up=stepped_up
+        )
 
     def set_feedback(
         self,

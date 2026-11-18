@@ -5,6 +5,20 @@ export type ClientOptions = {
 };
 
 /**
+ * AcceptBody
+ */
+export type AcceptBody = {
+    /**
+     * Statement
+     */
+    statement?: string | null;
+    /**
+     * Comment
+     */
+    comment?: string;
+};
+
+/**
  * ActivateBody
  */
 export type ActivateBody = {
@@ -13555,6 +13569,43 @@ export type BulkDecideApiV1ReviewItemsBulkDecidePostResponses = {
 };
 
 export type BulkDecideApiV1ReviewItemsBulkDecidePostResponse = BulkDecideApiV1ReviewItemsBulkDecidePostResponses[keyof BulkDecideApiV1ReviewItemsBulkDecidePostResponses];
+
+export type AcceptMessageApiV1MessagesMessageIdAcceptPostData = {
+    /**
+     * Body
+     */
+    body?: AcceptBody | null;
+    path: {
+        /**
+         * Message Id
+         */
+        message_id: string;
+    };
+    query?: never;
+    url: '/api/v1/messages/{message_id}:accept';
+};
+
+export type AcceptMessageApiV1MessagesMessageIdAcceptPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AcceptMessageApiV1MessagesMessageIdAcceptPostError = AcceptMessageApiV1MessagesMessageIdAcceptPostErrors[keyof AcceptMessageApiV1MessagesMessageIdAcceptPostErrors];
+
+export type AcceptMessageApiV1MessagesMessageIdAcceptPostResponses = {
+    /**
+     * Response Accept Message Api V1 Messages  Message Id  Accept Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type AcceptMessageApiV1MessagesMessageIdAcceptPostResponse = AcceptMessageApiV1MessagesMessageIdAcceptPostResponses[keyof AcceptMessageApiV1MessagesMessageIdAcceptPostResponses];
 
 export type ListConstraintsApiV1SodConstraintsGetData = {
     body?: never;
