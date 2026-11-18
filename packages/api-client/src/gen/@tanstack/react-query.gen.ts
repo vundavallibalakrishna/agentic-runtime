@@ -79,6 +79,8 @@ export const metricsMetricsGetQueryKey = (options?: Options<MetricsMetricsGetDat
 
 /**
  * Metrics
+ *
+ * Scrapes need the install HMAC. The route is not anonymous.
  */
 export const metricsMetricsGetOptions = (options?: Options<MetricsMetricsGetData>) => queryOptions<unknown, DefaultError, unknown, ReturnType<typeof metricsMetricsGetQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

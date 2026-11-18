@@ -365,4 +365,32 @@ jobs:
         with:
           version: "0.13.3"
       - run: uv tool install pip-audit==2.10.1
-      - run: uv tool run pip-audit --vulnerability-service osv
+      - name: Dependency audit
+        # api.osv.dev sometimes accepts the connection and then does not answer
+        # within pip-audit's 15s read. That aborts the scan before any advisory is
+        # returned. A vulnerability report still fails this step on the first try.
+        # Only a timed-out or unreachable service is asked again.
+        run: |
+          set -eu
+          ok=0
+          for attempt in 1 2 3; do
+            set +e
+            output=$(uv tool run pip-audit --vulnerability-service osv --timeout 60 2>&1)
+            status=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$status" -eq 0 ]; then
+              ok=1
+              break
+            fi
+            case "$output" in
+              *ReadTimeout*|*timed\ out*|*ConnectionError*|*Name\ or\ service\ not\ known*)
+                echo "vulnerability service did not answer (attempt ${attempt})"
+                sleep $((attempt * 5))
+                ;;
+              *)
+                exit "$status"
+                ;;
+            esac
+          done
+          test "$ok" = 1
