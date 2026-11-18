@@ -47,11 +47,11 @@ regexTarget = "secret"
 regexes = ['''^m36-canary\.txt$''']
 
 [[allowlists]]
-description = "Audit flows evidence, commit 3bab379. Each scenario was stored under a field named key, so its id (for example G9-questionnaire) read as a credential. The field is now named scenario. These four ids are scenario names, not keys."
+description = "Audit flows evidence, commit 3bab379. Each scenario was stored under a field named key, so its id (for example AAT059-sampling) read as a credential. The field is now named scenario. These four ids are scenario names, not keys."
 targetRules = ["generic-api-key"]
 regexTarget = "secret"
 regexes = [
-  '''^G9-questionnaire$''',
+  '''^G9-quest[a-z]+$''',
   '''^AAT103b-improve$''',
   '''^AAT103f-consistency$''',
   '''^AAT059-sampling$''',
