@@ -1,8 +1,11 @@
 """Registered providers keep the API key out of responses and call the real model."""
 
 import uuid
+from collections.abc import AsyncIterator
+from typing import ClassVar
 
 import httpx
+import orjson
 import pytest
 
 from ar_domain.chat.service import demo_id
@@ -78,6 +81,30 @@ async def test_chat_calls_the_registered_upstream_model(monkeypatch: pytest.Monk
                 seen["json"] = json
                 seen["headers"] = headers
             return _Response()
+
+        def stream(
+            self, _method: str, url: str, json: dict[str, object], headers: dict[str, str]
+        ) -> _Stream:
+            # The turn itself is asked for as a stream, so the answer can be shown as written.
+            seen["url"] = url
+            seen["json"] = json
+            seen["headers"] = headers
+            return _Stream()
+
+    class _Stream:
+        status_code = 200
+        headers: ClassVar[dict[str, str]] = {"content-type": "text/event-stream"}
+
+        async def __aenter__(self) -> _Stream:
+            return self
+
+        async def __aexit__(self, *_args: object) -> bool:
+            return False
+
+        async def aiter_lines(self) -> AsyncIterator[str]:
+            for piece in ("<thi", "nk>hidden</think>po", "ng"):
+                yield "data: " + orjson.dumps({"choices": [{"delta": {"content": piece}}]}).decode()
+            yield "data: [DONE]"
 
     monkeypatch.setattr(httpx, "AsyncClient", _Client)
     agent_id = next(

@@ -5,13 +5,17 @@ import { createParser } from "eventsource-parser";
 import {
   ArrowUp,
   ArrowUpRight,
+  Check,
+  Copy,
   FileText,
   History,
   Lightbulb,
   MessageSquare,
+  PanelRight,
   Paperclip,
   PenLine,
   Plus,
+  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -56,6 +60,20 @@ type Session = {
   tenant?: { name?: string; id?: string };
   permissions?: string[];
 };
+
+// Whether the run details panel is open, remembered for this browser.
+const DETAILS_KEY = "ar-chat-details";
+
+/** The name shown over a reply: the agent that wrote it, or the default assistant. */
+function replyName(message: Item, agents: Item[], fallback: string): string {
+  const agent = agents.find((item) => item.id && item.id === message.agentId);
+  return String(agent?.name ?? agent?.slug ?? fallback);
+}
+
+/** The run that wrote a reply, for the link to its trace. */
+function traceOf(message: Item, current: string): string {
+  return String((message as { runId?: string }).runId || current || "");
+}
 
 function planFrom(value: unknown): PlanStep[] {
   return planItems(value);
@@ -106,6 +124,7 @@ export function ChatScreen() {
   const [live, setLive] = useState("");
   const [stuck, setStuck] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [researchOn, setResearchOn] = useState(false);
   const [copiedId, setCopiedId] = useState("");
   const parentRef = useRef<HTMLDivElement>(null);
@@ -639,7 +658,30 @@ export function ChatScreen() {
     node.style.height = `${Math.min(node.scrollHeight, 180)}px`;
   }
 
+  useEffect(() => {
+    try {
+      setDetailsOpen(window.localStorage.getItem(DETAILS_KEY) === "open");
+    } catch {
+      // Storage can be blocked. The panel then starts closed.
+    }
+  }, []);
+
+  function toggleDetails() {
+    setDetailsOpen((open) => {
+      try {
+        window.localStorage.setItem(DETAILS_KEY, open ? "closed" : "open");
+      } catch {
+        // The choice then lasts for this visit only.
+      }
+      return !open;
+    });
+  }
+
   const visible = messages.filter((message) => message.isActiveBranch !== false);
+  const activeTitle = String(
+    conversations.find((conversation) => String(conversation.id) === activeId)?.title ||
+      t("untitled"),
+  );
   const latestAssistantId = [...visible]
     .reverse()
     .find((message) => message.role === "assistant")?.id;
@@ -736,6 +778,22 @@ export function ChatScreen() {
             <div className="sr-only" aria-atomic="false" aria-live="polite">
               {live ? `${t("streaming")}. ${live}` : ""}
             </div>
+            {activeId && visible.length > 0 ? (
+              <div className="hidden h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-5 md:flex">
+                <p className="truncate text-sm font-medium">{activeTitle}</p>
+                <Button
+                  aria-controls="chat-details"
+                  aria-expanded={detailsOpen}
+                  className="h-8 shrink-0 gap-1.5 px-2.5 text-xs font-normal"
+                  onClick={toggleDetails}
+                  type="button"
+                  variant={detailsOpen ? "outline" : "ghost"}
+                >
+                  <PanelRight size={15} aria-hidden="true" />
+                  {t("details")}
+                </Button>
+              </div>
+            ) : null}
             {loading ? (
               <div aria-busy="true" className="mx-auto w-full max-w-2xl space-y-3 px-6 py-8">
                 <p className="sr-only">{t("loading")}</p>
@@ -821,12 +879,12 @@ export function ChatScreen() {
               ref={parentRef}
             >
               {jobs.length > 0 ? (
-                <div className="mx-auto max-w-2xl px-5 pt-4">
+                <div className="mx-auto max-w-3xl px-5 pt-4">
                   <JobList jobs={jobs} />
                 </div>
               ) : null}
               <div
-                className={visible.length < 30 ? "mx-auto max-w-2xl" : "relative mx-auto max-w-2xl"}
+                className={visible.length < 30 ? "mx-auto max-w-3xl" : "relative mx-auto max-w-3xl"}
                 style={visible.length < 30 ? undefined : { height: virtualizer.getTotalSize() }}
               >
                 {(visible.length < 30
@@ -866,15 +924,28 @@ export function ChatScreen() {
                           : { transform: `translateY(${row.start}px)` }
                       }
                     >
-                      <div className={mine ? "flex justify-end" : ""}>
+                      <div className={mine ? "flex justify-end" : "flex gap-3"}>
+                        {mine ? null : (
+                          <div
+                            aria-hidden="true"
+                            className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-xs)]"
+                          >
+                            <Sparkles size={14} strokeWidth={1.6} />
+                          </div>
+                        )}
                         <div
                           className={
                             mine
-                              ? "max-w-[85%] rounded-2xl bg-[var(--muted)] px-4 py-2.5"
-                              : "max-w-none"
+                              ? "max-w-[80%] rounded-2xl rounded-br-md bg-[var(--muted)] px-4 py-2.5"
+                              : "min-w-0 flex-1"
                           }
                         >
                           <p className="sr-only">{String(message.role)}</p>
+                          {mine ? null : (
+                            <p aria-hidden="true" className="mb-1.5 text-xs font-semibold">
+                              {replyName(message, agents, t("defaultAgent"))}
+                            </p>
+                          )}
                           {editing?.id === id ? (
                             <form
                               className="space-y-2"
@@ -1051,13 +1122,20 @@ export function ChatScreen() {
                           ) : null}
                         </div>
                       </div>
-                      <div className={`mt-1 flex gap-1 ${mine ? "justify-end" : ""}`}>
+                      <div
+                        className={`mt-1 flex items-center gap-1 ${mine ? "justify-end" : "pl-8"}`}
+                      >
                         <Button
-                          className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                          className="h-7 gap-1.5 px-2 text-xs font-normal text-[var(--muted-foreground)]"
                           onClick={() => void copyMessage(id, body)}
                           type="button"
                           variant="ghost"
                         >
+                          {copiedId === id ? (
+                            <Check size={13} aria-hidden="true" />
+                          ) : (
+                            <Copy size={13} aria-hidden="true" />
+                          )}
                           {copiedId === id ? t("copied") : t("copy")}
                         </Button>
                         {message.role === "assistant" &&
@@ -1065,13 +1143,23 @@ export function ChatScreen() {
                         id &&
                         !id.startsWith("local-") ? (
                           <Button
-                            className="h-7 px-2 text-xs font-normal text-[var(--muted-foreground)]"
+                            className="h-7 gap-1.5 px-2 text-xs font-normal text-[var(--muted-foreground)]"
                             onClick={() => void regenerate(id)}
                             type="button"
                             variant="ghost"
                           >
+                            <RefreshCw size={13} aria-hidden="true" />
                             {t("regenerate")}
                           </Button>
+                        ) : null}
+                        {message.role === "assistant" &&
+                        traceOf(message, id === latestAssistantId ? runId : "") ? (
+                          <a
+                            className="flex h-7 items-center rounded-md px-2 text-xs text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                            href={`/runs/${traceOf(message, id === latestAssistantId ? runId : "")}`}
+                          >
+                            {t("viewTrace")}
+                          </a>
                         ) : null}
                         {message.role === "assistant" && !failedHere ? (
                           <FeedbackButtons
@@ -1114,7 +1202,7 @@ export function ChatScreen() {
                 {banner}
               </p>
             ) : null}
-            <div className="mx-auto w-full max-w-2xl px-4 md:px-8">
+            <div className="mx-auto w-full max-w-3xl px-4 md:px-8">
               <MemoryIndicator
                 compacted={stream.compacted}
                 memories={stream.memories}
@@ -1146,14 +1234,14 @@ export function ChatScreen() {
             >
               {stream.toolFailure ? (
                 <p
-                  className="mx-auto mb-3 max-w-2xl text-sm text-[var(--muted-foreground)]"
+                  className="mx-auto mb-3 max-w-3xl text-sm text-[var(--muted-foreground)]"
                   role="status"
                 >
                   {stream.toolFailure}
                 </p>
               ) : null}
               {stream.researchQueries.length > 0 || stream.sourceCount > 0 ? (
-                <section className="mx-auto mb-3 max-w-2xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
+                <section className="mx-auto mb-3 max-w-3xl rounded-xl border border-[var(--border)] px-3 py-2 text-sm">
                   <h2 className="font-medium">{t("researchPhase")}</h2>
                   <p className="text-xs text-[var(--muted-foreground)]">
                     {t(stream.researchPhase === "done" ? "researchDone" : "researchRunning")} ·{" "}
@@ -1170,59 +1258,7 @@ export function ChatScreen() {
                   </ol>
                 </section>
               ) : null}
-              {runId ? (
-                <p className="mx-auto mb-2 max-w-2xl text-sm md:hidden">
-                  <a className="underline" href={`/runs/${runId}`}>
-                    {t("viewTrace")}
-                  </a>
-                </p>
-              ) : null}
-              <div className="mx-auto flex max-w-2xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow-composer)] focus-within:border-[var(--muted-foreground)] md:p-4">
-                <label className="sr-only" htmlFor="agent-picker">
-                  {t("agent")}
-                </label>
-                <div className="mb-2 flex flex-wrap gap-2">
-                  <select
-                    className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
-                    id="agent-picker"
-                    onChange={(event) => setAgentId(event.target.value)}
-                    value={agentId}
-                  >
-                    <option value="">{t("defaultAgent")}</option>
-                    {agents.map((agent) => (
-                      <option key={String(agent.id)} value={String(agent.id)}>
-                        {String(agent.name ?? agent.slug)}
-                      </option>
-                    ))}
-                  </select>
-                  <label className="sr-only" htmlFor="model-picker">
-                    {t("model")}
-                  </label>
-                  <select
-                    className="w-fit max-w-full rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-medium"
-                    id="model-picker"
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      setModelAlias(next);
-                      if (activeId) {
-                        void api(`/api/v1/conversations/${activeId}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ modelAlias: next }),
-                        }).catch((error: unknown) => {
-                          setBanner(error instanceof Error ? error.message : t("error"));
-                        });
-                      }
-                    }}
-                    value={modelAlias}
-                  >
-                    <option value="">{t("modelDefault")}</option>
-                    {aliases.map((alias) => (
-                      <option key={alias} value={alias}>
-                        {alias}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="mx-auto flex max-w-3xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3 shadow-[var(--shadow-composer)] focus-within:border-[var(--muted-foreground)] md:p-4">
                 <AttachmentList
                   busy={stream.status === "streaming"}
                   files={attachments}
@@ -1234,7 +1270,7 @@ export function ChatScreen() {
                   {t("composer")}
                 </label>
                 <textarea
-                  className="max-h-44 min-h-12 w-full resize-none border-0 bg-transparent px-1 py-1 text-[15px]"
+                  className="max-h-44 min-h-12 w-full resize-none border-0 bg-transparent px-1 py-1 text-[15px] composer-field"
                   disabled={loading}
                   id="composer"
                   onChange={(event) => {
@@ -1249,11 +1285,12 @@ export function ChatScreen() {
                   }}
                   placeholder={t("placeholder")}
                   ref={composerRef}
+                  title={t("hint")}
                   rows={2}
                   value={draft}
                 />
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1">
                     <input
                       accept={accept}
                       aria-label={t("attach")}
@@ -1286,9 +1323,49 @@ export function ChatScreen() {
                     >
                       {t("research")}
                     </Button>
-                    <p className="hidden text-xs text-[var(--muted-foreground)] sm:block">
-                      {t("hint")}
-                    </p>
+                    <label className="sr-only" htmlFor="agent-picker">
+                      {t("agent")}
+                    </label>
+                    <select
+                      className="w-fit max-w-full h-8 rounded-lg bg-transparent px-1.5 text-xs text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                      id="agent-picker"
+                      onChange={(event) => setAgentId(event.target.value)}
+                      value={agentId}
+                    >
+                      <option value="">{t("defaultAgent")}</option>
+                      {agents.map((agent) => (
+                        <option key={String(agent.id)} value={String(agent.id)}>
+                          {String(agent.name ?? agent.slug)}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="sr-only" htmlFor="model-picker">
+                      {t("model")}
+                    </label>
+                    <select
+                      className="w-fit max-w-full h-8 rounded-lg bg-transparent px-1.5 text-xs text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                      id="model-picker"
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        setModelAlias(next);
+                        if (activeId) {
+                          void api(`/api/v1/conversations/${activeId}`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ modelAlias: next }),
+                          }).catch((error: unknown) => {
+                            setBanner(error instanceof Error ? error.message : t("error"));
+                          });
+                        }
+                      }}
+                      value={modelAlias}
+                    >
+                      <option value="">{t("modelDefault")}</option>
+                      {aliases.map((alias) => (
+                        <option key={alias} value={alias}>
+                          {alias}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   {stream.status === "streaming" ? (
                     <Button
@@ -1318,22 +1395,34 @@ export function ChatScreen() {
             </form>
           </div>
           {activeId ? (
-            <div className="hidden h-full w-80 shrink-0 flex-col md:flex">
-              {detailRunId ? (
-                <RunDetails
-                  agents={agents}
-                  runId={detailRunId}
-                  settled={stream.status !== "streaming"}
-                />
+            <div
+              className={cn(
+                "hidden h-full shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none md:block",
+                detailsOpen ? "w-80" : "w-0",
+              )}
+              id="chat-details"
+            >
+              {detailsOpen ? (
+                <div className="flex h-full w-80 flex-col">
+                  {detailRunId ? (
+                    <RunDetails
+                      agents={agents}
+                      runId={detailRunId}
+                      settled={stream.status !== "streaming"}
+                    />
+                  ) : null}
+                  <div className="min-h-0 flex-1">
+                    <WorkspacePanel
+                      conversationId={activeId}
+                      revision={
+                        messages.length +
+                        stream.tools.length +
+                        (stream.status === "completed" ? 1 : 0)
+                      }
+                    />
+                  </div>
+                </div>
               ) : null}
-              <div className="min-h-0 flex-1">
-                <WorkspacePanel
-                  conversationId={activeId}
-                  revision={
-                    messages.length + stream.tools.length + (stream.status === "completed" ? 1 : 0)
-                  }
-                />
-              </div>
             </div>
           ) : null}
         </section>

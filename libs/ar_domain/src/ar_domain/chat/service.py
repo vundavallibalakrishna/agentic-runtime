@@ -59,7 +59,7 @@ from ar_domain.runs.logic import budget_exceeded
 from ar_domain.usage.logic import UsageRecord, gateway_dedupe_keys
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Callable
 
     from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -2352,39 +2352,52 @@ class ChatBehaviour:
                 body["tools"] = tools
                 body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
-        try:
-            async with async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client:
-                response = await client.post(url, json=body, headers=headers)
-        except httpx.HTTPError:
-            if not real:
-                return None
-            return {
-                "text": "The model provider did not answer.",
-                "tool_calls": [],
-                "usage": {"tokens_in": 0, "tokens_out": 0},
-                "real": True,
-            }
-        if response.status_code >= 300:
-            if not real:
-                return None
-            return {
-                "text": "The model provider returned an error.",
-                "tool_calls": [],
-                "usage": {"tokens_in": 0, "tokens_out": 0},
-                "real": True,
-            }
-        try:
-            payload = response.json()
-        except ValueError:
-            if not real:
-                return None
-            return {
-                "text": "",
-                "tool_calls": [],
-                "usage": {"tokens_in": 0, "tokens_out": 0},
-                "real": True,
-                "parse_error": "The model provider returned malformed JSON.",
-            }
+        from ar_domain.models.streaming import listener  # noqa: PLC0415
+
+        # A caller that is listening gets the answer as it is written. A provider that does
+        # not stream is asked again in one piece.
+        sink = listener() if real else None
+        payload: object = None
+        if sink is not None:
+            payload = await self._streamed_completion(
+                url, body, headers, timeout_s, tenant_id, sink
+            )
+        if payload is None:
+            try:
+                async with async_client(
+                    timeout=timeout_s, allow=self._dial_allow(tenant_id)
+                ) as client:
+                    response = await client.post(url, json=body, headers=headers)
+            except httpx.HTTPError:
+                if not real:
+                    return None
+                return {
+                    "text": "The model provider did not answer.",
+                    "tool_calls": [],
+                    "usage": {"tokens_in": 0, "tokens_out": 0},
+                    "real": True,
+                }
+            if response.status_code >= 300:
+                if not real:
+                    return None
+                return {
+                    "text": "The model provider returned an error.",
+                    "tool_calls": [],
+                    "usage": {"tokens_in": 0, "tokens_out": 0},
+                    "real": True,
+                }
+            try:
+                payload = response.json()
+            except ValueError:
+                if not real:
+                    return None
+                return {
+                    "text": "",
+                    "tool_calls": [],
+                    "usage": {"tokens_in": 0, "tokens_out": 0},
+                    "real": True,
+                    "parse_error": "The model provider returned malformed JSON.",
+                }
         parsed = completion_message(payload)
         parsed["real"] = real
         if real and model and model != "reasoning":
@@ -2396,6 +2409,33 @@ class ChatBehaviour:
             if registry is not None:
                 parsed["model_id"] = registry
         return parsed
+
+    async def _streamed_completion(  # noqa: PLR0917
+        self,
+        url: str,
+        body: dict[str, object],
+        headers: dict[str, str],
+        timeout_s: float,
+        tenant_id: uuid.UUID,
+        sink: Callable[[str], None],
+    ) -> dict[str, object] | None:
+        """One model round read as a stream. None when the provider did not stream it."""
+        from ar_domain.models.streaming import read_completion_stream  # noqa: PLC0415
+
+        request = {**body, "stream": True, "stream_options": {"include_usage": True}}
+        try:
+            async with (
+                async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client,
+                client.stream(
+                    "POST", url, json=request, headers={**headers, "accept": "text/event-stream"}
+                ) as response,
+            ):
+                kind = response.headers.get("content-type", "")
+                if response.status_code >= 300 or "text/event-stream" not in kind:
+                    return None
+                return await read_completion_stream(response, sink)
+        except httpx.HTTPError:
+            return None
 
     def _meter(self, run: dict[str, object], usage: dict[str, int]) -> None:
         """Meter a single-call turn: tokens priced from the resolved model (spec 17 §2)."""

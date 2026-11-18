@@ -139,6 +139,7 @@
     "runFailed": "The run failed.",
     "viewTrace": "View trace",
     "runDetails": "Run details",
+    "details": "Run details",
     "runDetailsError": "The run details could not be loaded.",
     "runStatus": "Status",
     "runModel": "Model",

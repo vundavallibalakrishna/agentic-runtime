@@ -127,6 +127,11 @@ body {
   outline-offset: 2px;
 }
 
+/* The composer card shows focus on its own border, so the field inside draws no ring. */
+.composer-field:focus-visible {
+  outline: none;
+}
+
 button,
 a,
 input,
@@ -245,6 +250,27 @@ input[type="radio"] {
 .markdown ol,
 .markdown pre {
   margin: 0.6rem 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.35rem;
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown li::marker {
+  color: var(--muted-foreground);
 }
 
 .markdown h2,
