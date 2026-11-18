@@ -20,7 +20,8 @@ import {
   TableRow,
   TableScroll,
 } from "@/components/ui/table";
-import { api, type Session } from "@/lib/api";
+import { api } from "@/lib/api";
+import { loadSession } from "@/lib/session";
 
 import type { AgentSummary } from "./types";
 
@@ -50,7 +51,7 @@ export function AgentCatalogue() {
     try {
       const [page, session] = await Promise.all([
         api<{ items: AgentSummary[] }>(`/api/v1/agents${suffix}`),
-        api<Session>("/api/v1/auth/session"),
+        loadSession(),
       ]);
       setCanCreate(session.permissions?.includes("agents:create") ?? false);
       setCanChat(session.permissions?.includes("chat:use") ?? false);

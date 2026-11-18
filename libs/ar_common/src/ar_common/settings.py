@@ -169,6 +169,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_SECRET_CACHE_TTL_S",
         "AR_SESSION_ENCRYPTION_KEY",
         "AR_SESSION_ENCRYPTION_KEY_PREVIOUS",
+        "AR_SESSION_GATE_TTL_S",
         "AR_SESSION_MAX_AGE_S",
         "AR_SESSION_TTL_S",
         "AR_SMTP_FROM",
