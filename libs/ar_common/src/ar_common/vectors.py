@@ -1,7 +1,6 @@
-"""Deterministic vectors shared by fake-llm and the model gateway.
+"""Deterministic unit vectors for tests that need a stable embedding.
 
-Knowledge embeddings call the gateway. The gateway's fake provider returns these
-vectors, which match ``POST /v1/embeddings`` on fake-llm.
+The same text and dimension always produce the same vector. Nothing here is a model.
 """
 
 import hashlib

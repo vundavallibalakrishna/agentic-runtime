@@ -141,11 +141,17 @@ def _ask_opa(url: str, policy_input: dict[str, object], timeout: float) -> dict[
     endpoint = url.rstrip("/") + "/v1/data/ar/policy/decision"
     for _attempt in range(2):
         try:
-            from ar_common.egress_http import sync_client  # noqa: PLC0415
+            from ar_common.internal_http import internal_sync_client, signed_headers  # noqa: PLC0415
             from ar_common.offload import blocking  # noqa: PLC0415
 
-            with sync_client(mode="cluster", timeout=timeout) as client:
-                response = blocking(lambda: client.post(endpoint, json={"input": policy_input}))
+            with internal_sync_client(timeout=timeout) as client:
+                response = blocking(
+                    lambda: client.post(
+                        endpoint,
+                        json={"input": policy_input},
+                        headers=signed_headers("POST", endpoint),
+                    )
+                )
         except httpx.HTTPError:
             continue
         if response.status_code >= 300:

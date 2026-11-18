@@ -3,8 +3,8 @@
 ``ChatService`` is the in-memory test double. Staging and production serve API
 reads and writes from Postgres repositories, one transaction per request
 (ADR-0033). Model calls use the model gateway when ``model_gateway_url`` is
-set, and fake-llm otherwise. A connected Temporal client runs each turn on the
-runtime worker.
+set, and the provider the alias points at otherwise. A connected Temporal
+client runs each turn on the runtime worker.
 """
 
 import asyncio
@@ -22,7 +22,6 @@ import httpx
 
 from ar_common.egress_http import async_client
 from ar_common.errors import ArError, ConflictError, ErrorCode, NotFoundError
-from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
 from ar_common.logging import get_logger
 from ar_common.sandboxkit import csv_rows, xlsx_rows
@@ -195,11 +194,30 @@ async def _post_json(
     timeout_s: float,
     allow: list[str] | None,
 ) -> tuple[httpx.Response | None, bool]:
+    from urllib.parse import urlsplit  # noqa: PLC0415
+
+    from ar_common.internal_http import (  # noqa: PLC0415
+        internal_async_client,
+        is_internal_service,
+        signed_headers,
+    )
+
     try:
-        async with async_client(timeout=timeout_s, allow=allow) as client:
-            return await client.post(url, json=body, headers=headers), False
+        if is_internal_service(url):
+            sent = signed_headers("POST", url, headers)
+            async with internal_async_client(timeout=timeout_s) as client:
+                response = await client.post(url, json=body, headers=sent)
+        else:
+            hosts = list(allow or [])
+            host = urlsplit(url).hostname
+            if host and host not in hosts:
+                hosts.append(host)
+            async with async_client(timeout=timeout_s, allow=hosts) as client:
+                response = await client.post(url, json=body, headers=headers)
     except httpx.HTTPError:
         return None, True
+    else:
+        return response, False
 
 
 def _capabilities(value: list[str]) -> list[str]:
@@ -294,7 +312,6 @@ class ChatBehaviour:
     # Denied unless the process that builds the store says otherwise (dev and CI do).
     allow_loopback: bool = False
     scanner: str = "none"
-    fake_llm_url: str = "http://127.0.0.1:8099/v1"
     deny_cidrs: tuple[str, ...] = DEFAULT_DENY_CIDRS
     providers: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
     models: dict[uuid.UUID, dict[str, object]] = field(default_factory=dict)
@@ -453,8 +470,6 @@ class ChatBehaviour:
     _ingest_worker: bool = False
 
     def __post_init__(self) -> None:
-        if self.fake_llm_url == "http://127.0.0.1:8099/v1":
-            self.fake_llm_url = fake_llm_base_url()
         # A store starts with the built-in tool catalogue, which belongs to no tenant, and
         # nothing else: no tenant, no model provider, no model and no alias. Those are rows
         # in its database, put there by the people who run it. A test builds the demo
@@ -1786,7 +1801,7 @@ class ChatBehaviour:
             return self.completion_url()
         provider, _model = found
         base = provider.get("base_url")
-        if not isinstance(base, str) or not base or str(provider.get("kind")) == "fake":
+        if not isinstance(base, str) or not base:
             return self.completion_url()
         key = provider.get("api_key")
         if isinstance(key, str) and key:
@@ -1829,9 +1844,14 @@ class ChatBehaviour:
         return residency_of(self, tenant_id)
 
     def completion_url(self) -> str:
-        """Chat completions. The gateway wins when it is configured."""
-        base = (self.model_gateway_url or self.fake_llm_url).rstrip("/")
-        if self.model_gateway_url and not base.endswith("/v1"):
+        """Chat completions on the model gateway. A missing gateway is an error."""
+        base = self.model_gateway_url.rstrip("/")
+        if not base:
+            raise ArError(
+                ErrorCode.UPSTREAM_ERROR,
+                "No model gateway is configured. Set AR_MODEL_GATEWAY_URL or a provider.",
+            )
+        if not base.endswith("/v1"):
             base += "/v1"
         from ar_domain.models.urls import chat_completions_url  # noqa: PLC0415
 
@@ -1860,7 +1880,7 @@ class ChatBehaviour:
         """Model name, headers, timeout, and whether the provider is real."""
         found = self._alias_target(tenant_id, alias)
         if found is None or str(found[0].get("kind")) == "fake":
-            return "fake-chat", {"X-Fake-Script-Set": "echo"}, 3.0, False
+            return "", {}, 30.0, False
         provider, model = found
         raw_timeout = provider.get("timeout_s")
         timeout = 120.0
@@ -2055,8 +2075,10 @@ class ChatBehaviour:
             return _workflow_not_found(exc)
         status = getattr(described, "status", None)
         name = str(getattr(status, "name", ""))
-        terminal = {"COMPLETED", "FAILED", "CANCELED", "CANCELLED", "TERMINATED", "TIMED_OUT"}
-        return name in terminal
+        # A completed workflow finished the turn. Marking the run failed here
+        # overwrote run.completed when this process still held a working copy.
+        lost = {"FAILED", "CANCELED", "CANCELLED", "TERMINATED", "TIMED_OUT"}
+        return name in lost
 
     def _prepare_run(
         self,
@@ -2279,6 +2301,26 @@ class ChatBehaviour:
         from ar_domain.workspace.turn import ground_run  # noqa: PLC0415
 
         await ground_run(self, run, text)
+        retrieval = run.get("retrieval")
+        if (
+            isinstance(retrieval, dict)
+            and retrieval.get("below_threshold") is True
+            and not retrieval.get("hits")
+        ):
+            from ar_domain.knowledge.threshold import LIBRARY_MISS  # noqa: PLC0415
+
+            await self._finish_grounded(
+                run,
+                assistant,
+                conversation,
+                {
+                    "text": LIBRARY_MISS,
+                    "parts": [{"type": "text", "text": LIBRARY_MISS}],
+                    "citations": [],
+                    "report": None,
+                },
+            )
+            return
         if await run_agent_loop(self, run, assistant, text, one_step=one_step):
             if str(run.get("status")) == "completed":
                 await self._remember(run, text, str(assistant.get("text") or ""))
@@ -2411,7 +2453,7 @@ class ChatBehaviour:
         text: str,
         system: str = "",
         *,
-        model: str = "fake-chat",
+        model: str = "",
         headers: dict[str, str] | None = None,
         timeout_s: float = 3.0,
         real: bool = False,
@@ -2438,13 +2480,17 @@ class ChatBehaviour:
             )
         else:
             body = {"model": model, "messages": messages}
+        from ar_common.internal_http import async_post  # noqa: PLC0415
+
+        target = url or self.completion_url()
         try:
-            async with async_client(timeout=timeout_s, allow=allow) as client:
-                response = await client.post(
-                    url or self.completion_url(),
-                    json=body,
-                    headers=headers or {},
-                )
+            response = await async_post(
+                target,
+                json=body,
+                headers=headers or {},
+                timeout_s=timeout_s,
+                allow=allow,
+            )
             if response.status_code >= 300:
                 return "The model provider returned an error." if real else None
             payload = response.json()
@@ -2578,10 +2624,10 @@ class ChatBehaviour:
                 body["tools"] = tools
                 body["tool_choice"] = "auto"
         url = self._completion_url_for(tenant_id, model_alias, headers)
-        try:
-            async with async_client(timeout=timeout_s, allow=self._dial_allow(tenant_id)) as client:
-                response = await client.post(url, json=body, headers=headers)
-        except httpx.HTTPError:
+        response, transport_error = await _post_json(
+            url, body, headers, timeout_s, self._dial_allow(tenant_id)
+        )
+        if transport_error or response is None:
             if not real:
                 return None
             return _provider_failure("The model provider did not answer.", retryable=True)
@@ -2807,7 +2853,7 @@ class ChatBehaviour:
         self, tenant_id: uuid.UUID, provider: dict[str, object], headers: dict[str, str]
     ) -> str:
         base = provider.get("base_url")
-        if not isinstance(base, str) or not base or str(provider.get("kind")) == "fake":
+        if not isinstance(base, str) or not base:
             return self.completion_url()
         key = provider.get("api_key")
         if isinstance(key, str) and key:
@@ -3236,46 +3282,25 @@ class ChatBehaviour:
             raise NotFoundError()
         if str(run["status"]) != "waiting_input":
             raise ArError(ErrorCode.INVALID_STATE, "run input is not available yet")
-        if run.get("pending_question_id"):
-            from ar_domain.orchestration.ask import accept_human_answer  # noqa: PLC0415
+        text = text.strip() or "Using what you sent."
+        from ar_domain.orchestration.ask import accept_human_answer, question_for_run  # noqa: PLC0415
 
+        if question_for_run(self, run) is not None:
             accept_human_answer(self, tenant_id, user_id, run, text)
-            from ar_domain.durable.after import after_commit  # noqa: PLC0415
-            from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
+        else:
+            run["resume_answer"] = text
+            run["resume"] = True
+            run["status"] = "running"
+        from ar_domain.durable.after import after_commit  # noqa: PLC0415
+        from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
 
-            def _wake() -> None:
-                request_signal(self, run_id, "user_input", {"text": text})
-                from ar_domain.runs.dispatch import continue_on_worker  # noqa: PLC0415
+        def _wake() -> None:
+            request_signal(self, run_id, "user_input", {"text": text})
+            from ar_domain.runs.dispatch import continue_on_worker  # noqa: PLC0415
 
-                continue_on_worker(self, run_id, text, {"status": "input", "text": text})
+            continue_on_worker(self, run_id, text, {"status": "input", "text": text})
 
-            after_commit(self, _wake)
-            return self._public(run)
-        answer = text.strip() or "Using what you sent."
-        self.input_responses[run_id] = answer
-        self._emit(run, "input.resolved", {"length": len(answer)})
-        assistant_id = run.get("assistant_message_id")
-        assistant = self.messages.get(assistant_id) if isinstance(assistant_id, uuid.UUID) else None
-        if isinstance(assistant, dict):
-            assistant["text"] = answer
-            assistant["content"] = [{"type": "text", "text": answer}]
-            assistant["status"] = "completed"
-        run["status"] = "completed"
-        run["ended_at"] = utcnow()
-        run["result_summary"] = answer[:8000]
-        conversation_id = run.get("conversation_id")
-        conversation = (
-            self.conversations.get(conversation_id)
-            if isinstance(conversation_id, uuid.UUID)
-            else None
-        )
-        if isinstance(conversation, dict):
-            conversation["active_run_id"] = None
-        if isinstance(assistant, dict):
-            self._emit(
-                run, "message.completed", {"message_id": str(assistant.get("id")), "text": answer}
-            )
-        self._emit(run, "run.completed", {"final_message_id": str(assistant_id)})
+        after_commit(self, _wake)
         return self._public(run)
 
     def get_run(self, tenant_id: uuid.UUID, run_id: uuid.UUID) -> dict[str, object]:

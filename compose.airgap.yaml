@@ -15,14 +15,14 @@ services:
     environment:
       HTTP_PROXY: http://squid:3128
       HTTPS_PROXY: http://squid:3128
-      NO_PROXY: localhost,127.0.0.1,postgres,valkey,temporal,sandbox-manager,model-gateway,mcp-gateway,api,web,squid,fake-llm,seaweedfs,openbao,opa
+      NO_PROXY: localhost,127.0.0.1,postgres,valkey,temporal,sandbox-manager,model-gateway,mcp-gateway,api,web,squid,seaweedfs,openbao,opa
   model-gateway:
     environment:
       HTTP_PROXY: http://squid:3128
       HTTPS_PROXY: http://squid:3128
-      NO_PROXY: localhost,127.0.0.1,postgres,valkey,temporal,sandbox-manager,model-gateway,mcp-gateway,api,web,squid,fake-llm,seaweedfs,openbao,opa
+      NO_PROXY: localhost,127.0.0.1,postgres,valkey,temporal,sandbox-manager,model-gateway,mcp-gateway,api,web,squid,seaweedfs,openbao,opa
   runtime-worker:
     environment:
       HTTP_PROXY: http://squid:3128
       HTTPS_PROXY: http://squid:3128
-      NO_PROXY: localhost,127.0.0.1,postgres,valkey,temporal,sandbox-manager,model-gateway,mcp-gateway,api,web,squid,fake-llm,seaweedfs,openbao,opa
+      NO_PROXY: localhost,127.0.0.1,postgres,valkey,temporal,sandbox-manager,model-gateway,mcp-gateway,api,web,squid,seaweedfs,openbao,opa

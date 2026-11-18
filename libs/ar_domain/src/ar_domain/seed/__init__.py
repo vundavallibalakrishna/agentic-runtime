@@ -13,7 +13,7 @@ from ar_domain.seed.plans import apply as apply_rows
 
 
 async def apply() -> None:
-    """Seed plans, roles, the dev tenant, fake-llm, the assistant, and the W2 policy."""
+    """Seed plans, roles, the dev tenant, the assistant, and the W2 policy."""
     import_models()
     engine = get_engine(owner_database_url())
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():

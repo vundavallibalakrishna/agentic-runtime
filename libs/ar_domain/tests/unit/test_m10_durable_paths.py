@@ -1096,54 +1096,18 @@ async def test_execute_chat_turn_flushes(monkeypatch: pytest.MonkeyPatch) -> Non
     assert missing["status"] == "missing_store"
 
 
-def test_gateway_echoes_when_fake_llm_is_down(monkeypatch: pytest.MonkeyPatch) -> None:
-    import httpx
+def test_gateway_refuses_an_unregistered_model() -> None:
     from fastapi.testclient import TestClient
 
     from ar_model_gateway.main import create_application
 
-    class _Response:
-        def __init__(self, body: object, status_code: int = 200) -> None:
-            self._body = body
-            self.status_code = status_code
-
-        def json(self) -> object:
-            return self._body
-
-    class _Client:
-        mode = "down"
-
-        def __init__(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-        async def __aenter__(self) -> _Client:
-            return self
-
-        async def __aexit__(self, *_args: object) -> bool:
-            return False
-
-        async def post(self, *_args: object, **_kwargs: object) -> _Response:
-            if _Client.mode == "down":
-                raise httpx.ConnectError("down")
-            if _Client.mode == "bad":
-                return _Response(["nope"])
-            return _Response({"choices": [{"message": {"content": "ok"}}]})
-
-    monkeypatch.setattr(httpx, "AsyncClient", _Client)
     client = TestClient(create_application())
-    echoed = client.post(
+    refused = client.post(
         "/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "week"}]},
-        headers={"x-fake-script-set": "digest"},
     )
-    assert echoed.status_code == 200
-    assert echoed.json()["choices"][0]["message"]["content"] == "fake: week"
-    _Client.mode = "bad"
-    fallback = client.post("/v1/chat/completions", json={"messages": []})
-    assert "fake:" in fallback.json()["choices"][0]["message"]["content"]
-    _Client.mode = "ok"
-    forwarded = client.post("/v1/chat/completions", json={"messages": []})
-    assert forwarded.json()["choices"][0]["message"]["content"] == "ok"
+    assert refused.status_code == 502
+    assert refused.json()["error"]["code"] == "no_healthy_upstream"
 
 
 @pytest.mark.asyncio

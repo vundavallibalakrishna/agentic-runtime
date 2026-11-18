@@ -383,6 +383,6 @@ def _sse(payload: Mapping[str, object]) -> str:
 
 def main() -> None:
     """Run fake-llm on ``AR_FAKE_LLM_HOST_PORT`` (default 8099)."""
-    from ar_common.host_ports import fake_llm_port  # noqa: PLC0415
+    from ar_common.host_ports import listen_port  # noqa: PLC0415
 
-    uvicorn.run(create_application(), host="0.0.0.0", port=fake_llm_port())  # noqa: S104
+    uvicorn.run(create_application(), host="0.0.0.0", port=listen_port("AR_PORT", 8099))  # noqa: S104

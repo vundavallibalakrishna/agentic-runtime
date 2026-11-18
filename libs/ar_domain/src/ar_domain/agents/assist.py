@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 import orjson
 from pydantic import ValidationError
 
-from ar_common.egress_http import async_client
 from ar_common.errors import ArError, ErrorCode, FieldError
 from ar_contracts.definitions import AgentDefinition
 from ar_domain.agents.service import AgentLifecycle
@@ -236,9 +235,10 @@ async def _ask_model(
     options = options_for(actor.tenant_id, "reasoning") if callable(options_for) else {}
     apply_request_options(body, options)
     url = store._completion_url_for(actor.tenant_id, "reasoning", headers)
+    from ar_common.internal_http import async_post  # noqa: PLC0415
+
     try:
-        async with async_client(timeout=max(timeout_s, 30.0)) as client:
-            response = await client.post(url, json=body, headers=headers)
+        response = await async_post(url, json=body, headers=headers, timeout_s=max(timeout_s, 30.0))
     except httpx.HTTPError:
         return "The model provider did not answer."
     if response.status_code >= 300:

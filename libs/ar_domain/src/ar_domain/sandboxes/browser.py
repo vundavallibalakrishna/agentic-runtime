@@ -76,7 +76,9 @@ def _gesture(
     name: str,
     arguments: dict[str, object],
 ) -> dict[str, object]:
-    ref = str(arguments.get("ref") or "")
+    ref = str(arguments.get("ref") or "").strip()
+    if name == "click" and not ref and not str(arguments.get("text") or "").strip():
+        return _error("validation_failed", "ref or text is required")
     if name == "click":
         return _click(store, sandbox, session, arguments, ref)
     if name == "type":

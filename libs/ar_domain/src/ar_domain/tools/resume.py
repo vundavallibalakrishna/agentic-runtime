@@ -55,13 +55,13 @@ def apply_decision(store: Any, run: dict[str, object], decision: dict[str, objec
     """Apply a signal the workflow waited for. Return ``final``, ``continue`` or ``paused``."""
     choice = str(decision.get("status") or "")
     status = str(run.get("status") or "")
-    if choice == "input" or status == "waiting_input":
-        if status != "waiting_input":
+    if choice == "input" or (status == "waiting_input" and choice not in {"approved", "rejected"}):
+        if choice != "input" and status != "waiting_input":
             return "continue"
         text = str(decision.get("text") or "")
-        if run.get("pending_question_id"):
-            from ar_domain.orchestration.ask import accept_human_answer  # noqa: PLC0415
+        from ar_domain.orchestration.ask import accept_human_answer, question_for_run  # noqa: PLC0415
 
+        if question_for_run(store, run) is not None:
             try:
                 accept_human_answer(
                     store,
@@ -79,6 +79,7 @@ def apply_decision(store: Any, run: dict[str, object], decision: dict[str, objec
             run["resume_answer"] = text
             run["resume"] = True
             run["status"] = "running"
+        _fold_input(run, text)
         return "continue"
     if status != "waiting_approval":
         return "continue"
@@ -186,6 +187,49 @@ def _resume(store: Any, run: dict[str, object], approval: dict[str, object]) -> 
     _finish(store, run, text, result, status="completed")
 
 
+def _fold_input(run: dict[str, object], text: str) -> None:
+    """Put the person's answer on the paused ask and let the next step be the model."""
+    from ar_domain.tools.worker_loop import read_worker_loop, write_worker_loop  # noqa: PLC0415
+
+    state = read_worker_loop(run)
+    if not isinstance(state, dict):
+        return
+    messages = state.get("messages")
+    if not isinstance(messages, list):
+        messages = []
+        state["messages"] = messages
+    calls = state.get("pending_calls")
+    index = state.get("pending_index")
+    current = index if isinstance(index, int) and not isinstance(index, bool) else 0
+    call = calls[current] if isinstance(calls, list) and 0 <= current < len(calls) else None
+    call_id = str(call.get("id") or "ask") if isinstance(call, dict) else "ask"
+    already = any(
+        isinstance(item, dict)
+        and item.get("role") == "tool"
+        and str(item.get("tool_call_id") or "") == call_id
+        and "The person answered:" in str(item.get("content") or "")
+        for item in messages
+    )
+    if not already:
+        from ar_common.wrapping import wrap_tool_result  # noqa: PLC0415
+
+        messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": call_id,
+                "content": wrap_tool_result(
+                    tool="agents_ask",
+                    call_id=call_id,
+                    content=f"The person answered: {text}",
+                ),
+            }
+        )
+    state["pending_index"] = current + 1
+    state["phase"] = "model"
+    state["pending_calls"] = []
+    write_worker_loop(run, state)
+
+
 def _continue_loop(run: dict[str, object], text: str) -> bool:
     """Append the approved result onto a checkpointed loop so the next step is the model."""
     from ar_domain.tools.worker_loop import (  # noqa: PLC0415
@@ -220,7 +264,8 @@ def _continue_loop(run: dict[str, object], text: str) -> bool:
     )
     nxt = current + 1
     state["pending_index"] = nxt
-    state["phase"] = "tools"
+    pending_len = len(calls) if isinstance(calls, list) else 0
+    state["phase"] = "model" if nxt >= pending_len else "tools"
     previews = state.get("previews")
     if not isinstance(previews, list):
         previews = []

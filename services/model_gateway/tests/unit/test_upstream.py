@@ -1,6 +1,5 @@
 """The gateway calls a registered provider and does not echo its key."""
 
-import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -90,25 +89,11 @@ def test_unknown_named_model_does_not_fall_back_to_fake(monkeypatch: pytest.Monk
     assert "sk-" not in response.text
 
 
-def test_fake_model_still_echoes(monkeypatch: pytest.MonkeyPatch) -> None:
-    class _Client:
-        def __init__(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-        async def __aenter__(self) -> _Client:
-            return self
-
-        async def __aexit__(self, *_args: object) -> bool:
-            return False
-
-        async def post(self, *_args: object, **_kwargs: object) -> httpx.Response:
-            raise httpx.ConnectError("down")
-
-    monkeypatch.setattr(httpx, "AsyncClient", _Client)
+def test_an_unregistered_model_is_not_answered() -> None:
     client = TestClient(create_application())
     response = client.post(
         "/v1/chat/completions",
-        json={"model": "fake-chat", "messages": [{"role": "user", "content": "hi"}]},
+        json={"model": "missing-model", "messages": [{"role": "user", "content": "hi"}]},
     )
-    assert response.status_code == 200
-    assert response.json()["choices"][0]["message"]["content"] == "fake: hi"
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "no_healthy_upstream"

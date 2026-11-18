@@ -77,6 +77,33 @@ def ask_person(
     return None
 
 
+def question_for_run(store: Any, run: dict[str, object]) -> dict[str, object] | None:
+    """The pending question for this run.
+
+    ``pending_question_id`` lives on the run in the process that asked. Another
+    process sees the row in ``human_questions`` and not that field.
+    """
+    bucket = _bucket(store)
+    question_id = run.get("pending_question_id")
+    row = bucket.get(question_id)
+    if (
+        isinstance(row, dict)
+        and row.get("status") == "pending"
+        and row.get("run_id") == run.get("id")
+    ):
+        return row
+    run_id = run.get("id")
+    for item in bucket.values():
+        if (
+            isinstance(item, dict)
+            and item.get("run_id") == run_id
+            and item.get("status") == "pending"
+        ):
+            run["pending_question_id"] = item.get("id")
+            return item
+    return None
+
+
 def accept_human_answer(
     store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID, run: dict[str, object], text: str
 ) -> None:

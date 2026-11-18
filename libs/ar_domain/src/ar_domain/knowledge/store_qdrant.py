@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 import httpx
 
-from ar_common.egress_http import http_get
+from ar_common.internal_http import client_for, is_internal_service, signed_headers
 from ar_domain.knowledge.qdrant_filter import build_filter, hashed_sparse, physical_name
 from ar_domain.knowledge.store import StoreError, StoreUnavailable, UnsupportedDims, rrf_fuse
 from ar_domain.knowledge.store_types import (
@@ -270,8 +270,11 @@ class QdrantStore:
         if not url:
             return StoreHealth(backend="qdrant", ok=False, latency_ms=0, detail="missing url")
         try:
-            response = http_get(f"{url}/readyz", timeout=2.0)
-            response.raise_for_status()
+            ready = f"{url}/readyz"
+            headers = signed_headers("GET", ready) if is_internal_service(ready) else None
+            with client_for(ready, timeout=2.0) as client:
+                response = client.get(ready, headers=headers)
+                response.raise_for_status()
         except httpx.HTTPError as exc:
             raise StoreUnavailable("qdrant is not ready") from exc
         elapsed = (time.perf_counter() - started) * 1000

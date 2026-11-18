@@ -14,20 +14,20 @@ set -a
 . ./.env
 set +a
 
-# The production profile is the install. Fake-llm is accepted in dev and ci, so
-# the smoke keeps AR_ENV=dev and requires Temporal. A prod env points the model
-# alias at a real provider and sets AR_OIDC_ISSUER.
+# The production profile is the install. The smoke adds a test-only model
+# overlay so the chat turn has an OpenAI-compatible server. That file is not
+# part of compose.yaml.
 export AR_ENV=dev
+compose="docker compose -f compose.yaml -f tests/compose/ci-model.yaml --profile production"
 
-docker compose --profile production up -d --build
+$compose up -d --build
 
-AR_ENV=dev AR_FAKE_LLM_BASE_URL=http://fake-llm:8099/v1 uv run python scripts/seed.py
-# The seeded provider is kind fake, which the durable turn refuses. Point it at
-# the same fake-llm server as an OpenAI-compatible recorded model, then reload.
-docker compose --profile production exec -T postgres \
-  psql -U postgres -d agentic_runtime -v ON_ERROR_STOP=1 \
-  -c "UPDATE model_providers SET kind = 'openai_compatible' WHERE name = 'fake-llm'"
-docker compose --profile production restart runtime-worker >/dev/null
+AR_ENV=dev \
+  AR_DEV_MODEL_BASE_URL=http://ci-model:8099/v1 \
+  AR_DEV_MODEL_NAME=ci-model \
+  AR_LLM_MODEL=ci-chat \
+  uv run python scripts/seed.py
+$compose restart runtime-worker >/dev/null
 uv run python scripts/compose_smoke.py
 
 echo "upgrade from a main-style volume"
@@ -73,7 +73,7 @@ docker run -d --name ar-main-style-pg \
   pgvector/pgvector:0.8.7-pg18-trixie >/dev/null
 wait_ready
 
-docker compose --profile production run --rm --no-deps \
+docker compose -f compose.yaml -f tests/compose/ci-model.yaml --profile production run --rm --no-deps \
   -e POSTGRES_HOST=ar-main-style-pg \
   -e POSTGRES_PORT=5432 \
   -e POSTGRES_USER=postgres \

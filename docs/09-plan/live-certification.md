@@ -2,37 +2,44 @@
 
 Proof label: `live` only when this run used the tenant's model. The report names the model id and the date. A run without `AR_LLM_API_KEY` writes a scorecard labelled `contract` and leaves the live run pending. It does not invent a model id.
 
-The kind job (`scripts/stage9_kind_contract.sh`) is `contract`. It installs the chart with 2 API replicas and 2 workers and uses fake-llm.
-
 ## Ports
 
-The owner's Postgres is on host port **5433**. Do not bind 5432, 6379, 7233, 8000 or 8013. The script exits if a URL uses one of those ports.
+Compose `--profile production` publishes these host ports. Override a port with the variable in the first column; the in-network address (postgres, valkey, temporal, seaweedfs, otel) does not change.
 
-The API listens on `AR_API_PORT` when that is set, otherwise `AR_PORT` (default 8000). `AR_API_URL` is the origin the certification calls. When it is unset, the script uses `http://127.0.0.1:$AR_API_PORT` (or `$AR_PORT`). The Procfile starts `ar-api`, which binds that port. The web dev proxy (`apps/web/dev-env.ts`) sends `/api` and `/v1` to `AR_API_URL`, or to `127.0.0.1:$AR_API_PORT` when only the port is set. mcp-sql owns host port 8010, so a certification that cannot use 8000 sets `AR_API_PORT` (for example 18010) rather than taking 8010.
+| Service | Host variable | Default |
+|---|---|---|
+| Postgres | `AR_PG_HOST_PORT` | 5432 |
+| Valkey | `AR_VALKEY_HOST_PORT` | 6379 |
+| Temporal | `AR_TEMPORAL_HOST_PORT` | 7233 |
+| API | `AR_PORT` | 8000 |
+| Web | `AR_WEB_HOST_PORT` | 3000 |
+| Model gateway | `AR_MG_PORT` | 8001 |
+| mcp-gateway | `AR_MCPG_PORT` | 8002 |
+| sandbox-manager | `AR_SANDBOX_MANAGER_HOST_PORT` | 8003 |
+| system worker | `AR_SYSTEM_HOST_PORT` | 8013 |
+| ingest worker | `AR_INGEST_HOST_PORT` | 8014 |
+| S3 (SeaweedFS) | `AR_S3_HOST_PORT` | 8333 |
 
-| Service | Host port |
-|---|---|
-| Postgres | 5433 |
-| Valkey | 6380 |
-| Temporal | 7234 |
-| API | `AR_API_PORT` or `AR_PORT` (8000) |
-| Web | 3000 |
-| mcp-gateway | 8002 |
-| sandbox-manager | 8003 |
-| system worker | 8014 |
+The API origin is `http://127.0.0.1:$AR_PORT`. The browser origin is `http://127.0.0.1:$AR_WEB_HOST_PORT`. The web process reads `API_PROXY_URL` on each request and proxies `/api`, `/v1` and `/.well-known/agent-card.json` to the API. mcp-sql publishes `AR_MCP_SQL_HOST_PORT` (default 8010); leave the API on 8000.
+
+## Start
+
+From a checkout, with secrets in `.env` (`scripts/dev_keys.py` writes the database passwords):
+
+```bash
+docker compose --profile production up -d --build
+```
+
+`AR_ENV=staging` is the certification environment. Containers take `AR_S3_ENDPOINT=http://seaweedfs:8333` and `AR_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317` from `compose.yaml`, so a laptop `.env` that still says localhost does not apply inside a container.
 
 ## Command
 
-From a checkout, with the stack already up and a real document on disk:
+With the stack up and a real document on disk. `scripts/certify_live.sh` installs Playwright Chromium (the same pin as the sandbox browser extra) before the screenshots, so that step does not need a separate install.
 
 ```bash
-export AR_DATABASE_URL=postgresql+asyncpg://ar_owner:${AR_DB_OWNER_PASSWORD}@127.0.0.1:5433/agentic_runtime
-export AR_VALKEY_URL=redis://127.0.0.1:6380/0
-export AR_TEMPORAL_ADDRESS=127.0.0.1:7234
-export AR_API_PORT=18010          # omit to use AR_PORT (8000). Do not use 8010 (mcp-sql).
-export AR_API_URL=http://127.0.0.1:${AR_API_PORT}
-export AR_PUBLIC_URL=http://127.0.0.1:3000   # the browser opens this origin
-export AR_WEB_URL=http://127.0.0.1:3000       # used only when AR_PUBLIC_URL is unset
+export AR_API_URL=http://127.0.0.1:${AR_PORT:-8000}
+export AR_PUBLIC_URL=http://127.0.0.1:${AR_WEB_HOST_PORT:-3000}
+export AR_WEB_URL=$AR_PUBLIC_URL
 export AR_LLM_BASE_URL=https://api.deepinfra.com/v1/openai
 export AR_LLM_MODEL=Qwen/Qwen3-32B
 export AR_EMBED_MODEL=Qwen/Qwen3-Embedding-8B   # DeepInfra also serves BAAI/bge-m3

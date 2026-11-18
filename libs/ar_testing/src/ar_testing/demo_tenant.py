@@ -34,7 +34,7 @@ def _seed_scripted_provider(store: ChatService) -> None:
     provider_id = demo_id("provider")
     chat_model = demo_id("model-chat")
     store.providers[provider_id] = store._provider(
-        provider_id, None, "fake-llm", "fake", store.fake_llm_url
+        provider_id, None, "fake-llm", "fake", "http://127.0.0.1:8099/v1"
     )
     store.models[chat_model] = store._model(chat_model, None, provider_id, "fake-chat", "chat")
     for alias in ("reasoning", "fast", "vision"):

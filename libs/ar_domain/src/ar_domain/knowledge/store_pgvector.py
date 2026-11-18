@@ -215,7 +215,9 @@ class PgVectorStore:
         )
 
     async def _search(self, sql: str, params: dict[str, object]) -> list[ScoredChunk]:
-        ef = int(os.environ.get("AR_VECTOR_PG_EF_SEARCH", "100"))
+        from ar_domain.knowledge.retrieval import _env_int  # noqa: PLC0415
+
+        ef = _env_int("AR_VECTOR_PG_EF_SEARCH", 100)
         preamble = search_preamble(ef)
         session = await self._connect(read=True)
         try:

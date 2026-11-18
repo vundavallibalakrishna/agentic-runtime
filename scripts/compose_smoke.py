@@ -1,6 +1,6 @@
 """Production Compose install smoke.
 
-Waits for /readyz, runs one chat turn against fake-llm, restarts Temporal and
+Waits for /readyz, runs one chat turn against the test model, restarts Temporal and
 the runtime worker, and checks the workflow is still there.
 """
 
@@ -72,6 +72,58 @@ def _wait_run(client: httpx.Client, run_id: str, seconds: float) -> dict[str, ob
     raise RuntimeError(f"run {run_id} did not finish")
 
 
+def _prove_gateway_hop() -> None:
+    """The worker posts a tool call to mcp-gateway on the install network.
+
+    Any answer below 500 means the gateway received the call. Cluster egress
+    would have refused the private address before a status existed.
+    """
+    script = "\n".join(
+        [
+            "import os, uuid",
+            "from ar_common.internal_http import internal_post",
+            "base = os.environ.get('AR_MCP_GATEWAY_URL', '').rstrip('/')",
+            "if not base:",
+            "    raise SystemExit('AR_MCP_GATEWAY_URL is empty')",
+            "body = {",
+            "    'tenant_id': str(uuid.uuid4()),",
+            "    'user_id': str(uuid.uuid4()),",
+            "    'tool_version_id': str(uuid.uuid4()),",
+            "    'arguments': {},",
+            "}",
+            "response = internal_post(",
+            "    base + '/internal/v1/tool-calls:execute', json=body, timeout=20",
+            ")",
+            "print(response.status_code)",
+            "if response.status_code >= 500:",
+            "    raise SystemExit(response.text[:300])",
+        ]
+    )
+    completed = subprocess.run(  # noqa: S603
+        [  # noqa: S607
+            "docker",
+            "compose",
+            "-f",
+            "compose.yaml",
+            "-f",
+            "tests/compose/ci-model.yaml",
+            "--profile",
+            "production",
+            "exec",
+            "-T",
+            "runtime-worker",
+            "python",
+            "-c",
+            script,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    status = completed.stdout.strip().splitlines()[-1]
+    print(f"worker tool call reached mcp-gateway ({status})")
+
+
 def main() -> None:  # noqa: PLR0915
     api = os.environ.get("AR_SMOKE_API", "http://127.0.0.1:8000").rstrip("/")
     temporal_address = os.environ.get("AR_SMOKE_TEMPORAL", "127.0.0.1:7233")
@@ -117,6 +169,8 @@ def main() -> None:  # noqa: PLR0915
         if finished.get("status") != "completed":
             raise RuntimeError(f"run status {finished.get('status')}")
 
+    _prove_gateway_hop()
+
     async def _prove() -> tuple[str, str]:
         temporal = await Client.connect(temporal_address)
         before = await temporal.get_workflow_handle(f"run-{run_id}").describe()
@@ -136,7 +190,19 @@ def main() -> None:  # noqa: PLR0915
     if restart != "1":
         return
     subprocess.run(
-        ["docker", "compose", "--profile", "production", "restart", "temporal", "runtime-worker"],  # noqa: S607
+        [  # noqa: S607
+            "docker",
+            "compose",
+            "-f",
+            "compose.yaml",
+            "-f",
+            "tests/compose/ci-model.yaml",
+            "--profile",
+            "production",
+            "restart",
+            "temporal",
+            "runtime-worker",
+        ],
         check=True,
     )
     _wait_ready(api, 180)

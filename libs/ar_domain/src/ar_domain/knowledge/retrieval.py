@@ -72,7 +72,7 @@ def apply_rerank(
     closest passages are returned in the order the search found them, and the model that
     reads them judges them.
     """
-    limit = int(os.environ.get("AR_KNOWLEDGE_RERANK_CANDIDATES", "50"))
+    limit = _env_int("AR_KNOWLEDGE_RERANK_CANDIDATES", 50)
     window = hits[:limit]
     if target is None:
         return window[:top_k], 0.0, None, False
@@ -94,6 +94,22 @@ def apply_rerank(
     ranked.sort(key=lambda item: (-float(item["rerank_score"]), str(item.get("chunk_id"))))  # type: ignore[arg-type]
     kept = [hit for hit in ranked if float(hit["rerank_score"]) >= bar][:top_k]  # type: ignore[arg-type]
     return kept, elapsed, None, True
+
+
+def _env_int(name: str, default: int) -> int:
+    """An install integer. An empty value from an env file keeps the default.
+
+    ``os.environ.get(name, default)`` returns ``""`` when the variable is set
+    and blank, and ``int("")`` is not a candidate count.
+    """
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value > 0 else default
 
 
 def _number(value: object) -> float:

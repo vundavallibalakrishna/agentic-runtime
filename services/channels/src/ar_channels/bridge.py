@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ar_common.egress_http import http_get, http_post
+from ar_common.internal_http import internal_get, internal_post
 
 if TYPE_CHECKING:
     from typing import Any
@@ -23,7 +23,7 @@ class HttpBridge:
 
     def post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
         try:
-            response = http_post(
+            response = internal_post(
                 self.base_url + path, json=body, headers=self._headers(), timeout=5.0
             )
             response.raise_for_status()
@@ -36,7 +36,7 @@ class HttpBridge:
 
     def get(self, path: str) -> dict[str, Any]:
         try:
-            response = http_get(self.base_url + path, headers=self._headers(), timeout=5.0)
+            response = internal_get(self.base_url + path, headers=self._headers(), timeout=5.0)
             response.raise_for_status()
         except httpx.HTTPError:
             return {}

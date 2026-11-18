@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 import orjson
 
-from ar_common.egress_http import async_client
 from ar_common.settings import get_settings, uses_shared_process_state
 
 if TYPE_CHECKING:
@@ -282,10 +281,15 @@ async def routed_completion(  # noqa: PLR0912, PLR0915
                 last = "The model provider did not answer."
                 fell_back = True
                 continue
-            async with async_client(
-                timeout=timeout_s, allow=dial_allow(store, tenant_id)
-            ) as client:
-                response = await client.post(url, json=body, headers=headers)
+            from ar_common.internal_http import async_post  # noqa: PLC0415
+
+            response = await async_post(
+                url,
+                json=body,
+                headers=headers,
+                timeout_s=timeout_s,
+                allow=dial_allow(store, tenant_id),
+            )
         except httpx.HTTPError:
             breaker.failure(key)
             last = "The model provider did not answer."

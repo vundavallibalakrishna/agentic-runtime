@@ -238,7 +238,7 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         run["step_kind"] = "paused"
         return "paused"
     failed = bool(outcome.get("failed"))
-    state["failed_open"] = failed
+    state["failed_open"] = bool(state.get("failed_open")) or failed
     errors = _int(state.get("consecutive_errors"))
     state["consecutive_errors"] = errors + 1 if failed else 0
     preview = outcome.get("preview")

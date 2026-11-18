@@ -11,8 +11,13 @@ def test_should_bind_stays_off_under_pytest() -> None:
 
 
 def test_completion_url_prefers_the_gateway() -> None:
+    import pytest
+
+    from ar_common.errors import ArError
+
     service = demo_store()
-    assert service.completion_url().endswith("/chat/completions")
+    with pytest.raises(ArError, match="model gateway"):
+        service.completion_url()
     service.model_gateway_url = "http://gateway.test"
     assert service.completion_url() == "http://gateway.test/v1/chat/completions"
     service.model_gateway_url = "http://gateway.test/v1/"

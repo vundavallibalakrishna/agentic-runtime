@@ -236,8 +236,8 @@ def test_citations_plan_limits_and_gateway() -> None:
         "/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "desk"}]},
     )
-    assert completed.status_code == 200
-    assert completed.json()["choices"][0]["message"]["content"]
+    assert completed.status_code == 502
+    assert completed.json()["error"]["code"] == "no_healthy_upstream"
 
 
 def test_runtime_reexports_and_system_worker_when_temporal_is_down(
