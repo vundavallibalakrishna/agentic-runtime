@@ -24,7 +24,7 @@ from ar_common.errors import (
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.access import Actor, can_archive, can_edit, can_publish, can_see
-from ar_domain.agents.logic import definition_hash
+from ar_domain.agents.logic import definition_hash, is_builtin_agent
 from ar_domain.agents.templates import (
     TEMPLATES,
     builder_definition,
@@ -46,8 +46,16 @@ def _too_large(raw: dict[str, object]) -> bool:
         return len(str(raw).encode()) > _MAX_BYTES
 
 
-_BUILTIN = frozenset({"assistant", "builder"})
 _ACTIVE = frozenset({"queued", "running", "waiting_approval", "waiting_input"})
+
+
+def _owner_out(agent: dict[str, object], actor: Actor) -> dict[str, object]:
+    """The owner as the API shows it. A built-in agent has none, so both fields are null."""
+    owner = agent.get("owner_user_id")
+    if owner is None:
+        return {"id": None, "display_name": None}
+    mine = str(owner) == str(actor.user_id)
+    return {"id": str(owner), "display_name": actor.display_name if mine else "Owner"}
 
 
 def _issue(item: ReferenceIssue) -> FieldError:
@@ -207,8 +215,10 @@ class AgentLifecycle:
     def ensure_builtins(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         """The two agents every tenant has: the assistant and the builder.
 
-        The tenant seed calls this once, with the tenant's admin as the owner. No request
-        creates them.
+        The tenant seed calls this once. No request creates them. ``user_id`` is the person
+        the seed ran for: version 1 records them as its author, but they do not become the
+        owner. A built-in agent ships with the product and has no owner, so the rule that
+        stops an owner signing off their own agent's work never names anyone for it.
         """
         self.store.ensure_assistant(tenant_id, user_id)
         self._ensure(
@@ -300,7 +310,7 @@ class AgentLifecycle:
             "slug": slug,
             "name": name,
             "description": description,
-            "owner_user_id": user_id,
+            "owner_user_id": None if builtin else user_id,
             "owner_team_id": None,
             "visibility": visibility,
             "status": "published" if published else "draft",
@@ -448,16 +458,7 @@ class AgentLifecycle:
                 "status": agent.get("status"),
                 "disabled": bool(agent.get("disabled")),
                 "risk_tier": agent.get("risk_tier"),
-                "owner": {
-                    "id": (
-                        None if agent.get("owner_user_id") is None else str(agent["owner_user_id"])
-                    ),
-                    "display_name": (
-                        actor.display_name
-                        if str(agent.get("owner_user_id")) == str(actor.user_id)
-                        else "Owner"
-                    ),
-                },
+                "owner": _owner_out(agent, actor),
                 "owner_team": None,
                 "published_version": (
                     None if not isinstance(published_row, dict) else published_row.get("version")
@@ -469,7 +470,7 @@ class AgentLifecycle:
                 "favourite": agent["id"]
                 in self.store.favourites.get((actor.tenant_id, actor.user_id), set()),
                 "etag": etag_for(agent),
-                "builtin": bool(agent.get("builtin")) or agent.get("slug") in _BUILTIN,
+                "builtin": is_builtin_agent(agent),
             }
         )
         return cast("dict[str, object]", body)
@@ -606,6 +607,8 @@ class AgentLifecycle:
             and not actor.has("agents:manage_all")
         ):
             raise ArError(ErrorCode.FORBIDDEN, "tenant visibility requires agents:publish")
+        if is_builtin_agent(agent) and fields.get("owner_user_id") is not None:
+            raise ArError(ErrorCode.INVALID_STATE, "a built-in agent has no owner")
         for key in (
             "name",
             "description",
@@ -624,7 +627,7 @@ class AgentLifecycle:
         agent = self._agent(actor, agent_id)
         if not can_archive(agent, actor):
             raise ArError(ErrorCode.FORBIDDEN, "you cannot delete this agent")
-        if agent.get("builtin") or agent.get("slug") in _BUILTIN:
+        if is_builtin_agent(agent):
             raise ArError(ErrorCode.INVALID_STATE, "this agent cannot be deleted")
         if agent.get("published_version_id") is not None:
             raise ArError(
@@ -643,7 +646,7 @@ class AgentLifecycle:
         agent = self._agent(actor, agent_id)
         if not can_archive(agent, actor):
             raise ArError(ErrorCode.FORBIDDEN, "you cannot archive this agent")
-        if agent.get("slug") in _BUILTIN:
+        if is_builtin_agent(agent):
             raise ArError(ErrorCode.INVALID_STATE, "this agent cannot be archived")
         agent["status"] = "archived"
         agent["updated_at"] = utcnow()

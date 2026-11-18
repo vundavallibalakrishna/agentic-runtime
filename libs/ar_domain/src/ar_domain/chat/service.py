@@ -489,7 +489,11 @@ class ChatBehaviour:
         ToolRegistry(self).ensure_seed(tenant=False)
 
     def ensure_assistant(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> dict[str, object]:
-        """Create the published ``assistant`` agent for a tenant once."""
+        """Create the published ``assistant`` agent for a tenant once.
+
+        ``user_id`` is recorded as the author of version 1. The agent itself has no owner:
+        it ships with the product, so nobody in the tenant wrote it.
+        """
         for agent in self.agents.values():
             if agent["tenant_id"] == tenant_id and agent["slug"] == "assistant":
                 return agent
@@ -517,7 +521,7 @@ class ChatBehaviour:
             "slug": "assistant",
             "name": "Assistant",
             "description": "Default assistant",
-            "owner_user_id": user_id,
+            "owner_user_id": None,
             "owner_team_id": None,
             "visibility": "tenant",
             "status": "published",
@@ -525,6 +529,7 @@ class ChatBehaviour:
             "risk_tier": "low",
             "draft_version_id": None,
             "published_version_id": version_id,
+            "builtin": True,
             "created_at": now,
             "updated_at": now,
         }

@@ -11445,6 +11445,58 @@
         }
       }
     },
+    "/api/v1/library-documents/{document_id}:crosscheck": {
+      "post": {
+        "summary": "Crosscheck Document",
+        "operationId": "crosscheck_document_api_v1_library_documents__document_id__crosscheck_post",
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CrosscheckBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Crosscheck Document Api V1 Library Documents  Document Id  Crosscheck Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/library-documents/{document_id}:judge": {
       "post": {
         "summary": "Judge Document",
@@ -22715,6 +22767,23 @@
         "additionalProperties": false,
         "type": "object",
         "title": "CredentialsBody"
+      },
+      "CrosscheckBody": {
+        "properties": {
+          "focus": {
+            "type": "string",
+            "title": "Focus",
+            "default": ""
+          },
+          "modelAlias": {
+            "type": "string",
+            "title": "Modelalias",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CrosscheckBody"
       },
       "DecideBody": {
         "properties": {

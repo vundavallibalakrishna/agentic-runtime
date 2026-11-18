@@ -300,6 +300,10 @@ from .credential_provider_body_extra_type_0 import CredentialProviderBodyExtraTy
 from .credential_provider_patch import CredentialProviderPatch
 from .credential_provider_patch_extra_type_0 import CredentialProviderPatchExtraType0
 from .credentials_body import CredentialsBody
+from .crosscheck_body import CrosscheckBody
+from .crosscheck_document_api_v1_library_documents_document_id_crosscheck_post_response_crosscheck_document_api_v1_library_documents_document_id_crosscheck_post import (
+    CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponseCrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPost,
+)
 from .decide_approval_api_v1_approvals_approval_id_decide_post_response_decide_approval_api_v1_approvals_approval_id_decide_post import (
     DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponseDecideApprovalApiV1ApprovalsApprovalIdDecidePost,
 )
@@ -1716,6 +1720,8 @@ __all__ = (
     "CredentialProviderPatch",
     "CredentialProviderPatchExtraType0",
     "CredentialsBody",
+    "CrosscheckBody",
+    "CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponseCrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPost",
     "DecideApprovalApiV1ApprovalsApprovalIdDecidePostResponseDecideApprovalApiV1ApprovalsApprovalIdDecidePost",
     "DecideBody",
     "DecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePostResponseDecideDocumentRewriteApiV1DocumentRewritesRewriteIdDecidePost",

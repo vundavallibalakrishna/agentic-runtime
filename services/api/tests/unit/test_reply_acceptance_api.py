@@ -92,9 +92,17 @@ def _set_up(client: TestClient) -> str:
     return queue_id
 
 
-def _ask(client: TestClient, text: str = "What can you do?") -> tuple[str, dict[str, object]]:
-    """Ask the assistant in a new conversation. Returns the conversation and its reply."""
-    conversation_id = client.post("/api/v1/conversations", json={}).json()["id"]
+def _ask(
+    client: TestClient, text: str = "What can you do?", *, agent: str | None = None
+) -> tuple[str, dict[str, object]]:
+    """Ask in a new conversation. Returns the conversation and its reply.
+
+    With no agent named the built-in assistant answers; ``agent`` is the slug of another.
+    """
+    body = {} if agent is None else {"agentId": str(_agent(client, agent)["id"])}
+    opened = client.post("/api/v1/conversations", json=body)
+    assert opened.status_code in {200, 201}, opened.text
+    conversation_id = opened.json()["id"]
     posted = client.post(f"/api/v1/conversations/{conversation_id}/messages", json={"text": text})
     assert posted.status_code == 202, posted.text
     return conversation_id, _replies(client, conversation_id)[-1]
@@ -103,6 +111,15 @@ def _ask(client: TestClient, text: str = "What can you do?") -> tuple[str, dict[
 def _replies(client: TestClient, conversation_id: str) -> list[dict[str, object]]:
     body = client.get(f"/api/v1/conversations/{conversation_id}").json()
     return [row for row in body["messages"] if row["role"] == "assistant"]
+
+
+def _agent(client: TestClient, slug: str) -> dict[str, object]:
+    store = client.app.state.chat
+    return next(
+        row
+        for row in store.agents.values()
+        if row["tenant_id"] == demo_id("tenant") and row["slug"] == slug
+    )
 
 
 def _actions(client: TestClient) -> list[str]:
@@ -181,10 +198,32 @@ def test_the_person_who_asked_accepts_and_the_signer_time_and_hash_are_recorded(
     assert _actions(client)[-3:] == tail
 
 
-def test_the_owner_of_the_agent_cannot_accept_its_reply() -> None:
+def test_the_admin_who_seeded_the_tenant_accepts_the_built_in_assistants_reply() -> None:
+    """The assistant ships with the product, so it has no owner for the rule to name."""
+    client, _holder = _client(stepped=True)
+    _set_up(client)
+    assert _agent(client, "assistant")["owner_user_id"] is None
+    _conversation, reply = _ask(client)
+    assert reply["review"]["canAccept"] is True
+    accepted = client.post(f"/api/v1/messages/{reply['id']}:accept")
+    assert accepted.status_code == 200, accepted.text
+    review = accepted.json()
+    assert review["status"] == "accepted"
+    assert review["acceptedBy"]["id"] == str(demo_id("admin"))
+    assert "sod.violation_blocked" not in _actions(client)
+    assert _actions(client)[-3:] == [
+        "review_item.created",
+        "signoff.recorded",
+        "review_item.decided",
+    ]
+
+
+def test_the_owner_of_an_agent_they_built_cannot_accept_its_reply() -> None:
     client, holder = _client(stepped=True)
     _set_up(client)
-    _conversation, reply = _ask(client)
+    assert _agent(client, "helpdesk")["owner_user_id"] == demo_id("admin")
+    _conversation, reply = _ask(client, agent="helpdesk")
+    assert reply["status"] == "completed"
     assert reply["review"]["canAccept"] is False
     store = client.app.state.chat
     before = len(store.review_items)

@@ -378,6 +378,13 @@ def document_cases() -> list[Case]:
             },
             any_result,
         ),
+        Case(
+            "documents.crosscheck",
+            "check a document against itself",
+            lambda ctx: {"documentId": ctx["doc"], "focus": "periods and durations"},
+            # Findings and "none found" both say how many passages were read.
+            has("passages"),
+        ),
         Case("documents.redact", "redact personal data", doc, any_result),
         Case(
             "documents.rewrite",

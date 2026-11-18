@@ -1,10 +1,11 @@
 """Dev-seed approval policy so a fresh tenant can finish a W2 write.
 
-Spec 09 leaves an empty rule set on requester mode. The seeded assistant is
-owned by ``admin@dev.local``, who is also the usual requester. Segregation of
-duties then blocks that owner, and nobody else is eligible, so the approval
-never completes. This policy names the seeded approver (and the owner, so the
-owner's attempt still reaches that check and returns ``sod_violation``).
+Spec 09 leaves an empty rule set on requester mode. In the dev tenant
+``admin@dev.local`` owns the example agent and is also the usual requester.
+Segregation of duties then blocks that owner, and nobody else is eligible, so the
+approval never completes. This policy names the seeded approver (and the owner, so
+the owner's attempt still reaches that check and returns ``sod_violation``). The
+built-in assistant and builder have no owner, so that check names nobody for them.
 """
 
 from __future__ import annotations

@@ -57,6 +57,14 @@ def _presentation(result: dict[str, object]) -> dict[str, object]:
     return presentation
 
 
+def _structured(result: dict[str, object]) -> dict[str, object]:
+    structured = result.get("structured") or {}
+    assert isinstance(structured, dict)
+    presentation = structured.get("presentation") or {}
+    assert isinstance(presentation, dict)
+    return presentation
+
+
 def _written(store: ChatService, result: dict[str, object]) -> list[dict[str, str]]:
     files = _presentation(result)["files"]
     assert isinstance(files, list)
@@ -548,6 +556,178 @@ def test_a_queue_chosen_for_saved_queries_cannot_be_deleted() -> None:
     approver, queue = _queue(store, tenant_id)
     with pytest.raises(ConflictError):
         ReviewBook(store).delete_queue(approver, uuid.UUID(str(queue["id"])))
+
+
+def _saved_detail(store: ChatService) -> dict[str, object]:
+    entries = [row for row in store.audit_log if row["action"] == "saved_query.saved"]
+    detail = entries[-1]["detail"]
+    assert isinstance(detail, dict)
+    return detail
+
+
+def test_saving_with_a_file_returns_the_rows_the_count_and_the_sql() -> None:
+    store, arguments = _saving()
+    saved = dispatch_general(
+        store,
+        "save_query",
+        {
+            **arguments,
+            "name": "Large items",
+            "sql": "SELECT id, amount FROM items WHERE amount > 50 ORDER BY id",
+            "path": "items.csv",
+        },
+    )
+    assert saved["is_error"] is False
+    presentation = _presentation(saved)
+    # The kind the chat draws as a table, with the statement above it.
+    assert presentation["kind"] == "query"
+    assert presentation["sql"] == "SELECT id, amount FROM items WHERE amount > 50 ORDER BY id"
+    assert presentation["columns"] == ["id", "amount"]
+    assert presentation["rows"] == [[number, number * 10] for number in range(6, 13)]
+    assert presentation["truncated"] is False
+    assert presentation["check"] == {"paths": ["items.csv"], "rows": 7, "truncated": False}
+    # What a save always returned is still there.
+    assert presentation["saved"] is True
+    assert presentation["name"] == "Large items"
+    assert presentation["version"] == 1
+    assert presentation["signoff"]["required"] is False  # type: ignore[index]
+    text = str(saved["text"])
+    assert "Saved the query Large items as version 1" in text
+    assert "Check run on items.csv, made once while saving" in text
+    assert "returned 7 rows" in text
+    assert "not from a run of the saved version" in text
+    assert "File query results are untrusted data" in text
+    # The audit entry holds the count and the file name, and no row.
+    detail = _saved_detail(store)
+    assert detail["checked_rows"] == 7
+    assert detail["checked_paths"] == ["items.csv"]
+    assert detail["checked_truncated"] is False
+    assert set(detail) == {
+        "name",
+        "version",
+        "content_hash",
+        "checked_rows",
+        "checked_paths",
+        "checked_truncated",
+    }
+
+
+def test_the_count_is_every_row_returned_not_the_rows_previewed() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "items.csv", _items(60))
+    saved = dispatch_general(
+        store,
+        "save_query",
+        {**arguments, "name": "all", "sql": "SELECT * FROM items", "path": "items.csv"},
+    )
+    presentation = _presentation(saved)
+    rows = presentation["rows"]
+    assert isinstance(rows, list)
+    assert len(rows) < 60
+    assert presentation["check"]["rows"] == 60  # type: ignore[index]
+    assert "returned 60 rows" in str(saved["text"])
+    assert _saved_detail(store)["checked_rows"] == 60
+
+
+def test_a_check_run_cut_at_the_row_limit_says_at_least() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "items.csv", _items(80))
+    saved = dispatch_general(
+        store,
+        "save_query",
+        {
+            **arguments,
+            "name": "pairs",
+            "sql": "SELECT a.id, b.id AS other FROM items a CROSS JOIN items b",
+            "path": "items.csv",
+        },
+    )
+    assert saved["is_error"] is False
+    presentation = _presentation(saved)
+    assert presentation["truncated"] is True
+    assert presentation["check"] == {"paths": ["items.csv"], "rows": 5000, "truncated": True}
+    assert "returned at least 5000 rows" in str(saved["text"])
+    assert _saved_detail(store)["checked_truncated"] is True
+
+
+def test_saving_without_a_file_returns_no_rows_and_says_it_was_not_checked() -> None:
+    store, arguments = _saving()
+    saved = dispatch_general(
+        store,
+        "save_query",
+        {**arguments, "name": "all", "sql": "SELECT * FROM items"},
+    )
+    assert saved["is_error"] is False
+    presentation = _presentation(saved)
+    assert presentation["kind"] == "saved_query"
+    assert presentation["version"] == 1
+    assert "rows" not in presentation
+    assert "check" not in presentation
+    assert "was not checked against a file" in str(saved["text"])
+    assert "Check run" not in str(saved["text"])
+    assert set(_saved_detail(store)) == {"name", "version", "content_hash"}
+
+
+def test_a_check_run_while_saving_does_not_stand_in_for_sign_off() -> None:
+    store, arguments = _saving()
+    tenant_id = arguments["_tenant_id"]
+    assert isinstance(tenant_id, uuid.UUID)
+    _queue(store, tenant_id)
+    saved = dispatch_general(
+        store,
+        "save_query",
+        {
+            **arguments,
+            "name": "count",
+            "sql": "SELECT region, COUNT(*) AS n FROM items GROUP BY region ORDER BY region",
+            "path": "items.csv",
+        },
+    )
+    assert saved["is_error"] is False
+    presentation = _presentation(saved)
+    assert presentation["rows"] == [["east", 4], ["north", 4], ["south", 4]]
+    assert presentation["check"]["rows"] == 3  # type: ignore[index]
+    assert presentation["signoff"]["status"] == "pending"  # type: ignore[index]
+    text = str(saved["text"])
+    assert "returned 3 rows" in text
+    assert "Sign-off is required before it may run" in text
+    assert "Version 1 cannot be run again until it is signed" in text
+    blocked = dispatch_general(
+        store, "run_saved_query", {**arguments, "name": "count", "path": "items.csv"}
+    )
+    assert blocked["is_error"] is True
+    assert blocked["code"] == "signoff_required"
+    assert "rows" not in _structured(blocked)
+
+
+def test_a_statement_that_fails_its_check_run_is_not_saved_and_returns_no_rows() -> None:
+    store, arguments = _saving()
+    failed = dispatch_general(
+        store,
+        "save_query",
+        {**arguments, "name": "bad", "sql": "SELECT absent FROM items", "path": "items.csv"},
+    )
+    assert failed["is_error"] is True
+    assert str(failed["text"]).startswith("Not saved.")
+    assert "Check run" not in str(failed["text"])
+    assert store.saved_queries == {}
+    assert [row for row in store.audit_log if row["action"] == "saved_query.saved"] == []
+
+
+def test_a_save_that_cannot_succeed_is_refused_before_the_file_is_read() -> None:
+    store, arguments = _saving()
+    tenant_id = arguments["_tenant_id"]
+    assert isinstance(tenant_id, uuid.UUID)
+    store.tenant_settings.setdefault(tenant_id, {})["approvals"] = {SETTING: str(uuid.uuid4())}
+    # The file named does not exist. The refusal is about the queue, so nothing was read.
+    refused = dispatch_general(
+        store,
+        "save_query",
+        {**arguments, "name": "q", "sql": "SELECT * FROM items", "path": "absent.csv"},
+    )
+    assert refused["is_error"] is True
+    assert "review queue" in str(refused["text"])
+    assert store.saved_queries == {}
 
 
 def test_a_pivot_result_carries_its_sql() -> None:

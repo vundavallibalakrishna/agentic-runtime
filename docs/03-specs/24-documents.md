@@ -24,7 +24,7 @@ Errors:
 
 ## 2. Tools
 
-Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `judge`, `missing`, `rewrite`, `redact`, `extract`, `create`, `ocr`.
+Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outline`, `tables`, `summarise`, `compare`, `judge`, `missing`, `crosscheck`, `rewrite`, `redact`, `extract`, `create`, `ocr`.
 
 `ocr` takes `fileId`, a workspace `path`, a `url`, or `documentId`. `engine` defaults to `tesseract`, which is proof `unit` (a local binary, not a model). `engine` `vision` uses the configured vision alias. That result is proof `live` only when the model answers, and the result names the model id and the date. Otherwise the result is `text_not_extracted` and the proof stays `unit`. `google_document_ai`, `aws_textract` and `azure_document_intelligence` return `not_live` and are not called. A PDF is Unicode text, or the tool returns `not_unicode` or `text_not_extracted`.
 
@@ -37,6 +37,22 @@ Server `builtin://documents`. Tools: `list`, `search`, `ingest`, `read`, `outlin
 `judge` takes `ruleSetId`, `statements`, or an inline `ruleSet` (`id`, `version`, `items` of `itemId` and `statement`, `sourceFileId`, `sha256`). `missing` returns the rows that are not `supported`. A published rule-set version is immutable. `POST /api/v1/rule-sets` imports one and `GET /api/v1/rule-sets/{ruleSetId}` exports it. Another tenant receives 404.
 
 A verdict is `supported` only when `quote` is a substring of the named stored passage. A quote that is not in that passage is `not_supported`. Lexical overlap is `not_judged` and is never a verdict. A model response that is not the schema is `failed`. Every row records the model id, the prompt hash, the rule-set id and the rule-set version. Library search uses the same stored-passage retrieval as a judgement.
+
+### 2.1 Cross-check
+
+`crosscheck` takes `documentId` (a library document or an attached file) and an optional `focus`. It finds the places inside that one document that disagree with each other: the same thing given two values, a stated count or total that does not match what the document lists, or a summary or table line that contradicts the body. `compare` is for two documents and `judge` is for a list that comes from somewhere else.
+
+Method:
+
+1. Every stored passage of the document, and every stored table the passages do not hold, is sent to the model in one request. The document is read three times, because one reading misses what another finds, and a finding that stands in any reading is reported once. Each passage is wrapped as untrusted content and named by its anchor. `documentAnalysisRedaction` masks this text the same way it does for `judge`.
+2. The model returns a JSON list of findings. A finding has a `statement`, a `kind` (`value_mismatch`, `count_mismatch`, `summary_mismatch` or `other`) and at least two `quotes`, each with an `anchor` and a `value`: the rating, figure, count, date or name that place gives.
+3. A quote is kept only when it is in the stored passage that its anchor names. Spacing and capitals are ignored in that test. A masked quote is not in the stored passage, so it is discarded.
+4. A finding is discarded when fewer than two quotes remain, when its quotes are the same words, or when its kind is `value_mismatch` and each quote holds the same single number. A quote whose `value` is not words of the quote is dropped. A finding is also discarded when its values do not differ: a value whose words are all in another value agrees with it, so "one High" beside "High" is not a disagreement.
+5. The text of the document is at most 40,000 characters. A longer document is refused with `validation_failed`, and the message gives the size and the limit. A part of a document is never checked in place of the whole.
+
+The result has `findings`, `passagesRead` and `discarded` (the number of findings the model proposed that did not pass steps 3 and 4). With no finding, the tool says that no disagreement was found between the passages compared and how many passages were read. When the model does not answer, or its answer is not the schema, the tool returns `unavailable` and says that nothing was checked. It does not report an empty result.
+
+Limits: the tool finds the disagreements that the model notices and can quote. It does not prove that a document agrees with itself. Steps 3 and 4 remove findings that have no evidence in the document. They do not add a finding the model missed. Nothing is stored: there is no row and no audit entry, as for `summarise`.
 
 `rewrite` stores a proposal. Accepting a change updates the passage. Rejecting leaves it.
 

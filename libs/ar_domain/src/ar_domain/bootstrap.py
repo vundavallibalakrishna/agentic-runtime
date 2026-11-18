@@ -72,7 +72,8 @@ async def provision_defaults(tenant_slug: str, owner_email: str) -> None:
     """Write the tenant's default agents and the tool catalogue to the database.
 
     This goes through the same store a process uses, so the rows are the ones a process
-    then loads. The owner is a real user of the tenant. Running it again changes nothing.
+    then loads. ``owner_email`` names a real user of the tenant, recorded as the author of each
+    agent's first version; the agents themselves have no owner. Running it again changes nothing.
     """
     from ar_domain.agents.service import AgentLifecycle  # noqa: PLC0415
     from ar_domain.chat.service import ChatService  # noqa: PLC0415

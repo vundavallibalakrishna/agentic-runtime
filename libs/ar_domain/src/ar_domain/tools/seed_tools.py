@@ -1649,8 +1649,8 @@ def _documents_server(store: Any) -> None:
                 "Compare documents",
                 "Compare two library documents and report added, removed and changed passages. "
                 "Use it for two versions or two drafts of the same kind of document. It needs "
-                "two different documents: to check one document against itself, read it with "
-                "documents.read. To test a document against a list of requirements, use "
+                "two different documents: to check one document against itself, use "
+                "documents.crosscheck. To test a document against a list of requirements, use "
                 "documents.judge.",
                 {
                     "type": "object",
@@ -1679,7 +1679,7 @@ def _documents_server(store: Any) -> None:
                 "Lexical overlap is not_judged. A schema failure is failed. The list must come "
                 "from somewhere other than the document being tested: statements copied from "
                 "the document are always found in it. To check a document against itself, "
-                "read it with documents.read.",
+                "use documents.crosscheck.",
                 {
                     "type": "object",
                     "properties": {
@@ -1749,6 +1749,7 @@ def _documents_server(store: Any) -> None:
                 },
                 "R0",
             ),
+            _crosscheck_tool(),
             _tool(
                 "rewrite",
                 "Rewrite a passage",
@@ -1975,6 +1976,39 @@ def _ocr_tool() -> dict[str, object]:
     )
 
 
+def _crosscheck_tool() -> dict[str, object]:
+    return _tool(
+        "crosscheck",
+        "Cross-check a document",
+        "Find the places inside one document that disagree with each other: the same thing "
+        "given two values (a rating, a figure, a count, a total, a date, a name, a status), "
+        "a stated count or total that does not match what the document lists, or a summary "
+        "or table line that contradicts the body. Use it when asked whether one document "
+        "agrees with itself: contradictions, inconsistencies, figures or ratings that differ "
+        "between a summary and the body. Each finding quotes the places with their anchors. "
+        "It reads the whole document and refuses one that is too long for one pass. Finding "
+        "nothing is not proof that nothing disagrees. For two documents use "
+        "documents.compare; for a list of requirements use documents.judge.",
+        {
+            "type": "object",
+            "properties": {
+                "documentId": {
+                    "type": "string",
+                    "description": "The id of the document to check against itself, from "
+                    "documents.list, documents.search or an attached file.",
+                },
+                "focus": {
+                    "type": "string",
+                    "description": "What to pay most attention to, in a few words, for "
+                    "example 'ratings and totals'. Omit to check everything.",
+                },
+            },
+            "required": ["documentId"],
+        },
+        "R0",
+    )
+
+
 def _image_ask_tool() -> dict[str, object]:
     return _tool(
         "ask",
@@ -2017,11 +2051,11 @@ def _image_ask_tool() -> dict[str, object]:
 
 
 def ensure_m33b(store: Any) -> None:
-    """Add OCR and image.ask to a catalogue that was seeded before this milestone."""
+    """Add OCR, the cross-check and image.ask to a catalogue that was seeded without them."""
     if not isinstance(getattr(store, "tool_servers", None), dict):
         return
     _image_server(store)
-    _append_tools(store, "documents", [_ocr_tool()])
+    _append_tools(store, "documents", [_ocr_tool(), _crosscheck_tool()])
     _append_tools(store, "image", [_image_ask_tool()])
     # Hydrated catalogues call this hook. M34b rides along so the durability
     # loader does not need a second call site.
@@ -2233,9 +2267,11 @@ def _saved_query_tools() -> list[dict[str, object]]:
             "on a new file. Use it only when the person asks to save, keep or reuse a "
             "query, rule or filter, and save the one finished statement, not its steps. To "
             "get an answer now, use query_table. Saving under a name that exists adds the "
-            "next version; nothing is overwritten. The result says whether it was saved "
-            "and whether it needs sign-off before it may run. Only say it was saved when "
-            "the result says so.",
+            "next version; nothing is overwritten. Give path or paths to run the statement "
+            "once on those files while saving: the result then returns the rows and the "
+            "row count, so the person can check them before the query goes for sign-off. "
+            "The result says whether it was saved and whether it needs sign-off before it "
+            "may run. Only say it was saved when the result says so.",
             {
                 "type": "object",
                 "properties": {
@@ -2255,8 +2291,9 @@ def _saved_query_tools() -> list[dict[str, object]]:
                     },
                     "path": {
                         "type": "string",
-                        "description": "A table file to check the statement against before "
-                        "it is saved, as a path relative to the working folder.",
+                        "description": "A table file to run the statement on once while "
+                        "saving, as a path relative to the working folder. The result "
+                        "returns the rows and the row count from that check run.",
                     },
                     "paths": {
                         "type": "array",
@@ -2265,8 +2302,9 @@ def _saved_query_tools() -> list[dict[str, object]]:
                             "description": "A table file the statement reads, as a path "
                             "relative to the working folder.",
                         },
-                        "description": "Several table files to check the statement against, "
-                        "when it joins more than one. Give path or paths.",
+                        "description": "Several table files to run the statement on once "
+                        "while saving, when it joins more than one. The result returns the "
+                        "rows and the row count. Give path or paths.",
                     },
                 },
                 "required": ["name", "sql"],

@@ -1013,6 +1013,20 @@ export type CredentialsBody = {
 };
 
 /**
+ * CrosscheckBody
+ */
+export type CrosscheckBody = {
+    /**
+     * Focus
+     */
+    focus?: string;
+    /**
+     * Modelalias
+     */
+    modelAlias?: string;
+};
+
+/**
  * DecideBody
  */
 export type DecideBody = {
@@ -12345,6 +12359,40 @@ export type CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponses 
 };
 
 export type CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponse = CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponses[keyof CompareDocumentsApiV1LibraryDocumentsDocumentIdComparePostResponses];
+
+export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostData = {
+    body: CrosscheckBody;
+    path: {
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/library-documents/{document_id}:crosscheck';
+};
+
+export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostError = CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostErrors[keyof CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostErrors];
+
+export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponses = {
+    /**
+     * Response Crosscheck Document Api V1 Library Documents  Document Id  Crosscheck Post
+     *
+     * Successful Response
+     */
+    200: {
+        [key: string]: unknown;
+    };
+};
+
+export type CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponse = CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponses[keyof CrosscheckDocumentApiV1LibraryDocumentsDocumentIdCrosscheckPostResponses];
 
 export type JudgeDocumentApiV1LibraryDocumentsDocumentIdJudgePostData = {
     body: JudgeBody;

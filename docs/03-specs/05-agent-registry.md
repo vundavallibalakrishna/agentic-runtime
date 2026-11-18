@@ -24,6 +24,8 @@ Hosted in `api` (`ar_api.routers.agents`, `ar_api.routers.bundles`). Owns `agent
 
 Non-visible agents return 404.
 
+The built-in agents every tenant has (`assistant`, `builder`) ship with the product and have no owner: `owner_user_id` is `null`, the seed never sets it, and `PATCH` refuses to set it (409 `invalid_state`). They are seeded with visibility `tenant`, are edited and published by people with `agents:manage_all` as before, cannot be archived or deleted, never match `owner=me`, and are returned with `owner: {id: null, display_name: null}`. The person the seed ran for is recorded only as the author of version 1. Separation of duties therefore names no owner for them ([spec 09 §12](09-policy-approvals.md)).
+
 ## 3. Public API
 
 #### GET /api/v1/agents

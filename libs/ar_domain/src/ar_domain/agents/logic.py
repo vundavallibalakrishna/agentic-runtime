@@ -7,6 +7,17 @@ from pydantic import JsonValue
 
 from ar_common.jcs import args_hash
 
+# The agents every tenant has. They ship with the product, so nobody in the tenant wrote
+# them and they have no owner. This is the one place that names them; the registry, the
+# seeds and the store all read it. Migration 0052 repeats the list because a migration
+# cannot import this module, and a unit test keeps the two the same.
+BUILTIN_AGENT_SLUGS = frozenset({"assistant", "builder"})
+
+
+def is_builtin_agent(agent: dict[str, object]) -> bool:
+    """True for an agent that ships with the product rather than one a person built."""
+    return bool(agent.get("builtin")) or agent.get("slug") in BUILTIN_AGENT_SLUGS
+
 
 @dataclass(frozen=True, slots=True)
 class AgentView:

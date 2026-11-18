@@ -383,7 +383,7 @@ CREATE TABLE agents (
   name                 text NOT NULL,
   description          text NOT NULL DEFAULT '',
   avatar_file_id       uuid,                          -- FK added in section 11
-  owner_user_id        uuid REFERENCES users(id) ON DELETE SET NULL,
+  owner_user_id        uuid REFERENCES users(id) ON DELETE SET NULL,  -- NULL for the built-in agents (assistant, builder)
   owner_team_id        uuid REFERENCES teams(id) ON DELETE SET NULL,
   visibility           text NOT NULL DEFAULT 'private' CHECK (visibility IN ('private','team','tenant')),
   status               text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','archived')),
