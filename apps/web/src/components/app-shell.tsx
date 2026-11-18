@@ -478,7 +478,7 @@ export function AppShell({
           <aside
             aria-label={t("navSettings")}
             className={cn(
-              "console-sidebar hidden shrink-0 flex-col bg-[var(--sidebar)] px-3 py-4 text-[var(--sidebar-foreground)] lg:flex",
+              "console-sidebar hidden shrink-0 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] px-3 py-4 text-[var(--sidebar-foreground)] lg:flex",
               collapsed ? "w-[68px]" : "w-[232px]",
             )}
           >

@@ -1,6 +1,6 @@
 # Design system
 
-The web app has the look of an administration console: a light top bar, a light work surface, a dark side column inside Settings and one blue accent. Density, alignment and a hairline do the work. Inter is the only interface face. The product stays industry-agnostic. Industry vocabulary does not appear in this chrome.
+The web app has the look of an administration console: a light top bar, a light work surface, a light side column inside Settings and one blue accent. Density, alignment and a hairline do the work. Inter is the only interface face. The product stays industry-agnostic. Industry vocabulary does not appear in this chrome.
 
 ## Tokens
 
@@ -10,7 +10,7 @@ All colour, type, radius, shadow and motion values live in `apps/web/src/app/glo
 |---|---|
 | `--background`, `--foreground` | Page |
 | `--card` | Panels |
-| `--sidebar`, `--sidebar-foreground`, `--sidebar-strong`, `--sidebar-muted`, `--sidebar-hover`, `--sidebar-border` | The dark navigation column: its surface, row text, prominent text, section labels, hovered row and outlines |
+| `--sidebar`, `--sidebar-foreground`, `--sidebar-strong`, `--sidebar-muted`, `--sidebar-hover`, `--sidebar-border` | The side column inside Settings, which follows the theme: its surface, row text, prominent text, section labels, hovered row and outlines |
 | `--muted`, `--muted-foreground` | Quiet surfaces and secondary text |
 | `--primary`, `--primary-hover`, `--primary-foreground` | The one accent, its hovered shade and the label on it |
 | `--border`, `--ring` | Hairlines and the focus ring |
@@ -40,7 +40,7 @@ The faces are loaded with `next/font`: Inter for the interface and IBM Plex Mono
 `AppShell` is the signed-in frame.
 
 - A top bar with a mark, the product name and the workspace name under it, links to Chat, Agents and Settings, a new-chat action and a create-agent action. Chat and Agents use the full width of the window. This is the whole of what a person sees first: the product is mostly reached through its API, so the screens lead with a chat and the agents.
-- Every other screen is under Settings. Settings opens a page that lists them grouped into Work, Build, Data and Admin, and shows the same groups in a collapsible dark side column on each of those screens. A screen is listed only when the session grants its permission. The create-agent action is visible only to builders.
+- Every other screen is under Settings. Settings opens a page that lists them grouped into Work, Build, Data and Admin, and shows the same groups in a collapsible side column on each of those screens. A screen is listed only when the session grants its permission. The create-agent action is visible only to builders.
 - The screens under Settings are Inbox, Approvals, Runs, Tools, Skills, Routines, Schedules, Documents, Connectors, Connections, Knowledge, Memory, Profile, Channels, Evaluations, Platform health, Usage, Quotas, Models, Computers and Users, and the links an installed pack adds.
 - The header shows the workspace and the signed-in email, a command palette (⌘K or Ctrl+K), and an account menu with the theme choice and sign-out.
 - ⌘⇧O (Ctrl+Shift+O) starts a new chat.
