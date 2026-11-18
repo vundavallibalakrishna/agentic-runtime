@@ -1,6 +1,6 @@
 # Design system
 
-The web app has the look of an administration console: a dark navigation column, a light work surface and one blue accent. Density, alignment and a hairline do the work. Inter is the only interface face. The product stays industry-agnostic. Industry vocabulary does not appear in this chrome.
+The web app has the look of an administration console: a light top bar, a light work surface, a dark side column inside Settings and one blue accent. Density, alignment and a hairline do the work. Inter is the only interface face. The product stays industry-agnostic. Industry vocabulary does not appear in this chrome.
 
 ## Tokens
 
@@ -21,7 +21,7 @@ All colour, type, radius, shadow and motion values live in `apps/web/src/app/glo
 | `--nav-active`, `--nav-active-foreground` | The selected navigation row and its text |
 | `--motion` | Short transitions |
 
-Light and dark are both specified. The theme choice is `system`, `light` or `dark`, stored in `localStorage` under `ar-theme`. The default is `system`. A small script in the document head applies the choice before paint. `prefers-reduced-motion: reduce` shortens animation and transitions.
+Light and dark are both specified. The theme choice is `system`, `light` or `dark`, stored in `localStorage` under `ar-theme`. The default is `light`; the system setting is followed only when a person chooses `system`. A small script in the document head applies the choice before paint. `prefers-reduced-motion: reduce` shortens animation and transitions.
 
 ## Status badges
 
@@ -39,12 +39,12 @@ The faces are loaded with `next/font`: Inter for the interface and IBM Plex Mono
 
 `AppShell` is the signed-in frame.
 
-- A collapsible dark sidebar with a mark, the product name and the workspace name under it, a new-chat action, and navigation grouped into Work, Build, Data and Admin. The header breadcrumb shows the group and the page.
-- Navigation remains hidden until the session grants the matching permission. A create-agent shortcut is visible only to builders.
-- Navigation items are Chat, Agents, Tools, Knowledge, Memory, Skills, Routines, Channels, Evaluations, Platform health, Usage, Quotas, Approvals, Runs, Models, Computers, Assurance and Users. An item is hidden when the session lacks its permission. Sections that are not built yet stay in the list with a "Soon" mark and open a short holding page.
+- A top bar with a mark, the product name and the workspace name under it, links to Chat, Agents and Settings, a new-chat action and a create-agent action. Chat and Agents use the full width of the window. This is the whole of what a person sees first: the product is mostly reached through its API, so the screens lead with a chat and the agents.
+- Every other screen is under Settings. Settings opens a page that lists them grouped into Work, Build, Data and Admin, and shows the same groups in a collapsible dark side column on each of those screens. A screen is listed only when the session grants its permission. The create-agent action is visible only to builders.
+- The screens under Settings are Inbox, Approvals, Runs, Tools, Skills, Routines, Schedules, Documents, Connectors, Connections, Knowledge, Memory, Profile, Channels, Evaluations, Platform health, Usage, Quotas, Models, Computers and Users, and the links an installed pack adds.
 - The header shows the workspace and the signed-in email, a command palette (⌘K or Ctrl+K), and an account menu with the theme choice and sign-out.
 - ⌘⇧O (Ctrl+Shift+O) starts a new chat.
-- Below the `lg` breakpoint the sidebar becomes a focus-trapped dialog over a scrim. Escape closes it and restores focus. Account choices use a keyboard-accessible menu.
+- Below the `lg` breakpoint the top-bar links and the Settings groups move into a focus-trapped dialog over a scrim. Escape closes it and restores focus. Account choices use a keyboard-accessible menu.
 - Search remains reachable on mobile. A skip link moves keyboard focus to the main content.
 
 ## Page layout
