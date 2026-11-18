@@ -82,7 +82,19 @@ def test_old_superuser_login_is_reconciled_in_prod(
     try:
         ready = False
         for _ in range(40):
-            probe = _docker("exec", name, "pg_isready", "-U", "postgres", "-d", "agentic_runtime")
+            # Over TCP. While the image runs its first-start scripts a temporary server
+            # answers on the socket only, then shuts down; the real one listens on TCP.
+            probe = _docker(
+                "exec",
+                name,
+                "pg_isready",
+                "-h",
+                "127.0.0.1",
+                "-U",
+                "postgres",
+                "-d",
+                "agentic_runtime",
+            )
             if probe.returncode == 0:
                 ready = True
                 break
