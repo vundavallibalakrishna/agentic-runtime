@@ -88,8 +88,15 @@ def build() -> ASGIApp:
 
 
 def main() -> None:
-    """Listen on ``AR_PORT``."""
-    uvicorn.run(build(), host="127.0.0.1", port=api_listen_port(LISTEN_PORT))
+    """Listen on ``AR_PORT``. Turns run on the test Temporal server."""
+    from ar_testing.runtime import boot_test_runtime
+
+    bridge = boot_test_runtime()
+    app = build()
+    settings = app.product.state.settings
+    settings.temporal_address = bridge.address
+    settings.temporal_namespace = bridge.namespace
+    uvicorn.run(app, host="127.0.0.1", port=api_listen_port(LISTEN_PORT))
 
 
 if __name__ == "__main__":

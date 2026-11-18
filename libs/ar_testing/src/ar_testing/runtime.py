@@ -28,6 +28,8 @@ class TemporalBridge:
         self.error: BaseException | None = None
         self.env: WorkflowEnvironment | None = None
         self.client: Any = None
+        self.address = ""
+        self.namespace = "default"
         self._workers: list[Worker] = []
         self._tasks: list[asyncio.Task[None]] = []
         self._thread = threading.Thread(target=self._run, name="temporal-test", daemon=True)
@@ -72,6 +74,9 @@ class TemporalBridge:
         if self.env is None:
             raise RuntimeError("Temporal test server did not start") from last
         self.client = self.env.client
+        config = self.client.service_client.config
+        self.address = str(config.target_host)
+        self.namespace = str(self.client.namespace)
         from ar_ingest.main import TASK_QUEUE as INGEST_QUEUE  # noqa: PLC0415
         from ar_ingest.worker import ingest_activities, ingest_workflows  # noqa: PLC0415
         from ar_runtime.main import TASK_QUEUE  # noqa: PLC0415
@@ -155,6 +160,17 @@ class _Handle:
         return await asyncio.wrap_future(future)
 
 
+def boot_test_runtime() -> TemporalBridge:
+    """Start the test server and point every new chat store at its worker.
+
+    The browser harness calls this. Pytest uses the same boot.
+    """
+    bridge = TemporalBridge()
+    bridge.start()
+    _install(bridge)
+    return bridge
+
+
 def _install(bridge: TemporalBridge) -> None:
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
 
@@ -171,8 +187,6 @@ def _install(bridge: TemporalBridge) -> None:
 @pytest.fixture(scope="session", autouse=True)
 def temporal_runtime() -> Iterator[TemporalBridge]:
     """Boot the test server once. Every new chat store talks to this worker."""
-    bridge = TemporalBridge()
-    bridge.start()
-    _install(bridge)
+    bridge = boot_test_runtime()
     yield bridge
     bridge.stop()
