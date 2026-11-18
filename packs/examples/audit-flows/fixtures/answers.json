@@ -1,0 +1,24 @@
+{
+  "accounts": 60,
+  "transactions": 820,
+  "transaction_total": 4678713.61,
+  "flagged_transactions": 26,
+  "transactions_over_20000": 50,
+  "opened_in_quarter": 17,
+  "opened_in_quarter_without_profile": [
+    "AC-0046"
+  ],
+  "opened_in_quarter_over_profile_by_half": [
+    "AC-0042"
+  ],
+  "rule_result": [
+    "AC-0042",
+    "AC-0046"
+  ],
+  "by_channel": {
+    "branch": 218,
+    "online": 195,
+    "mobile": 197,
+    "transfer": 210
+  }
+}
