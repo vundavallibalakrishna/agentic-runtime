@@ -2482,7 +2482,14 @@ class ChatBehaviour:
             body = {"model": model, "messages": messages}
         from ar_common.internal_http import async_post  # noqa: PLC0415
 
-        target = url or self.completion_url()
+        target = url
+        if not target:
+            try:
+                target = self.completion_url()
+            except ArError:
+                # A scripted turn asks the model when one is configured and
+                # keeps its own prose when this install has no gateway.
+                return "The model provider did not answer." if real else None
         try:
             response = await async_post(
                 target,
