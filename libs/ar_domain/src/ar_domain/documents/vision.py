@@ -137,11 +137,11 @@ def ask_image(
         options=request_options_of(model_row) if model_row else {},
     )
     try:
-        from ar_common.internal_http import client_for, is_internal_service, signed_headers  # noqa: PLC0415
+        from ar_common.internal_http import client_for  # noqa: PLC0415
 
-        if is_internal_service(url):
-            headers = signed_headers("POST", url, headers)
-        with client_for(url, timeout=timeout_s) as client:
+        finder = getattr(store, "_alias_target", None)
+        supplied = callable(finder) and finder(tenant_id, chosen) is not None
+        with client_for(url, timeout=timeout_s, supplied=supplied) as client:
             response = blocking(client.post, url, json=body, headers=headers)
     except httpx.HTTPError as exc:
         raise VisionError(

@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING, Annotated, Any
 
-import orjson
 from fastapi import APIRouter, Depends, File, Form, Header, Query, Request, Response, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import Field
@@ -20,7 +19,7 @@ from ar_common.errors import (
     RateLimitedError,
     UnauthenticatedError,
 )
-from ar_common.json_api import camelize
+from ar_common.json_api import camelize, dumps
 from ar_contracts.api_model import ApiModel
 from ar_domain.exposure import a2a, keys, mcp_server, runs
 from ar_domain.exposure.spec import agent_paths
@@ -155,7 +154,7 @@ def _slug_of(store: Any, key: dict[str, object], slug: str | None) -> str:
 
 
 def _sse(payload: dict[str, object], event: str = "message") -> bytes:
-    data = orjson.dumps(camelize(payload))
+    data = dumps(camelize(payload))
     return f"event: {event}\ndata: ".encode() + data + b"\n\n"
 
 
@@ -534,7 +533,7 @@ async def stream_external_events(
     accept = request.headers.get("accept", "")
     if "application/json" in accept and "text/event-stream" not in accept:
         page = camelize(await _event_page(request, key, run_id))
-        return Response(content=orjson.dumps(page), media_type="application/json")
+        return Response(content=dumps(page), media_type="application/json")
     headers = dict(getattr(request.state, "rate_headers", {}))
     return StreamingResponse(
         _stream_run(request, key, run_id, include_done=False),

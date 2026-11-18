@@ -18,7 +18,7 @@ Implementation: [spec 03](../03-specs/03-secrets-credentials.md), [ADR-0012](../
 | Internal JWT signing keys | Kubernetes Secret mounted to each service (`AR_INTERNAL_JWT_PRIVATE_KEY`); JWKS `AR_INTERNAL_JWT_JWKS` | platform | quarterly; two keys published during overlap (kid-based) |
 | KEKs for `db_encrypted` | Kubernetes Secret (`AR_DB_ENCRYPTION_KEYS`, active `AR_DB_ENCRYPTION_ACTIVE_KEY`) | platform | add new key, set active, run re-wrap job (`python -m ar_domain.secrets.rotation rewrap`), remove old key |
 | Cursor HMAC key | `AR_CURSOR_SECRET` | platform | rotation invalidates outstanding cursors (clients restart pagination) |
-| OPA bundle token | `AR_OPA_BUNDLE_TOKEN` | platform | rotate with OPA config |
+| Internal HMAC | `AR_INTERNAL_AUTH_SECRET` | platform | rotate on the API and on OPA together |
 | Infrastructure credentials (Postgres roles, S3 keys, Qdrant API key (optional adapter), Keycloak admin client secret) | Kubernetes Secrets or OpenBao dynamic secrets (recommended for Postgres via database secrets engine) | platform | per operator policy; dynamic leases preferred |
 
 ## 2. Rules (never skip)

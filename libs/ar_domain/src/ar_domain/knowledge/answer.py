@@ -100,6 +100,8 @@ async def _model_answer(
         real=real,
         options=store.request_options(owner, alias),
         url=url,
+        supplied=callable(getattr(store, "_alias_target", None))
+        and store._alias_target(owner, alias) is not None,
     )
     return answer
 

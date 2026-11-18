@@ -6,6 +6,8 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 # Screenshots use the same Playwright pin as the sandbox browser extra.
-# Installing it here is the runbook command; a checkout does not need a shim.
+# Browsers stay in the checkout. The install must not prune a shared cache.
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$root/.playwright-browsers}"
+mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
 uv run --with 'playwright==1.64.1' python -m playwright install chromium
 exec uv run --with 'playwright==1.64.1' python scripts/certify_live.py "$@"

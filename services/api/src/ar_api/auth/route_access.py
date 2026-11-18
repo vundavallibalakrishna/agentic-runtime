@@ -57,7 +57,7 @@ ROUTE_ALLOWLIST: dict[tuple[str, str], str] = _allow(
     ("POST", "/api/v1/guest/agents/{agent_id}/turns", "The guest session is the credential."),
     ("GET", "/api/v1/widget/integrations/{integration_id}", "Integration id is the credential."),
     ("POST", "/api/v1/widget/sessions", "Opens a widget session cookie."),
-    ("GET", "/internal/v1/opa/bundles/ar.tar.gz", "OPA bearer when the token is set."),
+    ("GET", "/internal/v1/opa/bundles/ar.tar.gz", "Internal HMAC. No chat read unit."),
     ("GET", "/scim/v2/ServiceProviderConfig", "SCIM bearer, checked in _guard."),
     ("GET", "/scim/v2/Schemas", "SCIM bearer, checked in _guard."),
     ("GET", "/scim/v2/ResourceTypes", "SCIM bearer, checked in _guard."),

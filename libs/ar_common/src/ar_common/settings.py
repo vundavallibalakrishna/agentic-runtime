@@ -117,7 +117,6 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_OIDC_MFA_AMR",
         "AR_OIDC_REDIRECT_URL",
         "AR_OIDC_REQUIRE_MFA",
-        "AR_OPA_BUNDLE_TOKEN",
         "AR_OPA_TIMEOUT_MS",
         "AR_OPA_URL",
         "AR_OTEL_EXPORTER_OTLP_ENDPOINT",
@@ -326,7 +325,7 @@ class BaseServiceSettings(BaseSettings):
     files_scanner: str = "clamav"
     # Empty means the only tenant in the database (a single-tenant install has one).
     bootstrap_tenant_slug: str = ""
-    otel_exporter_otlp_endpoint: str = "http://localhost:4317"
+    otel_exporter_otlp_endpoint: str = ""
     # Shared HMAC secret for sandbox-manager, mcp-gateway, and /metrics.
     # Empty fails closed: those routes reject every call.
     internal_auth_secret: SecretStr = SecretStr("")

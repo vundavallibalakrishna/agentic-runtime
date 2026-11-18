@@ -139,7 +139,7 @@ def embed(
     try:
         from ar_common.internal_http import client_for  # noqa: PLC0415
 
-        with client_for(target.base_url, timeout=_timeout(target)) as http:
+        with client_for(target.base_url, timeout=_timeout(target), supplied=True) as http:
             for start in range(0, len(rows), _BATCH):
                 embed_url = f"{target.base_url}/embeddings"
                 response = blocking(
@@ -201,7 +201,7 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
     try:
         from ar_common.internal_http import client_for  # noqa: PLC0415
 
-        with client_for(url, timeout=_timeout(target)) as http:
+        with client_for(url, timeout=_timeout(target), supplied=True) as http:
             response = blocking(http.post, url, json=payload, headers=_call_headers(target, url))
             response.raise_for_status()
     except httpx.HTTPError as exc:
@@ -324,12 +324,9 @@ def _headers(target: ModelTarget) -> dict[str, str]:
 
 
 def _call_headers(target: ModelTarget, url: str) -> dict[str, str]:
-    from ar_common.internal_http import is_internal_service, signed_headers  # noqa: PLC0415
-
-    headers = _headers(target)
-    if is_internal_service(url):
-        return signed_headers("POST", url, headers)
-    return headers
+    """Headers for a tenant model. The install HMAC is never added."""
+    del url
+    return _headers(target)
 
 
 def _as_uuid(value: object) -> uuid.UUID | None:

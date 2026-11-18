@@ -53,7 +53,7 @@ Exact versions: [stack.md](../stack.md).
 
 Ports: [service-decomposition §6](../02-architecture/service-decomposition.md#6-ports-local-development). Every host port is an env var with that number as the default. See [Host ports](#5-host-ports).
 
-The OPA service loads `deploy/compose/opa/config.yaml`. It contacts the API through `host.docker.internal` at `AR_PORT`, sends `AR_OPA_BUNDLE_TOKEN`, and polls the bundle every 5–15 seconds. Decisions fail closed until the first bundle arrives. Both the host API and Compose must use the same token. After changing the configuration, recreate only this sidecar with `docker compose up -d --no-deps opa`; check readiness with `curl -f "http://localhost:${AR_OPA_HOST_PORT:-8181}/health?bundles"`.
+The OPA service loads `deploy/compose/opa/config.yaml`. A forwarder in that container signs each bundle poll with `AR_INTERNAL_AUTH_SECRET` and sends it to the API at `host.docker.internal:$AR_PORT`. Decisions fail closed until the first bundle arrives. The API and OPA must share that secret. After changing the configuration, recreate only this sidecar with `docker compose up -d --no-deps opa`; check readiness with `curl -f "http://localhost:${AR_OPA_HOST_PORT:-8181}/health?bundles"`. If 8000 is taken, set `AR_PORT` before Compose starts.
 
 ## 4. Day-to-day
 

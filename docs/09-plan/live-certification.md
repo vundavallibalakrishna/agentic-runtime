@@ -30,11 +30,20 @@ From a checkout, with secrets in `.env` (`scripts/dev_keys.py` writes the databa
 docker compose --profile production up -d --build
 ```
 
-`AR_ENV=staging` is the certification environment. Containers take `AR_S3_ENDPOINT=http://seaweedfs:8333` and `AR_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel:4317` from `compose.yaml`, so a laptop `.env` that still says localhost does not apply inside a container.
+`AR_ENV=staging` is the certification environment. Containers take `AR_S3_ENDPOINT=http://seaweedfs:8333` from `compose.yaml`, so a laptop `.env` that still says localhost does not apply inside a container. Telemetry export is off until `AR_OTEL_EXPORTER_OTLP_ENDPOINT` is set (`http://otel:4317` when the `obs` profile is up).
+
+If port 8000 is already taken, set `AR_PORT` before Compose starts and point the clients at it. The API container publishes that port, OPA's forwarder uses it, and the web proxy follows it:
+
+```bash
+export AR_PORT=28000
+export AR_API_URL=http://127.0.0.1:${AR_PORT}
+export API_PROXY_URL=http://127.0.0.1:${AR_PORT}
+docker compose --profile production up -d --build
+```
 
 ## Command
 
-With the stack up and a real document on disk. `scripts/certify_live.sh` installs Playwright Chromium (the same pin as the sandbox browser extra) before the screenshots, so that step does not need a separate install.
+With the stack up and a real document on disk. `scripts/certify_live.sh` installs Playwright Chromium into `PLAYWRIGHT_BROWSERS_PATH` (default `.playwright-browsers` in the checkout) so it does not touch a shared browser cache.
 
 ```bash
 export AR_API_URL=http://127.0.0.1:${AR_PORT:-8000}
@@ -70,7 +79,9 @@ uv run python scripts/seed_tenant.py --slug cert --name Cert \
   --admin-email admin@dev.local --admin-name "Cert Admin"
 ```
 
-`AR_SECOND_PASSWORD` is required when `AR_SECOND_EMAIL` is set. The role key defaults to `approver`.
+The admin password is `AR_ADMIN_PASSWORD` when that variable is set. Otherwise the script reads one line from stdin, or asks twice on a terminal. `AR_SECOND_PASSWORD` is required when `AR_SECOND_EMAIL` is set. The role key defaults to `approver`.
+
+The approval flow in `scripts/tool_certification.py` signs in as a second person. Set `AR_CERT_APPROVER_EMAIL` and `AR_CERT_APPROVER_PASSWORD` to that person's email and password (the seeded reviewer above). Without them the approval case is blocked, not failed.
 
 The run registers the chat model and an embedding model. The embedding default is `Qwen/Qwen3-Embedding-8B` (`AR_EMBED_MODEL`), which DeepInfra serves at `{AR_LLM_BASE_URL}/embeddings`, with `embeddingDimensions` 1024. `BAAI/bge-m3` is the other model DeepInfra serves for the same API. Aliases `chat`, `reasoning`, `fast` and `vision` point at the chat model. `embed` points at the embedding model. Retrieval fails with `embedding_unconfigured` when `embed` is missing; it does not pretend the library was empty.
 
@@ -88,7 +99,7 @@ Each step has `result`: `pass`, `fail`, `skipped-no-token` or `unverified`. A co
 6. Approve a four-eyes request as the second user.
 7. Read the audit chain and run `scripts/verify_audit_chain.py --tenant <uuid>`. There is no audit page to screenshot.
 8. Start a research run and poll it until it completes, fails or the timeout (`AR_RESEARCH_POLL_TIMEOUT_S`, default 180s, every `AR_RESEARCH_POLL_INTERVAL_S` seconds, default 2). The report cites stored pages. Each source has `sha256` and `fetchedAt`. A failed run and a run still going at the timeout are recorded separately. Research searches the tenant's document library, and the web when a search provider is configured. The question is `AR_CERT_RESEARCH_QUESTION`; set it to something the uploaded document answers, so the sources are its passages. A report with no sources says where it looked.
-9. Start an eval run in the product from `evals/live/certification.yaml`: create the suite and its cases through `/api/v1/eval-suites`, run it on the published assistant, and poll `/api/v1/eval-runs/{id}` until it ends (`AR_EVAL_POLL_TIMEOUT_S`, default 900 seconds). Each case is a real agent turn with the agent's tools, scored by the suite's assertions. The step passes when the run completes and the suite gate passes. `AR_EVAL_MIN_PASS_RATE` overrides the suite's pass rate. The scorecard records the eval run id, the summary and each case's scores. `scripts/eval_run.py` is the stub contract check only and has no live mode.
+9. Start an eval run in the product from `evals/live/certification.yaml`: create the suite and its cases through `/api/v1/eval-suites`, run it on the published assistant, and poll `/api/v1/eval-runs/{id}` until it ends (`AR_EVAL_POLL_TIMEOUT_S`, default 900 seconds). Each case is a real agent turn with the agent's tools, scored by the suite's assertions. The step passes when the run completes and the suite gate passes. `AR_EVAL_MIN_PASS_RATE` overrides the suite's pass rate. The scorecard records the eval run id, the summary and each case's scores. That product run is the only eval path.
 10. Send a chat turn with `researchMode` false and confirm the run trace can include `endpointId` when model routes are configured. No API key is written into the scorecard.
 11. Probe each connector whose token is set. A missing token is `skipped-no-token` and does not invent a provider result. A provided token that fails is `fail` and keeps the label off `live`.
     - `AR_CERT_SLACK_TOKEN`, `AR_CERT_GOOGLE_TOKEN`, `AR_CERT_MICROSOFT_TOKEN`, `AR_CERT_ATLASSIAN_TOKEN`, `AR_CERT_GITHUB_TOKEN`

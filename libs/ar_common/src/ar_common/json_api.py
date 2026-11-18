@@ -4,8 +4,15 @@ Python and the database stay snake_case. Keys in REST bodies, problem
 documents, pagination envelopes, SSE payloads and webhooks are camelCase.
 Public models live in ``ar_contracts.api_model.ApiModel``. :func:`camelize` rewrites
 free-form objects that are not Pydantic fields, such as pagination items.
+:func:`dumps` is the encoder for that JSON. It accepts the types a database
+driver returns, including asyncpg's UUID subclass, datetimes and Decimals.
 """
 
+import uuid
+from datetime import date, datetime, time
+from decimal import Decimal
+
+import orjson
 from pydantic.alias_generators import to_camel
 
 # Free-form objects whose keys are data, not API fields, so they are copied through
@@ -36,6 +43,31 @@ def camel_key(name: str) -> str:
     if "_" not in name:
         return name
     return to_camel(name)
+
+
+def _json_default(value: object) -> str:
+    """Text for a driver type orjson does not encode itself.
+
+    orjson accepts ``uuid.UUID`` and ``datetime`` only as the exact builtin
+    type. asyncpg's UUID is a subclass, so it has to be handled here. A Decimal
+    is written as its full decimal text, not a binary float.
+    """
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, time):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return format(value, "f")
+    raise TypeError(f"{type(value).__name__} is not JSON")
+
+
+def dumps(value: object) -> bytes:
+    """JSON bytes for a response. Driver UUIDs, datetimes and Decimals are safe."""
+    return orjson.dumps(value, default=_json_default)
 
 
 def camelize(value: object) -> object:

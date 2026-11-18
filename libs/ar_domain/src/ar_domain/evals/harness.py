@@ -1,4 +1,4 @@
-"""Score an eval case. The stub is not a model. A live label needs a real endpoint."""
+"""Score an eval case from the reply a real model run produced."""
 
 from __future__ import annotations
 
@@ -79,28 +79,3 @@ def _rate(rows: list[dict[str, Any]], key: str) -> float:
     if not rows:
         return 1.0
     return sum(1 for row in rows if row.get(key)) / len(rows)
-
-
-def stub_reply(case: dict[str, Any]) -> dict[str, Any]:
-    """Deterministic OpenAI-shaped reply for the contract stub."""
-    raw_expect = case.get("expect")
-    expect: dict[str, Any] = raw_expect if isinstance(raw_expect, dict) else {}
-    if expect.get("refuses"):
-        text = "I can't help with that request."
-        tool = ""
-    elif expect.get("tool"):
-        text = "I will use the tool."
-        tool = str(expect.get("tool"))
-    else:
-        raw_contains = expect.get("contains")
-        contains = raw_contains if isinstance(raw_contains, list) else []
-        text = str(contains[0]) if contains else "Done."
-        if expect.get("cites"):
-            text = f"{text} [1]"
-        tool = ""
-    return {
-        "text": text,
-        "tool": tool,
-        "tokens": 12,
-        "cost_micros": 0,
-    }

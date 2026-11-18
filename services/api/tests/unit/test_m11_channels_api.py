@@ -36,6 +36,15 @@ def _principal(
     )
 
 
+def _internal(app: object, method: str, path: str) -> dict[str, str]:
+    from pydantic import SecretStr
+
+    from ar_common.internal_auth import sign_request
+
+    app.state.settings.internal_auth_secret = SecretStr("channel-test-secret")  # type: ignore[attr-defined]
+    return {"X-AR-Internal": sign_request("channel-test-secret", method, path)}
+
+
 def _app(holder: dict[str, Principal | None]) -> TestClient:
     app = demo_application()
 
@@ -103,8 +112,10 @@ def test_integrations_hide_other_tenants_and_keep_secrets() -> None:
         "qualified_name": "files.write",
         "risk_class": "W2",
     }
+    path = "/internal/v1/channels/approval-decisions"
     decided = client.post(
-        "/internal/v1/channels/approval-decisions",
+        path,
+        headers=_internal(client.app, "POST", path),
         json={
             "approvalId": str(approval),
             "decision": "reject",
@@ -168,8 +179,10 @@ async def test_inbound_and_openai_sdk_stream() -> None:
     holder: dict[str, Principal | None] = {"principal": _principal()}
     client = _app(holder)
     integration = str(demo_id("channel-slack"))
+    path = "/internal/v1/channels/inbound"
     inbound = client.post(
-        "/internal/v1/channels/inbound",
+        path,
+        headers=_internal(client.app, "POST", path),
         json={
             "integrationId": integration,
             "kind": "slack",

@@ -17,6 +17,41 @@ if TYPE_CHECKING:
 _ROOT = Path(__file__).resolve().parents[5] / "policies" / "rego" / "ar"
 
 
+async def bundle_from_engine(engine: Any) -> tuple[bytes, str]:
+    """Build the bundle from Postgres. The engine is the platform role, all tenants.
+
+    This does not open a chat read unit. OPA has no tenant and no person.
+    """
+    from sqlalchemy import text  # noqa: PLC0415
+    from sqlalchemy.ext.asyncio import AsyncSession  # noqa: PLC0415
+
+    view = _BundleRows()
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        policies = await session.execute(text("SELECT * FROM policies"))
+        for row in policies.mappings():
+            item = dict(row)
+            view.policies[item["id"]] = item
+        versions = await session.execute(text("SELECT * FROM policy_versions"))
+        for row in versions.mappings():
+            item = dict(row)
+            view.policy_versions[item["id"]] = item
+        tenants = await session.execute(text("SELECT id, settings FROM tenants"))
+        for row in tenants.mappings():
+            settings = row["settings"]
+            if isinstance(settings, dict):
+                view.tenant_settings[row["id"]] = settings
+    return build_bundle(view)
+
+
+class _BundleRows:
+    """The three buckets ``build_bundle`` reads. Nothing else."""
+
+    def __init__(self) -> None:
+        self.policies: dict[object, dict[str, object]] = {}
+        self.policy_versions: dict[object, dict[str, object]] = {}
+        self.tenant_settings: dict[object, dict[str, object]] = {}
+
+
 def build_bundle(store: Any) -> tuple[bytes, str]:
     """Tar the platform Rego plus one rules document per tenant."""
     tenants: dict[str, object] = {}

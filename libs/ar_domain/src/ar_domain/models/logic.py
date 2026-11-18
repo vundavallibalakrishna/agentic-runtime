@@ -64,10 +64,11 @@ def provider_url_denied(  # noqa: PLR0911
 ) -> bool:
     """Reject provider URLs whose host is inside the deny list.
 
-    Loopback, ``localhost`` and decimal or octal spellings of a
-    loopback address are allowed only when ``allow_loopback`` is set. A mapped
-    or decimal metadata address is denied. Other hostnames are checked again
-    when the call is placed.
+    A tenant URL that names an install service is refused even when
+    ``allow_loopback`` is set. Loopback, ``localhost`` and decimal or octal
+    spellings of a loopback address are allowed only when ``allow_loopback``
+    is set, and that setting is off outside dev. A mapped or decimal metadata
+    address is denied. Other hostnames are checked again when the call is placed.
     """
     from ar_common.egress_policy import (  # noqa: PLC0415
         canonical_ip,
@@ -75,7 +76,13 @@ def provider_url_denied(  # noqa: PLR0911
         metadata_address,
         named_private_allowed,
     )
+    from ar_common.internal_http import (  # noqa: PLC0415
+        tenant_loopback_denied,
+        tenant_supplied_url_denied,
+    )
 
+    if tenant_supplied_url_denied(url) is not None or tenant_loopback_denied(url) is not None:
+        return True
     host = _parse_host(url)
     if host == "":
         return True

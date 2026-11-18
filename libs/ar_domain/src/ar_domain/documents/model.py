@@ -36,6 +36,12 @@ def prompt_hash(task: str, evidence: str) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _alias_supplied(store: Any, tenant_id: uuid.UUID, alias: str) -> bool:
+    """True when the URL comes from a tenant provider, not the model gateway."""
+    finder = getattr(store, "_alias_target", None)
+    return callable(finder) and finder(tenant_id, alias) is not None
+
+
 def model_id_for(store: Any, tenant_id: uuid.UUID, alias: str) -> str:
     """The id of the model ``alias`` points at, or empty when none is configured."""
     finder = getattr(store, "_alias_target", None)
@@ -96,11 +102,10 @@ def ask_model_many(
         }
         apply_request_options(body, options)
         bodies.append(body)
-    from ar_common.internal_http import client_for, is_internal_service, signed_headers  # noqa: PLC0415
+    from ar_common.internal_http import client_for  # noqa: PLC0415
 
-    if is_internal_service(url):
-        headers = signed_headers("POST", url, headers)
-    with client_for(url, timeout=timeout_s) as client:
+    supplied = _alias_supplied(store, tenant_id, alias or "reasoning")
+    with client_for(url, timeout=timeout_s, supplied=supplied) as client:
         # Only the waiting runs off the loop; the answers are read back here.
         responses = blocking_all(
             [

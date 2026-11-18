@@ -96,8 +96,17 @@ def model_refusal(
 
     ``residency`` of ``cluster`` requires a private or loopback address.
     ``in`` does not, so an existing cloud provider is unchanged. Closed egress
-    applies either way: the host must be listed.
+    applies either way: the host must be listed. A tenant URL that names an
+    install service or a loopback address is refused before either of those.
     """
+    from ar_common.internal_http import (  # noqa: PLC0415
+        tenant_loopback_denied,
+        tenant_supplied_url_denied,
+    )
+
+    blocked = tenant_supplied_url_denied(url) or tenant_loopback_denied(url)
+    if blocked is not None:
+        return blocked
     hosts = tenant_hosts(store, tenant_id)
     if closed_egress():
         problem = decide_url(url, hosts, closed=True, check_private=True, loopback=loopback)

@@ -147,10 +147,17 @@ def test_policy_lifecycle_simulation_and_bundle() -> None:
     assert isolated.json()["decision"] == "allow"
     deleted = client.delete(f"/api/v1/policies/{policy_id}")
     assert deleted.status_code == 200
-    bundle = client.get("/internal/v1/opa/bundles/ar.tar.gz")
+    from pydantic import SecretStr
+
+    from ar_common.internal_auth import sign_request
+
+    path = "/internal/v1/opa/bundles/ar.tar.gz"
+    client.app.state.settings.internal_auth_secret = SecretStr("bundle-secret")
+    signed = {"X-AR-Internal": sign_request("bundle-secret", "GET", path)}
+    bundle = client.get(path, headers=signed)
     assert bundle.status_code == 200
     etag = bundle.headers["etag"]
-    cached = client.get("/internal/v1/opa/bundles/ar.tar.gz", headers={"if-none-match": etag})
+    cached = client.get(path, headers={**signed, "if-none-match": etag})
     assert cached.status_code == 304
     audit = client.get("/api/v1/audit-events")
     assert audit.status_code == 200

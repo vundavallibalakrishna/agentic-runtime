@@ -34,12 +34,14 @@ def test_factories_and_resolution_order() -> None:
     assert resolve_alias(rows, "other", "reasoning").primary_model_id == "platform"  # type: ignore[union-attr]
 
 
-def test_ssrf_allows_loopback_only_in_dev() -> None:
+def test_provider_urls_never_name_install_services() -> None:
     deny = ("10.0.0.0/8", "127.0.0.0/8", "192.168.0.0/16")
     assert provider_url_denied("http://10.1.1.1/v1", deny, allow_loopback=True)
     assert not provider_url_denied("http://127.0.0.1:8099/v1", deny, allow_loopback=True)
-    assert provider_url_denied("http://127.0.0.1:8099/v1", deny, allow_loopback=False)
-    assert not provider_url_denied("http://fake-llm:8099/v1", deny, allow_loopback=True)
+    assert provider_url_denied("http://127.0.0.1:28000/v1", deny, allow_loopback=False)
+    assert provider_url_denied("http://opa:8181/v1", deny, allow_loopback=True)
+    assert provider_url_denied("http://mcp-gateway:8002/internal/v1", deny, allow_loopback=True)
+    assert not provider_url_denied("https://example.com/v1", deny, allow_loopback=False)
     assert provider_url_denied("not a url", deny, allow_loopback=True)
 
 

@@ -26,7 +26,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | capability | `repair` | `unit` | no | Schema and parse retries run in process. The tool-failure notice is a structured field. |
 | capability | `model-routing` | `unit` | no | Fallback and the circuit breaker run in process. Valkey holds circuit state outside dev. |
 | capability | `context` | `contract` | no | A worker activity folds older messages into the Postgres summary. The fold does not call a model. |
-| capability | `eval-harness` | `contract` | no | scripts/eval_run.py scores a stubbed model over HTTP. The report has no model id. A live label is written only when AR_LLM_API_KEY is set. |
+| capability | `eval-harness` | `contract` | no | An eval is an eval run in the product. |
 | capability | `research` | `unit` | no | Research searches the tenant's document library and, when one is configured, the web provider general.search uses. Unit tests add library notes. No stored live report. |
 | connector | `email` | `live` | no | Catalogue verification is live. |
 | connector-tool | `email_send` | `live` | no | Badge only. Offered after this tenant installs it and stores a credential. |

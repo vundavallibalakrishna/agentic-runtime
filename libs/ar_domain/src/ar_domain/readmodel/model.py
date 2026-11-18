@@ -213,8 +213,14 @@ class RepositoryReadModel:
         *,
         user_id: str = "",
         request_id: str = "",
+        commit: bool = True,
     ) -> AsyncIterator[Any]:
-        """Load one tenant, yield the unit, commit it, then drop it."""
+        """Load one tenant, yield the unit, and commit it unless the caller does.
+
+        The HTTP middleware commits before it starts the response, so a failed
+        flush is an error the client sees. Other callers leave ``commit`` on
+        and the unit is saved when the context exits.
+        """
         unit = self._new_unit()
         unit.context_tenant_id = tenant_id
         unit.context_user_id = user_id
@@ -229,15 +235,8 @@ class RepositoryReadModel:
         try:
             yield unit
         finally:
-            from ar_domain.durable.after import run_after_commit  # noqa: PLC0415
-            from ar_domain.durable.flush import flush_store  # noqa: PLC0415
-
-            await flush_store(unit)
-            try:
-                run_after_commit(unit)
-            finally:
-                # What those steps changed is committed too, even when one of them raised.
-                await flush_store(unit)
+            if commit:
+                await commit_unit(unit)
 
     def _new_unit(self) -> Any:
         from ar_domain.chat.service import RequestUnit  # noqa: PLC0415
@@ -254,6 +253,22 @@ class RepositoryReadModel:
 
         bind_unit(self, unit)
         return unit
+
+
+async def commit_unit(unit: object) -> None:
+    """Flush the unit, run after-commit work, and flush what that work changed.
+
+    A failure rolls the database transaction back inside the flush and is raised.
+    The caller decides whether the client has already been told the write succeeded.
+    """
+    from ar_domain.durable.after import run_after_commit  # noqa: PLC0415
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+    await flush_store(unit)
+    try:
+        run_after_commit(unit)
+    finally:
+        await flush_store(unit)
 
 
 def _direct_tenant(payload: object) -> uuid.UUID | None:

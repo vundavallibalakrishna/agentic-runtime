@@ -37,7 +37,8 @@ SKIP_PARTS = {
 }
 SKIP_NAMES = {"check_no_fake_models.py", "pyproject.toml"}
 PATTERN = re.compile(
-    r"fake-llm|fake_llm|fake-chat|ar_fake_llm|AR_FAKE_LLM|fixture provider|stub model|\bfaker\b",
+    r"fake-llm|fake_llm|fake-chat|ar_fake_llm|AR_FAKE_LLM|fixture provider|"
+    r"stub model|stub_reply|OpenAI-compatible stub|\bfaker\b",
     re.IGNORECASE,
 )
 

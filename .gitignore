@@ -23,6 +23,7 @@ out/
 dist/
 storybook-static/
 playwright-report/
+.playwright-browsers/
 test-results/
 blob-report/
 *.tsbuildinfo

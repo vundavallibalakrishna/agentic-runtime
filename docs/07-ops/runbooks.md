@@ -36,7 +36,7 @@ Alert `ARTemporalBacklog` (schedule-to-start p95 > 5 s).
 
 ## rb-06-opa-unavailable
 Alert `AROpaUnavailable` (`ar_policy_fallback_total` increasing). Tool calls are **fail-closed**: calls are denied (reason `policy_unavailable`) while OPA is unreachable, except the R0 built-ins (`knowledge.*`, `memory.search`, `files.list/read`, `plan.update`) allowed by the in-process fallback evaluator ([spec 08 §13](../03-specs/08-tool-registry-mcp.md#13-failure-modes)).
-- **Check:** `kubectl get pods -l app=opa`; `/health?bundles` (bundle download from `api` failing? check `AR_OPA_BUNDLE_TOKEN`); `ar_opa_bundle_build_seconds`.
+- **Check:** `docker compose ps opa`; `/health?bundles` (bundle download from `api` failing? check `AR_INTERNAL_AUTH_SECRET` on the API and on OPA); `ar_opa_bundle_build_seconds`.
 - **Mitigate:** restart OPA; if a bad bundle was activated, re-activate the previous policy version (`POST /api/v1/policies/{policy_id}:activate` with body `{version}` of the last good version).
 - **Follow-up:** add the failing case to `opa test`.
 
