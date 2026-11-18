@@ -597,7 +597,7 @@ def test_waiting_runs_cancel_and_accept_input() -> None:
         "status": "running",
     }
     assert store.cancel_run(tenant, user, running)["status"] == "running"
-    assert running in store.cancel_flags
+    assert store.runs[running].get("cancel_requested") is True
     answered = uuid.uuid4()
     message = uuid.uuid4()
     store.messages[message] = {

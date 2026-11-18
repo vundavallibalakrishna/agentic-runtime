@@ -3,7 +3,6 @@
 import pytest
 
 from ar_runtime.activities.execute_tool_call import execute_tool_call
-from ar_runtime.activities.model_step import model_step
 from ar_runtime.workflows.tool_turn import PlannedCall, ToolTurnWorkflow, drive_tool_turn
 
 
@@ -37,7 +36,6 @@ def test_parallel_retry_limit_and_cancel() -> None:
     assert cancelled.status == "cancelled"
     denied = execute_tool_call("read", fail_code="policy_denied")
     assert denied["attempts"] == 1
-    assert model_step("hello")["text"] == "hello"
 
 
 @pytest.mark.asyncio

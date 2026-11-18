@@ -197,7 +197,7 @@ async def _finish(
     request: Request, service: ChatBehaviour, run_id: str, text: str, names: list[str]
 ) -> None:
     if getattr(request.app.state, "await_runs", False):
-        await service.generate(uuid.UUID(run_id), text, names)
+        await service._start_turn(uuid.UUID(run_id), text, names)
 
 
 async def _persist_provider(
@@ -1037,8 +1037,15 @@ async def refresh_conversation_summary(
 @router.post("/api/v1/runs/{run_id}:resume", dependencies=[Depends(require_permission("chat:use"))])
 @expose(public=False, permission="chat:use")
 async def resume_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
+    import asyncio  # noqa: PLC0415
+
     principal = _principal(request)
-    return _chat(request).resume_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+    service = _chat(request)
+    view = service.resume_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+    pending = [task for task in service.tasks if not task.done()]
+    if pending:
+        await asyncio.gather(*pending)
+    return view
 
 
 @router.post("/api/v1/runs/{run_id}:cancel", dependencies=[Depends(require_permission("chat:use"))])
@@ -1051,19 +1058,23 @@ async def cancel_run(run_id: uuid.UUID, request: Request) -> dict[str, object]:
         raise NotFoundError()
     if run.get("status") in {"completed", "failed", "cancelled"}:
         raise ArError(ErrorCode.INVALID_STATE, "run is not active")
+    # The service records the cancel and signals the workflow. Awaiting the signal
+    # here surfaces a dead frontend; the flag is what the next step reads.
+    view = service.cancel_run(_tenant(principal), uuid.UUID(principal.id), run_id)
     handle_for = getattr(service.temporal_client, "get_workflow_handle", None)
-    if callable(handle_for) and run.get("temporal_workflow_id"):
+    workflow_id = run.get("temporal_workflow_id") or f"run-{run_id}"
+    if callable(handle_for) and service.temporal_client is not None:
         try:
-            await handle_for(str(run["temporal_workflow_id"])).signal("cancel")
+            await handle_for(str(workflow_id)).signal("cancel")
         except RPCError as exc:
             from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
             await reload_run(service, run_id)
-            run = service.get_run(_tenant(principal), run_id)
-            if run.get("status") not in {"completed", "failed", "cancelled"}:
+            current = service.get_run(_tenant(principal), run_id)
+            if current.get("status") not in {"completed", "failed", "cancelled"}:
                 raise UnavailableError("The agent could not be stopped. Please try again.") from exc
-        return run
-    return service.cancel_run(_tenant(principal), uuid.UUID(principal.id), run_id)
+            return current
+    return view
 
 
 @router.get("/api/v1/runs/{run_id}/events", dependencies=[Depends(require_permission("chat:use"))])

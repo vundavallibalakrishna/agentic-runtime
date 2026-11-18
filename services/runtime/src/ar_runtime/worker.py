@@ -11,7 +11,6 @@ from ar_common.settings import fake_models_allowed, get_settings, loopback_allow
 from ar_common.temporal_worker import temporal_unavailable_fields, temporal_worker_kwargs
 from ar_runtime.activities.advance_chat_step import advance_chat_step
 from ar_runtime.activities.create_child_run import create_child_run
-from ar_runtime.activities.evaluate_control_tool import evaluate_control_tool, record_user_input
 from ar_runtime.activities.execute_chat_turn import execute_chat_turn, finish_chat_turn
 from ar_runtime.activities.expire_approval import bind_store, cancel_approval, expire_approval
 from ar_runtime.activities.research_step import (
@@ -22,7 +21,6 @@ from ar_runtime.activities.research_step import (
 )
 from ar_runtime.activities.start_run import start_run
 from ar_runtime.main import TASK_QUEUE
-from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow
 from ar_runtime.workflows.delegation import AgentRunWorkflow, ChildRunWorkflow
 from ar_runtime.workflows.research import ResearchSubtaskWorkflow, ResearchWorkflow
 from ar_runtime.workflows.tool_turn import ToolTurnWorkflow
@@ -82,7 +80,6 @@ async def run_worker() -> None:
                     TurnWorkflow,
                     AgentRunWorkflow,
                     ChildRunWorkflow,
-                    ApprovalWaitWorkflow,
                     ToolTurnWorkflow,
                     ResearchWorkflow,
                     ResearchSubtaskWorkflow,
@@ -99,8 +96,6 @@ async def run_worker() -> None:
                     create_child_run,
                     expire_approval,
                     cancel_approval,
-                    evaluate_control_tool,
-                    record_user_input,
                 ],
                 **temporal_worker_kwargs(),
             )

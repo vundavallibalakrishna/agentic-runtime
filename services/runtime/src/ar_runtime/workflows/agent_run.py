@@ -51,8 +51,8 @@ def delegation_workflow() -> type[object]:
     return AgentRunWorkflow
 
 
-def approval_wait_workflow() -> type[object]:
-    """The Temporal wait for approval and user input. The dev HTTP path stays in process."""
-    from ar_runtime.workflows.approval_wait import ApprovalWaitWorkflow  # noqa: PLC0415
+def turn_workflow() -> type[object]:
+    """The one run workflow. Approval and input are signals on it."""
+    from ar_runtime.workflows.turn import TurnWorkflow  # noqa: PLC0415
 
-    return ApprovalWaitWorkflow
+    return TurnWorkflow

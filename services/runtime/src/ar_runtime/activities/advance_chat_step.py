@@ -12,7 +12,7 @@ from ar_runtime.activities.heartbeat import heartbeating
 
 @activity.defn(name="advance_chat_step")
 @repository_activity(process_store)
-async def advance_chat_step(payload: dict[str, Any]) -> dict[str, str]:
+async def advance_chat_step(payload: dict[str, Any]) -> dict[str, Any]:
     """Reload the run and advance it by one step. A finished run is not run again."""
     store = current_store()
     run_id = uuid.UUID(str(payload.get("run_id") or ""))
@@ -29,6 +29,10 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, str]:
     run = runs.get(run_id) if isinstance(runs, dict) else None
     if not isinstance(run, dict):
         return {"status": "missing", "kind": "final", "run_id": str(run_id)}
+    stopped = await _stop_or_apply(store, run, run_id, payload)
+    if stopped is not None:
+        await flush_store(store)
+        return stopped
     status = str(run.get("status") or "")
     if not run_is_active(status):
         await flush_store(store)
@@ -70,4 +74,48 @@ async def advance_chat_step(payload: dict[str, Any]) -> dict[str, str]:
     status = str(run.get("status") or "completed") if isinstance(run, dict) else "completed"
     if not run_is_active(status):
         kind = "final"
-    return {"status": status, "kind": str(kind), "run_id": str(run_id)}
+    return _step_body(run if isinstance(run, dict) else {}, status, str(kind), str(run_id), text)
+
+
+async def _stop_or_apply(
+    store: object, run: dict[str, Any], run_id: uuid.UUID, payload: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Cancel or apply a waited decision. None means the step should run."""
+    from ar_domain.conversations.logic import run_is_active  # noqa: PLC0415
+
+    status = str(run.get("status") or "")
+    if run.get("cancel_requested") is True and run_is_active(status):
+        from ar_domain.tools.resume import mark_cancelled  # noqa: PLC0415
+
+        mark_cancelled(store, run)
+        return {"status": "cancelled", "kind": "final", "run_id": str(run_id)}
+    decision = payload.get("decision")
+    if not isinstance(decision, dict):
+        return None
+    from ar_domain.tools.resume import apply_decision  # noqa: PLC0415
+
+    applied = apply_decision(store, run, decision)
+    if applied == "final" or not run_is_active(str(run.get("status") or "")):
+        return {
+            "status": str(run.get("status") or "completed"),
+            "kind": "final",
+            "run_id": str(run_id),
+        }
+    return None
+
+
+def _step_body(
+    run: dict[str, Any], status: str, kind: str, run_id: str, text: str
+) -> dict[str, Any]:
+    body: dict[str, Any] = {"status": status, "kind": kind, "run_id": run_id}
+    if kind == "paused" and status == "waiting_approval":
+        from ar_domain.approvals.pending import held  # noqa: PLC0415
+
+        pending = held(run)
+        if isinstance(pending, dict) and pending.get("approval_id") is not None:
+            body["approval_id"] = str(pending["approval_id"])
+    if kind == "fanout":
+        from ar_domain.research.engine import pending_subtasks, state_of  # noqa: PLC0415
+
+        body["subtasks"] = pending_subtasks(state_of(run, text))
+    return body

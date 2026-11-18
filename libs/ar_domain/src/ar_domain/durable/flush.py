@@ -94,6 +94,7 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             await _skill_versions(session, pending["skill_versions"])
             await _collections(session, pending["knowledge_collections"])
             await _sources(session, pending["knowledge_sources"])
+            await _ingestion_jobs(session, pending["ingestion_jobs"])
             await _documents(session, pending["knowledge_documents"])
             await _chunks(session, pending["document_chunks"])
             await _facts(session, pending["memory_facts"])
@@ -609,6 +610,52 @@ async def _sources(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
                 "created_by": as_uuid(row.get("created_by")),
                 "created_at": as_dt(row.get("created_at")) or now,
                 "updated_at": as_dt(row.get("updated_at")) or now,
+            },
+        )
+
+
+async def _ingestion_jobs(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    sql = """
+        INSERT INTO ingestion_jobs (
+            id, tenant_id, source_id, collection_id, kind, status, temporal_workflow_id,
+            stats, error, triggered_by, started_at, finished_at, created_at
+        ) VALUES (
+            :id, :tenant_id, :source_id, :collection_id, :kind, :status, :temporal_workflow_id,
+            CAST(:stats AS jsonb), :error, :triggered_by, :started_at, :finished_at, :created_at
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            status = EXCLUDED.status,
+            stats = EXCLUDED.stats,
+            error = EXCLUDED.error,
+            started_at = EXCLUDED.started_at,
+            finished_at = EXCLUDED.finished_at
+    """
+    for row in rows:
+        job_id = as_uuid(row.get("id"))
+        tenant_id = as_uuid(row.get("tenant_id"))
+        collection_id = as_uuid(row.get("collection_id"))
+        if job_id is None or tenant_id is None or collection_id is None:
+            continue
+        now = utcnow()
+        await _one(
+            session,
+            sql,
+            {
+                "id": job_id,
+                "tenant_id": tenant_id,
+                "source_id": as_uuid(row.get("source_id")),
+                "collection_id": collection_id,
+                "kind": as_text(row.get("kind"), "incremental_sync"),
+                "status": as_text(row.get("status"), "queued"),
+                "temporal_workflow_id": as_text(
+                    row.get("temporal_workflow_id"), f"incremental_sync-{job_id}"
+                ),
+                "stats": as_json(row.get("stats"), {}),
+                "error": row.get("error") if isinstance(row.get("error"), str) else None,
+                "triggered_by": as_text(row.get("triggered_by"), "system"),
+                "started_at": as_dt(row.get("started_at")),
+                "finished_at": as_dt(row.get("finished_at")),
+                "created_at": as_dt(row.get("created_at")) or now,
             },
         )
 
