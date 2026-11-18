@@ -69,15 +69,15 @@ API_PROXY_URL=http://127.0.0.1:8000 pnpm exec next start --port 3000
 
 `API_PROXY_URL` is read when the production server starts. The dev server is `pnpm --filter @ar/web dev`.
 
-Kubernetes install (Helm 4.3, chart `deploy/helm/agentic-runtime` 1.0.0):
+Install (Docker Compose, development and production):
 
 ```bash
-helm upgrade --install agentic-runtime deploy/helm/agentic-runtime \
-  -n agentic-runtime --create-namespace \
-  -f deploy/helm/agentic-runtime/values-small.yaml
+cp .env.example .env
+uv run python scripts/dev_keys.py
+docker compose --profile production up -d --build
 ```
 
-See [Helm and Kubernetes](docs/07-ops/helm-k8s.md) and the [M15 checklist](docs/testing/m15-checklist.md).
+See [Compose install](docs/07-ops/compose.md).
 
 Details: [docs/07-ops/local-dev.md](docs/07-ops/local-dev.md).
 

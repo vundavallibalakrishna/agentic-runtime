@@ -18,7 +18,8 @@ class _Started:
     def __init__(self) -> None:
         self.stopped: list[str] = []
 
-    def start(self, name: str, token: str) -> dict[str, object]:
+    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+        del sandbox_id
         return {"container_id": name, "endpoint_url": "http://127.0.0.1:1", "token": token}
 
     def stop(self, container_id: str) -> None:

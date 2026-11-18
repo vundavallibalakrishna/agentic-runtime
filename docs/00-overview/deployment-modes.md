@@ -46,7 +46,7 @@ flowchart LR
 | `large` | `values-large.yaml` | ≤ 10,000 | HPA, external managed/HA stateful services, dedicated sandbox node pool |
 | `saas` | `values-saas.yaml` | multi-tenant | `large` + `AR_DEPLOYMENT_MODE=saas`, platform admin |
 
-Details: [helm-k8s](../07-ops/helm-k8s.md), [scaling](../07-ops/scaling.md), [environments](../07-ops/environments.md).
+Details: [helm-k8s](../07-ops/compose.md), [scaling](../07-ops/scaling.md), [environments](../07-ops/environments.md).
 
 ## 4. Air-gapped installs
 

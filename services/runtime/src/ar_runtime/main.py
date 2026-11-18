@@ -46,3 +46,7 @@ async def _serve(worker: object) -> None:
     server = uvicorn.Server(config)
     runner = worker() if callable(worker) else worker
     await asyncio.gather(server.serve(), runner)  # type: ignore[arg-type]
+
+
+if __name__ == "__main__":
+    main()

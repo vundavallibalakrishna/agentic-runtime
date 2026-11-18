@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Install:
+
+- Docker Compose is the only install, for development and production. The Helm chart, kind jobs and the Kubernetes sandbox driver are removed. Temporal is one `temporalio/server:1.32.1` process on the install Postgres. `temporalio/admin-tools:1.32.1` applies the schema. `ar_temporal` (`AR_DB_TEMPORAL_PASSWORD`) owns `temporal` and `temporal_visibility` and does not bypass row security. `AR_TEMPORAL_NUM_HISTORY_SHARDS` defaults to 4 and is fixed for that database. `/readyz` requires `alembic_version` to be the head. Backups are `scripts/backup_postgres.sh`. Sandbox containers use the docker driver on an internal network, through Squid, with a read-only root, dropped capabilities and resource limits. See [compose.md](docs/07-ops/compose.md).
+
 Customer database connections:
 
 - A URL parameter that can retarget the socket, read a file, or run a startup command is rejected. That includes `host`, `hostaddr`, `port`, `user`, `password`, `dbname` and `options`. `sslmode` must be a libpq mode, and a repeated parameter is rejected.

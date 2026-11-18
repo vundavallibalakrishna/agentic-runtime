@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CHART = ROOT / "deploy" / "helm" / "agentic-runtime"
 
 
 def git_notes(limit: int = 40) -> str:
@@ -25,16 +24,25 @@ def git_notes(limit: int = 40) -> str:
 
 
 def package(destination: Path) -> Path:
-    """helm package the umbrella chart."""
+    """Tar the Compose install. The archive is the release bundle."""
     destination.mkdir(parents=True, exist_ok=True)
+    archive = destination / "agentic-runtime-install.tar"
     subprocess.run(  # noqa: S603
-        ["helm", "package", str(CHART), "--destination", str(destination)],  # noqa: S607
+        [  # noqa: S607
+            "tar",
+            "-cf",
+            str(archive),
+            "compose.yaml",
+            "compose.airgap.yaml",
+            "deploy/compose",
+            "scripts/backup_postgres.sh",
+            "scripts/restore_postgres.sh",
+            "scripts/compose_upgrade.sh",
+        ],
+        cwd=ROOT,
         check=True,
     )
-    charts = sorted(destination.glob("agentic-runtime-*.tgz"))
-    if not charts:
-        raise RuntimeError("helm package produced no chart")
-    return charts[-1]
+    return archive
 
 
 def checksum(path: Path) -> str:
@@ -56,7 +64,7 @@ def main(argv: list[str] | None = None) -> None:
     sys.stdout.write("release 1.0.0\n")
     sys.stdout.write(notes + "\n")
     if args.dry_run and not args.bundle:
-        sys.stdout.write("dry-run: chart package, sbom and cosign sign skipped\n")
+        sys.stdout.write("dry-run: install archive skipped\n")
         return
     dest = Path(args.destination) if args.destination else ROOT / "dist"
     packed = package(dest)

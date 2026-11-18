@@ -9,7 +9,7 @@ Exit criteria: `helm install` on a fresh kind cluster (single-tenant, `values-sm
 ### M15-T01 · Helm umbrella chart
 - **Depends on:** M14-T07
 - **Areas:** `deploy/helm/agentic-runtime/**` (Chart.yaml, values*.yaml, templates per deployable, migrate/bootstrap Jobs, NetworkPolicies, PDBs, HPAs, KEDA ScaledObjects, ServiceMonitors, Gateway API routes, RuntimeClass refs, sandbox namespace), `deploy/helm/agentic-runtime/values.schema.json`
-- **Spec:** [helm-k8s](../07-ops/helm-k8s.md), [deployment-modes](../00-overview/deployment-modes.md), [environments](../07-ops/environments.md)
+- **Spec:** [helm-k8s](../07-ops/compose.md), [deployment-modes](../00-overview/deployment-modes.md), [environments](../07-ops/environments.md)
 - **Do:** Chart per helm-k8s (all deployables, config via ConfigMap/Secret with every `AR_*` variable from environments.md, external-or-bundled dependencies toggles, presets `values-dev.yaml`, `values-small.yaml`, `values-large.yaml`, `values-saas.yaml`), `values.schema.json` validation, `helm test` hooks (health checks), `global.imageRegistry` for air-gapped installs.
 - **Done when:** `helm lint`, `helm template | kubeconform`, and `helm install` on kind succeed for every preset.
 - **Tests:** CI chart job (lint, kubeconform, chart-testing install on kind).
@@ -17,7 +17,7 @@ Exit criteria: `helm install` on a fresh kind cluster (single-tenant, `values-sm
 ### M15-T02 · Stateful dependencies and operators
 - **Depends on:** M15-T01
 - **Areas:** `deploy/helm/agentic-runtime/charts/` (dependencies), `deploy/helm/agentic-runtime/templates/{cnpg-cluster.yaml,valkey.yaml,temporal-values.yaml,keycloak.yaml,openbao.yaml,seaweedfs.yaml}`
-- **Spec:** [helm-k8s §3](../07-ops/helm-k8s.md#3-stateful-dependencies), [backup-dr](../07-ops/backup-dr.md)
+- **Spec:** [helm-k8s §3](../07-ops/compose.md#3-stateful-dependencies), [backup-dr](../07-ops/backup-dr.md)
 - **Do:** CloudNativePG cluster (3 instances, PITR to S3), optional Qdrant subchart (`qdrant.enabled: false` by default; 3 replicas and snapshots when enabled; `retrieval.backend` → `AR_VECTOR_BACKEND`), Valkey (primary + replica + sentinel or cluster per values), Temporal (Postgres persistence, separate DB), Keycloak (2 replicas, realm import job), OpenBao (HA Raft), SeaweedFS (or external S3), each optional for "bring your own".
 - **Done when:** `values-small.yaml` bundled install and an "external services" install both pass smoke tests.
 - **Tests:** kind installs in nightly CI.
@@ -48,8 +48,8 @@ Exit criteria: `helm install` on a fresh kind cluster (single-tenant, `values-sm
 
 ### M15-T06 · Single-tenant and air-gapped installation
 - **Depends on:** M15-T02
-- **Areas:** `deploy/airgap/{images.txt,mirror.sh}`, `docs/07-ops/helm-k8s.md` (install guide sections), `deploy/helm/agentic-runtime/values-small.yaml`
-- **Spec:** [deployment-modes §4](../00-overview/deployment-modes.md#4-air-gapped-installs), [helm-k8s](../07-ops/helm-k8s.md)
+- **Areas:** `deploy/airgap/{images.txt,mirror.sh}`, `docs/07-ops/compose.md` (install guide sections), `deploy/helm/agentic-runtime/values-small.yaml`
+- **Spec:** [deployment-modes §4](../00-overview/deployment-modes.md#4-air-gapped-installs), [helm-k8s](../07-ops/compose.md)
 - **Do:** Image list generation and mirroring script, offline model/embedding server guidance (vLLM/TEI values examples), package mirrors for sandboxes, bootstrap Job for the single tenant, install verification checklist; test install with network egress blocked.
 - **Done when:** install with egress denied (NetworkPolicy on the whole cluster) passes smoke tests.
 - **Tests:** nightly air-gapped kind install.

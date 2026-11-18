@@ -59,13 +59,11 @@ def test_password_mode_is_not_the_production_default() -> None:
     assert_auth_mode(dev)
 
 
-def test_helm_default_is_oidc() -> None:
-    """Proof label: unit."""
-    text = Path("deploy/helm/agentic-runtime/values.yaml").read_text()
-    assert "AR_AUTH_MODE: oidc" in text
-    assert "AR_PASSWORD_LOGIN: 'false'" in text
-    dev = Path("deploy/helm/agentic-runtime/values-dev.yaml").read_text()
-    assert "AR_AUTH_MODE: password" in dev
+def test_compose_does_not_force_password_login() -> None:
+    """Proof label: unit. Production auth mode stays the process default."""
+    text = Path("compose.yaml").read_text()
+    assert "AR_AUTH_MODE: password" not in text
+    assert "AR_PASSWORD_LOGIN: 'true'" not in text
 
 
 def test_cookies_are_secure_httponly_outside_dev() -> None:

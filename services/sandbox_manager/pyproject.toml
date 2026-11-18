@@ -12,7 +12,6 @@ dependencies = [
     "ar-common",
     "fastapi==0.151.0",
     "uvicorn[standard]==0.54.0",
-    "kubernetes-asyncio==36.1.0",
 ]
 
 [project.scripts]
@@ -47,6 +46,3 @@ ar-channels = "ar_channels"
 ar-mcp-sql = "ar_mcp_sql"
 ar-mcp-openapi = "ar_mcp_openapi"
 ar-fake-llm = "ar_fake_llm"
-
-[tool.deptry.per_rule_ignores]
-DEP002 = ["kubernetes-asyncio"]

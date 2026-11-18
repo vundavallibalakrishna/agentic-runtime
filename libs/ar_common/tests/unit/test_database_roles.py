@@ -25,6 +25,7 @@ def test_attributes_are_not_superuser() -> None:
     assert "BYPASSRLS" in ROLE_ATTRIBUTES["ar_platform"]
     assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_app"]
     assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_readonly"]
+    assert "NOBYPASSRLS" in ROLE_ATTRIBUTES["ar_temporal"]
     owner = set(ROLE_ATTRIBUTES["ar_owner"].split())
     assert "NOCREATEDB" in owner
     assert "NOCREATEROLE" in owner
@@ -81,7 +82,7 @@ class _Connection:
                 "rolbypassrls": role in {"ar_owner", "ar_platform"},
                 "rolcanlogin": True,
             }
-            for role in ("ar_owner", "ar_app", "ar_platform", "ar_readonly")
+            for role in ("ar_owner", "ar_app", "ar_platform", "ar_readonly", "ar_temporal")
         }
         self.statements: list[str] = []
 
@@ -113,6 +114,7 @@ def test_superuser_session_creates_roles(monkeypatch: pytest.MonkeyPatch) -> Non
         "AR_DB_APP_PASSWORD": "app-secret",
         "AR_DB_PLATFORM_PASSWORD": "platform-secret",
         "AR_DB_READONLY_PASSWORD": "readonly-secret",
+        "AR_DB_TEMPORAL_PASSWORD": "temporal-secret",
     }.items():
         monkeypatch.setenv(key, value)
     connection = _Connection(superuser=True)
@@ -131,6 +133,7 @@ def test_owner_session_checks_attributes_and_does_not_set_passwords(
         "AR_DB_APP_PASSWORD": "app-secret",
         "AR_DB_PLATFORM_PASSWORD": "platform-secret",
         "AR_DB_READONLY_PASSWORD": "readonly-secret",
+        "AR_DB_TEMPORAL_PASSWORD": "temporal-secret",
     }.items():
         monkeypatch.setenv(key, value)
     connection = _Connection(superuser=False, exists=True)
@@ -154,6 +157,7 @@ def test_installed_secrets_refuse_placeholders_outside_dev(monkeypatch: pytest.M
     monkeypatch.setenv("AR_DB_APP_PASSWORD", "app-secret")
     monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
     monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    monkeypatch.setenv("AR_DB_TEMPORAL_PASSWORD", "temporal-secret")
     url = "postgresql+asyncpg://ar_app:app-secret@localhost/ar"
     assert_installed_database_secrets("dev", url)
     assert_installed_database_secrets("ci", "postgresql://postgres:ar_owner@localhost/ar")
@@ -179,8 +183,6 @@ def test_refuse_set_password_allows_a_passwordless_url() -> None:
 def test_reconcile_skips_only_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
     from ar_domain.db.reconcile_roles import main
 
-    monkeypatch.setenv("AR_DB_RECONCILE", "cnpg")
-    main()
     monkeypatch.setenv("AR_DB_RECONCILE", "skip")
     main()
     monkeypatch.setenv("AR_DB_RECONCILE", "external")
@@ -245,6 +247,7 @@ def test_reconcile_login_redacts_and_does_not_connect(
         "AR_DB_APP_PASSWORD",
         "AR_DB_PLATFORM_PASSWORD",
         "AR_DB_READONLY_PASSWORD",
+        "AR_DB_TEMPORAL_PASSWORD",
     ):
         monkeypatch.delenv(name, raising=False)
     assert _target_configured() is True
@@ -260,16 +263,12 @@ def test_reconcile_login_redacts_and_does_not_connect(
 
 
 def test_placeholder_copies_match() -> None:
-    """Helm and the init script refuse the same values as PLACEHOLDERS."""
+    """The database init script refuses the same values as PLACEHOLDERS."""
     root = Path(__file__).resolve().parents[4]
-    shell = (root / "deploy/helm/agentic-runtime/files/init-roles.sh").read_text(encoding="utf-8")
+    shell = (root / "deploy/compose/postgres/init-roles.sh").read_text(encoding="utf-8")
     case = shell.split("case $folded in", 1)[1].split(")", 1)[0]
     shell_tokens = {item.strip() for item in case.split("|") if item.strip()}
-    helm = (root / "deploy/helm/agentic-runtime/templates/_helpers.tpl").read_text(encoding="utf-8")
-    listed = helm.split("$bad := list ", 1)[1].split(" -}}", 1)[0]
-    helm_tokens = {item.strip().strip('"') for item in listed.split() if item.startswith('"')}
     assert shell_tokens == PLACEHOLDERS - {""}
-    assert helm_tokens == PLACEHOLDERS
 
 
 def test_create_app_refuses_a_staging_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -281,6 +280,7 @@ def test_create_app_refuses_a_staging_placeholder(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("AR_DB_APP_PASSWORD", "ar_app")
     monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
     monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    monkeypatch.setenv("AR_DB_TEMPORAL_PASSWORD", "temporal-secret")
     settings = SimpleNamespace(
         env="staging", database_url="postgresql://ar_app:ar_app@localhost/ar"
     )
@@ -296,6 +296,7 @@ def test_migration_entrypoint_refuses_a_staging_url(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("AR_DB_APP_PASSWORD", "app-secret")
     monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
     monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    monkeypatch.setenv("AR_DB_TEMPORAL_PASSWORD", "temporal-secret")
     with pytest.raises(RuntimeError, match="database URL password"):
         check_migration_secrets("postgresql+asyncpg://postgres:ar_owner@localhost/ar")
 
@@ -308,6 +309,7 @@ def test_bootstrap_entrypoint_refuses_a_staging_url(monkeypatch: pytest.MonkeyPa
     monkeypatch.setenv("AR_DB_APP_PASSWORD", "app-secret")
     monkeypatch.setenv("AR_DB_PLATFORM_PASSWORD", "platform-secret")
     monkeypatch.setenv("AR_DB_READONLY_PASSWORD", "readonly-secret")
+    monkeypatch.setenv("AR_DB_TEMPORAL_PASSWORD", "temporal-secret")
     monkeypatch.setattr(
         bootstrap_module,
         "app_database_url",

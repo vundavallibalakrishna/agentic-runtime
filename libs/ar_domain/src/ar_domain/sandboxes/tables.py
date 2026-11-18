@@ -83,7 +83,7 @@ class Sandbox(Base):
             "'terminating','terminated','failed')",
             name="status",
         ),
-        CheckConstraint("driver IN ('docker','kubernetes')", name="driver"),
+        CheckConstraint("driver IN ('docker')", name="driver"),
         Index(
             "ux_sandboxes_live_scope",
             "tenant_id",

@@ -36,11 +36,7 @@ def create_application() -> FastAPI:
         allow_loopback=loopback_allowed(settings),
         fake_models_allowed=fake_models_allowed(settings.env),
     )
-    if driver == "kubernetes":
-        from ar_sandbox_manager.drivers.kubernetes import KubernetesPods  # noqa: PLC0415
-
-        chat.pod_creator = KubernetesPods()
-    elif driver == "docker":
+    if driver == "docker":
         from ar_domain.sandboxes.manager_launch import docker_launcher  # noqa: PLC0415
 
         chat.sandbox_launcher = docker_launcher()

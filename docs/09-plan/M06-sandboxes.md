@@ -33,7 +33,7 @@ Exit criteria: "Analyse the attached CSV and chart revenue by month" produces a 
 ### M6-T04 · Kubernetes driver, warm pools, snapshots
 - **Depends on:** M6-T03
 - **Areas:** `ar_sandbox_manager/drivers/kubernetes.py`, `ar_sandbox_manager/warm_pool.py`, `deploy/helm/agentic-runtime/templates/sandboxes/*`
-- **Spec:** [spec 12 §4.1](../03-specs/12-sandbox-manager.md#41-kubernetes-production), [helm-k8s](../07-ops/helm-k8s.md), [ADR-0013](../02-architecture/adr/ADR-0013-sandbox-isolation.md)
+- **Spec:** [spec 12 §4.1](../03-specs/12-sandbox-manager.md#41-kubernetes-production), [helm-k8s](../07-ops/compose.md), [ADR-0013](../02-architecture/adr/ADR-0013-sandbox-isolation.md)
 - **Do:** Pods with `runtimeClassName` (`AR_SANDBOX_DEFAULT_RUNTIME_CLASS`, gVisor default, Kata per template), PVC or ephemeral workspace per template, default-deny NetworkPolicy allowing only Squid and DNS, no service account token, seccomp/AppArmor, resource limits; warm pools per template (`AR_SANDBOX_WARM_POOL`); snapshots (tar of `/workspace` to `files(kind='sandbox_snapshot')`) on suspend and every `AR_SANDBOX_SNAPSHOT_INTERVAL_S`; restore on resume.
 - **Done when:** on a kind cluster with gVisor, sandboxes start from warm pool in < 2 s p95 and cannot reach other pods.
 - **Tests:** e2e on kind (nightly job): network isolation (connect to `api` service fails), warm-pool claim latency, snapshot/restore.

@@ -1,6 +1,6 @@
 """Application database role passwords.
 
-One contract for compose, Helm and migrations. A password is an environment
+One contract for Compose and migrations. A password is an environment
 variable supplied at install time. Dev and CI generate values with
 ``generated_password``; nothing falls back to the role name or a placeholder.
 
@@ -12,27 +12,35 @@ databases or roles. The image superuser creates ``temporal`` and ``langfuse``
 and reconciles an existing volume before Alembic runs.
 
 ``ar_platform`` bypasses row security because ``platform_session`` runs before a
-tenant is known. ``ar_app`` and ``ar_readonly`` do not.
+tenant is known. ``ar_app``, ``ar_readonly`` and ``ar_temporal`` do not.
+``ar_temporal`` owns the Temporal databases only. It is not a tenant login and
+it does not bypass row security.
 """
 
 from __future__ import annotations
 
 import os
 import secrets
-from typing import TYPE_CHECKING
 from urllib.parse import quote, unquote, urlsplit, urlunsplit
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
-APPLICATION_ROLES: tuple[str, ...] = ("ar_owner", "ar_app", "ar_platform", "ar_readonly")
+APPLICATION_ROLES: tuple[str, ...] = (
+    "ar_owner",
+    "ar_app",
+    "ar_platform",
+    "ar_readonly",
+    "ar_temporal",
+)
 
 PASSWORD_ENV: dict[str, str] = {
     "ar_owner": "AR_DB_OWNER_PASSWORD",
     "ar_app": "AR_DB_APP_PASSWORD",
     "ar_platform": "AR_DB_PLATFORM_PASSWORD",
     "ar_readonly": "AR_DB_READONLY_PASSWORD",
+    "ar_temporal": "AR_DB_TEMPORAL_PASSWORD",
 }
+
+TEMPORAL_DATABASE: str = "temporal"
+TEMPORAL_VISIBILITY_DATABASE: str = "temporal_visibility"
 
 # Compared case-insensitively. Role names are included so ``Ar_Owner`` is refused.
 PLACEHOLDERS: frozenset[str] = frozenset(
@@ -50,6 +58,7 @@ PLACEHOLDERS: frozenset[str] = frozenset(
         "ar_app",
         "ar_platform",
         "ar_readonly",
+        "ar_temporal",
     }
 )
 
@@ -59,6 +68,7 @@ ROLE_ATTRIBUTES: dict[str, str] = {
     "ar_platform": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE BYPASSRLS",
     "ar_app": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS",
     "ar_readonly": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS",
+    "ar_temporal": "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS",
 }
 
 
@@ -117,10 +127,10 @@ def assert_application_url(url: str) -> None:
 def assert_installed_database_secrets(env: str, database_url: str) -> None:
     """Staging and production require real role passwords and real database URLs.
 
-    Dev and CI return without checking. Every other environment checks the four
+    Dev and CI return without checking. Every other environment checks the
     ``AR_DB_*_PASSWORD`` values, the given URL, and the owner and platform URLs
-    derived from it. Helm does not render ``secrets.existingSecret``; this is
-    the check those installs get.
+    derived from it. Compose staging and production get this check at process
+    start.
     """
     if str(env).strip().casefold() in {"dev", "ci"}:
         return
@@ -156,12 +166,3 @@ def _swap_url(url: str, username: str, password: str) -> str:
     port = f":{parts.port}" if parts.port else ""
     netloc = f"{quote(username, safe='')}:{quote(password, safe='')}@{host}{port}"
     return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
-
-
-def write_helm_passwords(path: Path) -> None:
-    """Write a Helm values overlay. The file is generated per run and not committed."""
-    lines = ["secrets:", "  data:"]
-    lines.extend(f"    {key}: {generated_password()}" for key in PASSWORD_ENV.values())
-    lines.append("postgres:")
-    lines.append(f"  superuserPassword: {generated_password()}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")

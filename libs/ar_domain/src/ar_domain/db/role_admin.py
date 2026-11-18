@@ -10,7 +10,13 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import text
 
-from ar_common.database_roles import APPLICATION_ROLES, ROLE_ATTRIBUTES, role_password
+from ar_common.database_roles import (
+    APPLICATION_ROLES,
+    ROLE_ATTRIBUTES,
+    TEMPORAL_DATABASE,
+    TEMPORAL_VISIBILITY_DATABASE,
+    role_password,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Connection
@@ -44,11 +50,18 @@ _EXPECTED_FLAGS: dict[str, dict[str, bool]] = {
         "rolbypassrls": False,
         "rolcanlogin": True,
     },
+    "ar_temporal": {
+        "rolsuper": False,
+        "rolcreatedb": False,
+        "rolcreaterole": False,
+        "rolbypassrls": False,
+        "rolcanlogin": True,
+    },
 }
 
 
 def apply_database_roles(connection: Connection, *, require_superuser: bool = False) -> None:
-    """Create or check the four roles and set their passwords from the environment.
+    """Create or check the application roles and set their passwords from the environment.
 
     A superuser session writes the attributes and the passwords. ``ar_owner`` has
     no ``CREATEROLE``, so a later session only checks the attributes. The upgrade
@@ -115,3 +128,28 @@ def _require_attributes(connection: Connection) -> None:
             if bool(row[flag]) is not want:
                 message = f"{role} has {flag}={row[flag]!s}; expected {want}"
                 raise RuntimeError(message)
+
+
+def ensure_temporal_databases(connection: Connection) -> None:
+    """Create ``ar_temporal`` and its two databases. The caller uses autocommit.
+
+    ``CREATE DATABASE`` cannot run inside a transaction.
+    """
+    _create_or_alter(connection, "ar_temporal")
+    for name in (TEMPORAL_DATABASE, TEMPORAL_VISIBILITY_DATABASE):
+        _ensure_database(connection, name)
+
+
+def _ensure_database(connection: Connection, name: str) -> None:
+    if not name.isidentifier():
+        message = "temporal database name is not an identifier"
+        raise RuntimeError(message)
+    exists = connection.execute(
+        text("SELECT 1 FROM pg_database WHERE datname = :name"),
+        {"name": name},
+    ).scalar()
+    if not exists:
+        connection.execute(text(f"CREATE DATABASE {name} OWNER ar_temporal"))
+    connection.execute(text(f"ALTER DATABASE {name} OWNER TO ar_temporal"))
+    connection.execute(text(f"REVOKE ALL ON DATABASE {name} FROM PUBLIC"))
+    connection.execute(text(f"GRANT ALL ON DATABASE {name} TO ar_temporal"))

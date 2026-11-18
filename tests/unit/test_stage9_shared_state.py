@@ -167,9 +167,12 @@ def test_worker_registers_the_manager(monkeypatch: pytest.MonkeyPatch) -> None:
     from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher
 
     monkeypatch.setenv("AR_SANDBOX_MANAGER_URL", "http://sandbox-manager:8003")
-    monkeypatch.setenv("AR_SANDBOX_DRIVER", "kubernetes")
+    monkeypatch.setenv("AR_SANDBOX_DRIVER", "docker")
     store = ChatService()
-    register_sandbox_client(store, BaseServiceSettings(_env_file=None, env=EnvName.DEV))
+    register_sandbox_client(
+        store,
+        BaseServiceSettings(_env_file=None, env=EnvName.DEV, sandbox_allow_unisolated=False),
+    )
     assert isinstance(store.sandbox_launcher, SandboxManagerLauncher)
 
 
@@ -332,9 +335,12 @@ def test_shared_books_cover_the_remaining_branches(monkeypatch: pytest.MonkeyPat
     monkeypatch.delenv("AR_SANDBOX_DRIVER", raising=False)
 
     class _Launcher:
-        def __init__(self, image: str, network: str | None = None) -> None:
+        def __init__(
+            self, image: str, network: str | None = None, proxy: str | None = None
+        ) -> None:
             self.image = image
             self.network = network
+            self.proxy = proxy
 
     monkeypatch.setattr("ar_common.sandbox_docker.DockerSandboxLauncher", _Launcher)
     store = ChatService()

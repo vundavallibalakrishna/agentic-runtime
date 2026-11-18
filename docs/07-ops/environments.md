@@ -7,7 +7,7 @@
 | `dev` (local) | Developer laptops | Docker Compose (`make up`) + services via `uv run`/`pnpm dev` ([local-dev](local-dev.md)) | Seed data (`make seed`) | `fake-llm` or a local OpenAI-compatible endpoint |
 | `ci` | Pull-request checks | Testcontainers + Temporal test server; `kind` cluster for e2e/Helm ([ci-cd](ci-cd.md)) | Ephemeral | `fake-llm` |
 | `staging` | Release candidates, eval gates, load tests | Helm, preset `small` (single-tenant) and `saas` (multi-tenant) | Synthetic tenants; anonymised copies never used | Company staging model endpoints |
-| `prod` | Customers | Helm, preset `large` or `saas` ([helm-k8s](helm-k8s.md)) | Real | Company model endpoints |
+| `prod` | Customers | Helm, preset `large` or `saas` ([helm-k8s](compose.md)) | Real | Company model endpoints |
 
 Promotion: the same image digests move `ci → staging → prod`; only values differ ([ci-cd §6](ci-cd.md#6-releases-and-upgrades)).
 
@@ -17,7 +17,7 @@ Promotion: the same image digests move `ci → staging → prod`; only values di
 - Secrets (keys, passwords, tokens) come from Kubernetes Secrets (Helm `existingSecret` references) or files (`AR_*_FILE` variant accepted for every secret variable: the value is read from that path).
 - Tenant-level behaviour is **not** configured by env vars; it lives in `tenants.settings` ([spec 02](../03-specs/02-identity-tenancy.md)). Env vars are platform/operator knobs.
 - The web app reads only `AR_PUBLIC_URL`, `AR_API_INTERNAL_URL` and `NEXT_PUBLIC_*` build-time values ([spec 19](../03-specs/19-web-app.md)).
-- Helm maps `values.yaml` keys to these variables ([helm-k8s §4](helm-k8s.md#4-values-to-environment-mapping)); `.env.example` at the repo root lists every variable with its dev default and is checked by CI against this catalogue (`scripts/check_env_catalogue.py`).
+- `.env.example` at the repo root lists every variable. CI checks it against this catalogue (`scripts/check_env_catalogue.py`). Compose is the install ([compose](compose.md)).
 
 ## 3. Variable catalogue
 
@@ -136,7 +136,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_S3_SSE` | `AES256` | `none` to disable | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_SAAS_SELF_SIGNUP` | `false` | Unused. Self-serve signup was removed in Stage 7 and this flag does not mount a route | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_SANDBOX_ALLOWED_REGISTRIES` | `registry.local/ar` | Registries sandbox template images may come from | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_DEFAULT_RUNTIME_CLASS` | `gvisor` | Kubernetes RuntimeClass for sandboxes | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal Docker network for sandbox containers. Compose sets `agentic-runtime_sandbox`. | [compose](compose.md) |
 | `AR_SANDBOX_DOCKER_NETWORK` | empty | Internal docker network the in-process launcher attaches a sandbox container to; empty publishes the agent port to loopback (dev) | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DOCKER_RUNTIME` | `runc` | `runsc` if installed | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DRIVER` | `kubernetes`; `docker` when `AR_SANDBOX_ALLOW_UNISOLATED` is on and none is named | `kubernetes`, or `docker` for one machine. The docker driver shares the host kernel and does not confine the network, so it needs `AR_SANDBOX_ALLOW_UNISOLATED` | [spec 12](../03-specs/12-sandbox-manager.md) |
@@ -144,7 +144,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SANDBOX_ENSURE_TIMEOUT_S` | `30` | Max time to obtain a ready sandbox | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | Internal URL of `sandbox-manager` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_SANDBOX_MAX_PER_TENANT` | plan `max_concurrent_sandboxes` (default 50) | Hard cap of concurrent sandboxes per tenant | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_NAMESPACE` | `ar-sandboxes` | Namespace for sandbox pods (shared tier) | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_EGRESS_PROXY` | empty | Squid URL for a confined sandbox. Compose sets `http://squid:3128`. | [compose](compose.md) |
 | `AR_SANDBOX_PACKAGE_MIRRORS` | empty | JSON `{pypi,npm,apt}` mirror URLs | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_SNAPSHOT_INTERVAL_S` | `600` | Periodic workspace snapshot interval while active | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_WARM_POOL` | `default=4,browser=2` | Warm pods per template | [spec 12](../03-specs/12-sandbox-manager.md) |
