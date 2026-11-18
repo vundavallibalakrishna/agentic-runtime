@@ -2,8 +2,8 @@
 
 ``/healthz`` stays a liveness probe and does not connect. ``/readyz`` checks
 Postgres (including that ``alembic_version`` is the head revision), Valkey when
-sessions and the limiter are shared, and Temporal when ``AR_TEMPORAL_REQUIRED``
-is set. A platform-database deny name that has never resolved is a ``degraded``
+sessions and the limiter are shared, and Temporal. A turn is not run in this
+process. A platform-database deny name that has never resolved is a ``degraded``
 detail, not a failure. A check is cached for ten seconds.
 """
 
@@ -24,13 +24,11 @@ _TTL_S = 10.0
 Ping = Callable[[], Awaitable[None]]
 
 
-def readiness_names(*, shared: bool, temporal_required: bool) -> list[str]:
+def readiness_names(*, shared: bool) -> list[str]:
     """Check names ``/readyz`` reports, in a stable order."""
-    names = ["postgres"]
+    names = ["postgres", "temporal"]
     if shared:
-        names.append("valkey")
-    if temporal_required:
-        names.append("temporal")
+        names.insert(1, "valkey")
     return names
 
 
@@ -42,10 +40,9 @@ def api_readiness(settings: BaseServiceSettings) -> dict[str, ReadinessCheck]:
     }
     if shared:
         checks["valkey"] = _cached(lambda: ping_valkey(settings.valkey_url))
-    if settings.temporal_required:
-        checks["temporal"] = _cached(
-            lambda: ping_temporal(settings.temporal_address, settings.temporal_namespace)
-        )
+    checks["temporal"] = _cached(
+        lambda: ping_temporal(settings.temporal_address, settings.temporal_namespace)
+    )
     return checks
 
 

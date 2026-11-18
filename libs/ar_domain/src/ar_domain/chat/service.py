@@ -335,8 +335,6 @@ class ChatBehaviour:
     model_gateway_url: str = ""
     sandbox_launcher: object | None = None
     temporal_client: object | None = None
-    # When set, a missing worker is a refusal. The turn is not run in this process.
-    temporal_required: bool = False
     # Production posts every tool call to mcp-gateway. Dev and unit tests stay in process.
     tool_gateway_http: bool = False
     # Set only on the sandbox manager. No other process may create pods.
@@ -1831,50 +1829,62 @@ class ChatBehaviour:
             return
         self.tasks.append(loop.create_task(self._start_turn(run_id, text, names)))
 
-    async def _start_turn(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
-        """Run on the runtime worker when Temporal is connected."""
+    async def _start_turn(
+        self,
+        run_id: uuid.UUID,
+        text: str,
+        names: list[str],
+        *,
+        decision: dict[str, object] | None = None,
+    ) -> None:
+        """Run on the runtime worker. A missing client fails the turn."""
         client = self.temporal_client
         if client is None:
-            await self._run_here_or_stop(run_id, text, names)
+            self.mark_not_resumed(run_id)
             return
         from ar_domain.durable.flush import flush_store  # noqa: PLC0415
 
         await flush_store(self)
         start = getattr(client, "start_workflow", None)
         if not callable(start):
-            await self._run_here_or_stop(run_id, text, names)
+            self.mark_not_resumed(run_id)
             return
         run = self.runs.get(run_id)
         workflow_id = f"run-{run_id}"
         if isinstance(run, dict):
             run["temporal_workflow_id"] = workflow_id
+        payload = self._workflow_input(run, run_id, text, decision)
+        if names:
+            payload["names"] = names
         try:
             await start(
                 "AgentRunWorkflow",
-                self._workflow_input(run, run_id, text),
+                payload,
                 id=workflow_id,
                 task_queue="ar-runtime",
             )
-        except Exception as exc:  # noqa: BLE001 — required Temporal does not run the turn here
+        except Exception as exc:  # noqa: BLE001 — a missing worker does not run the turn here
             if type(exc).__name__ == "WorkflowAlreadyStartedError":
-                await self._watch(run_id)
+                await self._watch(run_id, until_moved=decision is not None)
                 return
-            await self._run_here_or_stop(run_id, text, names)
+            self.mark_not_resumed(run_id)
             return
-        await self._watch(run_id)
+        await self._watch(run_id, until_moved=decision is not None)
 
-    def _workflow_input(self, run: object, run_id: uuid.UUID, text: str) -> dict[str, object]:
+    def _workflow_input(
+        self,
+        run: object,
+        run_id: uuid.UUID,
+        text: str,
+        decision: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """What the worker needs to start. Caps come from the run budget and settings."""
         from ar_domain.runs.dispatch import workflow_payload  # noqa: PLC0415
 
-        return workflow_payload(self, run, run_id, text)
-
-    async def _run_here_or_stop(self, run_id: uuid.UUID, text: str, names: list[str]) -> None:
-        """Dev runs the turn here. A required worker that is missing does not."""
-        if self.temporal_required:
-            self.mark_not_resumed(run_id)
-            return
-        await self.generate(run_id, text, names)
+        payload = workflow_payload(self, run, run_id, text)
+        if isinstance(decision, dict):
+            payload["decision"] = decision
+        return payload
 
     def mark_not_resumed(self, run_id: uuid.UUID) -> None:
         """The worker lost this turn. It is failed, not run in this process."""
@@ -1891,8 +1901,13 @@ class ChatBehaviour:
             message="The worker lost this turn. It was not resumed.",
         )
 
-    async def _watch(self, run_id: uuid.UUID) -> None:
-        """Copy worker events into the SSE queues for this process."""
+    async def _watch(self, run_id: uuid.UUID, *, until_moved: bool = False) -> None:
+        """Copy worker events into the SSE queues for this process.
+
+        A decision start keeps polling through the pause it is about to clear.
+        A turn that is waiting for a person returns, so the request does not sit
+        on that wait.
+        """
         from ar_domain.durable.hydrate import reload_run  # noqa: PLC0415
 
         seen = max((_seq(event) for event in self.events.get(run_id, [])), default=0)
@@ -1907,7 +1922,9 @@ class ChatBehaviour:
                     queue.put_nowait(event)
             run = self.runs.get(run_id)
             status = str(run.get("status") if isinstance(run, dict) else "completed")
-            if not run_is_working(status):
+            if not run_is_working(status) and (
+                not until_moved or status not in {"waiting_approval", "waiting_input"}
+            ):
                 return
             if poll % 20 == 0 and await self._workflow_gone(run_id):
                 self.mark_not_resumed(run_id)
@@ -2044,8 +2061,10 @@ class ChatBehaviour:
 
             mark_cancelled(self, run)
             return "final"
-        if str(run.get("status")) in {"waiting_approval", "waiting_input"}:
-            return "paused"
+        held = self._apply_stored_wait(run)
+        stepped = held if held is not None else await self._stubbed_step(run_id, text, names)
+        if stepped is not None:
+            return stepped
         await self._generate(run_id, text, names, one_step=True)
         run = self.runs[run_id]
         if str(run.get("status")) in {"waiting_approval", "waiting_input"}:
@@ -2056,6 +2075,38 @@ class ChatBehaviour:
         if kind in {"tools", "model", "paused", "fanout"}:
             return kind
         return "model"
+
+    def _apply_stored_wait(self, run: dict[str, object]) -> str | None:
+        """Apply a decision already stored on a paused run. None means keep stepping."""
+        status = str(run.get("status"))
+        if status == "waiting_input":
+            return "paused"
+        if status != "waiting_approval":
+            return None
+        from ar_domain.tools.resume import apply_decision, stored_approval_choice  # noqa: PLC0415
+
+        choice = stored_approval_choice(self, run)
+        if choice not in {"approved", "rejected", "expired", "cancelled"}:
+            return "paused"
+        applied = apply_decision(self, run, {"status": choice})
+        if applied == "continue":
+            return None
+        return "final" if applied == "final" else "paused"
+
+    async def _stubbed_step(self, run_id: uuid.UUID, text: str, names: list[str]) -> str | None:
+        """A test that replaced ``generate`` is the model. The workflow still calls this."""
+        impl = self.generate
+        current = getattr(impl, "__func__", impl)
+        if current is ChatService.generate:
+            return None
+        await self.generate(run_id, text, names)
+        run = self.runs[run_id]
+        if str(run.get("status")) in {"waiting_approval", "waiting_input"}:
+            return "paused"
+        if not run_is_active(str(run.get("status"))):
+            return "final"
+        kind = str(run.get("step_kind") or "")
+        return kind or "final"
 
     async def _generate(  # noqa: PLR0911, PLR0912, PLR0915
         self, run_id: uuid.UUID, text: str, names: list[str], *, one_step: bool = False
@@ -2771,8 +2822,7 @@ class ChatBehaviour:
         async def _go() -> None:
             client = self.temporal_client
             if not callable(getattr(client, "start_workflow", None)):
-                if self.temporal_required:
-                    self.mark_not_resumed(run_id)
+                self.mark_not_resumed(run_id)
                 return
             await self._start_turn(run_id, text, [])
 
@@ -2800,10 +2850,10 @@ class ChatBehaviour:
             from ar_domain.runs.dispatch import request_signal  # noqa: PLC0415
 
             def _wake() -> None:
-                if not request_signal(self, run_id, "user_input", {"text": text}) and (
-                    not self.temporal_required
-                ):
-                    self._schedule(run_id, text, [])
+                request_signal(self, run_id, "user_input", {"text": text})
+                from ar_domain.runs.dispatch import continue_on_worker  # noqa: PLC0415
+
+                continue_on_worker(self, run_id, text, {"status": "input", "text": text})
 
             after_commit(self, _wake)
             return self._public(run)

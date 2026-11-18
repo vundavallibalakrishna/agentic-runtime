@@ -180,9 +180,8 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SMTP_USERNAME` | (empty) | SMTP auth user | [spec 20](../03-specs/20-notifications-events.md) |
 | `AR_SSE_MAX_PER_USER` | `20` | Concurrent SSE streams per user | [spec 01](../03-specs/01-api-bff.md) |
 | `AR_STEP_UP_TTL_S` | `600` | Step-up validity | [spec 01](../03-specs/01-api-bff.md), [spec 09](../03-specs/09-policy-approvals.md) |
-| `AR_TEMPORAL_ADDRESS` | `localhost:7233` | Temporal frontend host:port | [spec 07](../03-specs/07-agent-runtime.md) |
+| `AR_TEMPORAL_ADDRESS` | `localhost:7233` | Temporal frontend host:port. `/readyz` always checks it. A turn is not run in the API process when the worker cannot take it (`interrupted` / `not_resumed`) | [spec 01](../03-specs/01-api-bff.md), [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_TEMPORAL_NAMESPACE` | `agentic-runtime` | One namespace per environment; dedicated tenants may get their own (`AR_TENANT_TEMPORAL_NAMESPACES`) | [spec 07](../03-specs/07-agent-runtime.md) |
-| `AR_TEMPORAL_REQUIRED` | `false` (`true` in the production chart) | When set, `/readyz` checks Temporal and a turn is not run in the API process if the worker cannot take it. The turn is marked `interrupted` / `not_resumed` | [spec 01](../03-specs/01-api-bff.md), [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_TENANT_DB_ROUTES` | `{}` | JSON map `tenant_id → database URL` for `dedicated_db` tenants | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |
 | `AR_TENANT_DELETE_GRACE_DAYS` | `7` | Grace period before tenant data deletion | [spec 02](../03-specs/02-identity-tenancy.md) |
 | `AR_TENANT_TEMPORAL_NAMESPACES` | `{}` | JSON map `tenant_id → Temporal namespace` for dedicated tenants | [tenancy-isolation](../02-architecture/tenancy-isolation.md) |

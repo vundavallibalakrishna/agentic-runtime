@@ -18,7 +18,6 @@ set +a
 # the smoke keeps AR_ENV=dev and requires Temporal. A prod env points the model
 # alias at a real provider and sets AR_OIDC_ISSUER.
 export AR_ENV=dev
-export AR_TEMPORAL_REQUIRED=true
 
 docker compose --profile production up -d --build
 

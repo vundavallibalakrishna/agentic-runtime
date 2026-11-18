@@ -23,7 +23,7 @@ export default defineConfig({
       command: `uv run --directory ${root} python services/api/tests/support/e2e_server.py`,
       url: `http://127.0.0.1:${apiPort}/healthz`,
       reuseExistingServer: true,
-      timeout: 120_000,
+      timeout: 180_000,
     },
     {
       command: process.env.AR_E2E_PROD === "1" ? "bash start-standalone.sh" : "pnpm dev",

@@ -2,8 +2,7 @@
 
 Every chat, external, and research entry point builds this payload and starts
 ``AgentRunWorkflow`` (``run-{run_id}`` on ``ar-runtime``). The workflow runs one
-activity per step. A process with no Temporal client does not invent a second
-runner here: the caller keeps the existing dev fallback.
+activity per step. A process with no Temporal client does not run the turn.
 """
 
 from __future__ import annotations
@@ -38,8 +37,8 @@ def workflow_payload(store: object, run: object, run_id: uuid.UUID, text: str) -
 def request_signal(store: object, run_id: uuid.UUID, name: str, payload: dict[str, object]) -> bool:
     """Signal ``run-{id}``. True when a client accepted the signal (or will).
 
-    A missing client returns False so the caller can follow the no-worker path.
-    The signal is sent on the running loop and does not block the request.
+    A missing client, or a workflow that is not running, returns False. The caller
+    starts the run workflow. Nothing is executed in this process.
     """
     client = getattr(store, "temporal_client", None)
     handle_for = getattr(client, "get_workflow_handle", None)
@@ -50,19 +49,58 @@ def request_signal(store: object, run_id: uuid.UUID, name: str, payload: dict[st
     if not callable(signal):
         return False
 
-    async def _send() -> None:
-        await signal(name, payload)
+    async def _send() -> bool:
+        try:
+            await signal(name, payload)
+        except Exception as exc:
+            if _workflow_missing(exc):
+                return False
+            raise
+        return True
 
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
-        asyncio.run(_send())
-        return True
+        return bool(asyncio.run(_send()))
     task = loop.create_task(_send())
     tasks = getattr(store, "tasks", None)
     if isinstance(tasks, list):
         tasks.append(task)
     return True
+
+
+def continue_on_worker(
+    store: object,
+    run_id: uuid.UUID,
+    text: str,
+    decision: dict[str, object] | None = None,
+) -> None:
+    """Start ``AgentRunWorkflow`` for a run that is not already executing.
+
+    A running loop schedules the start. A synchronous caller waits for the worker.
+    ``decision`` is the approval or input the first activity applies.
+    """
+    start = getattr(store, "_start_turn", None)
+    if not callable(start):
+        return
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(start(run_id, text, [], decision=decision))
+        return
+    task = loop.create_task(start(run_id, text, [], decision=decision))
+    tasks = getattr(store, "tasks", None)
+    if isinstance(tasks, list):
+        tasks.append(task)
+
+
+def _workflow_missing(exc: BaseException) -> bool:
+    status = getattr(exc, "status", None)
+    name = getattr(status, "name", "")
+    if name in {"NOT_FOUND", "NOT_FOUND_STATUS"}:
+        return True
+    text = str(exc).lower()
+    return "not found" in text or "workflow execution already completed" in text
 
 
 def _max_steps(store: object, run: object, text: str) -> int:
