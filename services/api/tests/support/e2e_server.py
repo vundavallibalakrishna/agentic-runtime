@@ -83,9 +83,17 @@ async def _posted_email(request: Request) -> str:
     return str(form.get("email") or "")
 
 
+# The product allows 600 requests a minute per person. One browser walk of every screen,
+# with the session gate calling the API for each prefetch, is a larger burst than that.
+# The overflow is a 429, which the shell shows as a failed sign-in or a chat that never
+# finishes loading. The product limit is unchanged. This process is the harness.
+_HARNESS_RATE_LIMIT = 20_000
+
+
 def build() -> ASGIApp:
     """The product application over the demo tenant, behind the test sign-in."""
     app = serve_demo_tenant(create_application())
+    app.state.rate_limit = _HARNESS_RATE_LIMIT
     return DemoSignIn(app, app)
 
 

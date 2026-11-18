@@ -28,6 +28,12 @@ def harness(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return module
 
 
+def test_the_harness_rate_limit_fits_one_walk_of_every_screen(harness: ModuleType) -> None:
+    built = harness.build()
+    assert built.product.state.rate_limit == harness._HARNESS_RATE_LIMIT
+    assert built.product.state.rate_limit > 600
+
+
 def test_the_harness_serves_the_product_app_over_the_demo_tenant(
     harness: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
