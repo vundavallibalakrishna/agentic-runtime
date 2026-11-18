@@ -804,7 +804,9 @@ source = { editable = "libs/ar_testing" }
 dependencies = [
     { name = "ar-common" },
     { name = "ar-fake-llm" },
+    { name = "fastapi" },
     { name = "polyfactory" },
+    { name = "pydantic" },
     { name = "pytest" },
     { name = "temporalio" },
     { name = "testcontainers" },
@@ -814,7 +816,9 @@ dependencies = [
 requires-dist = [
     { name = "ar-common", editable = "libs/ar_common" },
     { name = "ar-fake-llm", editable = "services/fake_llm" },
+    { name = "fastapi", specifier = "==0.151.0" },
     { name = "polyfactory", specifier = "==3.3.0" },
+    { name = "pydantic", specifier = "==2.14.1" },
     { name = "pytest", specifier = "==9.1.1" },
     { name = "temporalio", specifier = "==1.34.0" },
     { name = "testcontainers", specifier = "==4.15.0" },

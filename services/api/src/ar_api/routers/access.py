@@ -84,8 +84,8 @@ async def enroll_totp(request: Request) -> dict[str, str]:
     return GuestBook(chat(request)).enroll(session_id)
 
 
-@router.get("/api/v1/tenant/packs")
-@expose(public=False, permission=None)
+@router.get("/api/v1/tenant/packs", dependencies=[Depends(require_permission("tenant:read"))])
+@expose(public=False, permission="tenant:read")
 async def list_tenant_packs(request: Request) -> dict[str, object]:
     from ar_domain.packs.registry import tenant_packs  # noqa: PLC0415
 

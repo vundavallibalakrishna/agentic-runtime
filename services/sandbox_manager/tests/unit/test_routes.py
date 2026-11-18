@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from ar_domain.chat.service import demo_id
 from ar_sandbox_manager.main import create_application
 from ar_testing.demo import seed_demo_tenant
+from ar_testing.internal_client import signed_client
 from ar_testing.objects import MemoryObjectStore
 
 
@@ -27,7 +28,7 @@ class _Started:
 
 
 def _client() -> tuple[TestClient, _Started, str, str]:
-    client = TestClient(create_application())
+    client = signed_client(create_application())
     store = client.app.state.chat
     # A suspended computer stores a snapshot. No object store runs in a unit test.
     store.objects = MemoryObjectStore()

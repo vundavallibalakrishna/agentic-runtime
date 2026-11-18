@@ -173,9 +173,15 @@ async def retrieve(
     query: str,
     *,
     top_k: int = 8,
+    min_score: float | None = None,
 ) -> dict[str, object]:
-    """Hybrid search trimmed to the prompt budget. The trace lists every chunk used."""
+    """Hybrid search trimmed to the prompt budget. The trace lists every chunk used.
+
+    ``min_score`` drops chunks that do not clear it. Citations are only those chunks.
+    When none do, ``answer`` says the library does not contain the answer.
+    """
     from ar_domain.knowledge.searching import search_async  # noqa: PLC0415
+    from ar_domain.knowledge.threshold import LIBRARY_MISS, clears  # noqa: PLC0415
 
     queries = message_queries(query)
     ranked: list[list[dict[str, object]]] = []
@@ -188,6 +194,7 @@ async def retrieve(
             collection_ids=collection_ids,
             top_k=min(max(top_k, 1), _MAX_HITS),
             debug=True,
+            min_score=min_score,
         )
         raw_hits = found.get("hits")
         ranked.append(
@@ -195,7 +202,8 @@ async def retrieve(
         )
     # Several queries may each bring a passage, so the count is bounded by the same
     # ceiling a single query has; the character budget below still applies.
-    hits = _fused(ranked)[: _MAX_HITS if len(queries) > 1 else None]
+    fused = _fused(ranked)[: _MAX_HITS if len(queries) > 1 else None]
+    hits = [hit for hit in fused if clears(hit, min_score)]
     kept: list[dict[str, object]] = []
     used = 0
     for hit in hits:
@@ -219,6 +227,8 @@ async def retrieve(
         "rerank_model": str(found.get("rerank_model") or ""),
         "budget_chars": RETRIEVAL_BUDGET,
         "used_chars": used,
+        "min_score": min_score,
+        "below_threshold": min_score is not None and not kept,
         "hits": [
             {
                 "chunk_id": str(hit.get("chunk_id") or ""),
@@ -236,7 +246,10 @@ async def retrieve(
             for hit in kept
         ],
     }
-    return {"hits": kept, "answerable": bool(kept), "trace": trace}
+    body: dict[str, object] = {"hits": kept, "answerable": bool(kept), "trace": trace}
+    if not kept:
+        body["answer"] = LIBRARY_MISS
+    return body
 
 
 def _from_library(

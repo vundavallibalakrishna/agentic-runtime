@@ -1,5 +1,9 @@
 # mypy: ignore-errors
-"""gRPC server for A2A. JSON-RPC stays the fallback in ``grpc_a2a``.
+"""Optional loopback gRPC servicer for tests.
+
+The product speaks A2A as HTTP JSON-RPC. This servicer is not started by the
+API: the store is owned by one thread, and a second server would race it.
+The HTTP handler does not pretend to be gRPC.
 
 The bearer token is the agent API key. A token from another tenant is not found.
 Streaming methods yield the task, then any later events.

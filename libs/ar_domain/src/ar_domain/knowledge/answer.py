@@ -13,7 +13,7 @@ from ar_domain.knowledge.grounding import apply_grounding
 if TYPE_CHECKING:
     from typing import Any
 
-_NO_DOCUMENTS = "No sufficiently relevant documents were found."
+_NO_DOCUMENTS = "The library does not contain the answer to this question."
 _NO_MODEL = (
     "This agent retrieves knowledge automatically but has no model connected to write the "
     "answer. Open Models and point the agent's alias at a provider."

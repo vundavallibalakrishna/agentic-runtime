@@ -328,6 +328,13 @@ class BaseServiceSettings(BaseSettings):
     # Empty means the only tenant in the database (a single-tenant install has one).
     bootstrap_tenant_slug: str = ""
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
+    # Shared HMAC secret for sandbox-manager, mcp-gateway, and /metrics.
+    # Empty fails closed: those routes reject every call.
+    internal_auth_secret: SecretStr = SecretStr("")
+    # Chat retrieval drops chunks below this score (rerank or dense similarity).
+    # Unset: the rerank model's own floor when a reranker is configured, and no
+    # numeric bar when it is not.
+    knowledge_min_score: float | None = Field(default=None, ge=0.0, le=1.0)
     log_hash_user_ids: bool = False
     cursor_secret: SecretStr = SecretStr("dev-cursor-secret")
     max_json_body_bytes: int = 1_048_576

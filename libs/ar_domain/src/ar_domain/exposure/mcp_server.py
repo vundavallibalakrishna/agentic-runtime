@@ -220,6 +220,26 @@ def _error(text: str) -> dict[str, Any]:
     }
 
 
+def session_for(store: Any, key: dict[str, Any], presented: str | None, *, method: str) -> str:
+    """A per-connection id. The API key id is not a session.
+
+    ``initialize`` always opens a new session. A later call must send the id this
+    server minted. A missing or unknown id opens a new one rather than echoing the key.
+    """
+    sessions = getattr(store, "mcp_sessions", None)
+    if not isinstance(sessions, dict):
+        sessions = {}
+        store.mcp_sessions = sessions
+    key_id = str(key.get("id") or "")
+    if method != "initialize" and presented and presented != key_id:
+        row = sessions.get(presented)
+        if isinstance(row, dict) and row.get("key_id") == key_id:
+            return presented
+    session_id = str(uuid.uuid4())
+    sessions[session_id] = {"key_id": key_id, "tenant_id": str(key.get("tenant_id") or "")}
+    return session_id
+
+
 def handle_initialize(params: dict[str, Any]) -> dict[str, Any]:
     del params
     return {

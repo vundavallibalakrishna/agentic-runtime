@@ -57,9 +57,11 @@ async def test_run_once_creates_conversation_and_returns_usage() -> None:
     # A fresh conversation was created for the one-shot run.
     assert reply["conversation_id"]
     # The reply surfaces token and cost usage for the integrator.
-    assert reply["usage"]["tokens_in"] == 11
-    assert reply["usage"]["cost_micros"] == 420
-    assert "model_calls" in reply["usage"] and "tool_calls" in reply["usage"]
+    assert reply["usage"]["tokensIn"] == 11
+    assert reply["usage"]["costMicros"] == 420
+    assert "modelCalls" in reply["usage"] and "toolCalls" in reply["usage"]
+    assert "tokens_in" not in reply["usage"]
+    assert "cost_micros" not in reply["usage"]
 
 
 @pytest.mark.asyncio

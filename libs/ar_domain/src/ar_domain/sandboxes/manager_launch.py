@@ -25,10 +25,15 @@ class SandboxManagerLauncher:
     def release(self, sandbox_id: object) -> None:
         """Ask the manager to stop the container or pod behind a computer."""
 
+        from ar_common.internal_auth import headers_from_env  # noqa: PLC0415
         from ar_common.offload import blocking  # noqa: PLC0415
 
         address = f"{self.url}/internal/v1/sandboxes/{sandbox_id}:release"
-        blocking(lambda: http_post(address, timeout=30.0).close())
+        blocking(
+            lambda: http_post(
+                address, timeout=30.0, headers=headers_from_env("POST", address)
+            ).close()
+        )
 
 
 def sandbox_image() -> str:

@@ -40,7 +40,8 @@ x-app-env: &app-env
   AR_SANDBOX_EGRESS_PROXY: http://squid:3128
   AR_SANDBOX_IMAGE: ${AR_SANDBOX_IMAGE:-ar-sandbox:dev}
   AR_FAKE_LLM_BASE_URL: http://fake-llm:8099/v1
-  AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://localhost:4317
+  AR_OTEL_EXPORTER_OTLP_ENDPOINT: ${AR_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  AR_INTERNAL_AUTH_SECRET: ${AR_INTERNAL_AUTH_SECRET:-}
 
 x-app-depends: &app-depends
   migrate:

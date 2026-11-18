@@ -46,6 +46,7 @@
     "/metrics": {
       "get": {
         "summary": "Metrics",
+        "description": "Scrapes need the install HMAC. The route is not anonymous.",
         "operationId": "metrics_metrics_get",
         "responses": {
           "200": {

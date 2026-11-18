@@ -20,6 +20,11 @@ from ar_domain.skills.match import match_skill
 if TYPE_CHECKING:
     from typing import Any
 
+_LIBRARY_MISS = (
+    "The library does not contain the answer to this question. "
+    "Say that in those words. Do not invent a citation, a page number, or an answer "
+    "from knowledge that was not retrieved."
+)
 _NO_LIBRARY = (
     "No knowledge base is attached to this turn. "
     "If the question depends on the user's documents, say you do not have them. "
@@ -123,9 +128,18 @@ async def _retrieve(
     ]
     if not ids:
         return {"hits": [], "trace": {"query": user_text[:500], "hits": [], "used_chars": 0}}
+    from ar_domain.knowledge.threshold import retrieval_bar  # noqa: PLC0415
+
     actor = Actor(tenant, user, PERMISSION_KEYS)
     try:
-        return await retrieve(store, actor, ids, user_text, top_k=_top_k(definition))
+        return await retrieve(
+            store,
+            actor,
+            ids,
+            user_text,
+            top_k=_top_k(definition),
+            min_score=retrieval_bar(store, tenant, definition),
+        )
     except (EmbeddingUnconfiguredError, EmbeddingFailedError) as exc:
         detail = str(exc.detail or exc)
         emit = getattr(store, "_emit", None)
@@ -191,6 +205,8 @@ def _append_system(
             "If the passages do not contain the answer, say it was not found.\n"
             f"{wrapped}"
         )
+    elif isinstance(retrieval, dict) and _collection_slugs(definition):
+        extra.append(_LIBRARY_MISS)
     else:
         extra.append(_NO_LIBRARY)
     if extra:
