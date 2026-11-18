@@ -239,6 +239,8 @@ async def save_model(
                     upstream_model=str(row.get("upstream_model") or row.get("name") or ""),
                     kind=str(row.get("kind") or "chat"),
                     capabilities=_capabilities(row),
+                    context_window=_whole(row.get("context_window")),
+                    max_output_tokens=_whole(row.get("max_output_tokens")),
                     price_input_micros_per_mtok=_price(row, "price_input_micros_per_mtok"),
                     price_output_micros_per_mtok=_price(row, "price_output_micros_per_mtok"),
                     request_options=request_options_of(row)
@@ -256,6 +258,10 @@ async def save_model(
             existing.price_output_micros_per_mtok = _price(row, "price_output_micros_per_mtok")
             existing.embedding_dimensions = _whole(row.get("embedding_dimensions"))
             existing.capabilities = _capabilities(row)
+            if "context_window" in row:
+                existing.context_window = _whole(row.get("context_window"))
+            if "max_output_tokens" in row:
+                existing.max_output_tokens = _whole(row.get("max_output_tokens"))
             if row.get("request_options") is not None:
                 existing.request_options = request_options_of(row)
         await record(
@@ -455,6 +461,8 @@ def model_row_from(model: Any) -> dict[str, object]:
         "upstream_model": model.upstream_model,
         "kind": model.kind,
         "capabilities": list(model.capabilities or []),
+        "context_window": getattr(model, "context_window", None),
+        "max_output_tokens": getattr(model, "max_output_tokens", None),
         "price_input_micros_per_mtok": int(model.price_input_micros_per_mtok or 0),
         "price_output_micros_per_mtok": int(model.price_output_micros_per_mtok or 0),
         "request_options": request_options_of(model),

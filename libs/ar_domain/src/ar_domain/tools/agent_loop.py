@@ -199,6 +199,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         consecutive_errors = resumed_loop["consecutive_errors"]
         planned = resumed_loop["planned"]
         failed_open = resumed_loop["failed_open"]
+        usage_source = str(resumed_loop.get("usage_source") or "")
     elif restored is None:
         messages = opening_messages(run, definition, user_text)
         steps = 0
@@ -214,6 +215,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         consecutive_errors = 0
         planned = False
         failed_open = False
+        usage_source = ""
     else:
         messages = restored["messages"]
         steps = restored["steps"]
@@ -230,6 +232,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         consecutive_errors = 0
         planned = False
         failed_open = False
+        usage_source = ""
     provider_retries = 0
     from ar_domain.loop.planning import planning_enabled  # noqa: PLC0415
     from ar_domain.loop.repair import output_repair_limit, tool_failure_limit  # noqa: PLC0415
@@ -265,6 +268,8 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             consecutive_errors = applied["consecutive_errors"]
             failed_open = applied["failed_open"]
             started = applied["started"]
+            repairs = applied["repairs"]
+            usage_source = str(applied["usage_source"] or usage_source)
             run["step_kind"] = kind
             saved_loop = read_worker_loop(run)
             if one_step or kind in {"paused", "final"}:
@@ -275,21 +280,40 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
         limit = _over(limits, steps, tokens, cost, started, used_calls)
         if limit is not None:
             # What was spent before the stop still counts.
-            _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps - 1)
+            _remember_usage(
+                run, tokens_in_total, tokens_out_total, cost, steps - 1, usage_source=usage_source
+            )
             _stop_budget(store, run, assistant, limit)
             return True
         if planning_enabled(definition) and (not planned or run.get("needs_replan")):
             planned = await _take_plan(
-                store, run, messages, alias, repairing=bool(run.get("needs_replan"))
+                store,
+                run,
+                messages,
+                alias,
+                repairing=bool(run.get("needs_replan")),
+                limits=limits,
+                started=started,
             )
             run["needs_replan"] = False
         messages = _fit_context(store, run, messages, limits, definition)
         _offer_retrieve(store, run, by_name, openai_tools, offered)
-        turn = await store.complete_turn(
+        if _remaining(limits, started) <= 0:
+            _remember_usage(
+                run, tokens_in_total, tokens_out_total, cost, steps - 1, usage_source=usage_source
+            )
+            _stop_budget(store, run, assistant, "max_wall_clock_s")
+            return True
+        turn = await _ask(
+            store,
             messages,
             openai_tools,
-            tenant_id=uuid.UUID(str(run["tenant_id"])),
-            model_alias=alias,
+            run=run,
+            alias=alias,
+            limits=limits,
+            started=started,
+            definition=definition,
+            response_format=schema,
         )
         if isinstance(turn, dict):
             _note_endpoint(store, run, turn, steps)
@@ -315,6 +339,37 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 continue
             _stop_error(store, run, assistant, _terminal_text(), code="repair_exhausted")
             return True
+        if isinstance(turn, dict) and turn.get("context_length_exceeded"):
+            if repairs < repair_cap:
+                repairs += 1
+                messages = _fit_context(store, run, messages, limits, definition, force=True)
+                _audit(
+                    store,
+                    run,
+                    "run.retried",
+                    str(run.get("id")),
+                    {"reason": "context_length"},
+                    outcome="failure",
+                )
+                _emit_repair(store, run, "context_length")
+                continue
+            _remember_usage(
+                run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
+            )
+            _stop_error(
+                store,
+                run,
+                assistant,
+                "This conversation is too long for the model. Start a new one.",
+                code="context_length_exceeded",
+            )
+            return True
+        if isinstance(turn, dict) and turn.get("budget_exhausted"):
+            _remember_usage(
+                run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
+            )
+            _stop_budget(store, run, assistant, "max_wall_clock_s")
+            return True
         if not isinstance(turn, dict) or _provider_error(turn):
             if provider_retries < 2:
                 provider_retries += 1
@@ -329,28 +384,77 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 )
                 _emit_repair(store, run, "provider")
                 continue
-            _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
+            _remember_usage(
+                run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
+            )
             _stop_error(store, run, assistant, "The model provider did not answer.")
             return True
         provider_retries = 0
         raw_usage = turn.get("usage")
         usage = raw_usage if isinstance(raw_usage, dict) else {}
-        step_in = _whole(usage.get("tokens_in"))
-        step_out = _whole(usage.get("tokens_out"))
+        if "usage_source" in usage:
+            step_source = str(usage.get("usage_source") or "unknown")
+        elif "tokens_in" in usage or "tokens_out" in usage:
+            # A test double or an older caller that already counted tokens.
+            step_source = "provider"
+        else:
+            step_source = "unknown"
+        if step_source == "provider":
+            step_in = _whole(usage.get("tokens_in"))
+            step_out = _whole(usage.get("tokens_out"))
+        else:
+            step_in, step_out = _estimate_step(messages, turn)
+            step_source = "estimated"
+            store._emit(
+                run,
+                "warning",
+                {
+                    "code": "usage_estimated",
+                    "message": (
+                        "The provider omitted token usage. "
+                        "Counts on this step are estimates and are not billed."
+                    ),
+                    "tokens_in": step_in,
+                    "tokens_out": step_out,
+                },
+            )
         # The provider reports the whole prompt every call. Usage and cost keep
         # that full count. The budget adds only the growth since the previous
         # prompt, plus this step's output, so a six-step tool turn fits in 16k.
         tokens, prompt_seen = _charge_budget(tokens, prompt_seen, step_in, step_out)
         tokens_in_total += step_in
         tokens_out_total += step_out
-        step_cost, model_id = price_step(store, run, alias, step_in, step_out)
+        served = turn.get("model_id")
+        if step_source == "provider":
+            step_cost, priced = price_step(store, run, alias, step_in, step_out)
+        else:
+            step_cost, priced = 0, None
+        model_id = str(served) if served else priced
         cost += step_cost
-        note_model_usage(
-            store, run, alias, model_id, step=steps, tokens_in=step_in, tokens_out=step_out
-        )
+        usage_source = _merge_source(usage_source, step_source)
+        if step_source == "provider":
+            note_model_usage(
+                store, run, alias, model_id, step=steps, tokens_in=step_in, tokens_out=step_out
+            )
         calls = turn.get("tool_calls")
         if not isinstance(calls, list) or not calls:
-            answer = str(turn.get("text") or "").strip() or "The model returned an empty answer."
+            answer = str(turn.get("text") or "").strip()
+            if not answer:
+                if repairs < repair_cap:
+                    repairs += 1
+                    messages.append({"role": "assistant", "content": ""})
+                    messages.append({"role": "user", "content": _repair_text("empty", "")})
+                    _audit(
+                        store,
+                        run,
+                        "run.retried",
+                        str(run.get("id")),
+                        {"reason": "empty"},
+                        outcome="failure",
+                    )
+                    _emit_repair(store, run, "empty")
+                    continue
+                answer = "The model returned an empty answer."
             if schema:
                 from ar_domain.tools.structured import accept_output  # noqa: PLC0415
 
@@ -360,7 +464,14 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 if problem and repairs >= repair_cap:
                     # The caller asked for an object in this schema. Text that is not one
                     # is not an answer, so it is not stored as one.
-                    _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
+                    _remember_usage(
+                        run,
+                        tokens_in_total,
+                        tokens_out_total,
+                        cost,
+                        steps,
+                        usage_source=usage_source,
+                    )
                     _stop_error(
                         store,
                         run,
@@ -384,7 +495,9 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     _emit_repair(store, run, "structured_output")
                     continue
             answer = _checked(store, run, answer, failed_open=failed_open, tool_calls=used_calls)
-            _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
+            _remember_usage(
+                run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
+            )
             followups = await _followups(store, run, definition, user_text, answer)
             _finish(store, run, assistant, answer, previews, followups=followups)
             return True
@@ -413,6 +526,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                     failed_open=failed_open,
                     phase="tools",
                     pending_calls=calls,
+                    usage_source=usage_source,
                 ),
             )
             run["step_kind"] = "tools"
@@ -454,11 +568,18 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
                 if isinstance(added_cost, int) and not isinstance(added_cost, bool):
                     cost += added_cost
                 if outcome.get("stop"):
-                    _remember_usage(run, tokens_in_total, tokens_out_total, cost, steps)
+                    _remember_usage(
+                        run,
+                        tokens_in_total,
+                        tokens_out_total,
+                        cost,
+                        steps,
+                        usage_source=usage_source,
+                    )
                     _finish(store, run, assistant, str(outcome.get("answer") or ""), previews)
                     return True
             else:
-                invalid = _invalid_args(by_name.get(name), call)
+                invalid = _argument_problem(by_name.get(name), call)
                 if invalid:
                     repairs += 1
                     outcome = _schema_outcome(call, name, invalid, used_calls)
@@ -554,14 +675,23 @@ async def _flush_run(store: Any) -> None:
 
 
 def _remember_usage(
-    run: dict[str, object], tokens_in: int, tokens_out: int, cost: int, steps: int
+    run: dict[str, object],
+    tokens_in: int,
+    tokens_out: int,
+    cost: int,
+    steps: int,
+    *,
+    usage_source: str = "",
 ) -> None:
-    run["usage"] = {
+    recorded: dict[str, object] = {
         "tokens_in": tokens_in,
         "tokens_out": tokens_out,
         "cost_micros": cost,
         "steps": steps,
     }
+    if usage_source:
+        recorded["usage_source"] = usage_source
+    run["usage"] = recorded
 
 
 def _whole(value: object) -> int:
@@ -812,15 +942,20 @@ def _wire_calls(calls: list[object]) -> list[dict[str, object]]:
     for index, call in enumerate(calls):
         if not isinstance(call, dict):
             continue
-        arguments = call.get("arguments")
-        payload = arguments if isinstance(arguments, dict) else {}
+        raw = call.get("arguments_raw")
+        if isinstance(raw, str) and raw.strip():
+            encoded = raw
+        else:
+            arguments = call.get("arguments")
+            payload = arguments if isinstance(arguments, dict) else {}
+            encoded = orjson.dumps(payload).decode()
         wired.append(
             {
                 "id": str(call.get("id") or f"call_{index}"),
                 "type": "function",
                 "function": {
                     "name": str(call.get("name") or ""),
-                    "arguments": orjson.dumps(payload).decode(),
+                    "arguments": encoded,
                 },
             }
         )
@@ -830,6 +965,118 @@ def _wire_calls(calls: list[object]) -> list[dict[str, object]]:
 def _time_left(limits: dict[str, int], started: float) -> float:
     """Seconds of the run's wall clock a tool call may still use, and never under one."""
     return max(1.0, limits["max_wall_clock_s"] - (time.monotonic() - started))
+
+
+def _remaining(limits: dict[str, int], started: float) -> float:
+    """Seconds left on the run clock. Zero means the next model call must not start."""
+    return limits["max_wall_clock_s"] - (time.monotonic() - started)
+
+
+def _configured_max_tokens(definition: dict[str, object] | None) -> int | None:
+    """``model.params.max_output_tokens`` when the agent sets it."""
+    model = definition.get("model") if isinstance(definition, dict) else None
+    params = model.get("params") if isinstance(model, dict) else None
+    if not isinstance(params, dict):
+        return None
+    for key in ("max_output_tokens", "maxOutputTokens"):
+        value = params.get(key)
+        if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+            return value
+    return None
+
+
+def _model_window(store: Any, run: dict[str, object]) -> int | None:
+    finder = getattr(store, "_alias_target", None)
+    if not callable(finder):
+        return None
+    try:
+        tenant = uuid.UUID(str(run.get("tenant_id")))
+    except ValueError:
+        return None
+    found = finder(tenant, model_alias_for(store, run))
+    if not isinstance(found, tuple) or len(found) < 2 or not isinstance(found[1], dict):
+        return None
+    raw = found[1].get("context_window")
+    if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0:
+        return raw
+    return None
+
+
+def _prompt_budget(
+    store: Any, run: dict[str, object], limits: dict[str, int], definition: dict[str, object]
+) -> int:
+    """The prompt cap: the run budget, and the model's window minus the reserved answer."""
+    cap = limits["max_tokens"]
+    window = _model_window(store, run)
+    if window is None:
+        return cap
+    reserve = _configured_max_tokens(definition) or 1024
+    return min(cap, max(256, window - reserve))
+
+
+def _accepted_keywords(fn: object) -> set[str] | None:
+    import inspect  # noqa: PLC0415
+
+    try:
+        params = inspect.signature(fn).parameters  # type: ignore[arg-type]
+    except TypeError, ValueError:
+        return None
+    if any(item.kind is inspect.Parameter.VAR_KEYWORD for item in params.values()):
+        return None
+    return set(params)
+
+
+async def _ask(
+    store: Any,
+    messages: list[dict[str, object]],
+    tools: list[dict[str, object]],
+    *,
+    run: dict[str, object],
+    alias: str,
+    limits: dict[str, int],
+    started: float,
+    definition: dict[str, object] | None,
+    response_format: dict[str, object] | None,
+) -> dict[str, object] | None:
+    """One model call. Extra arguments are passed only when this store's method accepts them."""
+    fn = store.complete_turn
+    kwargs: dict[str, object] = {
+        "tenant_id": uuid.UUID(str(run["tenant_id"])),
+        "model_alias": alias,
+    }
+    extra = {
+        "budget_s": max(0.0, _remaining(limits, started)),
+        "max_tokens": _configured_max_tokens(definition),
+        "response_format": response_format,
+    }
+    accepted = _accepted_keywords(fn)
+    for key, value in extra.items():
+        if value is None:
+            continue
+        if accepted is None or key in accepted:
+            kwargs[key] = value
+    result: dict[str, object] | None = await fn(messages, tools, **kwargs)
+    return result
+
+
+def _estimate_step(messages: list[dict[str, object]], turn: dict[str, object]) -> tuple[int, int]:
+    """A flagged estimate when the provider sent no usage object."""
+    from ar_domain.models.request import estimate_prompt_tokens, estimate_text_tokens  # noqa: PLC0415
+
+    calls = turn.get("tool_calls")
+    call_text = ""
+    if isinstance(calls, list):
+        call_text = " ".join(
+            str(item.get("name") or "") for item in calls if isinstance(item, dict)
+        )
+    output = estimate_text_tokens(str(turn.get("text") or "") + call_text)
+    return estimate_prompt_tokens(messages), output
+
+
+def _merge_source(current: str, step: str) -> str:
+    if not current or current == step:
+        return step
+    return "mixed"
 
 
 def _over(  # noqa: PLR0917
@@ -863,16 +1110,21 @@ def _fit_context(
     messages: list[dict[str, object]],
     limits: dict[str, int],
     definition: dict[str, object],
+    *,
+    force: bool = False,
 ) -> list[dict[str, object]]:
     from ar_domain.loop.context import context_book, context_limits, fit_messages  # noqa: PLC0415
 
     settings = context_limits(definition)
+    cap = _prompt_budget(store, run, limits, definition)
+    if force:
+        cap = max(256, cap // 2)
     fitted, note = fit_messages(
         messages,
-        max_tokens=limits["max_tokens"],
+        max_tokens=cap,
         retained=context_book(run),
         tool_result_max_tokens=int(settings["tool_result_max_tokens"]),
-        threshold=settings["compaction_threshold"],
+        threshold=0.0 if force else settings["compaction_threshold"],
     )
     if note is not None:
         run["compaction"] = note
@@ -922,6 +1174,14 @@ def _note_endpoint(store: Any, run: dict[str, object], turn: dict[str, object], 
     )
 
 
+def _argument_problem(bound: dict[str, object] | None, call: dict[str, object]) -> str | None:
+    """A parse error, or a schema error. A parse error is never executed as ``{}``."""
+    error = call.get("arguments_error")
+    if isinstance(error, str) and error.strip():
+        return error.strip()
+    return _invalid_args(bound, call)
+
+
 def _invalid_args(bound: dict[str, object] | None, call: dict[str, object]) -> str | None:
     if not isinstance(bound, dict):
         return None
@@ -965,17 +1225,26 @@ async def _take_plan(
     alias: str,
     *,
     repairing: bool,
+    limits: dict[str, int],
+    started: float,
 ) -> bool:
     from ar_domain.loop.planning import PLAN_INSTRUCTION, parse_plan, replan_instruction  # noqa: PLC0415
 
     prompt = PLAN_INSTRUCTION
     if repairing:
         prompt = replan_instruction("a tool call failed")
-    turn = await store.complete_turn(
+    if _remaining(limits, started) <= 0:
+        return True
+    turn = await _ask(
+        store,
         [*messages, {"role": "user", "content": prompt}],
         [],
-        tenant_id=uuid.UUID(str(run["tenant_id"])),
-        model_alias=alias,
+        run=run,
+        alias=alias,
+        limits=limits,
+        started=started,
+        definition=_definition(store, run),
+        response_format=None,
     )
     text = str(turn.get("text") or "") if isinstance(turn, dict) else ""
     items, error = parse_plan(text)
@@ -1341,11 +1610,14 @@ def _finish(
     run["result_summary"] = answer[:8000]
     usage = run.get("usage")
     if not isinstance(usage, dict) or "cost_micros" not in usage:
+        from ar_domain.models.request import estimate_text_tokens  # noqa: PLC0415
+
         usage = {
-            "tokens_in": 1,
-            "tokens_out": max(1, len(answer.split())),
+            "tokens_in": 0,
+            "tokens_out": estimate_text_tokens(answer),
             "cost_micros": 0,
             "steps": 1,
+            "usage_source": "estimated",
         }
         run["usage"] = usage
     conversation = store.conversations.get(run.get("conversation_id"))
@@ -1361,7 +1633,11 @@ def _finish(
         if isinstance(cited, dict) and cited.get("source_kind") == "document":
             store._emit(run, "citation.added", {"message_id": str(assistant_id), "citation": cited})
     stored = run.get("usage")
-    emitted = stored if isinstance(stored, dict) else {"tokens_in": 1, "tokens_out": 1}
+    emitted = (
+        stored
+        if isinstance(stored, dict)
+        else {"tokens_in": 0, "tokens_out": 0, "usage_source": "unknown"}
+    )
     completed: dict[str, object] = {"message_id": str(assistant_id), "text": answer}
     answered = assistant.get("answered_model") or run.get("answered_model")
     if isinstance(answered, str) and answered:

@@ -28,6 +28,7 @@ class LoopLocals(TypedDict):
     planned: bool
     failed_open: bool
     started: float
+    usage_source: str
 
 
 def worker_loop_open(run: dict[str, object]) -> bool:
@@ -75,6 +76,7 @@ def snapshot(
     pending_calls: list[object] | None = None,
     pending_index: int = 0,
     batch_images: list[dict[str, object]] | None = None,
+    usage_source: str = "",
 ) -> dict[str, object]:
     """The fields the next activity needs. No prompt text beyond the message list."""
     return {
@@ -98,6 +100,7 @@ def snapshot(
         "pending_calls": list(pending_calls or []),
         "pending_index": pending_index,
         "batch_images": list(batch_images or []),
+        "usage_source": usage_source,
     }
 
 
@@ -131,6 +134,7 @@ def apply_worker_loop(state: dict[str, object], *, now: float | None = None) -> 
         "planned": bool(state.get("planned")),
         "failed_open": bool(state.get("failed_open")),
         "started": moment - elapsed_s,
+        "usage_source": str(state.get("usage_source") or ""),
     }
     return applied
 
@@ -202,9 +206,20 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
         if outcome.get("stop"):
             return "final"
     else:
-        from ar_domain.tools.agent_loop import _invalid_args, _schema_outcome  # noqa: PLC0415
+        from ar_domain.loop.repair import output_repair_limit  # noqa: PLC0415
+        from ar_domain.tools.agent_loop import (  # noqa: PLC0415
+            _argument_problem,
+            _definition,
+            _schema_outcome,
+            _terminal_text,
+        )
 
-        invalid = _invalid_args(by_name.get(name), call)
+        invalid = _argument_problem(by_name.get(name), call)
+        if invalid:
+            state["repairs"] = _int(state.get("repairs")) + 1
+            if _int(state.get("repairs")) > output_repair_limit(_definition(store, run)):
+                _stop_error(store, run, assistant, _terminal_text(), code="repair_exhausted")
+                return "final"
         if invalid:
             outcome = _schema_outcome(call, name, invalid, used)
         else:

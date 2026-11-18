@@ -104,6 +104,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_MEMORY_RECALL_MIN_SIM` | `0.25` | Minimum similarity for memory recall | [spec 11](../03-specs/11-memory.md) |
 | `AR_MG_CB_FAILURES` | `5` | Consecutive failures to open | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_CB_OPEN_S` | `30` | Circuit-breaker open duration | [spec 04](../03-specs/04-model-gateway.md) |
+| `AR_MG_FALLBACK_BACKOFF_S` | `0.2` | Seconds times the attempt number before the next fallback model | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_HEALTH_INTERVAL_S` | `30` | Provider health probe interval | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_MAX_FALLBACKS` | `2` | Maximum fallback hops per request | [spec 04](../03-specs/04-model-gateway.md) |
 | `AR_MG_PORT` | `8001` | Listen port of `model-gateway` | [spec 04](../03-specs/04-model-gateway.md) |

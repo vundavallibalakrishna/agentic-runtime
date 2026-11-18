@@ -4060,6 +4060,30 @@
               }
             ],
             "title": "Capabilities"
+          },
+          "contextWindow": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contextwindow"
+          },
+          "maxOutputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxoutputtokens"
           }
         },
         "additionalProperties": false,
@@ -4156,6 +4180,30 @@
               }
             ],
             "title": "Capabilities"
+          },
+          "contextWindow": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contextwindow"
+          },
+          "maxOutputTokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxoutputtokens"
           }
         },
         "additionalProperties": false,

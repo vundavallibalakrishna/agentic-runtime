@@ -102,6 +102,7 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_MG_CB_FAILURES",
         "AR_MG_CB_OPEN_S",
         "AR_MG_HEALTH_INTERVAL_S",
+        "AR_MG_FALLBACK_BACKOFF_S",
         "AR_MG_MAX_FALLBACKS",
         "AR_MG_PORT",
         "AR_MG_SEMAPHORE_WAIT_S",

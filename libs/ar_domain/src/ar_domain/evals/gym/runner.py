@@ -119,7 +119,11 @@ def _install_dry_run(store: ChatService) -> None:
         *,
         tenant_id: uuid.UUID,
         model_alias: str,
+        budget_s: float | None = None,
+        max_tokens: int | None = None,
+        response_format: dict[str, object] | None = None,
     ) -> dict[str, object]:
+        del budget_s, max_tokens, response_format
         return await completer(messages, tools, tenant_id=tenant_id, model_alias=model_alias)
 
     def completion_call(

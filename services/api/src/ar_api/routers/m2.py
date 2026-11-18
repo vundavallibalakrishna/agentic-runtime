@@ -51,6 +51,8 @@ class ModelPatch(ApiModel):
     embedding_dimensions: int | None = Field(default=None, gt=0)
     # What the model can do, for example ``vision`` for a model that reads images.
     capabilities: list[str] | None = None
+    context_window: int | None = Field(default=None, ge=1)
+    max_output_tokens: int | None = Field(default=None, ge=1)
 
 
 class ModelBody(ApiModel):
@@ -63,6 +65,8 @@ class ModelBody(ApiModel):
     request_options: dict[str, object] | None = None
     embedding_dimensions: int | None = Field(default=None, gt=0)
     capabilities: list[str] | None = None
+    context_window: int | None = Field(default=None, ge=1)
+    max_output_tokens: int | None = Field(default=None, ge=1)
 
 
 class AliasBody(ApiModel):
@@ -362,6 +366,8 @@ async def create_model(body: ModelBody, request: Request) -> dict[str, object]:
         request_options=body.request_options,
         embedding_dimensions=body.embedding_dimensions,
         capabilities=body.capabilities,
+        context_window=body.context_window,
+        max_output_tokens=body.max_output_tokens,
     )
     await _persist_model(service, created, principal)
     return created
@@ -389,6 +395,14 @@ async def patch_model(model_id: uuid.UUID, body: ModelPatch, request: Request) -
             "embedding_dimensions" in body.model_fields_set and body.embedding_dimensions is None
         ),
         capabilities=body.capabilities,
+        context_window=body.context_window,
+        max_output_tokens=body.max_output_tokens,
+        clear_context_window=(
+            "context_window" in body.model_fields_set and body.context_window is None
+        ),
+        clear_max_output_tokens=(
+            "max_output_tokens" in body.model_fields_set and body.max_output_tokens is None
+        ),
     )
     await _persist_model(service, updated, principal)
     return updated

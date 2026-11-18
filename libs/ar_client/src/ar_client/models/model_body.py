@@ -32,6 +32,8 @@ class ModelBody:
         request_options (ModelBodyRequestOptionsType0 | None | Unset):
         embedding_dimensions (int | None | Unset):
         capabilities (list[str] | None | Unset):
+        context_window (int | None | Unset):
+        max_output_tokens (int | None | Unset):
     """
 
     provider_id: UUID
@@ -43,6 +45,8 @@ class ModelBody:
     request_options: ModelBodyRequestOptionsType0 | None | Unset = UNSET
     embedding_dimensions: int | None | Unset = UNSET
     capabilities: list[str] | None | Unset = UNSET
+    context_window: int | None | Unset = UNSET
+    max_output_tokens: int | None | Unset = UNSET
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.model_body_request_options_type_0 import ModelBodyRequestOptionsType0  # noqa: PLC0415
@@ -82,6 +86,18 @@ class ModelBody:
         else:
             capabilities = self.capabilities
 
+        context_window: int | None | Unset
+        if isinstance(self.context_window, Unset):
+            context_window = UNSET
+        else:
+            context_window = self.context_window
+
+        max_output_tokens: int | None | Unset
+        if isinstance(self.max_output_tokens, Unset):
+            max_output_tokens = UNSET
+        else:
+            max_output_tokens = self.max_output_tokens
+
         field_dict: dict[str, Any] = {}
 
         field_dict.update(
@@ -103,6 +119,10 @@ class ModelBody:
             field_dict["embeddingDimensions"] = embedding_dimensions
         if capabilities is not UNSET:
             field_dict["capabilities"] = capabilities
+        if context_window is not UNSET:
+            field_dict["contextWindow"] = context_window
+        if max_output_tokens is not UNSET:
+            field_dict["maxOutputTokens"] = max_output_tokens
 
         return field_dict
 
@@ -166,6 +186,24 @@ class ModelBody:
 
         capabilities = _parse_capabilities(d.pop("capabilities", UNSET))
 
+        def _parse_context_window(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        context_window = _parse_context_window(d.pop("contextWindow", UNSET))
+
+        def _parse_max_output_tokens(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        max_output_tokens = _parse_max_output_tokens(d.pop("maxOutputTokens", UNSET))
+
         model_body = cls(
             provider_id=provider_id,
             name=name,
@@ -176,6 +214,8 @@ class ModelBody:
             request_options=request_options,
             embedding_dimensions=embedding_dimensions,
             capabilities=capabilities,
+            context_window=context_window,
+            max_output_tokens=max_output_tokens,
         )
 
         return model_body
