@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from ar_common.host_ports import listen_port
 from ar_common.settings import BaseServiceSettings, fake_models_allowed, loopback_allowed
 from ar_common.web import create_app
+from ar_common.web.internal import InternalAuthMiddleware
 from ar_domain.readmodel.boot import build_product_store
 from ar_mcp_gateway.routes import router as tools_router
 
@@ -20,6 +21,7 @@ def create_application() -> FastAPI:
     """Build the ASGI app. The dev store is the same pipeline the API uses."""
     settings = Settings()
     app = create_app("mcp-gateway", settings)
+    app.add_middleware(InternalAuthMiddleware)
     app.include_router(tools_router)
     app.state.chat = build_product_store(
         settings,

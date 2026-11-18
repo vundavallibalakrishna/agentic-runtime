@@ -331,9 +331,11 @@ def _delegate_ensure(
 
     def _post() -> dict[str, object]:
 
-        response = blocking(
-            lambda: http_post(f"{url}/internal/v1/sandboxes:ensure", json=body, timeout=60.0)
-        )
+        from ar_common.internal_auth import headers_from_env  # noqa: PLC0415
+
+        address = f"{url}/internal/v1/sandboxes:ensure"
+        headers = headers_from_env("POST", address)
+        response = blocking(lambda: http_post(address, json=body, timeout=60.0, headers=headers))
         try:
             response.raise_for_status()
             payload = response.json()

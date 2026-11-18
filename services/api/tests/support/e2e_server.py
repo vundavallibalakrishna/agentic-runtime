@@ -16,6 +16,8 @@ import os
 
 # Say "no database" before the application reads its settings.
 os.environ["AR_DURABLE_STATE"] = "memory"
+# No collector runs beside the browser tests. An export to localhost wedges the API.
+os.environ["AR_OTEL_EXPORTER_OTLP_ENDPOINT"] = "off"
 # The stand-in model server and the fixture pages are on this machine's own addresses.
 os.environ.setdefault("AR_EGRESS_ALLOW_LOOPBACK", "true")
 os.environ.setdefault("AR_EGRESS_ALLOW_WILDCARD", "true")

@@ -34,6 +34,7 @@ WHERE n.nspname = 'public'
   AND c.relkind = 'r'
   AND (
     NOT c.relrowsecurity
+    OR NOT c.relforcerowsecurity
     OR NOT EXISTS (SELECT 1 FROM pg_policy p WHERE p.polrelid = c.oid)
   )
 ORDER BY c.relname

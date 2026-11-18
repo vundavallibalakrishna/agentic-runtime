@@ -9,7 +9,26 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from ar_common.vectors import unit_vector
-from ar_domain.memory.pg import RECALL_SQL
+
+# The product recalls through MemoryBook. This statement only proves the vector
+# read stays inside the tenant. It is not a second recall implementation.
+RECALL_SQL = """
+SELECT id,
+       content,
+       1 - (embedding <=> CAST(:query AS vector)) AS cosine
+FROM memory_facts
+WHERE status = 'active'
+  AND tenant_id = CAST(:tenant AS uuid)
+  AND (
+        (scope = 'user' AND user_id = CAST(:user_id AS uuid))
+     OR (scope = 'agent_user' AND agent_id = CAST(:agent_id AS uuid)
+         AND user_id = CAST(:user_id AS uuid))
+     OR (scope = 'agent' AND agent_id = CAST(:agent_id AS uuid))
+     OR (scope = 'team' AND team_id = ANY(CAST(:team_ids AS uuid[])))
+  )
+ORDER BY embedding <=> CAST(:query AS vector)
+LIMIT 30
+"""
 
 pytestmark = pytest.mark.integration
 

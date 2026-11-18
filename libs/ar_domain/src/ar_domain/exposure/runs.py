@@ -198,19 +198,16 @@ def _reply(store: Any, run_id: uuid.UUID) -> dict[str, Any]:
         "answered_model": answered,
         "finish_reason": finish,
         "usage": {
-            "tokens_in": int(usage.get("tokens_in") or 0),
-            "tokens_out": int(usage.get("tokens_out") or 0),
-            "tokensIn": int(usage.get("tokens_in") or 0),
-            "tokensOut": int(usage.get("tokens_out") or 0),
-            "cachedTokens": int(usage.get("cached_tokens") or 0),
-            "modelCalls": int(usage.get("model_calls") or 0),
-            "toolCalls": int(usage.get("tool_calls") or 0),
-            "costMicros": int(usage.get("cost_micros") or 0),
-            "sandboxCpuSeconds": int(usage.get("sandbox_cpu_seconds") or 0),
-            "elapsedMs": int(usage.get("elapsed_ms") or 0),
-            "cost_micros": int(usage.get("cost_micros") or 0),
-            "model_calls": int(usage.get("model_calls") or 0),
-            "tool_calls": int(usage.get("tool_calls") or 0),
+            "tokensIn": int(usage.get("tokens_in") or usage.get("tokensIn") or 0),
+            "tokensOut": int(usage.get("tokens_out") or usage.get("tokensOut") or 0),
+            "cachedTokens": int(usage.get("cached_tokens") or usage.get("cachedTokens") or 0),
+            "modelCalls": int(usage.get("model_calls") or usage.get("modelCalls") or 0),
+            "toolCalls": int(usage.get("tool_calls") or usage.get("toolCalls") or 0),
+            "costMicros": int(usage.get("cost_micros") or usage.get("costMicros") or 0),
+            "sandboxCpuSeconds": int(
+                usage.get("sandbox_cpu_seconds") or usage.get("sandboxCpuSeconds") or 0
+            ),
+            "elapsedMs": int(usage.get("elapsed_ms") or usage.get("elapsedMs") or 0),
         },
     }
     if approval_id:
@@ -552,6 +549,16 @@ def _attachment_names(store: Any, attachment_ids: list[uuid.UUID]) -> list[str]:
         if isinstance(row, dict):
             names.append(str(row.get("name") or "file"))
     return names
+
+
+def run_for_key(store: Any, key: dict[str, Any], run_id: uuid.UUID) -> dict[str, Any]:
+    """404 unless this key was granted the run. Same tenant is not enough."""
+    if not any(row.get("run_id") == run_id for row in _grants_for(store, key)):
+        raise NotFoundError("run not found")
+    run = store.runs.get(run_id)
+    if not isinstance(run, dict) or run.get("tenant_id") != key.get("tenant_id"):
+        raise NotFoundError("run not found")
+    return run
 
 
 def owned_run(store: Any, key: dict[str, Any], slug: str, run_id: uuid.UUID) -> dict[str, Any]:

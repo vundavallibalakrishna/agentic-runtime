@@ -1,5 +1,6 @@
 """OpenTelemetry bootstrap. Spec: docs/03-specs/18-observability-eval.md §1."""
 
+import os
 from typing import TYPE_CHECKING
 
 from opentelemetry import metrics, trace
@@ -11,7 +12,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExportResult
 from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
 
 from ar_common.logging import get_logger
@@ -39,6 +40,37 @@ class _TelemetryState:
 
 
 _log = get_logger(__name__)
+_DISABLED = frozenset({"", "off", "none", "disabled"})
+_EXPORT_TIMEOUT_S = 2.0
+_QUEUE = 2048
+# The exporter treats an empty retry set as "use the defaults". OK is never an
+# export error, so naming it turns retries off without importing grpc here.
+_NO_RETRY_ENV = "OTEL_PYTHON_EXPORTER_OTLP_GRPC_RETRYABLE_ERROR_CODES"
+
+
+class _QuietSpans:
+    """Export spans on the batch thread. A failure is dropped, never raised."""
+
+    def __init__(self, inner: object) -> None:
+        self._inner = inner
+
+    def export(self, spans: object) -> SpanExportResult:
+        try:
+            result = self._inner.export(spans)  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001 - a missing collector must not surface
+            _log.info("telemetry_dropped", signal="traces")
+            return SpanExportResult.FAILURE
+        return result if isinstance(result, SpanExportResult) else SpanExportResult.FAILURE
+
+    def shutdown(self) -> None:
+        try:
+            self._inner.shutdown()  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001 - shutdown is best-effort
+            return
+
+    def force_flush(self, timeout_millis: int = 1000) -> bool:
+        del timeout_millis
+        return True
 
 
 def _otel_channel(target: str, *, insecure: bool) -> tuple[str, tuple[tuple[str, str], ...] | None]:
@@ -105,17 +137,33 @@ def setup(service_name: str, settings: BaseServiceSettings | None = None) -> Non
         current_endpoint = current.otel_exporter_otlp_endpoint
     else:
         current_endpoint = current.otel_exporter_otlp_endpoint
+    if current_endpoint.strip().lower() in _DISABLED:
+        _log.info("telemetry_disabled", reason="no_endpoint")
+        _TelemetryState.ready = True
+        return
+    os.environ[_NO_RETRY_ENV] = "OK"
     target, insecure = _grpc_target(current_endpoint)
     target, channel_options = _otel_channel(target, insecure=insecure)
+    options = (
+        ("grpc.enable_retries", 0),
+        *(() if channel_options is None else channel_options),
+    )
     sampler = ParentBased(TraceIdRatioBased(current.trace_sample_ratio))
     tracer_provider = TracerProvider(resource=resource, sampler=sampler)
     tracer_provider.add_span_processor(
         BatchSpanProcessor(
-            OTLPSpanExporter(
-                endpoint=target,
-                insecure=insecure,
-                channel_options=channel_options,  # type: ignore[arg-type]
-            )
+            _QuietSpans(
+                OTLPSpanExporter(
+                    endpoint=target,
+                    insecure=insecure,
+                    timeout=_EXPORT_TIMEOUT_S,
+                    channel_options=options,  # type: ignore[arg-type]
+                )
+            ),
+            max_queue_size=_QUEUE,
+            schedule_delay_millis=500,
+            max_export_batch_size=256,
+            export_timeout_millis=int(_EXPORT_TIMEOUT_S * 1000),
         )
     )
     trace.set_tracer_provider(tracer_provider)
@@ -123,8 +171,11 @@ def setup(service_name: str, settings: BaseServiceSettings | None = None) -> Non
         OTLPMetricExporter(
             endpoint=target,
             insecure=insecure,
-            channel_options=channel_options,  # type: ignore[arg-type]
-        )
+            timeout=_EXPORT_TIMEOUT_S,
+            channel_options=options,  # type: ignore[arg-type]
+        ),
+        export_interval_millis=60_000,
+        export_timeout_millis=int(_EXPORT_TIMEOUT_S * 1000),
     )
     metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
     FastAPIInstrumentor().instrument()

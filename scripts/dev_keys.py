@@ -154,6 +154,7 @@ def main() -> None:
     text = ENV.read_text(encoding="utf-8") if ENV.exists() else ""
     text = _ensure(text, "AR_SESSION_ENCRYPTION_KEY", session_key())
     text = _ensure(text, "AR_CURSOR_SECRET", secrets.token_urlsafe(32))
+    text = _ensure(text, "AR_INTERNAL_AUTH_SECRET", secrets.token_urlsafe(32))
     text = _ensure(text, "AR_DB_ENCRYPTION_KEYS", shell_value(encryption_keyring()))
     text = _ensure(text, "AR_DB_ENCRYPTION_ACTIVE_KEY", "k1")
     text = _ensure(text, "AR_TOKEN_CACHE_KEY", session_key())

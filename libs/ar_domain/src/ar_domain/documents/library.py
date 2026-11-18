@@ -48,6 +48,34 @@ MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
 _READ_CHARS = 12_000
 
 
+def _with_embeddings(
+    store: object, tenant_id: uuid.UUID, passages: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    """Store one vector per passage at ingest. A missing model leaves the text as it is."""
+    texts = [str(row.get("text") or "") for row in passages]
+    if not any(texts):
+        return passages
+    from ar_domain.models.embedding import (  # noqa: PLC0415
+        EmbeddingFailedError,
+        EmbeddingUnconfiguredError,
+        embed,
+        embedding_model,
+    )
+
+    try:
+        vectors = embed(embedding_model(store, tenant_id), texts)
+    except EmbeddingUnconfiguredError, EmbeddingFailedError:
+        return passages
+    if len(vectors) != len(passages):
+        return passages
+    stored: list[dict[str, object]] = []
+    for row, vector in zip(passages, vectors, strict=True):
+        copied = dict(row)
+        copied["embedding"] = [float(item) for item in vector]
+        stored.append(copied)
+    return stored
+
+
 async def ingest_bytes(
     store: Any,
     actor: Actor,
@@ -213,7 +241,9 @@ class DocumentLibrary:
             "error_message": None,
             "page_count": extracted.page_count,
             "metadata": extracted.metadata,
-            "passages": passage_dicts(extracted.passages),
+            "passages": _with_embeddings(
+                self.store, actor.tenant_id, passage_dicts(extracted.passages)
+            ),
             "tables": [
                 {
                     "anchor": table.anchor,

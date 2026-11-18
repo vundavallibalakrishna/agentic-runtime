@@ -14,6 +14,7 @@ import time_machine
 from fastapi.testclient import TestClient
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import SecretStr
 
 from ar_common import keys as keymod
 from ar_common import serve
@@ -306,10 +307,18 @@ def test_ready_when_checks_pass() -> None:
     def ok() -> None:
         return None
 
+    settings.internal_auth_secret = SecretStr("metrics-secret")
     app = create_app("api", settings, readiness_checks={"self": ok})
     client = TestClient(app)
     assert client.get("/readyz").status_code == 200
-    assert client.get("/metrics").status_code == 200
+    assert client.get("/metrics").status_code == 401
+    from ar_common.internal_auth import sign_request
+
+    opened = client.get(
+        "/metrics",
+        headers={"X-AR-Internal": sign_request("metrics-secret", "GET", "/metrics")},
+    )
+    assert opened.status_code == 200
 
 
 def test_http_client_retries_idempotent(respx_mock: Any) -> None:

@@ -69,7 +69,10 @@ def _post(store: Any, request: dict[str, object]) -> dict[str, object]:
 
 
 def _send(url: str, body: dict[str, object], timeout: float) -> httpx.Response:
-    return blocking(lambda: http_post(url, json=body, timeout=timeout))
+    from ar_common.internal_auth import headers_from_env  # noqa: PLC0415
+
+    headers = headers_from_env("POST", url)
+    return blocking(lambda: http_post(url, json=body, timeout=timeout, headers=headers))
 
 
 def _timeout(store: Any, request: dict[str, object]) -> float:

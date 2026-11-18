@@ -65,6 +65,30 @@ def test_research_round_trip_and_cross_tenant_404() -> None:
     assert hidden.status_code == 404
 
 
+def test_another_key_cannot_read_a_research_run() -> None:
+    client, _holder = _client()
+    store = client.app.state.chat
+    agent = next(row for row in store.agents.values() if row.get("slug") == "assistant")
+    first = client.post(f"/api/v1/agents/{agent['id']}/api-keys", json={"label": "A"})
+    second = client.post(f"/api/v1/agents/{agent['id']}/api-keys", json={"label": "B"})
+    assert first.status_code == 200, first.text
+    assert second.status_code == 200, second.text
+    headers_a = {"Authorization": f"Bearer {first.json()['key']}"}
+    headers_b = {"Authorization": f"Bearer {second.json()['key']}"}
+    started = client.post(
+        "/v1/research/runs",
+        headers=headers_a,
+        json={"question": "What do the notes say about a kite?"},
+    )
+    assert started.status_code == 202, started.text
+    run_id = started.json()["runId"]
+    assert client.get(f"/v1/research/runs/{run_id}", headers=headers_a).status_code == 200
+    denied = client.get(f"/v1/research/runs/{run_id}", headers=headers_b)
+    assert denied.status_code == 404
+    events = client.get(f"/v1/research/runs/{run_id}/events", headers=headers_b)
+    assert events.status_code == 404
+
+
 def test_events_output_and_resume_of_a_cancelled_run() -> None:
     client, _holder = _client()
     app = client.app

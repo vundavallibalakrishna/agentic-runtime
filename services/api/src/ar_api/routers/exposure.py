@@ -571,17 +571,11 @@ async def _a2a(request: Request, response: Response, slug: str | None) -> Respon
     key = _require_key(request, response)
     chosen = _slug_of(_store(request), key, slug)
     content_type = request.headers.get("content-type", "")
-    grpc_method = request.headers.get("x-grpc-method", "")
-    if "application/grpc" in content_type or grpc_method:
-        from ar_domain.exposure.grpc_a2a import grpc_call  # noqa: PLC0415
-
-        payload = await request.json()
-        body = payload if isinstance(payload, dict) else {}
-        method = grpc_method or str(body.get("method") or "")
-        result, status = await grpc_call(_store(request), key, chosen, method, body)
-        headers = dict(getattr(request.state, "rate_headers", {}))
-        headers["grpc-status"] = str(status)
-        return JSONResponse(result, headers=headers)
+    if "application/grpc" in content_type or request.headers.get("x-grpc-method"):
+        raise ArError(
+            ErrorCode.BAD_REQUEST,
+            "A2A is HTTP JSON-RPC. This endpoint does not speak gRPC.",
+        )
     payload = await request.json()
     if not isinstance(payload, dict):
         raise ArError(ErrorCode.BAD_REQUEST, "json-rpc body is required")
@@ -625,7 +619,12 @@ async def _mcp(request: Request, response: Response, slug: str | None) -> Respon
         raise ArError(ErrorCode.BAD_REQUEST, "json-rpc body is required")
     result = await mcp_server.handle_rpc(_store(request), key, payload)
     headers = dict(getattr(request.state, "rate_headers", {}))
-    headers["Mcp-Session-Id"] = str(key.get("id"))
+    headers["Mcp-Session-Id"] = mcp_server.session_for(
+        _store(request),
+        key,
+        request.headers.get("mcp-session-id"),
+        method=str(payload.get("method") or ""),
+    )
     if result is None:
         return Response(status_code=202, headers=headers)
     accept = request.headers.get("accept") or ""

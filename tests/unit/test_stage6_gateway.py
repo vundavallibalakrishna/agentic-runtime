@@ -10,8 +10,6 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from fastapi.testclient import TestClient
-
 from ar_common.sandbox_docker import confined_host_config
 from ar_domain.chat.service import demo_id
 from ar_domain.sandboxes import runtime
@@ -21,6 +19,7 @@ from ar_domain.tools.gateway_client import execute_tool
 from ar_mcp_gateway.main import create_application
 from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo_tenant
+from ar_testing.internal_client import signed_client
 
 if TYPE_CHECKING:
     import pytest
@@ -87,7 +86,7 @@ def test_gateway_audits_and_denies_a_host_off_the_allowlist() -> None:
     )
     server = store.tool_server_versions[version["tool_server_version_id"]]
     server["endpoint_url"] = "https://blocked.example/mcp"
-    client = TestClient(app)
+    client = signed_client(app)
     called = client.post(
         "/internal/v1/tool-calls:execute",
         json={
@@ -120,7 +119,7 @@ def test_gateway_records_a_builtin_call(monkeypatch: pytest.MonkeyPatch) -> None
     version = next(
         row for row in store.tool_versions.values() if row.get("qualified_name") == "files.list"
     )
-    client = TestClient(app)
+    client = signed_client(app)
     called = client.post(
         "/internal/v1/tool-calls:execute",
         json={

@@ -3,8 +3,10 @@
 from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING
 
+from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 
+from ar_common.internal_auth import secret_value, verify_request
 from ar_common.metrics import metrics_content_type, render_metrics
 
 if TYPE_CHECKING:
@@ -59,5 +61,12 @@ def install_health(
         return JSONResponse(ready)
 
     @app.get("/metrics")
-    async def metrics() -> Response:
+    async def metrics(request: Request) -> Response:
+        """Scrapes need the install HMAC. The route is not anonymous."""
+        verify_request(
+            secret_value(request.app.state.settings),
+            "GET",
+            "/metrics",
+            request.headers.get("x-ar-internal"),
+        )
         return Response(content=render_metrics(), media_type=metrics_content_type())
