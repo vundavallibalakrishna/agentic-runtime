@@ -4,9 +4,8 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from ar_common.egress_http import async_client
-from ar_common.host_ports import fake_llm_base_url, listen_port
-from ar_common.settings import BaseServiceSettings, EnvName
+from ar_common.host_ports import listen_port
+from ar_common.settings import BaseServiceSettings
 from ar_common.web import create_app
 
 LISTEN_PORT = 8001
@@ -20,14 +19,12 @@ def create_application() -> FastAPI:
     """Build the ASGI app. Embeddings go from the caller to the tenant's provider."""
     settings = Settings()
     app = create_app("model-gateway", settings)
-    echo_allowed = settings.env in {EnvName.DEV, EnvName.CI}
 
     @app.post("/v1/chat/completions", response_model=None)
     async def chat_completions(request: Request) -> dict[str, object] | JSONResponse:
-        """Forward a chat completion to fake-llm, with a local echo if it is down."""
-        import httpx  # noqa: PLC0415
-
+        """Forward a chat completion to the tenant's registered model."""
         from ar_model_gateway.quota import guard_model_call  # noqa: PLC0415
+        from ar_model_gateway.upstream import forward_registered  # noqa: PLC0415
 
         blocked = guard_model_call(request)
         if blocked is not None:
@@ -35,51 +32,19 @@ def create_application() -> FastAPI:
         payload = await request.json()
         body = payload if isinstance(payload, dict) else {}
         model_name = str(body.get("model") or "")
-        if model_name and not model_name.startswith("fake"):
-            from ar_model_gateway.upstream import forward_registered  # noqa: PLC0415
-
+        if model_name:
             routed = await forward_registered(body, model_name)
             if routed is not None:
                 return routed
-            return JSONResponse(
-                status_code=502,
-                content={
-                    "error": {
-                        "code": "no_healthy_upstream",
-                        "message": "registered model is unavailable",
-                    }
-                },
-            )
-        headers = {}
-        script = request.headers.get("x-fake-script-set")
-        if script:
-            headers["X-Fake-Script-Set"] = script
-        upstream = fake_llm_base_url().rstrip("/") + "/chat/completions"
-        try:
-            async with async_client(mode="cluster", timeout=3.0) as client:
-                response = await client.post(upstream, json=body, headers=headers)
-            if response.status_code < 300:
-                parsed = response.json()
-                if isinstance(parsed, dict):
-                    return parsed
-        except httpx.HTTPError:
-            pass
-        if not echo_allowed:
-            # A missing fake-llm is an outage, not an answer, outside dev and CI.
-            return JSONResponse(
-                status_code=502,
-                content={
-                    "error": {
-                        "code": "no_healthy_upstream",
-                        "message": "the local fake model is unavailable",
-                    }
-                },
-            )
-        messages = body.get("messages") if isinstance(body.get("messages"), list) else []
-        text = ""
-        if messages and isinstance(messages[-1], dict):
-            text = str(messages[-1].get("content") or "")
-        return {"choices": [{"message": {"role": "assistant", "content": f"fake: {text}"}}]}
+        return JSONResponse(
+            status_code=502,
+            content={
+                "error": {
+                    "code": "no_healthy_upstream",
+                    "message": "registered model is unavailable",
+                }
+            },
+        )
 
     return app
 

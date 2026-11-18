@@ -76,7 +76,6 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_TOOL_WORKER_THREADS` | `16` | How many threads a process has for the waiting that tool calls do: a network request, a command, a sleep. A tool's own code stays on the event loop's thread; only the wait runs on one of these, so the process goes on serving while a tool waits. More waits than threads queue | [spec 07 §10](../03-specs/07-agent-runtime.md#10-configuration) |
 | `AR_ENV` | `dev` | `dev`, `ci`, `staging`, `prod`; dev-only features (Docker sandbox driver, API docs UI, fake-llm provider) are refused when `prod`. Scripted turns, the demo tool servers (`tickets`, `petstore`, `warehouse`, `web`), the `desk` agent and the test tools `control.checkpoint` and `control.propose_change` exist only when `dev` or `ci`, in every process that builds a store | [local-dev](local-dev.md) |
 | `AR_EVAL_CONCURRENCY` | `4` | Parallel cases per eval run | [spec 18](../03-specs/18-observability-eval.md) |
-| `AR_FAKE_LLM_BASE_URL` | empty | OpenAI-compatible base URL for fake-llm. Empty keeps `http://127.0.0.1:$AR_FAKE_LLM_HOST_PORT/v1`. The stage 9 contract sets the in-cluster service. | [local-dev](local-dev.md#5-host-ports) |
 | `AR_FASTEMBED_CACHE_DIR` | `/var/cache/fastembed` | BM25 model cache for the optional qdrant adapter (pre-baked in image for air-gapped) | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_FILES_PROXY_DOWNLOADS` | `false` | Stream downloads through `api` instead of presigned URLs | [spec 13](../03-specs/13-files-artifacts.md) |
 | `AR_FILES_SCANNER` | `clamav` | `clamav` or `none`; the scanner run over every upload. A setting of the install, not a consequence of `AR_ENV`. | [spec 13](../03-specs/13-files-artifacts.md) |
@@ -254,7 +253,6 @@ These are laptop publish ports. They are not set in Helm. `make ports-check` cop
 | `AR_CLICKHOUSE_HOST_PORT` | `8123` | Host port for ClickHouse HTTP | [local-dev](local-dev.md#5-host-ports) |
 | `AR_CLAMAV_HOST_PORT` | `3310` | Host port for clamd. Updates `AR_CLAMAV_ADDRESS` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_EGRESS_HOST_PORT` | `3128` | Host port for Squid. Updates `AR_EGRESS_PROXY_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
-| `AR_FAKE_LLM_HOST_PORT` | `8099` | Host port for fake-llm. `FAKE_LLM_PORT` is still accepted | [local-dev](local-dev.md#5-host-ports) |
 | `AR_GRAFANA_HOST_PORT` | `3001` | Host port for Grafana. Updates `AR_TRACE_UI_URL` on localhost | [local-dev](local-dev.md#5-host-ports) |
 | `AR_INGEST_HOST_PORT` | `8014` | Host port for ingest-worker health | [local-dev](local-dev.md#5-host-ports) |
 | `AR_LANGFUSE_HOST_PORT` | `3100` | Host port for Langfuse | [local-dev](local-dev.md#5-host-ports) |

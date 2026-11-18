@@ -64,7 +64,7 @@ def provider_url_denied(  # noqa: PLR0911
 ) -> bool:
     """Reject provider URLs whose host is inside the deny list.
 
-    Loopback, ``localhost``, ``fake-llm`` and decimal or octal spellings of a
+    Loopback, ``localhost`` and decimal or octal spellings of a
     loopback address are allowed only when ``allow_loopback`` is set. A mapped
     or decimal metadata address is denied. Other hostnames are checked again
     when the call is placed.
@@ -81,7 +81,7 @@ def provider_url_denied(  # noqa: PLR0911
         return True
     if metadata_address(host):
         return True
-    if host in {"fake-llm", "localhost"}:
+    if host == "localhost":
         return not allow_loopback
     address = canonical_ip(host)
     if address is None:

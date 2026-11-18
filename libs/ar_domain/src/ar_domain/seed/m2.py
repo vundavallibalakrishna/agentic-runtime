@@ -3,11 +3,11 @@
 Idempotent. Platform rows use ``tenant_id`` NULL. The assistant is published v1.
 """
 
+import os
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
 
-from ar_common.host_ports import fake_llm_base_url
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.agents.logic import assistant_definition, definition_hash
@@ -23,30 +23,39 @@ if TYPE_CHECKING:
 
 
 async def apply(session: AsyncSession, tenant_id: uuid.UUID, admin_id: uuid.UUID) -> None:
-    """Insert fake-llm, standard aliases, team ``everyone`` and ``assistant``."""
-    provider = await session.scalar(
-        select(ModelProvider).where(
-            ModelProvider.tenant_id.is_(None), ModelProvider.name == "fake-llm"
+    """Insert the assistant and, when a model URL is configured, the standard aliases.
+
+    ``AR_DEV_MODEL_BASE_URL`` is an OpenAI-compatible server the operator named.
+    With no URL, the tenant has no model until someone registers one.
+    """
+    base = os.environ.get("AR_DEV_MODEL_BASE_URL", "").strip().rstrip("/")
+    if base:
+        name = os.environ.get("AR_DEV_MODEL_NAME", "").strip() or "local"
+        provider = await session.scalar(
+            select(ModelProvider).where(
+                ModelProvider.tenant_id.is_(None), ModelProvider.name == name
+            )
         )
-    )
-    if provider is None:
-        provider = ModelProvider(
-            id=new_id(),
-            tenant_id=None,
-            name="fake-llm",
-            kind="fake",
-            base_url=fake_llm_base_url(),
-        )
-        session.add(provider)
-        await session.flush()
-    chat = await _model(session, provider.id, "fake-chat", "chat")
-    embed = await _model(session, provider.id, "fake-embed", "embedding")
-    rerank = await _model(session, provider.id, "fake-rerank", "rerank")
-    await _alias(session, "reasoning", "chat", chat.id)
-    await _alias(session, "fast", "chat", chat.id)
-    await _alias(session, "vision", "chat", chat.id)
-    await _alias(session, "embed", "embedding", embed.id)
-    await _alias(session, "rerank", "rerank", rerank.id)
+        if provider is None:
+            provider = ModelProvider(
+                id=new_id(),
+                tenant_id=None,
+                name=name,
+                kind="openai_compatible",
+                base_url=base if base.endswith("/v1") else f"{base}/v1",
+            )
+            session.add(provider)
+            await session.flush()
+        chat_name = os.environ.get("AR_LLM_MODEL", "").strip() or name
+        embed_name = os.environ.get("AR_EMBED_MODEL", "").strip() or chat_name
+        chat = await _model(session, provider.id, chat_name, "chat")
+        embed = await _model(session, provider.id, embed_name, "embedding")
+        rerank = await _model(session, provider.id, embed_name, "rerank")
+        await _alias(session, "reasoning", "chat", chat.id)
+        await _alias(session, "fast", "chat", chat.id)
+        await _alias(session, "vision", "chat", chat.id)
+        await _alias(session, "embed", "embedding", embed.id)
+        await _alias(session, "rerank", "rerank", rerank.id)
     await ensure_everyone_team(session, tenant_id, admin_id)
     await _published(
         session,

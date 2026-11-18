@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ar_common.egress_http import sync_client
 from ar_common.errors import ArError, ErrorCode
 from ar_common.offload import blocking
 
@@ -138,13 +137,16 @@ def embed(
         payload["dimensions"] = asked
     ordered: list[list[float] | None] = [None] * len(rows)
     try:
-        with sync_client(timeout=_timeout(target)) as http:
+        from ar_common.internal_http import client_for  # noqa: PLC0415
+
+        with client_for(target.base_url, timeout=_timeout(target)) as http:
             for start in range(0, len(rows), _BATCH):
+                embed_url = f"{target.base_url}/embeddings"
                 response = blocking(
                     http.post,
-                    f"{target.base_url}/embeddings",
+                    embed_url,
                     json={**payload, "input": rows[start : start + _BATCH]},
-                    headers=_headers(target),
+                    headers=_call_headers(target, embed_url),
                 )
                 response.raise_for_status()
                 _take(response.json(), ordered, start)
@@ -197,8 +199,10 @@ def rerank(target: ModelTarget, query: str, documents: Sequence[str]) -> list[fl
         else {"model": target.name, "query": query, "documents": docs}
     )
     try:
-        with sync_client(timeout=_timeout(target)) as http:
-            response = blocking(http.post, url, json=payload, headers=_headers(target))
+        from ar_common.internal_http import client_for  # noqa: PLC0415
+
+        with client_for(url, timeout=_timeout(target)) as http:
+            response = blocking(http.post, url, json=payload, headers=_call_headers(target, url))
             response.raise_for_status()
     except httpx.HTTPError as exc:
         raise EmbeddingFailedError(f"The rerank model {target.label} did not answer.") from exc
@@ -317,6 +321,15 @@ def _timeout(target: ModelTarget) -> float:
 
 def _headers(target: ModelTarget) -> dict[str, str]:
     return {"Authorization": f"Bearer {target.api_key}"} if target.api_key else {}
+
+
+def _call_headers(target: ModelTarget, url: str) -> dict[str, str]:
+    from ar_common.internal_http import is_internal_service, signed_headers  # noqa: PLC0415
+
+    headers = _headers(target)
+    if is_internal_service(url):
+        return signed_headers("POST", url, headers)
+    return headers
 
 
 def _as_uuid(value: object) -> uuid.UUID | None:

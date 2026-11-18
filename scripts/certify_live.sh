@@ -5,4 +5,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
-exec uv run python scripts/certify_live.py "$@"
+# Screenshots use the same Playwright pin as the sandbox browser extra.
+# Installing it here is the runbook command; a checkout does not need a shim.
+uv run --with 'playwright==1.64.1' python -m playwright install chromium
+exec uv run --with 'playwright==1.64.1' python scripts/certify_live.py "$@"

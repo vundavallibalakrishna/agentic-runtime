@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { apiOrigin } from "@/lib/api-origin";
 import { gateTtlMs, isPrefetch, SessionGate, type SessionProbe } from "@/lib/session-gate";
 import { exactOrigins } from "@/lib/widget-origins";
-import { apiProxyUrl } from "../dev-env";
 
 // The embedding allowlist for the widget: a per-integration policy decides which origins
 // may frame it; an unavailable policy fails closed.
@@ -11,7 +11,7 @@ async function widgetResponse(request: NextRequest): Promise<NextResponse> {
   const integrationId = request.nextUrl.pathname.split("/")[2];
   if (integrationId && /^[0-9a-f-]{36}$/i.test(integrationId)) {
     try {
-      const policy = await fetch(`${apiProxyUrl}/api/v1/widget/integrations/${integrationId}`, {
+      const policy = await fetch(`${apiOrigin()}/api/v1/widget/integrations/${integrationId}`, {
         cache: "no-store",
         signal: AbortSignal.timeout(5000),
       });
@@ -42,7 +42,7 @@ function toLogin(request: NextRequest): NextResponse {
 }
 
 async function probeSession(request: NextRequest): Promise<SessionProbe> {
-  const checked = await fetch(`${apiProxyUrl}/api/v1/auth/session`, {
+  const checked = await fetch(`${apiOrigin()}/api/v1/auth/session`, {
     headers: { cookie: request.headers.get("cookie") ?? "" },
     cache: "no-store",
     signal: AbortSignal.timeout(5000),

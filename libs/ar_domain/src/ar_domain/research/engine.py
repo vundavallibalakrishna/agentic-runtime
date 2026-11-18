@@ -194,8 +194,13 @@ def advance(store: Any, run: dict[str, object], question: str) -> str:  # noqa: 
     if phase == "synthesize":
         report = synthesise(str(state.get("question") or question), _sources(state))
         if not _sources(state):
-            # Nothing matched. The report says where it looked, so the person can act.
-            report = f"{report} {scope(store, run.get('tenant_id'))}"
+            # Nothing matched. The report says where it looked, and why a search failed.
+            reason = _subtask_failure(state)
+            looked = scope(store, run.get("tenant_id"))
+            report = f"{report} {looked}"
+            if reason:
+                report = f"{report} Search failed: {reason}"
+            state["error"] = reason
         state["report"] = report
         state["phase"] = "verify"
         save_state(run, state)
@@ -283,6 +288,16 @@ def _verify(state: dict[str, object], run: dict[str, object]) -> str:
     return "final"
 
 
+def _subtask_failure(state: dict[str, object]) -> str:
+    subtasks = state.get("subtasks")
+    if not isinstance(subtasks, dict):
+        return ""
+    for result in subtasks.values():
+        if isinstance(result, dict) and result.get("status") == "failed":
+            return str(result.get("reason") or "the search failed")[:300]
+    return ""
+
+
 def _sources(state: dict[str, object]) -> list[dict[str, object]]:
     raw = state.get("sources")
     if not isinstance(raw, list):
@@ -315,6 +330,7 @@ def public_research(run: dict[str, object]) -> dict[str, object]:
         "question": str(state.get("question") or ""),
         "report": str(state.get("report") or run.get("research_report") or ""),
         "sources": sources,
+        "error": str(state.get("error") or ""),
         "citations": state.get("citations") if isinstance(state.get("citations"), list) else [],
         "queries": state.get("queries") if isinstance(state.get("queries"), list) else [],
     }

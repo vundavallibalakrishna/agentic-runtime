@@ -84,7 +84,6 @@ HOST_PORTS: tuple[HostPort, ...] = (
     HostPort("AR_SYSTEM_HOST_PORT", 8013, "system-worker", frozenset({"dev", "dev-min"})),
     HostPort("AR_INGEST_HOST_PORT", 8014, "ingest-worker", frozenset({"dev"})),
     HostPort("AR_SANDBOX_AGENT_HOST_PORT", 8080, "sandbox-agent", frozenset({"dev"})),
-    HostPort("AR_FAKE_LLM_HOST_PORT", 8099, "fake-llm", frozenset({"dev", "dev-min"})),
     HostPort("AR_WEB_HOST_PORT", 3000, "web", frozenset({"dev", "dev-min"})),
 )
 
@@ -142,7 +141,6 @@ _HEALTH: tuple[str, ...] = (
     "AR_SYSTEM_HOST_PORT",
     "AR_INGEST_HOST_PORT",
     "AR_SANDBOX_AGENT_HOST_PORT",
-    "AR_FAKE_LLM_HOST_PORT",
     "AR_WEB_HOST_PORT",
 )
 
@@ -288,34 +286,6 @@ def local_endpoint(env_key: str, template: str, port_name: str) -> str:
     port = resolved_port(spec, env)
     current = env.get(env_key, "").strip() or template.format(port=spec.default)
     return align_local_value(current, template, port, spec.default)
-
-
-def fake_llm_port() -> int:
-    """Listen port for fake-llm. ``FAKE_LLM_PORT`` still works."""
-    env = merged_env()
-    legacy = env.get("FAKE_LLM_PORT", "").strip()
-    if not env.get("AR_FAKE_LLM_HOST_PORT", "").strip() and legacy:
-        env = {**env, "AR_FAKE_LLM_HOST_PORT": legacy}
-    spec = PORT_BY_NAME["AR_FAKE_LLM_HOST_PORT"]
-    return resolved_port(spec, env)
-
-
-def fake_llm_base_url() -> str:
-    """OpenAI-compatible base URL for fake-llm.
-
-    ``AR_FAKE_LLM_BASE_URL`` names the in-cluster service. A laptop keeps the
-    localhost URL that follows ``AR_FAKE_LLM_HOST_PORT``.
-    """
-    explicit = os.environ.get("AR_FAKE_LLM_BASE_URL", "").strip()
-    if explicit:
-        return explicit.rstrip("/")
-    spec = PORT_BY_NAME["AR_FAKE_LLM_HOST_PORT"]
-    return align_local_value(
-        "http://127.0.0.1:8099/v1",
-        "http://127.0.0.1:{port}/v1",
-        fake_llm_port(),
-        spec.default,
-    )
 
 
 def health_urls(env: Mapping[str, str] | None = None) -> list[str]:

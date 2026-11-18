@@ -14,7 +14,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ar_common.egress_http import http_post
+from ar_common.internal_http import internal_post
+from ar_common.logging import get_logger
 from ar_common.offload import blocking
 
 if TYPE_CHECKING:
@@ -53,8 +54,15 @@ def _post(store: Any, request: dict[str, object]) -> dict[str, object]:
     body = _body(request)
     try:
         response = _send(f"{url}/internal/v1/tool-calls:execute", body, timeout)
-    except httpx.HTTPError:
-        return _unavailable("the tool gateway did not answer")
+    except httpx.HTTPError as exc:
+        reason = str(getattr(exc, "reason", "") or exc).strip()
+        get_logger(__name__).warning(
+            "tool_gateway_call_failed",
+            error_type=type(exc).__name__,
+            cause=reason[:300],
+        )
+        detail = f": {reason[:300]}" if reason else ""
+        return _unavailable(f"the tool gateway did not answer{detail}")
     try:
         if response.status_code >= 400:
             return _unavailable(f"the tool gateway returned {response.status_code}")
@@ -69,10 +77,8 @@ def _post(store: Any, request: dict[str, object]) -> dict[str, object]:
 
 
 def _send(url: str, body: dict[str, object], timeout: float) -> httpx.Response:
-    from ar_common.internal_auth import headers_from_env  # noqa: PLC0415
-
-    headers = headers_from_env("POST", url)
-    return blocking(lambda: http_post(url, json=body, timeout=timeout, headers=headers))
+    """Post on the shared internal client: cluster egress and the install HMAC."""
+    return blocking(lambda: internal_post(url, json=body, timeout=timeout))
 
 
 def _timeout(store: Any, request: dict[str, object]) -> float:

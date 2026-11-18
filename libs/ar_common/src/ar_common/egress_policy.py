@@ -51,7 +51,7 @@ _PRIVATE = (
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fe80::/10"),
 )
-_LOOPBACK_NAMES = frozenset({"localhost", "fake-llm"})
+_LOOPBACK_NAMES = frozenset({"localhost"})
 
 
 def closed_egress() -> bool:

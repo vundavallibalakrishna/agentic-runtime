@@ -1,0 +1,45 @@
+# Test-only model for compose-smoke. Not a production profile and not part of
+# compose.yaml. The service is the recorded OpenAI-compatible double used by tests.
+services:
+  ci-model:
+    restart: unless-stopped
+    networks: [app]
+    profiles: [production]
+    build:
+      context: .
+      dockerfile: images/python-service.Dockerfile
+      args:
+        SERVICE: fake_llm
+    environment:
+      AR_APP_MODULE: ar_fake_llm.app
+      AR_PORT: "8099"
+      AR_ENV: dev
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.environ.get('AR_PORT','8099')+'/healthz', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 20s
+
+  api:
+    environment:
+      AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"
+  runtime-worker:
+    environment:
+      AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"
+  mcp-gateway:
+    environment:
+      AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"
+  model-gateway:
+    environment:
+      AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"
+  system-worker:
+    environment:
+      AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"
+  ingest-worker:
+    environment:
+      AR_EGRESS_ALLOW_NAMED_PRIVATE: "true"

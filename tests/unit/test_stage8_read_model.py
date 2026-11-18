@@ -617,8 +617,10 @@ def test_waiting_runs_cancel_and_accept_input() -> None:
     }
     store.conversations[conversation]["active_run_id"] = answered
     done = store.submit_input(tenant, user, answered, "  thanks  ")
-    assert done["status"] == "completed"
-    assert store.messages[message]["text"] == "thanks"
+    # The answer resumes the run. It is not the assistant's reply.
+    assert done["status"] == "running"
+    assert store.runs[answered]["resume_answer"] == "thanks"
+    assert store.messages[message]["text"] == ""
 
 
 async def test_finish_grounded_records_the_answer() -> None:

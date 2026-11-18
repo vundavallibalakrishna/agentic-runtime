@@ -613,7 +613,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             if outcome is None:
                 return True
             failed = bool(outcome["failed"])
-            failed_open = failed
+            failed_open = failed_open or failed
             consecutive_errors = consecutive_errors + 1 if failed else 0
             preview = outcome["preview"]
             if isinstance(preview, dict):
@@ -1405,6 +1405,8 @@ def _act(  # noqa: PLR0917
     text = str(result.get("result_preview") or "")
     if failed and isinstance(error_body, dict):
         text = str(error_body.get("message") or text)
+    if failed:
+        text = f"The tool call failed: {text or 'no reason was given'}"
     preview: dict[str, object] = {
         "qualified_name": qualified,
         "status": result.get("status"),

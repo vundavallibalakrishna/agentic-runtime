@@ -44,7 +44,9 @@ async def compose(store: Any, run: dict[str, object], question: str) -> dict[str
     ]
     if not ids or not _policy_allows(store, run, question, ids):
         return _pack(_NO_DOCUMENTS, [], definition, question)
-    top_k = int(knowledge.get("top_k") or 8)
+    from ar_domain.knowledge.book import _whole_number  # noqa: PLC0415
+
+    top_k = _whole_number(knowledge.get("top_k", knowledge.get("topK")), 8)
     raw_bar = knowledge.get("min_score")
     min_score = float(raw_bar) if isinstance(raw_bar, int | float) else None
     found = KnowledgeBook(store).search(

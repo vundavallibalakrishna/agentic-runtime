@@ -2,7 +2,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
-services=(api runtime system model_gateway mcp_gateway sandbox_manager channels mcp_sql mcp_openapi fake_llm)
+services=(api runtime system model_gateway mcp_gateway sandbox_manager channels mcp_sql mcp_openapi)
 for service in "${services[@]}"; do
   docker build -f images/python-service.Dockerfile --build-arg SERVICE="$service" -t "ar-${service//_/-}:dev" .
 done

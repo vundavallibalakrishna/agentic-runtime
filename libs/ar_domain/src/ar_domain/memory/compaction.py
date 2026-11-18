@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ar_common.egress_http import http_post
+from ar_common.internal_http import internal_post, is_internal_service
 from ar_domain.memory.metrics import COMPACTIONS
 from ar_domain.prompts.budget import estimate_tokens
 
@@ -129,11 +129,19 @@ def _join(messages: Sequence[Mapping[str, object]]) -> str:
     return "\n".join(str(message.get("content") or "") for message in messages)
 
 
-def _remote_count(url: str, text: str) -> int | None:
+def _remote_count(url: str, text: str, model: str = "") -> int | None:
+    """Ask a configured tokenizer. An unnamed model is counted locally."""
+    if not model or model.startswith("fake"):
+        return None
+    post = internal_post if is_internal_service(url) else None
+    if post is None:
+        from ar_common.egress_http import http_post  # noqa: PLC0415
+
+        post = http_post
     try:
-        response = http_post(
+        response = post(
             url.rstrip("/") + "/v1/tokenize",
-            json={"model": "fake-chat", "text": text},
+            json={"model": model, "text": text},
             timeout=2.0,
         )
     except httpx.HTTPError:

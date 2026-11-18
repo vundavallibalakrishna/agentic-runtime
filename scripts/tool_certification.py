@@ -306,7 +306,7 @@ def general_cases() -> list[Case]:
 def document_cases() -> list[Case]:
     doc = lambda ctx: {"documentId": ctx["doc"]}  # noqa: E731
     return [
-        Case("documents.list", "list the library", fixed(), has("break-glass access")),
+        Case("documents.list", "list the library", fixed(), has("Access control policy")),
         Case("documents.outline", "outline", doc, has("break-glass")),
         Case("documents.read", "read the text", doc, has("ZEBRA-4417")),
         Case(
@@ -659,7 +659,7 @@ def computer_cases() -> list[Case]:
             "browser.click",
             "a click with no element is refused at once",
             fixed(),
-            refused("ref is required"),
+            refused("ref or text is required"),
             expect="refused",
             needs="browser",
         ),

@@ -89,7 +89,7 @@ class RunRecordBook:
             "agent_version_id": str(run.get("agent_version_id") or ""),
             "definition_hash": str(run.get("definition_hash") or ""),
             "prompt_template_hashes": {},
-            "model_id": str(run.get("model_id") or "fake-chat"),
+            "model_id": str(run.get("model_id") or ""),
             "model_revision": None,
             "weights_digest": None,
             "sampling_params": run.get("sampling_params") or {},

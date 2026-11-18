@@ -163,6 +163,9 @@ async def _flush_once(store: object, engine: AsyncEngine) -> None:  # noqa: PLR0
             await _channel_identities(session, pending["channel_identities"])
             await _channel_threads(session, pending["channel_threads"])
             await _channel_posts(session, pending["channel_posts"])
+            from ar_domain.durable.evals import save_eval_rows  # noqa: PLC0415
+
+            await save_eval_rows(session, pending)
             await _routine_audits(session, audits)
             usage_keys = await _usage_events(session, usage_pending)
     except BaseException:

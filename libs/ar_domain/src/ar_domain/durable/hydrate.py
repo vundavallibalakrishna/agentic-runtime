@@ -81,13 +81,33 @@ def _merge_live(current: dict[str, object], incoming: dict[str, object]) -> None
     current.update(incoming)
 
 
+def _run_bucket(store: object, bucket: dict[object, object]) -> bool:
+    return bucket is getattr(store, "runs", None)
+
+
+def _database_finished(current: object, incoming: object) -> bool:
+    """True when Postgres has a terminal status and this process does not."""
+    if not isinstance(incoming, dict):
+        return False
+    incoming_status = str(incoming.get("status") or "")
+    if incoming_status not in _DONE:
+        return False
+    current_status = str(current.get("status") or "") if isinstance(current, dict) else ""
+    return current_status not in _DONE
+
+
 def _load(store: object, bucket: dict[object, object], key: object, value: object) -> None:
     if isinstance(bucket, TrackedDict):
         loading = getattr(store, "_initial_loaded", None)
         if isinstance(loading, dict):
             loading.setdefault(bucket.kind, set()).add(key)
         if key in bucket.dirty:
-            return
+            # A run that has finished in the database is finished. A dirty working
+            # copy must not hide that and let a watcher mark the run failed.
+            if _run_bucket(store, bucket) and _database_finished(bucket.get(key), value):
+                bucket.dirty.discard(key)
+            else:
+                return
     current = bucket.get(key)
     was_reloading = getattr(store, "reloading", False)
     store.reloading = True  # type: ignore[attr-defined]
@@ -178,6 +198,9 @@ async def _hydrate_all(session: AsyncSession, store: object, tenant_id: uuid.UUI
     await _channel_identities(session, store, tenant_id)
     await _channel_threads(session, store, tenant_id)
     await _channel_posts(session, store, tenant_id)
+    from ar_domain.durable.evals import load_eval_rows  # noqa: PLC0415
+
+    await load_eval_rows(session, store, tenant_id)
     # Usage is not loaded for every request: the 400-day metering window is large and only
     # the usage and quota reports read it. Those endpoints call ``load_usage_events`` on
     # demand. Quota enforcement reads the shared counters, not this bucket. See OQ-136.

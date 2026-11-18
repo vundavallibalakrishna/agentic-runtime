@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+Live certification:
+
+- Internal service calls (tool gateway, sandbox manager, channels, model and embedding hops) use one cluster client and the install HMAC. A private Docker address is no longer refused as egress, and a gateway failure is logged and returned to the model as a failed tool call.
+- The web image proxies `/api` and `/v1` from `API_PROXY_URL` at request time.
+- Compose sets in-network S3 and OpenTelemetry endpoints so a laptop `.env` cannot point containers at localhost.
+- Eval suites, cases, runs and results are written and loaded with the other durable rows.
+- A watcher no longer marks a completed run failed when its workflow has finished.
+- `GET /v1/agents/{agent}/runs/{id}/events` with `Accept: application/json` serialises ids.
+- An empty `AR_KNOWLEDGE_RERANK_CANDIDATES` or `AR_VECTOR_PG_EF_SEARCH` keeps its default. A retrieval below the configured score answers that the library does not contain the answer.
+- A person's answer resumes the waiting run and is given to the model. A click with no element is refused.
+- The production Compose file does not run a recorded model. Compose-smoke adds `tests/compose/ci-model.yaml` only.
+
 Install:
 
 - Docker Compose is the only install, for development and production. The Helm chart, kind jobs and the Kubernetes sandbox driver are removed. Temporal is one `temporalio/server:1.32.1` process on the install Postgres. `temporalio/admin-tools:1.32.1` applies the schema. `ar_temporal` (`AR_DB_TEMPORAL_PASSWORD`) owns `temporal` and `temporal_visibility` and does not bypass row security. `AR_TEMPORAL_NUM_HISTORY_SHARDS` defaults to 4 and is fixed for that database. `/readyz` requires `alembic_version` to be the head. Backups are `scripts/backup_postgres.sh`. Sandbox containers use the docker driver on an internal network, through Squid, with a read-only root, dropped capabilities and resource limits. See [compose.md](docs/07-ops/compose.md).

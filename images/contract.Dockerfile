@@ -1,8 +1,7 @@
 # One image for the Stage 9 kind contract. It carries the API, the runtime
-# worker, the gateways, the sandbox manager, fake-llm and alembic. Each
-# deployment sets AR_APP_MODULE or its console command. Tag it as ar-api,
-# ar-runtime, ar-mcp-gateway, ar-sandbox-manager, ar-model-gateway,
-# ar-fake-llm and ar-migrate.
+# worker, the gateways, the sandbox manager and alembic. Each deployment sets
+# AR_APP_MODULE or its console command. Tag it as ar-api, ar-runtime,
+# ar-mcp-gateway, ar-sandbox-manager, ar-model-gateway and ar-migrate.
 FROM ghcr.io/astral-sh/uv:0.13.3 AS uvbin
 
 FROM python:3.14.8-slim-bookworm
@@ -24,7 +23,6 @@ RUN uv sync --frozen --no-dev --no-editable \
         --package ar-mcp-gateway \
         --package ar-sandbox-manager \
         --package ar-model-gateway \
-        --package ar-fake-llm \
         --package ar-domain \
     && chown -R app:app /app
 

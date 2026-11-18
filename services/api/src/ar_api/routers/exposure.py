@@ -533,7 +533,8 @@ async def stream_external_events(
     runs.owned_run(_store(request), key, slug, run_id)
     accept = request.headers.get("accept", "")
     if "application/json" in accept and "text/event-stream" not in accept:
-        return JSONResponse(await _event_page(request, key, run_id))
+        page = camelize(await _event_page(request, key, run_id))
+        return Response(content=orjson.dumps(page), media_type="application/json")
     headers = dict(getattr(request.state, "rate_headers", {}))
     return StreamingResponse(
         _stream_run(request, key, run_id, include_done=False),

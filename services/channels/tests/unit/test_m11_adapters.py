@@ -109,28 +109,28 @@ def test_http_bridge_and_slack_command() -> None:
 
     import ar_channels.bridge as bridge_module
 
-    original_post = bridge_module.http_post
-    original_get = bridge_module.http_get
-    bridge_module.http_post = post  # type: ignore[assignment]
-    bridge_module.http_get = get  # type: ignore[assignment]
+    original_post = bridge_module.internal_post
+    original_get = bridge_module.internal_get
+    bridge_module.internal_post = post  # type: ignore[assignment]
+    bridge_module.internal_get = get  # type: ignore[assignment]
     try:
         bridge = HttpBridge("http://api", token="tok")  # noqa: S106
         assert bridge.inbound({"text": "hi"})["run_id"] == "r"
         assert bridge.approval({"decision": "approve"})["run_id"] == "r"
         assert bridge.integrations()[0]["kind"] == "slack"
     finally:
-        bridge_module.http_post = original_post
-        bridge_module.http_get = original_get
+        bridge_module.internal_post = original_post
+        bridge_module.internal_get = original_get
 
     def broken(url: str, **kwargs: object) -> httpx.Response:
         del url, kwargs
         raise httpx.ConnectError("down")
 
-    bridge_module.http_post = broken  # type: ignore[assignment]
+    bridge_module.internal_post = broken  # type: ignore[assignment]
     try:
         assert HttpBridge("http://api").inbound({})["action"] == "unavailable"
     finally:
-        bridge_module.http_post = original_post
+        bridge_module.internal_post = original_post
 
     client = _client()
     form = (

@@ -212,8 +212,6 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CLICKHOUSE_HOST_PORT",
         "AR_CLAMAV_HOST_PORT",
         "AR_EGRESS_HOST_PORT",
-        "AR_FAKE_LLM_BASE_URL",
-        "AR_FAKE_LLM_HOST_PORT",
         "AR_GRAFANA_HOST_PORT",
         "AR_INGEST_HOST_PORT",
         "AR_LANGFUSE_HOST_PORT",

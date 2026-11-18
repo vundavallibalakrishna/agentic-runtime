@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any
 import httpx
 import orjson
 
-from ar_common.egress_http import sync_client
 from ar_common.offload import blocking, blocking_all
 
 if TYPE_CHECKING:
@@ -97,7 +96,11 @@ def ask_model_many(
         }
         apply_request_options(body, options)
         bodies.append(body)
-    with sync_client(timeout=timeout_s) as client:
+    from ar_common.internal_http import client_for, is_internal_service, signed_headers  # noqa: PLC0415
+
+    if is_internal_service(url):
+        headers = signed_headers("POST", url, headers)
+    with client_for(url, timeout=timeout_s) as client:
         # Only the waiting runs off the loop; the answers are read back here.
         responses = blocking_all(
             [

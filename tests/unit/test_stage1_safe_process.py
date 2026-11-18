@@ -703,6 +703,10 @@ async def test_a_finished_workflow_and_the_event_bus() -> None:
     assert await service._workflow_gone(run_id) is False
     done = _Workflow(described=SimpleNamespace(status=SimpleNamespace(name="COMPLETED")))
     service.temporal_client = done
+    # A completed workflow finished the turn. It is not a lost run.
+    assert await service._workflow_gone(run_id) is False
+    failed = _Workflow(described=SimpleNamespace(status=SimpleNamespace(name="FAILED")))
+    service.temporal_client = failed
     assert await service._workflow_gone(run_id) is True
     running = _Workflow(described=SimpleNamespace(status=SimpleNamespace(name="RUNNING")))
     service.temporal_client = running

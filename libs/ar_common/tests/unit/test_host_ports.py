@@ -8,7 +8,6 @@ from ar_common.host_ports import (
     _published_ports,
     align_local_value,
     apply_host_ports,
-    fake_llm_base_url,
     health_urls,
     listen_port,
     port_in_use,
@@ -63,19 +62,14 @@ def test_settings_keep_a_database_url_when_the_host_port_is_unset() -> None:
     assert settings.database_url.endswith("@127.0.0.1:35432/agentic_runtime")
 
 
-def test_listen_port_and_fake_llm_follow_the_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_listen_port_follows_the_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AR_PORT", "18000")
-    monkeypatch.setenv("AR_FAKE_LLM_HOST_PORT", "18099")
     assert listen_port("AR_PORT", 8000) == 18000
-    assert fake_llm_base_url() == "http://127.0.0.1:18099/v1"
-    monkeypatch.setenv("AR_FAKE_LLM_BASE_URL", "http://fake-llm:8099/v1/")
-    assert fake_llm_base_url() == "http://fake-llm:8099/v1"
 
 
 def test_health_urls_use_the_defaults_when_unset() -> None:
     urls = health_urls({})
     assert urls[0] == "http://localhost:8000/healthz"
-    assert urls[-2] == "http://localhost:8099/healthz"
     assert urls[-1] == "http://localhost:3000/healthz"
 
 

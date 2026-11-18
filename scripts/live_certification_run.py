@@ -345,11 +345,15 @@ def _poll_research(
     else:
         outcome = "timeout"
     passed = outcome == "pass"
+    error = ""
+    if isinstance(research, dict):
+        error = str(research.get("error") or research.get("report") or "")
     return {
         "step": "research",
         "ok": passed,
         "result": "pass" if passed else "fail",
         "outcome": outcome,
+        "error": error[:500],
         "body": research,
     }
 

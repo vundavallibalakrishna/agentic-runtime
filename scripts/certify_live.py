@@ -5,8 +5,9 @@ Proof label is ``live`` only when ``AR_LLM_API_KEY`` is set and the run finishes
 Without a key this writes a ``contract`` scorecard and exits 0. It does not
 invent a model id or a screenshot.
 
-The owner's Postgres listens on host port 5433. This script refuses URLs that
-use 5432, 6379, 7233, 8000 or 8013.
+Compose publishes the API on ``AR_PORT`` (default 8000) and the web app on
+``AR_WEB_HOST_PORT`` (default 3000). Point ``AR_API_URL`` and ``AR_PUBLIC_URL``
+at those origins.
 """
 
 from __future__ import annotations
@@ -18,7 +19,6 @@ import urllib.parse
 from datetime import UTC, datetime
 from pathlib import Path
 
-FORBIDDEN_PORTS = {5432, 6379, 7233, 8000, 8013}
 DEFAULT_BASE = "https://api.deepinfra.com/v1/openai"
 DEFAULT_MODEL = "Qwen/Qwen3-32B"
 DEFAULT_EMBED = "Qwen/Qwen3-Embedding-8B"
@@ -35,30 +35,13 @@ def _api_url() -> str:
     return f"http://127.0.0.1:{port}"
 
 
-def _port(url: str) -> int | None:
-    if not url:
-        return None
-    parsed = urllib.parse.urlparse(url)
-    if parsed.port is not None:
-        return parsed.port
-    return None
-
-
 def guard_ports() -> list[str]:
+    """A URL with no host is not an origin the certification can call."""
     problems: list[str] = []
-    for name in (
-        "AR_DATABASE_URL",
-        "AR_VALKEY_URL",
-        "AR_TEMPORAL_ADDRESS",
-        "AR_API_URL",
-        "AR_WEB_URL",
-        "AR_MCP_GATEWAY_URL",
-        "AR_SANDBOX_MANAGER_URL",
-        "AR_LLM_BASE_URL",
-    ):
-        port = _port(os.environ.get(name, ""))
-        if port in FORBIDDEN_PORTS:
-            problems.append(f"{name} uses port {port}")
+    for name in ("AR_API_URL", "AR_PUBLIC_URL", "AR_WEB_URL"):
+        raw = os.environ.get(name, "").strip()
+        if raw and urllib.parse.urlparse(raw).hostname is None:
+            problems.append(f"{name} is not an absolute URL")
     return problems
 
 

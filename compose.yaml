@@ -31,16 +31,24 @@ x-app-env: &app-env
   AR_DB_READONLY_PASSWORD: ${AR_DB_READONLY_PASSWORD:?set AR_DB_READONLY_PASSWORD}
   AR_DB_TEMPORAL_PASSWORD: ${AR_DB_TEMPORAL_PASSWORD:?set AR_DB_TEMPORAL_PASSWORD}
   AR_VALKEY_URL: redis://valkey:6379/0
-  AR_MODEL_GATEWAY_URL: http://model-gateway:8001
+  AR_API_INTERNAL_URL: http://api:${AR_PORT:-8000}
+  AR_MODEL_GATEWAY_URL: http://model-gateway:${AR_MG_PORT:-8001}
+  AR_MCP_GATEWAY_URL: http://mcp-gateway:${AR_MCPG_PORT:-8002}
+  AR_MCP_OPENAPI_URL: http://mcp-openapi:${AR_MCP_OPENAPI_HOST_PORT:-8011}/mcp
+  AR_MCP_SQL_URL: http://mcp-sql:${AR_MCP_SQL_HOST_PORT:-8010}/mcp
+  AR_OPA_URL: http://opa:8181
   AR_TEMPORAL_ADDRESS: temporal:7233
   AR_TEMPORAL_NUM_HISTORY_SHARDS: ${AR_TEMPORAL_NUM_HISTORY_SHARDS:-4}
   AR_SANDBOX_DRIVER: docker
-  AR_SANDBOX_MANAGER_URL: http://sandbox-manager:8003
+  AR_SANDBOX_MANAGER_URL: http://sandbox-manager:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}
   AR_SANDBOX_DOCKER_NETWORK: agentic-runtime_sandbox
   AR_SANDBOX_EGRESS_PROXY: http://squid:3128
   AR_SANDBOX_IMAGE: ${AR_SANDBOX_IMAGE:-ar-sandbox:dev}
-  AR_FAKE_LLM_BASE_URL: http://fake-llm:8099/v1
-  AR_OTEL_EXPORTER_OTLP_ENDPOINT: ${AR_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  # In-network addresses. A laptop .env must not leak localhost into a container:
+  # these keys are set here, not interpolated from the env file.
+  AR_S3_ENDPOINT: http://seaweedfs:8333
+  AR_S3_PUBLIC_ENDPOINT: http://127.0.0.1:${AR_S3_HOST_PORT:-8333}
+  AR_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel:4317
   AR_INTERNAL_AUTH_SECRET: ${AR_INTERNAL_AUTH_SECRET:-}
 
 x-app-depends: &app-depends
@@ -256,7 +264,7 @@ services:
       context: .
       dockerfile: images/squid/Dockerfile
     environment:
-      AR_SANDBOX_MANAGER_URL: http://sandbox-manager:8003
+      AR_SANDBOX_MANAGER_URL: http://sandbox-manager:${AR_SANDBOX_MANAGER_HOST_PORT:-8003}
     volumes:
       - ./deploy/compose/squid/allowlist.txt:/etc/squid/allowlist.txt:ro
     ports: ["127.0.0.1:${AR_EGRESS_HOST_PORT:-3128}:3128"]
@@ -485,22 +493,6 @@ services:
       AR_APP_MODULE: ar_sandbox_agent.main
       AR_PORT: ${AR_SANDBOX_AGENT_HOST_PORT:-8080}
     ports: ["127.0.0.1:${AR_SANDBOX_AGENT_HOST_PORT:-8080}:${AR_SANDBOX_AGENT_HOST_PORT:-8080}"]
-
-  # `make dev` starts fake-llm from Procfile.dev. This container is only for the
-  # production profile, so the two do not both bind the host port.
-  fake-llm:
-    <<: *run
-    profiles: [production]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    healthcheck: *py-health
-    build: { context: ., dockerfile: images/python-service.Dockerfile, args: { SERVICE: fake_llm } }
-    environment:
-      <<: *app-env
-      AR_APP_MODULE: ar_fake_llm.app
-      AR_PORT: ${AR_FAKE_LLM_HOST_PORT:-8099}
-    ports: ["127.0.0.1:${AR_FAKE_LLM_HOST_PORT:-8099}:${AR_FAKE_LLM_HOST_PORT:-8099}"]
 
   web:
     <<: *run

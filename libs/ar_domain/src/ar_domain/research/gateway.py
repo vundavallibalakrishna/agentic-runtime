@@ -31,6 +31,9 @@ def subtask_via_gateway(
             label="search",
         ),
     )
+    failed = _failure(found)
+    if failed:
+        return {"query_id": query["id"], "sources": [], "status": "failed", "reason": failed}
     if found.get("replayed"):
         # A stored call keeps a preview, not its hits, so a repeat cannot rebuild the pages.
         # The sub-task stays pending and is not recorded as finished with nothing read.
@@ -111,6 +114,19 @@ def _request(
         "call_index": call_index,
         "model_call_id": f"research:{query_id}:{call_index}:{label}",
     }
+
+
+def _failure(result: dict[str, object]) -> str:
+    """Why a gateway call failed, or empty when it succeeded."""
+    if result.get("status") == "succeeded" and not result.get("is_error"):
+        return ""
+    error = result.get("error")
+    if isinstance(error, dict) and str(error.get("message") or "").strip():
+        return str(error["message"])[:300]
+    if result.get("is_error") or result.get("status") not in {None, "succeeded", ""}:
+        preview = result.get("result_preview") or result.get("status") or "the tool call failed"
+        return str(preview)[:300]
+    return ""
 
 
 def _hits(result: dict[str, object]) -> list[dict[str, object]]:

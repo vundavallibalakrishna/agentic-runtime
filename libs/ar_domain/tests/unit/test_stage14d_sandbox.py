@@ -243,8 +243,8 @@ def test_a_client_process_asks_the_manager_for_the_computer(
         asked.append(url)
         return httpx.Response(200, json=answers.pop(0), request=httpx.Request("POST", url))
 
-    monkeypatch.setattr("ar_domain.sandboxes.runtime.http_post", post)
-    monkeypatch.setattr("ar_domain.sandboxes.manager_launch.http_post", post)
+    monkeypatch.setattr("ar_domain.sandboxes.runtime.internal_post", post)
+    monkeypatch.setattr("ar_domain.sandboxes.manager_launch.internal_post", post)
     row = _ensure(store, "conv:managed")
     assert asked == ["http://manager.test/internal/v1/sandboxes:ensure"]
     assert (row["id"], row["endpoint_url"], row["token"], row["driver"]) == (

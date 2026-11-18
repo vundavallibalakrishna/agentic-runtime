@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from ar_common.egress_http import sync_client
 from ar_common.offload import blocking
 
 if TYPE_CHECKING:
@@ -138,7 +137,11 @@ def ask_image(
         options=request_options_of(model_row) if model_row else {},
     )
     try:
-        with sync_client(timeout=timeout_s) as client:
+        from ar_common.internal_http import client_for, is_internal_service, signed_headers  # noqa: PLC0415
+
+        if is_internal_service(url):
+            headers = signed_headers("POST", url, headers)
+        with client_for(url, timeout=timeout_s) as client:
             response = blocking(client.post, url, json=body, headers=headers)
     except httpx.HTTPError as exc:
         raise VisionError(

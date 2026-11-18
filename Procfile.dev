@@ -9,5 +9,4 @@ sandbox-manager: uv run ar-sandbox-manager
 channels: uv run ar-channels
 mcp-sql: uv run ar-mcp-sql
 mcp-openapi: uv run ar-mcp-openapi
-fake-llm: uv run ar-fake-llm
 web: pnpm --filter @ar/web dev

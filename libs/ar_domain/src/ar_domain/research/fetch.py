@@ -46,11 +46,12 @@ def fetch_page(  # noqa: PLR0911
     try:
         status, body = fetch_text(store, "GET", url, timeout=20)
     except Exception as exc:  # noqa: BLE001 - the caller sees a failed fetch, not a stack
+        detail = str(exc).strip() or type(exc).__name__
         return {
             "text": "",
             "extractor": "",
             "error": "upstream_error",
-            "message": type(exc).__name__,
+            "message": detail[:300],
         }
     if status >= 400:
         return {"text": "", "extractor": "", "error": "upstream_error", "message": f"HTTP {status}"}

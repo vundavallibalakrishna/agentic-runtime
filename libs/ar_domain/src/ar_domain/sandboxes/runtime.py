@@ -24,7 +24,8 @@ from typing import TYPE_CHECKING, cast
 
 import httpx
 
-from ar_common.egress_http import http_post, sync_client
+from ar_common.egress_http import sync_client
+from ar_common.internal_http import internal_post
 
 if TYPE_CHECKING:
     from typing import Any
@@ -331,11 +332,8 @@ def _delegate_ensure(
 
     def _post() -> dict[str, object]:
 
-        from ar_common.internal_auth import headers_from_env  # noqa: PLC0415
-
         address = f"{url}/internal/v1/sandboxes:ensure"
-        headers = headers_from_env("POST", address)
-        response = blocking(lambda: http_post(address, json=body, timeout=60.0, headers=headers))
+        response = blocking(lambda: internal_post(address, json=body, timeout=60.0))
         try:
             response.raise_for_status()
             payload = response.json()
@@ -348,7 +346,9 @@ def _delegate_ensure(
     try:
         payload = blocking(_post)
     except Exception as exc:  # the manager is the only pod creator; do not fall back to the host
-        raise SandboxStartError("the sandbox manager could not start a pod") from exc
+        reason = str(getattr(exc, "reason", "") or exc).strip()
+        detail = f": {reason[:300]}" if reason else ""
+        raise SandboxStartError(f"the sandbox manager could not start a pod{detail}") from exc
     if payload.get("status") == "quota_exceeded":
         raise RuntimeError(str(payload.get("detail") or "the sandbox quota is used up"))
     try:

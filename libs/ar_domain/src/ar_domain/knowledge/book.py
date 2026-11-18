@@ -52,6 +52,24 @@ _VISIBILITY = frozenset({"private", "team", "tenant"})
 _CLASS = frozenset({"public", "internal", "confidential", "restricted"})
 
 
+def _whole_number(value: object, default: int) -> int:
+    """A positive integer argument. Blank text from a tool call keeps the default."""
+    if isinstance(value, bool) or value is None:
+        return default
+    if isinstance(value, int):
+        number = value
+    elif isinstance(value, float):
+        number = int(value)
+    elif isinstance(value, str):
+        try:
+            number = int(value.strip())
+        except ValueError:
+            return default
+    else:
+        return default
+    return number if number > 0 else default
+
+
 def _bar(value: object) -> float | None:
     """A caller's own rerank bar, or none to take the rerank model's."""
     if value is None or value == "":
@@ -600,7 +618,7 @@ class KnowledgeBook:
         raw_ids = body.get("collection_ids")
         if not isinstance(raw_ids, list) or not raw_ids:
             raise ValidationFailedError("collection_ids is required")
-        top_k = int(body.get("top_k") or 8)  # type: ignore[call-overload]
+        top_k = _whole_number(body.get("top_k", body.get("topK")), 8)
         if top_k < 1 or top_k > 20:
             raise ValidationFailedError("top_k must be between 1 and 20")
         return run_search(
