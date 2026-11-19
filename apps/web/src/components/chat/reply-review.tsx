@@ -42,14 +42,10 @@ export function ReplyReviewStatus({ review }: { review?: ReplyReview | null }) {
     text = t("reviewRejected");
   }
   return (
-    <p
-      className="mt-1 text-xs text-[var(--muted-foreground)]"
-      data-review-status={status}
-      data-testid="reply-review"
-    >
+    <span data-review-status={status} data-testid="reply-review">
       <span className="sr-only">{t("reviewStatusLabel")} </span>
       {text}
-    </p>
+    </span>
   );
 }
 

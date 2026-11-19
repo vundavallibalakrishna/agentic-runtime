@@ -34,6 +34,32 @@ def without_wrappers(answer: str) -> str:
     return _ECHOED.sub("", answer).strip()
 
 
+class WrapperFilter:
+    """Takes the platform's wrapper tags out of an answer as it is written, piece by piece.
+
+    A tag can arrive split across pieces, so text from an unclosed ``<`` waits for the
+    next piece. A ``<`` that never closes is let through once it is too long to be a tag.
+    """
+
+    _LONGEST = 400
+
+    def __init__(self) -> None:
+        self._held = ""
+
+    def feed(self, piece: str) -> str:
+        text = self._held + piece
+        cut = text.rfind("<")
+        if cut >= 0 and ">" not in text[cut:] and len(text) - cut < self._LONGEST:
+            self._held, text = text[cut:], text[:cut]
+        else:
+            self._held = ""
+        return _ECHOED.sub("", text)
+
+    def close(self) -> str:
+        rest, self._held = self._held, ""
+        return _ECHOED.sub("", rest)
+
+
 def neutralise(content: str) -> str:
     """Replace wrapper-breaking tags. This runs before redaction and truncation."""
     safe = content

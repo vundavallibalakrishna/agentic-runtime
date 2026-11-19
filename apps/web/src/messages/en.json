@@ -151,6 +151,7 @@
     "runToolCalls": "Tool calls",
     "runNoTools": "This run called no tools.",
     "plan": "Plan",
+    "planSteps": "{count, plural, one {Plan · # step} other {Plan · # steps}}",
     "planPending": "Not started",
     "planActive": "In progress",
     "planDone": "Done",
