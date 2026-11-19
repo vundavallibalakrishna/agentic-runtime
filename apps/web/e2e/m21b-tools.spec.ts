@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "./support/harness";
+import { expect, openToolCall, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m21b";
@@ -74,6 +74,7 @@ test("general tools are visible in the catalogue, the builder and chat", async (
   await composer.fill('/tool general.code {"source":"print(6*7)"}');
   await composer.press("Enter");
   await expect(page.getByText("general.code").first()).toBeVisible({ timeout: 20_000 });
+  await openToolCall(page, "42");
   await expect(page.getByText("42", { exact: true })).toBeVisible({ timeout: 20_000 });
   await capture(page, "chat-code");
 

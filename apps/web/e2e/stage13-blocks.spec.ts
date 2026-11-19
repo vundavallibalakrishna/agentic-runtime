@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, type Page, test } from "./support/harness";
+import { expect, openToolCall, type Page, test } from "./support/harness";
 
 import { signInAs } from "./support/sign-in";
 
@@ -128,6 +128,7 @@ test("each answer block renders on the chat screen", async ({ page }) => {
   await expect(page.getByRole("img", { name: "Counts" })).toHaveCount(1);
   await expect(page.getByTestId("answered-by")).toContainText("Qwen3-32B");
   await expect(page.getByText("No artifacts yet.")).toHaveCount(0);
+  await openToolCall(page, "chart.png");
   await expect(page.getByText("chart.png").first()).toBeVisible();
   await expect(page.getByTestId("followups")).toBeVisible();
   await expect(page.getByText("Verified")).toBeVisible();

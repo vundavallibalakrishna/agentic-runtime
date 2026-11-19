@@ -46,4 +46,14 @@ export const test = base.extend<{ freshTenantOnRetry: undefined }>({
   },
 });
 
+/**
+ * Open the tool call that holds `text`. A tool call is one line under an answer until a
+ * person opens it, so a check on what a tool returned opens it first, as a person would.
+ */
+export async function openToolCall(page: Page, text: string | RegExp, timeout = 20_000) {
+  const card = page.getByTestId("tool-call").filter({ hasText: text }).first();
+  await expect(card).toBeAttached({ timeout });
+  await card.evaluate((node) => node.setAttribute("open", ""));
+}
+
 export { expect, type Page };

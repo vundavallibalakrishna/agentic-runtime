@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "./support/harness";
+import { expect, openToolCall, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m6";
@@ -41,6 +41,7 @@ test("chart a spreadsheet and review computers", async ({ page }) => {
   await expect(page.locator("#agent-picker option:checked")).toHaveText("Revenue analyst");
   await page.getByLabel("Message").fill("Analyse the attached CSV and chart revenue by month");
   await page.getByRole("button", { name: "Send" }).click();
+  await openToolCall(page, "revenue-by-month.png", 30_000);
   await expect(page.getByText("revenue-by-month.png").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("img", { name: "revenue-by-month.png" }).first()).toBeVisible({
     timeout: 30_000,

@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "./support/harness";
+import { expect, openToolCall, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m5";
@@ -71,6 +71,7 @@ test("approve a pet", async ({ page }) => {
   await expect(pet).toBeHidden({ timeout: 20_000 });
 
   await page.goto(`/chat?conversation=${conversation}`);
+  await openToolCall(page, /Created pet \d+\./);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible({ timeout: 20_000 });
   await capture(page, "pet-created");
 });
