@@ -8,7 +8,7 @@
       "documents.compare:succeeded"
     ],
     "conversation": "01a1f298-a214-7160-82ad-54264249bd9f",
-    "answer": "Here's what changed between v1 and v2 of the ACME Information Security Policy:\n\n**Version metadata** [p1-s0]:\n- Version bumped from 1.0 → 2.0\n- Approval date moved from 15 January 2026 → 1 October 2026\n\n**Access control** [p1-s2]:\n- 2.3: Password length increased from 12 → 14 characters\n- 2.4: MFA changed from *recommended* for remote production access → **required** for all production access and all remote access\n- 2.5: Access rights review changed from every 12 months → every quarter\n- 2.6: Access revocation changed from 5 business days → 1 business day\n\n**Logging and monitoring** [p1-s4]:\n-"
+    "answer": "Here's what changed between v1 and v2 of the ACME Information Security Policy:\n\n**Version metadata** [p1-s0]:\n- Version bumped from 1.0 \u2192 2.0\n- Approval date moved from 15 January 2026 \u2192 1 October 2026\n\n**Access control** [p1-s2]:\n- 2.3: Password length increased from 12 \u2192 14 characters\n- 2.4: MFA changed from *recommended* for remote production access \u2192 **required** for all production access and all remote access\n- 2.5: Access rights review changed from every 12 months \u2192 every quarter\n- 2.6: Access revocation changed from 5 business days \u2192 1 business day\n\n**Logging and monitoring** [p1-s4]:\n-"
   },
   "documents.create": {
     "asked": "Write a one-paragraph welcome note as a Word document.",
@@ -32,7 +32,7 @@
       "documents.crosscheck:succeeded"
     ],
     "conversation": "01a1f299-1df1-7150-8446-1ed8cd1b5b5f",
-    "answer": "Yes. I checked the report against itself and found these places where it disagrees with itself:\n\n1. **Observation 1's rating:** the table lists it as \"Medium\" ([p1-s0]), but the detail section gives it \"Rating: High\" ([p1-s1]).\n\n2. **The summary count vs. the table:** the table has two Medium and one Low (no High), while the sentence below it says \"one High, one Medium and one Low\" — both in [p1-s0].\n\n3. **The sample size in Observation 1:** \"Four of 25 sampled accounts\" vs. \"The sample covered 30 accounts\" — two different numbers in the same passage ([p1-s1]).\n\nNote: the second and fifth find"
+    "answer": "Yes. I checked the report against itself and found these places where it disagrees with itself:\n\n1. **Observation 1's rating:** the table lists it as \"Medium\" ([p1-s0]), but the detail section gives it \"Rating: High\" ([p1-s1]).\n\n2. **The summary count vs. the table:** the table has two Medium and one Low (no High), while the sentence below it says \"one High, one Medium and one Low\" \u2014 both in [p1-s0].\n\n3. **The sample size in Observation 1:** \"Four of 25 sampled accounts\" vs. \"The sample covered 30 accounts\" \u2014 two different numbers in the same passage ([p1-s1]).\n\nNote: the second and fifth find"
   },
   "documents.extract": {
     "asked": "Pull out the auditor, the opinion and the period.",
@@ -63,7 +63,7 @@
       "documents.judge:succeeded"
     ],
     "conversation": "01a1f29a-1871-7416-869f-da91595338d1",
-    "answer": "Policy (v1.0) checked against each control in the list:\n\n| Control | Verdict | Evidence in policy |\n|---|---|---|\n| CC6.1 – unique accounts + least privilege | **Supported** | Least-privilege access and unique accounts per user [p1-s2 p.1] |\n| CC6.1-MFA – MFA enforced for all production access | **Not supported** | MFA is only \"recommended for remote access\" [p1-s2 p.1] |\n| CC6.2 – access removed promptly on departure | **Not supported** | Revocation within five business days [p1-s2 p.1] |\n| CC6.3 – access reviewed at least quarterly | **Not supported** | Review every twelve months [p1-s2 p.1]"
+    "answer": "Policy (v1.0) checked against each control in the list:\n\n| Control | Verdict | Evidence in policy |\n|---|---|---|\n| CC6.1 \u2013 unique accounts + least privilege | **Supported** | Least-privilege access and unique accounts per user [p1-s2 p.1] |\n| CC6.1-MFA \u2013 MFA enforced for all production access | **Not supported** | MFA is only \"recommended for remote access\" [p1-s2 p.1] |\n| CC6.2 \u2013 access removed promptly on departure | **Not supported** | Revocation within five business days [p1-s2 p.1] |\n| CC6.3 \u2013 access reviewed at least quarterly | **Not supported** | Review every twelve months [p1-s2 p.1]"
   },
   "documents.list": {
     "asked": "Which documents are in the library?",
@@ -81,7 +81,7 @@
     "seconds": 8.3,
     "tools": [],
     "conversation": "01a1f29a-a265-749c-b54f-7ee7b9618d22",
-    "answer": "The policy (v1.0) **does contain** a rule on encryption in transit: data in transit over public networks is encrypted using TLS 1.2 or higher [p1-s3].\n\nThe two rules the policy **leaves out**:\n\n- **A clean desk rule** – no passage mentions clean desk or physical workspace requirements. Not found.\n- **A rule on personal devices** – no passage addresses bring-your-own-device or personal device use. Not found.\n\nSo the policy omits the clean desk rule and the personal device rule, but it does not omit encryption in transit."
+    "answer": "The policy (v1.0) **does contain** a rule on encryption in transit: data in transit over public networks is encrypted using TLS 1.2 or higher [p1-s3].\n\nThe two rules the policy **leaves out**:\n\n- **A clean desk rule** \u2013 no passage mentions clean desk or physical workspace requirements. Not found.\n- **A rule on personal devices** \u2013 no passage addresses bring-your-own-device or personal device use. Not found.\n\nSo the policy omits the clean desk rule and the personal device rule, but it does not omit encryption in transit."
   },
   "documents.outline": {
     "asked": "Give me the section outline of this policy.",
@@ -92,7 +92,7 @@
       "documents.outline:succeeded"
     ],
     "conversation": "01a1f29a-c303-72c1-9cb1-b8cd3b670387",
-    "answer": "Here's the section outline of the ACME Information Security Policy (v1.0):\n\n1. **Purpose and scope** [p1-s1]\n2. **Access control** [p1-s2]\n3. **Encryption** [p1-s3]\n4. **Logging and monitoring** [p1-s4]\n5. **Vendor risk** [p1-s5]\n6. **Incident response** [p1-s6]\n7. **Business continuity** [p1-s7]\n8. **Exceptions** [p1-s8]\n\nThe document header notes it's owned by the CISO, approved 15 January 2026, and applies to all ACME employees, contractors and systems [p1-s0].\n\nNote: only sections 1–5 appear in the passages attached to this conversation, but the outline confirms sections 6–8 exist in the f"
+    "answer": "Here's the section outline of the ACME Information Security Policy (v1.0):\n\n1. **Purpose and scope** [p1-s1]\n2. **Access control** [p1-s2]\n3. **Encryption** [p1-s3]\n4. **Logging and monitoring** [p1-s4]\n5. **Vendor risk** [p1-s5]\n6. **Incident response** [p1-s6]\n7. **Business continuity** [p1-s7]\n8. **Exceptions** [p1-s8]\n\nThe document header notes it's owned by the CISO, approved 15 January 2026, and applies to all ACME employees, contractors and systems [p1-s0].\n\nNote: only sections 1\u20135 appear in the passages attached to this conversation, but the outline confirms sections 6\u20138 exist in the f"
   },
   "documents.read": {
     "asked": "Quote the access control section of this policy word for word.",
@@ -123,7 +123,7 @@
       "documents.rewrite:succeeded"
     ],
     "conversation": "01a1f29b-5657-7583-a1be-e1e6a439b8c9",
-    "answer": "I proposed a plainer-word rewrite of the policy opening. It's a preview (rewrite 01a1f29b-85a8-7170-823c-5a3cff58b0f5) with 7 changes, still waiting for your approval — nothing has been saved."
+    "answer": "I proposed a plainer-word rewrite of the policy opening. It's a preview (rewrite 01a1f29b-85a8-7170-823c-5a3cff58b0f5) with 7 changes, still waiting for your approval \u2014 nothing has been saved."
   },
   "documents.search": {
     "asked": "Find where the library documents talk about log retention.",
@@ -140,7 +140,7 @@
       "documents.read:succeeded"
     ],
     "conversation": "01a1f29b-95e1-74d6-9306-6f5952ea50b4",
-    "answer": "Here's where the library touches log retention:\n\n**1. ACME Corp Information Security Policy** — two stored versions disagree on how long security logs are kept:\n- v1.0 (15 Jan 2026): \"Security logs are retained for 90 days\" and the security team reviews alerts \"on business days\" [p1-s4] — same wording in the file you attached.\n- v2.0 (1 Oct 2026): \"Security logs are retained for 365 days\" and alerts reviewed \"every day, including weekends\" [p1-s4]\n\n**2. Access control policy** — \"Retention\" section, also two conflicting copies:\n- \"Access logs are kept for 7 years. The reference code for this p"
+    "answer": "Here's where the library touches log retention:\n\n**1. ACME Corp Information Security Policy** \u2014 two stored versions disagree on how long security logs are kept:\n- v1.0 (15 Jan 2026): \"Security logs are retained for 90 days\" and the security team reviews alerts \"on business days\" [p1-s4] \u2014 same wording in the file you attached.\n- v2.0 (1 Oct 2026): \"Security logs are retained for 365 days\" and alerts reviewed \"every day, including weekends\" [p1-s4]\n\n**2. Access control policy** \u2014 \"Retention\" section, also two conflicting copies:\n- \"Access logs are kept for 7 years. The reference code for this p"
   },
   "documents.summarise": {
     "asked": "Summarise this policy in five points.",
@@ -149,7 +149,7 @@
     "seconds": 12.0,
     "tools": [],
     "conversation": "01a1f29c-45a8-71ca-b57b-392eb73bb882",
-    "answer": "Here is a five-point summary of the ACME Information Security Policy (v1.0, approved 15 January 2026, owned by the CISO) [p1-s0].\n\n1. **Scope and intent** — It sets the minimum security controls for ACME information and systems, applying to production, corporate and customer data environments, and to all ACME employees, contractors and systems [p1-s1] [p1-s0].\n\n2. **Access control** — Access is granted on a least-privilege basis and approved by the system owner; every user has a unique account (shared accounts are prohibited), passwords must be at least 12 characters, MFA is recommended for re"
+    "answer": "Here is a five-point summary of the ACME Information Security Policy (v1.0, approved 15 January 2026, owned by the CISO) [p1-s0].\n\n1. **Scope and intent** \u2014 It sets the minimum security controls for ACME information and systems, applying to production, corporate and customer data environments, and to all ACME employees, contractors and systems [p1-s1] [p1-s0].\n\n2. **Access control** \u2014 Access is granted on a least-privilege basis and approved by the system owner; every user has a unique account (shared accounts are prohibited), passwords must be at least 12 characters, MFA is recommended for re"
   },
   "documents.tables": {
     "asked": "Show me the tables in this document.",
@@ -160,7 +160,7 @@
       "documents.tables:succeeded"
     ],
     "conversation": "01a1f29c-74a8-75e9-af38-dc778c5e96dc",
-    "answer": "The tool reports this document has no tables.\n\nHowever, the attached Markdown does contain a table in section [p1-s0] — it's just rendered as a Markdown table, so the table tool doesn't pick it up. Here it is:\n\n| No. | Observation | Rating |\n|---|---|---|\n| 1 | Applications activated without manager signature | Medium |\n| 2 | Account active without a transaction profile | Medium |\n| 3 | Monthly review of accounts over profile not performed in September | Low |\n\nNote this conflicts with the text just below it, which says \"Three observations were raised: one High, one Medium and one Low.\" The ta"
+    "answer": "The tool reports this document has no tables.\n\nHowever, the attached Markdown does contain a table in section [p1-s0] \u2014 it's just rendered as a Markdown table, so the table tool doesn't pick it up. Here it is:\n\n| No. | Observation | Rating |\n|---|---|---|\n| 1 | Applications activated without manager signature | Medium |\n| 2 | Account active without a transaction profile | Medium |\n| 3 | Monthly review of accounts over profile not performed in September | Low |\n\nNote this conflicts with the text just below it, which says \"Three observations were raised: one High, one Medium and one Low.\" The ta"
   },
   "general.chart": {
     "asked": "Chart the number of transactions by channel.",
@@ -183,7 +183,7 @@
       "general.code:succeeded"
     ],
     "conversation": "01a1f29d-01a4-7227-905c-0853eda5bc80",
-    "answer": "The 30th Fibonacci number is **832,040** (with F₀ = 0, F₁ = 1)."
+    "answer": "The 30th Fibonacci number is **832,040** (with F\u2080 = 0, F\u2081 = 1)."
   },
   "general.write_file": {
     "asked": "Write a file called hello.txt containing the word hello.",
@@ -233,7 +233,7 @@
       "general.delete:succeeded"
     ],
     "conversation": "01a1f29e-142c-70ee-bade-d4470347ed17",
-    "answer": "Done — I wrote scratch.txt with \"hi\", then deleted it."
+    "answer": "Done \u2014 I wrote scratch.txt with \"hi\", then deleted it."
   },
   "general.export_table": {
     "asked": "Export the transactions over 50000 as an Excel file.",
@@ -268,7 +268,7 @@
       "general.grep:succeeded"
     ],
     "conversation": "01a1f29e-d87c-7527-9768-d005031117e3",
-    "answer": "In `inputs/fieldwork-notes.md` there are two lines that mention \"signature\":\n\n- **Line 7** (test step T1, procedure 2.2): \"…manager signature on application): sample of 25 new accounts. 4 had no Branch Operations Manager signature.\" [p1-s1]\n- **Line 15**: \"system lets you activate w/o the signature being scanned in, no hard stop\" [p1-s2]"
+    "answer": "In `inputs/fieldwork-notes.md` there are two lines that mention \"signature\":\n\n- **Line 7** (test step T1, procedure 2.2): \"\u2026manager signature on application): sample of 25 new accounts. 4 had no Branch Operations Manager signature.\" [p1-s1]\n- **Line 15**: \"system lets you activate w/o the signature being scanned in, no hard stop\" [p1-s2]"
   },
   "general.inspect_table": {
     "asked": "What columns does this file have, and how many rows?",
@@ -279,7 +279,7 @@
       "general.inspect_table:succeeded"
     ],
     "conversation": "01a1f29f-079c-77a1-bc1b-e6281a342811",
-    "answer": "The file `sample-transactions.csv` has **7 columns** and **820 data rows**:\n\n1. `txn_id` — text\n2. `account_id` — text\n3. `posted_on` — text\n4. `amount` — number\n5. `channel` — text\n6. `user_id` — text\n7. `compliance_flag` — text"
+    "answer": "The file `sample-transactions.csv` has **7 columns** and **820 data rows**:\n\n1. `txn_id` \u2014 text\n2. `account_id` \u2014 text\n3. `posted_on` \u2014 text\n4. `amount` \u2014 number\n5. `channel` \u2014 text\n6. `user_id` \u2014 text\n7. `compliance_flag` \u2014 text"
   },
   "general.list_files": {
     "asked": "List the files in my working folder.",
@@ -290,7 +290,7 @@
       "general.list_files:succeeded"
     ],
     "conversation": "01a1f29f-36ae-708b-ab6d-bf9a972737ee",
-    "answer": "Here's what's in your working folder:\n\n- `inputs/sample-transactions.csv` — 40.4 kB CSV (transaction records)"
+    "answer": "Here's what's in your working folder:\n\n- `inputs/sample-transactions.csv` \u2014 40.4 kB CSV (transaction records)"
   },
   "general.pivot_table": {
     "asked": "Give me total amount by channel across users, as a pivot.",
@@ -347,7 +347,7 @@
       "general.save_query:succeeded"
     ],
     "conversation": "01a1f2a0-bf22-74f4-ac61-0fd3d2ff97ab",
-    "answer": "I couldn't check it against the file — passing a path to run it on failed with \"file system operations are disabled by configuration\" — so I saved it without a check run.\n\nSaved **big-ones** (v1):\n\n```sql\nSELECT * FROM \"inputs/sample-transactions.csv\" WHERE amount > 50000\n```\n\nIt's in **sign-off pending**: it can't run until someone other than the saver approves it on the Reviews screen (queue: *Saved query sign-off*).\n\nOne thing to verify when it is approved: I named the table from the file path as the working folder has it. If your table name is just the file name, change it to `\"sample-tran"
+    "answer": "I couldn't check it against the file \u2014 passing a path to run it on failed with \"file system operations are disabled by configuration\" \u2014 so I saved it without a check run.\n\nSaved **big-ones** (v1):\n\n```sql\nSELECT * FROM \"inputs/sample-transactions.csv\" WHERE amount > 50000\n```\n\nIt's in **sign-off pending**: it can't run until someone other than the saver approves it on the Reviews screen (queue: *Saved query sign-off*).\n\nOne thing to verify when it is approved: I named the table from the file path as the working folder has it. If your table name is just the file name, change it to `\"sample-tran"
   },
   "general.list_saved_queries": {
     "asked": "Which saved queries do we have?",
@@ -358,7 +358,7 @@
       "general.list_saved_queries:succeeded"
     ],
     "conversation": "01a1f2a1-05c0-74db-9208-cadbe3b151ab",
-    "answer": "Two saved queries:\n\n- **big-ones** (v1, sign-off pending) — Transactions over 50,000: `SELECT * FROM \"inputs/sample-transactions.csv\" WHERE amount > 50000`\n- **cert_region_total** (v1, sign-off pending) — Total of the count column: `SELECT SUM(count) AS total FROM regions`\n\nBoth are still awaiting sign-off before they can be run."
+    "answer": "Two saved queries:\n\n- **big-ones** (v1, sign-off pending) \u2014 Transactions over 50,000: `SELECT * FROM \"inputs/sample-transactions.csv\" WHERE amount > 50000`\n- **cert_region_total** (v1, sign-off pending) \u2014 Total of the count column: `SELECT SUM(count) AS total FROM regions`\n\nBoth are still awaiting sign-off before they can be run."
   },
   "general.run_saved_query": {
     "asked": "Run the saved query big-ones on this file.",
@@ -369,7 +369,7 @@
       "general.list_saved_queries:succeeded"
     ],
     "conversation": "01a1f2a1-34e3-72a0-ac97-a60c67ebcf62",
-    "answer": "The saved query `big-ones` (v1) **needs sign-off** before it can be run — its sign-off status is *pending*, so it is refused until approved.\n\n- **Query:** `SELECT * FROM \"inputs/sample-transactions.csv\" WHERE amount > 50000`\n- **Meaning:** transactions with an amount over 50,000.\n- **Who must approve:** the owner/reviewer of the saved query. Ask them to sign off on `big-ones` (version 1), and I can run it as soon as that's done.\n\nWant me to just run the same statement now against the file so you can see the rows meanwhile?"
+    "answer": "The saved query `big-ones` (v1) **needs sign-off** before it can be run \u2014 its sign-off status is *pending*, so it is refused until approved.\n\n- **Query:** `SELECT * FROM \"inputs/sample-transactions.csv\" WHERE amount > 50000`\n- **Meaning:** transactions with an amount over 50,000.\n- **Who must approve:** the owner/reviewer of the saved query. Ask them to sign off on `big-ones` (version 1), and I can run it as soon as that's done.\n\nWant me to just run the same statement now against the file so you can see the rows meanwhile?"
   },
   "general.shell": {
     "asked": "Run a shell command that prints today's date.",
@@ -391,7 +391,7 @@
       "general.fetch:failed"
     ],
     "conversation": "01a1f2a1-8b85-7772-a95d-ec4ff0c3c64f",
-    "answer": "I couldn't fetch https://example.com — it's not on the list of hosts your organisation's tools may reach. An administrator would need to add it under Web access on the Policies screen."
+    "answer": "I couldn't fetch https://example.com \u2014 it's not on the list of hosts your organisation's tools may reach. An administrator would need to add it under Web access on the Policies screen."
   },
   "general.http": {
     "asked": "Send a GET request to https://example.com and tell me the status.",
@@ -402,7 +402,7 @@
       "general.http:failed"
     ],
     "conversation": "01a1f2a1-b2be-77f0-b878-913ff19e3774",
-    "answer": "I couldn't reach it — the GET request was blocked before it left the building.\n\n`example.com` isn't on the egress allowlist, so the request failed with an error rather than returning a status code. No response was received, so there's no status to report.\n\nTo make it work, an administrator needs to add `example.com` under **Web access** on the Policies screen. Once it's allowlisted, I can retry and give you the actual status."
+    "answer": "I couldn't reach it \u2014 the GET request was blocked before it left the building.\n\n`example.com` isn't on the egress allowlist, so the request failed with an error rather than returning a status code. No response was received, so there's no status to report.\n\nTo make it work, an administrator needs to add `example.com` under **Web access** on the Policies screen. Once it's allowlisted, I can retry and give you the actual status."
   },
   "web.fetch": {
     "asked": "Open https://example.com and tell me what the page says.",
@@ -411,7 +411,7 @@
     "seconds": 8.1,
     "tools": [],
     "conversation": "01a1f2a1-e1db-76ee-acda-7271289a0658",
-    "answer": "I can't open example.com — it isn't on this environment's egress allowlist, so I can't fetch it. If you can share the page's text (or a link I'm permitted to reach), I'll summarise what it says.\n\n\nThat URL isn't on the allowed list, so I couldn't open it. If you paste the page's text here, or give me a link I'm allowed to reach, I'll summarise what it says."
+    "answer": "I can't open example.com \u2014 it isn't on this environment's egress allowlist, so I can't fetch it. If you can share the page's text (or a link I'm permitted to reach), I'll summarise what it says.\n\n\nThat URL isn't on the allowed list, so I couldn't open it. If you paste the page's text here, or give me a link I'm allowed to reach, I'll summarise what it says."
   },
   "knowledge.list_collections": {
     "asked": "Which knowledge collections can I use?",
@@ -433,7 +433,7 @@
       "knowledge.search:succeeded"
     ],
     "conversation": "01a1f2a2-307c-7172-94e9-64cab3edf08e",
-    "answer": "The library sets two retention periods, by log type:\n\n- **Access logs: kept for 7 years** — Access control policy, reference code ZEBRA-4417.\n- **Security logs: retained for 365 days** — Information security policy v2.0 (approved 1 Oct 2026), section 4.2. Production systems send these to the central log platform (§4.1), and the security team reviews the alerts daily (§4.3).\n\nNote the two policies give different periods — 7 years for access logs vs. 365 days for security logs — so they cover different log categories rather than conflicting on the same one. If you need one figure for a specific "
+    "answer": "The library sets two retention periods, by log type:\n\n- **Access logs: kept for 7 years** \u2014 Access control policy, reference code ZEBRA-4417.\n- **Security logs: retained for 365 days** \u2014 Information security policy v2.0 (approved 1 Oct 2026), section 4.2. Production systems send these to the central log platform (\u00a74.1), and the security team reviews the alerts daily (\u00a74.3).\n\nNote the two policies give different periods \u2014 7 years for access logs vs. 365 days for security logs \u2014 so they cover different log categories rather than conflicting on the same one. If you need one figure for a specific "
   },
   "memory.save": {
     "asked": "Remember that my team's review day is Thursday.",
@@ -465,7 +465,7 @@
       "memory.forget:succeeded"
     ],
     "conversation": "01a1f2a2-c589-7701-981f-110ddd0e4dec",
-    "answer": "Done — I've forgotten the fact about your team's review day being Thursday."
+    "answer": "Done \u2014 I've forgotten the fact about your team's review day being Thursday."
   },
   "session.plan_update": {
     "asked": "Plan in three steps how to review a policy, then begin.",
@@ -494,7 +494,7 @@
       "files.list:succeeded"
     ],
     "conversation": "01a1f2a3-a129-75ac-8ed3-9fc266cc2914",
-    "answer": "The files currently visible in this conversation are a long mixed list — many appear to be re-attachments or working copies. Here's the deduplicated set:\n\n**Documents / notes**\n- fieldwork-notes.md (the one attached to this message)\n- draft-audit-report.md\n- letterhead.md\n- memo-policy-vs-controls-2026-01-15.docx\n- memo-policy-vs-controls.docx\n- memo-policy-vs-controls.pdf\n- memo-policy-vs-control-coverage.pdf\n- welcome-note.docx\n- cert-report.docx\n- cert-brief.pdf\n- cert.txt\n- note.txt\n- a.txt, b.txt, scratch.txt, hello.txt, notes.txt\n\n**Data / tables**\n- sample-transactions.csv (and several "
+    "answer": "The files currently visible in this conversation are a long mixed list \u2014 many appear to be re-attachments or working copies. Here's the deduplicated set:\n\n**Documents / notes**\n- fieldwork-notes.md (the one attached to this message)\n- draft-audit-report.md\n- letterhead.md\n- memo-policy-vs-controls-2026-01-15.docx\n- memo-policy-vs-controls.docx\n- memo-policy-vs-controls.pdf\n- memo-policy-vs-control-coverage.pdf\n- welcome-note.docx\n- cert-report.docx\n- cert-brief.pdf\n- cert.txt\n- note.txt\n- a.txt, b.txt, scratch.txt, hello.txt, notes.txt\n\n**Data / tables**\n- sample-transactions.csv (and several "
   },
   "routines.list": {
     "asked": "Which routines exist?",
@@ -506,7 +506,7 @@
       "routines.list:succeeded"
     ],
     "conversation": "01a1f2a3-d04b-706a-827a-0f8452bf5e00",
-    "answer": "There are **2 routines** in your account.\n\n(There's no tool for viewing the details of a routine — its name, trigger, or instructions — beyond the count. If you need specifics on a particular routine, let me know what you're looking for and I can work from what you tell me.)\n\n\nThere are **2 routines** on your account. I don't have a tool that returns their names or details, so I can only tell you the count. If you'd like to review or change a specific one, tell me its name and I'll look into what I can do with it."
+    "answer": "There are **2 routines** in your account.\n\n(There's no tool for viewing the details of a routine \u2014 its name, trigger, or instructions \u2014 beyond the count. If you need specifics on a particular routine, let me know what you're looking for and I can work from what you tell me.)\n\n\nThere are **2 routines** on your account. I don't have a tool that returns their names or details, so I can only tell you the count. If you'd like to review or change a specific one, tell me its name and I'll look into what I can do with it."
   },
   "routines.create": {
     "asked": "Create a routine that runs every Monday at 9 and lists the library documents.",
@@ -517,7 +517,7 @@
       "routines.create:succeeded"
     ],
     "conversation": "01a1f2a4-16dd-723b-a4ac-b2e2be9d4aa9",
-    "answer": "Created it.\n\n**\"Monday morning: list library documents\"** — runs every Monday at 9:00 UTC. When it fires, it calls `documents.list` and replies with the library's ids, titles and page counts.\n\nIf you'd rather have it run at 9 in your own timezone, tell me which one and I'll update the cron."
+    "answer": "Created it.\n\n**\"Monday morning: list library documents\"** \u2014 runs every Monday at 9:00 UTC. When it fires, it calls `documents.list` and replies with the library's ids, titles and page counts.\n\nIf you'd rather have it run at 9 in your own timezone, tell me which one and I'll update the cron."
   },
   "conversations.search_history": {
     "asked": "Search my earlier conversations for the word policy.",
@@ -529,5 +529,358 @@
     ],
     "conversation": "01a1f2a4-45ef-77ee-a9e3-ca1147131dde",
     "answer": "Here are your earlier messages mentioning \"policy\":\n\n1. \"Check the policy against each control in the list.\"\n2. \"Which of these does the policy leave out: a clean desk rule, a rule on personal devices, a rule on encryption in transit?\"\n3. \"Give me the section outline of this policy.\"\n4. \"Quote the access control section of this policy word for word.\"\n5. \"Propose a rewrite of the opening of this policy in plainer words.\"\n6. \"Summarise this policy in five points.\"\n7. \"Plan in three steps how to review a policy, then begin.\"\n\nMost of these look like past questions you asked about an information s"
+  },
+  "browser.navigate": {
+    "asked": "Open https://example.com in the browser.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 12.1,
+    "tools": [
+      "browser.navigate:succeeded"
+    ],
+    "conversation": "01a1f2e5-816f-766d-bfcc-12e90eb09994",
+    "answer": "Opened https://example.com. It's the standard \"Example Domain\" placeholder page \u2014 a note saying the domain is for documentation examples and shouldn't be relied on for testing or monitoring, with a \"Learn more\" link."
+  },
+  "browser.snapshot": {
+    "asked": "Open https://example.com in the browser and read me what the page says.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 14.0,
+    "tools": [
+      "browser.navigate:succeeded"
+    ],
+    "conversation": "01a1f2e5-b0ae-778a-9121-e9ebda74fb24",
+    "answer": "Here's what example.com says:\n\n- **Title:** Example Domain\n- **Body:** \"This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes.\"\n\nThe same message is repeated in Arabic, Chinese, French, Russian, and Spanish.\n\nThere's a single link, **\"Learn more,\"** which points to https://www.iana.org/domains/example."
+  },
+  "browser.click": {
+    "asked": "Open https://example.com in the browser and click the link on the page.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 38.3,
+    "tools": [
+      "browser.navigate:succeeded",
+      "browser.click:succeeded"
+    ],
+    "conversation": "01a1f2e5-e78a-7313-a9a1-ed9257157472",
+    "answer": "Done. I opened https://example.com and clicked its \"Learn more\" link, which took the browser to https://www.iana.org/help/example-domains."
+  },
+  "browser.press": {
+    "asked": "Open https://example.com in the browser and press the End key.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 36.2,
+    "tools": [
+      "browser.navigate:succeeded",
+      "browser.press:succeeded"
+    ],
+    "conversation": "01a1f2e6-7d03-72bd-9a29-14edaf62f2dc",
+    "answer": "Opened https://example.com and pressed the End key."
+  },
+  "browser.scroll": {
+    "asked": "Open https://example.com in the browser and scroll down the page.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 36.2,
+    "tools": [
+      "browser.navigate:succeeded",
+      "browser.scroll:succeeded"
+    ],
+    "conversation": "01a1f2e7-0a77-76c8-b2a4-ac678a7b8c52",
+    "answer": "Opened https://example.com and scrolled down. The page is the short \"Example Domain\" notice (with a \"Learn more\" link) \u2014 there's no additional content below what's already showing."
+  },
+  "browser.screenshot": {
+    "asked": "Open https://example.com in the browser and take a screenshot.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 32.2,
+    "tools": [
+      "browser.navigate:succeeded",
+      "browser.screenshot:succeeded"
+    ],
+    "conversation": "01a1f2e7-97d0-7258-b33c-99e06066b461",
+    "answer": "Done. I opened https://example.com and captured a screenshot (saved as browser.png).\n\nThe page is the standard \"Example Domain\" placeholder \u2014 a small book icon above multi-language text (English, Arabic, Chinese, French, Russian, Spanish) explaining that the domain is for documentation examples only."
+  },
+  "browser.save_pdf": {
+    "asked": "Open https://example.com in the browser and save the page as a PDF.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 30.2,
+    "tools": [
+      "skills.load:failed",
+      "session.search:succeeded",
+      "browser.new_tab:succeeded",
+      "browser.save_pdf:succeeded",
+      "files.list:succeeded"
+    ],
+    "conversation": "01a1f2e8-157a-7687-b778-a19da7b4bc24",
+    "answer": "Open the blank browser tab, then saved the current page as `page.pdf`. Done.\n\n(Note: I couldn't navigate to `https://example.com` \u2014 my available browser tools have no navigate action, so the saved PDF is the current page, not the example.com page.)"
+  },
+  "browser.tabs": {
+    "asked": "Open https://example.com in the browser and tell me which tabs are open.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 20.1,
+    "tools": [
+      "browser.navigate:succeeded",
+      "browser.tabs:succeeded"
+    ],
+    "conversation": "01a1f2e8-8b44-7399-a819-422681887673",
+    "answer": "Opened https://example.com.\n\nTabs open:\n- [0] Example Domain \u2014 https://example.com/ (active)\n\nJust that one tab."
+  },
+  "browser.new_tab": {
+    "asked": "Open https://example.com in the browser, then open it again in a second tab.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 28.1,
+    "tools": [
+      "browser.new_tab:succeeded",
+      "browser.navigate:succeeded",
+      "browser.new_tab:succeeded",
+      "browser.navigate:succeeded",
+      "browser.tabs:succeeded"
+    ],
+    "conversation": "01a1f2e8-d9e6-77d6-b651-612cd8f1b354",
+    "answer": "Opened example.com in two tabs (tabs 1 and 2 are active on https://example.com/). There's a leftover blank tab at index 0 from the first new-tab call."
+  },
+  "browser.switch_tab": {
+    "asked": "Open https://example.com in the browser, open a second tab, then go back to the first tab.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 16.1,
+    "tools": [
+      "browser.new_tab:succeeded"
+    ],
+    "conversation": "01a1f2e9-47a1-72b9-9e7a-b1f8d41239fa",
+    "answer": "I've opened a new blank tab. Before continuing, one thing I need to flag:\n\n- **I can't proceed with the rest of your request as described**, because I have no record of an earlier tab at example.com \u2014 this conversation starts fresh with just the new blank tab I created.\n\nAlso, regarding the note about \"policy [1] and [2]\": I don't have any knowledge passages in this conversation to answer from. The system reminder doesn't include actual policy content, so I can't cite anchors for things I don't have. If you can share the policy text you'd like me to reference, I'll answer with proper anchors.\n"
+  },
+  "browser.close_tab": {
+    "asked": "Open https://example.com in the browser, open a second tab, then close it.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 32.2,
+    "tools": [
+      "browser.navigate:succeeded",
+      "browser.new_tab:succeeded",
+      "browser.tabs:succeeded",
+      "browser.close_tab:succeeded"
+    ],
+    "conversation": "01a1f2e9-8662-7110-bdba-32889811e527",
+    "answer": "Done. I opened https://example.com, opened a second (blank) tab, and closed it. The only tab left is the Example Domain page."
+  },
+  "sandbox.exec": {
+    "asked": "On the computer, run uname -a and show me the output.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 16.1,
+    "tools": [
+      "general.shell:succeeded"
+    ],
+    "conversation": "01a1f2ea-0450-7588-9235-17f6ee5c6700",
+    "answer": "```\nLinux c5ebf0e32a7f 6.10.14-linuxkit #1 SMP Thu Aug 14 19:26:13 UTC 2025 aarch64 GNU/Linux\n```\n\nLinux (aarch64), kernel 6.10.14-linuxkit, hostname c5ebf0e32a7f, built Aug 14 2025."
+  },
+  "sandbox.write_file": {
+    "asked": "On the computer, make a file notes.txt that says hello.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 50.2,
+    "tools": [
+      "general.write_file:succeeded"
+    ],
+    "conversation": "01a1f2ea-435e-75d1-b770-2215a802127d",
+    "answer": "Created notes.txt with \"hello\"."
+  },
+  "sandbox.read_file": {
+    "asked": "On the computer, make a file notes.txt that says hello, then read it back to me.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 32.1,
+    "tools": [
+      "general.write_file:succeeded",
+      "general.read_file:succeeded"
+    ],
+    "conversation": "01a1f2eb-07a0-709c-8dc4-f74a47fdb5d6",
+    "answer": "Created `notes.txt` with `hello`, and read it back: the contents are `hello`."
+  },
+  "sandbox.list_files": {
+    "asked": "Which files are on the computer?",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 10.0,
+    "tools": [
+      "general.list_files:succeeded"
+    ],
+    "conversation": "01a1f2eb-850e-7778-b4ff-e7c9561a5fa8",
+    "answer": "No files are on the computer \u2014 the working folder is empty."
+  },
+  "sandbox.export_file": {
+    "asked": "On the computer, make a file report.txt that says done, then give it to me to download.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 28.1,
+    "tools": [
+      "skills.load:failed",
+      "session.search:succeeded",
+      "general.shell:succeeded",
+      "general.write_file:succeeded"
+    ],
+    "conversation": "01a1f2eb-ac45-77cf-8ba1-907b2c735bc9",
+    "answer": "Created `report.txt` containing \"done\" on the computer. The file is now available for download in the chat.\n\nA tool call failed and was not recovered."
+  },
+  "files.read": {
+    "asked": "Read the file I uploaded and tell me the auditor's name.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 8.0,
+    "tools": [],
+    "conversation": "01a1f2ec-1a1d-7201-bf75-bf9e988c3a5d",
+    "answer": "The auditor's name is **R. Hale** [p1-s0].\n\nThis is from the fieldwork notes file you uploaded, which describes a test covering 1 July to 30 September 2026.\n\n\nThe auditor's name is **R. Hale** [p1-s0]."
+  },
+  "files.attach_to_sandbox": {
+    "asked": "Put the file I uploaded onto the computer so a program there can read it.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 12.0,
+    "tools": [
+      "files.attach_to_sandbox:succeeded"
+    ],
+    "conversation": "01a1f2ec-3e75-74bf-a371-e70f6b127b50",
+    "answer": "Done. The file is now at `inputs/sample-transactions.csv` in the working folder, ready for a program there to read."
+  },
+  "data.list_schemas": {
+    "asked": "Which schemas does the database have?",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 14.1,
+    "tools": [
+      "data.list_schemas:failed",
+      "data.list_schemas:succeeded",
+      "data.list_schemas:succeeded"
+    ],
+    "conversation": "01a1f2f7-90ac-71c1-ac3a-1c3e74a36c97",
+    "answer": "Two connections are configured, and both have a single schema:\n\n- **Warehouse** \u2014 `public`\n- **tool_pass_computer_1795077670** \u2014 `public`\n\nWant me to list the tables in either one?"
+  },
+  "data.list_tables": {
+    "asked": "Which tables are in the database?",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 62.4,
+    "tools": [
+      "data.list_tables:failed",
+      "data.list_tables:succeeded",
+      "data.list_tables:succeeded"
+    ],
+    "conversation": "01a1f2f7-c7cf-711f-8e9b-e01d6cb0b5be",
+    "answer": "Two connections are configured:\n\n- **Warehouse** \u2014 `public.orders`\n- **tool_pass_computer_1795077670** \u2014 `public.cert_numbers`"
+  },
+  "data.describe_table": {
+    "asked": "What columns does the cert_numbers table in the database have?",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 58.3,
+    "tools": [
+      "data.describe_table:failed",
+      "data.describe_table:failed",
+      "data.describe_table:succeeded"
+    ],
+    "conversation": "01a1f2f3-759e-725e-906c-110c5f94dc3c",
+    "answer": "The `cert_numbers` table (on the `tool_pass_computer_1795077374` connection) has three columns:\n\n- `id` \u2014 integer\n- `label` \u2014 text\n- `n` \u2014 integer\n\nNote: it's not allowlisted on the Warehouse connection, so I read it from the other configured connection.\n\nA tool call failed and was not recovered."
+  },
+  "data.query": {
+    "asked": "In the database, what is n for the row of cert_numbers labelled answer?",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 56.2,
+    "tools": [
+      "session.search:succeeded",
+      "session.search:succeeded",
+      "data.query:failed",
+      "data.list_tables:succeeded",
+      "data.describe_table:succeeded",
+      "data.query:succeeded"
+    ],
+    "conversation": "01a1f2f8-bb68-7260-bafe-cf9e8ea0e070",
+    "answer": "The row of `cert_numbers` labelled `answer` has **n = 42**.\n\n(Source: `public.cert_numbers` on the `tool_pass_computer_1795077670` connection, `SELECT n ... WHERE label = 'answer'`.)"
+  },
+  "documents.ocr": {
+    "asked": "Read the text in this scanned image.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 16.1,
+    "tools": [
+      "documents.ocr:succeeded"
+    ],
+    "conversation": "01a1f2f0-1262-71b5-a467-0e7c2ab3e7c2",
+    "answer": "The image reads:\n\n[p1-s0 p.1]\nM33B CANARY\n\n[p1-s1 p.1 CODE 4821]\nCODE 4821"
+  },
+  "image.ask": {
+    "asked": "What does this picture show?",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 18.1,
+    "tools": [
+      "image.ask:succeeded"
+    ],
+    "conversation": "01a1f2f0-5145-74b9-a51f-b1ceffaf7bc6",
+    "answer": "The picture is a plain white image with two lines of black text: \"M33B CANARY\" [p1-s0] and \"CODE 4821\" [p1-s1]."
+  },
+  "knowledge.get_document": {
+    "asked": "Open the whole information security policy in the knowledge library and give me its first sentence.",
+    "outcome": "not used",
+    "status": "completed",
+    "seconds": 22.1,
+    "tools": [
+      "documents.read:failed",
+      "documents.search:succeeded",
+      "knowledge.search:succeeded",
+      "documents.list:succeeded"
+    ],
+    "conversation": "01a1f2f0-97e7-7697-90a7-304a22b62997",
+    "answer": "First sentence of the Information security policy:\n\n\"This policy sets the minimum security controls for ACME information and systems.\" [p1-1]\n\nA tool call failed and was not recovered."
+  },
+  "research.search": {
+    "asked": "Research what example.com is for, and cite your sources.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 18.1,
+    "tools": [
+      "research.search:succeeded",
+      "research.fetch:succeeded"
+    ],
+    "conversation": "01a1f2f0-ee31-7525-a1a8-911db9b7e1ad",
+    "answer": "**example.com** is a reserved domain intended for use in documentation and examples.\n\nFrom the site itself [example.com]:\n\n> \"This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes.\"\n\nSo it exists specifically so that authors can reference a real, resolvable domain name in docs and code samples without needing the owner's permission. It is explicitly *not* a service, and shouldn't be relied on for testing or monitoring.\n\nA quick note: the search step returned only unrelated \"sample-transactions"
+  },
+  "research.fetch": {
+    "asked": "For a research note, read https://example.com and quote its first sentence.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 12.1,
+    "tools": [
+      "research.fetch:succeeded"
+    ],
+    "conversation": "01a1f2f1-34e4-7031-be91-c78c2a5bade5",
+    "answer": "Fetched https://example.com. The page's first sentence is:\n\n> \"This domain is for use in documentation examples without needing permission.\"\n\n(Title: Example Domain)"
+  },
+  "session.search": {
+    "asked": "Find me a tool that can turn a table into a chart.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 22.1,
+    "tools": [
+      "session.search:succeeded",
+      "session.search:succeeded"
+    ],
+    "conversation": "01a1f2f1-63f9-70c4-9592-8d8ea7faa30b",
+    "answer": "There's no dedicated \"table-to-chart\" tool in this environment, but here are your options:\n\n1. **Run code in the computer** \u2013 the `computer` tool (a shell/Python environment) can read a table (CSV, XLSX, etc.) and generate a chart with Python libraries like **matplotlib** or **plotly**, saving it as a PNG, SVG, or an interactive HTML file. This is the closest thing to a \"turn a table into a chart\" tool.\n\n2. **Create an XLSX** with `documents.create` \u2013 you can put the table data into a worksheet, which opens in Excel/Sheets where you can insert a native chart (though the chart itself isn't draw"
+  },
+  "skills.load": {
+    "asked": "Follow the tool pass skill.",
+    "outcome": "used and succeeded",
+    "status": "completed",
+    "seconds": 12.1,
+    "tools": [
+      "skills.load:succeeded"
+    ],
+    "conversation": "01a1f2f1-ba45-7466-9fbf-897cbe29ad63",
+    "answer": "The tool pass skill was loaded."
   }
 }

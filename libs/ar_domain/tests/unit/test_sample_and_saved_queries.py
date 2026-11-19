@@ -907,3 +907,23 @@ def test_a_date_function_on_a_text_column_is_told_to_cast() -> None:
     )
     assert asked["is_error"] is True
     assert "CAST(" in str(asked["text"])
+
+
+def test_a_database_tool_with_a_wrong_connection_name_lists_the_real_ones() -> None:
+    from types import SimpleNamespace
+
+    from ar_domain.tools.database import _no_connection
+
+    tenant = uuid.uuid4()
+    store = SimpleNamespace(
+        data_connections={
+            1: {"tenant_id": tenant, "name": "ledger"},
+            2: {"tenant_id": tenant, "name": "archive"},
+            3: {"tenant_id": uuid.uuid4(), "name": "someone-elses"},
+        }
+    )
+    said = _no_connection(store, {"_tenant_id": tenant, "connection": "platform"})
+    assert "archive, ledger" in said
+    assert "someone-elses" not in said
+    empty = _no_connection(SimpleNamespace(data_connections={}), {"_tenant_id": tenant})
+    assert "none is set up" in empty

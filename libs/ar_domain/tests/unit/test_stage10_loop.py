@@ -76,3 +76,15 @@ def test_context_keeps_the_full_tool_output() -> None:
     output_id = content.split("output_id=", 1)[1].split(" ", 1)[0]
     assert read_output({"checkpoint": {"context": retained}}, output_id) == full
     assert retain_output(retained, "short")
+
+
+def test_a_tool_that_failed_and_then_worked_has_recovered() -> None:
+    from ar_domain.loop.repair import still_failing
+
+    failed = {"qualified_name": "data.query", "status": "failed"}
+    worked = {"qualified_name": "data.query", "status": "succeeded"}
+    other = {"qualified_name": "general.chart", "status": "succeeded"}
+    assert still_failing([failed, other, worked]) is False
+    assert still_failing([worked, failed]) is True
+    assert still_failing([failed, other]) is True
+    assert still_failing([{"qualified_name": "general.fetch", "status": "denied"}]) is True

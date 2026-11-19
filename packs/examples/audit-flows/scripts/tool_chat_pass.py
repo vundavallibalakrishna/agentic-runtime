@@ -113,6 +113,74 @@ ASKS: list[tuple[str, str, list[Path]]] = [
     ("conversations.search_history", "Search my earlier conversations for the word policy.", []),
 ]
 
+SITE = "https://example.com"
+# Asked of an agent that has a computer with a browser, a database connection and a skill.
+COMPUTER_ASKS: list[tuple[str, str, list[Path]]] = [
+    ("browser.navigate", f"Open {SITE} in the browser.", []),
+    ("browser.snapshot", f"Open {SITE} in the browser and read me what the page says.", []),
+    ("browser.click", f"Open {SITE} in the browser and click the link on the page.", []),
+    ("browser.press", f"Open {SITE} in the browser and press the End key.", []),
+    ("browser.scroll", f"Open {SITE} in the browser and scroll down the page.", []),
+    ("browser.screenshot", f"Open {SITE} in the browser and take a screenshot.", []),
+    ("browser.save_pdf", f"Open {SITE} in the browser and save the page as a PDF.", []),
+    ("browser.tabs", f"Open {SITE} in the browser and tell me which tabs are open.", []),
+    ("browser.new_tab", f"Open {SITE} in the browser, then open it again in a second tab.", []),
+    (
+        "browser.switch_tab",
+        f"Open {SITE} in the browser, open a second tab, then go back to the first tab.",
+        [],
+    ),
+    ("browser.close_tab", f"Open {SITE} in the browser, open a second tab, then close it.", []),
+    ("sandbox.exec", "On the computer, run uname -a and show me the output.", []),
+    ("sandbox.write_file", "On the computer, make a file notes.txt that says hello.", []),
+    (
+        "sandbox.read_file",
+        "On the computer, make a file notes.txt that says hello, then read it back to me.",
+        [],
+    ),
+    ("sandbox.list_files", "Which files are on the computer?", []),
+    (
+        "sandbox.export_file",
+        "On the computer, make a file report.txt that says done, then give it to me to download.",
+        [],
+    ),
+    ("files.read", "Read the file I uploaded and tell me the auditor's name.", [NOTES]),
+    (
+        "files.attach_to_sandbox",
+        "Put the file I uploaded onto the computer so a program there can read it.",
+        [ROWS],
+    ),
+    ("data.list_schemas", "Which schemas does the database have?", []),
+    ("data.list_tables", "Which tables are in the database?", []),
+    ("data.describe_table", "What columns does the cert_numbers table in the database have?", []),
+    ("data.query", "In the database, what is n for the row of cert_numbers labelled answer?", []),
+    ("documents.ocr", "Read the text in this scanned image.", [tc.OCR_IMAGE]),
+    ("image.ask", "What does this picture show?", [tc.OCR_IMAGE]),
+    (
+        "knowledge.get_document",
+        "Open the whole information security policy in the knowledge library and give me its "
+        "first sentence.",
+        [],
+    ),
+    ("research.search", "Research what example.com is for, and cite your sources.", []),
+    ("research.fetch", f"For a research note, read {SITE} and quote its first sentence.", []),
+    ("session.search", "Find me a tool that can turn a table into a chart.", []),
+    ("skills.load", "Follow the tool pass skill.", []),
+]
+
+COMPUTER_SERVERS = (
+    "browser",
+    "sandbox",
+    "files",
+    "data",
+    "documents",
+    "image",
+    "knowledge",
+    "research",
+    "session",
+    "skills",
+)
+
 SERVERS = (
     "documents",
     "general",
@@ -162,6 +230,62 @@ def make_agent(stack: tc.Stack) -> str:
     return agent_id
 
 
+def make_computer_agent(stack: tc.Stack) -> str:
+    """An agent with a computer that has a browser, a database connection and a skill."""
+    slug = f"tool-pass-computer-{int(time.time())}"
+    dsn = os.environ.get("AR_CERT_DATA_DSN", "").strip()
+    if dsn:
+        stack.post(
+            "/api/v1/data-connections", name=slug.replace("-", "_"), engine="postgres", dsn=dsn
+        )
+    _s, skill = stack.post(
+        "/api/v1/skills",
+        slug=f"{slug}-skill",
+        name="Tool pass skill",
+        description="What to do when asked to follow the tool pass skill.",
+        instructionsMd="Say the words: the tool pass skill was loaded.",
+    )
+    skills: list[str] = []
+    if isinstance(skill, dict) and skill.get("id"):
+        stack.post(f"/api/v1/skills/{skill['id']}:publish", changeNote="tool chat pass")
+        skills = [f"{slug}-skill"]
+    stack.post("/api/v1/knowledge/collections", slug=slug, name="Tool pass computer library")
+    listed = stack.get("/api/v1/knowledge/collections", limit=200)
+    rows = listed.get("items") if isinstance(listed, dict) else []
+    collection = next(str(row["id"]) for row in rows if row.get("slug") == slug)
+    stack.post(
+        f"/api/v1/knowledge/collections/{collection}/members",
+        kind="text",
+        title="Information security policy",
+        text=POLICY_2.read_text(),
+    )
+    _s, agent = stack.post("/api/v1/agents", slug=slug, name="Tool pass computer", template="blank")
+    agent_id = str(agent.get("id") or "") if isinstance(agent, dict) else ""
+    if not agent_id:
+        raise SystemExit(f"the computer agent was not created: {agent}")
+    stack.remember("agent", agent_id)
+    offered = {name.split(".", 1)[0] for name in stack.tools}
+    stack.put(
+        f"/api/v1/agents/{agent_id}/versions/draft",
+        definition={
+            "instructions": "Do what is asked with the tools you have, and say what you did.",
+            "tools": [
+                {"server": server, "include": ["*"]}
+                for server in COMPUTER_SERVERS
+                if server in offered
+            ],
+            "sandbox": {"enabled": True, "template": "browser"},
+            "knowledge": {"collections": [slug]},
+            "skills": skills,
+        },
+        changeNote="tool chat pass",
+    )
+    status, body = stack.post(f"/api/v1/agents/{agent_id}:publish", changeNote="tool chat pass")
+    if status >= 300:
+        raise SystemExit(f"the computer agent was not published: {body}")
+    return agent_id
+
+
 def main() -> None:
     stack = tc.Stack(
         os.environ.get("AR_API_URL", "http://127.0.0.1:18010"),
@@ -169,9 +293,27 @@ def main() -> None:
         os.environ.get("AR_ADMIN_PASSWORD", ""),
     )
     wanted = set(sys.argv[1:])
-    chat = tc.Chat(stack, make_agent(stack))
-    kept: dict[str, object] = {}
-    for tool, text, paths in ASKS:
+    kept: dict[str, object] = orjson.loads(OUT.read_bytes()) if OUT.exists() else {}
+    which = os.environ.get("AR_TOOL_CHAT_GROUP", "all")
+    groups = []
+    if which in {"all", "main"}:
+        groups.append((make_agent, ASKS))
+    if which in {"all", "computer"}:
+        groups.append((make_computer_agent, COMPUTER_ASKS))
+    for make, asks in groups:
+        chat = tc.Chat(stack, make(stack))
+        _ask_all(stack, chat, asks, wanted, kept)
+    stack.put_away()
+
+
+def _ask_all(
+    stack: tc.Stack,
+    chat: tc.Chat,
+    asks: list[tuple[str, str, list[Path]]],
+    wanted: set[str],
+    kept: dict[str, object],
+) -> None:
+    for tool, text, paths in asks:
         if wanted and tool not in wanted:
             continue
         if tool not in stack.tools:
@@ -182,7 +324,7 @@ def main() -> None:
             chat.attach(
                 path.name,
                 path.read_bytes(),
-                "text/csv" if path.suffix == ".csv" else "text/markdown",
+                {".csv": "text/csv", ".png": "image/png"}.get(path.suffix, "text/markdown"),
             )
             for path in paths
         ]
@@ -210,7 +352,6 @@ def main() -> None:
         }
         print(f"{tool}: {outcome} ({kept[tool]['seconds']}s)", flush=True)  # type: ignore[index]
         OUT.write_bytes(orjson.dumps(kept, option=orjson.OPT_INDENT_2))
-    stack.put_away()
 
 
 if __name__ == "__main__":
