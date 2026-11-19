@@ -27,6 +27,45 @@ stateDiagram-v2
   terminating --> terminated
 ```
 
+### 2.1 What moves a computer through its life (as built, `docker` driver)
+
+Nothing has to ask. One sweep (`ar_domain.sandboxes.lifecycle.sweep`) runs every `AR_SANDBOX_REAP_INTERVAL_S` seconds (default 60) and does three things: it suspends a `ready` computer idle for longer than its template's `idle_suspend_s` (default 900), it terminates a `ready` or `suspended` computer older than its template's `max_lifetime_s` (default 86400), and it removes containers and host folders that no computer owns (§2.3). A computer past its lifetime is terminated, not suspended first. Repeating a sweep is safe.
+
+| Install | What starts the sweep | Where it runs |
+|---|---|---|
+| With a sandbox manager | The Temporal schedule `sandbox-reaper`, created by every `system-worker` as it starts (`ar_system.sandbox_schedule`; a second worker updates the same schedule; a sweep still running is not started twice). Its workflow `SandboxReaperWorkflow` runs the activity `reap_sandboxes`, which calls `POST /internal/v1/sandboxes:reap`. | In `sandbox-manager`, which holds the containers. Any number of manager replicas may answer: the due computers are read with one query, and each is handled under its scope lock (§3) with the tenant loaded after the lock is taken. |
+| A process that starts containers itself (`dev`, `ci`, the browser-test server) | A timer in that process (`SandboxKeeper`), started with the process and cancelled when it stops. | In that process. A tool call and the sweep take the same per-scope lock, and the sweep reads the row again under it. |
+
+**Suspend** (`docker` driver): the working folder is packed inside the container, read out through the agent's `sandbox.exec` and `sandbox.read_file`, and stored as one file in the object store (`files.kind='sandbox_snapshot'`, `sandboxes.snapshot_file_id`); the row is saved as `suspended`, with no `endpoint_url`, and only then is the container stopped and removed, so a process that dies half way leaves a suspended computer with a stray container (which the sweep removes) and never a running computer whose folder is gone. Audit `sandbox.suspended`. A suspended computer does not count toward `max_concurrent_sandboxes` or `AR_SANDBOX_MAX_PER_TENANT`. When the folder cannot be packed, or its compressed size is over `AR_SANDBOX_SNAPSHOT_MAX_MB` (default 256), the computer is not suspended: it keeps running, is tried again after another idle period, and ends at its lifetime.
+
+**Resume**: the next `ensure` for the scope checks the cap, starts a new container with the same name and token, writes the snapshot back through the agent and unpacks it, and only then returns the computer. Audit `sandbox.resumed`. When the container does not start or the snapshot does not unpack, the new container is removed, the computer stays `suspended` with its snapshot, and the tool call fails with `sandbox_unavailable`; nothing runs on an empty folder.
+
+**What survives a suspend**: everything under `/workspace`: files, folders (empty ones too), symbolic links, permissions and modification times. **What does not**: anything outside `/workspace` (`/home/sandbox`, `/tmp`, packages installed outside the working folder), running processes, the browser's open pages and its signed-in state, and environment set by earlier commands. The agent's `/admin/snapshot` and `/admin/restore` are not used: in the image as built they report a size and do nothing ([OQ-150](../open-questions.md)).
+
+**Terminate** stops and removes the container, marks the snapshot file deleted, and removes the computer's folder on the host. A conversation that is deleted terminates its `conversation`-scope computer through the same path, with the same audit row; an `agent` or `agent_user` computer belongs to other conversations too and is left. Conversations are never set to `archived` by the product today, so there is no archive path to hook.
+
+### 2.2 Shutdown
+
+A process that starts containers itself and keeps its rows in memory ends every computer it started when it stops (the API's lifespan, and the workers' run loop), through the ordinary terminate path, and then removes any container that still carries its own owner label. A clean restart leaves no container behind. `sandbox-manager` does not do this: its rows are in Postgres and its computers outlive a restart.
+
+### 2.3 Labels and orphans
+
+Every container the `docker` driver starts carries five labels:
+
+| Label | Value |
+|---|---|
+| `io.agentic-runtime.sandbox` | `true` |
+| `io.agentic-runtime.install-id` | The install: `AR_INSTALL_ID`, or when unset the first 16 hex digits of the SHA-256 of the database address (`host:port/name`, no credentials) |
+| `io.agentic-runtime.sandbox-id` | `sandboxes.id` |
+| `io.agentic-runtime.tenant-id` | `sandboxes.tenant_id` |
+| `io.agentic-runtime.owner` | `host:pid` of the process that started it |
+
+The sweep asks the daemon only for containers with the product label **and** this install's id, and checks both again on what comes back. A container of another install, and a container with no label, is never listed and never removed. Of those listed, one is an orphan when it is older than `AR_SANDBOX_ORPHAN_GRACE_S` (default 120; its row may not be saved yet) and its computer has no row, or the row is `terminated`, `failed` or `suspended`. Where rows are kept in the process and not in Postgres, a container with no row may belong to another running process of the same install, so it is removed only when this process started it or the process that did is gone from this host. Orphans are stopped and removed, and logged as `sandbox_orphan_removed`.
+
+A computer's folder on the host (`$TMPDIR/ar-sandboxes/{sandbox_id}`) holds a file `.ar-owner` with the install id and the owner. A folder with this install's id whose computer has no row, or is `terminated` or `failed`, is removed by the same rule. A folder with no such file is left alone.
+
+Containers named `ar-sbx-*` with no label were started by a release before the labels. They are not removed automatically, because nothing says which install they belong to. The sweep logs them once per process as `sandbox_unlabelled_containers`; [rb-08](../07-ops/runbooks.md#rb-08-sandbox-capacity) has the one-off clean-up.
+
 `scope_key`: `conv:{conversation_id}` | `au:{agent_id}:{user_id}` | `agent:{agent_id}`. One live sandbox per (`tenant_id`, `scope_key`) (unique partial index). `agent` scope sandboxes are shared by all users of the agent and therefore restricted to templates with `max_classification ≤ internal` and are not allowed for agents bound to `R1+` user-data tools (publish-time validation).
 
 ## 3. Internal API (`sandbox-manager`)
@@ -38,7 +77,7 @@ As listed in [internal-apis §4](../05-contracts/internal-apis.md#4-sandbox-mana
 | GET | `/internal/v1/egress/check?sandbox_id=&host=&token=` | `squid` external ACL helper | `200 OK` if the host is allowed for that sandbox, else `403`; cached by Squid 60 s |
 | POST | `/internal/v1/sandboxes/{sandbox_id}/files:export` | `mcp-gateway`, `api` | `{path, name?, run_id?, conversation_id?}` → reads the workspace file, stores it in S3 as `files(kind='artifact')`, returns `{file_id}` |
 
-`ensure` semantics: lock `ar:sbx:lock:{tenant}:{scope_key}` (Valkey, 60 s); find live row; `ready` → touch and return; `suspended` → resume; none → create from warm pool or cold. Blocks ≤ 30 s (`AR_SANDBOX_ENSURE_TIMEOUT_S`); returns `{sandbox_id, status, endpoint_url, token}` where `token` is a per-sandbox bearer (32 random bytes, only its sha256 stored) delivered to the sandbox at claim time and returned to the caller on every `ensure`. The manager keeps the token sealed as the named secret `sandbox-agent:{sandbox_id}` (encrypted with the install's connection key, in Postgres), so any replica can return it; the `sandboxes` row holds only the hash, the address (`endpoint_url`) and the container or pod name (`driver_ref`). A caller holds the token for one request and does not store it. A live row whose agent no longer answers gets a new container on the next `ensure`; files that were only in the lost container are gone.
+`ensure` semantics: lock `ar:sbx:lock:{tenant}:{scope_key}` (Valkey; it expires after `AR_SANDBOX_LOCK_TTL_S`, default 300, should its holder die; taken before the tenant is loaded, and by the sweep as well, so a replica always reads what the last holder saved; a caller that cannot get it within `AR_SANDBOX_ENSURE_TIMEOUT_S` is refused as busy); find live row; `ready` → touch and return; `suspended` → resume; none → create from warm pool or cold. Blocks ≤ 30 s (`AR_SANDBOX_ENSURE_TIMEOUT_S`); returns `{sandbox_id, status, endpoint_url, token}` where `token` is a per-sandbox bearer (32 random bytes, only its sha256 stored) delivered to the sandbox at claim time and returned to the caller on every `ensure`. The manager keeps the token sealed as the named secret `sandbox-agent:{sandbox_id}` (encrypted with the install's connection key, in Postgres), so any replica can return it; the `sandboxes` row holds only the hash, the address (`endpoint_url`) and the container or pod name (`driver_ref`). A caller holds the token for one request and does not store it. A live row whose agent no longer answers gets a new container on the next `ensure`; files that were only in the lost container are gone.
 
 Only the sandbox manager starts and stops containers and pods outside `dev` and `ci`. Every other process is told where computers come from when its store is built (`ar_domain.sandboxes.manager_launch.register_sandbox_client`): it asks the manager to `ensure`, and to `release` the container when it ends a computer. The manager's routes load one tenant per request and save what the request changed.
 
@@ -53,7 +92,7 @@ Only the sandbox manager starts and stops containers and pods outside `dev` and 
 - Falco rules (deployed via Helm) alert on shell spawns of unexpected binaries in sandbox namespaces only as defence in depth.
 
 ### 4.2 `docker` (local dev, CI)
-`aiodocker`; one container per sandbox on network `ar-sandbox-net` (internal, no internet) with Squid attached to both networks; runtime `runc` (`runtime_class='runc_dev'`) unless `runsc` is installed (`AR_SANDBOX_DOCKER_RUNTIME=runsc`). Snapshots identical (via the agent). An unisolated driver (docker, or the host) is refused at startup unless `AR_SANDBOX_ALLOW_UNISOLATED` is set; it is a setting of the install, not a consequence of `AR_ENV`. Outside `dev` and `ci`, host bash does not run: an empty `endpoint_url` returns `sandbox_unavailable`, and Helm production accepts only the kubernetes driver. The manager starts the container from `AR_SANDBOX_IMAGE`; with no image named, `ensure` fails and names that setting. As built, the container joins `AR_SANDBOX_DOCKER_NETWORK` when one is set and otherwise publishes its agent port on loopback with open network access: the internal network with Squid described above is not wired for this driver ([OQ-132](../open-questions.md)).
+`aiodocker`; one container per sandbox on network `ar-sandbox-net` (internal, no internet) with Squid attached to both networks; runtime `runc` (`runtime_class='runc_dev'`) unless `runsc` is installed (`AR_SANDBOX_DOCKER_RUNTIME=runsc`). Suspend, resume, labels and the orphan sweep are as §2.1 to §2.3 describe; the working folder is a tmpfs in the container, so the snapshot is read out through the agent's tools and not with `docker cp`. An unisolated driver (docker, or the host) is refused at startup unless `AR_SANDBOX_ALLOW_UNISOLATED` is set; it is a setting of the install, not a consequence of `AR_ENV`. Outside `dev` and `ci`, host bash does not run: an empty `endpoint_url` returns `sandbox_unavailable`, and Helm production accepts only the kubernetes driver. The manager starts the container from `AR_SANDBOX_IMAGE`; with no image named, `ensure` fails and names that setting. As built, the container joins `AR_SANDBOX_DOCKER_NETWORK` when one is set and otherwise publishes its agent port on loopback with open network access: the internal network with Squid described above is not wired for this driver ([OQ-132](../open-questions.md)).
 
 ### 4.3 `general.code` and `general.shell`
 The general tools keep one working folder per run. A process that has a place to start computers runs these two tools in the conversation's computer: the folder is copied in through the agent, the script runs in the agent's working folder, and the files it wrote are copied back, so the other general tools find them as before (`ar_domain.sandboxes.folder_run`). A dev host with no computers runs them in the host's own isolation. Anywhere else they return `sandbox_unavailable`.

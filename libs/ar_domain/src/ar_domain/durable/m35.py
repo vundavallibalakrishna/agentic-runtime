@@ -19,10 +19,32 @@ _JOB_STATUS = {"running", "completed", "interrupted", "failed"}
 
 async def save_durability(session: AsyncSession, pending: dict[str, list[dict[str, Any]]]) -> None:
     await _files(session, pending.get("files", []))
+    await _snapshots(session, pending.get("sandboxes", []))
     await _workspace(session, pending.get("workspace_files", []))
     await _jobs(session, pending.get("job_progress", []))
     await _push(session, pending.get("a2a_push_configs", []))
     await _tool_vectors(session, pending.get("tool_search_vectors", []))
+
+
+async def _snapshots(session: AsyncSession, rows: list[dict[str, Any]]) -> None:
+    """Point each suspended computer at its snapshot file.
+
+    The computer's row is saved before the file's, so the link is written here, once the
+    file exists. A row that names no snapshot leaves the stored link as it is.
+    """
+    sql = """
+        UPDATE sandboxes SET snapshot_file_id = :file_id
+        WHERE id = :id AND tenant_id = :tenant_id
+          AND EXISTS (SELECT 1 FROM files WHERE files.id = :file_id)
+    """
+    for row in rows:
+        params = {
+            "id": as_uuid(row.get("id")),
+            "tenant_id": as_uuid(row.get("tenant_id")),
+            "file_id": as_uuid(row.get("snapshot_file_id")),
+        }
+        if None not in params.values():
+            await session.execute(text(sql), params)
 
 
 async def _tool_vectors(session: AsyncSession, rows: list[dict[str, Any]]) -> None:

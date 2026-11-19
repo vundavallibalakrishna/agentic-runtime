@@ -1,7 +1,8 @@
-"""Suspend idle computers and destroy those past their lifetime.
+"""Suspend idle computers, destroy those past their lifetime, remove orphaned containers.
 
-The workflow is one activity. Repeating it is safe: a suspended computer stays
-suspended and a terminated computer stays terminated.
+The workflow is one activity, started by the schedule in ``ar_system.sandbox_schedule``.
+Repeating it is safe: a suspended computer stays suspended, a terminated computer stays
+terminated, and a container already removed is not an error.
 """
 
 from __future__ import annotations
@@ -25,22 +26,16 @@ def bind_store(store: Any) -> None:
 
 @activity.defn(name="reap_sandboxes")
 async def reap_sandboxes() -> dict[str, int]:
-    """Idle suspend, max-lifetime destroy, and a no-op when nothing is due."""
-    if _STORE is None:
-        return {"suspended": 0, "terminated": 0}
-    from ar_domain.readmodel.model import RepositoryReadModel  # noqa: PLC0415
-    from ar_domain.sandboxes.runtime import reap  # noqa: PLC0415
+    """One sweep: suspend the idle, end the expired, remove containers nobody owns.
 
-    if not isinstance(_STORE, RepositoryReadModel):
-        return reap(_STORE)
-    suspended = 0
-    terminated = 0
-    for tenant_id in await _STORE.tenant_ids():
-        async with _STORE.open(tenant_id) as unit:
-            part = reap(unit)
-        suspended += int(part.get("suspended", 0))
-        terminated += int(part.get("terminated", 0))
-    return {"suspended": suspended, "terminated": terminated}
+    Where the install has a sandbox manager the sweep is asked of it, because the
+    containers are there. A no-op when nothing is due.
+    """
+    if _STORE is None:
+        return {"suspended": 0, "terminated": 0, "removed": 0}
+    from ar_domain.sandboxes.lifecycle import sweep  # noqa: PLC0415
+
+    return await sweep(_STORE)
 
 
 @workflow.defn
@@ -51,11 +46,7 @@ class SandboxReaperWorkflow:
     async def run(self) -> dict[str, int]:
         result = await workflow.execute_activity(
             reap_sandboxes,
-            start_to_close_timeout=timedelta(seconds=60),
+            start_to_close_timeout=timedelta(seconds=300),
         )
-        if isinstance(result, dict):
-            return {
-                "suspended": int(result.get("suspended", 0)),
-                "terminated": int(result.get("terminated", 0)),
-            }
-        return {"suspended": 0, "terminated": 0}
+        counts = result if isinstance(result, dict) else {}
+        return {key: int(counts.get(key, 0)) for key in ("suspended", "terminated", "removed")}

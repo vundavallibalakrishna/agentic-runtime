@@ -236,7 +236,7 @@ def test_browser_attach_export_and_reap() -> None:
     other.seed_chart(demo_id("tenant"), demo_id("admin"))
 
 
-def test_manager_routes_and_docker_probe() -> None:
+def test_manager_routes_and_docker_probe(monkeypatch: pytest.MonkeyPatch) -> None:
     from ar_sandbox_manager.drivers.docker import docker_available
     from ar_sandbox_manager.main import create_application
     from ar_sandbox_manager.warm_pool import claim
@@ -264,7 +264,9 @@ def test_manager_routes_and_docker_probe() -> None:
     assert "AR_SANDBOX_IMAGE" in refused.text
 
     class _Started:
-        def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+        def start(
+            self, name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+        ) -> dict[str, object]:
             del sandbox_id
             return {"container_id": name, "endpoint_url": "http://127.0.0.1:1", "token": token}
 
@@ -321,7 +323,13 @@ def test_manager_routes_and_docker_probe() -> None:
         params={"sandbox_id": sandbox_id, "host": "169.254.169.254", "token": token},
     )
     assert private.status_code == 403
+    # Nothing answers at the stand-in container's address, so its folder cannot be copied
+    # out: the computer is not suspended and keeps running.
+    assert client.post(f"/internal/v1/sandboxes/{sandbox_id}:suspend").status_code == 409
+    assert store.sandboxes[uuid.UUID(sandbox_id)]["status"] == "ready"
+    monkeypatch.setattr("ar_domain.sandboxes.snapshot.take", lambda _box, max_bytes: b"folder")
     assert client.post(f"/internal/v1/sandboxes/{sandbox_id}:suspend").status_code == 200
+    assert store.sandboxes[uuid.UUID(sandbox_id)]["status"] == "suspended"
     assert client.post("/internal/v1/sandboxes:reap").status_code == 200
     assert client.post(f"/internal/v1/sandboxes/{sandbox_id}:terminate").status_code == 200
     gone = client.post(f"/internal/v1/sandboxes/{uuid.uuid4()}:terminate")

@@ -11,13 +11,16 @@ import binascii
 import contextlib
 import hashlib
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import tarfile
 import tempfile
 import threading
+import time
 import uuid
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
@@ -25,12 +28,15 @@ from typing import TYPE_CHECKING, cast
 import httpx
 
 from ar_common.egress_http import sync_client
+from ar_common.errors import ArError
 from ar_common.internal_http import internal_post
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from typing import Any
 
 from ar_common.ids import new_id
+from ar_common.logging import get_logger
 from ar_common.offload import blocking
 from ar_common.sandboxkit import (
     DEFAULT_DENY_CIDRS,
@@ -46,12 +52,20 @@ from ar_common.sandboxkit import (
     truncate_output,
     virtual_path,
 )
-from ar_common.settings import host_exec_allowed, loopback_allowed, wildcard_egress_allowed
+from ar_common.settings import (
+    get_settings,
+    host_exec_allowed,
+    install_id,
+    loopback_allowed,
+    wildcard_egress_allowed,
+)
 from ar_common.time import utcnow
 from ar_domain.audit.memory import remember
+from ar_domain.durable.after import after_commit
 from ar_domain.durable.tracking import keep
 from ar_domain.files.logic import object_key
 from ar_domain.rows import as_int
+from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher, process_owner
 from ar_domain.usage.logic import UsageRecord
 from ar_domain.usage.service import note
 
@@ -105,8 +119,19 @@ png += chunk(b"IDAT", zlib.compress(raw, 9)) + chunk(b"IEND", b"")
 print("wrote revenue-by-month.png")
 """
 
+_log = get_logger(__name__)
+
 _ROOT = Path(tempfile.gettempdir()).resolve() / "ar-sandboxes"
 _LIVE = frozenset({"pending", "starting", "ready", "suspending", "suspended", "resuming"})
+# A suspended computer holds no compute, so it does not count toward the tenant's cap.
+_RUNNING = _LIVE - {"suspended"}
+# The file in a computer's host folder that says which install and process made it.
+FOLDER_MARK = ".ar-owner"
+
+
+def host_root() -> Path:
+    """The folder on this host that holds one folder per computer."""
+    return _ROOT
 
 
 def workspace_root(sandbox_id: uuid.UUID) -> Path:
@@ -232,7 +257,9 @@ def _launch(store: Any, row: dict[str, object], token: str) -> None:
     sandbox_id = cast("uuid.UUID", row["id"])
     name = f"ar-sbx-{sandbox_id.hex[:12]}"
     try:
-        info = launcher.start(name, token, sandbox_id=str(sandbox_id))
+        info = launcher.start(
+            name, token, sandbox_id=str(sandbox_id), tenant_id=str(row.get("tenant_id") or "")
+        )
     except Exception as exc:  # any start failure fails the sandbox cleanly
         row["status"] = "failed"
         row["error"] = str(exc)
@@ -250,8 +277,6 @@ def _stop_container(store: Any, row: dict[str, object]) -> None:
 
     A process that does not start computers asks the sandbox manager to do it.
     """
-    from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher  # noqa: PLC0415
-
     launcher = getattr(store, "sandbox_launcher", None)
     if isinstance(launcher, SandboxManagerLauncher):
         with contextlib.suppress(Exception):  # an unreachable manager must not block teardown
@@ -406,8 +431,6 @@ def ensure_scope(
 ) -> dict[str, object]:
     """Create or resume the one live computer for a scope."""
     launcher = getattr(store, "sandbox_launcher", None)
-    from ar_domain.sandboxes.manager_launch import SandboxManagerLauncher  # noqa: PLC0415
-
     if isinstance(launcher, SandboxManagerLauncher) or _delegate_to_manager(store):
         return _delegate_ensure(
             store,
@@ -419,12 +442,14 @@ def ensure_scope(
             agent_id=agent_id,
             user_id=user_id,
         )
-    lock = store.sandbox_locks.setdefault(f"{tenant_id}:{scope_key}", threading.Lock())
-    with lock:
+    with _held(store, tenant_id, scope_key):
         live = _live(store, tenant_id, scope_key)
         if live is not None and live["status"] == "suspended":
             return _resume(store, live)
-        if live is not None and live["status"] in {"ready", "starting", "pending", "resuming"}:
+        # The scope is held, so nobody is half way through a start, a suspend or a resume:
+        # a row still marked so was left by a process that died, and its container is
+        # checked like any other.
+        if live is not None and live["status"] in _RUNNING:
             _revive(store, live)
             live["last_active_at"] = utcnow()
             live["status"] = "ready"
@@ -480,6 +505,7 @@ def ensure_scope(
         (root / "workspace" / "inputs").mkdir(parents=True, exist_ok=True)
         (root / "workspace" / "outputs").mkdir(parents=True, exist_ok=True)
         (root / "tmp").mkdir(parents=True, exist_ok=True)
+        (root / FOLDER_MARK).write_text(f"{install_id()}\n{process_owner()}\n", encoding="utf-8")
         _launch(store, row, token)
         _meter_session(store, row)
         remember(
@@ -494,32 +520,158 @@ def ensure_scope(
         return row
 
 
+@contextlib.contextmanager
+def _held(store: Any, tenant_id: object, scope_key: object) -> Iterator[None]:
+    """Hold one scope while its computer is started, suspended, resumed or reaped.
+
+    The wait gives way to the event loop, so the call that holds the scope can finish.
+    A scope still held after ``AR_SANDBOX_ENSURE_TIMEOUT_S`` is reported as busy.
+    """
+    lock = store.sandbox_locks.setdefault(f"{tenant_id}:{scope_key}", threading.Lock())
+    deadline = time.monotonic() + get_settings().sandbox_ensure_timeout_s
+    while not lock.acquire(blocking=False):
+        if time.monotonic() >= deadline:
+            raise SandboxStartError("the computer is busy starting or pausing; try again")
+        blocking(time.sleep, 0.1)
+    try:
+        yield
+    finally:
+        lock.release()
+
+
 def suspend(store: Any, row: dict[str, object]) -> dict[str, object]:
-    """Snapshot the workspace and stop compute. A second call is a no-op."""
+    """Snapshot the working folder and stop compute. A second call is a no-op."""
+    with _held(store, row.get("tenant_id"), row.get("scope_key")):
+        return _suspend(store, row)
+
+
+def _suspend(store: Any, row: dict[str, object]) -> dict[str, object]:
+    """Suspend a computer whose scope the caller holds.
+
+    A container's working folder is copied out through its agent and kept as a file in
+    the object store; then the container is stopped and removed. A computer on the dev
+    host keeps its folder and only records the snapshot. When the folder cannot be
+    copied, ``SnapshotError`` is raised and the computer keeps running.
+    """
+    from ar_domain.sandboxes import snapshot  # noqa: PLC0415
+
     if row["status"] == "suspended":
         return row
     if row["status"] != "ready":
         raise ValueError(f"cannot suspend a sandbox that is {row['status']}")
+    launcher = getattr(store, "sandbox_launcher", None)
+    if isinstance(launcher, SandboxManagerLauncher):
+        # The process that started the container suspends it, and records that it did.
+        try:
+            status = launcher.suspend(row.get("id"))
+        except httpx.HTTPError as exc:
+            raise snapshot.SnapshotError("the sandbox manager did not answer") from exc
+        if status != "suspended":
+            raise snapshot.SnapshotError("the sandbox manager could not suspend the computer")
+        row["status"] = "suspended"
+        row["endpoint_url"] = None
+        row["updated_at"] = utcnow()
+        return row
     root = workspace_root(uuid.UUID(str(row["id"])))
-    blob = _tar(root / "workspace")
-    file_id = _store_blob(
-        store,
-        row,
-        name=f"{row['id']}.tar",
-        mime="application/zstd",
-        data=blob,
-        kind="sandbox_snapshot",
-    )
-    row["snapshot_file_id"] = file_id
-    row["manifest"] = _manifest(root)
+    row["status"] = "suspending"
+    try:
+        if row.get("endpoint_url"):
+            limit = get_settings().sandbox_snapshot_max_mb * 1024 * 1024
+            blob, mime, manifest = snapshot.take(row, max_bytes=limit), snapshot.MIME, []
+        else:
+            blob, mime, manifest = _tar(root / "workspace"), "application/x-tar", _manifest(root)
+        saved = _store_blob(
+            store, row, name=f"{row['id']}.tar", mime=mime, data=blob, kind="sandbox_snapshot"
+        )
+    except snapshot.SnapshotError:
+        row["status"] = "ready"
+        raise
+    except ArError as exc:
+        # The object store refused the snapshot. Without it the container must stay.
+        row["status"] = "ready"
+        raise snapshot.SnapshotError("the snapshot could not be stored") from exc
+    earlier = row.get("snapshot_file_id")
+    row["snapshot_file_id"] = saved
+    _drop_snapshot(store, earlier)
+    row["manifest"] = manifest
     row["status"] = "suspended"
     row["updated_at"] = utcnow()
+    # The container goes only once the snapshot and the new status are saved. A process
+    # that dies in between leaves a suspended computer with a container, which the sweep
+    # removes; it never leaves a running computer whose folder is gone.
+    after_commit(store, lambda: _stop_container(store, row))
+    remember(
+        store,
+        tenant_id=row.get("tenant_id"),
+        actor_id=row.get("user_id"),
+        action="sandbox.suspended",
+        target_type="sandbox",
+        target_id=row.get("id"),
+        detail={"scope_key": row.get("scope_key"), "snapshot_bytes": len(blob)},
+    )
     return row
+
+
+def _drop_snapshot(store: Any, file_id: object) -> None:
+    """Mark a snapshot nobody will restore as deleted. The retention sweep removes its bytes."""
+    found = store.files.get(file_id) if isinstance(file_id, uuid.UUID) else None
+    if isinstance(found, dict) and found.get("kind") == "sandbox_snapshot":
+        found["status"] = "deleted"
+        found["deleted_at"] = utcnow()
+        store.blobs.pop(file_id, None)
 
 
 def resume_row(store: Any, row: dict[str, object]) -> dict[str, object]:
     """Restore a suspended workspace. Repeating a ready row only touches it."""
-    return _resume(store, row)
+    with _held(store, row.get("tenant_id"), row.get("scope_key")):
+        return _resume(store, row)
+
+
+def reap_due(store: Any, row: dict[str, object], moment: Any) -> str:
+    """What the sweep owes one computer now: ``terminate``, ``suspend`` or nothing.
+
+    The timings are the template's ``max_lifetime_s`` and ``idle_suspend_s``.
+    """
+    template = _by_id(store, row.get("template_id"))
+    idle = as_int(template.get("idle_suspend_s") if template else None, 900)
+    life = as_int(template.get("max_lifetime_s") if template else None, 86400)
+    last = row.get("last_active_at")
+    started = row.get("started_at")
+    status = row.get("status")
+    stamp = moment.timestamp()
+    may_age = status in {"ready", "suspended"}
+    if may_age and isinstance(started, datetime) and stamp - started.timestamp() > life:
+        return "terminate"
+    if status == "ready" and isinstance(last, datetime) and stamp - last.timestamp() > idle:
+        return "suspend"
+    return ""
+
+
+def reap_one(store: Any, row: dict[str, object], *, now: object | None = None) -> str:
+    """Suspend or end one computer if it is due, and say which was done.
+
+    The scope is held and the row is read again under it, so two sweeps at once, or a
+    sweep and a tool call, never both act on the same computer. A computer whose folder
+    cannot be copied out stays running and is tried again after another idle period.
+    """
+    from ar_domain.sandboxes.snapshot import SnapshotError  # noqa: PLC0415
+
+    moment = now if hasattr(now, "timestamp") else utcnow()
+    try:
+        with _held(store, row.get("tenant_id"), row.get("scope_key")):
+            due = reap_due(store, row, moment)
+            if due == "terminate":
+                _terminate(store, row, actor=row.get("user_id"))
+            elif due == "suspend":
+                _suspend(store, row)
+            return due
+    except SandboxStartError:
+        # Something else holds the scope: the computer is in use, so it is not due.
+        return ""
+    except SnapshotError as exc:
+        row["last_active_at"] = utcnow()
+        _log.warning("sandbox_suspend_failed", sandbox_id=str(row.get("id")), reason=str(exc))
+        return ""
 
 
 def reap(
@@ -529,26 +681,43 @@ def reap(
 
     ``tenant_id`` keeps the pass to one tenant's computers.
     """
-    moment = now if hasattr(now, "timestamp") else utcnow()
-    suspended = 0
-    terminated = 0
+    done = {"suspended": 0, "terminated": 0}
     for row in list(store.sandboxes.values()):
         if tenant_id is not None and row.get("tenant_id") != tenant_id:
             continue
-        template = _by_id(store, row.get("template_id"))
-        idle = as_int(template.get("idle_suspend_s") if template else None, 900)
-        life = as_int(template.get("max_lifetime_s") if template else None, 86400)
-        last = row.get("last_active_at")
-        started = row.get("started_at")
-        idle_ready = row.get("status") == "ready" and hasattr(last, "timestamp")
-        if idle_ready and moment.timestamp() - last.timestamp() > idle:
-            suspend(store, row)
-            suspended += 1
-        aged = row.get("status") in {"ready", "suspended"} and hasattr(started, "timestamp")
-        if aged and moment.timestamp() - started.timestamp() > life:
-            _terminate(store, row, actor=row.get("user_id"))
-            terminated += 1
-    return {"suspended": suspended, "terminated": terminated}
+        try:
+            action = reap_one(store, row, now=now)
+        except Exception as exc:  # noqa: BLE001 - one computer must not stop the sweep
+            _log.warning(
+                "sandbox_reap_failed", sandbox_id=str(row.get("id")), error=type(exc).__name__
+            )
+            continue
+        if action == "suspend":
+            done["suspended"] += 1
+        elif action == "terminate":
+            done["terminated"] += 1
+    return done
+
+
+def end_conversation_computers(
+    store: Any, tenant_id: object, conversation_id: object, *, actor: object
+) -> int:
+    """End every computer that exists only for one conversation. Returns how many.
+
+    A conversation that is deleted has no further use for its computer. A computer
+    shared by an agent or by an agent and a person belongs to other conversations too,
+    and is left alone.
+    """
+    ended = 0
+    for row in list(store.sandboxes.values()):
+        mine = row.get("tenant_id") == tenant_id and row.get("conversation_id") == conversation_id
+        if not mine or row.get("scope") != "conversation":
+            continue
+        if row.get("status") in {"terminated", "failed"}:
+            continue
+        _terminate(store, row, actor=actor)
+        ended += 1
+    return ended
 
 
 def list_workspace(
@@ -607,23 +776,82 @@ def read_workspace(row: dict[str, object], path: str) -> bytes:
 
 
 def _resume(store: Any, row: dict[str, object]) -> dict[str, object]:
+    """Bring a suspended computer back. The caller holds its scope."""
     if row["status"] == "ready":
         row["last_active_at"] = utcnow()
         return row
-    root = workspace_root(uuid.UUID(str(row["id"])))
-    snapshot = row.get("snapshot_file_id")
-    if isinstance(snapshot, uuid.UUID):
+    launcher = getattr(store, "sandbox_launcher", None)
+    elsewhere = isinstance(launcher, SandboxManagerLauncher)
+    if elsewhere:
+        # The sandbox manager resumes it, on the next tool call for its scope.
+        raise ValueError("the computer resumes when it is next used")
+    snapshot_id = row.get("snapshot_file_id")
+    blob: bytes | None = None
+    if isinstance(snapshot_id, uuid.UUID):
         from ar_domain.durability.store import read_blob  # noqa: PLC0415
 
-        blob = read_blob(store, snapshot) or b""
+        blob = read_blob(store, snapshot_id)
+    if launcher is not None and row.get("driver") == "docker":
+        _resume_container(store, row, blob, expected=isinstance(snapshot_id, uuid.UUID))
+    else:
+        root = workspace_root(uuid.UUID(str(row["id"])))
         if blob:
             _untar(root / "workspace", blob)
-    (root / "workspace").mkdir(parents=True, exist_ok=True)
-    (root / "tmp").mkdir(parents=True, exist_ok=True)
-    row["status"] = "ready"
+        (root / "workspace").mkdir(parents=True, exist_ok=True)
+        (root / "tmp").mkdir(parents=True, exist_ok=True)
+        row["status"] = "ready"
+    if row["status"] != "ready":
+        return row
     row["last_active_at"] = utcnow()
     row["updated_at"] = utcnow()
+    remember(
+        store,
+        tenant_id=row.get("tenant_id"),
+        actor_id=row.get("user_id"),
+        action="sandbox.resumed",
+        target_type="sandbox",
+        target_id=row.get("id"),
+        detail={"scope_key": row.get("scope_key")},
+    )
     return row
+
+
+def _resume_container(
+    store: Any, row: dict[str, object], blob: bytes | None, *, expected: bool
+) -> None:
+    """Start a new container for a suspended computer and put its working folder back.
+
+    The computer counts toward the tenant's cap again, so the cap is checked first. When
+    the container does not start, or the folder does not go back, the container is
+    removed and the computer stays suspended with its snapshot, so nothing runs on an
+    empty folder by mistake.
+    """
+    from ar_domain.sandboxes import snapshot  # noqa: PLC0415
+
+    tenant = row.get("tenant_id")
+    if isinstance(tenant, uuid.UUID):
+        _cap(store, tenant)
+    token = agent_token(store, row)
+    if not token:
+        raise SandboxStartError("the computer's token could not be read")
+    if expected and blob is None:
+        raise SandboxStartError("the computer's snapshot could not be read")
+    row["status"] = "resuming"
+    try:
+        _launch(store, row, token)
+        snapshot.put(row, blob or b"")
+    except (SandboxStartError, snapshot.SnapshotError) as exc:
+        _stop_container(store, row)
+        row["status"] = "suspended"
+        row["error"] = str(exc)
+        row["updated_at"] = utcnow()
+        raise SandboxStartError(f"the computer could not resume: {exc}") from exc
+    if row["status"] != "resuming":
+        # It was ended while it was coming back. The new container goes with it.
+        _stop_container(store, row)
+        return
+    row["status"] = "ready"
+    row["error"] = None
 
 
 def _agent_post(
@@ -1217,7 +1445,7 @@ def _cap(store: Any, tenant_id: uuid.UUID) -> None:
     live = [
         row
         for row in store.sandboxes.values()
-        if row.get("tenant_id") == tenant_id and row.get("status") in _LIVE
+        if row.get("tenant_id") == tenant_id and row.get("status") in _RUNNING
     ]
     from ar_common.errors import PlanLimitReachedError  # noqa: PLC0415
     from ar_domain.identity.plan_limits import guard  # noqa: PLC0415
@@ -1530,7 +1758,11 @@ def terminate_row(store: Any, row: dict[str, object], *, actor: object) -> None:
 
 
 def _terminate(store: Any, row: dict[str, object], *, actor: object) -> None:
+    """End a computer: its container, its snapshot and its folder on this host go with it."""
     _stop_container(store, row)
+    _drop_snapshot(store, row.get("snapshot_file_id"))
+    with contextlib.suppress(ValueError):
+        shutil.rmtree(workspace_root(uuid.UUID(str(row.get("id")))), ignore_errors=True)
     row["status"] = "terminated"
     row["terminated_at"] = utcnow()
     row["updated_at"] = utcnow()

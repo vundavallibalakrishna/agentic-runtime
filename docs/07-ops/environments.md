@@ -86,6 +86,7 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_INGEST_SYNC_CONCURRENCY` | `16` | Child workflows per sync | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_INJECTION_CLASSIFIER_TIMEOUT_MS` | `1000` | Timeout for the tool-result injection classifier (fail-open with flag) | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_INPUT_WAIT_TIMEOUT_S` | `1800` | Elicitation wait | [spec 07](../03-specs/07-agent-runtime.md) |
+| `AR_INSTALL_ID` | derived from the database address (`host:port/name`) | Names this install on a container host it may share. Sandbox containers carry it as a label, and the orphan sweep touches only containers with this id. Set it only when two installs could derive the same value | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_INTERNAL_JWT_JWKS` | `http://api:8000/internal/v1/.well-known/jwks.json` | JWKS URL or inline JSON for verifying internal JWTs | [internal-apis](../05-contracts/internal-apis.md) |
 | `AR_INTERNAL_JWT_PRIVATE_KEY` | (required) | Ed25519 PEM for signing internal service JWTs; mounted Secret | [authn-authz §8](../06-security/authn-authz.md) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates passed to the reranker | [spec 10](../03-specs/10-knowledge.md) |
@@ -145,12 +146,16 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_SANDBOX_DOCKER_RUNTIME` | `runc` | `runsc` if installed | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_DRIVER` | `kubernetes`; `docker` when `AR_SANDBOX_ALLOW_UNISOLATED` is on and none is named | `kubernetes`, or `docker` for one machine. The docker driver shares the host kernel and does not confine the network, so it needs `AR_SANDBOX_ALLOW_UNISOLATED` | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_IMAGE` | empty; the chart sets `sandboxes.image`, or `ar-sandbox` at `global.imageTag` | The one image every computer starts from, for the `kubernetes` and the `docker` driver. The sandbox manager reads it; a dev API or worker reads it when it starts containers itself. With no image, starting a computer fails and names this setting | [spec 12](../03-specs/12-sandbox-manager.md) |
-| `AR_SANDBOX_ENSURE_TIMEOUT_S` | `30` | Max time to obtain a ready sandbox | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_ENSURE_TIMEOUT_S` | `30` | How long a call waits for a computer's scope while another call or the sweep holds it; after that it is refused as busy | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_LOCK_TTL_S` | `300` | How long one process may hold a computer's scope while it starts, suspends or resumes it, before the lock expires on its own | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_MANAGER_URL` | `http://sandbox-manager:8003` | Internal URL of `sandbox-manager` | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_SANDBOX_MAX_PER_TENANT` | plan `max_concurrent_sandboxes` (default 50) | Hard cap of concurrent sandboxes per tenant | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_EGRESS_PROXY` | empty | Squid URL for a confined sandbox. Compose sets `http://squid:3128`. | [compose](compose.md) |
+| `AR_SANDBOX_ORPHAN_GRACE_S` | `120` | A sandbox container or host folder younger than this is never removed as an orphan, because its row may not be saved yet | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_PACKAGE_MIRRORS` | empty | JSON `{pypi,npm,apt}` mirror URLs | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_REAP_INTERVAL_S` | `60` | How often the sweep runs that suspends idle computers, ends expired ones and removes orphaned containers: the interval of the `sandbox-reaper` schedule, and of the timer in a process that starts containers itself | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_SNAPSHOT_INTERVAL_S` | `600` | Periodic workspace snapshot interval while active | [spec 12](../03-specs/12-sandbox-manager.md) |
+| `AR_SANDBOX_SNAPSHOT_MAX_MB` | `256` | The largest compressed working folder a suspend keeps. A computer with a larger one is not suspended and keeps running until its lifetime ends | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SANDBOX_WARM_POOL` | `default=4,browser=2` | Warm pods per template | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_SEARCH_API_KEY` | (empty) | Key for the configured web search provider. Never logged, returned, or committed. CI leaves it empty and the live search test skips (`not_live`) | [M21b](../09-plan/M21b-general-tools.md) |
 | `AR_SEARCH_PROVIDER` | `none` | `none`, `brave` or `tavily`. Empty results until a provider answers. A tenant `search.secretName` wins over this key | [M21b](../09-plan/M21b-general-tools.md) |

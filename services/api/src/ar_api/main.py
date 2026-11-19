@@ -97,6 +97,7 @@ from ar_domain.readmodel.boot import build_product_store
 from ar_domain.readmodel.model import RepositoryReadModel
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from typing import Any
 
 LISTEN_PORT = 8000
@@ -435,7 +436,29 @@ def create_application() -> FastAPI:
     app.state.notifications = NotificationApi()
     app.state.webhooks = WebhookApi()
     install_platform_hook()
+    _keep_sandboxes(app)
     return app
+
+
+def _keep_sandboxes(app: FastAPI) -> None:
+    """Sweep computers while the API serves, when this process starts them itself.
+
+    The sweep suspends the idle, ends the expired and removes what nobody owns; on
+    shutdown the computers this process started are ended. An API that asks the sandbox
+    manager for its computers has nothing to keep.
+    """
+    from contextlib import asynccontextmanager  # noqa: PLC0415
+
+    from ar_domain.sandboxes.lifecycle import keeping  # noqa: PLC0415
+
+    serve = app.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(current: FastAPI) -> AsyncIterator[Any]:
+        async with keeping(current.state.chat), serve(current) as state:
+            yield state
+
+    app.router.lifespan_context = lifespan
 
 
 def main() -> None:

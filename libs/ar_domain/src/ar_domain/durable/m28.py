@@ -518,7 +518,7 @@ async def save_sandboxes(session: AsyncSession, rows: list[dict[str, Any]]) -> N
             driver = EXCLUDED.driver,
             driver_ref = COALESCE(EXCLUDED.driver_ref, sandboxes.driver_ref),
             endpoint_url = CASE
-                WHEN EXCLUDED.status IN ('terminated', 'failed') THEN NULL
+                WHEN EXCLUDED.status IN ('terminated', 'failed', 'suspended') THEN NULL
                 ELSE COALESCE(EXCLUDED.endpoint_url, sandboxes.endpoint_url)
             END,
             auth_token_hash = COALESCE(EXCLUDED.auth_token_hash, sandboxes.auth_token_hash),
