@@ -461,6 +461,6 @@ A new agent, routine, policy, or skill is valid with the defaults below. The UI 
 | `memory.enabled` | `false` |
 | `sandbox.enabled` | `false` |
 | `channels.web` | `true` |
-| `budget` | the tenant cap in `tenants.settings.run_budget_caps` when set, otherwise spec 07's platform caps |
+| `budget` | the tenant cap in `tenants.settings.run_budget_caps` when set, otherwise spec 07's platform caps: `maxSteps` 8, `maxTokens` 80000, `maxCostMicros` 1000000, `maxWallClockS` 120, `maxToolCalls` 8, `maxParallelToolCalls` 1 ([spec 07 §2.1](../03-specs/07-agent-runtime.md), [OQ-149](../open-questions.md)) |
 
 Omitting a field means the default. A pack template may set a stricter default in its own file; core does not.

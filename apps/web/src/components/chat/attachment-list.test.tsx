@@ -37,6 +37,23 @@ describe("Attached files", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("finds the files on a reply that a limit stopped", () => {
+    const stopped = {
+      role: "assistant",
+      status: "completed",
+      text: "Stopped because the max tokens limit was reached.",
+      content: [
+        { type: "text", text: "Stopped because the max tokens limit was reached." },
+        { type: "file", fileId: "f1", name: "matrix.xlsx", mimeType: "application/zip" },
+        { type: "file", fileId: "f2", name: "deck.pptx", mimeType: "application/zip" },
+      ],
+    };
+    expect(attachedOf(stopped).map((file) => file.name)).toEqual(["matrix.xlsx", "deck.pptx"]);
+    render(wrap(<AttachmentList files={attachedOf(stopped)} />));
+    const link = screen.getByRole("link", { name: "deck.pptx" }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("/api/v1/files/f2/content");
+  });
+
   it("lets a file be taken off before sending", () => {
     const remove = vi.fn();
     render(

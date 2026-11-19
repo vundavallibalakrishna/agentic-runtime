@@ -175,7 +175,7 @@ export function BuilderScreen() {
               maxToolCalls: 8,
               maxWallClockS: 120,
               maxCostMicros: 1_000_000,
-              maxTokens: 16000,
+              maxTokens: 80_000,
             },
           },
         }),

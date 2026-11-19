@@ -6,6 +6,7 @@ from typing import cast
 from pydantic import JsonValue
 
 from ar_common.jcs import args_hash
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 
 # The agents every tenant has. They ship with the product, so nobody in the tenant wrote
 # them and they have no owner. This is the one place that names them; the registry, the
@@ -144,12 +145,5 @@ def assistant_definition() -> dict[str, object]:
                 "include": ["search"],
             },
         ],
-        "budget": {
-            "max_steps": 8,
-            "max_tokens": 16000,
-            "max_cost_micros": 1_000_000,
-            "max_wall_clock_s": 120,
-            "max_tool_calls": 8,
-            "max_parallel_tool_calls": 1,
-        },
+        "budget": dict(DEFAULT_RUN_BUDGET),
     }

@@ -912,6 +912,7 @@ export function AgentEditor() {
                           [
                             ["maxSteps", t("maxSteps"), 8],
                             ["maxToolCalls", t("maxToolCalls"), 8],
+                            ["maxTokens", t("maxTokens"), 80_000],
                             ["maxWallClockS", t("maxWallClock"), 120],
                             ["maxCostMicros", t("maxCost"), 1_000_000],
                           ] as const

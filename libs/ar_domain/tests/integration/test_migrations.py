@@ -251,6 +251,127 @@ async def test_built_in_agents_lose_their_owner_and_built_ones_keep_theirs(migra
         await engine.dispose()
 
 
+async def test_a_seeded_assistant_gets_the_new_token_limit_and_others_keep_theirs(
+    migrated: str,
+) -> None:
+    """Revision 0054 publishes a seeded assistant that still has the old limit again."""
+    import json
+    import uuid
+
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(migrated)
+    _alembic(migrated, "downgrade", "0053")
+    # The seeded limit, a limit an administrator changed, and an administrator's version.
+    cases = {
+        uuid.uuid4(): ("seed", 16_000),
+        uuid.uuid4(): ("without-checkpoint", 32_000),
+        uuid.uuid4(): ("our own", 16_000),
+    }
+    async with engine.begin() as connection:
+        plan = await connection.scalar(
+            text(
+                "INSERT INTO plans (key, name) VALUES ('m0054', 'Limit check') "
+                "ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name RETURNING id"
+            )
+        )
+        for tenant, (note, limit) in cases.items():
+            user, agent, version = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+            await connection.execute(
+                text("INSERT INTO tenants (id, slug, name, plan_id) VALUES (:id, :slug, 'T', :p)"),
+                {"id": tenant, "slug": f"lim{tenant.hex[:10]}", "p": plan},
+            )
+            await connection.execute(
+                text(
+                    "INSERT INTO users (id, tenant_id, idp_subject, email, display_name, status) "
+                    "VALUES (:id, :tenant, :subject, :email, 'Admin', 'active')"
+                ),
+                {
+                    "id": user,
+                    "tenant": tenant,
+                    "subject": f"idp-{user.hex[:8]}",
+                    "email": f"{user.hex[:8]}@lim.example",
+                },
+            )
+            await connection.execute(
+                text(
+                    "INSERT INTO agents (id, tenant_id, slug, name, status) "
+                    "VALUES (:id, :tenant, 'assistant', 'Assistant', 'published')"
+                ),
+                {"id": agent, "tenant": tenant},
+            )
+            definition = {"instructions": "Help.", "budget": {"max_steps": 8, "max_tokens": limit}}
+            await connection.execute(
+                text(
+                    "INSERT INTO agent_versions (id, tenant_id, agent_id, version, state, "
+                    "definition, definition_hash, change_note, created_by, published_at, "
+                    "published_by) VALUES (:id, :tenant, :agent, 1, 'published', "
+                    "CAST(:definition AS jsonb), :hash, :note, :user, now(), :user)"
+                ),
+                {
+                    "id": version,
+                    "tenant": tenant,
+                    "agent": agent,
+                    "definition": json.dumps(definition),
+                    "hash": "0" * 64,
+                    "note": note,
+                    "user": user,
+                },
+            )
+            await connection.execute(
+                text("UPDATE agents SET published_version_id = :version WHERE id = :agent"),
+                {"version": version, "agent": agent},
+            )
+    published = text(
+        "SELECT v.tenant_id, v.version, v.change_note, v.definition, "
+        "(SELECT count(*) FROM agent_versions s WHERE s.agent_id = v.agent_id "
+        " AND s.state = 'superseded') AS superseded "
+        "FROM agents a JOIN agent_versions v ON v.id = a.published_version_id "
+        "WHERE a.tenant_id = ANY(:tenants) AND v.state = 'published'"
+    )
+    tenants = list(cases)
+
+    async def now() -> dict[uuid.UUID, tuple[int, str, int, int]]:
+        async with engine.begin() as connection:
+            rows = (await connection.execute(published, {"tenants": tenants})).all()
+        return {row[0]: (row[1], row[2], row[3]["budget"]["max_tokens"], row[4]) for row in rows}
+
+    seeded, changed, own = tenants
+    try:
+        _alembic(migrated, "upgrade", "head")
+        after = await now()
+        assert after[seeded] == (2, "token-budget", 80_000, 1)
+        assert after[changed] == (1, "without-checkpoint", 32_000, 0)
+        assert after[own] == (1, "our own", 16_000, 0)
+        async with engine.begin() as connection:
+            kept = await connection.scalar(
+                text(
+                    "SELECT definition FROM agent_versions v JOIN agents a ON a.id = v.agent_id "
+                    "WHERE a.tenant_id = :tenant AND v.version = 2"
+                ),
+                {"tenant": seeded},
+            )
+        assert kept == {"instructions": "Help.", "budget": {"max_steps": 8, "max_tokens": 80_000}}
+        # Downgrade publishes the old limit again under the note the seed wrote.
+        _alembic(migrated, "downgrade", "0053")
+        back = await now()
+        assert back[seeded] == (3, "seed", 16_000, 2)
+        assert back[changed] == after[changed]
+        assert back[own] == after[own]
+    finally:
+        _alembic(migrated, "upgrade", "head")
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE agents SET published_version_id = NULL WHERE tenant_id = ANY(:t)"),
+                {"t": tenants},
+            )
+            await connection.execute(
+                text("DELETE FROM tenants WHERE id = ANY(:tenants)"), {"tenants": tenants}
+            )
+            await connection.execute(text("DELETE FROM plans WHERE key = 'm0054'"))
+        await engine.dispose()
+
+
 async def test_retired_pack_schema_drops_and_stays_gone(migrated: str) -> None:
     """Revision 0031 removes a pack schema that already exists, and is a no-op without one."""
     from sqlalchemy.ext.asyncio import create_async_engine

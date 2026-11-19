@@ -9,6 +9,7 @@ from ar_domain.agents.defaults import apply_definition_defaults
 from ar_domain.agents.service import AgentLifecycle
 from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 from ar_domain.skills.book import SkillBook
 from ar_domain.skills.logic import file_sha256
 
@@ -161,7 +162,7 @@ def _definition(
         "model": {"alias": "reasoning", "fast_alias": "fast"},
         "budget": {
             "max_steps": 8,
-            "max_tokens": 16000,
+            "max_tokens": DEFAULT_RUN_BUDGET["max_tokens"],
             "max_cost_micros": 1_000_000,
             "max_wall_clock_s": 120,
             "max_tool_calls": 4,

@@ -5,6 +5,25 @@ Spec: docs/03-specs/07-agent-runtime.md, docs/03-specs/20-notifications-events.m
 
 from ar_domain.events.sign import sign_body
 
+# The limits an agent runs under when its definition sets none. This is the one place
+# that states them; the definition defaults, the built-in assistant and the agent loop
+# all read it. An agent changes any of them in its own `budget`.
+#
+# `max_tokens` is counted as the first prompt, then what each later prompt adds, plus
+# every step's output (OQ-88). The built-in assistant's first prompt is about 10,000
+# tokens of instructions and tool descriptions. Eight model steps then add up to seven
+# tool results of `context.tool_result_max_tokens` (4,000) each, and each step's output
+# is counted once as output and once more as part of the next prompt: about 54,000 in
+# all. The default leaves half as much again (OQ-149).
+DEFAULT_RUN_BUDGET: dict[str, int] = {
+    "max_steps": 8,
+    "max_tokens": 80_000,
+    "max_cost_micros": 1_000_000,
+    "max_wall_clock_s": 120,
+    "max_tool_calls": 8,
+    "max_parallel_tool_calls": 1,
+}
+
 
 def budget_exceeded(
     *,

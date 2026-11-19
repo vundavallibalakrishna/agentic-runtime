@@ -134,6 +134,7 @@ User messages may contain `text`, `file`, `image`. Assistant messages may contai
 - Events within a run are totally ordered by `seq`.
 - `tool_call.started` precedes `tool_call.approval_required` precedes `tool_call.approval_resolved` precedes `tool_call.completed|failed` for the same `toolCallId`.
 - `message.started` precedes all `message.delta` for that message; `message.completed` is last for that message.
+- A run that a limit stopped sends `message.completed` with the text of the stopped reply, then `run.budget_exceeded`. The reply's files are content parts of the stored message, as on a completed reply ([spec 07 §2.1](../03-specs/07-agent-runtime.md)).
 - Exactly one terminal run event per run.
 
 ## 6. Client reducer (normative for the web app)

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from ar_common.time import utcnow
 from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import demo_id
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 from ar_domain.tools.logic import description_hash, manifest_hash
 from ar_domain.tools.openapi_import import operations_from
 
@@ -2884,7 +2885,7 @@ def _analyst(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
             "sandbox": {"enabled": True, "template": "python-data", "scope": "conversation"},
             "budget": {
                 "max_steps": 8,
-                "max_tokens": 16000,
+                "max_tokens": DEFAULT_RUN_BUDGET["max_tokens"],
                 "max_cost_micros": 1_000_000,
                 "max_wall_clock_s": 120,
                 "max_tool_calls": 4,

@@ -17,7 +17,7 @@ from ar_common.time import utcnow
 from ar_common.wrapping import wrap_tool_result
 from ar_domain.models.streaming import Coalescer, listening
 from ar_domain.runs.failure import fail_run
-from ar_domain.runs.logic import budget_exceeded
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET, budget_exceeded
 from ar_domain.runs.request import asked, permissions_of
 from ar_domain.tools.gateway_client import execute_tool
 from ar_domain.tools.images import build_image_message, collect_images
@@ -52,11 +52,7 @@ def read_budget(
     raw = definition.get("budget")
     source = raw if isinstance(raw, dict) else {}
     defaults = {
-        "max_steps": 8,
-        "max_tokens": 16000,
-        "max_cost_micros": 1_000_000,
-        "max_wall_clock_s": 120,
-        "max_tool_calls": 8,
+        key: value for key, value in DEFAULT_RUN_BUDGET.items() if key != "max_parallel_tool_calls"
     }
     limits: dict[str, int] = {}
     for key, default in defaults.items():
@@ -285,7 +281,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             _remember_usage(
                 run, tokens_in_total, tokens_out_total, cost, steps - 1, usage_source=usage_source
             )
-            _stop_budget(store, run, assistant, limit)
+            _stop_budget(store, run, assistant, limit, previews)
             return True
         if planning_enabled(definition) and (not planned or run.get("needs_replan")):
             planned = await _take_plan(
@@ -304,7 +300,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             _remember_usage(
                 run, tokens_in_total, tokens_out_total, cost, steps - 1, usage_source=usage_source
             )
-            _stop_budget(store, run, assistant, "max_wall_clock_s")
+            _stop_budget(store, run, assistant, "max_wall_clock_s", previews)
             return True
         if deltas.sent:
             # An earlier round wrote text and then called a tool or was asked again. The
@@ -377,7 +373,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             _remember_usage(
                 run, tokens_in_total, tokens_out_total, cost, steps, usage_source=usage_source
             )
-            _stop_budget(store, run, assistant, "max_wall_clock_s")
+            _stop_budget(store, run, assistant, "max_wall_clock_s", previews)
             return True
         if not isinstance(turn, dict) or _provider_error(turn):
             if provider_retries < 2:
@@ -429,7 +425,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             )
         # The provider reports the whole prompt every call. Usage and cost keep
         # that full count. The budget adds only the growth since the previous
-        # prompt, plus this step's output, so a six-step tool turn fits in 16k.
+        # prompt, plus this step's output.
         tokens, prompt_seen = _charge_budget(tokens, prompt_seen, step_in, step_out)
         tokens_in_total += step_in
         tokens_out_total += step_out
@@ -545,7 +541,7 @@ async def run_agent_loop(  # noqa: PLR0911, PLR0912, PLR0915
             if not isinstance(call, dict):
                 continue
             if used_calls >= limits["max_tool_calls"]:
-                _stop_budget(store, run, assistant, "max_tool_calls")
+                _stop_budget(store, run, assistant, "max_tool_calls", previews)
                 return True
             used_calls += 1
             name = str(call.get("name") or "")
@@ -1709,19 +1705,85 @@ def _finish(
             deliver_callback(store, queued)
 
 
-def _stop_budget(
-    store: Any, run: dict[str, object], assistant: dict[str, object], limit: str
-) -> None:
+def _made_before_stop(previews: list[dict[str, object]]) -> list[str]:
+    """One line for each tool call that succeeded: the tool, and the files it stored.
+
+    Only what the previews hold is used, so the list says nothing the run did not do.
+    """
+    lines: list[str] = []
+    for preview in previews:
+        if preview.get("status") != "succeeded":
+            continue
+        presentation = preview.get("presentation")
+        shown = presentation if isinstance(presentation, dict) else {}
+        title = shown.get("title")
+        label = title.strip() if isinstance(title, str) and title.strip() else ""
+        label = label or str(preview.get("qualified_name") or "").strip() or "a tool call"
+        listed = shown.get("files")
+        names = [
+            str(item.get("name")).strip()
+            for item in (listed if isinstance(listed, list) else [])
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ]
+        lines.append(f"- {label}: {', '.join(names)}" if names else f"- {label}")
+    return lines
+
+
+def budget_stop_text(limit: str, previews: list[dict[str, object]] | None) -> str:
+    """What a reply says when a limit stopped its run.
+
+    The first sentence names the limit. When the tool calls of the run are known, the
+    reply goes on to list the ones that succeeded and their files, or says that none
+    had, and then what the reader can do. No model is asked.
+    """
     text = f"Stopped because the {limit.replace('_', ' ')} limit was reached."
+    if previews is None:
+        return text
+    made = _made_before_stop(previews)
+    if not made:
+        return (
+            f"{text}\n\nNothing was finished before the limit. Ask for a smaller piece of "
+            "the work, or ask an administrator to raise this limit in the agent's settings."
+        )
+    return (
+        f"{text}\n\nDone before the limit:\n"
+        + "\n".join(made)
+        + "\n\nAny files these made are attached. Ask again for what is missing, or ask "
+        "an administrator to raise this limit in the agent's settings."
+    )
+
+
+def _stop_budget(
+    store: Any,
+    run: dict[str, object],
+    assistant: dict[str, object],
+    limit: str,
+    previews: list[dict[str, object]] | None = None,
+) -> None:
+    """End a run that reached a limit, and keep what it had already made.
+
+    Every limit stops a run here: steps, tokens, cost, the clock and tool calls, in the
+    loop that runs in one process and in the one a worker runs a step at a time.
+    ``previews`` are the run's tool calls so far. The reply carries the file and image
+    parts of the ones that succeeded, as a finished reply would, and its text says what
+    was done and which limit stopped the run. A caller with no tool calls to report
+    passes none and gets the one sentence.
+    """
+    made = [item for item in previews if isinstance(item, dict)] if previews is not None else None
+    text = budget_stop_text(limit, made)
     assistant["text"] = text
-    assistant["content"] = [{"type": "text", "text": text}]
+    assistant["content"] = [{"type": "text", "text": text}, *_artifact_parts(store, made or [])]
+    if made is not None:
+        assistant["tool_calls"] = made
     assistant["status"] = "completed"
     run["status"] = "budget_exceeded"
     run["ended_at"] = utcnow()
-    run["result_summary"] = text
+    run["result_summary"] = text[:8000]
     conversation = store.conversations.get(run.get("conversation_id"))
     if isinstance(conversation, dict):
         conversation["active_run_id"] = None
+    # A reader of the stream gets the text of the reply before the event that ends it.
+    store._emit(run, "message.completed", {"message_id": str(assistant.get("id")), "text": text})
     store._emit(run, "run.budget_exceeded", {"limit": limit})
     _audit(
         store, run, "run.budget_exceeded", str(run.get("id")), {"limit": limit}, outcome="failure"
