@@ -63,7 +63,8 @@
           "$ref": "#/$defs/ToolSearch",
           "default": {
             "mode": "auto",
-            "topK": 12
+            "topK": 12,
+            "threshold": 48
           }
         },
         "knowledge": {
@@ -2108,6 +2109,13 @@
           "maximum": 32,
           "minimum": 4,
           "title": "Topk",
+          "type": "integer"
+        },
+        "threshold": {
+          "default": 48,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Threshold",
           "type": "integer"
         }
       },

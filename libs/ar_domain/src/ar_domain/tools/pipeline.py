@@ -120,7 +120,9 @@ class ToolPipeline:
             for row in tools
             if ready_for(self.store, owner, str(row.get("qualified_name")), definition)
         ]
-        active = len(tools) > 30 or _search_mode(definition) == "on"
+        mode = _search_mode(definition)
+        many = mode != "off" and len(tools) > _search_threshold(definition)
+        active = many or mode == "on"
         if active and query:
             from ar_domain.tools.search import rank_tools  # noqa: PLC0415
 
@@ -128,7 +130,7 @@ class ToolPipeline:
             ranked, how = rank_tools(self.store, tenant_id, query, tools)
             tools = [tool for _score, tool in ranked[: _search_limit(definition)]]
             return {"tools": tools, "tool_search_active": True, "ranked_by": how}
-        return {"tools": tools, "tool_search_active": active or len(tools) > 30}
+        return {"tools": tools, "tool_search_active": active}
 
     def execute(  # noqa: PLR0911, PLR0912, PLR0915
         self, request: dict[str, object]
@@ -1236,6 +1238,15 @@ def _search_mode(definition: dict[str, object]) -> str:
     if isinstance(search, dict):
         return str(search.get("mode") or "auto")
     return "auto"
+
+
+def _search_threshold(definition: dict[str, object]) -> int:
+    """``tool_search.threshold``: above this many tools, auto mode searches. Default 48."""
+    search = definition.get("tool_search")
+    raw = search.get("threshold") if isinstance(search, dict) else None
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        return 48
+    return raw
 
 
 def _search_limit(definition: dict[str, object]) -> int:

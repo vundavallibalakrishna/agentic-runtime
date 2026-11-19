@@ -68,6 +68,9 @@ class ToolBinding(_Model):
 class ToolSearch(_Model):
     mode: Literal["auto", "on", "off"] = "auto"
     top_k: int = Field(default=12, ge=4, le=32)
+    # In auto mode an agent with more tools than this is given a search step in place of
+    # the full list. The built-in assistant holds about forty tools and should see them.
+    threshold: int = Field(default=48, ge=1, le=500)
 
 
 class KnowledgeSpec(_Model):

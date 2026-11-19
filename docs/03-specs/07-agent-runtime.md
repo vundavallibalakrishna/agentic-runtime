@@ -162,7 +162,7 @@ Rules:
 
 ## 8. Tool search
 
-Active when `tool_search.mode = on`, or `auto` and the agent has > 30 tools. Initial set = control tools + tools marked `pinned: true` in the agent definition override + top `tool_search.top_k` by semantic similarity of the user message (`catalog:resolve` with `query`). `tools__search {query}` returns up to 10 `{name, description}` and adds them to the run's tool set (max 40 loaded tools; oldest unused evicted).
+Active when `tool_search.mode = on`, or `auto` and the agent has more tools than `tool_search.threshold` (default 48). `off` never searches, however many tools there are. Initial set = control tools + tools marked `pinned: true` in the agent definition override + top `tool_search.top_k` by semantic similarity of the user message (`catalog:resolve` with `query`). `tools__search {query}` returns up to 10 `{name, description}` and adds them to the run's tool set (max 40 loaded tools; oldest unused evicted).
 
 ## 9. Finalisation (`finalize_run`)
 
