@@ -66,7 +66,14 @@ def apply_browser(
         return _snapshot(session, _chars(arguments.get("max_chars"), 40000))
     if name in {"click", "type", "press", "scroll", "submit_form"}:
         return _gesture(store, sandbox, session, name, arguments)
-    return _error("unknown_tool", name)
+    # Tabs, saved pages and downloads are done by the browser inside a computer. This
+    # page context has no such browser, so say what is missing, not that the tool is
+    # unknown.
+    return _error(
+        "sandbox_unavailable",
+        f"{name} needs a running computer with a browser. None is running for this "
+        "conversation, so only opening a page, reading it and filling it in are possible.",
+    )
 
 
 def _gesture(

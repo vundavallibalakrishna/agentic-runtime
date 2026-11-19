@@ -474,3 +474,12 @@ def test_off_list_navigation_waits_and_private_hosts_stay_denied() -> None:
     )
     assert direct["code"] == "egress_denied"
     assert seen == ["https://off-list.example/desk"]
+
+
+def test_a_tab_tool_with_no_computer_says_what_is_missing() -> None:
+    from ar_domain.sandboxes.browser import apply_browser
+
+    answered = apply_browser(demo_store(), {"id": uuid.uuid4()}, "new_tab", {})
+    assert answered["is_error"] is True
+    assert answered["code"] == "sandbox_unavailable"
+    assert "running computer" in str(answered["text"])
