@@ -294,13 +294,21 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
   const hits = Array.isArray(presentation.results) ? (presentation.results as Hit[]) : [];
   const progress = progressOf(presentation);
   return (
-    <section
-      className="mt-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm"
+    // One line until a person opens it. It starts open only when it needs them: an approval
+    // to give, or an account to connect.
+    <details
+      className="mt-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-sm"
       data-testid="tool-call"
+      open={waiting || Boolean(connect)}
     >
-      <p className="sr-only">{label}</p>
-      <p className="font-medium">{name}</p>
-      <p className="text-[var(--muted-foreground)]">{status}</p>
+      <summary className="cursor-pointer select-none text-xs">
+        <span className="sr-only">{label} </span>
+        <span className="font-medium">{name}</span>
+        <span aria-hidden="true" className="text-[var(--muted-foreground)]">
+          {" · "}
+        </span>
+        <span className="text-[var(--muted-foreground)]">{status}</span>
+      </summary>
       {text(call.arguments) ? (
         <details className="mt-2">
           <summary className="cursor-pointer text-[var(--muted-foreground)]">
@@ -586,6 +594,6 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           {t("connectAccount")}
         </a>
       ) : null}
-    </section>
+    </details>
   );
 }
