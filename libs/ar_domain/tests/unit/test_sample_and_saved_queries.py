@@ -927,3 +927,29 @@ def test_a_database_tool_with_a_wrong_connection_name_lists_the_real_ones() -> N
     assert "someone-elses" not in said
     empty = _no_connection(SimpleNamespace(data_connections={}), {"_tenant_id": tenant})
     assert "none is set up" in empty
+
+
+def test_a_count_over_a_file_longer_than_the_reader_takes_is_refused() -> None:
+    store, arguments = _args()
+    _table(store, arguments, "ledger.csv", _items(6000))
+    asked = dispatch_general(
+        store,
+        "query_table",
+        {**arguments, "path": "ledger.csv", "sql": "SELECT COUNT(*) AS n FROM ledger"},
+    )
+    assert asked["is_error"] is True
+    assert "only the first 5000" in str(asked["text"])
+    looked = dispatch_general(store, "inspect_table", {**arguments, "path": "ledger.csv"})
+    assert looked["is_error"] is False
+    assert "5000 rows or more" in str(looked["text"])
+    written = dispatch_general(
+        store,
+        "export_table",
+        {
+            **arguments,
+            "path": "outputs/all.csv",
+            "paths": ["ledger.csv"],
+            "sql": "SELECT * FROM ledger",
+        },
+    )
+    assert written["is_error"] is True
