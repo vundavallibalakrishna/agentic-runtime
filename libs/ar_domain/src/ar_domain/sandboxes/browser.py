@@ -52,6 +52,15 @@ def navigation_class(store: Any, request: dict[str, object], url: str) -> str:
     return "approve"
 
 
+def click_without_target(name: str, arguments: dict[str, object]) -> dict[str, object] | None:
+    """The refusal for a click that names no element, the same wherever the browser runs."""
+    if name != "click":
+        return None
+    if str(arguments.get("ref") or "").strip() or str(arguments.get("text") or "").strip():
+        return None
+    return _error("validation_failed", "ref or text is required")
+
+
 def apply_browser(
     store: Any,
     sandbox: dict[str, object],
@@ -84,8 +93,9 @@ def _gesture(
     arguments: dict[str, object],
 ) -> dict[str, object]:
     ref = str(arguments.get("ref") or "").strip()
-    if name == "click" and not ref and not str(arguments.get("text") or "").strip():
-        return _error("validation_failed", "ref or text is required")
+    refused = click_without_target(name, arguments)
+    if refused is not None:
+        return refused
     if name == "click":
         return _click(store, sandbox, session, arguments, ref)
     if name == "type":
