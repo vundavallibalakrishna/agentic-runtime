@@ -1,7 +1,11 @@
 """An answer is read as the model writes it, and put back together unchanged."""
 
+import asyncio
+from collections.abc import AsyncIterator
+
 import httpx
 import orjson
+import pytest
 
 from ar_domain.models.logic import completion_message
 from ar_domain.models.streaming import (
@@ -118,3 +122,37 @@ def test_a_listener_is_heard_only_inside_its_block() -> None:
         sink("x")
     assert listener() is None
     assert heard == ["x"]
+
+
+class _Stalling:
+    """A stream that sends its lines and then only keep-alives, and never ends."""
+
+    def __init__(self, *lines: str) -> None:
+        self._lines = lines
+
+    async def aiter_lines(self) -> AsyncIterator[str]:
+        for line in self._lines:
+            yield line
+        while True:
+            await asyncio.sleep(0.01)
+            yield ": keep-alive"
+
+
+async def test_a_stream_that_never_finishes_is_given_up_on() -> None:
+    with pytest.raises(httpx.ReadTimeout):
+        await read_completion_stream(_Stalling(), lambda _text: None, within_s=0.05)  # type: ignore[arg-type]
+
+
+async def test_text_already_shown_is_kept_when_the_stream_stalls() -> None:
+    heard: list[str] = []
+    line = "data: " + orjson.dumps(_delta(content="A kiln ")).decode()
+    payload = await read_completion_stream(_Stalling(line), heard.append, within_s=0.05)  # type: ignore[arg-type]
+    assert heard == ["A kiln "]
+    assert completion_message(payload)["text"] == "A kiln"
+
+
+async def test_half_a_tool_call_is_not_kept_when_the_stream_stalls() -> None:
+    call = {"index": 0, "id": "c1", "function": {"name": "lookup", "arguments": '{"q": "ki'}}
+    line = "data: " + orjson.dumps(_delta(content="Looking. ", tool_calls=[call])).decode()
+    with pytest.raises(httpx.ReadTimeout):
+        await read_completion_stream(_Stalling(line), lambda _text: None, within_s=0.05)  # type: ignore[arg-type]

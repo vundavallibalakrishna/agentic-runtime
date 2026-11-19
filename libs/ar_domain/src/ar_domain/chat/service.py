@@ -2720,7 +2720,7 @@ class ChatBehaviour:
                 kind = response.headers.get("content-type", "")
                 if response.status_code >= 300 or "text/event-stream" not in kind:
                     return None
-                return await read_completion_stream(response, sink)
+                return await read_completion_stream(response, sink, within_s=timeout_s)
         except httpx.HTTPError:
             return None
 
