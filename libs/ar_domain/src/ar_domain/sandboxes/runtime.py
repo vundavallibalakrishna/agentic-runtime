@@ -881,6 +881,12 @@ def _browser_remote(
             return blocked
     if name in _CAPTURE_FIELD:
         return _remote_capture(store, sandbox, name, arguments)
+    from ar_domain.sandboxes.browser import click_without_target  # noqa: PLC0415
+
+    # Refused here, before the container is asked, so it reads the same as without one.
+    refused = click_without_target(name, arguments)
+    if refused is not None:
+        return refused
     return _proxy(sandbox, name, arguments)
 
 

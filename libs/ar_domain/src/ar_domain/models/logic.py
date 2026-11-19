@@ -5,6 +5,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from ar_common.wrapping import without_wrappers
+
 _ALIAS = re.compile(r"^[a-z][a-z0-9_-]{1,40}$")
 _STRIPPED = frozenset({"model", "stream", "messages", "tools", "tool_choice"})
 DEFAULT_DENY_CIDRS = (
@@ -270,5 +272,5 @@ def completion_text(payload: object, *, strip_thinking: bool = True) -> str:
         reasoning = message.get("reasoning_content")
         text = reasoning if isinstance(reasoning, str) else ""
     if not strip_thinking:
-        return text.strip()
-    return strip_think(text)
+        return without_wrappers(text.strip())
+    return without_wrappers(strip_think(text))
