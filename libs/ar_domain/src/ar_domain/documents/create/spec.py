@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import math
 import re
 from dataclasses import dataclass, replace
@@ -368,7 +369,9 @@ def _slug(title: str) -> str:
 def _short(value: object, limit: int) -> str:
     if value is None:
         return ""
-    text = str(value)
+    # A document holds plain text. A model that writes "&amp;" means "&": left as it is,
+    # the writer would escape it again and the reader would see "&amp;".
+    text = html.unescape(str(value))
     cleaned = []
     for char in text:
         if char >= " " or char in "\n\t":
