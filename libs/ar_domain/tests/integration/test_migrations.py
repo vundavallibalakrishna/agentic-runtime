@@ -251,10 +251,10 @@ async def test_built_in_agents_lose_their_owner_and_built_ones_keep_theirs(migra
         await engine.dispose()
 
 
-async def test_a_seeded_assistant_gets_the_new_token_limit_and_others_keep_theirs(
+async def test_a_seeded_assistant_gets_the_new_run_limits_and_others_keep_theirs(
     migrated: str,
 ) -> None:
-    """Revision 0054 publishes a seeded assistant that still has the old limit again."""
+    """Revision 0054 publishes a seeded assistant that still has an old limit again."""
     import json
     import uuid
 
@@ -262,11 +262,34 @@ async def test_a_seeded_assistant_gets_the_new_token_limit_and_others_keep_their
 
     engine = create_async_engine(migrated)
     _alembic(migrated, "downgrade", "0053")
-    # The seeded limit, a limit an administrator changed, and an administrator's version.
+    old = {
+        "max_steps": 8,
+        "max_tokens": 16_000,
+        "max_cost_micros": 1_000_000,
+        "max_wall_clock_s": 120,
+        "max_tool_calls": 8,
+    }
+    new = {
+        "max_steps": 16,
+        "max_tokens": 80_000,
+        "max_cost_micros": 4_000_000,
+        "max_wall_clock_s": 600,
+        "max_tool_calls": 16,
+    }
+    theirs = {
+        "max_steps": 5,
+        "max_tokens": 32_000,
+        "max_cost_micros": 0,
+        "max_wall_clock_s": 90,
+        "max_tool_calls": 3,
+    }
+    # The seeded limits, one limit changed, every limit changed, and an administrator's
+    # own version. ``max_parallel_tool_calls`` is not a limit this revision touches.
     cases = {
-        uuid.uuid4(): ("seed", 16_000),
-        uuid.uuid4(): ("without-checkpoint", 32_000),
-        uuid.uuid4(): ("our own", 16_000),
+        uuid.uuid4(): ("seed", {**old, "max_parallel_tool_calls": 1}),
+        uuid.uuid4(): ("without-checkpoint", {**old, "max_tokens": 32_000}),
+        uuid.uuid4(): ("offline-default", dict(theirs)),
+        uuid.uuid4(): ("our own", dict(old)),
     }
     async with engine.begin() as connection:
         plan = await connection.scalar(
@@ -275,7 +298,7 @@ async def test_a_seeded_assistant_gets_the_new_token_limit_and_others_keep_their
                 "ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name RETURNING id"
             )
         )
-        for tenant, (note, limit) in cases.items():
+        for tenant, (note, budget) in cases.items():
             user, agent, version = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
             await connection.execute(
                 text("INSERT INTO tenants (id, slug, name, plan_id) VALUES (:id, :slug, 'T', :p)"),
@@ -300,7 +323,7 @@ async def test_a_seeded_assistant_gets_the_new_token_limit_and_others_keep_their
                 ),
                 {"id": agent, "tenant": tenant},
             )
-            definition = {"instructions": "Help.", "budget": {"max_steps": 8, "max_tokens": limit}}
+            definition = {"instructions": "Help.", "budget": budget}
             await connection.execute(
                 text(
                     "INSERT INTO agent_versions (id, tenant_id, agent_id, version, state, "
@@ -331,18 +354,20 @@ async def test_a_seeded_assistant_gets_the_new_token_limit_and_others_keep_their
     )
     tenants = list(cases)
 
-    async def now() -> dict[uuid.UUID, tuple[int, str, int, int]]:
+    async def now() -> dict[uuid.UUID, tuple[int, str, dict[str, int], int]]:
         async with engine.begin() as connection:
             rows = (await connection.execute(published, {"tenants": tenants})).all()
-        return {row[0]: (row[1], row[2], row[3]["budget"]["max_tokens"], row[4]) for row in rows}
+        return {row[0]: (row[1], row[2], row[3]["budget"], row[4]) for row in rows}
 
-    seeded, changed, own = tenants
+    seeded, one_changed, all_changed, own = tenants
     try:
         _alembic(migrated, "upgrade", "head")
         after = await now()
-        assert after[seeded] == (2, "token-budget", 80_000, 1)
-        assert after[changed] == (1, "without-checkpoint", 32_000, 0)
-        assert after[own] == (1, "our own", 16_000, 0)
+        assert after[seeded] == (2, "run-budget", {**new, "max_parallel_tool_calls": 1}, 1)
+        # The value an administrator changed is kept, and the other four are raised.
+        assert after[one_changed] == (2, "run-budget", {**new, "max_tokens": 32_000}, 1)
+        assert after[all_changed] == (1, "offline-default", theirs, 0)
+        assert after[own] == (1, "our own", old, 0)
         async with engine.begin() as connection:
             kept = await connection.scalar(
                 text(
@@ -351,12 +376,16 @@ async def test_a_seeded_assistant_gets_the_new_token_limit_and_others_keep_their
                 ),
                 {"tenant": seeded},
             )
-        assert kept == {"instructions": "Help.", "budget": {"max_steps": 8, "max_tokens": 80_000}}
-        # Downgrade publishes the old limit again under the note the seed wrote.
+        assert kept == {
+            "instructions": "Help.",
+            "budget": {**new, "max_parallel_tool_calls": 1},
+        }
+        # Downgrade publishes the old limits again under the note the version had.
         _alembic(migrated, "downgrade", "0053")
         back = await now()
-        assert back[seeded] == (3, "seed", 16_000, 2)
-        assert back[changed] == after[changed]
+        assert back[seeded] == (3, "seed", {**old, "max_parallel_tool_calls": 1}, 2)
+        assert back[one_changed] == (3, "without-checkpoint", {**old, "max_tokens": 32_000}, 2)
+        assert back[all_changed] == after[all_changed]
         assert back[own] == after[own]
     finally:
         _alembic(migrated, "upgrade", "head")

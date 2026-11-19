@@ -499,7 +499,6 @@ def _desk(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
     ]
     budget = definition.get("budget")
     if isinstance(budget, dict):
-        budget["max_tool_calls"] = 8
         budget["max_parallel_tool_calls"] = 4
     from ar_domain.agents.service import AgentLifecycle  # noqa: PLC0415
 

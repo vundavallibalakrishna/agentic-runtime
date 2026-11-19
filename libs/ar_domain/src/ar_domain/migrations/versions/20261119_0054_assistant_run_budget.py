@@ -1,21 +1,24 @@
-"""Publish the seeded assistant again with a token limit that fits multi-step work.
+"""Publish the seeded assistant again with run limits that fit multi-step work.
 
 Revision ID: 0054
 Revises: 0053
 Create Date: 2026-11-19
 
-The assistant was seeded with a run limit of 16,000 tokens. Its first prompt alone is
-about 10,000, so a request that needed several tool calls stopped on the limit before
-it could answer (OQ-149). New tenants receive 80,000. A published version cannot
-change, so a tenant whose assistant is still a version the seed or an earlier revision
-of this kind published, and still has the old limit, gets a new published version with
-the new one, and the old version is superseded. An assistant an administrator has
-published since is theirs and is left alone, and so is any other value of the limit.
+The assistant was seeded with a run budget of 16,000 tokens, 8 model steps, 8 tool
+calls, 120 seconds and a cost cap of 1,000,000 micros. Its first prompt alone is about
+10,000 tokens, and a request that needed several tool calls stopped on a limit before
+it could answer (OQ-149). New tenants receive 80,000 tokens, 16 steps, 16 tool calls,
+600 seconds and 4,000,000 micros. A published version cannot change, so a tenant whose
+assistant is still a version the seed or an earlier revision of this kind published
+gets a new published version, and the old version is superseded. Each of the five
+values is looked at on its own: one that is still exactly what the seed wrote becomes
+the new default, and one that is anything else stays as it is. An assistant an
+administrator has published since is theirs and is left alone.
 
-Data only. Downgrade publishes a new version with the old limit back, under the change
-note the version before this revision had, so the earlier revisions of this kind still
-recognise it. It does not edit a published row in place. Restart API and worker
-processes after the migration so they load the new published version.
+Data only. Downgrade publishes a new version with the old values back, value by value,
+under the change note the version before this revision had, so the earlier revisions
+of this kind still recognise it. It does not edit a published row in place. Restart
+API and worker processes after the migration so they load the new published version.
 """
 
 import uuid
@@ -35,24 +38,46 @@ down_revision: str | None = "0053"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-# The limit the seed used to write and the one it writes now. A migration keeps its own
-# copy. The seed stores the definition with snake_case keys.
-_OLD = 16_000
-_NEW = 80_000
+# What the seed used to write and what it writes now. A migration keeps its own copy.
+# The seed stores the definition with snake_case keys.
+_OLD: dict[str, int] = {
+    "max_steps": 8,
+    "max_tokens": 16_000,
+    "max_cost_micros": 1_000_000,
+    "max_wall_clock_s": 120,
+    "max_tool_calls": 8,
+}
+_NEW: dict[str, int] = {
+    "max_steps": 16,
+    "max_tokens": 80_000,
+    "max_cost_micros": 4_000_000,
+    "max_wall_clock_s": 600,
+    "max_tool_calls": 16,
+}
 # Change notes of the versions the product itself published for the assistant.
 _OURS = ("seed", "offline-default", "sample-and-saved-queries", "without-checkpoint")
-_NOTE = "token-budget"
+_NOTE = "run-budget"
 
 
-def with_limit(definition: dict[str, object], old: int, new: int) -> dict[str, object] | None:
-    """The definition with ``new`` as its token limit, or None unless the limit is ``old``."""
+def with_budget(
+    definition: dict[str, object], old: dict[str, int], new: dict[str, int]
+) -> dict[str, object] | None:
+    """The definition with each limit that is exactly ``old`` set to ``new``.
+
+    A limit that holds any other value is kept. None when no limit changes.
+    """
     budget = definition.get("budget")
     if not isinstance(budget, dict):
         return None
-    current = budget.get("max_tokens")
-    if isinstance(current, bool) or not isinstance(current, int) or current != old:
+    fresh = dict(budget)
+    for key, was in old.items():
+        current = budget.get(key)
+        if isinstance(current, bool) or not isinstance(current, int) or current != was:
+            continue
+        fresh[key] = new[key]
+    if fresh == budget:
         return None
-    return {**definition, "budget": {**budget, "max_tokens": new}}
+    return {**definition, "budget": fresh}
 
 
 def _hash(definition: dict[str, object]) -> str:
@@ -117,7 +142,7 @@ def upgrade() -> None:
         {"ours": list(_OURS)},
     ).mappings()
     for row in list(rows):
-        fresh = with_limit(_definition(row), _OLD, _NEW)
+        fresh = with_budget(_definition(row), _OLD, _NEW)
         if fresh is not None:
             _publish(bind, row, fresh, _NOTE)
 
@@ -137,6 +162,6 @@ def downgrade() -> None:
     for row in list(rows):
         earlier = str(row["earlier_note"] or "")
         note = earlier if earlier in _OURS else "seed"
-        back = with_limit(_definition(row), _NEW, _OLD)
+        back = with_budget(_definition(row), _NEW, _OLD)
         if back is not None:
             _publish(bind, row, back, note)

@@ -1,4 +1,4 @@
-"""A run that a limit stopped keeps what it made, and the default token limit."""
+"""A run that a limit stopped keeps what it made, and the default run limits."""
 
 import asyncio
 import importlib
@@ -10,6 +10,7 @@ from ar_domain.agents.logic import assistant_definition, definition_hash
 from ar_domain.demo_ids import demo_id
 from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 from ar_domain.tools.agent_loop import _stop_budget, budget_stop_text, read_budget
+from ar_domain.usage.logic import model_cost_micros
 from ar_testing.demo import demo_store
 
 if TYPE_CHECKING:
@@ -196,60 +197,116 @@ def test_a_stop_with_no_tool_calls_to_report_says_the_one_sentence() -> None:
     assert run["status"] == "budget_exceeded"
 
 
-def test_the_default_token_limit_is_one_number_everywhere() -> None:
-    assert DEFAULT_RUN_BUDGET["max_tokens"] == 80_000
-    assert read_budget({})["max_tokens"] == 80_000
+def test_the_default_limits_are_one_set_of_numbers_everywhere() -> None:
+    assert DEFAULT_RUN_BUDGET == {
+        "max_steps": 16,
+        "max_tokens": 80_000,
+        "max_cost_micros": 4_000_000,
+        "max_wall_clock_s": 600,
+        "max_tool_calls": 16,
+        "max_parallel_tool_calls": 1,
+    }
+    limits = {
+        key: value for key, value in DEFAULT_RUN_BUDGET.items() if key != "max_parallel_tool_calls"
+    }
+    assert read_budget({}) == limits
     budget = assistant_definition()["budget"]
     assert budget == DEFAULT_RUN_BUDGET
     assert apply_definition_defaults({"instructions": "Help."})["budget"] == DEFAULT_RUN_BUDGET
-    assert read_budget({"budget": {"max_tokens": 5}})["max_tokens"] == 5
-    # The other limits are as they were.
-    assert {key: value for key, value in DEFAULT_RUN_BUDGET.items() if key != "max_tokens"} == {
-        "max_steps": 8,
-        "max_cost_micros": 1_000_000,
-        "max_wall_clock_s": 120,
-        "max_tool_calls": 8,
-        "max_parallel_tool_calls": 1,
-    }
+    # Each one is still the agent's to set.
+    for key in limits:
+        assert read_budget({"budget": {key: 5}}) == {**limits, key: 5}
+
+
+def test_the_default_limits_fit_each_other() -> None:
+    """The arithmetic of OQ-149, so a later change to one number is checked against the rest."""
+    budget = DEFAULT_RUN_BUDGET
+    # A run of single tool calls reaches the step limit, not the tool-call limit, first.
+    assert budget["max_tool_calls"] >= budget["max_steps"]
+    # 12 seconds a model step and 25 seconds a tool call, the slow end of what was measured.
+    assert budget["max_wall_clock_s"] >= 12 * budget["max_steps"] + 25 * budget["max_tool_calls"]
+    # Cost bills the whole prompt every step. At 3 per million input tokens the most the
+    # other limits allow is every step sending a prompt as large as the token limit.
+    most = model_cost_micros(
+        budget["max_steps"] * budget["max_tokens"],
+        0,
+        price_in_per_mtok=3_000_000,
+        price_out_per_mtok=15_000_000,
+    )
+    assert most == 3_840_000
+    assert most <= budget["max_cost_micros"] < 2 * most
+    # A model at 0.20 in and 2.50 out, with 1,000 tokens of output a step, is far below it.
+    cheap = model_cost_micros(
+        budget["max_steps"] * budget["max_tokens"],
+        budget["max_steps"] * 1_000,
+        price_in_per_mtok=200_000,
+        price_out_per_mtok=2_500_000,
+    )
+    assert cheap == 296_000
+    assert cheap * 10 < budget["max_cost_micros"]
 
 
 def _migration() -> object:
     return importlib.import_module(
-        "ar_domain.migrations.versions.20261119_0054_assistant_token_budget"
+        "ar_domain.migrations.versions.20261119_0054_assistant_run_budget"
     )
 
 
-def test_the_migration_raises_the_seeded_token_limit() -> None:
+_SEEDED = {
+    "max_steps": 8,
+    "max_tokens": 16_000,
+    "max_cost_micros": 1_000_000,
+    "max_wall_clock_s": 120,
+    "max_tool_calls": 8,
+}
+
+
+def test_the_migration_raises_the_seeded_limits() -> None:
     migration = _migration()
+    assert migration._OLD == _SEEDED  # type: ignore[attr-defined]
+    assert migration._NEW == {  # type: ignore[attr-defined]
+        key: DEFAULT_RUN_BUDGET[key] for key in _SEEDED
+    }
     old = assistant_definition()
     budget = old["budget"]
     assert isinstance(budget, dict)
-    old["budget"] = {**budget, "max_tokens": 16_000}
-    fresh = migration.with_limit(old, migration._OLD, migration._NEW)  # type: ignore[attr-defined]
+    old["budget"] = {**budget, **_SEEDED}
+    fresh = migration.with_budget(old, migration._OLD, migration._NEW)  # type: ignore[attr-defined]
     assert fresh is not None
     assert fresh == assistant_definition()
-    assert migration._NEW == DEFAULT_RUN_BUDGET["max_tokens"]  # type: ignore[attr-defined]
-    assert old["budget"]["max_tokens"] == 16_000
+    assert old["budget"] == {**budget, **_SEEDED}
     assert migration._hash(fresh) == definition_hash(fresh)  # type: ignore[attr-defined]
-    back = migration.with_limit(fresh, migration._NEW, migration._OLD)  # type: ignore[attr-defined]
+    back = migration.with_budget(fresh, migration._NEW, migration._OLD)  # type: ignore[attr-defined]
     assert back == old
 
 
-def test_the_migration_leaves_a_changed_limit_alone() -> None:
+def test_the_migration_leaves_each_changed_limit_alone() -> None:
     migration = _migration()
-    change = migration.with_limit  # type: ignore[attr-defined]
-    assert change(assistant_definition(), 16_000, 80_000) is None
-    assert change({"budget": {"max_tokens": 32_000}}, 16_000, 80_000) is None
-    assert change({"budget": {"max_tokens": True}}, 1, 80_000) is None
-    assert change({"budget": {"max_steps": 8}}, 16_000, 80_000) is None
-    assert change({"budget": "none"}, 16_000, 80_000) is None
-    assert change({}, 16_000, 80_000) is None
-    kept = change({"budget": {"max_tokens": 16_000, "max_steps": 3}, "skills": ["a"]}, 16_000, 9)
-    assert kept == {"budget": {"max_tokens": 9, "max_steps": 3}, "skills": ["a"]}
+    old, new = migration._OLD, migration._NEW  # type: ignore[attr-defined]
+    change = migration.with_budget  # type: ignore[attr-defined]
+    assert change(assistant_definition(), old, new) is None
+    assert change({"budget": {"max_tokens": 32_000}}, old, new) is None
+    assert change({"budget": {"max_tokens": True, "max_steps": "8"}}, old, new) is None
+    assert change({"budget": "none"}, old, new) is None
+    assert change({}, old, new) is None
+    # One value an administrator changed stays; the others still move, each on its own.
+    for key, value in _SEEDED.items():
+        mixed = {"budget": {**_SEEDED, key: value + 1, "max_parallel_tool_calls": 3}, "skills": []}
+        moved = change(mixed, old, new)
+        assert moved == {
+            "budget": {**new, key: value + 1, "max_parallel_tool_calls": 3},
+            "skills": [],
+        }
+        assert change(moved, new, old) == mixed
+    # A budget that states only some limits gains none.
+    assert change({"budget": {"max_steps": 8}}, old, new) == {"budget": {"max_steps": 16}}
+    # A value that is already the new default is not a change.
+    half = {"budget": {**_SEEDED, "max_tokens": 80_000}}
+    assert change(half, old, new) == {"budget": new}
     assert migration._OURS == (  # type: ignore[attr-defined]
         "seed",
         "offline-default",
         "sample-and-saved-queries",
         "without-checkpoint",
     )
-    assert migration._NOTE == "token-budget"  # type: ignore[attr-defined]
+    assert migration._NOTE == "run-budget"  # type: ignore[attr-defined]

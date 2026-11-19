@@ -25,13 +25,15 @@ def workflow_payload(store: object, run: object, run_id: uuid.UUID, text: str) -
     """What the worker needs. Step caps come from the run budget and install settings.
 
     ``max_steps`` here is how many activities the workflow may run, not the budget's count
-    of model calls: see ``_max_steps``.
+    of model calls: see ``_max_steps``. ``step_timeout_s`` is how long one of those
+    activities may take: see ``_step_timeout_s``.
     """
     payload: dict[str, object] = {
         "run_id": str(run_id),
         "steps": True,
         "text": text,
         "max_steps": _max_steps(store, run, text),
+        "step_timeout_s": _step_timeout_s(store, run),
         "history_steps": _setting("run_history_steps", 24),
         "wait_s": _setting("approval_wait_s", 86400),
     }
@@ -107,11 +109,14 @@ def _workflow_missing(exc: BaseException) -> bool:
     return "not found" in text or "workflow execution already completed" in text
 
 
-def _max_steps(store: object, run: object, text: str) -> int:
-    if isinstance(run, dict) and run.get("trigger") == "research":
-        from ar_domain.research.engine import max_steps, state_of  # noqa: PLC0415
+# A research phase keeps the two minutes its activities have always had. Its own wall
+# clock is a request field, not the agent's budget.
+_RESEARCH_STEP_TIMEOUT_S = 120
+# Time for an activity to save and report after the run clock stops its call.
+_STEP_TIMEOUT_MARGIN_S = 60
 
-        return max(1, max_steps(state_of(run, text)))
+
+def _budget(store: object, run: object) -> dict[str, int]:
     definition: dict[str, object] = {}
     if isinstance(run, dict):
         versions = getattr(store, "versions", {})
@@ -121,7 +126,28 @@ def _max_steps(store: object, run: object, text: str) -> int:
             definition = raw
     from ar_domain.tools.agent_loop import read_budget  # noqa: PLC0415
 
-    budget = read_budget(definition, run if isinstance(run, dict) else None)
+    return read_budget(definition, run if isinstance(run, dict) else None)
+
+
+def _step_timeout_s(store: object, run: object) -> int:
+    """Seconds one step activity may take before the workflow gives it up.
+
+    The loop gives a model call and a tool call what is left of the run's wall clock, so
+    one activity can last as long as the whole budget allows. The activity's own timeout
+    has to be longer than that, or a slow tool ends the run as failed with nothing said,
+    where the loop would have stopped it on the limit and kept what the run made.
+    """
+    if isinstance(run, dict) and run.get("trigger") == "research":
+        return _RESEARCH_STEP_TIMEOUT_S
+    return max(1, int(_budget(store, run)["max_wall_clock_s"])) + _STEP_TIMEOUT_MARGIN_S
+
+
+def _max_steps(store: object, run: object, text: str) -> int:
+    if isinstance(run, dict) and run.get("trigger") == "research":
+        from ar_domain.research.engine import max_steps, state_of  # noqa: PLC0415
+
+        return max(1, max_steps(state_of(run, text)))
+    budget = _budget(store, run)
     # The workflow counts activities, and a model call and a tool call are one each. The
     # budget counts them apart: max_steps model calls and max_tool_calls tool calls, and a
     # tool call that waits for approval takes one more activity to resume. The loop stops

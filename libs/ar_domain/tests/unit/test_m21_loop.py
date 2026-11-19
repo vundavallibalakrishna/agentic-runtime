@@ -103,7 +103,7 @@ def test_assistant_can_call_tools() -> None:
     definition = assistant_definition()
     budget = definition["budget"]
     assert isinstance(budget, dict)
-    assert budget["max_tool_calls"] == 8
+    assert budget["max_tool_calls"] == 16
     tools = definition["tools"]
     assert isinstance(tools, list) and tools
     assert tools[0]["server"] == "session"  # type: ignore[index]
@@ -267,7 +267,7 @@ def test_loop_stops_at_the_step_limit() -> None:
     for version in store.versions.values():
         definition = version.get("definition")
         budget = definition.get("budget") if isinstance(definition, dict) else None
-        if isinstance(budget, dict) and budget.get("max_tool_calls") == 8:
+        if isinstance(budget, dict) and budget.get("max_tool_calls") == 16:
             budget["max_steps"] = 1
     _script(
         store,
