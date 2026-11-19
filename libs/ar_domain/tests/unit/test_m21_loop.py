@@ -9,6 +9,7 @@ from ar_domain.demo_ids import demo_id
 from ar_domain.models.logic import completion_message
 from ar_domain.tools.agent_loop import run_agent_loop
 from ar_testing.demo import demo_store
+from ar_testing.retry_tool import ENDPOINT, MODEL_NAME, TOOL, offer_retry_tool
 
 if TYPE_CHECKING:
     from ar_domain.chat.service import ChatService
@@ -22,6 +23,7 @@ def _store() -> ChatService:
         5.0,
         True,
     )
+    offer_retry_tool(store, demo_id("tenant"))
     return store
 
 
@@ -47,17 +49,14 @@ def test_builtin_handlers_cover_control_memory_and_skills() -> None:
     store = demo_store()
     tenant = demo_id("tenant")
     user = demo_id("admin")
-    assert dispatch(store, "builtin://session", "checkpoint", {}, "")["is_error"] is True
-    failed = dispatch(store, "builtin://session", "checkpoint", {"note": "x"}, "")
-    assert failed["is_error"] is True
-    again = dispatch(
-        store,
-        "builtin://session",
-        "checkpoint",
-        {"note": "x", "confirm": False, "_run_id": failed.get("code")},
-        "",
-    )
-    assert again["is_error"] is True
+    offer_retry_tool(store, tenant)
+    assert dispatch(store, ENDPOINT, TOOL, {}, "")["is_error"] is True
+    failed = dispatch(store, ENDPOINT, TOOL, {"note": "x"}, "")
+    assert failed["code"] == "upstream_error"
+    unconfirmed = dispatch(store, ENDPOINT, TOOL, {"note": "x", "confirm": False}, "")
+    assert unconfirmed["code"] == "validation_failed"
+    assert dispatch(store, ENDPOINT, TOOL, {"note": "x", "confirm": True}, "")["is_error"] is False
+    assert dispatch(store, ENDPOINT, "nope", {}, "")["code"] == "unknown_tool"
     assert dispatch(store, "builtin://session", "propose_change", {}, "")["is_error"] is True
     conversation = store.create_conversation(tenant, user, None)
     saved = dispatch(
@@ -121,8 +120,8 @@ def test_completion_message_reads_tool_calls() -> None:
                             {
                                 "id": "call_1",
                                 "function": {
-                                    "name": "session__checkpoint",
-                                    "arguments": '{"note": "ready"}',
+                                    "name": "session__search",
+                                    "arguments": '{"query": "ready"}',
                                 },
                             }
                         ],
@@ -134,8 +133,8 @@ def test_completion_message_reads_tool_calls() -> None:
     )
     calls = parsed["tool_calls"]
     assert isinstance(calls, list)
-    assert calls[0]["name"] == "session__checkpoint"  # type: ignore[index]
-    assert calls[0]["arguments"] == {"note": "ready"}  # type: ignore[index]
+    assert calls[0]["name"] == "session__search"  # type: ignore[index]
+    assert calls[0]["arguments"] == {"query": "ready"}  # type: ignore[index]
 
 
 def test_fake_provider_leaves_the_turn_alone() -> None:
@@ -152,16 +151,14 @@ def test_fake_provider_leaves_the_turn_alone() -> None:
     assert asyncio.run(run_agent_loop(store, run, assistant, "hello")) is False
 
 
-def test_loop_retries_a_failed_checkpoint_and_checks() -> None:
+def test_loop_retries_a_tool_that_fails_once_and_checks() -> None:
     store = _store()
     _script(
         store,
         [
             {
                 "text": "",
-                "tool_calls": [
-                    {"id": "c1", "name": "session__checkpoint", "arguments": {"note": "ready"}}
-                ],
+                "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "ready"}}],
                 "usage": {"tokens_in": 2, "tokens_out": 2},
                 "real": True,
             },
@@ -170,7 +167,7 @@ def test_loop_retries_a_failed_checkpoint_and_checks() -> None:
                 "tool_calls": [
                     {
                         "id": "c2",
-                        "name": "session__checkpoint",
+                        "name": MODEL_NAME,
                         "arguments": {"note": "ready", "confirm": True},
                     }
                 ],
@@ -178,7 +175,7 @@ def test_loop_retries_a_failed_checkpoint_and_checks() -> None:
                 "real": True,
             },
             {
-                "text": "Checkpoint saved: ready",
+                "text": "Note saved: ready",
                 "tool_calls": [],
                 "usage": {"tokens_in": 2, "tokens_out": 4},
                 "real": True,
@@ -192,15 +189,15 @@ def test_loop_retries_a_failed_checkpoint_and_checks() -> None:
         tenant,
         user,
         uuid.UUID(str(conversation["id"])),
-        "Save a checkpoint",
+        "Save a note",
         schedule=False,
     )
     run_id = uuid.UUID(str(posted["run"]["id"]))
-    asyncio.run(store.generate(run_id, "Save a checkpoint", []))
+    asyncio.run(store.generate(run_id, "Save a note", []))
     run = store.runs[run_id]
     assert run["status"] == "completed"
     answer = store.messages[uuid.UUID(str(run["assistant_message_id"]))]["text"]
-    assert "Checkpoint saved: ready" in str(answer)
+    assert "Note saved: ready" in str(answer)
     actions = [str(row["action"]) for row in store.audit_log]
     assert "run.planned" in actions
     assert "tool.called" in actions
@@ -223,7 +220,7 @@ def test_change_waits_for_approval() -> None:
             tools = definition["tools"]
             if isinstance(tools, list) and tools and isinstance(tools[0], dict):
                 include = tools[0].get("include")
-                if isinstance(include, list) and "checkpoint" in include:
+                if isinstance(include, list) and "search" in include:
                     include.append("propose_change")
     _script(
         store,

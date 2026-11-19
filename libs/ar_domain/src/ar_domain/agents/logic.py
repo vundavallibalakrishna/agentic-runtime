@@ -61,7 +61,7 @@ def can_start_run(agent: AgentView, *, can_see: bool) -> bool:
     return can_see and agent.status == "published" and not agent.disabled
 
 
-def assistant_definition(*, fixtures: bool = True) -> dict[str, object]:
+def assistant_definition() -> dict[str, object]:
     """Published default agent. Read-only control tools, with a safe call budget."""
     return {
         "persona": {
@@ -102,9 +102,7 @@ def assistant_definition(*, fixtures: bool = True) -> dict[str, object]:
             {
                 "server": "session",
                 "version": "*",
-                "include": ["plan_update", "search", "checkpoint"]
-                if fixtures
-                else ["plan_update", "search"],
+                "include": ["plan_update", "search"],
             },
             {
                 "server": "documents",

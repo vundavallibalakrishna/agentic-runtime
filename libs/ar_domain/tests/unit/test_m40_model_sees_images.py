@@ -17,6 +17,7 @@ from ar_domain.demo_ids import demo_id
 from ar_domain.tools import agent_loop
 from ar_domain.tools.images import build_image_message, collect_images
 from ar_testing.demo import demo_store
+from ar_testing.retry_tool import MODEL_NAME, QUALIFIED_NAME, offer_retry_tool
 from ar_testing.stand_in import shared
 
 if TYPE_CHECKING:
@@ -162,12 +163,13 @@ def test_the_loop_shows_a_tool_image_to_a_vision_model() -> None:
     tenant = demo_id("tenant")
     user = demo_id("admin")
     shared().connect(store, tenant, aliases=("reasoning",), capabilities=["vision", "tools"])
+    offer_retry_tool(store, tenant)
 
     seen_image = {"value": False}
     turns = [
         {
             "text": "",
-            "tool_calls": [{"id": "c1", "name": "session__checkpoint", "arguments": {"note": "x"}}],
+            "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "x"}}],
             "usage": {"tokens_in": 2, "tokens_out": 2},
             "real": True,
         },
@@ -211,7 +213,7 @@ def test_the_loop_shows_a_tool_image_to_a_vision_model() -> None:
         del retry
         return {
             "failed": False,
-            "preview": {"qualified_name": "session.checkpoint", "status": "succeeded"},
+            "preview": {"qualified_name": QUALIFIED_NAME, "status": "succeeded"},
             "wrapped": f'<tool_result call="{call.get("id")}">done</tool_result>',
             "images": [{"name": "revenue.png", "media_type": "image/png", "data": PNG}],
         }

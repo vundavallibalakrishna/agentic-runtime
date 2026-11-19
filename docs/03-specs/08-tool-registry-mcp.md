@@ -185,7 +185,9 @@ Temporal Schedule `tool-drift-check` hourly (`AR_TOOL_DRIFT_INTERVAL`, default `
 
 Every built-in reads only the calling tenant's rows, and a call that names no caller returns nothing. `files.list` and `files.read` apply the file API's read rule: the file's owner, or the owner of the conversation it belongs to. A file id that fails the rule is `not_found`. `conversations.search_history` reads the caller's own conversations with the calling agent. `tools.search` ranks platform tools and the calling tenant's tools, on the current version of an approved server.
 
-Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` and `warehouse` servers, the canned `web.fetch`, the `desk` agent, and the test tools `control.checkpoint` and `control.propose_change` are seeded only when `AR_ENV` is `dev` or `ci` (`ar_common.settings.fake_models_allowed`). The page reader for agents is `general.fetch`.
+Demo fixtures are not part of a production catalogue. The `tickets`, `petstore` and `warehouse` servers, the canned `web.fetch`, the `desk` agent, and the approval fixture `session.propose_change` are seeded only when `AR_ENV` is `dev` or `ci` (`ar_common.settings.fake_models_allowed`). The page reader for agents is `general.fetch`.
+
+A tool built to fail is test support, not product ([OQ-148](../open-questions.md)): the tool that fails the first time a run calls it lives in `ar_testing.retry_tool` and a test registers it from its own setup. A built-in catalogue is stored once, so when a release stops shipping a built-in tool, `refresh_builtins` marks the stored tool disabled on every load: it is not offered to a model and a call to it returns `tool_disabled`. Only the servers the release ships are looked at; a pack's server is left alone.
 
 ## 10. `mcp-sql` connector runtime (`connectors/mcp_sql`, port 8010)
 

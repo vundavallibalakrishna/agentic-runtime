@@ -500,7 +500,7 @@ class ChatBehaviour:
         agent_id = new_id()
         version_id = new_id()
         now = utcnow()
-        definition = assistant_definition(fixtures=self.fake_models_allowed)
+        definition = assistant_definition()
         version = {
             "id": version_id,
             "tenant_id": tenant_id,
@@ -1347,7 +1347,7 @@ class ChatBehaviour:
         agent_id = new_id()
         version_id = new_id()
         now = utcnow()
-        definition = assistant_definition(fixtures=self.fake_models_allowed)
+        definition = assistant_definition()
         definition["persona"] = {"display_name": name, "greeting": ""}
         self.versions[version_id] = {
             "id": version_id,

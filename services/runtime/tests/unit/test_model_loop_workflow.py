@@ -12,6 +12,7 @@ from ar_runtime.activities.advance_chat_step import advance_chat_step
 from ar_runtime.activities.expire_approval import bind_store
 from ar_runtime.workflows.turn import TurnWorkflow
 from ar_testing.demo import demo_store
+from ar_testing.retry_tool import MODEL_NAME, offer_retry_tool
 
 if TYPE_CHECKING:
     from temporalio.testing import WorkflowEnvironment
@@ -29,7 +30,7 @@ async def test_malformed_tool_arguments_retry_on_the_workflow(
             "tool_calls": [
                 {
                     "id": "c1",
-                    "name": "session__checkpoint",
+                    "name": MODEL_NAME,
                     "arguments": {},
                     "arguments_error": "tool arguments were not valid JSON",
                 }
@@ -51,9 +52,10 @@ async def test_malformed_tool_arguments_retry_on_the_workflow(
     store.complete_turn = complete  # type: ignore[method-assign]
     tenant = demo_id("tenant")
     user = demo_id("admin")
+    offer_retry_tool(store, tenant)
     conversation = store.create_conversation(tenant, user, None)
     posted = store.post_message(
-        tenant, user, uuid.UUID(str(conversation["id"])), "Save a checkpoint", schedule=False
+        tenant, user, uuid.UUID(str(conversation["id"])), "Save a note", schedule=False
     )
     run_id = uuid.UUID(str(posted["run"]["id"]))
 
@@ -72,7 +74,7 @@ async def test_malformed_tool_arguments_retry_on_the_workflow(
         ):
             result = await temporal_env.client.execute_workflow(
                 TurnWorkflow.run,
-                {"run_id": str(run_id), "steps": True, "text": "Save a checkpoint"},
+                {"run_id": str(run_id), "steps": True, "text": "Save a note"},
                 id=queue,
                 task_queue=queue,
             )

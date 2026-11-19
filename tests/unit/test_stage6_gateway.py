@@ -20,6 +20,7 @@ from ar_mcp_gateway.main import create_application
 from ar_testing.demo import demo_store
 from ar_testing.demo_tenant import seed_demo_tenant
 from ar_testing.internal_client import signed_client
+from ar_testing.retry_tool import MODEL_NAME, offer_retry_tool
 
 if TYPE_CHECKING:
     import pytest
@@ -146,13 +147,11 @@ def test_one_activity_is_one_step() -> None:
     pending = [
         {
             "text": "",
-            "tool_calls": [
-                {"id": "c1", "name": "control__checkpoint", "arguments": {"note": "ready"}}
-            ],
+            "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "ready"}}],
             "usage": {"tokens_in": 2, "tokens_out": 2},
         },
         {
-            "text": "Checkpoint saved: ready",
+            "text": "Note saved: ready",
             "tool_calls": [],
             "usage": {"tokens_in": 2, "tokens_out": 4},
         },
@@ -164,24 +163,25 @@ def test_one_activity_is_one_step() -> None:
     store.complete_turn = complete  # type: ignore[method-assign]
     tenant = demo_id("tenant")
     user = demo_id("admin")
+    offer_retry_tool(store, tenant)
     conversation = store.create_conversation(tenant, user, None, model_alias="reasoning")
     posted = store.post_message(
-        tenant, user, uuid.UUID(str(conversation["id"])), "Save a checkpoint", schedule=False
+        tenant, user, uuid.UUID(str(conversation["id"])), "Save a note", schedule=False
     )
     run_id = uuid.UUID(str(posted["run"]["id"]))
     run = store.runs[run_id]
     conversation_row = store.conversations[uuid.UUID(str(run["conversation_id"]))]
     agent = store.agents[uuid.UUID(str(conversation_row["agent_id"]))]
-    store._prepare_run(run, conversation_row, agent, "Save a checkpoint")
+    store._prepare_run(run, conversation_row, agent, "Save a note")
     assistant = store.messages[uuid.UUID(str(run["assistant_message_id"]))]
-    assert asyncio.run(run_agent_loop(store, run, assistant, "Save a checkpoint", one_step=True))
+    assert asyncio.run(run_agent_loop(store, run, assistant, "Save a note", one_step=True))
     assert run["step_kind"] == "tools"
     assert run["status"] == "running"
     assert len(pending) == 1
-    assert asyncio.run(run_agent_loop(store, run, assistant, "Save a checkpoint", one_step=True))
+    assert asyncio.run(run_agent_loop(store, run, assistant, "Save a note", one_step=True))
     assert run["step_kind"] == "model"
     assert len(pending) == 1
-    assert asyncio.run(run_agent_loop(store, run, assistant, "Save a checkpoint", one_step=True))
+    assert asyncio.run(run_agent_loop(store, run, assistant, "Save a note", one_step=True))
     assert run["status"] == "completed"
     assert pending == []
 

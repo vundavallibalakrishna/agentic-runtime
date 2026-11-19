@@ -603,7 +603,6 @@ def state_cases() -> list[Case]:
             any_result,
             needs="peer",
         ),
-        Case("session.checkpoint", "checkpoint", fixed(note="cert", confirm=True), any_result),
     ]
 
 

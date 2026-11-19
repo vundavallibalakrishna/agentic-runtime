@@ -48,9 +48,7 @@ test("chat is home, an agent can be created, and GRC stays parked", async ({ pag
   await page.goto("/agents/new");
   await expect(page.getByRole("heading", { name: "New agent" })).toBeVisible();
   await page.getByLabel("Name").fill("Desk note");
-  await page
-    .getByLabel("Instructions")
-    .fill("Keep notes short and use the checkpoint tool when asked.");
+  await page.getByLabel("Instructions").fill("Keep notes short and update the plan when asked.");
   await capture(page, "builder");
   await page.getByRole("button", { name: "Create and use" }).click();
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible({ timeout: 20_000 });
