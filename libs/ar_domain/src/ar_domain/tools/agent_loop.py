@@ -1452,8 +1452,23 @@ def _act(  # noqa: PLR0917
 def _checked(
     store: Any, run: dict[str, object], answer: str, *, failed_open: bool, tool_calls: int
 ) -> str:
-    from ar_domain.loop.repair import acknowledges_failure, apply_tool_failure  # noqa: PLC0415
+    from ar_domain.loop.repair import (  # noqa: PLC0415
+        acknowledges_failure,
+        apply_tool_failure,
+        still_failing,
+    )
 
+    if failed_open:
+        # A tool that failed and then worked on a later call has recovered.
+        ran = sorted(
+            (
+                row
+                for row in getattr(store, "tool_calls", {}).values()
+                if isinstance(row, dict) and row.get("run_id") == run.get("id")
+            ),
+            key=lambda row: str(row.get("created_at") or ""),
+        )
+        failed_open = still_failing(ran) if ran else True
     hidden = failed_open and not acknowledges_failure(answer)
     if hidden:
         answer = f"{answer}\n\nA tool call failed and was not recovered."

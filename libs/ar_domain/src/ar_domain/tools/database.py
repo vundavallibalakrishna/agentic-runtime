@@ -338,7 +338,7 @@ def _bound(
 ) -> tuple[dict[str, object], str, dict[str, Any]]:
     row = _find(store, arguments)
     if row is None:
-        raise SqlRejected("choose a database connection by name")
+        raise SqlRejected(_no_connection(store, arguments))
     dsn = connection_dsn(store, row)
     if not dsn:
         raise SqlRejected("this connection has no database")
@@ -350,6 +350,26 @@ def _bound(
             tenant_id=_tenant_key(row.get("tenant_id")),
         )
     return row, dsn, _limits(store, arguments, row)
+
+
+def _no_connection(store: Any, arguments: dict[str, object]) -> str:
+    """Why no connection was chosen, with the names that can be passed."""
+    tenant = arguments.get("_tenant_id")
+    book = getattr(store, "data_connections", {})
+    names = sorted(
+        str(row.get("name") or "")
+        for row in (book.values() if isinstance(book, dict) else [])
+        if isinstance(row, dict) and row.get("tenant_id") == tenant and row.get("name")
+    )
+    if not names:
+        return (
+            "choose a database connection by name: none is set up in this workspace, so an "
+            "administrator must add one first"
+        )
+    return (
+        "choose a database connection by name. The connections are: "
+        f"{', '.join(names)}. Pass one of those as connection"
+    )
 
 
 def _find(store: Any, arguments: dict[str, object]) -> dict[str, object] | None:
