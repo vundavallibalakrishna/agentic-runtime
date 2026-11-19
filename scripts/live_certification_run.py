@@ -181,7 +181,7 @@ def run_live(*, api: str, web: str, out: Path) -> dict[str, object]:  # noqa: PL
     password = os.environ["AR_ADMIN_PASSWORD"]
     second_email = os.environ["AR_SECOND_EMAIL"]
     second_password = os.environ["AR_SECOND_PASSWORD"]
-    model = os.environ.get("AR_LLM_MODEL", "Qwen/Qwen3-32B")
+    model = os.environ.get("AR_LLM_MODEL", "Qwen/Qwen3.8-27B")
     document = Path(os.environ.get("AR_CERT_DOCUMENT", ""))
     steps: list[dict[str, object]] = []
     try:
@@ -782,7 +782,7 @@ def _register_models(api: str, auth: dict[str, str]) -> None:
     if not auth.get("cookie"):
         return
     base = os.environ.get("AR_LLM_BASE_URL", "https://api.deepinfra.com/v1/openai").rstrip("/")
-    chat_model = os.environ.get("AR_LLM_MODEL", "Qwen/Qwen3-32B")
+    chat_model = os.environ.get("AR_LLM_MODEL", "Qwen/Qwen3.8-27B")
     embed_model = os.environ.get("AR_EMBED_MODEL", _EMBED_MODEL)
     key = os.environ.get("AR_LLM_API_KEY", "").strip()
     _status, _headers, providers = _json("GET", f"{api}/api/v1/model-providers", {}, auth)
@@ -823,7 +823,8 @@ def _register_models(api: str, auth: dict[str, str]) -> None:
             return ""
         return str(found.get("id") or "")
 
-    chat_id = ensure("Qwen3-32B", chat_model, "chat", None)
+    # Named after the model in use, so the model list says what is really connected.
+    chat_id = ensure(chat_model.rsplit("/", 1)[-1], chat_model, "chat", None)
     embed_id = ensure("Qwen3-Embedding-8B", embed_model, "embedding", 1024)
     _status, _headers, aliases = _json("GET", f"{api}/api/v1/model-aliases", {}, auth)
     known = {str(row.get("alias")) for row in _items(aliases)}

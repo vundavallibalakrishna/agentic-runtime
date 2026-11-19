@@ -52,10 +52,10 @@ Sign in on the password form as `admin@dev.local` with password `dev-password`. 
 Connect the model you actually want to use:
 
 1. Open **Models**, switch to **Advanced**, and choose **OpenAI-compatible**.
-2. Set the base URL (for DeepInfra, `https://api.deepinfra.com/v1/openai`) and the upstream model id (for example `Qwen/Qwen3-32B`).
+2. Set the base URL (for DeepInfra, `https://api.deepinfra.com/v1/openai`) and the upstream model id (for example `Qwen/Qwen3.8-27B`).
 3. Paste the API key and choose **Register and test**. The key is stored as a secret. The page shows **Key stored** and a short sample. It does not show the key again.
 
-Point the tenant `reasoning` alias at that model if the form did not do it. New agents use that alias. Embeddings for a knowledge base use a registered model of kind `embedding` (the certification used `BAAI/bge-m3` on the same base URL).
+Point the tenant `reasoning` alias at that model if the form did not do it. New agents use that alias. Set an output limit on the alias (its default parameter `max_tokens`, for example 12000). With none, the provider's own default applies, and a long answer or a tool call that writes a whole document is cut off part-way. Embeddings for a knowledge base use a registered model of kind `embedding` (the certification used `BAAI/bge-m3` on the same base URL).
 
 If the web app is not on port 3000, set `AR_WEB_HOST_PORT` to that port before the API starts. The API checks the browser `Origin` against `AR_PUBLIC_URL`, and that URL follows the web port. A mismatch fails CSRF on every save.
 

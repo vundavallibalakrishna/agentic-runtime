@@ -43,7 +43,7 @@ when a step that should work does not.
    AR_FRESH_ADMIN_PASSWORD_FILE=/path/to/admin-password \
    AR_FRESH_MODEL_BASE_URL=https://your-model-endpoint/v1 \
    AR_FRESH_MODEL_KEY_FILE=/path/to/model-key \
-   AR_FRESH_CHAT_MODEL=Qwen/Qwen3-32B \
+   AR_FRESH_CHAT_MODEL=Qwen/Qwen3.8-27B \
    AR_FRESH_EMBED_MODEL=BAAI/bge-m3 \
    AR_FRESH_OUT=./fresh-run-out \
    node scripts/fresh_run/fresh_run.mjs
