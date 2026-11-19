@@ -190,6 +190,72 @@ describe("tool screens", () => {
     expect(screen.getByText(/Stopped at 2 of 4/)).toBeTruthy();
   });
 
+  it("shows what a cross-check found, and says so when it found nothing", () => {
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "documents.crosscheck",
+            status: "succeeded",
+            resultPreview: "Places where Stock count disagrees with itself",
+            presentation: {
+              kind: "crosscheck",
+              documentId: "doc-1",
+              passagesRead: 3,
+              discarded: 1,
+              findings: [
+                {
+                  statement: "Shelving is Amber in the summary and Red in its section.",
+                  kind: "summary_mismatch",
+                  quotes: [
+                    { anchor: "p1-s0", page: 1, quote: "| Shelving | Amber |" },
+                    { anchor: "p1-s1", page: 1, quote: "Grade: Red." },
+                  ],
+                },
+              ],
+            },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(screen.getByText("Crosscheck")).toBeTruthy();
+    expect(
+      screen.getByText("Shelving is Amber in the summary and Red in its section."),
+    ).toBeTruthy();
+    expect(screen.getByText("A summary or table line against the body")).toBeTruthy();
+    expect(screen.getByText(/Grade: Red\./)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "p1-s1" }).getAttribute("href")).toBe(
+      "/documents/doc-1#p1-s1",
+    );
+    expect(screen.getByText(/1 proposed finding was discarded/)).toBeTruthy();
+    // The card shows the findings, not the text written for the model.
+    expect(screen.queryByText(/Places where Stock count/)).toBeNull();
+    cleanup();
+    render(
+      wrap(
+        <ToolCallCard
+          call={{
+            qualifiedName: "documents.crosscheck",
+            status: "succeeded",
+            resultPreview: "No disagreement was found between the passages compared. All 3",
+            presentation: {
+              kind: "crosscheck",
+              documentId: "doc-1",
+              passagesRead: 3,
+              findings: [],
+            },
+          }}
+          label="Tool call"
+        />,
+      ),
+    );
+    expect(
+      screen.getByText("No disagreement was found between the 3 passages compared."),
+    ).toBeTruthy();
+    expect(screen.queryByText(/All 3/)).toBeNull();
+  });
+
   it("lists servers and a recent call", async () => {
     installToolCatalogue();
     server.use(

@@ -88,9 +88,9 @@ async def test_bootstrap_creates_the_tenant_its_admin_and_two_agents(migrated: s
         agents = (
             await connection.execute(
                 text(
-                    "SELECT a.slug, a.status, u.email, v.state FROM agents a "
-                    "JOIN users u ON u.id = a.owner_user_id "
-                    "JOIN agent_versions v ON v.id = a.published_version_id ORDER BY a.slug"
+                    "SELECT a.slug, a.status, a.owner_user_id, u.email, v.state FROM agents a "
+                    "JOIN agent_versions v ON v.id = a.published_version_id "
+                    "JOIN users u ON u.id = v.created_by ORDER BY a.slug"
                 )
             )
         ).all()
@@ -113,10 +113,11 @@ async def test_bootstrap_creates_the_tenant_its_admin_and_two_agents(migrated: s
         "active",
         "tenant_admin",
     )
-    # The assistant and the builder, published, owned by the tenant's own admin.
+    # The assistant and the builder, published. They ship with the product, so they have no
+    # owner; the tenant's own admin is recorded as the author of their first version.
     assert [tuple(row) for row in agents] == [
-        ("assistant", "published", "ada@acme.example", "published"),
-        ("builder", "published", "ada@acme.example", "published"),
+        ("assistant", "published", None, "ada@acme.example", "published"),
+        ("builder", "published", None, "ada@acme.example", "published"),
     ]
     assert tools == 0, "the tool catalogue belongs to no tenant; no fixture tool is written"
     async with engine.begin() as connection:
@@ -179,6 +180,75 @@ async def test_made_up_tool_vectors_are_cleared(migrated: str) -> None:
     await engine.dispose()
     assert left == 0
     assert kept == "Look.", "only the vector changes"
+
+
+async def test_built_in_agents_lose_their_owner_and_built_ones_keep_theirs(migrated: str) -> None:
+    """Revision 0052 clears the owner of the assistant and the builder in every tenant."""
+    import uuid
+
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(migrated)
+    _alembic(migrated, "downgrade", "0051")
+    tenants = [uuid.uuid4(), uuid.uuid4()]
+    owners: dict[uuid.UUID, uuid.UUID] = {}
+    async with engine.begin() as connection:
+        plan = await connection.scalar(
+            text(
+                "INSERT INTO plans (key, name) VALUES ('m0052', 'Owner check') "
+                "ON CONFLICT (key) DO UPDATE SET name = EXCLUDED.name RETURNING id"
+            )
+        )
+        for tenant in tenants:
+            owner = uuid.uuid4()
+            owners[tenant] = owner
+            await connection.execute(
+                text("INSERT INTO tenants (id, slug, name, plan_id) VALUES (:id, :slug, 'T', :p)"),
+                {"id": tenant, "slug": f"own{tenant.hex[:10]}", "p": plan},
+            )
+            await connection.execute(
+                text(
+                    "INSERT INTO users (id, tenant_id, idp_subject, email, display_name, status) "
+                    "VALUES (:id, :tenant, :subject, :email, 'Owner', 'active')"
+                ),
+                {
+                    "id": owner,
+                    "tenant": tenant,
+                    "subject": f"idp-{owner.hex[:8]}",
+                    "email": f"{owner.hex[:8]}@own.example",
+                },
+            )
+            for slug in ("assistant", "builder", "helpdesk"):
+                await connection.execute(
+                    text(
+                        "INSERT INTO agents (tenant_id, slug, name, owner_user_id, status) "
+                        "VALUES (:tenant, :slug, :name, :owner, 'draft')"
+                    ),
+                    {"tenant": tenant, "slug": slug, "name": slug.title(), "owner": owner},
+                )
+    held = text(
+        "SELECT tenant_id, slug, owner_user_id FROM agents "
+        "WHERE tenant_id = ANY(:tenants) ORDER BY slug"
+    )
+    try:
+        _alembic(migrated, "upgrade", "head")
+        async with engine.begin() as connection:
+            after = (await connection.execute(held, {"tenants": tenants})).all()
+        assert len(after) == 6
+        for tenant, slug, owner in after:
+            assert owner == (owners[tenant] if slug == "helpdesk" else None)
+        # Forward-only: the earlier owner is not recorded, so downgrade leaves the rows alone.
+        _alembic(migrated, "downgrade", "0051")
+        async with engine.begin() as connection:
+            assert (await connection.execute(held, {"tenants": tenants})).all() == after
+    finally:
+        _alembic(migrated, "upgrade", "head")
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("DELETE FROM tenants WHERE id = ANY(:tenants)"), {"tenants": tenants}
+            )
+            await connection.execute(text("DELETE FROM plans WHERE key = 'm0052'"))
+        await engine.dispose()
 
 
 async def test_retired_pack_schema_drops_and_stays_gone(migrated: str) -> None:

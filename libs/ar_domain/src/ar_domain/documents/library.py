@@ -20,6 +20,7 @@ from ar_common.errors import (
 from ar_common.ids import new_id
 from ar_common.time import utcnow
 from ar_domain.documents.chunk import passage_dicts, retrieve, score
+from ar_domain.documents.crosscheck import crosscheck
 from ar_domain.documents.extract import Extracted, ExtractError, extract_bytes
 from ar_domain.documents.grounding import (
     apply_hunks,
@@ -398,8 +399,7 @@ class DocumentLibrary:
         ):
             raise ValidationFailedError(
                 "These are the same document, so there is nothing to compare. To check one "
-                "document against itself, read it in full and compare the places that "
-                "should agree."
+                "document against itself, use the cross-check of a single document."
             )
         result = compare(
             left,
@@ -421,6 +421,24 @@ class DocumentLibrary:
         }
         result["id"] = str(comparison_id)
         return result
+
+    def crosscheck(
+        self,
+        actor: Actor,
+        document_id: uuid.UUID,
+        *,
+        focus: str = "",
+        alias: str = "",
+        agent_version_id: uuid.UUID | None = None,
+    ) -> dict[str, object]:
+        """Places inside one document that disagree with each other. Nothing is stored."""
+        row = self._own(actor, document_id)
+        return crosscheck(
+            row,
+            self._ask(actor, alias),
+            focus=focus,
+            aggressive=self._aggressive(actor, agent_version_id),
+        )
 
     def judge(
         self,

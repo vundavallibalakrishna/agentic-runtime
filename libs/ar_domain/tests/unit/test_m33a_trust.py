@@ -68,12 +68,23 @@ def _post(
     )
 
 
+def _owned_agent(store: ChatService) -> dict[str, object]:
+    """An agent a person built, which that person owns. The built-in agents have no owner."""
+    agent = next(
+        row
+        for row in store.agents.values()
+        if row["tenant_id"] == demo_id("tenant") and row["slug"] == "helpdesk"
+    )
+    assert agent["owner_user_id"] == demo_id("admin")
+    return agent
+
+
 def test_requester_mode_lets_an_approver_decide_when_the_owner_is_the_requester() -> None:
     store = demo_store()
     tenant = demo_id("tenant")
     admin = demo_id("admin")
     approver = demo_id("approver")
-    agent = store.ensure_assistant(tenant, admin)
+    agent = _owned_agent(store)
     held = _post(store, tenant, admin, uuid.UUID(str(agent["id"])), call="deadlock")
     assert held["status"] == "awaiting_approval"
     approval_id = uuid.UUID(str(held["approval_id"]))
@@ -104,7 +115,7 @@ def test_seeded_users_policy_lets_the_approver_finish_the_write() -> None:
     rule = document["rules"][0]
     assert rule["approval"]["approvers"]["mode"] == "users"
     assert rule["approval"]["four_eyes"] is False
-    agent = store.ensure_assistant(tenant, admin)
+    agent = _owned_agent(store)
     agent_id = uuid.UUID(str(agent["id"]))
 
     def send(method: str, url: str, **kwargs: object) -> httpx.Response:

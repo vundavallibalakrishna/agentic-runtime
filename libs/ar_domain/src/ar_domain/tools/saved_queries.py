@@ -2,7 +2,8 @@
 
 A saved query is run again against the file each time; no result is kept. Every result
 says plainly whether the query was saved or run, so a reply cannot claim more than
-happened.
+happened. Saving with a file runs the statement once on it as a check and returns the
+rows and the count, so the person can read what it finds before it goes for sign-off.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from typing import TYPE_CHECKING
 from ar_common.errors import NotFoundError, ValidationFailedError
 from ar_domain.rows import as_int
 from ar_domain.spreadsheet.engine import SheetQueryError, query_loaded
-from ar_domain.spreadsheet.saved import SavedQueryBook, SignOff
+from ar_domain.spreadsheet.saved import CheckRun, SavedQueryBook, SignOff
 from ar_domain.tools.sql_guard import SqlRejected
 
 if TYPE_CHECKING:
@@ -23,12 +24,19 @@ _HASH_SHOWN = 12
 
 
 def save_query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
-    """Run ``general.save_query``."""
+    """Run ``general.save_query``.
+
+    With ``path`` or ``paths`` the statement is run once on those files before it is
+    saved, through the same guard and engine as ``general.query_table``. A statement that
+    fails is not saved. The rows and count of that check run come back with the result.
+    """
     from ar_domain.tools.analysis import (  # noqa: PLC0415
+        _MAX_ROWS,
         _checked,
         _error,
         _load_requested,
         _ok,
+        _query_result,
         _requested_paths,
     )
 
@@ -40,41 +48,90 @@ def save_query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     sql = str(arguments.get("sql") or "").strip()
     if not name or not sql:
         return _error("validation_failed", "Not saved. name and sql are both required.")
+    book = SavedQueryBook(store)
+    paths = _requested_paths(arguments)
+    found: tuple[list[str], list[list[object]]] | None = None
+    check: CheckRun | None = None
     try:
         checked = _checked(store, arguments, sql)
-        if _requested_paths(arguments):
-            query_loaded(_load_requested(store, arguments), checked, row_limit=1)
-        row, created = SavedQueryBook(store).save(
+        # Refuse a save that cannot succeed before the statement reads any file.
+        book.savable(tenant_id, name=name, sql=sql)
+        if paths:
+            sheets = _load_requested(store, arguments)
+            columns, rows, truncated = query_loaded(sheets, checked, row_limit=_MAX_ROWS)
+            found = (columns, rows)
+            check = CheckRun(
+                paths=tuple(paths),
+                rows=len(rows),
+                truncated=truncated,
+                partial=tuple(table for table, _columns, held in sheets if len(held) >= _MAX_ROWS),
+            )
+        row, created = book.save(
             tenant_id,
             user_id,
             name=name,
             sql=sql,
             description=str(arguments.get("description") or "").strip(),
+            checked=check,
         )
-        state = SavedQueryBook(store).sign_off(tenant_id, row)
-    except SqlRejected as exc:
-        return _error("sql_rejected", f"Not saved. The statement was refused: {exc.reason}")
-    except SheetQueryError as exc:
-        return _error("validation_failed", f"Not saved. The statement did not run: {exc.reason}")
-    except (ValidationFailedError, NotFoundError) as exc:
-        return _error("validation_failed", f"Not saved. {exc}")
+        state = book.sign_off(tenant_id, row)
+    except (SqlRejected, SheetQueryError, ValidationFailedError, NotFoundError) as exc:
+        return _error(*_not_saved(exc))
     label = _label(row)
     opening = (
         f"Saved {label}."
         if created
         else f"Nothing new was saved: {label} already holds this statement and description."
     )
-    return _ok(
-        f"{opening} {_standing(state, row)}",
-        {
-            "kind": "saved_query",
-            "saved": created,
-            **_identity(row),
-            "sql": row["sql"],
-            "description": row["description"],
-            "signoff": _signoff(state),
-        },
-    )
+    saved: dict[str, object] = {
+        "kind": "saved_query",
+        "saved": created,
+        **_identity(row),
+        "sql": row["sql"],
+        "description": row["description"],
+        "signoff": _signoff(state),
+    }
+    standing = f"{opening} {_standing(state, row)}"
+    if check is None or found is None:
+        return _ok(f"{standing} {_UNCHECKED}", saved)
+    # The same preview and text a query gives, so the chat shows the rows as a table.
+    shown = _query_result(checked, found[0], found[1], truncated=check.truncated)
+    return _with_check(shown, saved, check, f"{standing}\n{_checked_note(check, state, row)}")
+
+
+def _not_saved(exc: Exception) -> tuple[str, str]:
+    """The error code and the words for a save that was refused. Nothing was written."""
+    if isinstance(exc, SqlRejected):
+        return "sql_rejected", f"Not saved. The statement was refused: {exc.reason}"
+    if isinstance(exc, SheetQueryError):
+        return "validation_failed", f"Not saved. The statement did not run: {exc.reason}"
+    return "validation_failed", f"Not saved. {exc}"
+
+
+_UNCHECKED = (
+    "The statement was not checked against a file, so no rows and no count are shown. "
+    "Pass path or paths when saving to check it."
+)
+
+
+def _with_check(
+    shown: dict[str, object], saved: dict[str, object], check: CheckRun, opening: str
+) -> dict[str, object]:
+    """A query result for the check run, carrying everything a save result carries."""
+    shown["text"] = f"{opening}\n{shown['text']}"
+    structured = shown["structured"]
+    if isinstance(structured, dict) and isinstance(structured.get("presentation"), dict):
+        structured["presentation"].update(
+            {
+                **{key: value for key, value in saved.items() if key != "kind"},
+                "check": {
+                    "paths": list(check.paths),
+                    "rows": check.rows,
+                    "truncated": check.truncated,
+                },
+            }
+        )
+    return shown
 
 
 def list_saved_queries(store: Store, arguments: dict[str, object]) -> dict[str, object]:
@@ -238,6 +295,33 @@ def _standing(state: SignOff, row: dict[str, object]) -> str:
     return (
         f"Sign-off is required before it may run, and it has not been approved yet "
         f"(status {state.status}). {_who(state)} It cannot be run until then."
+    )
+
+
+def _checked_note(check: CheckRun, state: SignOff, row: dict[str, object]) -> str:
+    """What the check run made while saving found, and that it is not a run of the version."""
+    count = f"at least {check.rows}" if check.truncated else str(check.rows)
+    noun = "row" if check.rows == 1 and not check.truncated else "rows"
+    cut = (
+        f" Only the first {check.rows} rows are counted; the statement returns more."
+        if check.truncated
+        else ""
+    )
+    partial = (
+        f" The table reader stops at a row limit and {', '.join(check.partial)} reached it, "
+        "so the count covers only the rows that were read."
+        if check.partial
+        else ""
+    )
+    later = (
+        " It can be run again on any file with run_saved_query."
+        if state.runnable
+        else f" Version {row['version']} cannot be run again until it is signed."
+    )
+    return (
+        f"Check run on {', '.join(check.paths)}, made once while saving: the statement "
+        f"returned {count} {noun}.{cut}{partial} The rows below are from that check run, "
+        f"not from a run of the saved version.{later}"
     )
 
 

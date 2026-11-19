@@ -54,7 +54,8 @@ export type AgentSummary = {
   greeting?: string;
   status?: string;
   visibility?: string;
-  owner?: { displayName?: string };
+  /** A built-in agent has no owner, so the name is null. */
+  owner?: { displayName?: string | null };
   publishedVersion?: number | null;
   draftVersion?: number | null;
   favourite?: boolean;

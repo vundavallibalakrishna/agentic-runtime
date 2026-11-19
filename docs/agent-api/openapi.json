@@ -2563,6 +2563,23 @@
         "type": "object",
         "title": "CredentialsBody"
       },
+      "CrosscheckBody": {
+        "properties": {
+          "focus": {
+            "type": "string",
+            "title": "Focus",
+            "default": ""
+          },
+          "modelAlias": {
+            "type": "string",
+            "title": "Modelalias",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CrosscheckBody"
+      },
       "DecideBody": {
         "properties": {
           "decision": {

@@ -29,6 +29,21 @@ _OPEN = frozenset({"pending", "in_review"})
 
 
 @dataclass(frozen=True, slots=True)
+class CheckRun:
+    """What the check run made while saving found: the files read and how many rows came back.
+
+    ``truncated`` is set when the statement returned more rows than the engine's limit.
+    ``partial`` names the tables the reader cut short. It holds counts and names only;
+    the rows themselves are never kept or audited.
+    """
+
+    paths: tuple[str, ...]
+    rows: int
+    truncated: bool = False
+    partial: tuple[str, ...] = field(default=())
+
+
+@dataclass(frozen=True, slots=True)
 class SignOff:
     """Where one version stands. ``status`` is ``not_required``, ``unrequested`` or the item's."""
 
@@ -104,14 +119,12 @@ class SavedQueryBook:
             f"Its versions are 1 to {as_int(rows[-1].get('version'))}."
         )
 
-    def save(
-        self, tenant_id: uuid.UUID, user_id: uuid.UUID, *, name: str, sql: str, description: str
-    ) -> tuple[dict[str, object], bool]:
-        """Store the next version, and ask for sign-off when the tenant requires it.
+    def savable(
+        self, tenant_id: uuid.UUID, *, name: str, sql: str
+    ) -> tuple[str, str, dict[str, object] | None]:
+        """Refuse what ``save`` would refuse, before anything is run or written.
 
-        Returns the version and whether it is new. Saving the same statement and
-        description as the newest version adds nothing; it only asks for sign-off again
-        when that version has no open or signed review item.
+        Returns the trimmed name and statement and the sign-off queue, if one is chosen.
         """
         label = name.strip()
         statement = sql.strip()
@@ -119,7 +132,26 @@ class SavedQueryBook:
             raise ValidationFailedError(f"name is required and at most {_NAME_MAX} characters")
         if not statement:
             raise ValidationFailedError("sql is required")
-        queue = self._queue(tenant_id)
+        return label, statement, self._queue(tenant_id)
+
+    def save(
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        name: str,
+        sql: str,
+        description: str,
+        checked: CheckRun | None = None,
+    ) -> tuple[dict[str, object], bool]:
+        """Store the next version, and ask for sign-off when the tenant requires it.
+
+        Returns the version and whether it is new. Saving the same statement and
+        description as the newest version adds nothing; it only asks for sign-off again
+        when that version has no open or signed review item. ``checked`` is the check run
+        made on a file while saving; its row count and file names go in the audit entry.
+        """
+        label, statement, queue = self.savable(tenant_id, name=name, sql=sql)
         held = self.versions(tenant_id, label)
         newest = held[-1] if held else None
         if (
@@ -151,7 +183,12 @@ class SavedQueryBook:
             action="saved_query.saved",
             target_type="saved_query",
             target_id=row["id"],
-            detail={"name": label, "version": version, "content_hash": row["content_hash"]},
+            detail={
+                "name": label,
+                "version": version,
+                "content_hash": row["content_hash"],
+                **_checked_detail(checked),
+            },
         )
         if queue is not None:
             self._request(tenant_id, user_id, row, queue)
@@ -288,6 +325,17 @@ class SavedQueryBook:
                 "queue_id": str(queue["id"]),
             },
         )
+
+
+def _checked_detail(checked: CheckRun | None) -> dict[str, object]:
+    """The audit fields for a check run: file names and counts, never a row or a value."""
+    if checked is None:
+        return {}
+    return {
+        "checked_paths": list(checked.paths),
+        "checked_rows": checked.rows,
+        "checked_truncated": checked.truncated or bool(checked.partial),
+    }
 
 
 def _digest(row: dict[str, object]) -> str:

@@ -10,7 +10,11 @@ from sqlalchemy import select
 
 from ar_common.ids import new_id
 from ar_common.time import utcnow
-from ar_domain.agents.logic import assistant_definition, definition_hash
+from ar_domain.agents.logic import (
+    BUILTIN_AGENT_SLUGS,
+    assistant_definition,
+    definition_hash,
+)
 from ar_domain.agents.tables import Agent, AgentVersion
 from ar_domain.agents.templates import builder_definition, helpdesk_definition
 from ar_domain.identity.seed import ensure_everyone_team
@@ -111,7 +115,8 @@ async def _published(
             slug=slug,
             name=name,
             description=description,
-            owner_user_id=admin_id,
+            # A built-in agent ships with the product, so it has no owner.
+            owner_user_id=None if slug in BUILTIN_AGENT_SLUGS else admin_id,
             visibility="tenant",
             status="published",
             risk_tier="low",

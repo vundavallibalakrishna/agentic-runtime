@@ -71,6 +71,11 @@ class SummariseBody(ApiModel):
     model_alias: str = ""
 
 
+class CrosscheckBody(ApiModel):
+    focus: str = ""
+    model_alias: str = ""
+
+
 async def _waiting(
     call: Callable[..., dict[str, object]], /, *args: object, **kwargs: object
 ) -> dict[str, object]:
@@ -181,6 +186,23 @@ async def compare_documents(
         actor(request),
         document_id,
         body.other_document_id,
+        alias=body.model_alias,
+    )
+
+
+@router.post(
+    "/api/v1/library-documents/{document_id}:crosscheck",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def crosscheck_document(
+    document_id: uuid.UUID, body: CrosscheckBody, request: Request
+) -> dict[str, object]:
+    return await _waiting(
+        _library(request).crosscheck,
+        actor(request),
+        document_id,
+        focus=body.focus,
         alias=body.model_alias,
     )
 

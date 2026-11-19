@@ -104,6 +104,70 @@ function timelineLabel(
   return kind || "step";
 }
 
+const MISMATCH_LABELS: Record<
+  string,
+  "crosscheckValue" | "crosscheckCount" | "crosscheckSummary" | "crosscheckOther"
+> = {
+  value_mismatch: "crosscheckValue",
+  count_mismatch: "crosscheckCount",
+  summary_mismatch: "crosscheckSummary",
+};
+
+/** The places one document disagrees with itself, each with the passages quoted. */
+function Crosscheck({ presentation }: { presentation: Record<string, unknown> }) {
+  const t = useTranslations("chat");
+  const findings = (Array.isArray(presentation.findings) ? presentation.findings : []).filter(
+    (item): item is Record<string, unknown> => !!item && typeof item === "object",
+  );
+  const documentId = text(presentation.documentId ?? presentation.document_id);
+  const read = Number(presentation.passagesRead ?? presentation.passages_read ?? 0);
+  const discarded = Number(presentation.discarded ?? 0);
+  return (
+    <div className="mt-2" data-testid="crosscheck">
+      {findings.length === 0 ? (
+        <p>{t("crosscheckNone", { count: read })}</p>
+      ) : (
+        <ul className="space-y-2">
+          {findings.map((row) => {
+            const quotes = (Array.isArray(row.quotes) ? row.quotes : []).filter(
+              (item): item is Record<string, unknown> => !!item && typeof item === "object",
+            );
+            return (
+              <li
+                key={`${text(row.statement)}-${quotes.map((quote) => text(quote.anchor)).join("-")}`}
+              >
+                <p>{text(row.statement)}</p>
+                <p className="text-[var(--muted-foreground)]">
+                  {t(MISMATCH_LABELS[text(row.kind)] ?? "crosscheckOther")}
+                </p>
+                {quotes.map((quote) => {
+                  const anchor = text(quote.anchor);
+                  return (
+                    <p
+                      className="whitespace-pre-wrap text-xs text-[var(--muted-foreground)]"
+                      key={`${anchor}-${text(quote.quote)}`}
+                    >
+                      <a className="underline" href={`/documents/${documentId}#${anchor}`}>
+                        {anchor}
+                      </a>{" "}
+                      {text(quote.quote)}
+                    </p>
+                  );
+                })}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {discarded > 0 ? (
+        <p className="mt-1 text-[var(--muted-foreground)]">
+          {t("crosscheckDiscarded", { count: discarded })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Tool text that may be wider than the card. It scrolls, so the keyboard must reach it. */
 function Block({ className, children }: { className: string; children: ReactNode }) {
   return (
@@ -384,6 +448,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           })}
         </ul>
       ) : null}
+      {kind === "crosscheck" ? <Crosscheck presentation={presentation} /> : null}
       {kind === "rewrite" ? (
         <div className="mt-2">
           <p>{text(presentation.instruction)}</p>
@@ -471,6 +536,8 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       kind !== "described" &&
       kind !== "query" &&
       kind !== "table" &&
+      kind !== "pivot" &&
+      kind !== "sample" &&
       kind !== "chart" &&
       kind !== "summary" &&
       kind !== "check" &&
@@ -478,6 +545,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
       kind !== "gaps" &&
       kind !== "missing" &&
       kind !== "compare" &&
+      kind !== "crosscheck" &&
       kind !== "rewrite" &&
       kind !== "redact" &&
       kind !== "extract" &&

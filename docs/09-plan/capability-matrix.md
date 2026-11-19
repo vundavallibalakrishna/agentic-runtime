@@ -177,6 +177,7 @@ Tools that Stage 2 moves into a pack are omitted. They are not core capabilities
 | tool | `data.query` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `documents.compare` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `documents.create` | `unit` | yes | In-process tool. Not a recorded live model run. |
+| tool | `documents.crosscheck` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `documents.extract` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `documents.ingest` | `unit` | yes | In-process tool. Not a recorded live model run. |
 | tool | `documents.judge` | `unit` | yes | In-process tool. Not a recorded live model run. |

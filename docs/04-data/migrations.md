@@ -60,6 +60,7 @@
 | 0038 | `stage5_files_judgements` | Nullable `library_documents.object_key` and `document_chunks.embedding_model_id`. Append-only `rule_sets` and `judgements`, with RLS and grants. | Stage 5 |
 | 0050 | `assistant_sample_knowledge` | Data only. Publishes the seeded assistant again with `general.sample_table`, the three saved-query tools and `knowledge.search`. An assistant an administrator has published since is left alone. Downgrade publishes a version without them. | OQ-146 |
 | 0051 | `saved_queries` | Append-only `saved_queries` with RLS and grants. Adds `saved_query` to the `review_queues.subject_type` check. | OQ-146 |
+| 0052 | `builtin_agents_no_owner` | Data only. Sets `agents.owner_user_id` to NULL for the built-in agents (`assistant`, `builder`) in every tenant; agents people built keep their owner. The column was already nullable. Forward-only: the earlier owner is not recorded, so downgrade leaves the rows as they are. | OQ-145 |
 
 Deferred foreign keys that reference tables created in later revisions are added in the later revision (listed in the Content column above). Revision 0022 only creates `sod_constraints`; `review_queues`, `review_items` and `signoffs` are revision 0021. M5-T09 depends on 0021 and adds 0022.
 

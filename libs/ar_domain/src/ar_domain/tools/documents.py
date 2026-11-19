@@ -91,6 +91,15 @@ def dispatch_documents(  # noqa: PLR0911, PLR0912
                 agent_version_id=_agent_version(arguments),
             )
             return _ok(_change_text(body), body)
+        if name == "crosscheck":
+            body = library.crosscheck(
+                actor,
+                _required_id(arguments),
+                focus=str(arguments.get("focus") or ""),
+                alias=_alias(arguments),
+                agent_version_id=_agent_version(arguments),
+            )
+            return _ok(_crosscheck_text(body), body)
         if name == "judge":
             body = library.judge(
                 actor,
@@ -517,6 +526,56 @@ def _check_text(body: dict[str, object]) -> str:
             f"{row.get('reason')}"
         )
     return _OPEN + "\n" + "\n".join(lines)
+
+
+_MISMATCH = {
+    "value_mismatch": "two values for the same thing",
+    "count_mismatch": "a count or total that does not match what is listed",
+    "summary_mismatch": "a summary or table line against the body",
+    "other": "another disagreement",
+}
+
+
+def _crosscheck_text(body: dict[str, object]) -> str:
+    """What the model is told a cross-check found. It reports this and nothing more."""
+    raw = body.get("findings")
+    findings = [row for row in raw if isinstance(row, dict)] if isinstance(raw, list) else []
+    read = body.get("passagesRead")
+    title = str(body.get("title") or "the document")
+    discarded = body.get("discarded")
+    dropped = (
+        f" Candidates discarded: {discarded}. The words quoted for them are not in the "
+        "document or do not differ, so do not report them."
+        if isinstance(discarded, int) and discarded > 0
+        else ""
+    )
+    if not findings:
+        return (
+            f"No disagreement was found between the passages compared. All {read} passages "
+            f"of {title} were read and compared with each other.{dropped} Say that none was "
+            "found and how many passages were read. This is not proof that the document is "
+            "free of disagreements, so do not say it is."
+        )
+    lines = [
+        _OPEN,
+        f"Places where {title} disagrees with itself ({len(findings)} found, all {read} "
+        "passages read):",
+    ]
+    for index, row in enumerate(findings, start=1):
+        sort = _MISMATCH.get(str(row.get("kind")), _MISMATCH["other"])
+        lines.append(f"{index}. {row.get('statement')} ({sort})")
+        quotes = row.get("quotes")
+        lines.extend(
+            f'   [{quote.get("anchor")} p.{quote.get("page")}] "{quote.get("quote")}"'
+            for quote in (quotes if isinstance(quotes, list) else [])
+            if isinstance(quote, dict)
+        )
+    lines.append(
+        "Report exactly these findings, each with its anchors and quoted words. Do not add "
+        f"others and do not leave any out.{dropped} Nothing else was found to disagree, which "
+        "is not proof that the rest of the document agrees with itself."
+    )
+    return "\n".join(lines)
 
 
 def _rewrite_text(body: dict[str, object]) -> str:
