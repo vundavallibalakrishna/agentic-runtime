@@ -1464,7 +1464,7 @@ def _checked(
             (
                 row
                 for row in getattr(store, "tool_calls", {}).values()
-                if isinstance(row, dict) and row.get("run_id") == run.get("id")
+                if isinstance(row, dict) and str(row.get("run_id")) == str(run.get("id"))
             ),
             key=lambda row: str(row.get("created_at") or ""),
         )
