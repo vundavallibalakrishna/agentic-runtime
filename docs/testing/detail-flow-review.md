@@ -38,7 +38,7 @@ AR_DURABLE_STATE=memory AR_TEMPORAL_ADDRESS=localhost:1 OTEL_SDK_DISABLED=true \
   mcp-sql mcp-openapi fake-llm web
 ```
 
-`local-legacy.yaml` is specific to the retained PostgreSQL volume in this checkout; a fresh checkout uses `make up` without it. OPA uses `AR_PORT` and `AR_INTERNAL_AUTH_SECRET` from the same environment as the API. Its bundle readiness endpoint is `/health?bundles` on the configured OPA host port.
+`local-legacy.yaml` is specific to the retained PostgreSQL volume in this checkout; a fresh checkout uses `make up` without it. OPA uses `AR_PORT` and `AR_OPA_BUNDLE_TOKEN` from the same environment as the API. Its bundle readiness endpoint is `/health?bundles` on the configured OPA host port.
 
 1. Open `/login`. Use **Continue with SSO**, enter `admin@dev.local` then `dev-password`. Expect Chat, not the old starter page. Repeat with `builder@dev.local`, `member@dev.local` and `approver@dev.local`; the account menu signs out. The four development sign-in buttons remain available.
 2. On Chat, send a message, regenerate, then send a slow answer and Stop. Open another conversation or start New chat while loading history; old content must not replace the new conversation. Attach a file and inspect Artifacts/Workspace and View trace.

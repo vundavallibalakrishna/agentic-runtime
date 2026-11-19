@@ -1,9 +1,12 @@
-# OPA cannot sign X-AR-Internal. It polls the forwarder in this container, which
-# signs the request and sends it to the API. Decisions fail closed until the
-# bundle arrives.
+# OPA polls the API on the install network. The bearer token is
+# AR_OPA_BUNDLE_TOKEN. Decisions fail closed until the bundle arrives.
 services:
   ar:
-    url: ${AR_OPA_FORWARD_URL}
+    url: http://api:${AR_PORT}
+    credentials:
+      bearer:
+        token: ${AR_OPA_BUNDLE_TOKEN}
+        scheme: Bearer
 bundles:
   ar:
     service: ar

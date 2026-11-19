@@ -72,6 +72,26 @@ def _wait_run(client: httpx.Client, run_id: str, seconds: float) -> dict[str, ob
     raise RuntimeError(f"run {run_id} did not finish")
 
 
+def _prove_opa_bundle() -> None:
+    """OPA has activated the bundle it pulls from the API on the install network."""
+    port = os.environ.get("AR_OPA_HOST_PORT", "8181")
+    url = f"http://127.0.0.1:{port}/health?bundles"
+    deadline = time.monotonic() + float(os.environ.get("AR_SMOKE_READY_S", "180"))
+    last = ""
+    while time.monotonic() < deadline:
+        try:
+            response = httpx.get(url, timeout=5)
+        except httpx.HTTPError as exc:
+            last = type(exc).__name__
+        else:
+            if response.status_code == 200:
+                print("opa bundle is loaded")
+                return
+            last = response.text[:200]
+        time.sleep(2)
+    raise RuntimeError(f"OPA bundle did not load: {last}")
+
+
 def _prove_gateway_hop() -> None:
     """The worker posts a tool call to mcp-gateway on the install network.
 
@@ -128,6 +148,7 @@ def main() -> None:  # noqa: PLR0915
     api = os.environ.get("AR_SMOKE_API", "http://127.0.0.1:8000").rstrip("/")
     temporal_address = os.environ.get("AR_SMOKE_TEMPORAL", "127.0.0.1:7233")
     _wait_ready(api, float(os.environ.get("AR_SMOKE_READY_S", "180")))
+    _prove_opa_bundle()
     jar = http.cookiejar.CookieJar(policy=_LoopbackCookies())
     with httpx.Client(base_url=api, timeout=60, cookies=httpx.Cookies(jar)) as client:
         signed = client.post(

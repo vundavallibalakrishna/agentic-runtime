@@ -20,17 +20,26 @@ def _request_id(scope: Scope) -> str:
 
 
 class InternalAuthMiddleware:
-    """``/internal`` and ``/metrics`` require ``X-AR-Internal``. Health stays open."""
+    """``/internal`` and ``/metrics`` require ``X-AR-Internal``. Health stays open.
 
-    def __init__(self, app: ASGIApp) -> None:
+    ``bearer_paths`` use their own credential and are not signed with the HMAC.
+    The OPA bundle is one: OPA sends ``Authorization: Bearer``.
+    """
+
+    def __init__(self, app: ASGIApp, bearer_paths: tuple[str, ...] = ()) -> None:
         self.app = app
+        self.bearer_paths = frozenset(bearer_paths)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
         path = str(scope.get("path") or "")
-        if path in _OPEN or not (path.startswith("/internal/") or path == "/metrics"):
+        if (
+            path in _OPEN
+            or path in self.bearer_paths
+            or not (path.startswith("/internal/") or path == "/metrics")
+        ):
             await self.app(scope, receive, send)
             return
         request = Request(scope)

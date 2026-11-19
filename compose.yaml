@@ -37,6 +37,7 @@ x-app-env: &app-env
   AR_MCP_OPENAPI_URL: http://mcp-openapi:${AR_MCP_OPENAPI_HOST_PORT:-8011}/mcp
   AR_MCP_SQL_URL: http://mcp-sql:${AR_MCP_SQL_HOST_PORT:-8010}/mcp
   AR_OPA_URL: http://opa:8181
+  AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
   AR_TEMPORAL_ADDRESS: temporal:7233
   AR_TEMPORAL_NUM_HISTORY_SHARDS: ${AR_TEMPORAL_NUM_HISTORY_SHARDS:-4}
   AR_SANDBOX_DRIVER: docker
@@ -227,15 +228,11 @@ services:
   opa:
     <<: *run
     profiles: [dev, production]
-    build:
-      context: .
-      dockerfile: images/opa/Dockerfile
+    image: openpolicyagent/opa:1.21.3-static
+    command: ["run", "--server", "--addr", "0.0.0.0:8181", "--config-file", "/etc/opa/config.yaml"]
     environment:
       AR_PORT: ${AR_PORT:-8000}
-      AR_INTERNAL_AUTH_SECRET: ${AR_INTERNAL_AUTH_SECRET:-}
-      AR_OPA_UPSTREAM: http://host.docker.internal:${AR_PORT:-8000}
-      AR_OPA_FORWARD_URL: http://127.0.0.1:9191
-    extra_hosts: ["host.docker.internal:host-gateway"]
+      AR_OPA_BUNDLE_TOKEN: ${AR_OPA_BUNDLE_TOKEN:-}
     volumes:
       - ./deploy/compose/opa/config.yaml:/etc/opa/config.yaml:ro
     ports: ["127.0.0.1:${AR_OPA_HOST_PORT:-8181}:8181"]
