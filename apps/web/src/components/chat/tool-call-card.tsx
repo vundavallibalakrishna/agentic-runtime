@@ -169,6 +169,28 @@ function Crosscheck({ presentation }: { presentation: Record<string, unknown> })
 }
 
 /** Tool text that may be wider than the card. It scrolls, so the keyboard must reach it. */
+/** How a sample was drawn, so the person can repeat it: the tool's own summary, not its raw text. */
+function SampleFacts({ facts }: { facts: unknown }) {
+  const t = useTranslations("chat");
+  if (!facts || typeof facts !== "object") return null;
+  const row = facts as Record<string, unknown>;
+  const read = (camel: string, snake: string) => row[camel] ?? row[snake];
+  const seed = read("seed", "seed");
+  const picked = Number(read("judgmentalRows", "judgmental_rows") ?? 0);
+  const lines = [
+    t("sampleMethod", { method: String(read("method", "method") ?? "") }),
+    seed === null || seed === undefined ? "" : t("sampleSeed", { seed: String(seed) }),
+    t("samplePopulation", { count: Number(read("populationRows", "population_rows") ?? 0) }),
+    t("sampleDrawn", { count: Number(read("sampledRows", "sampled_rows") ?? 0) }),
+    picked > 0 ? t("sampleHandPicked", { count: picked }) : "",
+  ].filter(Boolean);
+  return (
+    <p className="mt-2 text-xs text-[var(--muted-foreground)]" data-testid="sample-facts">
+      {lines.join(" · ")}
+    </p>
+  );
+}
+
 function Block({ className, children }: { className: string; children: ReactNode }) {
   return (
     // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region needs keyboard focus
@@ -344,6 +366,7 @@ export function ToolCallCard({ call, label }: { call: Record<string, unknown>; l
           ) : null}
         </div>
       ) : null}
+      {kind === "sample" ? <SampleFacts facts={presentation.sample} /> : null}
       {kind === "query" || kind === "table" || kind === "pivot" || kind === "sample" ? (
         <div className="mt-2">
           {text(presentation.sql) ? (

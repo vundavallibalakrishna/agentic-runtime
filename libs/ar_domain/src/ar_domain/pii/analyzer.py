@@ -32,6 +32,9 @@ _EXTRA_FINDERS: list[Any] = []
 # A person who asks for a document to be redacted wants everything that might be
 # personal gone, so that request takes weaker matches than a tool result does.
 _THOROUGH_MIN_SCORE = 0.35
+# A plain decimal figure, and the fewest digits a number a person can dial has.
+_DECIMAL = re.compile(r"[+-]?\d+\.\d+")
+_MIN_PHONE_DIGITS = 7
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +190,7 @@ def redact(
         if str(span["entity"]).lower() in chosen.entities
         and _score(span) >= chosen.min_score
         and _closed_span(text, span)
+        and _dialable(text, span)
         and not _overlaps_protected(span, protected)
     ]
     updated = text
@@ -240,6 +244,22 @@ def _closed_span(text: str, span: dict[str, object]) -> bool:
         return True
     end = int(str(span["end"]))
     return end >= len(text) or not text[end].isalnum()
+
+
+def _dialable(text: str, span: dict[str, object]) -> bool:
+    """Keep a phone number hit only when it could be dialled.
+
+    The phone pattern also fits an amount such as ``3824.81``, and a nearby word such as
+    "mobile" then raises its score past the bar, so a figure in a table was masked. A
+    number with one decimal point and nothing else is an amount, and fewer than seven
+    digits is too short for a subscriber number.
+    """
+    if str(span.get("entity")) != "phone_number":
+        return True
+    found = text[int(str(span["start"])) : int(str(span["end"]))].strip()
+    if _DECIMAL.fullmatch(found):
+        return False
+    return sum(1 for char in found if char.isdigit()) >= _MIN_PHONE_DIGITS
 
 
 def _presidio(text: str, entities: frozenset[str]) -> list[dict[str, object]]:

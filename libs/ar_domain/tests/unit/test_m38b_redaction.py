@@ -190,3 +190,19 @@ def test_the_language_model_is_never_downloaded(monkeypatch: pytest.MonkeyPatch)
         analyzer._language_model()
     monkeypatch.delenv("AR_PII_LANGUAGE_MODEL")
     assert analyzer._language_model() == "en_core_web_sm"
+
+
+def test_an_amount_beside_the_word_mobile_is_not_masked_as_a_phone_number() -> None:
+    from ar_domain.pii.analyzer import mask_outbound
+
+    row = "TX-00142,AC-0011,2026-07-14,3824.81,mobile,U06,N"
+    assert mask_outbound(row) == row
+    assert mask_outbound("paid 1701.48 by mobile") == "paid 1701.48 by mobile"
+
+
+def test_a_real_phone_number_is_still_masked() -> None:
+    from ar_domain.pii.analyzer import mask_outbound
+
+    masked = mask_outbound("Call her mobile on +44 20 7946 0958 after lunch.")
+    assert "7946" not in masked
+    assert "[PHONE_NUMBER]" in masked
