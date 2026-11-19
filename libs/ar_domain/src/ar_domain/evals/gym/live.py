@@ -16,7 +16,7 @@ LIVE_KEY = "AR_CERT_LLM_API_KEY"
 LIVE_URL = "AR_CERT_LLM_BASE_URL"
 LIVE_MODEL = "AR_CERT_LLM_MODEL"
 DEFAULT_URL = "https://api.deepinfra.com/v1/openai"
-DEFAULT_MODEL = "Qwen/Qwen3-32B"
+DEFAULT_MODEL = "Qwen/Qwen3.8-27B"
 
 
 class LiveConfigError(RuntimeError):

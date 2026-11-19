@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 DEFAULT_BASE = "https://api.deepinfra.com/v1/openai"
-DEFAULT_MODEL = "Qwen/Qwen3-32B"
+DEFAULT_MODEL = "Qwen/Qwen3.8-27B"
 DEFAULT_EMBED = "Qwen/Qwen3-Embedding-8B"
 
 
