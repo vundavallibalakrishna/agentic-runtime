@@ -11,6 +11,7 @@ handed on, the way ``models.logic.strip_think`` keeps it out of a finished answe
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import contextvars
 import os
@@ -195,27 +196,38 @@ class _Gathered:
         return whole
 
 
-async def read_completion_stream(response: httpx.Response, sink: TextSink) -> dict[str, Any]:
+async def read_completion_stream(
+    response: httpx.Response, sink: TextSink, *, within_s: float | None = None
+) -> dict[str, Any]:
     """Hand the answer's text to ``sink`` as it arrives and return the whole completion.
 
     The result has the shape of a completion asked for in one piece. If the connection
     breaks after text was handed on, what arrived is returned, so the reader keeps the part
     of the answer already shown.
+
+    ``within_s`` is how long the whole answer may take. The client's own timeout only
+    bounds the wait for the next bytes, and a provider that keeps a stream open with
+    keep-alive lines and never finishes would otherwise hold the run for ever.
     """
     gathered = _Gathered(sink)
     try:
-        async for line in response.aiter_lines():
-            if not line.startswith("data:"):
-                continue
-            data = line[5:].strip()
-            if data == "[DONE]":
-                break
-            try:
-                chunk = orjson.loads(data)
-            except ValueError:
-                continue
-            if isinstance(chunk, dict):
-                gathered.take(chunk)
+        async with asyncio.timeout(within_s):
+            async for line in response.aiter_lines():
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = orjson.loads(data)
+                except ValueError:
+                    continue
+                if isinstance(chunk, dict):
+                    gathered.take(chunk)
+    except TimeoutError as late:
+        # Half a tool call cannot be run, so only plain text already shown is kept.
+        if not gathered.content or gathered.calls:
+            raise httpx.ReadTimeout("the model did not finish its answer in time") from late
     except httpx.HTTPError:
         if not gathered.content and not gathered.calls:
             raise
