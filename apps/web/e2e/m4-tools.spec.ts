@@ -68,6 +68,7 @@ test("register a server, connect, and let the desk agent act", async ({ page }) 
   await expect(page.getByText(/Filed ticket TCK-\d+\./).first()).toBeVisible({ timeout: 20_000 });
   await page.getByLabel("Message").fill("How many orders are in the warehouse?");
   await page.getByRole("button", { name: "Send" }).click();
+  await openToolCall(page, page.getByText("3", { exact: true }));
   await expect(page.getByText("3", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
   await capture(page, "desk-acted");
 

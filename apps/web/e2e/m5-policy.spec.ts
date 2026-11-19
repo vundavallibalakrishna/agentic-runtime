@@ -155,6 +155,7 @@ test("delete a pet behind the new policy", async ({ page }) => {
   expect(conversation, "the approve-a-pet phase must run first").toBeTruthy();
   await signIn(page);
   await page.goto(`/chat?agent=desk&conversation=${conversation}`);
+  await openToolCall(page, /Created pet \d+\./);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible();
   await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
   await page.getByLabel("Message").fill("Delete pet 1");
@@ -170,5 +171,6 @@ test("delete a pet behind the new policy", async ({ page }) => {
   await expect(page.getByText("approved").first()).toBeVisible({ timeout: 20_000 });
   await signIn(page);
   await page.goto(`/chat?conversation=${conversation}`);
+  await openToolCall(page, /Deleted pet 1\./);
   await expect(page.getByText(/Deleted pet 1\./).first()).toBeVisible({ timeout: 20_000 });
 });

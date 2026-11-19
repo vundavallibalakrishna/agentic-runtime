@@ -336,11 +336,18 @@ def test_shared_books_cover_the_remaining_branches(monkeypatch: pytest.MonkeyPat
 
     class _Launcher:
         def __init__(
-            self, image: str, network: str | None = None, proxy: str | None = None
+            self,
+            image: str,
+            network: str | None = None,
+            proxy: str | None = None,
+            install_id: str = "",
+            owner: str = "",
         ) -> None:
             self.image = image
             self.network = network
             self.proxy = proxy
+            self.install_id = install_id
+            self.owner = owner
 
     monkeypatch.setattr("ar_common.sandbox_docker.DockerSandboxLauncher", _Launcher)
     store = ChatService()
