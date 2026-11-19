@@ -177,3 +177,14 @@ async def test_live_probe_sends_the_key_only_as_a_header(monkeypatch: pytest.Mon
     assert isinstance(headers, dict)
     assert headers["Authorization"] == "Bearer sk-cert-secret"
     assert "sk-cert-secret" not in str(probed)
+
+
+def test_a_wrapper_the_model_copied_is_not_part_of_its_answer() -> None:
+    echoed = (
+        '<untrusted_content source="assistant:turn" trust="untrusted" nonce="12283a8636fb5c37">\n'
+        "Done. The sample is saved.\n</untrusted_content>"
+    )
+    payload = {"choices": [{"message": {"content": echoed}}]}
+    assert completion_text(payload) == "Done. The sample is saved."
+    plain = {"choices": [{"message": {"content": "Use x < y and a <b> tag."}}]}
+    assert completion_text(plain) == "Use x < y and a <b> tag."

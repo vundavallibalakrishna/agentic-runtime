@@ -3,6 +3,7 @@
 Spec: docs/06-security/prompt-injection.md §3.
 """
 
+import re
 import secrets
 from xml.sax.saxutils import escape
 
@@ -14,6 +15,23 @@ _CLOSING = (
     "<memory",
     "</memory",
 )
+
+
+_ECHOED = re.compile(
+    r"</?(?:untrusted_content|tool_result|retrieved_documents)\b[^>]*>\s?", re.IGNORECASE
+)
+
+
+def without_wrappers(answer: str) -> str:
+    """A model's answer with any of the platform's own wrapper tags taken out.
+
+    Earlier turns and tool results reach the model inside these tags. A model sometimes
+    copies the tag around its own answer. The tag is the platform's marking, not part of
+    what was said, so only the tag goes and the words inside stay.
+    """
+    if "<" not in answer:
+        return answer
+    return _ECHOED.sub("", answer).strip()
 
 
 def neutralise(content: str) -> str:

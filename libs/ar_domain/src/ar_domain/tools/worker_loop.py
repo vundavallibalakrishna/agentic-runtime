@@ -8,8 +8,13 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, TypedDict
 
+from ar_common.logging import get_logger
+
 if TYPE_CHECKING:
     from typing import Any
+
+
+_LOG = get_logger(__name__)
 
 
 class LoopLocals(TypedDict):
@@ -216,6 +221,14 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
 
         invalid = _argument_problem(by_name.get(name), call)
         if invalid:
+            # Which tool, and whether its arguments could not be read or did not fit the
+            # tool's schema. The arguments and the error text can hold content, so
+            # neither is logged.
+            _LOG.warning(
+                "tool_arguments_rejected",
+                tool=name,
+                problem="unreadable" if call.get("arguments_error") else "schema",
+            )
             state["repairs"] = _int(state.get("repairs")) + 1
             if _int(state.get("repairs")) > output_repair_limit(_definition(store, run)):
                 _stop_error(store, run, assistant, _terminal_text(), code="repair_exhausted")
