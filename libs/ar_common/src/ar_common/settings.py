@@ -32,10 +32,25 @@ CATALOGUE_ENV: frozenset[str] = frozenset(
         "AR_CHANNELS_TEAMS_UPDATE_INTERVAL_MS",
         "AR_CHANNEL_LINK_TTL_S",
         "AR_CLAMAV_ADDRESS",
+        "AR_CLAMAV_TIMEOUT_S",
         "AR_CONSECUTIVE_TOOL_ERROR_LIMIT",
         "AR_CSRF_ALLOWED_ORIGINS",
         "AR_CURSOR_SECRET",
         "AR_DATA_RESIDENCY",
+        "AR_DOCUMENT_ALIGN_COSINE",
+        "AR_DOCUMENT_ALIGN_LEXICAL",
+        "AR_DOCUMENT_HEADING_CAP",
+        "AR_DOCUMENT_HISTORY_RESERVE",
+        "AR_DOCUMENT_INSTRUCTION_RESERVE",
+        "AR_DOCUMENT_LOW_TEXT_CHARS",
+        "AR_DOCUMENT_MARGIN_RATIO",
+        "AR_DOCUMENT_OUTPUT_RESERVE",
+        "AR_DOCUMENT_SECTION_CAP",
+        "AR_DOCUMENT_TASK_PARALLELISM",
+        "AR_DOCUMENT_TOKEN_FACTOR",
+        "AR_DOCUMENT_TOOL_RESERVE",
+        "AR_FILE_EXPIRY_MAX_SECONDS",
+        "AR_FILE_EXPIRY_MIN_SECONDS",
         "AR_DATABASE_URL",
         "AR_DB_APP_PASSWORD",
         "AR_DB_CERT_DIR",
@@ -340,6 +355,27 @@ class BaseServiceSettings(BaseSettings):
     # The scanner the product runs over every upload: ``clamav`` or ``none``. An install
     # decides; the default scans. ``none`` is set where no scanner is deployed.
     files_scanner: str = "clamav"
+    # clamd ``host:port`` or a unix socket path. Empty with ``files_scanner=clamav``
+    # rejects the upload: a named scanner that cannot be reached is not a clean file.
+    clamav_address: str = ""
+    clamav_timeout_s: float = Field(default=10, ge=1, le=120)
+    # How many section readings one document task runs at once, and how many it
+    # will run at all. One GPU on one node is the reason the default is 2.
+    document_task_parallelism: int = Field(default=2, ge=1, le=8)
+    document_section_cap: int = Field(default=200, ge=1, le=500)
+    document_output_reserve: int = Field(default=4096, ge=0)
+    document_instruction_reserve: int = Field(default=2000, ge=0)
+    document_tool_reserve: int = Field(default=1500, ge=0)
+    document_history_reserve: int = Field(default=500, ge=0)
+    document_margin_ratio: float = Field(default=0.15, ge=0, le=0.5)
+    document_align_lexical: float = Field(default=0.5, ge=0, le=1)
+    document_align_cosine: float = Field(default=0.75, ge=0, le=1)
+    document_heading_cap: int = Field(default=15, ge=1)
+    document_token_factor: float = Field(default=1.15, ge=1, le=3)
+    document_low_text_chars: int = Field(default=40, ge=1)
+    # ``expiresAfterSeconds`` on an upload. The bounds match the Files API.
+    file_expiry_min_seconds: int = Field(default=3600, ge=1)
+    file_expiry_max_seconds: int = Field(default=2_592_000, ge=1)
     # Empty means the only tenant in the database (a single-tenant install has one).
     bootstrap_tenant_slug: str = ""
     otel_exporter_otlp_endpoint: str = ""

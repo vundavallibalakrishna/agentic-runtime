@@ -25,6 +25,7 @@ class TurnWorkflow:
     def __init__(self) -> None:
         self.cancelled = False
         self.turn: workflow.ActivityHandle[dict[str, Any]] | None = None
+        self.sections: list[workflow.ActivityHandle[dict[str, Any]]] = []
         self.decision: dict[str, Any] | None = None
         self.answer: str | None = None
 
@@ -33,6 +34,8 @@ class TurnWorkflow:
         self.cancelled = True
         if self.turn is not None:
             self.turn.cancel()
+        for handle in getattr(self, "sections", ()):
+            handle.cancel()
 
     @workflow.signal
     async def approval_decided(self, payload: dict[str, Any]) -> None:
@@ -73,7 +76,7 @@ class TurnWorkflow:
         )
         return result if isinstance(result, dict) else {"status": "failed"}
 
-    async def _steps(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _steps(self, payload: dict[str, Any]) -> dict[str, Any]:  # noqa: PLR0912, PLR0915
         """Step until the budget, a pause, or this execution's history cap."""
         max_steps = _count(payload.get("max_steps"), 8)
         history_steps = _count(payload.get("history_steps"), 24)
@@ -116,6 +119,9 @@ class TurnWorkflow:
             if kind == "fanout":
                 await self._fanout(payload, result.get("subtasks"))
                 continue
+            if kind == "sections":
+                await self._sections(payload, result.get("sections"))
+                continue
             if kind == "paused" or status in {"waiting_approval", "waiting_input"}:
                 decision = await self._await_person(payload, result)
                 if decision is None:
@@ -127,7 +133,7 @@ class TurnWorkflow:
         if (
             not self.cancelled
             and taken < max_steps
-            and kind in {"model", "tools", "fanout", "paused"}
+            and kind in {"model", "tools", "fanout", "paused", "sections"}
         ):
             await workflow.wait_condition(workflow.all_handlers_finished)
             continued = {
@@ -145,7 +151,7 @@ class TurnWorkflow:
             if decision is not None:
                 continued["decision"] = decision
             workflow.continue_as_new(continued)
-        if kind in {"model", "tools", "fanout", "paused"} or self.cancelled:
+        if kind in {"model", "tools", "fanout", "paused", "sections"} or self.cancelled:
             finished = await workflow.execute_activity(
                 "finish_chat_turn",
                 {
@@ -216,6 +222,34 @@ class TurnWorkflow:
             )
         if handles:
             await asyncio.gather(*handles)
+
+    async def _sections(self, payload: dict[str, Any], raw: object) -> None:
+        """Read document sections a few at a time. Cancelling stops the next batch."""
+        items = [item for item in raw if isinstance(item, dict)] if isinstance(raw, list) else []
+        width = _count(payload.get("document_parallelism"), 2)
+        pending = list(items)
+        while pending and not self.cancelled:
+            batch = pending[:width]
+            pending = pending[width:]
+            self.sections = [
+                workflow.start_activity(
+                    "document_section",
+                    {"run_id": payload.get("run_id"), "section": item},
+                    start_to_close_timeout=timedelta(minutes=5),
+                    heartbeat_timeout=timedelta(seconds=30),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
+                )
+                for item in batch
+            ]
+            if self.sections:
+                try:
+                    await asyncio.gather(*self.sections)
+                except ActivityError:
+                    if self.cancelled:
+                        self.sections = []
+                        return
+                    raise
+            self.sections = []
 
 
 def _count(value: object, default: int) -> int:

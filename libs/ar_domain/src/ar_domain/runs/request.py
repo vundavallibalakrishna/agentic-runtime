@@ -6,7 +6,19 @@ loads the run from the database. These two functions are the only way to set and
 
 from __future__ import annotations
 
-OPTIONS = frozenset({"response_format", "suggest_followups", "orchestration_child", "permissions"})
+OPTIONS = frozenset(
+    {
+        "response_format",
+        "suggest_followups",
+        "orchestration_child",
+        "permissions",
+        "task",
+        "strategy",
+        "items",
+        "collection_ids",
+        "file_ids",
+    }
+)
 
 
 def ask(run: dict[str, object], name: str, value: object) -> None:

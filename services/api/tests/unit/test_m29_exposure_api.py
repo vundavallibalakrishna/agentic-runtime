@@ -66,6 +66,37 @@ def _agent_id(client: TestClient) -> str:
     return str(assistant["id"])
 
 
+def test_v1_wait_false_returns_the_events_url_and_keeps_the_callback() -> None:
+    client, _holder = _client()
+    agent_id = _agent_id(client)
+    created = client.post(
+        f"/api/v1/agents/{agent_id}/api-keys",
+        json={"label": "Async", "rateLimitRpm": 10, "monthlyQuota": 20},
+    )
+    secret = created.json()["key"]
+    headers = {"Authorization": f"Bearer {secret}"}
+    conversation = client.post("/v1/agents/assistant/conversations", headers=headers)
+    conversation_id = conversation.json()["id"]
+    sent = client.post(
+        f"/v1/agents/assistant/conversations/{conversation_id}/messages",
+        headers=headers,
+        json={
+            "text": "What is 2 + 2?",
+            "wait": False,
+            "callbackUrl": "http://127.0.0.1:9/hook",
+            "task": "question",
+        },
+    )
+    assert sent.status_code == 202
+    body = sent.json()
+    assert body["runId"]
+    assert body["eventsUrl"].endswith("/events")
+    assert body["status"] in {"running", "queued", "completed"}
+    store = client.app.state.chat
+    run = store.runs[uuid.UUID(body["runId"])]
+    assert run["callback_url"] == "http://127.0.0.1:9/hook"
+
+
 def test_external_message_idempotency_revocation_and_isolation() -> None:
     client, holder = _client()
     agent_id = _agent_id(client)

@@ -105,9 +105,19 @@ class UploadLimits(ApiModel):
     max_bytes: int
 
 
+class MessageItem(ApiModel):
+    id: str = ""
+    text: str = ""
+
+
 class MessageBody(ApiModel):
     text: str
     attachment_ids: list[uuid.UUID] = Field(default_factory=list)
+    file_ids: list[uuid.UUID] = Field(default_factory=list)
+    collection_ids: list[uuid.UUID] = Field(default_factory=list)
+    task: str = "auto"
+    strategy: str = "auto"
+    items: list[MessageItem | str] = Field(default_factory=list)
     research_mode: bool = False
     suggest_followups: bool = False
     response_format: dict[str, object] | None = None
@@ -134,6 +144,13 @@ class RunBody(ApiModel):
     on_behalf_of_user_id: uuid.UUID | None = None
     allow_on_behalf_of: bool = False
     wait: bool = False
+    attachment_ids: list[uuid.UUID] = Field(default_factory=list)
+    file_ids: list[uuid.UUID] = Field(default_factory=list)
+    collection_ids: list[uuid.UUID] = Field(default_factory=list)
+    task: str = "auto"
+    strategy: str = "auto"
+    items: list[MessageItem | str] = Field(default_factory=list)
+    response_format: dict[str, object] | None = None
 
 
 def _chat(request: Request) -> ChatBehaviour:
@@ -664,6 +681,11 @@ async def post_message(
         conversation_id,
         body.text,
         attachment_ids=body.attachment_ids,
+        file_ids=body.file_ids,
+        collection_ids=body.collection_ids,
+        task=body.task,
+        strategy=body.strategy,
+        items=[item.model_dump() if isinstance(item, MessageItem) else item for item in body.items],
         schedule=not await_runs,
         research=body.research_mode,
         suggest_followups=body.suggest_followups,
@@ -869,6 +891,8 @@ async def upload_file(
     request: Request,
     upload: Annotated[UploadFile, File()],
     mime_type: Annotated[str, Form()] = "",
+    expires_after_seconds: Annotated[int | None, Form()] = None,
+    replaces_file_id: Annotated[uuid.UUID | None, Form()] = None,
 ) -> dict[str, object]:
     principal = _principal(request)
     data = await upload.read()
@@ -880,6 +904,8 @@ async def upload_file(
         upload.filename or "upload",
         mime,
         data,
+        expires_after_seconds=expires_after_seconds,
+        replaces_file_id=replaces_file_id,
     )
     document_id = await _library_document(
         service, actor_from(principal), data, upload.filename or "upload", mime
@@ -961,6 +987,13 @@ async def create_run(body: RunBody, request: Request) -> dict[str, object]:
         on_behalf_of=body.on_behalf_of_user_id,
         allow_on_behalf=body.allow_on_behalf_of,
         permissions=sorted(principal.permissions),
+        attachment_ids=body.attachment_ids,
+        file_ids=body.file_ids,
+        collection_ids=body.collection_ids,
+        task=body.task,
+        strategy=body.strategy,
+        items=[item.model_dump() if isinstance(item, MessageItem) else item for item in body.items],
+        response_format=body.response_format,
     )
 
 

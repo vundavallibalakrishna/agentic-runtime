@@ -4,6 +4,14 @@ Each alert in [spec 18 §2](../03-specs/18-observability-eval.md) links here. Fo
 
 General rules: open an incident channel, assign an incident lead, record actions with timestamps (IST), never edit production data by hand except via the scripts named here, and write a post-incident review within 5 working days.
 
+## rb-document-uploads
+
+Symptom: every upload returns 503 and the detail says the malware scanner did not answer.
+
+- **Check:** `docker compose --profile scan ps clamav` and `AR_CLAMAV_ADDRESS`. `AR_FILES_SCANNER=clamav` opens that socket. A refused connection rejects the upload. It is not stored as clean.
+- **Mitigate:** start the `scan` profile, or set `AR_FILES_SCANNER=none` on an install that has no scanner. Do not leave the name `clamav` pointed at a stopped container.
+- **Follow-up:** a deleted library document is removed from search. `expiresAfterSeconds` (3,600 to 2,592,000) is optional; omitted uploads stay until deleted. The sandbox reaper's sweep also deletes files whose `retention_until` has passed.
+
 ## rb-01-api-errors
 Alert `ARApiHighErrorRate` (5xx > 2 % for 5 min).
 - **Check:** dashboard `ar-api` → errors by route and `error.code`; `kubectl logs deploy/api --since=15m | jq 'select(.level=="error")'`; `/readyz` of api pods (DB, Valkey, Temporal); recent deploy (`helm history`).

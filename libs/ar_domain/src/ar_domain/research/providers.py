@@ -28,10 +28,17 @@ _ENOUGH = 8
 _DEFAULT_MIN_SCORE = 0.3
 
 
-def search(store: Any, tenant_id: object, query: str, *, limit: int = 4) -> list[dict[str, str]]:
+def search(
+    store: Any,
+    tenant_id: object,
+    query: str,
+    *,
+    limit: int = 4,
+    user_id: object = None,
+) -> list[dict[str, str]]:
     """Library passages first, then web results. Both are real or absent."""
     count = max(1, limit)
-    found = library_hits(store, tenant_id, query, limit=count)
+    found = library_hits(store, tenant_id, query, limit=count, user_id=user_id)
     seen = {row["url"] for row in found}
     for row in web_hits(store, tenant_id, query, limit=count):
         if row["url"] not in seen:
@@ -65,7 +72,9 @@ def web_hits(store: Any, tenant_id: object, query: str, *, limit: int) -> list[d
     ]
 
 
-def library_hits(store: Any, tenant_id: object, query: str, *, limit: int) -> list[dict[str, str]]:
+def library_hits(
+    store: Any, tenant_id: object, query: str, *, limit: int, user_id: object = None
+) -> list[dict[str, str]]:
     """The tenant's library passages that answer the query, one address per passage.
 
     Two signals, joined. **By meaning**: when the tenant has an embedding model on the
@@ -86,7 +95,7 @@ def library_hits(store: Any, tenant_id: object, query: str, *, limit: int) -> li
     seen: set[str] = set()
     for row in (
         *_semantic_hits(store, tenant_id, query, limit=limit),
-        *_lexical_hits(store, tenant_id, query, limit=limit),
+        *_lexical_hits(store, tenant_id, query, limit=limit, user_id=user_id),
     ):
         url = row["url"]
         if url in seen:
@@ -99,13 +108,15 @@ def library_hits(store: Any, tenant_id: object, query: str, *, limit: int) -> li
 
 
 def _lexical_hits(
-    store: Any, tenant_id: uuid.UUID, query: str, *, limit: int
+    store: Any, tenant_id: uuid.UUID, query: str, *, limit: int, user_id: object = None
 ) -> list[dict[str, str]]:
     """Passages that share distinctive words with the query (the word signal)."""
     from ar_domain.agents.access import Actor  # noqa: PLC0415
     from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
 
-    reader = Actor(tenant_id=tenant_id, user_id=tenant_id, permissions=frozenset())
+    if not isinstance(user_id, uuid.UUID):
+        return []
+    reader = Actor(tenant_id=tenant_id, user_id=user_id, permissions=frozenset({"chat:use"}))
     distinctive = _distinctive(store, tenant_id, query)
     needed = _needed(store, tenant_id)
     rows: list[dict[str, str]] = []

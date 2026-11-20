@@ -1,7 +1,8 @@
 # Document tasks over stored and inline files
 
-Design only. No product code in this change. Status: proposed, waiting on Bala
-([OQ-151](../open-questions.md)). Date: 2026-11-20.
+Status: accepted and implemented (2026-11-20). Bala's decisions are recorded in
+[OQ-151](../open-questions.md). The library is owner-only; the other defaults
+in §15 were accepted. Date: 2026-11-20.
 
 A person or an external application names one or more documents, stored or sent
 with the request, and asks for a task: review, compare, find gaps, compose,

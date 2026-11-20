@@ -20,6 +20,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from ar_common.offload import blocking
+from ar_domain.documents.quality import engine_name
 
 MAX_PAGES = 600
 _HEADING = re.compile(r"^(?:#{1,6}\s+|(?:\d+|[A-Z])[.)]\s+)(\S.*)$|^(?:[A-Z][A-Z0-9 /,&-]{2,70})$")
@@ -46,6 +47,8 @@ class Passage:
     heading: str
     level: int
     text: str
+    char_from: int = 0
+    char_to: int = 0
 
 
 @dataclass
@@ -90,6 +93,8 @@ def extract_bytes(  # noqa: PLR0911
         return _html(data)
     if kind == "md":
         return _markdown(data, filename)
+    if kind == "csv":
+        return _csv_file(data, filename)
     if kind == "txt":
         return _plain(data, filename)
     if kind == "image":
@@ -122,6 +127,8 @@ def sniff(data: bytes, filename: str, media_type: str) -> str:  # noqa: PLR0911,
         return "pptx"
     if name.endswith((".html", ".htm")) or "html" in stated:
         return "html"
+    if name.endswith(".csv") or stated in {"text/csv", "application/csv"}:
+        return "csv"
     if name.endswith(".md") or "markdown" in stated:
         return "md"
     if name.endswith((".png", ".jpg", ".jpeg", ".webp", ".gif")) or stated.startswith("image/"):
@@ -163,7 +170,7 @@ def _looks_text(data: bytes) -> bool:
     )
 
 
-def _pdf(  # noqa: PLR0912
+def _pdf(  # noqa: PLR0912, PLR0915
     data: bytes, ocr: Ocr, on_page: Callable[[int, int], None] | None = None
 ) -> Extracted:
     from pypdf import PdfReader  # noqa: PLC0415
@@ -190,6 +197,7 @@ def _pdf(  # noqa: PLR0912
         )
     passages: list[Passage] = []
     used_ocr = False
+    pages_ocr = 0
     scan_without_text = False
     for index, page in enumerate(reader.pages, start=1):
         try:
@@ -212,6 +220,7 @@ def _pdf(  # noqa: PLR0912
                 read = text
             if read.strip() != text.strip():
                 used_ocr = True
+                pages_ocr += 1
             text = read
             if text.strip() and not unicode_text(text):
                 raise ExtractError(
@@ -238,7 +247,12 @@ def _pdf(  # noqa: PLR0912
         media_type="application/pdf",
         page_count=pages,
         passages=_chunk_all(passages),
-        metadata={"pages": pages, **({"ocr": True} if used_ocr else {})},
+        metadata={
+            "pages": pages,
+            "pagesOcr": pages_ocr,
+            "ocrEngine": engine_name(ocr) if used_ocr else "none",
+            **({"ocr": True} if used_ocr else {}),
+        },
     )
 
 
@@ -371,6 +385,23 @@ def unicode_text(text: str) -> bool:
     return controls / len(text) <= 0.02
 
 
+def _csv_file(data: bytes, filename: str) -> Extracted:
+    """A CSV file uses the one table reader the knowledge parser already has."""
+    from ar_domain.knowledge.parse import csv_markdown  # noqa: PLC0415
+
+    text = csv_markdown(data.decode("utf-8", errors="replace"))
+    passages = _chunk_all(_sections(text, 1, 0)) if text.strip() else []
+    if not passages:
+        raise ExtractError("no_text", "No rows could be read from this CSV.")
+    return Extracted(
+        title=Path(filename).stem or "Table",
+        media_type="text/csv",
+        page_count=1,
+        passages=passages,
+        metadata={"ocrEngine": "none", "pagesOcr": 0},
+    )
+
+
 def _image(data: bytes, filename: str, ocr: Ocr) -> Extracted:
     try:
         text = ocr(data)
@@ -388,7 +419,7 @@ def _image(data: bytes, filename: str, ocr: Ocr) -> Extracted:
         media_type="image",
         page_count=1,
         passages=passages,
-        metadata={"ocr": True},
+        metadata={"ocr": True, "pagesOcr": 1, "ocrEngine": engine_name(ocr)},
     )
 
 

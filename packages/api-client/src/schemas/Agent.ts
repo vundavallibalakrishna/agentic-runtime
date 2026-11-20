@@ -181,6 +181,142 @@ export type Collections =
       string,
       string
     ];
+/**
+ * @maxItems 20
+ */
+export type Fileids =
+  | []
+  | [string]
+  | [string, string]
+  | [string, string, string]
+  | [string, string, string, string]
+  | [string, string, string, string, string]
+  | [string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string, string]
+  | [string, string, string, string, string, string, string, string, string, string, string, string, string, string]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ]
+  | [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string,
+      string
+    ];
 export type Autoretrieve = boolean;
 export type Topk1 = number;
 export type Minscore = number | null;
@@ -319,6 +455,7 @@ export interface ToolSearch {
 }
 export interface KnowledgeSpec {
   collections?: Collections;
+  fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
   minScore?: Minscore;
@@ -462,6 +599,7 @@ export interface HumanSpec1 {
  */
 export interface KnowledgeSpec1 {
   collections?: Collections;
+  fileIds?: Fileids;
   autoRetrieve?: Autoretrieve;
   topK?: Topk1;
   minScore?: Minscore;

@@ -71,6 +71,7 @@
           "$ref": "#/$defs/KnowledgeSpec",
           "default": {
             "collections": [],
+            "fileIds": [],
             "autoRetrieve": false,
             "topK": 8,
             "minScore": null
@@ -704,6 +705,14 @@
           },
           "maxItems": 20,
           "title": "Collections",
+          "type": "array"
+        },
+        "fileIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Fileids",
           "type": "array"
         },
         "autoRetrieve": {

@@ -117,6 +117,35 @@ async def upload_library_document(
     )
 
 
+class ReprocessBody(ApiModel):
+    engine: str = ""
+
+
+@router.delete(
+    "/api/v1/library-documents/{document_id}",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def delete_library_document(document_id: uuid.UUID, request: Request) -> dict[str, bool]:
+    from ar_domain.documents.lifecycle import delete_library  # noqa: PLC0415
+
+    delete_library(chat(request), actor(request), document_id)
+    return {"deleted": True}
+
+
+@router.post(
+    "/api/v1/library-documents/{document_id}:reprocess",
+    dependencies=[Depends(require_permission("chat:use"))],
+)
+@expose(public=False, permission="chat:use")
+async def reprocess_library_document(
+    document_id: uuid.UUID, body: ReprocessBody, request: Request
+) -> dict[str, object]:
+    from ar_domain.documents.lifecycle import reprocess  # noqa: PLC0415
+
+    return await _waiting(reprocess, chat(request), actor(request), document_id, engine=body.engine)
+
+
 @router.get(
     "/api/v1/library-documents/{document_id}",
     dependencies=[Depends(require_permission("chat:use"))],

@@ -38,14 +38,17 @@ def build_filter(query: HybridQuery) -> dict[str, object]:
         {"key": "acl", "match": {"any": query.principals[start : start + _BLOCK]}}
         for start in range(0, len(query.principals), _BLOCK)
     ]
-    return {
-        "must": [
-            {"key": "tenant_id", "match": {"value": str(query.tenant_id)}},
-            {"should": pairs},
-            {"should": acl_blocks} if len(acl_blocks) > 1 else acl_blocks[0],
-            {"key": "classification", "match": {"any": list(query.allowed_classifications)}},
-        ]
-    }
+    must: list[object] = [
+        {"key": "tenant_id", "match": {"value": str(query.tenant_id)}},
+        {"should": pairs},
+        {"should": acl_blocks} if len(acl_blocks) > 1 else acl_blocks[0],
+        {"key": "classification", "match": {"any": list(query.allowed_classifications)}},
+    ]
+    if query.document_ids:
+        must.append(
+            {"key": "document_id", "match": {"any": [str(item) for item in query.document_ids]}}
+        )
+    return {"must": must}
 
 
 def hashed_sparse(text: str) -> tuple[list[int], list[float]]:

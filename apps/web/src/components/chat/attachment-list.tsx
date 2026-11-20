@@ -5,7 +5,13 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 
-export type Attached = { id: string; name: string; mimeType: string; sizeBytes?: number };
+export type Attached = {
+  id: string;
+  name: string;
+  mimeType: string;
+  sizeBytes?: number;
+  stored?: boolean;
+};
 
 const KIB = 1024;
 

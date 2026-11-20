@@ -193,6 +193,8 @@ class AuditAction(StrEnum):
     DOCUMENT_CLASSIFIED = "document.classified"
     LIBRARY_DOCUMENT_INGESTED = "library_document.ingested"
     LIBRARY_DOCUMENT_REJECTED = "library_document.rejected"
+    LIBRARY_DOCUMENT_DELETED = "library_document.deleted"
+    DOCUMENT_TASK_STARTED = "document_task.started"
     DOCUMENT_REWRITE_PROPOSED = "document_rewrite.proposed"
     DOCUMENT_REWRITE_ACCEPTED = "document_rewrite.accepted"
     DOCUMENT_REWRITE_REJECTED = "document_rewrite.rejected"

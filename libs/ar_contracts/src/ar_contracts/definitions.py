@@ -75,6 +75,7 @@ class ToolSearch(_Model):
 
 class KnowledgeSpec(_Model):
     collections: list[str] = Field(default_factory=list, max_length=20)
+    file_ids: list[str] = Field(default_factory=list, max_length=20)
     auto_retrieve: bool = False
     top_k: int = Field(default=8, ge=1)
     # Unset: the rerank model's own bar (``requestOptions.rerank.min_score``).

@@ -11,6 +11,8 @@ def process_upload(data: bytes, *, scanner: str) -> dict[str, str]:
     verdict = scan_bytes(data, scanner=scanner)
     if verdict == "infected":
         return {"status": "quarantined", "scan_status": "infected"}
+    if verdict == "error":
+        return {"status": "quarantined", "scan_status": "error"}
     if verdict == "skipped":
         return {"status": "ready", "scan_status": "skipped"}
     return {"status": "ready", "scan_status": "clean"}

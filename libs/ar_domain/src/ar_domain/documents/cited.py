@@ -57,6 +57,9 @@ def cited_parts(
                     "document_id": document_id,
                     "anchor": anchor,
                     "page": passage.get("page"),
+                    "char_from": passage.get("char_from", 0),
+                    "char_to": passage.get("char_to") or len(str(passage.get("text") or "")),
+                    "file_id": str(document.get("file_id") or ""),
                 },
             }
         )

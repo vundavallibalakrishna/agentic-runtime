@@ -36,6 +36,7 @@ def workflow_payload(store: object, run: object, run_id: uuid.UUID, text: str) -
         "step_timeout_s": _step_timeout_s(store, run),
         "history_steps": _setting("run_history_steps", 24),
         "wait_s": _setting("approval_wait_s", 86400),
+        "document_parallelism": _setting("document_task_parallelism", 2),
     }
     return payload
 

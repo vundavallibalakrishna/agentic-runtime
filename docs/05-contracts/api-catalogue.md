@@ -406,6 +406,8 @@ Spec: [24-documents.md](../03-specs/24-documents.md)
 |---|---|---|---|
 | GET | [`/api/v1/library-documents`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | POST | [`/api/v1/library-documents`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| DELETE | [`/api/v1/library-documents/{document_id}`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
+| POST | [`/api/v1/library-documents/{document_id}:reprocess`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | GET | [`/api/v1/library-documents/{document_id}`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | GET | [`/api/v1/library-documents/{document_id}/passages`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |
 | GET | [`/api/v1/library-documents/{document_id}/outline`](../03-specs/24-documents.md) | `chat:use` | 2. Public API |

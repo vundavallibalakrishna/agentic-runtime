@@ -138,6 +138,7 @@ class PgVectorStore:
             "lexical_k": query.lexical_k,
             "fused_k": query.fused_k,
             "rrf_k": query.rrf_k,
+            "document_ids": list(query.document_ids) or None,
         }
         return await self._search(sql, params)
 
@@ -329,6 +330,8 @@ WITH targets(collection_id, index_version) AS (
     WHERE ce.dims = __DIMS__ AND ce.tenant_id = :tenant_id
       AND ce.acl && CAST(:principals AS text[])
       AND ce.classification = ANY(CAST(:allowed AS text[]))
+      AND (CAST(:document_ids AS uuid[]) IS NULL
+           OR ce.document_id = ANY(CAST(:document_ids AS uuid[])))
     ORDER BY ce.embedding::halfvec(__DIMS__) <=> CAST(:q AS halfvec(__DIMS__))
     LIMIT :dense_k) d
 ), lexical AS (
@@ -340,6 +343,8 @@ WITH targets(collection_id, index_version) AS (
     WHERE ce.tsv @@ qq.query AND ce.tenant_id = :tenant_id
       AND ce.acl && CAST(:principals AS text[])
       AND ce.classification = ANY(CAST(:allowed AS text[]))
+      AND (CAST(:document_ids AS uuid[]) IS NULL
+           OR ce.document_id = ANY(CAST(:document_ids AS uuid[])))
     ORDER BY score DESC, ce.chunk_id
     LIMIT :lexical_k) l
 )

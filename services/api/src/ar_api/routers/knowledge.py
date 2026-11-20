@@ -86,7 +86,9 @@ class ReindexBody(ApiModel):
 class SearchBody(ApiModel):
     query: str = ""
     collection_ids: list[uuid.UUID] = Field(default_factory=list)
+    document_ids: list[uuid.UUID] = Field(default_factory=list)
     top_k: int = 8
+    min_score: float | None = None
     debug: bool = False
 
 
@@ -377,4 +379,8 @@ async def search(body: SearchBody, request: Request) -> dict[str, object]:
         collection_ids=[uuid.UUID(str(item)) for item in ids],
         top_k=top_k,
         debug=bool(payload.get("debug")),
+        min_score=payload.get("min_score")
+        if isinstance(payload.get("min_score"), int | float)
+        else None,  # noqa: E501
+        document_ids=[uuid.UUID(str(item)) for item in payload.get("document_ids") or []],
     )

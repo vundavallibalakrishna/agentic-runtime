@@ -116,9 +116,11 @@ def plan_queries(question: str, *, breadth: int) -> list[dict[str, str]]:
     return queries
 
 
-def run_subtask(store: Any, tenant_id: object, query: dict[str, str]) -> dict[str, object]:
+def run_subtask(
+    store: Any, tenant_id: object, query: dict[str, str], *, user_id: object = None
+) -> dict[str, object]:
     """Search, fetch and read one query. Safe to call again: the caller skips stored ids."""
-    hits = search(store, tenant_id, query["text"], limit=3)
+    hits = search(store, tenant_id, query["text"], limit=3, user_id=user_id)
     sources: list[dict[str, object]] = []
     for hit in hits[:2]:
         url = str(hit.get("url") or "")
