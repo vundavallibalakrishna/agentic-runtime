@@ -76,7 +76,10 @@ async def ingest_document_activity(payload: dict[str, Any]) -> dict[str, Any]:
 @activity.defn(name="parse_library_document")
 @repository_activity(process_store)
 async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
-    """Read a staged library row and fill it with the layout parser."""
+    """Read a staged library row and fill it with the layout parser.
+
+    With ``reprocess`` the row is one a person asked to have read again.
+    """
     store = _store()
     document_id = uuid.UUID(str(payload["document_id"]))
     tenant_id = uuid.UUID(str(payload["tenant_id"]))
@@ -91,6 +94,21 @@ async def parse_library_activity(payload: dict[str, Any]) -> dict[str, Any]:
     row = store.library_documents.get(document_id)
     owner = row.get("owner_user_id") if isinstance(row, dict) else None
     actor = Actor(tenant_id, owner if isinstance(owner, uuid.UUID) else tenant_id, frozenset())
+    if payload.get("reprocess"):
+        from ar_common.errors import ArError  # noqa: PLC0415
+        from ar_common.offload import run_sync  # noqa: PLC0415
+        from ar_domain.documents.lifecycle import reread  # noqa: PLC0415
+
+        engine = str(payload.get("engine") or "")
+        try:
+            # Off the loop: a page read by the model waits on the model.
+            await run_sync(lambda: reread(store, actor, document_id, engine=engine))
+        except ArError as exc:
+            # The file cannot be read. Trying again reads the same file, so the reason
+            # goes back to the person who asked.
+            return {"status": "failed", "code": exc.code.value, "message": exc.detail}
+        await flush_store(store)
+        return {"status": "ready", "document_id": str(document_id)}
     try:
         saved = library.finish_parse(actor, document_id)
     except Exception:
