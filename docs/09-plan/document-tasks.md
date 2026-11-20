@@ -63,7 +63,7 @@ Docling is the layout parser for PDF, Office and HTML on every ingest path.
 `documents/extract.py` reads a format Docling cannot, and it is what a process
 without Docling uses. The ingest image installs Docling. When a Temporal
 client is connected, the API stages the bytes and the ingest worker parses
-them, for a library upload and for a collection upload alike. A collection
+them, for a library upload, a collection upload and a reprocess alike. A collection
 upload up to `AR_INGEST_INLINE_MAX_BYTES` travels with the request; a larger
 one is read by the worker from the file store. When Docling should have read
 a file and did not, the fallback's text is kept and the document's metadata

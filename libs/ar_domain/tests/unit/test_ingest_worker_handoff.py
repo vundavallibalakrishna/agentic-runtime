@@ -15,14 +15,23 @@ from pathlib import Path
 
 import pytest
 
+from ar_common.errors import ArError, ErrorCode, NotFoundError
 from ar_common.settings import get_settings
-from ar_domain.documents import layout
+from ar_domain.agents.access import Actor
+from ar_domain.documents import layout, lifecycle
 from ar_domain.documents.create.render import render
 from ar_domain.documents.create.spec import parse
+from ar_domain.documents.extract import ExtractError
+from ar_domain.documents.library import DocumentLibrary
+from ar_domain.documents.lifecycle import reprocess_document
 from ar_domain.documents.templates import resolve_template
 from ar_domain.knowledge import pipeline
 from ar_domain.knowledge.pipeline import ingest_or_enqueue, stored_bytes
-from ar_ingest.activities import bind_store, ingest_document_activity
+from ar_ingest.activities import (
+    bind_store,
+    ingest_document_activity,
+    parse_library_activity,
+)
 from ar_testing.demo import demo_store
 from ar_testing.sleeping import in_this_thread
 
@@ -255,3 +264,147 @@ def test_the_image_holds_every_template_the_product_ships() -> None:
     for template_id in shipped:
         found = resolve_template(None, template_id, packs_dir=str(_ROOT / "packs"))
         assert found.id == template_id
+
+
+class _Answer:
+    def __init__(self, answer: dict[str, object], *, hang: bool = False) -> None:
+        self.answer = answer
+        self.hang = hang
+
+    async def result(self) -> dict[str, object]:
+        if self.hang:
+            await asyncio.sleep(600)
+        return self.answer
+
+
+class _Worker:
+    """Stands where the workflow client is. It reads the file again as the worker does."""
+
+    def __init__(self, store: object, *, fail: bool = False, hang: bool = False) -> None:
+        self.store = store
+        self.fail = fail
+        self.hang = hang
+        self.started: list[tuple[str, dict[str, object], str]] = []
+
+    async def start_workflow(
+        self, name: str, payload: dict[str, object], **options: object
+    ) -> _Answer:
+        self.started.append((name, payload, str(options["id"])))
+        if self.hang:
+            return _Answer({}, hang=True)
+        bind_store(self.store)
+        return _Answer(await parse_library_activity(payload))
+
+
+def _library_document(store: object) -> tuple[Actor, uuid.UUID]:
+    actor = Actor(uuid.uuid4(), uuid.uuid4(), frozenset({"chat:use"}))
+    saved = DocumentLibrary(store).ingest(actor, data=_docx(), filename="policy.docx")
+    document_id = uuid.UUID(str(saved["id"]))
+    row = store.library_documents[document_id]  # type: ignore[attr-defined]
+    row["passages"] = []
+    row["status"] = "failed"
+    return actor, document_id
+
+
+@pytest.fixture
+def durable_store(monkeypatch: pytest.MonkeyPatch) -> object:
+    """A store that looks database-backed: saves go nowhere and rows are read from it."""
+    store = demo_store()
+    store.durable_engine = object()
+
+    async def _nothing(*_args: object) -> None:
+        return None
+
+    async def _held(_store: object, _tenant: uuid.UUID, document_id: str) -> object:
+        return store.library_documents.get(uuid.UUID(document_id))
+
+    monkeypatch.setattr("ar_domain.durable.flush.flush_store", _nothing)
+    monkeypatch.setattr("ar_domain.durable.m24.load_library_row", _nothing)
+    monkeypatch.setattr("ar_domain.documents.library._load_library_id", _held)
+    return store
+
+
+@pytest.mark.asyncio
+async def test_a_reprocess_is_read_by_the_worker(
+    durable_store: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = durable_store
+    actor, document_id = _library_document(store)
+    here: list[str] = []
+    monkeypatch.setattr(lifecycle, "reprocess", lambda *_a, **_k: here.append("api"))
+    worker = _Worker(store)
+    store.temporal_client = worker  # type: ignore[attr-defined]
+
+    again = await reprocess_document(store, actor, document_id)
+
+    name, payload, run_id = worker.started[0]
+    assert name == "LibraryParseWorkflow"
+    assert payload["reprocess"] is True
+    assert payload["document_id"] == str(document_id)
+    # Each request is its own run: a second reprocess of the same file is not refused.
+    assert run_id.startswith(f"library-reprocess-{document_id}-")
+    assert here == []
+    assert again["status"] == "ready"
+    row = store.library_documents[document_id]  # type: ignore[attr-defined]
+    assert "door stays locked" in str(row["passages"])
+    # The layout parser read it, as on an upload, and the row says so.
+    assert row["metadata"]["parser"] == "docling"
+    assert "parserNote" not in row["metadata"]
+
+
+@pytest.mark.asyncio
+async def test_a_file_the_worker_cannot_read_is_told_to_the_person(
+    durable_store: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = durable_store
+    actor, document_id = _library_document(store)
+
+    def _refuse(*_a: object, **_k: object) -> object:
+        raise ExtractError("unsupported", "This kind of file cannot be read.")
+
+    monkeypatch.setattr("ar_domain.documents.layout.parse_layout", _refuse)
+    store.temporal_client = _Worker(store)  # type: ignore[attr-defined]
+
+    with pytest.raises(ArError) as refused:
+        await reprocess_document(store, actor, document_id)
+
+    assert refused.value.code is ErrorCode.UNSUPPORTED_MEDIA_TYPE
+    assert refused.value.detail == "This kind of file cannot be read."
+    # The earlier state is kept: nothing was replaced by a reading that failed.
+    assert store.library_documents[document_id]["status"] == "failed"  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_a_slow_reprocess_answers_with_the_row_as_it_is(
+    durable_store: object, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = durable_store
+    actor, document_id = _library_document(store)
+    store.temporal_client = _Worker(store, hang=True)  # type: ignore[attr-defined]
+
+    async def _gave_up(awaitable: object, **_limits: float) -> None:
+        awaitable.close()  # type: ignore[attr-defined]
+        raise TimeoutError
+
+    monkeypatch.setattr(asyncio, "wait_for", in_this_thread(_gave_up, asyncio.wait_for))
+
+    waiting = await reprocess_document(store, actor, document_id)
+
+    assert waiting["status"] == "failed"
+    assert waiting["id"] == str(document_id)
+
+
+@pytest.mark.asyncio
+async def test_without_a_worker_the_file_is_read_here_and_strangers_find_nothing() -> None:
+    store = demo_store()
+    actor, document_id = _library_document(store)
+
+    again = await reprocess_document(store, actor, document_id)
+
+    assert again["status"] == "ready"
+    stranger = Actor(actor.tenant_id, uuid.uuid4(), frozenset({"chat:use"}))
+    with pytest.raises(NotFoundError):
+        await reprocess_document(store, stranger, document_id)
+    store.library_documents[document_id]["object_key"] = ""
+    with pytest.raises(NotFoundError):
+        await reprocess_document(store, actor, document_id)

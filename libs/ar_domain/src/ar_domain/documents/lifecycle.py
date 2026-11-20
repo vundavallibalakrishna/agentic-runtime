@@ -114,34 +114,51 @@ def sweep_expired(store: Any, *, now: object | None = None) -> int:
     return removed
 
 
-def reprocess(
+def _owned(store: Any, actor: Actor, document_id: uuid.UUID) -> dict[str, object]:
+    """The person's own library document that still has its original. Otherwise not found."""
+    from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
+
+    row = DocumentLibrary(store)._own(actor, document_id)
+    if row.get("owner_user_id") != actor.user_id or not row.get("object_key"):
+        raise NotFoundError()
+    return row
+
+
+def reread(
     store: Any, actor: Actor, document_id: uuid.UUID, *, engine: str = ""
 ) -> dict[str, object]:
-    """Read the stored original again and replace the passages."""
-    from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
+    """Read the stored original again and replace the passages. Returns the row.
+
+    The layout parser reads first, as on an upload. A person who names the ``vision``
+    engine asks for the pages to be read by the model, so that reading is used instead.
+    """
+    from typing import cast  # noqa: PLC0415
+
+    from ar_domain.documents.chunk import passage_dicts  # noqa: PLC0415
+    from ar_domain.documents.extract import ExtractError, Ocr, extract_bytes  # noqa: PLC0415
+    from ar_domain.documents.layout import parse_layout  # noqa: PLC0415
+    from ar_domain.documents.library import DocumentLibrary, _extract_error  # noqa: PLC0415
     from ar_domain.documents.originals import read_original  # noqa: PLC0415
+    from ar_domain.documents.quality import engine_name, quality_record  # noqa: PLC0415
 
     library = DocumentLibrary(store)
-    row = library._own(actor, document_id)
-    if row.get("owner_user_id") != actor.user_id:
-        raise NotFoundError()
+    row = _owned(store, actor, document_id)
     data = read_original(store, str(row.get("object_key") or ""))
     if not isinstance(data, bytes) or not data:
         raise NotFoundError()
-    from typing import cast  # noqa: PLC0415
-
-    from ar_domain.documents.extract import Ocr, extract_bytes  # noqa: PLC0415
-
     reader = _reader(store, actor, engine)
-    extracted = extract_bytes(
-        data,
-        filename=str(row.get("filename") or "upload"),
-        media_type=str(row.get("media_type") or ""),
-        ocr=cast("Ocr | None", reader),
-    )
-    from ar_domain.documents.chunk import passage_dicts  # noqa: PLC0415
-    from ar_domain.documents.quality import engine_name, quality_record  # noqa: PLC0415
-
+    filename = str(row.get("filename") or "upload")
+    media_type = str(row.get("media_type") or "")
+    try:
+        if reader is None:
+            extracted = parse_layout(data, filename=filename, media_type=media_type)
+        else:
+            extracted = extract_bytes(
+                data, filename=filename, media_type=media_type, ocr=cast("Ocr | None", reader)
+            )
+    except ExtractError as exc:
+        # The earlier reading stays as it was.
+        raise _extract_error(exc) from exc
     pages = extracted.metadata.get("pagesOcr")
     record = quality_record(
         page_count=extracted.page_count,
@@ -167,6 +184,10 @@ def reprocess(
     row["error_code"] = None
     current = row.get("metadata")
     metadata = dict(current) if isinstance(current, dict) else {}
+    # Which reader made this reading: a note left by an earlier one does not describe it.
+    metadata.pop("parser", None)
+    metadata.pop("parserNote", None)
+    metadata.update(extracted.metadata)
     metadata.update(record)
     row["metadata"] = metadata
     row["updated_at"] = utcnow()
@@ -176,7 +197,82 @@ def reprocess(
         document_id,
         {"filename": row.get("filename"), "reason": "reprocess"},
     )
-    _reindex(store, actor, row)
+    return row
+
+
+def reprocess(
+    store: Any, actor: Actor, document_id: uuid.UUID, *, engine: str = ""
+) -> dict[str, object]:
+    """Read the original again in this process, and index it again where it is in a collection."""
+    from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
+    from ar_domain.knowledge.syncutil import run_sync  # noqa: PLC0415
+
+    row = reread(store, actor, document_id, engine=engine)
+    run_sync(_reindex(store, actor, row))
+    return DocumentLibrary(store)._view(row, detail=True)
+
+
+# How long a request waits for the worker to read the file again before it answers.
+_WORKER_WAIT_S = 120
+
+
+async def reprocess_document(
+    store: Any, actor: Actor, document_id: uuid.UUID, *, engine: str = ""
+) -> dict[str, object]:
+    """Read a library document again: on the ingest worker when one is connected.
+
+    The worker has the layout parser and the converters, and a long read there does not
+    hold up the API. Without a worker the file is read in this process, off the loop.
+    """
+    import asyncio  # noqa: PLC0415
+
+    from ar_common.errors import ArError, ErrorCode  # noqa: PLC0415
+    from ar_common.ids import new_id  # noqa: PLC0415
+    from ar_common.offload import run_sync  # noqa: PLC0415
+    from ar_domain.documents.library import (  # noqa: PLC0415
+        DocumentLibrary,
+        _install_library_row,
+        _load_library_id,
+    )
+    from ar_domain.durable.flush import flush_store  # noqa: PLC0415
+
+    row = _owned(store, actor, document_id)
+    client = getattr(store, "temporal_client", None)
+    if (
+        client is None
+        or getattr(store, "durable_engine", None) is None
+        or not hasattr(client, "start_workflow")
+        or getattr(store, "_ingest_worker", False)
+    ):
+        again: dict[str, object] = await run_sync(
+            lambda: reprocess(store, actor, document_id, engine=engine)
+        )
+        return again
+    await flush_store(store)
+    handle = await client.start_workflow(
+        "LibraryParseWorkflow",
+        {
+            "document_id": str(document_id),
+            "tenant_id": str(actor.tenant_id),
+            "reprocess": True,
+            "engine": engine,
+        },
+        id=f"library-reprocess-{document_id}-{new_id()}",
+        task_queue="ar-ingest",
+    )
+    library = DocumentLibrary(store)
+    try:
+        answer = await asyncio.wait_for(handle.result(), timeout=_WORKER_WAIT_S)
+    except TimeoutError:
+        # The worker is still reading. It finishes on its own; the row is as it was.
+        return library._view(row, detail=True)
+    if isinstance(answer, dict) and answer.get("status") == "failed":
+        raise ArError(ErrorCode(str(answer.get("code"))), str(answer.get("message") or ""))
+    loaded = await _load_library_id(store, actor.tenant_id, str(document_id))
+    if loaded is not None:
+        _install_library_row(store, loaded)
+        row = loaded
+    await _reindex(store, actor, row)
     return library._view(row, detail=True)
 
 
@@ -225,7 +321,7 @@ def _drop_raw(store: Any, file_id: object, *, actor_id: object) -> None:
             delete_document(store, document, actor_id=actor_id)
 
 
-def _reindex(store: Any, actor: Actor, library_row: dict[str, object]) -> None:
+async def _reindex(store: Any, actor: Actor, library_row: dict[str, object]) -> None:
     """Start the existing ingest again when the file already sits in a collection."""
     documents = getattr(store, "knowledge_documents", {})
     if not isinstance(documents, dict):
@@ -243,10 +339,10 @@ def _reindex(store: Any, actor: Actor, library_row: dict[str, object]) -> None:
             linked = _file_hash(store, document.get("raw_file_id"))
             if linked != digest:
                 continue
-        from ar_domain.knowledge.pipeline import ingest_document_async  # noqa: PLC0415
-        from ar_domain.knowledge.syncutil import run_sync  # noqa: PLC0415
+        from ar_domain.knowledge.pipeline import ingest_or_enqueue  # noqa: PLC0415
 
-        run_sync(ingest_document_async(store, as_uuid(document["id"]), _bytes(store, library_row)))
+        # The same path an upload to a collection takes: the worker when one is connected.
+        await ingest_or_enqueue(store, as_uuid(document["id"]), _bytes(store, library_row))
         return
 
 
