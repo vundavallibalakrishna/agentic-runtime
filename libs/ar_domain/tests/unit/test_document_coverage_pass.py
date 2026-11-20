@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import subprocess
 import uuid
@@ -1009,15 +1010,13 @@ def test_more_extract_library_and_lifecycle_edges(monkeypatch: pytest.MonkeyPatc
     }
     called: list[object] = []
 
-    def _run(coro: object) -> None:
-        close = getattr(coro, "close", None)
-        if callable(close):
-            close()
-        called.append(True)
+    async def _ingest(_store: object, found: uuid.UUID, _raw: bytes) -> str:
+        called.append(found)
+        return "indexed"
 
-    monkeypatch.setattr("ar_domain.knowledge.syncutil.run_sync", _run)
-    _reindex(store, actor, row)
-    assert called
+    monkeypatch.setattr("ar_domain.knowledge.pipeline.ingest_or_enqueue", _ingest)
+    asyncio.run(_reindex(store, actor, row))
+    assert called == [knowledge_id]
     assert _bytes(store, row) == b""
     monkeypatch.setattr(
         "ar_domain.knowledge.syncing.delete_document",

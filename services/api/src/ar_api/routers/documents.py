@@ -1,19 +1,15 @@
 """Document library HTTP surface."""
 
 import uuid
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from pydantic import Field
 
 from ar_api.deps import expose, require_permission
 from ar_api.routers.tooling import actor, chat, page
-from ar_common.offload import run_sync
 from ar_contracts.api_model import ApiModel
 from ar_domain.documents.library import DocumentLibrary, ingest_bytes
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
 
 router = APIRouter()
 
@@ -29,14 +25,6 @@ class RuleSetBody(ApiModel):
     items: list[RuleSetItem] = Field(default_factory=list)
     source_file_id: uuid.UUID | None = None
     sha256: str = ""
-
-
-async def _waiting(
-    call: Callable[..., dict[str, object]], /, *args: object, **kwargs: object
-) -> dict[str, object]:
-    """Run a library call that may wait on a model, while the API goes on serving others."""
-    result: dict[str, object] = await run_sync(lambda: call(*args, **kwargs))
-    return result
 
 
 def _library(request: Request) -> DocumentLibrary:
@@ -98,9 +86,9 @@ async def delete_library_document(document_id: uuid.UUID, request: Request) -> d
 async def reprocess_library_document(
     document_id: uuid.UUID, body: ReprocessBody, request: Request
 ) -> dict[str, object]:
-    from ar_domain.documents.lifecycle import reprocess  # noqa: PLC0415
+    from ar_domain.documents.lifecycle import reprocess_document  # noqa: PLC0415
 
-    return await _waiting(reprocess, chat(request), actor(request), document_id, engine=body.engine)
+    return await reprocess_document(chat(request), actor(request), document_id, engine=body.engine)
 
 
 @router.get(
