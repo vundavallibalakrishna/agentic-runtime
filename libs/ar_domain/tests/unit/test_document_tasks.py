@@ -192,6 +192,61 @@ def test_library_list_is_owner_only_inside_one_tenant() -> None:
         library.get(other, uuid.UUID(str(saved["id"])))
 
 
+def test_an_ownerless_row_is_hidden_and_a_collection_share_is_not() -> None:
+    tenant = uuid.uuid4()
+    owner = Actor(tenant, uuid.uuid4(), frozenset({"chat:use"}))
+    reader = Actor(tenant, uuid.uuid4(), frozenset({"chat:use"}))
+    document_id = uuid.uuid4()
+    file_id = uuid.uuid4()
+    collection_id = uuid.uuid4()
+    knowledge_id = uuid.uuid4()
+    store = _store()
+    store.files = {  # type: ignore[attr-defined]
+        file_id: {
+            "id": file_id,
+            "tenant_id": tenant,
+            "sha256": "digest",
+            "deleted_at": None,
+        },
+        uuid.uuid4(): {"id": uuid.uuid4(), "tenant_id": tenant, "sha256": "other"},
+    }
+    store.library_documents = {  # type: ignore[attr-defined]
+        document_id: {
+            "id": document_id,
+            "tenant_id": tenant,
+            "owner_user_id": None,
+            "content_hash": "digest",
+            "status": "ready",
+            "title": "Note",
+            "filename": "note.md",
+        }
+    }
+    library = DocumentLibrary(store)
+    with pytest.raises(NotFoundError):
+        library.get(owner, document_id)
+    with pytest.raises(NotFoundError):
+        library.get(reader, file_id)
+    store.library_documents[document_id]["owner_user_id"] = owner.user_id
+    assert library.get(owner, document_id)["id"] == str(document_id)
+    with pytest.raises(NotFoundError):
+        library.get(reader, document_id)
+    store.knowledge_collections = {  # type: ignore[attr-defined]
+        collection_id: {"id": collection_id, "tenant_id": tenant}
+    }
+    store.knowledge_documents = {  # type: ignore[attr-defined]
+        knowledge_id: {
+            "id": knowledge_id,
+            "tenant_id": tenant,
+            "collection_id": collection_id,
+            "raw_file_id": file_id,
+            "status": "indexed",
+            "classification": "internal",
+            "acl_principals": [f"user:{reader.user_id}"],
+        }
+    }
+    assert library.get(reader, document_id)["id"] == str(document_id)
+
+
 def test_a_section_retry_does_not_call_the_model_again() -> None:
     calls = {"n": 0}
 

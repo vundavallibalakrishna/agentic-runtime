@@ -49,6 +49,23 @@ MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
 _READ_CHARS = 12_000
 
 
+def _holds_hash(files: object, document: dict[str, object], digest: str | set[str]) -> bool:
+    """Whether this knowledge document is the named bytes.
+
+    ``files`` is keyed by id. The document names one file, or carries the hash
+    itself. Neither path walks the file table.
+    """
+    wanted = {digest} if isinstance(digest, str) else digest
+    version = str(document.get("version_hash") or "")
+    if version and version in wanted:
+        return True
+    file_id = document.get("raw_file_id")
+    meta = files.get(file_id) if isinstance(files, dict) else None
+    if not isinstance(meta, dict) or meta.get("deleted_at"):
+        return False
+    return str(meta.get("sha256") or "") in wanted
+
+
 def _quality(extracted: Extracted) -> dict[str, object]:
     """The extract's own metadata plus the read-quality record."""
     from ar_domain.documents.quality import quality_record  # noqa: PLC0415
@@ -784,9 +801,7 @@ class DocumentLibrary:
             return row
         # A chat attachment's id is a file id. The library row is the same bytes.
         matched = self._by_attached_file(actor, document_id)
-        if matched is not None and (
-            self._visible(actor, matched) or matched.get("owner_user_id") is None
-        ):
+        if matched is not None and self._visible(actor, matched):
             return matched
         raise NotFoundError()
 
@@ -799,24 +814,19 @@ class DocumentLibrary:
         return self._shared(actor, row)
 
     def _shared(self, actor: Actor, row: dict[str, object]) -> bool:
+        """A collection the caller can read holds these bytes.
+
+        The file is read by its id, the knowledge document's ``raw_file_id``.
+        The hash is compared on that one row. The file table is not scanned.
+        """
         from ar_domain.knowledge.access import can_read_document  # noqa: PLC0415
 
         digest = str(row.get("content_hash") or "")
-        files = getattr(self.store, "files", {})
-        file_ids = (
-            {
-                meta.get("id")
-                for meta in files.values()
-                if isinstance(meta, dict)
-                and meta.get("tenant_id") == actor.tenant_id
-                and meta.get("sha256") == digest
-                and not meta.get("deleted_at")
-            }
-            if isinstance(files, dict) and digest
-            else set()
-        )
+        if not digest:
+            return False
         documents = getattr(self.store, "knowledge_documents", {})
         collections = getattr(self.store, "knowledge_collections", {})
+        files = getattr(self.store, "files", {})
         if not isinstance(documents, dict) or not isinstance(collections, dict):
             return False
         for document in documents.values():
@@ -824,11 +834,7 @@ class DocumentLibrary:
                 continue
             if document.get("status") == "deleted":
                 continue
-            linked = digest and (
-                document.get("raw_file_id") in file_ids
-                or str(document.get("version_hash") or "") == digest
-            )
-            if not linked:
+            if not _holds_hash(files, document, digest):
                 continue
             collection = collections.get(document.get("collection_id"))
             if isinstance(collection, dict) and can_read_document(
@@ -848,15 +854,11 @@ class DocumentLibrary:
         ]
         hashes = {str(row.get("content_hash") or "") for row in visible if row.get("content_hash")}
         files = getattr(self.store, "files", {})
-        file_ids = (
-            {
-                meta.get("id")
-                for meta in files.values()
-                if isinstance(meta, dict) and meta.get("sha256") in hashes
-            }
-            if isinstance(files, dict)
-            else set()
-        )
+        file_ids = {
+            document.get("raw_file_id")
+            for document in documents.values()
+            if isinstance(document, dict) and _holds_hash(files, document, hashes)
+        }
         linked = [
             document
             for document in documents.values()

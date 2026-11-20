@@ -210,6 +210,7 @@ def test_a_file_id_resolves_to_the_library_document() -> None:
     store.library_documents[document_id] = {
         "id": document_id,
         "tenant_id": tenant,
+        "owner_user_id": user,
         "content_hash": digest,
         "status": "ready",
         "title": "Policy",
