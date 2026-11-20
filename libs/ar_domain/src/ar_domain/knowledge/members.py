@@ -33,7 +33,12 @@ if TYPE_CHECKING:
 
 _TAG = re.compile(r"<[^>]+>")
 _SPACE = re.compile(r"\s+")
-_MAX_FETCH = 2_000_000
+
+
+def _max_fetch() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().knowledge_fetch_max_bytes)
 
 
 async def add_member(
@@ -130,7 +135,12 @@ async def refresh_document(store: Any, actor: Actor, document_id: uuid.UUID) -> 
     return await add_member(store, actor, uuid.UUID(str(collection["id"])), body)
 
 
-_MAX_HITS = 20
+def _max_hits() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().knowledge_search_max_hits)
+
+
 _ITEM = re.compile(r"^\s*(?:[-*\u2022]|\(?\w{1,6}[.):])\s+\S")
 
 
@@ -147,7 +157,7 @@ def message_queries(text: str) -> list[str]:
     items = [line for line in lines if _ITEM.match(line) or line.endswith("?")]
     if len(items) < 2:
         return [text]
-    return items[:_MAX_HITS]
+    return items[: _max_hits()]
 
 
 def _fused(ranked: list[list[dict[str, object]]]) -> list[dict[str, object]]:
@@ -192,7 +202,7 @@ async def retrieve(
             actor,
             query=item,
             collection_ids=collection_ids,
-            top_k=min(max(top_k, 1), _MAX_HITS),
+            top_k=min(max(top_k, 1), _max_hits()),
             debug=True,
             min_score=min_score,
         )
@@ -202,7 +212,7 @@ async def retrieve(
         )
     # Several queries may each bring a passage, so the count is bounded by the same
     # ceiling a single query has; the character budget below still applies.
-    fused = _fused(ranked)[: _MAX_HITS if len(queries) > 1 else None]
+    fused = _fused(ranked)[: _max_hits() if len(queries) > 1 else None]
     hits = [hit for hit in fused if clears(hit, min_score)]
     kept: list[dict[str, object]] = []
     used = 0
@@ -327,8 +337,8 @@ def _fetch(store: Any, url: str, headers: dict[str, str] | None) -> str:
         status, text = fetch_text(store, "GET", url, headers=headers, timeout=30)
     if status >= 400:
         raise ValidationFailedError(f"the URL returned {status}")
-    if len(text) > _MAX_FETCH:
-        text = text[:_MAX_FETCH]
+    if len(text) > _max_fetch():
+        text = text[: _max_fetch()]
     return text
 
 

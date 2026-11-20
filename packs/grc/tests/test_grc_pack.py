@@ -33,7 +33,7 @@ def _actor() -> Actor:
     )
 
 
-def test_import_judge_link_risk_and_finding() -> None:
+def test_import_judge_link_risk_and_finding(monkeypatch: pytest.MonkeyPatch) -> None:
     from ar_testing.demo import demo_store
 
     store = demo_store()
@@ -42,12 +42,15 @@ def test_import_judge_link_risk_and_finding() -> None:
     book = CatalogueBook(store)
     imported = book.import_csv(actor, "House rules", _CSV)
     items = book.items(actor, uuid.UUID(str(imported["id"])))
-    judgements = book.judge(
-        actor,
-        uuid.UUID(str(imported["id"])),
-        [{"id": "p1", "text": "The door stays locked after hours. Visitors sign in."}],
-    )
-    assert judgements[0]["verdict"] == "supported"
+    from ar_common.errors import UnavailableError
+
+    monkeypatch.setattr("ar_domain.documents.model.model_id_for", lambda *_args, **_kwargs: "")
+    with pytest.raises(UnavailableError):
+        book.judge(
+            actor,
+            uuid.UUID(str(imported["id"])),
+            [{"anchor": "p1", "text": "The door stays locked after hours. Visitors sign in."}],
+        )
     sealed = EvidenceBook(store).capture(actor, {"collection_method": "upload"}, b"photo")
     linked = book.link_evidence(actor, uuid.UUID(str(items[0]["id"])), uuid.UUID(str(sealed["id"])))
     assert linked["evidenceId"] == str(sealed["id"])

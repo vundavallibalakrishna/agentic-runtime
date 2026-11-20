@@ -15,6 +15,7 @@ import re
 
 from ar_common.errors import UnavailableError, ValidationFailedError
 from ar_common.offload import blocking_all
+from ar_common.settings import get_settings
 from ar_domain.documents.grounding import (
     Ask,
     _by_anchor,
@@ -24,8 +25,12 @@ from ar_domain.documents.grounding import (
     _prepare_passages,
 )
 
-# The whole document goes to the model in one request, so its text has a ceiling.
-CROSSCHECK_BUDGET = 40_000
+
+def _budget() -> int:
+    """Characters of one document the model reads in a single pass."""
+    return int(get_settings().document_crosscheck_max_chars)
+
+
 KINDS = ("value_mismatch", "count_mismatch", "summary_mismatch", "other")
 _FINDINGS = 12
 _QUOTES = 4
@@ -79,7 +84,7 @@ def crosscheck(
     if not passages:
         raise ValidationFailedError("This document has no stored text to check.")
     size = sum(len(str(row.get("text") or "")) for row in passages)
-    if size > CROSSCHECK_BUDGET:
+    if size > _budget():
         return _by_sections(document, passages, ask, focus=focus, aggressive=aggressive)
     task = _TASK
     wanted = " ".join(focus.split())[:_FOCUS]
@@ -153,7 +158,7 @@ def _by_sections(
     used = 0
     for row in passages:
         text = str(row.get("text") or "")
-        if current and used + len(text) > CROSSCHECK_BUDGET:
+        if current and used + len(text) > _budget():
             groups.append(current)
             current = []
             used = 0

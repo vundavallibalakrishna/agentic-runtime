@@ -4,15 +4,23 @@ import mimetypes
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from ar_common.settings import get_settings
 from ar_contracts.tenants import READABLE_UPLOAD_MIME_TYPES
 
-# The most the product keeps for one file today, whatever a tenant sets: file bytes live
-# in the database until M38b-T13 moves them to the object store.
-MAX_UPLOAD_BYTES = 25 * 1024 * 1024
-# What a route that takes a file accepts as a request body: the cap plus the multipart
-# envelope. The tenant's own cap (``upload_rules``) is applied to the file by ``upload``.
-# The web app's proxy buffers the same amount (``proxyClientMaxBodySize`` in next.config).
-UPLOAD_BODY_LIMIT = MAX_UPLOAD_BYTES + 64 * 1024
+# Multipart framing around the file. The file itself is ``document_max_bytes``.
+_MULTIPART_OVERHEAD = 64 * 1024
+
+
+def max_upload_bytes() -> int:
+    """The most one upload may hold. The same cap as ``AR_DOCUMENT_MAX_BYTES``."""
+    return int(get_settings().document_max_bytes)
+
+
+def upload_body_limit() -> int:
+    """What a route that takes a file accepts as a request body."""
+    return max_upload_bytes() + _MULTIPART_OVERHEAD
+
+
 EICAR = b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
 
@@ -45,7 +53,7 @@ def upload_rules(settings: Mapping[str, object]) -> UploadRules:
     megabytes = raw if isinstance(raw, int) and not isinstance(raw, bool) and raw > 0 else 25
     return UploadRules(
         mime_types=tuple(sorted(set(types))),
-        max_bytes=min(megabytes * 1024 * 1024, MAX_UPLOAD_BYTES),
+        max_bytes=min(megabytes * 1024 * 1024, max_upload_bytes()),
     )
 
 

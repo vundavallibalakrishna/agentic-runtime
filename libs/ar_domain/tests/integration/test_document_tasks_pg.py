@@ -148,9 +148,11 @@ async def test_library_rows_are_owner_only_under_rls(database_url: str) -> None:
         )
         await connection.execute(
             text(
-                "INSERT INTO library_documents (id, tenant_id, owner_user_id, title, filename, "
-                "media_type, source, content_hash, size_bytes) VALUES "
-                "(:id, :tenant, :owner, 'Note', 'note.md', 'text/markdown', 'upload', :hash, 12)"
+                "INSERT INTO documents (id, tenant_id, owner_user_id, title, filename, "
+                "mime_type, source, content_hash, version_hash, size_bytes, external_id, uri) "
+                "VALUES (:id, :tenant, :owner, 'Note', 'note.md', 'text/markdown', 'upload', "
+                ":hash, :hash, 12, 'library:' || CAST(:id AS text), "
+                "'library://' || CAST(:id AS text))"
             ),
             {"id": document, "tenant": tenant, "owner": owner, "hash": uuid.uuid4().hex},
         )
@@ -163,7 +165,7 @@ async def test_library_rows_are_owner_only_under_rls(database_url: str) -> None:
         )
         await connection.execute(text("SET LOCAL ROLE ar_app"))
         seen = await connection.scalar(
-            text("SELECT count(*) FROM library_documents WHERE id = :id"), {"id": document}
+            text("SELECT count(*) FROM documents WHERE id = :id"), {"id": document}
         )
     async with engine.begin() as connection:
         await connection.execute(
@@ -174,7 +176,7 @@ async def test_library_rows_are_owner_only_under_rls(database_url: str) -> None:
         )
         await connection.execute(text("SET LOCAL ROLE ar_app"))
         owned = await connection.scalar(
-            text("SELECT count(*) FROM library_documents WHERE id = :id"), {"id": document}
+            text("SELECT count(*) FROM documents WHERE id = :id"), {"id": document}
         )
     await engine.dispose()
     assert seen == 0
@@ -233,9 +235,11 @@ async def test_a_collection_reader_sees_the_library_row_under_rls(database_url: 
         )
         await connection.execute(
             text(
-                "INSERT INTO library_documents (id, tenant_id, owner_user_id, title, filename, "
-                "media_type, source, content_hash, size_bytes) VALUES "
-                "(:id, :tenant, :owner, 'Note', 'note.md', 'text/markdown', 'upload', :hash, 12)"
+                "INSERT INTO documents (id, tenant_id, owner_user_id, title, filename, "
+                "mime_type, source, content_hash, version_hash, size_bytes, external_id, uri) "
+                "VALUES (:id, :tenant, :owner, 'Note', 'note.md', 'text/markdown', 'upload', "
+                ":hash, :hash, 12, 'library:' || CAST(:id AS text), "
+                "'library://' || CAST(:id AS text))"
             ),
             {"id": document, "tenant": tenant, "owner": owner, "hash": digest},
         )
@@ -280,7 +284,7 @@ async def test_a_collection_reader_sees_the_library_row_under_rls(database_url: 
         )
         await connection.execute(text("SET LOCAL ROLE ar_app"))
         shared = await connection.scalar(
-            text("SELECT count(*) FROM library_documents WHERE id = :id"), {"id": document}
+            text("SELECT count(*) FROM documents WHERE id = :id"), {"id": document}
         )
     await engine.dispose()
     assert shared == 1

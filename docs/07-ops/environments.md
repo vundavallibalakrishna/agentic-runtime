@@ -112,6 +112,11 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_DOCUMENT_CREATE_MAX_FILE_BYTES` | `5242880` | Bytes in one created file. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_CREATE_MAX_PAGES` | `30` | Pages in one created PDF. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_CREATE_MAX_SLIDES` | `60` | Slides in one created deck. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_ASK_MAX_TOKENS` | `1800` | Output tokens one document model call may ask for. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_CROSSCHECK_MAX_CHARS` | `40000` | Characters of one document read in a single cross-check pass. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_LISTED_ITEM_CAP` | `40` | Rows read from a delimited list into items. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_SOURCE_REF_CHARS` | `500` | Characters kept from a library source reference. | [document tasks](../09-plan/document-tasks.md) |
+| `AR_DOCUMENT_VISION_MAX_BYTES` | `8388608` | Bytes in one image a vision question may read. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_HISTORY_RESERVE` | `500` | Tokens held back for this turn's history. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_MARGIN_RATIO` | `0.15` | Fraction of the context window held back as margin. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_DOCUMENT_ALIGN_LEXICAL` | `0.5` | Minimum word overlap before two headings are paired. | [document tasks](../09-plan/document-tasks.md) |
@@ -125,13 +130,16 @@ Default = value when unset (dev-oriented); `(required)` = startup fails without 
 | `AR_GUARDRAIL_OUTPUT_ALIAS` | `fast` | Model alias for the output safety classifier (empty disables) | [prompt-injection §4](../06-security/prompt-injection.md) |
 | `AR_INGEST_ACTIVITY_CONCURRENCY` | `32` | Per worker | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_INGEST_MAX_BYTES` | `209715200` | Maximum size of a single ingested document | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_INGEST_INLINE_MAX_BYTES` | `262144` | Above this, a connected ingest worker parses the file. The API does not. | [document tasks](../09-plan/document-tasks.md) |
 | `AR_INGEST_SYNC_CONCURRENCY` | `16` | Child workflows per sync | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_INJECTION_CLASSIFIER_TIMEOUT_MS` | `1000` | Timeout for the tool-result injection classifier (fail-open with flag) | [spec 08](../03-specs/08-tool-registry-mcp.md) |
 | `AR_INPUT_WAIT_TIMEOUT_S` | `1800` | Elicitation wait | [spec 07](../03-specs/07-agent-runtime.md) |
 | `AR_INSTALL_ID` | derived from the database address (`host:port/name`) | Names this install on a container host it may share. Sandbox containers carry it as a label, and the orphan sweep touches only containers with this id. Set it only when two installs could derive the same value | [spec 12](../03-specs/12-sandbox-manager.md) |
 | `AR_INTERNAL_JWT_JWKS` | `http://api:8000/internal/v1/.well-known/jwks.json` | JWKS URL or inline JSON for verifying internal JWTs | [internal-apis](../05-contracts/internal-apis.md) |
 | `AR_INTERNAL_JWT_PRIVATE_KEY` | (required) | Ed25519 PEM for signing internal service JWTs; mounted Secret | [authn-authz §8](../06-security/authn-authz.md) |
+| `AR_KNOWLEDGE_FETCH_MAX_BYTES` | `2000000` | Characters kept from one fetched page. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_KNOWLEDGE_RERANK_CANDIDATES` | `50` | Candidates passed to the reranker | [spec 10](../03-specs/10-knowledge.md) |
+| `AR_KNOWLEDGE_SEARCH_MAX_HITS` | `20` | Hits one knowledge search returns. | [spec 10](../03-specs/10-knowledge.md) |
 | `AR_LLM_MAX_TOKENS` | `1024` | Default `max_tokens` for an OpenAI-compatible chat call when the model row sets no output limit. A case or a caller may ask for less. The model limit is the ceiling | [spec 04](../03-specs/04-model-gateway.md), [live-certification](../09-plan/live-certification.md) |
 | `AR_LOG_HASH_USER_IDS` | `false` (`true` in saas) | Hash user ids in logs and Langfuse | [data-protection](../06-security/data-protection.md) |
 | `AR_MAX_DEPTH` | `3` | Platform cap for subagents | [spec 07](../03-specs/07-agent-runtime.md) |

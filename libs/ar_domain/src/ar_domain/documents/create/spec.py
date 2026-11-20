@@ -9,19 +9,53 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from ar_common.sandboxkit import sanitise_name
+from ar_common.settings import get_settings
 from ar_domain.documents.create.xmlpack import PRODUCER
 
-MAX_SECTIONS = 40
-MAX_SHEETS = 12
-MAX_ROWS = 500
-MAX_COLUMNS = 32
-MAX_PARAGRAPHS = 40
-MAX_BULLETS = 40
-MAX_TEXT = 4_000
-MAX_TITLE = 200
-MAX_FILE_BYTES = 5_242_880
-MAX_PAGES = 30
-MAX_SLIDES = 60
+
+def max_sections() -> int:
+    return int(get_settings().document_create_max_sections)
+
+
+def max_sheets() -> int:
+    return int(get_settings().document_create_max_sheets)
+
+
+def max_rows() -> int:
+    return int(get_settings().document_create_max_rows)
+
+
+def max_columns() -> int:
+    return int(get_settings().document_create_max_columns)
+
+
+def max_paragraphs() -> int:
+    return int(get_settings().document_create_max_paragraphs)
+
+
+def max_bullets() -> int:
+    return int(get_settings().document_create_max_bullets)
+
+
+def max_text() -> int:
+    return int(get_settings().document_create_max_text)
+
+
+def max_title() -> int:
+    return int(get_settings().document_create_max_title)
+
+
+def max_file_bytes() -> int:
+    return int(get_settings().document_create_max_file_bytes)
+
+
+def max_pages() -> int:
+    return int(get_settings().document_create_max_pages)
+
+
+def max_slides() -> int:
+    return int(get_settings().document_create_max_slides)
+
 
 FORMATS = frozenset({"docx", "pdf", "pptx", "xlsx"})
 TEMPLATES = frozenset({"report", "brief", "sheet"})
@@ -115,7 +149,7 @@ def parse(arguments: dict[str, object]) -> DocumentSpec:
     if fmt not in registered_formats():
         known = ", ".join(sorted(registered_formats()))
         raise CreateError(f"format must be one of: {known}.")
-    title = _short(arguments.get("title"), MAX_TITLE)
+    title = _short(arguments.get("title"), max_title())
     if not title:
         raise CreateError("title is required.")
     template = str(arguments.get("template") or "").strip().lower()
@@ -124,7 +158,7 @@ def parse(arguments: dict[str, object]) -> DocumentSpec:
     spec = DocumentSpec(
         format=fmt,
         title=title,
-        subtitle=_short(arguments.get("subtitle"), MAX_TITLE),
+        subtitle=_short(arguments.get("subtitle"), max_title()),
         author=_short(arguments.get("author"), 120) or PRODUCER,
         template=template,
         filename=_filename(arguments, title, fmt),
@@ -203,8 +237,8 @@ def _sections(raw: object) -> tuple[Section, ...]:
         return ()
     if not isinstance(raw, list):
         raise CreateError("sections must be a list.")
-    if len(raw) > MAX_SECTIONS:
-        raise CreateError(f"A document can have at most {MAX_SECTIONS} sections.")
+    if len(raw) > max_sections():
+        raise CreateError(f"A document can have at most {max_sections()} sections.")
     sections: list[Section] = []
     for index, item in enumerate(raw, start=1):
         if not isinstance(item, dict):
@@ -212,10 +246,10 @@ def _sections(raw: object) -> tuple[Section, ...]:
         chosen = _heading_level(item.get("level"))
         sections.append(
             Section(
-                heading=_short(item.get("heading"), MAX_TITLE) or f"Section {index}",
+                heading=_short(item.get("heading"), max_title()) or f"Section {index}",
                 level=chosen,
-                paragraphs=_lines(item.get("paragraphs"), MAX_PARAGRAPHS, "paragraphs"),
-                bullets=_lines(item.get("bullets"), MAX_BULLETS, "bullets"),
+                paragraphs=_lines(item.get("paragraphs"), max_paragraphs(), "paragraphs"),
+                bullets=_lines(item.get("bullets"), max_bullets(), "bullets"),
                 table=_table(item.get("table")),
             )
         )
@@ -227,8 +261,8 @@ def _sheets(raw: object) -> tuple[Sheet, ...]:
         return ()
     if not isinstance(raw, list):
         raise CreateError("sheets must be a list.")
-    if len(raw) > MAX_SHEETS:
-        raise CreateError(f"A workbook can have at most {MAX_SHEETS} sheets.")
+    if len(raw) > max_sheets():
+        raise CreateError(f"A workbook can have at most {max_sheets()} sheets.")
     used: set[str] = set()
     sheets: list[Sheet] = []
     for index, item in enumerate(raw, start=1):
@@ -253,7 +287,7 @@ def _table(raw: object) -> Table | None:
     if not raw.get("columns") and not raw.get("rows"):
         return None
     columns, rows = _grid(raw.get("columns"), raw.get("rows"))
-    return Table(caption=_short(raw.get("caption"), MAX_TITLE), columns=columns, rows=rows)
+    return Table(caption=_short(raw.get("caption"), max_title()), columns=columns, rows=rows)
 
 
 def _grid(
@@ -262,11 +296,11 @@ def _grid(
     if rows_raw is not None and not isinstance(rows_raw, list):
         raise CreateError("rows must be a list.")
     rows = rows_raw if isinstance(rows_raw, list) else []
-    if len(rows) > MAX_ROWS:
-        raise CreateError(f"A table can have at most {MAX_ROWS} rows.")
+    if len(rows) > max_rows():
+        raise CreateError(f"A table can have at most {max_rows()} rows.")
     columns = _columns(columns_raw, rows)
-    if len(columns) > MAX_COLUMNS:
-        raise CreateError(f"A table can have at most {MAX_COLUMNS} columns.")
+    if len(columns) > max_columns():
+        raise CreateError(f"A table can have at most {max_columns()} columns.")
     return columns, tuple(_row(item, columns) for item in rows)
 
 
@@ -304,7 +338,7 @@ def _lines(raw: object, cap: int, label: str) -> tuple[str, ...]:
         raise CreateError(f"{label} must be a list of strings.")
     if len(items) > cap:
         raise CreateError(f"A section can have at most {cap} {label}.")
-    return tuple(text for text in (_short(item, MAX_TEXT) for item in items) if text)
+    return tuple(text for text in (_short(item, max_text()) for item in items) if text)
 
 
 def _cell(value: object) -> Cell:
@@ -316,7 +350,7 @@ def _cell(value: object) -> Cell:
         if math.isnan(value) or math.isinf(value):
             return Cell("", None)
         return Cell(_number_text(value), value)
-    return Cell(_short(value, MAX_TEXT), None)
+    return Cell(_short(value, max_text()), None)
 
 
 def _filename(arguments: dict[str, object], title: str, fmt: str) -> str:

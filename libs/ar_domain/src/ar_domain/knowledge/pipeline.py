@@ -6,7 +6,6 @@ call the same functions.
 
 import asyncio
 import hashlib
-import os
 import uuid
 from typing import TYPE_CHECKING
 
@@ -27,11 +26,9 @@ if TYPE_CHECKING:
 
 
 def max_bytes() -> int:
-    raw = os.environ.get("AR_INGEST_MAX_BYTES", "209715200")
-    try:
-        return int(raw)
-    except ValueError:
-        return 209715200
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().ingest_max_bytes)
 
 
 def ingest_document(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
@@ -107,7 +104,10 @@ async def ingest_document_async(store: Any, document_id: uuid.UUID, raw: bytes) 
     return "indexed"
 
 
-WORKFLOW_MAX_BYTES = 256 * 1024
+def _inline_max_bytes() -> int:
+    from ar_common.settings import get_settings  # noqa: PLC0415
+
+    return int(get_settings().ingest_inline_max_bytes)
 
 
 async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> str:
@@ -115,7 +115,7 @@ async def ingest_or_enqueue(store: Any, document_id: uuid.UUID, raw: bytes) -> s
     client = getattr(store, "temporal_client", None)
     if (
         client is None
-        or len(raw) > WORKFLOW_MAX_BYTES
+        or len(raw) > _inline_max_bytes()
         or getattr(store, "_ingest_worker", False)
         or not hasattr(client, "start_workflow")
     ):
