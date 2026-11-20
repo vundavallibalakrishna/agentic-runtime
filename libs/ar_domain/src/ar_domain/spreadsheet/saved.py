@@ -32,15 +32,13 @@ _OPEN = frozenset({"pending", "in_review"})
 class CheckRun:
     """What the check run made while saving found: the files read and how many rows came back.
 
-    ``truncated`` is set when the statement returned more rows than the engine's limit.
-    ``partial`` names the tables the reader cut short. It holds counts and names only;
-    the rows themselves are never kept or audited.
+    ``truncated`` is set when the statement returned more rows than a result may hold.
+    It holds counts and names only; the rows themselves are never kept or audited.
     """
 
     paths: tuple[str, ...]
     rows: int
     truncated: bool = False
-    partial: tuple[str, ...] = field(default=())
 
 
 @dataclass(frozen=True, slots=True)
@@ -334,7 +332,7 @@ def _checked_detail(checked: CheckRun | None) -> dict[str, object]:
     return {
         "checked_paths": list(checked.paths),
         "checked_rows": checked.rows,
-        "checked_truncated": checked.truncated or bool(checked.partial),
+        "checked_truncated": checked.truncated,
     }
 
 

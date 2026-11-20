@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from ar_common.errors import NotFoundError, ValidationFailedError
 from ar_domain.rows import as_int
-from ar_domain.spreadsheet.engine import SheetQueryError, query_loaded
+from ar_domain.spreadsheet.engine import SheetQueryError
 from ar_domain.spreadsheet.saved import CheckRun, SavedQueryBook, SignOff
 from ar_domain.tools.sql_guard import SqlRejected
 
@@ -31,13 +31,12 @@ def save_query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     fails is not saved. The rows and count of that check run come back with the result.
     """
     from ar_domain.tools.analysis import (  # noqa: PLC0415
-        _MAX_ROWS,
         _checked,
         _error,
-        _load_whole,
         _ok,
         _query_result,
         _requested_paths,
+        run_statement,
     )
 
     owner = _owner(arguments)
@@ -57,15 +56,9 @@ def save_query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         # Refuse a save that cannot succeed before the statement reads any file.
         book.savable(tenant_id, name=name, sql=sql)
         if paths:
-            sheets = _load_whole(store, arguments)
-            columns, rows, truncated = query_loaded(sheets, checked, row_limit=_MAX_ROWS)
+            columns, rows, truncated = run_statement(store, arguments, checked)
             found = (columns, rows)
-            check = CheckRun(
-                paths=tuple(paths),
-                rows=len(rows),
-                truncated=truncated,
-                partial=tuple(table for table, _columns, held in sheets if len(held) >= _MAX_ROWS),
-            )
+            check = CheckRun(paths=tuple(paths), rows=len(rows), truncated=truncated)
         row, created = book.save(
             tenant_id,
             user_id,
@@ -176,11 +169,10 @@ def list_saved_queries(store: Store, arguments: dict[str, object]) -> dict[str, 
 def run_saved_query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
     """Run ``general.run_saved_query``: the stored statement, against the file as it is now."""
     from ar_domain.tools.analysis import (  # noqa: PLC0415
-        _MAX_ROWS,
         _checked,
         _error,
-        _load_whole,
         _query_result,
+        run_statement,
     )
 
     owner = _owner(arguments)
@@ -200,9 +192,7 @@ def run_saved_query(store: Store, arguments: dict[str, object]) -> dict[str, obj
     except ValidationFailedError as exc:
         return _error("validation_failed", f"Not run. {exc}")
     checked = _checked(store, arguments, str(row["sql"]))
-    columns, rows, truncated = query_loaded(
-        _load_whole(store, arguments), checked, row_limit=_MAX_ROWS
-    )
+    columns, rows, truncated = run_statement(store, arguments, checked)
     book.record_run(tenant_id, user_id, row, rows=len(rows))
     result = _query_result(checked, columns, rows, truncated=truncated)
     result["text"] = f"Ran {_label(row)}. {_standing(state, row)}\n{result['text']}"
@@ -307,12 +297,6 @@ def _checked_note(check: CheckRun, state: SignOff, row: dict[str, object]) -> st
         if check.truncated
         else ""
     )
-    partial = (
-        f" The table reader stops at a row limit and {', '.join(check.partial)} reached it, "
-        "so the count covers only the rows that were read."
-        if check.partial
-        else ""
-    )
     later = (
         " It can be run again on any file with run_saved_query."
         if state.runnable
@@ -320,7 +304,7 @@ def _checked_note(check: CheckRun, state: SignOff, row: dict[str, object]) -> st
     )
     return (
         f"Check run on {', '.join(check.paths)}, made once while saving: the statement "
-        f"returned {count} {noun}.{cut}{partial} The rows below are from that check run, "
+        f"returned {count} {noun}.{cut} The rows below are from that check run, "
         f"not from a run of the saved version.{later}"
     )
 

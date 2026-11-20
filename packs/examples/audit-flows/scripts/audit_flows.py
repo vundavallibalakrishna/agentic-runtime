@@ -312,11 +312,11 @@ ADVANCED = [
 
 
 def large_table() -> Path:
-    """A table past the 5,000 rows a table tool reads, written fresh for each pass."""
+    """A table twelve times longer than a result may be, written fresh for each pass."""
     folder = Path(tempfile.gettempdir()) / "audit-flows"
     folder.mkdir(exist_ok=True)
     path = folder / "large-ledger.csv"
-    lines = ["entry_id,amount"] + [f"E-{number:05d},{number % 97 + 1}.50" for number in range(6000)]
+    lines = ["entry_id,amount"] + [f"E-{number:05d},{number % 97 + 1}.50" for number in range(60000)]
     path.write_text("\n".join(lines) + "\n")
     return path
 
@@ -343,8 +343,11 @@ HARD = [
     ),
     Scenario(
         "H4-more-rows-than-read",
-        "A file larger than a table tool reads",
-        ["How many rows are in this file, and what is the total of the amount column?"],
+        "A file far longer than the rows a statement returns",
+        [
+            "How many rows are in this file, and what is the total of the amount column?",
+            "Draw a monetary unit sample of 25 entries from it with seed 11.",
+        ],
         [large_table()],
     ),
     Scenario(
