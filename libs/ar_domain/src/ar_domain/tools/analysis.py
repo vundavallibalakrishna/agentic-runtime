@@ -283,11 +283,10 @@ def _tables_for_paths(store: Store, arguments: dict[str, object], sql: str) -> s
     """The statement with a file's path after FROM or JOIN put right as its table name.
 
     A model often writes ``FROM 'inputs/ledger.csv'`` or ``FROM ledger.csv`` for the file
-    it was asked about. Only the path of a file the call reads is changed, and only where
-    a table goes, so nothing else in the statement can be read as a file.
+    it was asked about, or the file's name without its ending (``FROM ledger-2026``) where
+    the table is ``ledger_2026``. Only the name of a file the call reads is changed, and
+    only where a table goes, so nothing else in the statement can be read as a file.
     """
-    if not re.search(r"\.(csv|tsv|json|xlsx)\b", sql, flags=re.IGNORECASE):
-        return sql
     try:
         root = _root(store, arguments)
     except OSError, ValueError:
@@ -299,7 +298,13 @@ def _tables_for_paths(store: Store, arguments: dict[str, object], sql: str) -> s
         if found is None or found.suffix.lower() == ".xlsx":
             # A workbook has a table for each sheet, so its path names no one table.
             continue
-        spellings = {raw, found.name, f"inputs/{found.name}", f"/workspace/inputs/{found.name}"}
+        spellings = {
+            raw,
+            found.name,
+            found.stem,
+            f"inputs/{found.name}",
+            f"/workspace/inputs/{found.name}",
+        }
         for spelling in sorted(spellings, key=len, reverse=True):
             pattern = r"(?i)\b(from|join)(\s+)(['\"`]?)" + re.escape(spelling) + r"\3(?![\w./-])"
             sql = re.sub(pattern, rf"\1\2{table_name(found.stem)}", sql)

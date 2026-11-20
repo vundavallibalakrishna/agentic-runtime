@@ -98,7 +98,7 @@ Four more stages on the same stack (`--stage engine`, `routines`, `research`, `o
 | A second message while a run is going | pass (409, in words) | pass |
 | A write the approver refuses | pass | pass |
 | A write whose request is withdrawn | pass | pass |
-| Eight questions of one file in one run | fail (a query that named the file by its path) | pass |
+| Eight questions of one file in one run | fail (a query that named the file by its path, or by its name without the ending) | pass |
 | A worker restarted during a run | not run: the stack's workers are started together | not run |
 
 ### Routines
@@ -118,9 +118,10 @@ Four more stages on the same stack (`--stage engine`, `routines`, `research`, `o
 
 ### Research
 
-Both checks are not run: no web search provider is set on this stack, and research ends at
-once with "Web search is not configured: an administrator sets a search provider and its
-key to add the web." It says so in words and writes no uncited report.
+No web search provider is set on this stack. A research question ends with "Web search is
+not configured: an administrator sets a search provider and its key to add the web." It
+says so in words and writes no uncited report, so the report check is not run. Stopping
+research passes: stopped in 5 seconds.
 
 ### Outside callers
 

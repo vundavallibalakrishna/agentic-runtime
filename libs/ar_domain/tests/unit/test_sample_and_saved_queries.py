@@ -1090,6 +1090,9 @@ def test_a_file_path_after_from_is_read_as_that_files_table() -> None:
         '"ledger-2026.csv"',
         "ledger-2026.csv",
         "/workspace/inputs/ledger-2026.csv",
+        # The file's name without its ending, where the table is ledger_2026.
+        "ledger-2026",
+        '"ledger-2026"',
     ):
         asked = dispatch_general(
             store,
