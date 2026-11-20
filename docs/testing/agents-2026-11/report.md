@@ -148,3 +148,5 @@ research passes: stopped in 5 seconds.
 - Run-now on a paused routine answers `failed`, and the daily cap answers `rate_limited`
   (OQ-159 d).
 - The cost on a reply is 0 because the test model has no price set.
+- In the chat screen a stopped reply keeps its text but is not marked as stopped, and
+  Continue is offered only under a failed reply (OQ-159 f).
