@@ -1,6 +1,7 @@
 """Hook memory into an in-process run. Spec: docs/03-specs/07-agent-runtime.md §2."""
 
 import uuid
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ def prepare_prompt(
     window = context_window_for(store, run.get("tenant_id"), run) if isinstance(run, dict) else None
     attached: dict[object, list[Attachment]] = {}
     for item in conversation_attachments(store, conversation.get("id"), context_window=window):
-        attached.setdefault(item.message_id, []).append(item)
+        attached.setdefault(item.message_id, []).append(_safe(store, run, item))
     history = _history(store, conversation.get("id"), run.get("input_message_id"), attached)
     window = window or _window(definition)
     threshold = _threshold(definition)
@@ -90,6 +91,37 @@ def prepare_prompt(
     return bundle.prompt_hash
 
 
+def _safe(store: Any, run: dict[str, object], item: Attachment) -> Attachment:
+    """The attachment, with its text as a document tool would return it."""
+    if not item.excerpt:
+        return item
+    return replace(item, excerpt=_safe_text(store, run, item.excerpt))
+
+
+def _safe_text(store: Any, run: object, text: str) -> str:
+    """File text as it may enter a prompt.
+
+    A file's text reaches the model two ways: a document tool returns it, or the turn
+    shows it beside the message. Both pass through the same masking, so an agent or a
+    tenant that asks for document text to be masked gets it masked on both.
+    """
+    if not text or not isinstance(run, dict):
+        return text
+    from ar_domain.security.guardrails import apply_result_safety  # noqa: PLC0415
+
+    tenant = run.get("tenant_id")
+    version = run.get("agent_version_id")
+    cleaned, _flag = apply_result_safety(
+        store,
+        text,
+        open_world=False,
+        analysis=True,
+        tenant_id=tenant if isinstance(tenant, uuid.UUID) else None,
+        agent_version_id=version if isinstance(version, uuid.UUID) else None,
+    )
+    return cleaned
+
+
 def _files_block(
     store: Any,
     run: dict[str, object],
@@ -147,6 +179,7 @@ def _agent_lines(
         ):
             continue
         _document_id, excerpt = _library_excerpt(store, meta, context_window=window)
+        excerpt = _safe_text(store, run, excerpt)
         lines.append(f"[file: {meta.get('name')} id={file_id}]\n{excerpt}".strip())
     return "\n".join(lines)
 

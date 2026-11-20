@@ -108,6 +108,11 @@ class EvalRunRow(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     trigger: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'manual'"))
+    # What the run was asked to do. The worker that carries it out reads these.
+    tags: Mapped[list[str]] = text_array()
+    mock_all_tools: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = created_at_col()
