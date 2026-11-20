@@ -1307,7 +1307,7 @@ def case_approval_withdrawn(bench: Bench) -> str:
 def case_many_steps(bench: Bench) -> str:
     """A run that needs many tool calls in a row gets through them within its limits."""
     agent, _ = bench.agent(
-        "patient",
+        "many-steps",
         {
             "instructions": "Answer each question with its own query. Never combine questions.",
             "tools": [_GENERAL],
