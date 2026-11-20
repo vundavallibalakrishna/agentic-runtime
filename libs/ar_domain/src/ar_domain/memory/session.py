@@ -103,7 +103,7 @@ def _files_block(
     reduction = run.get("document_reduction")
     parts = [
         part for part in (lines, extra, reduction if isinstance(reduction, str) else "") if part
-    ]  # noqa: E501
+    ]
     return "\n".join(parts)
 
 
@@ -116,7 +116,7 @@ def _agent_lines(
     knowledge = definition.get("knowledge")
     raw = (
         knowledge.get("file_ids", knowledge.get("fileIds")) if isinstance(knowledge, dict) else None
-    )  # noqa: E501
+    )
     if not isinstance(raw, list):
         return ""
     from ar_domain.documents.binding import context_window_for  # noqa: PLC0415

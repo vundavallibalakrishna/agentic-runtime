@@ -35,7 +35,7 @@ def test_strategy_follows_the_registered_window() -> None:
 def test_alignment_prefers_unpaired_to_a_weak_pair() -> None:
     left = [
         {"anchor": "p1-s0", "page": 1, "heading": "1. Payment", "text": "Pay within thirty days."}
-    ]  # noqa: E501
+    ]
     right = [
         {"anchor": "p2-s0", "page": 2, "heading": "Payment", "text": "Pay within ten days."},
         {
@@ -43,7 +43,7 @@ def test_alignment_prefers_unpaired_to_a_weak_pair() -> None:
             "page": 3,
             "heading": "Garden",
             "text": "The garden is maintained weekly.",
-        },  # noqa: E501
+        },
     ]
     rows = align(left, right)
     paired = [row for row in rows if row["status"] == "paired"]

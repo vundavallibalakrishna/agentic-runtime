@@ -43,7 +43,7 @@ def delete_library(store: Any, actor: Actor, document_id: uuid.UUID) -> None:
 
 def delete_file_cascade(
     store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID, file_row: dict[str, object]
-) -> None:  # noqa: E501
+) -> None:
     """After a file is deleted, drop its extraction when no other file keeps the bytes."""
     digest = str(file_row.get("sha256") or "")
     if not digest:
@@ -82,7 +82,7 @@ def delete_file_cascade(
                     store,
                     actor,
                     document_id if isinstance(document_id, uuid.UUID) else as_uuid(document_id),
-                )  # noqa: E501
+                )
             except NotFoundError:
                 documents.pop(document_id, None)
 
@@ -116,7 +116,7 @@ def sweep_expired(store: Any, *, now: object | None = None) -> int:
 
 def reprocess(
     store: Any, actor: Actor, document_id: uuid.UUID, *, engine: str = ""
-) -> dict[str, object]:  # noqa: E501
+) -> dict[str, object]:
     """Read the stored original again and replace the passages."""
     from ar_domain.documents.library import DocumentLibrary  # noqa: PLC0415
     from ar_domain.documents.originals import read_original  # noqa: PLC0415
@@ -159,7 +159,7 @@ def reprocess(
             "page": table.page,
             "caption": table.caption,
             "csv": table.csv_text,
-        }  # noqa: E501
+        }
         for table in extracted.tables
     ]
     row["page_count"] = extracted.page_count
@@ -237,7 +237,7 @@ def _reindex(store: Any, actor: Actor, library_row: dict[str, object]) -> None:
         if (
             str(document.get("version_hash") or "") != digest
             and document.get("raw_file_id") is None
-        ):  # noqa: E501
+        ):
             continue
         if str(document.get("version_hash") or "") != digest:
             linked = _file_hash(store, document.get("raw_file_id"))

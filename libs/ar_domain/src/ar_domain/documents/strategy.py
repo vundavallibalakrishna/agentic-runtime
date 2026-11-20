@@ -75,7 +75,7 @@ def usable_tokens(context_window: int | None) -> int | None:
         not isinstance(context_window, int)
         or isinstance(context_window, bool)
         or context_window <= 0
-    ):  # noqa: E501
+    ):
         return None
     settings = get_settings()
     margin = int(context_window * float(settings.document_margin_ratio))

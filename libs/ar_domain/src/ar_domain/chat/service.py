@@ -1697,7 +1697,7 @@ class ChatBehaviour:
             or collection_ids
             or items
             or task not in {"", "auto"}
-            or strategy not in {"", "auto"}  # noqa: E501
+            or strategy not in {"", "auto"}
         )
         bound = list(attachment_ids or [])
         plan = None
@@ -3914,7 +3914,7 @@ class ChatBehaviour:
         guard(self, tenant_id, "max_storage_gb", len(data), current=existing)
         verdict = scan_bytes(
             data, scanner=self.scanner, address=getattr(self, "clamav_address", None)
-        )  # noqa: E501
+        )
         if verdict == "error":
             raise ArError(
                 ErrorCode.UNAVAILABLE,

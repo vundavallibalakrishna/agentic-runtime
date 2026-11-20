@@ -93,7 +93,7 @@ def _cosine(left: object, right: object) -> float | None:
         or not isinstance(right, list)
         or not left
         or len(left) != len(right)
-    ):  # noqa: E501
+    ):
         return None
     from ar_domain.memory.logic import cosine  # noqa: PLC0415
 

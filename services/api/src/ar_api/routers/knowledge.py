@@ -381,6 +381,6 @@ async def search(body: SearchBody, request: Request) -> dict[str, object]:
         debug=bool(payload.get("debug")),
         min_score=payload.get("min_score")
         if isinstance(payload.get("min_score"), int | float)
-        else None,  # noqa: E501
+        else None,
         document_ids=[uuid.UUID(str(item)) for item in payload.get("document_ids") or []],
     )

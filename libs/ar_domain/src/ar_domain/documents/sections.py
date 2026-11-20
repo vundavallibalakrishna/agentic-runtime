@@ -39,7 +39,7 @@ def next_batch(store: Any, run: dict[str, object]) -> list[dict[str, object]] | 
 
 def run_section(
     store: Any, run: dict[str, object], section: dict[str, object]
-) -> dict[str, object]:  # noqa: E501
+) -> dict[str, object]:
     """One section. A stored result is returned without another model call."""
     plan = _plan(store, run)
     key = _key(section)
@@ -69,7 +69,7 @@ def run_section(
     total = len(passages)
     _progress(
         store, run, completed, total, str(source.get("heading") or source.get("anchor") or "")
-    )  # noqa: E501
+    )
     if completed >= total:
         _reduce(run, plan)
     return result

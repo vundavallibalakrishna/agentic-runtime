@@ -177,7 +177,7 @@ class DocumentLibrary:
         if scanned == "error":
             self._audit(
                 actor, "library_document.rejected", None, {"reason": "scan_error"}, "failure"
-            )  # noqa: E501
+            )
             raise ArError(
                 ErrorCode.UNAVAILABLE,
                 "The malware scanner did not answer. The upload was rejected.",
@@ -831,7 +831,7 @@ class DocumentLibrary:
             collection = collections.get(document.get("collection_id"))
             if isinstance(collection, dict) and can_read_document(
                 self.store, actor, document, collection
-            ):  # noqa: E501
+            ):
                 return True
         return False
 
@@ -843,7 +843,7 @@ class DocumentLibrary:
             return None
         visible = [
             row for row in self.store.library_documents.values() if self._visible(actor, row)
-        ]  # noqa: E501
+        ]
         hashes = {str(row.get("content_hash") or "") for row in visible if row.get("content_hash")}
         files = getattr(self.store, "files", {})
         file_ids = (
