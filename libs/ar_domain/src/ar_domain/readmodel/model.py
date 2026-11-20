@@ -149,6 +149,50 @@ class RepositoryReadModel:
             ).all()
         return [row[0] if isinstance(row[0], uuid.UUID) else uuid.UUID(str(row[0])) for row in rows]
 
+    async def sandboxes_due(self) -> list[tuple[uuid.UUID, uuid.UUID, str]]:
+        """Computers the sweep may owe something: ``(tenant, sandbox, scope key)``.
+
+        Idle past the template's ``idle_suspend_s``, or older than its ``max_lifetime_s``.
+        This only narrows the sweep to the rows worth loading. The decision is taken
+        again on the loaded row, with its scope held (``sandboxes.runtime.reap_one``).
+        """
+        engine = await self.engine_for()
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text(
+                        "SELECT s.tenant_id, s.id, s.scope_key FROM sandboxes s "
+                        "JOIN sandbox_templates t ON t.id = s.template_id "
+                        "WHERE (s.status = 'ready' AND s.last_active_at "
+                        "< now() - make_interval(secs => t.idle_suspend_s)) "
+                        "OR (s.status IN ('ready', 'suspended') AND s.started_at "
+                        "< now() - make_interval(secs => t.max_lifetime_s))"
+                    )
+                )
+            ).all()
+        found: list[tuple[uuid.UUID, uuid.UUID, str]] = []
+        for row in rows:
+            tenant_id, sandbox_id = _as_uuid(row[0]), _as_uuid(row[1])
+            if tenant_id is not None and sandbox_id is not None:
+                found.append((tenant_id, sandbox_id, str(row[2])))
+        return found
+
+    async def sandbox_states(self, sandbox_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+        """The status of each named computer. One that has no row is absent."""
+        if not sandbox_ids:
+            return {}
+        engine = await self.engine_for()
+        async with engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text("SELECT id, status FROM sandboxes WHERE id = ANY(:ids)"),
+                    {"ids": sandbox_ids},
+                )
+            ).all()
+        return {
+            sandbox_id: str(row[1]) for row in rows if (sandbox_id := _as_uuid(row[0])) is not None
+        }
+
     async def lookup_tenant(self, slug: str) -> Any:
         """The tenant row for sign-in. It is not cached on the process."""
         from ar_domain.durable.bind import TenantBinding, _lookup  # noqa: PLC0415

@@ -500,7 +500,7 @@ class ChatBehaviour:
         agent_id = new_id()
         version_id = new_id()
         now = utcnow()
-        definition = assistant_definition(fixtures=self.fake_models_allowed)
+        definition = assistant_definition()
         version = {
             "id": version_id,
             "tenant_id": tenant_id,
@@ -1347,7 +1347,7 @@ class ChatBehaviour:
         agent_id = new_id()
         version_id = new_id()
         now = utcnow()
-        definition = assistant_definition(fixtures=self.fake_models_allowed)
+        definition = assistant_definition()
         definition["persona"] = {"display_name": name, "greeting": ""}
         self.versions[version_id] = {
             "id": version_id,
@@ -1587,6 +1587,11 @@ class ChatBehaviour:
     ) -> None:
         row = self._owned_conversation(tenant_id, user_id, conversation_id)
         row["deleted_at"] = utcnow()
+        # The conversation's own computer has no further use. It is ended and audited
+        # the same way as when a person ends it.
+        from ar_domain.sandboxes.runtime import end_conversation_computers  # noqa: PLC0415
+
+        end_conversation_computers(self, tenant_id, conversation_id, actor=user_id)
 
     def _owned_conversation(
         self, tenant_id: uuid.UUID, user_id: uuid.UUID, conversation_id: uuid.UUID

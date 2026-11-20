@@ -910,10 +910,11 @@ export function AgentEditor() {
                       <div className="mt-2 grid gap-3 sm:grid-cols-2">
                         {(
                           [
-                            ["maxSteps", t("maxSteps"), 8],
-                            ["maxToolCalls", t("maxToolCalls"), 8],
-                            ["maxWallClockS", t("maxWallClock"), 120],
-                            ["maxCostMicros", t("maxCost"), 1_000_000],
+                            ["maxSteps", t("maxSteps"), 16],
+                            ["maxToolCalls", t("maxToolCalls"), 16],
+                            ["maxTokens", t("maxTokens"), 80_000],
+                            ["maxWallClockS", t("maxWallClock"), 600],
+                            ["maxCostMicros", t("maxCost"), 4_000_000],
                           ] as const
                         ).map(([key, label, fallback]) => (
                           <label className="block text-sm" htmlFor={`limit-${key}`} key={key}>

@@ -3,15 +3,9 @@
 from pydantic.alias_generators import to_camel
 
 from ar_domain.agents.logic import assistant_definition
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 
-_BUDGET: dict[str, object] = {
-    "max_steps": 8,
-    "max_tokens": 16000,
-    "max_cost_micros": 1_000_000,
-    "max_wall_clock_s": 120,
-    "max_tool_calls": 8,
-    "max_parallel_tool_calls": 1,
-}
+_BUDGET: dict[str, object] = dict(DEFAULT_RUN_BUDGET)
 
 
 def _snake(key: str) -> str:

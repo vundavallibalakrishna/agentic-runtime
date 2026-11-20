@@ -4,7 +4,9 @@
 tool call, or one research phase. A pause for approval or input waits on a
 signal. A long run continues as new so history stays bounded; the step cap is
 the payload's ``max_steps`` (the run budget), and ``history_steps`` is how many
-activities this execution records before continuing.
+activities this execution records before continuing. One step activity may take
+the payload's ``step_timeout_s``, which the starter derives from the run's wall
+clock; a worker that dies is noticed sooner, by the heartbeat.
 """
 
 import asyncio
@@ -76,6 +78,7 @@ class TurnWorkflow:
         max_steps = _count(payload.get("max_steps"), 8)
         history_steps = _count(payload.get("history_steps"), 24)
         taken = _count(payload.get("steps_taken"), 0)
+        step_timeout = timedelta(seconds=_count(payload.get("step_timeout_s"), 120))
         step = 0
         carried = payload.get("decision")
         decision = carried if isinstance(carried, dict) else None
@@ -93,7 +96,7 @@ class TurnWorkflow:
             self.turn = workflow.start_activity(
                 "advance_chat_step",
                 body,
-                start_to_close_timeout=timedelta(minutes=2),
+                start_to_close_timeout=step_timeout,
                 heartbeat_timeout=timedelta(seconds=30),
                 cancellation_type=workflow.ActivityCancellationType.WAIT_CANCELLATION_COMPLETED,
                 retry_policy=RetryPolicy(maximum_attempts=1),
@@ -132,10 +135,13 @@ class TurnWorkflow:
                 for key, value in payload.items()
                 if key not in {"decision", "steps_taken"}
             }
-            continued["steps"] = True
-            continued["max_steps"] = max_steps
-            continued["history_steps"] = history_steps
-            continued["steps_taken"] = taken
+            continued.update(
+                steps=True,
+                max_steps=max_steps,
+                history_steps=history_steps,
+                step_timeout_s=int(step_timeout.total_seconds()),
+                steps_taken=taken,
+            )
             if decision is not None:
                 continued["decision"] = decision
             workflow.continue_as_new(continued)

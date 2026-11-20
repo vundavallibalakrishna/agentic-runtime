@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from ar_common.time import utcnow
 from ar_domain.agents.logic import assistant_definition
 from ar_domain.chat.service import demo_id
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 from ar_domain.tools.logic import description_hash, manifest_hash
 from ar_domain.tools.openapi_import import operations_from
 
@@ -188,8 +189,40 @@ def refresh_builtins(store: Any) -> None:
             row["description"] = text
             row["description_hash"] = description_hash(text)
             row["input_schema"] = item["input_schema"]
+        _retire_unshipped(store, shipped)
     finally:
         store.reloading = was
+
+
+_RETIRED_REASON = "This tool is no longer part of the product."
+
+
+def _retire_unshipped(store: Any, shipped: dict[str, dict[str, object]]) -> None:
+    """Disable every loaded built-in tool that this release no longer ships.
+
+    A catalogue is stored once, so a tool removed from a later release stays in the
+    stored catalogue of an install seeded before the removal. Such a tool is marked
+    disabled on the loaded row: it is not offered to a model and a call to it is
+    refused. Only the servers this release ships are looked at, so a server a pack or a
+    test registered is left alone, and so are the approval fixture and the demo servers
+    of a store that allows them. Like the refreshed text, this is not written back.
+    """
+    tools = getattr(store, "tool_defs", None)
+    if not isinstance(tools, dict):
+        return
+    servers = {name.split(".", 1)[0] for name in shipped}
+    kept = set(shipped)
+    if getattr(store, "fake_models_allowed", True):
+        kept |= {f"session.{name}" for name in _TEST_CONTROL_TOOLS}
+    for row in tools.values():
+        if not isinstance(row, dict) or row.get("tenant_id") is not None:
+            continue
+        name = str(row.get("qualified_name"))
+        if name in kept or name.split(".", 1)[0] not in servers:
+            continue
+        if row.get("disabled_at") is None:
+            row["disabled_at"] = utcnow()
+            row["disabled_reason"] = _RETIRED_REASON
 
 
 def _settings(store: Any, tenant: uuid.UUID) -> None:
@@ -466,7 +499,6 @@ def _desk(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
     ]
     budget = definition.get("budget")
     if isinstance(budget, dict):
-        budget["max_tool_calls"] = 8
         budget["max_parallel_tool_calls"] = 4
     from ar_domain.agents.service import AgentLifecycle  # noqa: PLC0415
 
@@ -2852,7 +2884,7 @@ def _analyst(store: Any, tenant: uuid.UUID, admin: uuid.UUID) -> None:
             "sandbox": {"enabled": True, "template": "python-data", "scope": "conversation"},
             "budget": {
                 "max_steps": 8,
-                "max_tokens": 16000,
+                "max_tokens": DEFAULT_RUN_BUDGET["max_tokens"],
                 "max_cost_micros": 1_000_000,
                 "max_wall_clock_s": 120,
                 "max_tool_calls": 4,
@@ -2982,11 +3014,11 @@ def _web_tools() -> list[dict[str, object]]:
     ]
 
 
-_TEST_CONTROL_TOOLS = frozenset({"checkpoint", "propose_change"})
+_TEST_CONTROL_TOOLS = frozenset({"propose_change"})
 
 
 def _session_tools(*, fixtures: bool = True) -> list[dict[str, object]]:
-    """Control tools. `checkpoint` and `propose_change` exist to exercise retry and approval."""
+    """Control tools. `propose_change` exists to exercise approval."""
     tools = _all_control_tools()
     if fixtures:
         return tools
@@ -3041,26 +3073,6 @@ def _all_control_tools() -> list[dict[str, object]]:
                     }
                 },
                 "required": ["query"],
-            },
-            "R0",
-        ),
-        _tool(
-            "checkpoint",
-            "Save a checkpoint",
-            "Save a short note. The first call in a run can fail; retry with confirm set to true.",
-            {
-                "type": "object",
-                "properties": {
-                    "note": {
-                        "type": "string",
-                        "description": "The note to save.",
-                    },
-                    "confirm": {
-                        "type": "boolean",
-                        "description": "Set to true when retrying after the first call failed.",
-                    },
-                },
-                "required": ["note"],
             },
             "R0",
         ),

@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "./support/harness";
+import { expect, openToolCall, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m5";
@@ -71,6 +71,7 @@ test("approve a pet", async ({ page }) => {
   await expect(pet).toBeHidden({ timeout: 20_000 });
 
   await page.goto(`/chat?conversation=${conversation}`);
+  await openToolCall(page, /Created pet \d+\./);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible({ timeout: 20_000 });
   await capture(page, "pet-created");
 });
@@ -154,6 +155,7 @@ test("delete a pet behind the new policy", async ({ page }) => {
   expect(conversation, "the approve-a-pet phase must run first").toBeTruthy();
   await signIn(page);
   await page.goto(`/chat?agent=desk&conversation=${conversation}`);
+  await openToolCall(page, /Created pet \d+\./);
   await expect(page.getByText(/Created pet \d+\./).first()).toBeVisible();
   await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
   await page.getByLabel("Message").fill("Delete pet 1");
@@ -169,5 +171,6 @@ test("delete a pet behind the new policy", async ({ page }) => {
   await expect(page.getByText("approved").first()).toBeVisible({ timeout: 20_000 });
   await signIn(page);
   await page.goto(`/chat?conversation=${conversation}`);
+  await openToolCall(page, /Deleted pet 1\./);
   await expect(page.getByText(/Deleted pet 1\./).first()).toBeVisible({ timeout: 20_000 });
 });

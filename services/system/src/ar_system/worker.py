@@ -20,7 +20,7 @@ def _address() -> str:
     return local_endpoint("AR_TEMPORAL_ADDRESS", "localhost:{port}", "AR_TEMPORAL_HOST_PORT")
 
 
-async def _prepare_store() -> None:
+async def _prepare_store() -> object:
     from ar_domain.chat.service import ChatService  # noqa: PLC0415
     from ar_domain.durable.bind import attach_store  # noqa: PLC0415
     from ar_domain.pii.analyzer import warm_up  # noqa: PLC0415
@@ -40,6 +40,7 @@ async def _prepare_store() -> None:
         await attach_store(store, settings.database_url)
     bind_routines(store)
     bind_sandboxes(store)
+    return store
 
 
 async def run_worker() -> None:
@@ -80,7 +81,10 @@ async def run_worker() -> None:
                 ),
                 timeout=5,
             )
-            await _prepare_store()
+            store = await _prepare_store()
+            from ar_system.sandbox_schedule import ensure_reaper_schedule  # noqa: PLC0415
+
+            await ensure_reaper_schedule(client, get_settings().sandbox_reap_interval_s)
             worker = Worker(
                 client,
                 task_queue=TASK_QUEUE,
@@ -112,7 +116,11 @@ async def run_worker() -> None:
                 **temporal_worker_kwargs(),
             )
             _log.info("temporal_connected", queue=TASK_QUEUE)
-            await asyncio.gather(worker.run(), eval_worker.run())
+            from ar_domain.sandboxes.lifecycle import keeping  # noqa: PLC0415
+
+            # A worker that starts computers itself ends them as it stops.
+            async with keeping(store):
+                await asyncio.gather(worker.run(), eval_worker.run())
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - keep the health server up

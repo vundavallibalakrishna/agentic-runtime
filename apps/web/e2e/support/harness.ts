@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from "@playwright/test";
+import { test as base, expect, type Locator, type Page } from "@playwright/test";
 
 /**
  * The test object every e2e spec imports instead of `@playwright/test`.
@@ -45,5 +45,19 @@ export const test = base.extend<{ freshTenantOnRetry: undefined }>({
     await use(page);
   },
 });
+
+/**
+ * Open the tool calls on the page once `what` has arrived in one of them. A tool call is
+ * one line under an answer until a person opens it, so a check on what a tool returned
+ * opens it first, as a person would. `what` is text, or a locator for the element.
+ */
+export async function openToolCall(page: Page, what: string | RegExp | Locator, timeout = 20_000) {
+  const wanted = typeof what === "string" || what instanceof RegExp ? page.getByText(what) : what;
+  // Attached, not visible: it is inside a closed tool call until the next line opens it.
+  await expect(wanted.first()).toBeAttached({ timeout });
+  await page.getByTestId("tool-call").evaluateAll((cards) => {
+    for (const card of cards) card.setAttribute("open", "");
+  });
+}
 
 export { expect, type Page };

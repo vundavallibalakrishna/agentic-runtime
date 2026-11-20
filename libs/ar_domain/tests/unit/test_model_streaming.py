@@ -156,3 +156,19 @@ async def test_half_a_tool_call_is_not_kept_when_the_stream_stalls() -> None:
     line = "data: " + orjson.dumps(_delta(content="Looking. ", tool_calls=[call])).decode()
     with pytest.raises(httpx.ReadTimeout):
         await read_completion_stream(_Stalling(line), lambda _text: None, within_s=0.05)  # type: ignore[arg-type]
+
+
+def test_a_wrapper_tag_split_across_pieces_never_reaches_the_reader() -> None:
+    from ar_common.wrapping import WrapperFilter
+
+    plain = WrapperFilter()
+    pieces = [
+        '<untrusted_content source="assistant:turn" tru',
+        'st="untrusted" nonce="ab12">\n',
+        "Done. x < y.",
+        "\n</untrusted",
+        "_content>",
+    ]
+    shown = "".join(plain.feed(piece) for piece in pieces) + plain.close()
+    assert shown.strip() == "Done. x < y."
+    assert "untrusted" not in shown

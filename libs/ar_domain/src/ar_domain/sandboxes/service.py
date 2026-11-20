@@ -313,7 +313,11 @@ class SandboxBook:
 
     def suspend(self, actor: Any, sandbox_id: uuid.UUID) -> dict[str, object]:
         row = self._visible_sandbox(actor, sandbox_id)
-        suspend_row(self.store, row)
+        try:
+            suspend_row(self.store, row)
+        except ValueError as exc:
+            # The computer is not in a state to suspend, or its folder could not be kept.
+            raise ConflictError(str(exc)) from exc
         return self._sandbox_out(row)
 
     def ensure(self, actor: Any, body: dict[str, object]) -> dict[str, object]:
@@ -352,9 +356,9 @@ class SandboxBook:
         self, actor: Any, sandbox_id: uuid.UUID, path: str
     ) -> tuple[bytes, dict[str, str]]:
         row = self._open(actor, sandbox_id)
-        if row.get("status") == "suspended":
-            resume_row(self.store, row)
         try:
+            if row.get("status") == "suspended":
+                resume_row(self.store, row)
             data = read_workspace(row, path)
         except FileNotFoundError as exc:
             raise NotFoundError("file not found") from exc

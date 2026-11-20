@@ -982,9 +982,6 @@ export function ChatScreen() {
                             <MarkdownView text={body} />
                           ) : (
                             <>
-                              {id === latestAssistantId ? (
-                                <PlanChecklist items={stream.plan.length ? stream.plan : plan} />
-                              ) : null}
                               <MessageBody
                                 message={message}
                                 onFollowup={(prompt) => setDraft(prompt)}
@@ -1096,25 +1093,8 @@ export function ChatScreen() {
                             </p>
                           ) : null}
                           {streamingHere ? <span aria-hidden="true" className="caret" /> : null}
-                          {!mine &&
-                          (streamingHere ? stream.answeredModel : message.answeredModel) ? (
-                            <p
-                              className="mt-2 text-xs text-[var(--muted-foreground)]"
-                              data-testid="answered-by"
-                            >
-                              {t("answeredBy", {
-                                model: String(
-                                  streamingHere ? stream.answeredModel : message.answeredModel,
-                                ),
-                              })}
-                            </p>
-                          ) : null}
-                          {!mine && !failedHere ? (
-                            <ReplyReviewStatus
-                              review={
-                                streamingHere ? null : (message.review as ReplyReview | undefined)
-                              }
-                            />
+                          {!mine && id === latestAssistantId ? (
+                            <PlanChecklist items={stream.plan.length ? stream.plan : plan} />
                           ) : null}
                           {streamingHere &&
                           stream.warnings.some((item) => item.code === "embedding_unconfigured") ? (
@@ -1138,7 +1118,7 @@ export function ChatScreen() {
                         </div>
                       </div>
                       <div
-                        className={`mt-1 flex items-center gap-1 ${mine ? "justify-end" : "pl-8"}`}
+                        className={`mt-1 flex flex-wrap items-center gap-1 ${mine ? "justify-end" : "pl-8"}`}
                       >
                         <Button
                           className="h-7 gap-1.5 px-2 text-xs font-normal text-[var(--muted-foreground)]"
@@ -1197,6 +1177,26 @@ export function ChatScreen() {
                             )}
                             messageId={id}
                           />
+                        ) : null}
+                        {!mine ? (
+                          <span className="ml-auto flex items-center gap-2 pl-2 text-[11px] text-[var(--muted-foreground)]">
+                            {(streamingHere ? stream.answeredModel : message.answeredModel) ? (
+                              <span data-testid="answered-by">
+                                {t("answeredBy", {
+                                  model: String(
+                                    streamingHere ? stream.answeredModel : message.answeredModel,
+                                  ),
+                                })}
+                              </span>
+                            ) : null}
+                            {!failedHere ? (
+                              <ReplyReviewStatus
+                                review={
+                                  streamingHere ? null : (message.review as ReplyReview | undefined)
+                                }
+                              />
+                            ) : null}
+                          </span>
                         ) : null}
                       </div>
                     </article>

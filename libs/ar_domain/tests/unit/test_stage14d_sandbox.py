@@ -38,7 +38,9 @@ class _Computer:
     def __init__(self) -> None:
         self.stopped: list[str] = []
 
-    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+    def start(
+        self, name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+    ) -> dict[str, object]:
         del sandbox_id
         return {"container_id": name, "endpoint_url": _ENDPOINT, "token": token}
 
@@ -185,8 +187,10 @@ def test_a_lost_container_is_started_again(computer: Path) -> None:
     started: list[str] = []
     original = launcher.start
 
-    def start(name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
-        del sandbox_id
+    def start(
+        name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+    ) -> dict[str, object]:
+        del sandbox_id, tenant_id
         started.append(name)
         return original(name, token)
 
@@ -329,7 +333,9 @@ def test_a_computer_that_does_not_answer_is_reported(monkeypatch: pytest.MonkeyP
 
 
 class _FailingLauncher:
-    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+    def start(
+        self, name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+    ) -> dict[str, object]:
         del name, token, sandbox_id
         raise RuntimeError("no sandbox image is configured: set AR_SANDBOX_IMAGE")
 

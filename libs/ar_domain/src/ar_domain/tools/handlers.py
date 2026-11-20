@@ -345,8 +345,6 @@ def _session(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
         if isinstance(conversation_id, uuid.UUID) and conversation_id in store.conversations:
             store.conversations[conversation_id]["plan"] = items
         return {"text": "Plan updated.", "structured": {"plan": items}, "is_error": False}
-    if name == "checkpoint":
-        return _checkpoint(store, arguments)
     if name == "propose_change":
         return _propose_change(store, arguments)
     if name == "a2a_call":
@@ -361,37 +359,6 @@ def _session(store: Any, name: str, arguments: dict[str, object]) -> dict[str, o
     return {
         "text": "\n".join(lines),
         "structured": {"tools": ranked[:DEFAULT_TOP_K], "ranked_by": how},
-        "is_error": False,
-    }
-
-
-def _checkpoint(store: Any, arguments: dict[str, object]) -> dict[str, object]:
-    """First call in a run fails so the agent can read the error and retry."""
-    note = str(arguments.get("note") or "").strip()
-    if not note:
-        return _error("validation_failed", "note is required")
-    from ar_domain.records.memory import bucket  # noqa: PLC0415
-
-    seen = bucket(store, "checkpoints")
-    key = str(arguments.get("_run_id") or arguments.get("conversation_id") or "run")
-    current = seen.get(key)
-    previous = 0
-    if isinstance(current, dict):
-        raw_count = current.get("count")
-        if isinstance(raw_count, int) and not isinstance(raw_count, bool):
-            previous = raw_count
-    count = previous + 1
-    seen[key] = {"count": count}
-    if count == 1:
-        return _error(
-            "upstream_error",
-            "temporary failure, call checkpoint again with confirm set to true",
-        )
-    if arguments.get("confirm") is not True:
-        return _error("validation_failed", "set confirm to true and retry")
-    return {
-        "text": f"Checkpoint saved: {note}",
-        "structured": {"saved": True},
         "is_error": False,
     }
 

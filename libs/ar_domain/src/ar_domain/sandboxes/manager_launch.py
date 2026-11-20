@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+import socket
 from typing import TYPE_CHECKING
 
 from ar_common.internal_http import internal_post
-from ar_common.settings import unisolated_sandbox_allowed, uses_shared_process_state
+from ar_common.settings import install_id, unisolated_sandbox_allowed, uses_shared_process_state
 
 if TYPE_CHECKING:
     from typing import Any
@@ -30,6 +31,29 @@ class SandboxManagerLauncher:
         address = f"{self.url}/internal/v1/sandboxes/{sandbox_id}:release"
         blocking(lambda: internal_post(address, timeout=30.0).close())
 
+    def suspend(self, sandbox_id: object) -> str:
+        """Ask the manager to snapshot a computer and stop its container. Returns the status."""
+        return str(self._post(f"/internal/v1/sandboxes/{sandbox_id}:suspend").get("status") or "")
+
+    def reap(self) -> dict[str, int]:
+        """Ask the manager for one sweep: suspend the idle, end the expired, remove orphans."""
+        found = self._post("/internal/v1/sandboxes:reap")
+        return {key: int(value) for key, value in found.items() if isinstance(value, int)}
+
+    def _post(self, path: str) -> dict[str, object]:
+        from ar_common.offload import blocking  # noqa: PLC0415
+
+        def send() -> dict[str, object]:
+            response = internal_post(f"{self.url}{path}", timeout=120.0)
+            try:
+                response.raise_for_status()
+                body = response.json()
+            finally:
+                response.close()
+            return body if isinstance(body, dict) else {}
+
+        return blocking(send)
+
 
 def sandbox_image() -> str:
     """The image a computer starts from: ``AR_SANDBOX_IMAGE``. Empty when none is set."""
@@ -39,8 +63,10 @@ def sandbox_image() -> str:
 class NoSandboxImage:
     """The docker driver with no image named. Starting a computer says what to set."""
 
-    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
-        del name, token, sandbox_id
+    def start(
+        self, name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+    ) -> dict[str, object]:
+        del name, token, sandbox_id, tenant_id
         raise RuntimeError(
             "no sandbox image is configured: set AR_SANDBOX_IMAGE to the ar-sandbox image"
         )
@@ -49,8 +75,36 @@ class NoSandboxImage:
         del container_id
 
 
+def process_owner() -> str:
+    """This process as a container label: the host it runs on and its process id.
+
+    A later process on the same host reads it to tell a container whose starter is gone
+    from one whose starter is still running.
+    """
+    return f"{socket.gethostname()}:{os.getpid()}"
+
+
+def owner_gone(owner: str) -> bool:
+    """True when ``owner`` names a process on this host that no longer runs.
+
+    An owner on another host, or one that cannot be read, is never called gone.
+    """
+    host, _, raw = owner.rpartition(":")
+    if host != socket.gethostname() or not raw.isdigit():
+        return False
+    try:
+        os.kill(int(raw), 0)
+    except ProcessLookupError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
 def docker_launcher() -> Any:
     """The docker launcher for the configured image.
+
+    Every container it starts is labelled with this install and this process.
 
     With no image named the launcher still registers, and a start fails with the setting
     to change. A confined install names ``AR_SANDBOX_DOCKER_NETWORK``. Without that
@@ -71,7 +125,9 @@ def docker_launcher() -> Any:
         )
     if network and not proxy:
         proxy = "http://squid:3128"
-    return DockerSandboxLauncher(image, network=network, proxy=proxy)
+    return DockerSandboxLauncher(
+        image, network=network, proxy=proxy, install_id=install_id(), owner=process_owner()
+    )
 
 
 def register_sandbox_client(store: Any, settings: BaseServiceSettings) -> None:

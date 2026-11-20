@@ -23,6 +23,17 @@ from ar_common.egress_http import async_client
 _HOST_NETWORKS = frozenset({"", "host"})
 _TMP = "/" + "tmp"
 
+# Labels every sandbox container carries. The sweep that removes containers nobody owns
+# reads only containers with the product label and this install's id, so it can never
+# touch another install's containers or a container this product did not start.
+LABEL_PRODUCT = "io.agentic-runtime.sandbox"
+LABEL_SANDBOX = "io.agentic-runtime.sandbox-id"
+LABEL_TENANT = "io.agentic-runtime.tenant-id"
+LABEL_INSTALL = "io.agentic-runtime.install-id"
+LABEL_OWNER = "io.agentic-runtime.owner"
+# Containers started before the labels existed are known only by this name prefix.
+NAME_PREFIX = "ar-sbx-"
+
 if TYPE_CHECKING:
     from collections.abc import Coroutine
 
@@ -136,12 +147,14 @@ async def start_sandbox(
     wait_s: float = 30.0,
     proxy: str | None = None,
     sandbox_id: str = "",
+    labels: dict[str, str] | None = None,
 ) -> dict[str, object]:
     """Start a sandbox container from ``image`` and return once its agent is healthy.
 
     A named network confines the container: no host network, dropped capabilities,
     a read-only root, resource limits, and HTTP(S) egress through the proxy. Without
     a network the port is published on loopback for a test that opts into that path.
+    ``labels`` say whose container this is, so the sweep can find it later.
     """
     import aiodocker  # noqa: PLC0415
 
@@ -157,6 +170,7 @@ async def start_sandbox(
             "Image": image,
             "Env": env,
             "ExposedPorts": {f"{port}/tcp": {}},
+            "Labels": dict(labels or {}),
         }
         if network:
             cpu_millis, memory_mb, pids_limit = sandbox_limits()
@@ -191,6 +205,82 @@ async def stop_sandbox(container_id: str) -> None:
         return
     finally:
         await docker.close()
+
+
+def sandbox_labels(
+    *, install_id: str, owner: str, sandbox_id: str, tenant_id: str
+) -> dict[str, str]:
+    """The labels of one sandbox container: the product, the install, and whose it is."""
+    return {
+        LABEL_PRODUCT: "true",
+        LABEL_INSTALL: install_id,
+        LABEL_OWNER: owner,
+        LABEL_SANDBOX: sandbox_id,
+        LABEL_TENANT: tenant_id,
+    }
+
+
+async def list_sandboxes(install_id: str) -> list[dict[str, object]]:
+    """Every container, running or not, that carries the product label and this install's id.
+
+    The daemon does the filtering, so a container of another install, or one with no
+    label, is never in the answer. An empty install id lists nothing.
+    """
+    if not install_id.strip():
+        return []
+    import aiodocker  # noqa: PLC0415
+
+    docker = aiodocker.Docker()
+    try:
+        found = await docker.containers.list(
+            all=True,
+            filters={"label": [f"{LABEL_PRODUCT}=true", f"{LABEL_INSTALL}={install_id}"]},
+        )
+        return [_described(item) for item in found]
+    finally:
+        await docker.close()
+
+
+async def unlabelled_sandboxes() -> list[str]:
+    """Names of containers called ``ar-sbx-*`` that carry no product label.
+
+    A release before the labels started them. Nothing removes them automatically, because
+    without a label there is no telling which install they belong to.
+    """
+    import aiodocker  # noqa: PLC0415
+
+    docker = aiodocker.Docker()
+    try:
+        found = await docker.containers.list(all=True, filters={"name": [NAME_PREFIX]})
+        described = [_described(item) for item in found]
+    finally:
+        await docker.close()
+    return sorted(
+        str(item["name"])
+        for item in described
+        if str(item["name"]).startswith(NAME_PREFIX) and LABEL_PRODUCT not in _labels(item)
+    )
+
+
+def _labels(item: dict[str, object]) -> dict[str, str]:
+    raw = item.get("labels")
+    return {str(key): str(value) for key, value in raw.items()} if isinstance(raw, dict) else {}
+
+
+def _described(container: Any) -> dict[str, object]:
+    """One listed container as plain data: id, name, labels and when it was created."""
+    raw = getattr(container, "_container", None)
+    info: dict[str, Any] = raw if isinstance(raw, dict) else {}
+    names = info.get("Names")
+    name = str(names[0]).lstrip("/") if isinstance(names, list) and names else ""
+    labels = info.get("Labels")
+    created = info.get("Created")
+    return {
+        "container_id": str(info.get("Id") or getattr(container, "id", "")),
+        "name": name,
+        "labels": dict(labels) if isinstance(labels, dict) else {},
+        "created": float(created) if isinstance(created, (int, float)) else 0.0,
+    }
 
 
 async def _endpoint(container: Any, network: str | None, port: int) -> str:
@@ -254,15 +344,22 @@ class DockerSandboxLauncher:
         port: int = 8080,
         wait_s: float = 30.0,
         proxy: str | None = None,
+        install_id: str = "",
+        owner: str = "",
     ) -> None:
         self._image = image
         self._network = network
         self._port = port
         self._wait_s = wait_s
         self._proxy = proxy
+        # The install whose containers these are, and the process that starts them.
+        self.install_id = install_id
+        self.owner = owner
 
-    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
-        """Start a container and return ``{container_id, endpoint_url, token}``."""
+    def start(
+        self, name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+    ) -> dict[str, object]:
+        """Start a labelled container and return ``{container_id, endpoint_url, token}``."""
         return _run_blocking(
             start_sandbox(
                 self._image,
@@ -273,9 +370,23 @@ class DockerSandboxLauncher:
                 wait_s=self._wait_s,
                 proxy=self._proxy,
                 sandbox_id=sandbox_id,
+                labels=sandbox_labels(
+                    install_id=self.install_id,
+                    owner=self.owner,
+                    sandbox_id=sandbox_id,
+                    tenant_id=tenant_id,
+                ),
             )
         )
 
     def stop(self, container_id: str) -> None:
         """Stop and remove the container; a container already gone is not an error."""
         _run_blocking(stop_sandbox(container_id))
+
+    def containers(self) -> list[dict[str, object]]:
+        """This install's sandbox containers, each with its labels and creation time."""
+        return _run_blocking(list_sandboxes(self.install_id))
+
+    def unlabelled(self) -> list[str]:
+        """Names of ``ar-sbx-*`` containers from before the labels. They are only reported."""
+        return _run_blocking(unlabelled_sandboxes())

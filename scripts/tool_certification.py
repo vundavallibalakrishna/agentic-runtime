@@ -603,7 +603,6 @@ def state_cases() -> list[Case]:
             any_result,
             needs="peer",
         ),
-        Case("session.checkpoint", "checkpoint", fixed(note="cert", confirm=True), any_result),
     ]
 
 
@@ -1058,7 +1057,7 @@ class Chat:
     def __init__(self, stack: Stack, agent_id: str) -> None:
         self.stack = stack
         self.agent_id = agent_id
-        self.timeout = float(os.environ.get("AR_CERT_TURN_TIMEOUT_S", "300"))
+        self.timeout = float(os.environ.get("AR_CERT_TURN_TIMEOUT_S", "660"))
 
     def open(self) -> str:
         _status, body = self.stack.post("/api/v1/conversations", agentId=self.agent_id)

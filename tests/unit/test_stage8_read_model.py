@@ -131,7 +131,7 @@ def test_single_alembic_head_is_stage5_revision() -> None:
             revisions[revision] = down
     pointed = {item for item in revisions.values() if item}
     heads = sorted(rev for rev in revisions if rev not in pointed)
-    assert heads == ["0052"]
+    assert heads == ["0054"]
 
 
 class _Result:
@@ -535,11 +535,14 @@ async def test_reaper_and_reconcile_walk_each_tenant(monkeypatch: pytest.MonkeyP
 
     model.tenant_ids = tenants  # type: ignore[method-assign]
     model.open = opened  # type: ignore[method-assign]
-    monkeypatch.setattr(
-        "ar_domain.sandboxes.runtime.reap", lambda _store: {"suspended": 1, "terminated": 0}
-    )
+    swept = {"suspended": 1, "terminated": 0, "removed": 0}
+
+    async def sweep(_store: object) -> dict[str, int]:
+        return swept
+
+    monkeypatch.setattr("ar_domain.sandboxes.lifecycle.sweep", sweep)
     monkeypatch.setattr("ar_system.workflows.sandbox_reaper._STORE", model)
-    assert await reap_sandboxes() == {"suspended": 1, "terminated": 0}
+    assert await reap_sandboxes() == swept
     monkeypatch.setattr(
         "ar_system.workflows.routine_run.reconcile_schedules", lambda _store: {"repaired": 2}
     )

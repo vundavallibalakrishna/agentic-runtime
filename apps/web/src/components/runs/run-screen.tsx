@@ -136,7 +136,7 @@ export function RunScreen() {
                 <div
                   className="h-full bg-[var(--primary)]"
                   style={{
-                    width: `${Math.min(100, ((run.usage?.steps ?? 0) / (run.budget?.maxSteps || 8)) * 100)}%`,
+                    width: `${Math.min(100, ((run.usage?.steps ?? 0) / (run.budget?.maxSteps || 16)) * 100)}%`,
                   }}
                 />
               </div>

@@ -50,11 +50,6 @@ NEEDS_REFERENT = "needs-referent"
 FIXTURE = "fixture"
 FAILING = "failing"
 
-# Tools that return an error by design as a demo/dev fixture (review A14); they are gated out
-# of the product catalogue outside dev. A deliberate fixture error is not a regression, so the
-# --check guard must not trip on it — but any OTHER tool that starts failing does trip it.
-_KNOWN_FIXTURES = {"session.checkpoint"}
-
 # Error codes that are a tool working correctly, not a defect: it is refusing because the
 # install, a connection, a referent, the egress list or policy has not been set up.
 _CONFIG_CODES = {
@@ -242,8 +237,6 @@ def run(*, check: bool = False) -> int:
             bucket, note = _classify(result)
         except Exception as exc:  # noqa: BLE001 - a crash is the worst outcome, recorded
             bucket, note = FAILING, f"raised {type(exc).__name__}: {exc}"[:140]
-        if bucket == FAILING and qualified in _KNOWN_FIXTURES:
-            bucket, note = FIXTURE, f"known fixture (review A14): {note}"
         server = qualified.split(".", 1)[0]
         rows.append((server, qualified, bucket, note, defect))
     failing, defect_count = _report(rows)

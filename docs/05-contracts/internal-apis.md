@@ -80,11 +80,11 @@ Allowed callers: `mcp-gateway`, `api`, `system-worker` (and `squid` for `/intern
 |---|---|---|
 | POST | `/internal/v1/sandboxes:ensure` | `{tenant_id, scope, scope_key, template_id, conversation_id?, agent_id?, user_id?}` → `{sandbox_id, status, endpoint_url, token}` (blocks ≤ 30 s until `ready`; resumes suspended). |
 | GET | `/internal/v1/sandboxes/{sandbox_id}` | Status. |
-| POST | `/internal/v1/sandboxes/{sandbox_id}:suspend` | Snapshot workspace and stop compute. |
+| POST | `/internal/v1/sandboxes/{sandbox_id}:suspend` | Snapshot the working folder to the object store, then stop and remove the container. `409` when the folder cannot be snapshotted; the computer keeps running. |
 | POST | `/internal/v1/sandboxes/{sandbox_id}:terminate` | Destroy (keeps snapshot per retention). |
 | POST | `/internal/v1/sandboxes/{sandbox_id}:touch` | Update `last_active_at`. |
 | POST | `/internal/v1/sandboxes/{sandbox_id}:release` | Stop the container or pod behind a computer. The caller records the status change and the audit row. Used by a process that ends or suspends a computer but does not start them. |
-| POST | `/internal/v1/sandboxes:reap` | Suspend idle / terminate expired (called by `SandboxReaperWorkflow`). |
+| POST | `/internal/v1/sandboxes:reap` | One sweep: suspend idle, terminate expired, remove this install's containers and host folders that no computer owns → `{suspended, terminated, removed}`. Called by `SandboxReaperWorkflow` on the `sandbox-reaper` schedule; safe to repeat and to call on several replicas at once ([spec 12 §2.1](../03-specs/12-sandbox-manager.md#21-what-moves-a-computer-through-its-life-as-built-docker-driver)). |
 | GET | `/internal/v1/sandboxes/{sandbox_id}/files?path=` | List workspace files (for the UI computer panel, proxied by `api`). |
 | GET | `/internal/v1/sandboxes/{sandbox_id}/files/content?path=` | Stream a workspace file (≤ 100 MiB). |
 | POST | `/internal/v1/sandboxes/{sandbox_id}/files:export` | Store a workspace file as an artifact (`files.kind='artifact'`) → `{file_id}` |

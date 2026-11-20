@@ -145,7 +145,7 @@ export function BuilderScreen() {
             instructions: formInstructions.trim(),
             model: { alias: formModel },
             tools: [
-              { server: "session", version: "*", include: ["plan_update", "search", "checkpoint"] },
+              { server: "session", version: "*", include: ["plan_update", "search"] },
               ...(enabledTools.length
                 ? [
                     {
@@ -171,11 +171,11 @@ export function BuilderScreen() {
                 : []),
             ],
             budget: {
-              maxSteps: 8,
-              maxToolCalls: 8,
-              maxWallClockS: 120,
-              maxCostMicros: 1_000_000,
-              maxTokens: 16000,
+              maxSteps: 16,
+              maxToolCalls: 16,
+              maxWallClockS: 600,
+              maxCostMicros: 4_000_000,
+              maxTokens: 80_000,
             },
           },
         }),

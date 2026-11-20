@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from ar_domain.chat.service import ChatService, demo_id
 from ar_domain.usage.logic import UsageRecord, model_cost_micros, usage_rows_to_flush
 from ar_testing.demo import demo_store
+from ar_testing.retry_tool import MODEL_NAME, offer_retry_tool
 
 
 def _priced_store() -> ChatService:
@@ -20,6 +21,7 @@ def _priced_store() -> ChatService:
     model = store.models[demo_id("model-chat")]
     model["price_input_micros_per_mtok"] = 150_000
     model["price_output_micros_per_mtok"] = 600_000
+    offer_retry_tool(store, demo_id("tenant"))
     return store
 
 
@@ -58,9 +60,7 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
         [
             {
                 "text": "",
-                "tool_calls": [
-                    {"id": "c1", "name": "session__checkpoint", "arguments": {"note": "ready"}}
-                ],
+                "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "ready"}}],
                 "usage": {"tokens_in": 1000, "tokens_out": 100},
                 "real": True,
             },
@@ -69,7 +69,7 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
                 "tool_calls": [
                     {
                         "id": "c2",
-                        "name": "session__checkpoint",
+                        "name": MODEL_NAME,
                         "arguments": {"note": "ready", "confirm": True},
                     }
                 ],
@@ -77,7 +77,7 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
                 "real": True,
             },
             {
-                "text": "Checkpoint saved: ready",
+                "text": "Note saved: ready",
                 "tool_calls": [],
                 "usage": {"tokens_in": 3000, "tokens_out": 300},
                 "real": True,
@@ -87,10 +87,10 @@ def test_loop_prices_every_model_call_and_keeps_tokens_apart() -> None:
     tenant, user = demo_id("tenant"), demo_id("admin")
     conversation = store.create_conversation(tenant, user, None, model_alias="reasoning")
     posted = store.post_message(
-        tenant, user, uuid.UUID(str(conversation["id"])), "Save a checkpoint", schedule=False
+        tenant, user, uuid.UUID(str(conversation["id"])), "Save a note", schedule=False
     )
     run_id = uuid.UUID(str(posted["run"]["id"]))
-    asyncio.run(store.generate(run_id, "Save a checkpoint", []))
+    asyncio.run(store.generate(run_id, "Save a note", []))
     run = store.runs[run_id]
     assert run["status"] == "completed"
     usage = run["usage"]
@@ -141,7 +141,7 @@ def test_budget_stop_keeps_the_usage_spent_so_far() -> None:
     _cap(store, 7100)
     tool_turn = {
         "text": "",
-        "tool_calls": [{"id": "c1", "name": "session__checkpoint", "arguments": {"note": "x"}}],
+        "tool_calls": [{"id": "c1", "name": MODEL_NAME, "arguments": {"note": "x"}}],
         "usage": {"tokens_in": 7000, "tokens_out": 100},
         "real": True,
     }
@@ -173,7 +173,7 @@ def test_six_step_turn_does_not_recount_the_prompt() -> None:
                 "tool_calls": [
                     {
                         "id": f"c{index}",
-                        "name": "session__checkpoint",
+                        "name": MODEL_NAME,
                         "arguments": {"note": str(index)},
                     }
                 ],

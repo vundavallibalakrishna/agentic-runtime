@@ -22,6 +22,8 @@ from typing import TYPE_CHECKING
 import httpx
 import orjson
 
+from ar_common.wrapping import WrapperFilter
+
 if TYPE_CHECKING:
     from typing import Any
 
@@ -149,6 +151,7 @@ class _Gathered:
     def __init__(self, sink: TextSink) -> None:
         self._sink = sink
         self._visible = VisibleText()
+        self._plain = WrapperFilter()
         self.content: list[str] = []
         self.reasoning: list[str] = []
         self.calls: dict[int, dict[str, Any]] = {}
@@ -171,7 +174,7 @@ class _Gathered:
         piece = delta.get("content")
         if isinstance(piece, str) and piece:
             self.content.append(piece)
-            shown = self._visible.feed(piece)
+            shown = self._plain.feed(self._visible.feed(piece))
             if shown:
                 self._sink(shown)
         thought = delta.get("reasoning_content")
@@ -180,7 +183,7 @@ class _Gathered:
         _gather_calls(self.calls, delta.get("tool_calls"))
 
     def payload(self) -> dict[str, Any]:
-        rest = self._visible.close()
+        rest = self._plain.feed(self._visible.close()) + self._plain.close()
         if rest:
             self._sink(rest)
         message: dict[str, Any] = {"role": "assistant", "content": "".join(self.content)}

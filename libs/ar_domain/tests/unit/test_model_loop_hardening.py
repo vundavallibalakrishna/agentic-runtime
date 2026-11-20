@@ -15,6 +15,7 @@ from ar_domain.models.logic import completion_message, completion_text, strip_th
 from ar_domain.models.request import chat_completion_body, resolve_max_tokens
 from ar_domain.tools.agent_loop import run_agent_loop
 from ar_testing.demo import demo_store
+from ar_testing.retry_tool import MODEL_NAME, offer_retry_tool
 
 
 def test_malformed_arguments_are_repaired_or_rejected() -> None:
@@ -45,7 +46,7 @@ def test_completion_message_does_not_invent_empty_arguments_or_usage() -> None:
                             {
                                 "id": "a",
                                 "function": {
-                                    "name": "session__checkpoint",
+                                    "name": "session__plan_update",
                                     "arguments": "not json",
                                 },
                             },
@@ -219,6 +220,7 @@ def _connected(
 @pytest.mark.asyncio
 async def test_a_bad_tool_call_is_returned_to_the_model(monkeypatch: pytest.MonkeyPatch) -> None:
     store, tenant, _primary, _spare = _connected()
+    offer_retry_tool(store, tenant)
     seen: list[dict[str, object]] = []
     monkeypatch.setattr(
         "ar_domain.chat.service.async_client",
@@ -235,7 +237,7 @@ async def test_a_bad_tool_call_is_returned_to_the_model(monkeypatch: pytest.Monk
                                         {
                                             "id": "c1",
                                             "function": {
-                                                "name": "session__checkpoint",
+                                                "name": MODEL_NAME,
                                                 "arguments": "not json",
                                             },
                                         }
@@ -259,10 +261,10 @@ async def test_a_bad_tool_call_is_returned_to_the_model(monkeypatch: pytest.Monk
     user = demo_id("admin")
     conversation = store.create_conversation(tenant, user, None, model_alias="reasoning")
     posted = store.post_message(
-        tenant, user, uuid.UUID(str(conversation["id"])), "Save a checkpoint", schedule=False
+        tenant, user, uuid.UUID(str(conversation["id"])), "Save a note", schedule=False
     )
     run_id = uuid.UUID(str(posted["run"]["id"]))
-    await store.generate(run_id, "Save a checkpoint", [])
+    await store.generate(run_id, "Save a note", [])
     run = store.runs[run_id]
     answer = str(store.messages[uuid.UUID(str(run["assistant_message_id"]))]["text"])
     assert "recovered" in answer

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import TYPE_CHECKING
 
 from fastapi.testclient import TestClient
 
@@ -12,6 +13,9 @@ from ar_testing.demo import seed_demo_tenant
 from ar_testing.internal_client import signed_client
 from ar_testing.objects import MemoryObjectStore
 
+if TYPE_CHECKING:
+    import pytest
+
 
 class _Started:
     """A launcher that hands out an address, as docker would hand out a container."""
@@ -19,7 +23,9 @@ class _Started:
     def __init__(self) -> None:
         self.stopped: list[str] = []
 
-    def start(self, name: str, token: str, sandbox_id: str = "") -> dict[str, object]:
+    def start(
+        self, name: str, token: str, sandbox_id: str = "", tenant_id: str = ""
+    ) -> dict[str, object]:
         del sandbox_id
         return {"container_id": name, "endpoint_url": "http://127.0.0.1:1", "token": token}
 
@@ -63,11 +69,20 @@ def test_a_computer_is_read_touched_and_released() -> None:
     assert row["endpoint_url"] is None
 
 
-def test_a_computer_is_suspended_and_terminated() -> None:
+def test_a_computer_is_suspended_and_terminated(monkeypatch: pytest.MonkeyPatch) -> None:
     client, launcher, sandbox_id, _token = _client()
+    # Nothing answers at the stand-in container's address. A computer whose folder
+    # cannot be copied out is not suspended: it keeps running, and its container stays.
+    refused = client.post(f"/internal/v1/sandboxes/{sandbox_id}:suspend")
+    assert refused.status_code == 409
+    assert client.get(f"/internal/v1/sandboxes/{sandbox_id}").json()["status"] == "ready"
+    assert not launcher.stopped
+    monkeypatch.setattr("ar_domain.sandboxes.snapshot.take", lambda _box, max_bytes: b"folder")
     suspended = client.post(f"/internal/v1/sandboxes/{sandbox_id}:suspend")
     assert suspended.status_code == 200
     assert suspended.json()["status"] == "suspended"
+    # Suspending stops the container. Ending the computer afterwards has none to stop.
+    assert len(launcher.stopped) == 1
     ended = client.post(f"/internal/v1/sandboxes/{sandbox_id}:terminate")
     assert ended.status_code == 200
     assert ended.json()["status"] == "terminated"
@@ -92,7 +107,8 @@ def test_an_unknown_computer_is_not_found_on_every_route() -> None:
 
 def test_the_reaper_goes_tenant_by_tenant_and_egress_checks_the_token() -> None:
     client, _launcher, sandbox_id, token = _client()
-    assert client.post("/internal/v1/sandboxes:reap").json() == {"suspended": 0, "terminated": 0}
+    swept = client.post("/internal/v1/sandboxes:reap").json()
+    assert swept == {"suspended": 0, "terminated": 0, "removed": 0}
     wrong = client.get(
         "/internal/v1/egress/check",
         params={"sandbox_id": sandbox_id, "host": "example.com", "token": "nope"},

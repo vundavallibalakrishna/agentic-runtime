@@ -507,3 +507,8 @@ def test_slides_are_read_in_slide_order_past_nine() -> None:
     names = [f"ppt/slides/slide{number}.xml" for number in (10, 2, 1, 11)]
     names.append("ppt/slides/_rels/slide1.xml.rels")
     assert slide_names(names) == [f"ppt/slides/slide{number}.xml" for number in (1, 2, 10, 11)]
+
+
+def test_an_escaped_ampersand_from_the_model_is_written_as_an_ampersand() -> None:
+    spec = parse({"format": "pptx", "title": "Findings &amp; root causes", "sections": []})
+    assert spec.title == "Findings & root causes"

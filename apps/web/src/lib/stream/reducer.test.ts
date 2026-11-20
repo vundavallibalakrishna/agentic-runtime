@@ -38,6 +38,17 @@ describe("reduceStream", () => {
     expect(reduceStream(emptyStream, { type: "run.failed", seq: 1 }).status).toBe("failed");
   });
 
+  it("ends a reply that a limit stopped with the text the server wrote", () => {
+    const text =
+      "Stopped because the max tokens limit was reached.\n\nDone before the limit:\n- general.write_file: matrix.csv";
+    let state = reduceStream(emptyStream, { type: "message.delta", seq: 1, data: { text: "…" } });
+    state = reduceStream(state, { type: "message.completed", seq: 2, data: { text } });
+    state = reduceStream(state, { type: "run.budget_exceeded", seq: 3 });
+    expect(state.status).toBe("completed");
+    expect(state.text).toBe(text);
+    expect(state.lastSeq).toBe(3);
+  });
+
   it("keeps a completed tool call on the stream", () => {
     const next = reduceStream(emptyStream, {
       type: "tool_call.completed",

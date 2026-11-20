@@ -34,7 +34,7 @@ def save_query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         _MAX_ROWS,
         _checked,
         _error,
-        _load_requested,
+        _load_whole,
         _ok,
         _query_result,
         _requested_paths,
@@ -57,7 +57,7 @@ def save_query(store: Store, arguments: dict[str, object]) -> dict[str, object]:
         # Refuse a save that cannot succeed before the statement reads any file.
         book.savable(tenant_id, name=name, sql=sql)
         if paths:
-            sheets = _load_requested(store, arguments)
+            sheets = _load_whole(store, arguments)
             columns, rows, truncated = query_loaded(sheets, checked, row_limit=_MAX_ROWS)
             found = (columns, rows)
             check = CheckRun(
@@ -179,7 +179,7 @@ def run_saved_query(store: Store, arguments: dict[str, object]) -> dict[str, obj
         _MAX_ROWS,
         _checked,
         _error,
-        _load_requested,
+        _load_whole,
         _query_result,
     )
 
@@ -201,7 +201,7 @@ def run_saved_query(store: Store, arguments: dict[str, object]) -> dict[str, obj
         return _error("validation_failed", f"Not run. {exc}")
     checked = _checked(store, arguments, str(row["sql"]))
     columns, rows, truncated = query_loaded(
-        _load_requested(store, arguments), checked, row_limit=_MAX_ROWS
+        _load_whole(store, arguments), checked, row_limit=_MAX_ROWS
     )
     book.record_run(tenant_id, user_id, row, rows=len(rows))
     result = _query_result(checked, columns, rows, truncated=truncated)

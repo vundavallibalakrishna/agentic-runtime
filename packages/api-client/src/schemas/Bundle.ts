@@ -54,6 +54,7 @@ export type Tables = string[];
 export type Tools = ToolBinding[];
 export type Mode = "auto" | "on" | "off";
 export type Topk = number;
+export type Threshold = number;
 /**
  * @maxItems 20
  */
@@ -476,6 +477,7 @@ export interface ToolOverride {
 export interface ToolSearch {
   mode?: Mode;
   topK?: Topk;
+  threshold?: Threshold;
 }
 export interface KnowledgeSpec {
   collections?: Collections;
@@ -1039,4 +1041,5 @@ export interface ToolAuth1 {
 export interface ToolSearch1 {
   mode?: Mode;
   topK?: Topk;
+  threshold?: Threshold;
 }

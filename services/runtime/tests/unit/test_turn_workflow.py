@@ -123,6 +123,7 @@ async def test_a_long_run_continues_as_new(temporal_env: WorkflowEnvironment) ->
                 "steps": True,
                 "max_steps": 8,
                 "history_steps": 2,
+                "step_timeout_s": 660,
             },
             id=queue,
             task_queue=queue,
@@ -138,6 +139,15 @@ async def test_a_long_run_continues_as_new(temporal_env: WorkflowEnvironment) ->
     )
     continued_from = started.workflow_execution_started_event_attributes.continued_execution_run_id
     assert continued_from
+    # A step may take what the starter allowed, in the continued execution too.
+    allowed = [
+        event.activity_task_scheduled_event_attributes.start_to_close_timeout.seconds
+        for event in history.events
+        if event.event_type == EventType.EVENT_TYPE_ACTIVITY_TASK_SCHEDULED
+        and event.activity_task_scheduled_event_attributes.activity_type.name == "advance_chat_step"
+    ]
+    assert allowed
+    assert set(allowed) == {660}
 
 
 async def test_fanout_timeout_and_cancel_while_waiting(temporal_env: WorkflowEnvironment) -> None:

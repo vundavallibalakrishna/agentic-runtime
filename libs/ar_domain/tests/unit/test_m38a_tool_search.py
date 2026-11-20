@@ -266,3 +266,19 @@ def test_no_product_code_makes_a_vector_for_a_tool() -> None:
         if "hash_embedding" in path.read_text(encoding="utf-8")
     ]
     assert found == []
+
+
+def test_the_search_threshold_is_a_setting_with_a_default_above_the_assistant() -> None:
+    from ar_contracts.definitions import ToolSearch
+    from ar_domain.agents.logic import assistant_definition
+    from ar_domain.tools.pipeline import _search_threshold
+
+    assert ToolSearch().threshold == 48
+    assert _search_threshold({}) == 48
+    assert _search_threshold({"tool_search": {"threshold": 30}}) == 30
+    assert _search_threshold({"tool_search": {"threshold": 0}}) == 48
+    granted = sum(
+        len(row["include"]) for row in assistant_definition()["tools"] if row["include"] != ["*"]
+    )
+    # The built-in assistant must stay under the default, or it loses sight of its tools.
+    assert granted + 20 < 48

@@ -8,6 +8,7 @@ from ar_domain.agents.service import AgentLifecycle
 from ar_domain.chat.service import demo_id
 from ar_domain.identity.permissions import PERMISSION_KEYS
 from ar_domain.knowledge.book import KnowledgeBook
+from ar_domain.runs.logic import DEFAULT_RUN_BUDGET
 
 if TYPE_CHECKING:
     from typing import Any
@@ -124,7 +125,7 @@ def _librarian(store: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
         "output": {"citations": "preferred", "grounding": "preferred"},
         "budget": {
             "max_steps": 8,
-            "max_tokens": 16000,
+            "max_tokens": DEFAULT_RUN_BUDGET["max_tokens"],
             "max_cost_micros": 1_000_000,
             "max_wall_clock_s": 120,
             "max_tool_calls": 4,

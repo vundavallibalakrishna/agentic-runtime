@@ -352,13 +352,24 @@ def test_signal_and_budget_without_a_running_loop(monkeypatch: pytest.MonkeyPatc
         "trigger": "research",
         "checkpoint": {"research": {"question": "q", "max_steps": 3}},
     }
-    assert workflow_payload(store, research, run_id, "q")["max_steps"] >= 1
+    asked = workflow_payload(store, research, run_id, "q")
+    assert asked["max_steps"] >= 1
+    assert asked["step_timeout_s"] == 120
     chat = workflow_payload(store, {"agent_version_id": uuid.uuid4()}, run_id, "hi")
     assert chat["history_steps"] == 24
     assert chat["wait_s"] == 86400
-    # Activities, not model calls: the default budget is 8 model calls and 8 tool calls,
+    # Activities, not model calls: the default budget is 16 model calls and 16 tool calls,
     # and a tool call that waits for approval takes one more activity.
-    assert chat["max_steps"] == 8 + 2 * 8
+    assert chat["max_steps"] == 16 + 2 * 16
+    # One activity may last as long as the run's wall clock allows, and a little more.
+    assert chat["step_timeout_s"] == 600 + 60
+    hurried = workflow_payload(
+        store,
+        {"agent_version_id": uuid.uuid4(), "budget_override": {"max_wall_clock_s": 30}},
+        run_id,
+        "hi",
+    )
+    assert hurried["step_timeout_s"] == 30 + 60
     from ar_domain.tools.resume import _approval_row, _resume, apply_decision, settle_approval
 
     settle_approval(store, {"id": uuid.uuid4(), "run_id": uuid.uuid4(), "status": "approved"})

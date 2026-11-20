@@ -184,7 +184,10 @@ async def consume_one_tool(  # noqa: PLR0911, PLR0912, PLR0915
     call = pending[index]
     used = _int(state.get("used_calls"))
     if used >= limits["max_tool_calls"]:
-        _stop_budget(store, run, assistant, "max_tool_calls")
+        saved = state.get("previews")
+        _stop_budget(
+            store, run, assistant, "max_tool_calls", saved if isinstance(saved, list) else []
+        )
         return "final"
     used += 1
     state["used_calls"] = used

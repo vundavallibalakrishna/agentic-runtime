@@ -45,6 +45,20 @@ _ACKNOWLEDGES_FAILURE = (
 )
 
 
+def still_failing(calls: list[dict[str, object]]) -> bool:
+    """True when some tool's last call in the run did not succeed.
+
+    ``calls`` are one run's tool calls, oldest first. A tool that failed and was then
+    called again and worked has recovered: the person got what the tool was for. A call
+    that was refused before it ran (a bad argument shape) is not in ``calls``, so the
+    caller's own count of failures still decides when there are no calls for a tool.
+    """
+    last: dict[str, str] = {}
+    for row in calls:
+        last[str(row.get("qualified_name") or "")] = str(row.get("status") or "")
+    return any(status != "succeeded" for status in last.values())
+
+
 def output_repair_limit(definition: dict[str, object] | None) -> int:
     """How many times a bad model reply may be sent back. Default keeps one retry."""
     return _limit(definition, default=1)

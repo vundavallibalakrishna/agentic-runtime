@@ -210,6 +210,8 @@ class AuditAction(StrEnum):
     SANDBOX_TEMPLATE_UPDATED = "sandbox_template.updated"
     SANDBOX_TEMPLATE_DELETED = "sandbox_template.deleted"
     SANDBOX_CREATED = "sandbox.created"
+    SANDBOX_SUSPENDED = "sandbox.suspended"
+    SANDBOX_RESUMED = "sandbox.resumed"
     SANDBOX_TERMINATED = "sandbox.terminated"
     SANDBOX_EGRESS_DENIED = "sandbox.egress_denied"
     BROWSER_CONNECTION_CREATED = "browser_connection.created"

@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "./support/harness";
+import { expect, openToolCall, type Page, test } from "./support/harness";
 import { signInAs } from "./support/sign-in";
 
 const shots = process.env.E2E_SCREENSHOT_DIR ?? "../../docs/testing/m4";
@@ -64,9 +64,11 @@ test("register a server, connect, and let the desk agent act", async ({ page }) 
   await expect(page.locator("#agent-picker option:checked")).toHaveText("Desk");
   await page.getByLabel("Message").fill("File a ticket: the printer on floor 3 is jammed");
   await page.getByRole("button", { name: "Send" }).click();
+  await openToolCall(page, /Filed ticket TCK-\d+\./);
   await expect(page.getByText(/Filed ticket TCK-\d+\./).first()).toBeVisible({ timeout: 20_000 });
   await page.getByLabel("Message").fill("How many orders are in the warehouse?");
   await page.getByRole("button", { name: "Send" }).click();
+  await openToolCall(page, page.getByText("3", { exact: true }));
   await expect(page.getByText("3", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
   await capture(page, "desk-acted");
 

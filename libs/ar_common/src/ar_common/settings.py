@@ -1,9 +1,11 @@
 """Process settings. Spec: docs/07-ops/environments.md sections 2-3."""
 
+import hashlib
 import ipaddress
 import os
 from enum import StrEnum
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -321,6 +323,20 @@ class BaseServiceSettings(BaseSettings):
     # Whether a sandbox may run without kernel isolation (the docker driver, or an empty
     # one that runs on the host). An install decides; the default is no.
     sandbox_allow_unisolated: bool = False
+    # Names this install on a container host it may share. Empty derives it from the
+    # database address, which is what makes two installs different.
+    install_id: str = ""
+    # How often idle computers are suspended, expired ones ended and orphans removed.
+    sandbox_reap_interval_s: int = Field(default=60, ge=1)
+    # A container or folder younger than this is never treated as an orphan: its row may
+    # not be saved yet.
+    sandbox_orphan_grace_s: int = Field(default=120, ge=0)
+    # The largest compressed workspace a suspend keeps. A larger one stays running.
+    sandbox_snapshot_max_mb: int = Field(default=256, ge=1)
+    # How long one process may hold a computer's scope while it starts, suspends or
+    # resumes it. Another process waits up to ``AR_SANDBOX_ENSURE_TIMEOUT_S`` for it.
+    sandbox_lock_ttl_s: int = Field(default=300, ge=1)
+    sandbox_ensure_timeout_s: int = Field(default=30, ge=1)
     # The scanner the product runs over every upload: ``clamav`` or ``none``. An install
     # decides; the default scans. ``none`` is set where no scanner is deployed.
     files_scanner: str = "clamav"
@@ -487,6 +503,22 @@ def unisolated_sandbox_allowed(settings: BaseServiceSettings | None = None) -> b
     that has not turned it on refuses the docker driver and the host driver.
     """
     return (settings or get_settings()).sandbox_allow_unisolated
+
+
+def install_id(settings: BaseServiceSettings | None = None) -> str:
+    """The id of this install: ``AR_INSTALL_ID``, or one derived from the database address.
+
+    Sandbox containers carry it as a label, and the sweep that removes orphans touches
+    only containers with this id. Two installs that share a container host have different
+    databases, so the derived id differs without anyone setting it.
+    """
+    current = settings or get_settings()
+    named = current.install_id.strip()
+    if named:
+        return named
+    parts = urlsplit(current.database_url)
+    address = f"{parts.hostname or ''}:{parts.port or ''}{parts.path}"
+    return hashlib.sha256(address.encode()).hexdigest()[:16]
 
 
 def files_scanner_name(settings: BaseServiceSettings | None = None) -> str:
