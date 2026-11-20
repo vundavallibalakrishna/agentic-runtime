@@ -65,7 +65,7 @@ def test_file_upload_and_agent_upload_share_one_document() -> None:
     assert second.status_code == 200, second.text
     assert first.json()["documentId"]
     assert first.json()["documentId"] == second.json()["documentId"]
-    assert first.json()["id"] != second.json()["id"]
+    assert first.json()["id"] == second.json()["id"]
     stored = client.app.state.chat.library_documents  # type: ignore[attr-defined]
     hashes = [
         row.get("content_hash")
